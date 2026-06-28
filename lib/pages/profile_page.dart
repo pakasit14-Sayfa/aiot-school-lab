@@ -32,25 +32,24 @@ class _ProfilePageState extends State<ProfilePage> {
                 'Email: ${currentUser?['email'] ?? ''}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 12),
 
-              // ช่องแก้ไขชื่อ
+              const SizedBox(height: 16),
+
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
                   labelText: 'ชื่อ',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
                 ),
               ),
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // ช่องแก้ไขรหัสผ่าน
               TextField(
                 controller: passwordController,
                 decoration: const InputDecoration(
                   labelText: 'รหัสผ่านใหม่',
-                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
                 ),
               ),
             ],
@@ -69,7 +68,20 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 if (newName.isEmpty || newPassword.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('กรุณากรอกชื่อและรหัสผ่าน')),
+                    const SnackBar(
+                      content: Text('กรุณากรอกชื่อและรหัสผ่าน'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (newPassword.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                   return;
                 }
@@ -83,11 +95,13 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 Navigator.pop(dialogContext);
 
-                // อัปเดตหน้าโปรไฟล์ใหม่
                 setState(() {});
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('แก้ไขโปรไฟล์เรียบร้อยแล้ว')),
+                  const SnackBar(
+                    content: Text('แก้ไขโปรไฟล์เรียบร้อยแล้ว'),
+                    backgroundColor: Colors.green,
+                  ),
                 );
               },
               child: const Text('บันทึก'),
@@ -100,10 +114,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // ถ้ายังไม่มีผู้ใช้ Login อยู่
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+
     if (currentUser == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('โปรไฟล์'), centerTitle: true),
+        appBar: AppBar(title: const Text('โปรไฟล์')),
         body: const Center(
           child: Text('ยังไม่มีผู้ใช้ Login', style: TextStyle(fontSize: 18)),
         ),
@@ -115,79 +131,147 @@ class _ProfilePageState extends State<ProfilePage> {
     final role = currentUser?['role'] ?? 'user';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('โปรไฟล์ของฉัน'), centerTitle: true),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const SizedBox(height: 24),
+      appBar: AppBar(title: const Text('โปรไฟล์ของฉัน')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                children: [
+                  Card(
+                    elevation: 6,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            radius: 55,
+                            backgroundColor: primaryColor.withOpacity(0.12),
+                            child: Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                              style: TextStyle(
+                                fontSize: 42,
+                                color: primaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
 
-            // รูปโปรไฟล์จำลอง
-            CircleAvatar(
-              radius: 50,
-              child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: const TextStyle(fontSize: 36),
+                          const SizedBox(height: 20),
+
+                          Text(
+                            name,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              fontSize: 28,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          Text(
+                            email,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: role == 'admin'
+                                  ? Colors.purple.withOpacity(0.12)
+                                  : Colors.green.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              role == 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป',
+                              style: TextStyle(
+                                color: role == 'admin'
+                                    ? Colors.purple
+                                    : Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.person),
+                      title: const Text('ชื่อผู้ใช้'),
+                      subtitle: Text(name),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.email),
+                      title: const Text('อีเมล'),
+                      subtitle: Text(email),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        role == 'admin'
+                            ? Icons.admin_panel_settings
+                            : Icons.person_outline,
+                      ),
+                      title: const Text('สิทธิ์ผู้ใช้'),
+                      subtitle: Text(role),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: showEditProfileDialog,
+                      icon: const Icon(Icons.edit),
+                      label: const Text('แก้ไขโปรไฟล์'),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('กลับหน้า Home'),
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            Text(
-              name,
-              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 8),
-
-            Text(email, style: const TextStyle(fontSize: 16)),
-
-            const SizedBox(height: 24),
-
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.person),
-                title: const Text('ชื่อผู้ใช้'),
-                subtitle: Text(name),
-              ),
-            ),
-
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.email),
-                title: const Text('อีเมล'),
-                subtitle: Text(email),
-              ),
-            ),
-
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  role == 'admin'
-                      ? Icons.admin_panel_settings
-                      : Icons.person_outline,
-                ),
-                title: const Text('สิทธิ์ผู้ใช้'),
-                subtitle: Text(role),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            ElevatedButton(
-              onPressed: showEditProfileDialog,
-              child: const Text('แก้ไขโปรไฟล์'),
-            ),
-
-            const SizedBox(height: 12),
-
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('กลับหน้า Home'),
-            ),
-          ],
+          ),
         ),
       ),
     );

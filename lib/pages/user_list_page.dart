@@ -10,7 +10,6 @@ class UserListPage extends StatefulWidget {
 }
 
 class _UserListPageState extends State<UserListPage> {
-  // เก็บข้อความที่พิมพ์ในช่องค้นหา
   String searchText = '';
 
   // ฟังก์ชันเปิดกล่องแก้ไขผู้ใช้
@@ -30,24 +29,23 @@ class _UserListPageState extends State<UserListPage> {
                 'Email: ${user['email']}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // ช่องแก้ไขชื่อ
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
-                  labelText: 'ชื่อ',
-                  border: OutlineInputBorder(),
+                  labelText: 'ชื่อผู้ใช้',
+                  prefixIcon: Icon(Icons.person),
                 ),
               ),
-              const SizedBox(height: 12),
 
-              // ช่องแก้ไขรหัสผ่าน
+              const SizedBox(height: 16),
+
               TextField(
                 controller: passwordController,
                 decoration: const InputDecoration(
-                  labelText: 'รหัสผ่าน',
-                  border: OutlineInputBorder(),
+                  labelText: 'รหัสผ่านใหม่',
+                  prefixIcon: Icon(Icons.lock),
                 ),
               ),
             ],
@@ -66,7 +64,20 @@ class _UserListPageState extends State<UserListPage> {
 
                 if (newName.isEmpty || newPassword.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('กรุณากรอกชื่อและรหัสผ่าน')),
+                    const SnackBar(
+                      content: Text('กรุณากรอกชื่อและรหัสผ่าน'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
+                if (newPassword.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'),
+                      backgroundColor: Colors.red,
+                    ),
                   );
                   return;
                 }
@@ -81,11 +92,13 @@ class _UserListPageState extends State<UserListPage> {
 
                 Navigator.pop(dialogContext);
 
-                // อัปเดตหน้าจอใหม่
                 setState(() {});
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('แก้ไขข้อมูลเรียบร้อยแล้ว')),
+                  const SnackBar(
+                    content: Text('แก้ไขข้อมูลเรียบร้อยแล้ว'),
+                    backgroundColor: Colors.green,
+                  ),
                 );
               },
               child: const Text('บันทึก'),
@@ -125,11 +138,13 @@ class _UserListPageState extends State<UserListPage> {
 
                 Navigator.pop(dialogContext);
 
-                // อัปเดตหน้าจอใหม่
                 setState(() {});
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('เปลี่ยนสิทธิ์เรียบร้อยแล้ว')),
+                  const SnackBar(
+                    content: Text('เปลี่ยนสิทธิ์เรียบร้อยแล้ว'),
+                    backgroundColor: Colors.green,
+                  ),
                 );
               },
               child: const Text('ยืนยัน'),
@@ -161,16 +176,21 @@ class _UserListPageState extends State<UserListPage> {
 
                 if (!mounted) return;
 
-                // ปิดกล่องยืนยัน
                 Navigator.pop(dialogContext);
 
-                // อัปเดตหน้าจอใหม่
                 setState(() {});
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('ลบผู้ใช้เรียบร้อยแล้ว')),
+                  const SnackBar(
+                    content: Text('ลบผู้ใช้เรียบร้อยแล้ว'),
+                    backgroundColor: Colors.green,
+                  ),
                 );
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('ลบ'),
             ),
           ],
@@ -179,40 +199,63 @@ class _UserListPageState extends State<UserListPage> {
     );
   }
 
+  // สร้างป้ายแสดง role
+  Widget buildRoleBadge(String role) {
+    final isAdmin = role == 'admin';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: isAdmin
+            ? Colors.purple.withOpacity(0.12)
+            : Colors.green.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        isAdmin ? 'Admin' : 'User',
+        style: TextStyle(
+          color: isAdmin ? Colors.purple : Colors.green,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+
     // ถ้าไม่ใช่ admin ห้ามเข้าหน้านี้
     if (currentUser?['role'] != 'admin') {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('ไม่มีสิทธิ์เข้าถึง'),
-          centerTitle: true,
-        ),
+        appBar: AppBar(title: const Text('ไม่มีสิทธิ์เข้าถึง')),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.lock, size: 80),
-                const SizedBox(height: 16),
+                Icon(Icons.lock, size: 90, color: primaryColor),
+                const SizedBox(height: 20),
                 const Text(
                   'คุณไม่มีสิทธิ์เข้าถึงหน้านี้',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(color: Colors.grey),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
+                ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pushReplacementNamed(context, '/home');
                   },
-                  child: const Text('กลับหน้า Home'),
+                  icon: const Icon(Icons.home),
+                  label: const Text('กลับหน้า Home'),
                 ),
               ],
             ),
@@ -220,7 +263,7 @@ class _UserListPageState extends State<UserListPage> {
         ),
       );
     }
-    // กรองข้อมูลผู้ใช้ตามข้อความค้นหา
+
     final filteredUsers = users.where((user) {
       final name = user['name']?.toLowerCase() ?? '';
       final email = user['email']?.toLowerCase() ?? '';
@@ -230,142 +273,204 @@ class _UserListPageState extends State<UserListPage> {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('รายชื่อผู้ใช้ทั้งหมด'),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          // ช่องค้นหา
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              onChanged: (value) {
-                setState(() {
-                  searchText = value;
-                });
-              },
-              decoration: const InputDecoration(
-                labelText: 'ค้นหาชื่อหรืออีเมล',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
-
-          // แสดงจำนวนผู้ใช้
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'พบผู้ใช้ ${filteredUsers.length} คน',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // รายชื่อผู้ใช้
-          Expanded(
-            child: filteredUsers.isEmpty
-                ? const Center(
-                    child: Text(
-                      'ไม่พบข้อมูลผู้ใช้',
-                      style: TextStyle(fontSize: 18),
+      appBar: AppBar(title: const Text('จัดการผู้ใช้')),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'รายชื่อผู้ใช้ทั้งหมด',
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontSize: 28,
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: filteredUsers.length,
-                    itemBuilder: (context, index) {
-                      final user = filteredUsers[index];
-                      final name = user['name'] ?? '';
-                      final email = user['email'] ?? '';
-                      final role = user['role'] ?? 'user';
+                  ),
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            child: Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                  const SizedBox(height: 6),
+
+                  const Text(
+                    'ค้นหา แก้ไข ลบ และเปลี่ยนสิทธิ์ผู้ใช้',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchText = value;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'ค้นหาชื่อหรืออีเมล',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  Row(
+                    children: [
+                      Icon(Icons.group, color: primaryColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'พบผู้ใช้ ${filteredUsers.length} คน',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: filteredUsers.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'ไม่พบข้อมูลผู้ใช้',
+                        style: TextStyle(fontSize: 18),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        final name = user['name'] ?? '';
+                        final email = user['email'] ?? '';
+                        final role = user['role'] ?? 'user';
+                        final isCurrentUser = currentUser?['email'] == email;
+
+                        return Card(
+                          elevation: 3,
+                          margin: const EdgeInsets.only(bottom: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 28,
+                                  backgroundColor: primaryColor.withOpacity(
+                                    0.12,
+                                  ),
+                                  child: Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      color: primaryColor,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 14),
+
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              name,
+                                              style: const TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          buildRoleBadge(role),
+                                        ],
+                                      ),
+
+                                      const SizedBox(height: 6),
+
+                                      Text(
+                                        email,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 4),
+
+                                      const Text(
+                                        'Password: ****',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+
+                                      if (isCurrentUser) ...[
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'บัญชีที่กำลังใช้งานอยู่',
+                                          style: TextStyle(
+                                            color: Colors.blue,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+
+                                const SizedBox(width: 8),
+
+                                Column(
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'เปลี่ยนสิทธิ์',
+                                      icon: Icon(
+                                        role == 'admin'
+                                            ? Icons.admin_panel_settings
+                                            : Icons.person,
+                                      ),
+                                      onPressed: isCurrentUser
+                                          ? null
+                                          : () {
+                                              confirmToggleRole(user);
+                                            },
+                                    ),
+
+                                    IconButton(
+                                      tooltip: 'แก้ไข',
+                                      icon: const Icon(Icons.edit),
+                                      onPressed: () {
+                                        showEditUserDialog(user);
+                                      },
+                                    ),
+
+                                    IconButton(
+                                      tooltip: 'ลบ',
+                                      icon: const Icon(Icons.delete),
+                                      color: Colors.red,
+                                      onPressed: isCurrentUser
+                                          ? null
+                                          : () {
+                                              confirmDeleteUser(email);
+                                            },
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                          title: Text(
-                            name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Text(
-                            'Email: $email\nPassword: ****\nRole: $role',
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // ปุ่มเปลี่ยนสิทธิ์
-                              IconButton(
-                                icon: Icon(
-                                  role == 'admin'
-                                      ? Icons.admin_panel_settings
-                                      : Icons.person,
-                                ),
-                                onPressed: currentUser?['email'] == email
-                                    ? null
-                                    : () {
-                                        confirmToggleRole(user);
-                                      },
-                              ),
-
-                              // ปุ่มแก้ไข
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                onPressed: () {
-                                  showEditUserDialog(user);
-                                },
-                              ),
-
-                              // ปุ่มลบ
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                onPressed: currentUser?['email'] == email
-                                    ? null
-                                    : () {
-                                        confirmDeleteUser(email);
-                                      },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
-  }
-}
-
-// ฟังก์ชันเปลี่ยนสิทธิ์ผู้ใช้ admin <-> user
-Future<void> toggleUserRoleByEmail(String email) async {
-  // ไม่ให้เปลี่ยนสิทธิ์ของตัวเอง
-  if (currentUser?['email'] == email) {
-    return;
-  }
-
-  final index = users.indexWhere((user) => user['email'] == email);
-
-  if (index != -1) {
-    final currentRole = users[index]['role'] ?? 'user';
-
-    if (currentRole == 'admin') {
-      users[index]['role'] = 'user';
-    } else {
-      users[index]['role'] = 'admin';
-    }
-
-    // บันทึกข้อมูลใหม่ลงเครื่อง
-    await saveUsers();
   }
 }

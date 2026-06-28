@@ -5,74 +5,69 @@ import '../widgets/auth_header.dart';
 import '../widgets/auth_card.dart';
 import '../utils/app_validators.dart';
 
-// หน้า Register / สมัครสมาชิก
-class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+// หน้าลืมรหัสผ่าน / รีเซ็ตรหัสผ่าน
+class ForgotPasswordPage extends StatefulWidget {
+  const ForgotPasswordPage({super.key});
 
   @override
-  State<RegisterPage> createState() => _RegisterPageState();
+  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
-// ส่วนควบคุมของหน้า Register
-class _RegisterPageState extends State<RegisterPage> {
-  // Key สำหรับควบคุม Form
+class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
-  final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
+  final TextEditingController newPasswordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
-  bool isPasswordHidden = true;
+  bool isNewPasswordHidden = true;
   bool isConfirmPasswordHidden = true;
 
-  // ฟังก์ชันสมัครสมาชิก
-  void register() async {
-    // ให้ Form ตรวจสอบทุกช่องก่อน
+  // ฟังก์ชันรีเซ็ตรหัสผ่าน
+  void resetPassword() async {
     if (!formKey.currentState!.validate()) {
       return;
     }
 
-    final name = nameController.text.trim();
     final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    final newPassword = newPasswordController.text.trim();
 
-    // ตรวจสอบว่า Email นี้เคยสมัครแล้วหรือยัง
-    if (emailExists(email)) {
+    if (!emailExists(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Email นี้ถูกใช้งานแล้ว'),
+          content: Text('ไม่พบ Email นี้ในระบบ'),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
-    // เพิ่มผู้ใช้ใหม่เข้าไปในระบบ
-    await addUser(name: name, email: email, password: password);
+    final user = users.firstWhere((user) => user['email'] == email);
+    final name = user['name'] ?? '';
+
+    await updateUserByEmail(
+      email: email,
+      newName: name,
+      newPassword: newPassword,
+    );
 
     if (!mounted) return;
 
-    // แสดงข้อมูลผู้ใช้ทั้งหมดใน Terminal
-    printAllUsers();
-
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('สมัครสมาชิกสำเร็จ'),
+        content: Text('เปลี่ยนรหัสผ่านสำเร็จ'),
         backgroundColor: Colors.green,
       ),
     );
 
-    // กลับไปหน้า Login
     Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
   void dispose() {
-    nameController.dispose();
     emailController.dispose();
-    passwordController.dispose();
+    newPasswordController.dispose();
     confirmPasswordController.dispose();
     super.dispose();
   }
@@ -80,7 +75,7 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: const Text('Reset Password')),
       body: AuthCard(
         child: Form(
           key: formKey,
@@ -88,29 +83,18 @@ class _RegisterPageState extends State<RegisterPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const AuthHeader(
-                icon: Icons.person_add,
-                title: 'สมัครสมาชิก',
-                subtitle: 'สร้างบัญชีใหม่เพื่อเข้าใช้งานแอป',
+                icon: Icons.lock_reset,
+                title: 'รีเซ็ตรหัสผ่าน',
+                subtitle: 'กรอกอีเมลที่สมัครไว้ และตั้งรหัสผ่านใหม่',
               ),
 
               const SizedBox(height: 28),
-
-              // ช่อง Name
-              CustomTextField(
-                controller: nameController,
-                labelText: 'Name',
-                hintText: 'กรอกชื่อของคุณ',
-                prefixIcon: Icons.person,
-                validator: AppValidators.name,
-              ),
-
-              const SizedBox(height: 16),
 
               // ช่อง Email
               CustomTextField(
                 controller: emailController,
                 labelText: 'Email',
-                hintText: 'กรอกอีเมลของคุณ',
+                hintText: 'กรอกอีเมลที่สมัครไว้',
                 prefixIcon: Icons.email,
                 keyboardType: TextInputType.emailAddress,
                 validator: AppValidators.email,
@@ -118,33 +102,35 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 16),
 
-              // ช่อง Password
+              // ช่อง New Password
               CustomTextField(
-                controller: passwordController,
-                labelText: 'Password',
-                hintText: 'กรอกรหัสผ่าน',
+                controller: newPasswordController,
+                labelText: 'New Password',
+                hintText: 'กรอกรหัสผ่านใหม่',
                 prefixIcon: Icons.lock,
-                obscureText: isPasswordHidden,
+                obscureText: isNewPasswordHidden,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    isPasswordHidden ? Icons.visibility_off : Icons.visibility,
+                    isNewPasswordHidden
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                   ),
                   onPressed: () {
                     setState(() {
-                      isPasswordHidden = !isPasswordHidden;
+                      isNewPasswordHidden = !isNewPasswordHidden;
                     });
                   },
                 ),
-                validator: AppValidators.password,
+                validator: AppValidators.newPassword,
               ),
 
               const SizedBox(height: 16),
 
-              // ช่อง Confirm Password
+              // ช่อง Confirm New Password
               CustomTextField(
                 controller: confirmPasswordController,
-                labelText: 'Confirm Password',
-                hintText: 'ยืนยันรหัสผ่าน',
+                labelText: 'Confirm New Password',
+                hintText: 'ยืนยันรหัสผ่านใหม่',
                 prefixIcon: Icons.lock_outline,
                 obscureText: isConfirmPasswordHidden,
                 suffixIcon: IconButton(
@@ -160,9 +146,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   },
                 ),
                 validator: (value) {
-                  return AppValidators.confirmPassword(
+                  return AppValidators.confirmNewPassword(
                     value: value,
-                    password: passwordController.text.trim(),
+                    newPassword: newPasswordController.text.trim(),
                   );
                 },
               ),
@@ -172,9 +158,9 @@ class _RegisterPageState extends State<RegisterPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: register,
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Register'),
+                  onPressed: resetPassword,
+                  icon: const Icon(Icons.lock_reset),
+                  label: const Text('Reset Password'),
                 ),
               ),
 
@@ -184,7 +170,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 onPressed: () {
                   Navigator.pushReplacementNamed(context, '/login');
                 },
-                child: const Text('มีบัญชีอยู่แล้ว? กลับไป Login'),
+                child: const Text('กลับไปหน้า Login'),
               ),
             ],
           ),

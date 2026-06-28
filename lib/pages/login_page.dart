@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../data/user_data.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/auth_header.dart';
+import '../widgets/auth_card.dart';
+import '../utils/app_validators.dart';
 
 // หน้า Login
 class LoginPage extends StatefulWidget {
@@ -11,45 +15,31 @@ class LoginPage extends StatefulWidget {
 
 // ส่วนควบคุมของหน้า Login
 class _LoginPageState extends State<LoginPage> {
-  // ตัวอ่านค่าจากช่อง Email
-  final TextEditingController emailController = TextEditingController();
+  // Key สำหรับควบคุม Form
+  final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
-  // ตัวอ่านค่าจากช่อง Password
+  final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  // ฟังก์ชันทำงานเมื่อกดปุ่ม Login
+  bool isPasswordHidden = true;
+
+  // ฟังก์ชัน Login
   void login() async {
-    // ดึงค่าที่ผู้ใช้กรอกจากช่อง Email และ Password
-    // trim() ใช้ตัดช่องว่างหน้า-หลังออก เช่น เผลอกดเว้นวรรค
-    String email = emailController.text.trim();
-    String password = passwordController.text.trim();
-
-    debugPrint('กดปุ่ม Login แล้ว');
-    debugPrint('Email ที่กรอก: $email');
-
-    // ตรวจสอบว่ากรอกครบไหม
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('กรุณากรอก Email และ Password'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (!formKey.currentState!.validate()) {
       return;
     }
 
-    // ค้นหาผู้ใช้จากข้อมูลที่สมัครไว้ใน user_data.dart
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
     final user = findUserByEmailAndPassword(email: email, password: password);
 
-    // ถ้าเจอผู้ใช้ แปลว่า Login สำเร็จ
     if (user != null) {
-
       currentUser = user;
 
       await saveCurrentUser(user);
 
-      debugPrint('เข้าสู่ระบบสำเร็จ');
-      debugPrint('ชื่อผู้ใช้: ${user['name']}');
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -58,11 +48,8 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
 
-      // ไปหน้า Home
       Navigator.pushReplacementNamed(context, '/home');
     } else {
-      debugPrint('เข้าสู่ระบบไม่สำเร็จ');
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Email หรือ Password ไม่ถูกต้อง'),
@@ -72,7 +59,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  // เคลียร์ controller เมื่อไม่ใช้หน้านี้แล้ว
   @override
   void dispose() {
     emailController.dispose();
@@ -80,95 +66,92 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  // วาดหน้าจอ Login
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFDF5FD),
+      appBar: AppBar(title: const Text('Login App')),
+      body: AuthCard(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AuthHeader(
+                icon: Icons.lock,
+                title: 'เข้าสู่ระบบ',
+                subtitle: 'กรอกข้อมูลเพื่อเข้าใช้งานแอป',
+              ),
 
-      appBar: AppBar(
-        title: const Text('Login App'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
+              const SizedBox(height: 28),
 
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-
-          children: [
-            const Icon(Icons.lock, size: 90, color: Colors.blue),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              'เข้าสู่ระบบ',
-              style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 30),
-
-            // ช่องกรอก Email
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
+              // ช่อง Email
+              CustomTextField(
+                controller: emailController,
                 labelText: 'Email',
                 hintText: 'กรอกอีเมลของคุณ',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
+                prefixIcon: Icons.email,
+                keyboardType: TextInputType.emailAddress,
+                validator: AppValidators.email,
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // ช่องกรอก Password
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              // ช่อง Password
+              CustomTextField(
+                controller: passwordController,
                 labelText: 'Password',
                 hintText: 'กรอกรหัสผ่าน',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.lock),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ปุ่ม Login
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
+                prefixIcon: Icons.lock,
+                obscureText: isPasswordHidden,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    isPasswordHidden ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      isPasswordHidden = !isPasswordHidden;
+                    });
+                  },
                 ),
-                child: const Text('Login', style: TextStyle(fontSize: 18)),
+                validator: AppValidators.password,
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-            const Text(
-              'ทดลองใช้: admin@gmail.com / 123456',
-              style: TextStyle(color: Colors.grey),
-            ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: login,
+                  icon: const Icon(Icons.login),
+                  label: const Text('Login'),
+                ),
+              ),
 
-            const SizedBox(height: 10),
+              const SizedBox(height: 16),
 
-            // ปุ่มไปหน้าสมัครสมาชิก
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
-              },
-              child: const Text('ยังไม่มีบัญชี? สมัครสมาชิก'),
-            ),
-          ],
+              const Text(
+                'ทดลองใช้: admin@gmail.com / 123456',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 8),
+
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/forgot-password');
+                },
+                child: const Text('ลืมรหัสผ่าน?'),
+              ),
+
+              TextButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/register');
+                },
+                child: const Text('ยังไม่มีบัญชี? สมัครสมาชิก'),
+              ),
+            ],
+          ),
         ),
       ),
     );

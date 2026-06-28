@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'data/user_data.dart';
 import 'pages/user_list_page.dart';
 import 'pages/profile_page.dart';
+import 'pages/forgot_password_page.dart';
+import 'theme/app_theme.dart';
 
 // import หน้า Login และ Home เข้ามาใช้
 import 'pages/login_page.dart';
@@ -34,6 +36,8 @@ class MyApp extends StatelessWidget {
       // ชื่อแอป
       title: 'Login App',
 
+      theme: AppTheme.lightTheme,
+
       // หน้าแรกของแอป
       initialRoute: currentUser == null ? '/login' : '/home',
 
@@ -44,6 +48,7 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/users': (context) => const UserListPage(),
         '/profile': (context) => const ProfilePage(),
+        '/forgot-password': (context) => const ForgotPasswordPage(),
       },
     );
   }
