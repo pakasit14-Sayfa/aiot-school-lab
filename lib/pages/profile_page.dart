@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../data/user_data.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
 
-// หน้านี้ใช้แสดงข้อมูลโปรไฟล์ของผู้ใช้ที่ Login อยู่
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
 
@@ -10,14 +10,9 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // ฟังก์ชันเปิดกล่องแก้ไขโปรไฟล์
   void showEditProfileDialog() {
     final nameController = TextEditingController(
-      text: currentUser?['name'] ?? '',
-    );
-
-    final passwordController = TextEditingController(
-      text: currentUser?['password'] ?? '',
+      text: currentUserModel?.name ?? '',
     );
 
     showDialog(
@@ -29,12 +24,10 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Email: ${currentUser?['email'] ?? ''}',
+                'Email: ${currentUserModel?.email ?? ''}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-
               const SizedBox(height: 16),
-
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
@@ -42,59 +35,39 @@ class _ProfilePageState extends State<ProfilePage> {
                   prefixIcon: Icon(Icons.person),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'รหัสผ่านใหม่',
-                  prefixIcon: Icon(Icons.lock),
-                ),
+              const SizedBox(height: 8),
+              const Text(
+                'หากต้องการเปลี่ยนรหัสผ่าน ใช้ฟังก์ชัน "ลืมรหัสผ่าน" ในหน้า Login',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ยกเลิก'),
             ),
             ElevatedButton(
               onPressed: () async {
                 final newName = nameController.text.trim();
-                final newPassword = passwordController.text.trim();
 
-                if (newName.isEmpty || newPassword.isEmpty) {
+                if (newName.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('กรุณากรอกชื่อและรหัสผ่าน'),
+                      content: Text('กรุณากรอกชื่อ'),
                       backgroundColor: Colors.red,
                     ),
                   );
                   return;
                 }
 
-                if (newPassword.length < 6) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                await updateCurrentUserProfile(
-                  newName: newName,
-                  newPassword: newPassword,
+                await AuthService.updateProfile(
+                  uid: currentUserModel!.uid,
+                  name: newName,
                 );
 
                 if (!mounted) return;
-
                 Navigator.pop(dialogContext);
-
                 setState(() {});
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -116,8 +89,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final user = currentUserModel;
 
-    if (currentUser == null) {
+    if (user == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('โปรไฟล์')),
         body: const Center(
@@ -126,9 +100,7 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    final name = currentUser?['name'] ?? '';
-    final email = currentUser?['email'] ?? '';
-    final role = currentUser?['role'] ?? 'user';
+    final isAdmin = user.role == UserRole.schoolAdmin;
 
     return Scaffold(
       appBar: AppBar(title: const Text('โปรไฟล์ของฉัน')),
@@ -153,7 +125,9 @@ class _ProfilePageState extends State<ProfilePage> {
                             radius: 55,
                             backgroundColor: primaryColor.withOpacity(0.12),
                             child: Text(
-                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                              user.name.isNotEmpty
+                                  ? user.name[0].toUpperCase()
+                                  : '?',
                               style: TextStyle(
                                 fontSize: 42,
                                 color: primaryColor,
@@ -165,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: 20),
 
                           Text(
-                            name,
+                            user.name,
                             style: theme.textTheme.headlineLarge?.copyWith(
                               fontSize: 28,
                             ),
@@ -175,7 +149,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           const SizedBox(height: 6),
 
                           Text(
-                            email,
+                            user.email,
                             style: const TextStyle(
                               fontSize: 16,
                               color: Colors.grey,
@@ -191,17 +165,15 @@ class _ProfilePageState extends State<ProfilePage> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: role == 'admin'
+                              color: isAdmin
                                   ? Colors.purple.withOpacity(0.12)
                                   : Colors.green.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
-                              role == 'admin' ? 'ผู้ดูแลระบบ' : 'ผู้ใช้ทั่วไป',
+                              user.role.label,
                               style: TextStyle(
-                                color: role == 'admin'
-                                    ? Colors.purple
-                                    : Colors.green,
+                                color: isAdmin ? Colors.purple : Colors.green,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -217,7 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: ListTile(
                       leading: const Icon(Icons.person),
                       title: const Text('ชื่อผู้ใช้'),
-                      subtitle: Text(name),
+                      subtitle: Text(user.name),
                     ),
                   ),
 
@@ -227,7 +199,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: ListTile(
                       leading: const Icon(Icons.email),
                       title: const Text('อีเมล'),
-                      subtitle: Text(email),
+                      subtitle: Text(user.email),
                     ),
                   ),
 
@@ -236,12 +208,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   Card(
                     child: ListTile(
                       leading: Icon(
-                        role == 'admin'
+                        isAdmin
                             ? Icons.admin_panel_settings
                             : Icons.person_outline,
                       ),
                       title: const Text('สิทธิ์ผู้ใช้'),
-                      subtitle: Text(role),
+                      subtitle: Text(user.role.label),
                     ),
                   ),
 
@@ -252,7 +224,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: ElevatedButton.icon(
                       onPressed: showEditProfileDialog,
                       icon: const Icon(Icons.edit),
-                      label: const Text('แก้ไขโปรไฟล์'),
+                      label: const Text('แก้ไขชื่อ'),
                     ),
                   ),
 
@@ -261,9 +233,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
+                      onPressed: () => Navigator.pop(context),
                       icon: const Icon(Icons.arrow_back),
                       label: const Text('กลับหน้า Home'),
                     ),

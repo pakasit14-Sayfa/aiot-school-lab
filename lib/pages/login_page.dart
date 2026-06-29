@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../data/user_data.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_card.dart';
 import '../utils/app_validators.dart';
 
-// หน้า Login
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -13,49 +13,47 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-// ส่วนควบคุมของหน้า Login
 class _LoginPageState extends State<LoginPage> {
-  // Key สำหรับควบคุม Form
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   bool isPasswordHidden = true;
+  bool isLoading = false;
 
-  // ฟังก์ชัน Login
   void login() async {
-    if (!formKey.currentState!.validate()) {
-      return;
-    }
+    if (!formKey.currentState!.validate()) return;
 
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    setState(() => isLoading = true);
 
-    final user = findUserByEmailAndPassword(email: email, password: password);
-
-    if (user != null) {
-      currentUser = user;
-
-      await saveCurrentUser(user);
+    try {
+      final user = await AuthService.signIn(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
 
       if (!mounted) return;
 
+      if (user != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ยินดีต้อนรับ ${user.name}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String message = 'Email หรือ Password ไม่ถูกต้อง';
+      if (e.code == 'user-not-found') message = 'ไม่พบบัญชีผู้ใช้นี้';
+      if (e.code == 'wrong-password') message = 'รหัสผ่านไม่ถูกต้อง';
+      if (e.code == 'invalid-credential') message = 'Email หรือ Password ไม่ถูกต้อง';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('ยินดีต้อนรับ ${user['name']}'),
-          backgroundColor: Colors.green,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
-
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email หรือ Password ไม่ถูกต้อง'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
@@ -69,7 +67,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login App')),
+      appBar: AppBar(title: const Text('AIoT Smart School')),
       body: AuthCard(
         child: Form(
           key: formKey,
@@ -84,7 +82,6 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 28),
 
-              // ช่อง Email
               CustomTextField(
                 controller: emailController,
                 labelText: 'Email',
@@ -96,7 +93,6 @@ class _LoginPageState extends State<LoginPage> {
 
               const SizedBox(height: 16),
 
-              // ช่อง Password
               CustomTextField(
                 controller: passwordController,
                 labelText: 'Password',
@@ -108,9 +104,7 @@ class _LoginPageState extends State<LoginPage> {
                     isPasswordHidden ? Icons.visibility_off : Icons.visibility,
                   ),
                   onPressed: () {
-                    setState(() {
-                      isPasswordHidden = !isPasswordHidden;
-                    });
+                    setState(() => isPasswordHidden = !isPasswordHidden);
                   },
                 ),
                 validator: AppValidators.password,
@@ -121,21 +115,19 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: login,
-                  icon: const Icon(Icons.login),
-                  label: const Text('Login'),
+                  onPressed: isLoading ? null : login,
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.login),
+                  label: Text(isLoading ? 'กำลังเข้าสู่ระบบ...' : 'Login'),
                 ),
               ),
 
               const SizedBox(height: 16),
-
-              const Text(
-                'ทดลองใช้: admin@gmail.com / 123456',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 8),
 
               TextButton(
                 onPressed: () {

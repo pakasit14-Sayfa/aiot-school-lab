@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../data/user_data.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_card.dart';
 import '../utils/app_validators.dart';
 
-// หน้า Register / สมัครสมาชิก
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -13,59 +13,50 @@ class RegisterPage extends StatefulWidget {
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
-// ส่วนควบคุมของหน้า Register
 class _RegisterPageState extends State<RegisterPage> {
-  // Key สำหรับควบคุม Form
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   bool isPasswordHidden = true;
   bool isConfirmPasswordHidden = true;
+  bool isLoading = false;
 
-  // ฟังก์ชันสมัครสมาชิก
   void register() async {
-    // ให้ Form ตรวจสอบทุกช่องก่อน
-    if (!formKey.currentState!.validate()) {
-      return;
-    }
+    if (!formKey.currentState!.validate()) return;
 
-    final name = nameController.text.trim();
-    final email = emailController.text.trim();
-    final password = passwordController.text.trim();
+    setState(() => isLoading = true);
 
-    // ตรวจสอบว่า Email นี้เคยสมัครแล้วหรือยัง
-    if (emailExists(email)) {
+    try {
+      await AuthService.register(
+        name: nameController.text.trim(),
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Email นี้ถูกใช้งานแล้ว'),
-          backgroundColor: Colors.red,
+          content: Text('สมัครสมาชิกสำเร็จ'),
+          backgroundColor: Colors.green,
         ),
       );
-      return;
+
+      Navigator.pushReplacementNamed(context, '/login');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String message = 'เกิดข้อผิดพลาด';
+      if (e.code == 'email-already-in-use') message = 'Email นี้ถูกใช้งานแล้ว';
+      if (e.code == 'weak-password') message = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
-
-    // เพิ่มผู้ใช้ใหม่เข้าไปในระบบ
-    await addUser(name: name, email: email, password: password);
-
-    if (!mounted) return;
-
-    // แสดงข้อมูลผู้ใช้ทั้งหมดใน Terminal
-    printAllUsers();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('สมัครสมาชิกสำเร็จ'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    // กลับไปหน้า Login
-    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
@@ -95,7 +86,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 28),
 
-              // ช่อง Name
               CustomTextField(
                 controller: nameController,
                 labelText: 'Name',
@@ -106,7 +96,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 16),
 
-              // ช่อง Email
               CustomTextField(
                 controller: emailController,
                 labelText: 'Email',
@@ -118,7 +107,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 16),
 
-              // ช่อง Password
               CustomTextField(
                 controller: passwordController,
                 labelText: 'Password',
@@ -130,9 +118,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     isPasswordHidden ? Icons.visibility_off : Icons.visibility,
                   ),
                   onPressed: () {
-                    setState(() {
-                      isPasswordHidden = !isPasswordHidden;
-                    });
+                    setState(() => isPasswordHidden = !isPasswordHidden);
                   },
                 ),
                 validator: AppValidators.password,
@@ -140,7 +126,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
               const SizedBox(height: 16),
 
-              // ช่อง Confirm Password
               CustomTextField(
                 controller: confirmPasswordController,
                 labelText: 'Confirm Password',
@@ -154,17 +139,14 @@ class _RegisterPageState extends State<RegisterPage> {
                         : Icons.visibility,
                   ),
                   onPressed: () {
-                    setState(() {
-                      isConfirmPasswordHidden = !isConfirmPasswordHidden;
-                    });
+                    setState(() =>
+                        isConfirmPasswordHidden = !isConfirmPasswordHidden);
                   },
                 ),
-                validator: (value) {
-                  return AppValidators.confirmPassword(
-                    value: value,
-                    password: passwordController.text.trim(),
-                  );
-                },
+                validator: (value) => AppValidators.confirmPassword(
+                  value: value,
+                  password: passwordController.text.trim(),
+                ),
               ),
 
               const SizedBox(height: 24),
@@ -172,9 +154,15 @@ class _RegisterPageState extends State<RegisterPage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: register,
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Register'),
+                  onPressed: isLoading ? null : register,
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.person_add),
+                  label: Text(isLoading ? 'กำลังสมัคร...' : 'Register'),
                 ),
               ),
 

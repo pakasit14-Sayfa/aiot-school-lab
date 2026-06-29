@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../data/user_data.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
 
-// หน้านี้ใช้แสดงรายชื่อผู้ใช้ทั้งหมด
 class UserListPage extends StatefulWidget {
   const UserListPage({super.key});
 
@@ -10,27 +10,43 @@ class UserListPage extends StatefulWidget {
 }
 
 class _UserListPageState extends State<UserListPage> {
+  List<UserModel> users = [];
   String searchText = '';
+  bool isLoading = true;
 
-  // ฟังก์ชันเปิดกล่องแก้ไขผู้ใช้
-  void showEditUserDialog(Map<String, String> user) {
-    final nameController = TextEditingController(text: user['name']);
-    final passwordController = TextEditingController(text: user['password']);
+  @override
+  void initState() {
+    super.initState();
+    loadUsers();
+  }
+
+  Future<void> loadUsers() async {
+    setState(() => isLoading = true);
+    final result = await AuthService.getAllUsers();
+    if (mounted) {
+      setState(() {
+        users = result;
+        isLoading = false;
+      });
+    }
+  }
+
+  void showEditUserDialog(UserModel user) {
+    final nameController = TextEditingController(text: user.name);
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('แก้ไขข้อมูลผู้ใช้'),
+          title: const Text('แก้ไขชื่อผู้ใช้'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Email: ${user['email']}',
+                'Email: ${user.email}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(
@@ -38,61 +54,31 @@ class _UserListPageState extends State<UserListPage> {
                   prefixIcon: Icon(Icons.person),
                 ),
               ),
-
-              const SizedBox(height: 16),
-
-              TextField(
-                controller: passwordController,
-                decoration: const InputDecoration(
-                  labelText: 'รหัสผ่านใหม่',
-                  prefixIcon: Icon(Icons.lock),
-                ),
-              ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ยกเลิก'),
             ),
             ElevatedButton(
               onPressed: () async {
                 final newName = nameController.text.trim();
-                final newPassword = passwordController.text.trim();
-
-                if (newName.isEmpty || newPassword.isEmpty) {
+                if (newName.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('กรุณากรอกชื่อและรหัสผ่าน'),
+                      content: Text('กรุณากรอกชื่อ'),
                       backgroundColor: Colors.red,
                     ),
                   );
                   return;
                 }
 
-                if (newPassword.length < 6) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                await updateUserByEmail(
-                  email: user['email'] ?? '',
-                  newName: newName,
-                  newPassword: newPassword,
-                );
+                await AuthService.updateProfile(uid: user.uid, name: newName);
 
                 if (!mounted) return;
-
                 Navigator.pop(dialogContext);
-
-                setState(() {});
+                await loadUsers();
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -109,76 +95,85 @@ class _UserListPageState extends State<UserListPage> {
     );
   }
 
-  // ฟังก์ชันยืนยันก่อนเปลี่ยนสิทธิ์ผู้ใช้
-  void confirmToggleRole(Map<String, String> user) {
-    final email = user['email'] ?? '';
-    final role = user['role'] ?? 'user';
-    final newRole = role == 'admin' ? 'user' : 'admin';
+  void showChangeRoleDialog(UserModel user) {
+    UserRole selectedRole = user.role;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('เปลี่ยนสิทธิ์ผู้ใช้'),
-          content: Text(
-            'ต้องการเปลี่ยนสิทธิ์ของ\n$email\nจาก $role เป็น $newRole หรือไม่?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await toggleUserRoleByEmail(email);
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('เปลี่ยนสิทธิ์ผู้ใช้'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Email: ${user.email}'),
+                  const SizedBox(height: 16),
+                  ...UserRole.values.map((role) {
+                    return RadioListTile<UserRole>(
+                      title: Text(role.label),
+                      value: role,
+                      groupValue: selectedRole,
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => selectedRole = v);
+                      },
+                    );
+                  }),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('ยกเลิก'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AuthService.updateRole(
+                      uid: user.uid,
+                      role: selectedRole,
+                    );
 
-                if (!mounted) return;
+                    if (!mounted) return;
+                    Navigator.pop(dialogContext);
+                    await loadUsers();
 
-                Navigator.pop(dialogContext);
-
-                setState(() {});
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('เปลี่ยนสิทธิ์เรียบร้อยแล้ว'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              child: const Text('ยืนยัน'),
-            ),
-          ],
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('เปลี่ยนสิทธิ์เรียบร้อยแล้ว'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text('ยืนยัน'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  // ฟังก์ชันยืนยันก่อนลบผู้ใช้
-  void confirmDeleteUser(String email) {
+  void confirmDeleteUser(UserModel user) {
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('ยืนยันการลบ'),
-          content: Text('ต้องการลบผู้ใช้นี้หรือไม่?\n$email'),
+          content: Text('ต้องการลบผู้ใช้นี้หรือไม่?\n${user.email}'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ยกเลิก'),
             ),
             ElevatedButton(
               onPressed: () async {
-                await deleteUserByEmail(email);
+                await AuthService.deleteUser(user.uid);
 
                 if (!mounted) return;
-
                 Navigator.pop(dialogContext);
-
-                setState(() {});
+                await loadUsers();
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -199,12 +194,10 @@ class _UserListPageState extends State<UserListPage> {
     );
   }
 
-  // สร้างป้ายแสดง role
-  Widget buildRoleBadge(String role) {
-    final isAdmin = role == 'admin';
-
+  Widget buildRoleBadge(UserRole role) {
+    final isAdmin = role == UserRole.schoolAdmin;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: isAdmin
             ? Colors.purple.withOpacity(0.12)
@@ -212,10 +205,11 @@ class _UserListPageState extends State<UserListPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        isAdmin ? 'Admin' : 'User',
+        role.label,
         style: TextStyle(
           color: isAdmin ? Colors.purple : Colors.green,
           fontWeight: FontWeight.bold,
+          fontSize: 12,
         ),
       ),
     );
@@ -226,8 +220,7 @@ class _UserListPageState extends State<UserListPage> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    // ถ้าไม่ใช่ admin ห้ามเข้าหน้านี้
-    if (currentUser?['role'] != 'admin') {
+    if (currentUserModel?.role != UserRole.schoolAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('ไม่มีสิทธิ์เข้าถึง')),
         body: Center(
@@ -245,15 +238,13 @@ class _UserListPageState extends State<UserListPage> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'หน้านี้สำหรับผู้ดูแลระบบเท่านั้น',
+                  'หน้านี้สำหรับแอดมินโรงเรียนเท่านั้น',
                   style: TextStyle(color: Colors.grey),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/home');
-                  },
+                  onPressed: () =>
+                      Navigator.pushReplacementNamed(context, '/home'),
                   icon: const Icon(Icons.home),
                   label: const Text('กลับหน้า Home'),
                 ),
@@ -264,213 +255,184 @@ class _UserListPageState extends State<UserListPage> {
       );
     }
 
-    final filteredUsers = users.where((user) {
-      final name = user['name']?.toLowerCase() ?? '';
-      final email = user['email']?.toLowerCase() ?? '';
+    final filteredUsers = users.where((u) {
       final keyword = searchText.toLowerCase();
-
-      return name.contains(keyword) || email.contains(keyword);
+      return u.name.toLowerCase().contains(keyword) ||
+          u.email.toLowerCase().contains(keyword);
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('จัดการผู้ใช้')),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
+      appBar: AppBar(
+        title: const Text('จัดการผู้ใช้'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: loadUsers,
+          ),
+        ],
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'รายชื่อผู้ใช้ทั้งหมด',
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontSize: 28,
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'รายชื่อผู้ใช้ทั้งหมด',
+                          style: theme.textTheme.headlineLarge?.copyWith(
+                            fontSize: 28,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          onChanged: (v) => setState(() => searchText = v),
+                          decoration: const InputDecoration(
+                            labelText: 'ค้นหาชื่อหรืออีเมล',
+                            prefixIcon: Icon(Icons.search),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(Icons.group, color: primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              'พบผู้ใช้ ${filteredUsers.length} คน',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
 
-                  const SizedBox(height: 6),
+                  Expanded(
+                    child: filteredUsers.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'ไม่พบข้อมูลผู้ใช้',
+                              style: TextStyle(fontSize: 18),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: filteredUsers.length,
+                            itemBuilder: (context, index) {
+                              final user = filteredUsers[index];
+                              final isMe =
+                                  currentUserModel?.uid == user.uid;
 
-                  const Text(
-                    'ค้นหา แก้ไข ลบ และเปลี่ยนสิทธิ์ผู้ใช้',
-                    style: TextStyle(color: Colors.grey),
-                  ),
+                              return Card(
+                                elevation: 3,
+                                margin: const EdgeInsets.only(bottom: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 28,
+                                        backgroundColor:
+                                            primaryColor.withOpacity(0.12),
+                                        child: Text(
+                                          user.name.isNotEmpty
+                                              ? user.name[0].toUpperCase()
+                                              : '?',
+                                          style: TextStyle(
+                                            color: primaryColor,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
 
-                  const SizedBox(height: 20),
+                                      const SizedBox(width: 14),
 
-                  TextField(
-                    onChanged: (value) {
-                      setState(() {
-                        searchText = value;
-                      });
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'ค้นหาชื่อหรืออีเมล',
-                      prefixIcon: Icon(Icons.search),
-                    ),
-                  ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    user.name,
+                                                    style: const TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                                buildRoleBadge(user.role),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              user.email,
+                                              style: const TextStyle(
+                                                  color: Colors.grey),
+                                            ),
+                                            if (isMe)
+                                              const Text(
+                                                'บัญชีที่กำลังใช้งานอยู่',
+                                                style: TextStyle(
+                                                  color: Colors.blue,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
 
-                  const SizedBox(height: 14),
-
-                  Row(
-                    children: [
-                      Icon(Icons.group, color: primaryColor),
-                      const SizedBox(width: 8),
-                      Text(
-                        'พบผู้ใช้ ${filteredUsers.length} คน',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                                      Column(
+                                        children: [
+                                          IconButton(
+                                            tooltip: 'เปลี่ยนสิทธิ์',
+                                            icon: const Icon(
+                                                Icons.manage_accounts),
+                                            onPressed: isMe
+                                                ? null
+                                                : () =>
+                                                    showChangeRoleDialog(user),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'แก้ไขชื่อ',
+                                            icon: const Icon(Icons.edit),
+                                            onPressed: () =>
+                                                showEditUserDialog(user),
+                                          ),
+                                          IconButton(
+                                            tooltip: 'ลบ',
+                                            icon: const Icon(Icons.delete),
+                                            color: Colors.red,
+                                            onPressed: isMe
+                                                ? null
+                                                : () =>
+                                                    confirmDeleteUser(user),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
             ),
-
-            Expanded(
-              child: filteredUsers.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'ไม่พบข้อมูลผู้ใช้',
-                        style: TextStyle(fontSize: 18),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: filteredUsers.length,
-                      itemBuilder: (context, index) {
-                        final user = filteredUsers[index];
-                        final name = user['name'] ?? '';
-                        final email = user['email'] ?? '';
-                        final role = user['role'] ?? 'user';
-                        final isCurrentUser = currentUser?['email'] == email;
-
-                        return Card(
-                          elevation: 3,
-                          margin: const EdgeInsets.only(bottom: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 28,
-                                  backgroundColor: primaryColor.withOpacity(
-                                    0.12,
-                                  ),
-                                  child: Text(
-                                    name.isNotEmpty
-                                        ? name[0].toUpperCase()
-                                        : '?',
-                                    style: TextStyle(
-                                      color: primaryColor,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-
-                                const SizedBox(width: 14),
-
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              name,
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                          buildRoleBadge(role),
-                                        ],
-                                      ),
-
-                                      const SizedBox(height: 6),
-
-                                      Text(
-                                        email,
-                                        style: const TextStyle(
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-
-                                      const SizedBox(height: 4),
-
-                                      const Text(
-                                        'Password: ****',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-
-                                      if (isCurrentUser) ...[
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'บัญชีที่กำลังใช้งานอยู่',
-                                          style: TextStyle(
-                                            color: Colors.blue,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-
-                                const SizedBox(width: 8),
-
-                                Column(
-                                  children: [
-                                    IconButton(
-                                      tooltip: 'เปลี่ยนสิทธิ์',
-                                      icon: Icon(
-                                        role == 'admin'
-                                            ? Icons.admin_panel_settings
-                                            : Icons.person,
-                                      ),
-                                      onPressed: isCurrentUser
-                                          ? null
-                                          : () {
-                                              confirmToggleRole(user);
-                                            },
-                                    ),
-
-                                    IconButton(
-                                      tooltip: 'แก้ไข',
-                                      icon: const Icon(Icons.edit),
-                                      onPressed: () {
-                                        showEditUserDialog(user);
-                                      },
-                                    ),
-
-                                    IconButton(
-                                      tooltip: 'ลบ',
-                                      icon: const Icon(Icons.delete),
-                                      color: Colors.red,
-                                      onPressed: isCurrentUser
-                                          ? null
-                                          : () {
-                                              confirmDeleteUser(email);
-                                            },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

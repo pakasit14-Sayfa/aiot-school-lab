@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../data/user_data.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_card.dart';
 import '../utils/app_validators.dart';
 
-// หน้าลืมรหัสผ่าน / รีเซ็ตรหัสผ่าน
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -15,60 +15,42 @@ class ForgotPasswordPage extends StatefulWidget {
 
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-
   final TextEditingController emailController = TextEditingController();
-  final TextEditingController newPasswordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
+  bool isLoading = false;
 
-  bool isNewPasswordHidden = true;
-  bool isConfirmPasswordHidden = true;
-
-  // ฟังก์ชันรีเซ็ตรหัสผ่าน
   void resetPassword() async {
-    if (!formKey.currentState!.validate()) {
-      return;
-    }
+    if (!formKey.currentState!.validate()) return;
 
-    final email = emailController.text.trim();
-    final newPassword = newPasswordController.text.trim();
+    setState(() => isLoading = true);
 
-    if (!emailExists(email)) {
+    try {
+      await AuthService.resetPassword(emailController.text.trim());
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('ไม่พบ Email นี้ในระบบ'),
-          backgroundColor: Colors.red,
+          content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลแล้ว กรุณาตรวจสอบอีเมล'),
+          backgroundColor: Colors.green,
         ),
       );
-      return;
+
+      Navigator.pushReplacementNamed(context, '/login');
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String message = 'เกิดข้อผิดพลาด';
+      if (e.code == 'user-not-found') message = 'ไม่พบ Email นี้ในระบบ';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
-
-    final user = users.firstWhere((user) => user['email'] == email);
-    final name = user['name'] ?? '';
-
-    await updateUserByEmail(
-      email: email,
-      newName: name,
-      newPassword: newPassword,
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('เปลี่ยนรหัสผ่านสำเร็จ'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
   void dispose() {
     emailController.dispose();
-    newPasswordController.dispose();
-    confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -85,12 +67,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               const AuthHeader(
                 icon: Icons.lock_reset,
                 title: 'รีเซ็ตรหัสผ่าน',
-                subtitle: 'กรอกอีเมลที่สมัครไว้ และตั้งรหัสผ่านใหม่',
+                subtitle: 'กรอกอีเมลที่สมัครไว้ เราจะส่งลิงก์รีเซ็ตให้',
               ),
 
               const SizedBox(height: 28),
 
-              // ช่อง Email
               CustomTextField(
                 controller: emailController,
                 labelText: 'Email',
@@ -100,67 +81,20 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 validator: AppValidators.email,
               ),
 
-              const SizedBox(height: 16),
-
-              // ช่อง New Password
-              CustomTextField(
-                controller: newPasswordController,
-                labelText: 'New Password',
-                hintText: 'กรอกรหัสผ่านใหม่',
-                prefixIcon: Icons.lock,
-                obscureText: isNewPasswordHidden,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    isNewPasswordHidden
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      isNewPasswordHidden = !isNewPasswordHidden;
-                    });
-                  },
-                ),
-                validator: AppValidators.newPassword,
-              ),
-
-              const SizedBox(height: 16),
-
-              // ช่อง Confirm New Password
-              CustomTextField(
-                controller: confirmPasswordController,
-                labelText: 'Confirm New Password',
-                hintText: 'ยืนยันรหัสผ่านใหม่',
-                prefixIcon: Icons.lock_outline,
-                obscureText: isConfirmPasswordHidden,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    isConfirmPasswordHidden
-                        ? Icons.visibility_off
-                        : Icons.visibility,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      isConfirmPasswordHidden = !isConfirmPasswordHidden;
-                    });
-                  },
-                ),
-                validator: (value) {
-                  return AppValidators.confirmNewPassword(
-                    value: value,
-                    newPassword: newPasswordController.text.trim(),
-                  );
-                },
-              ),
-
               const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: resetPassword,
-                  icon: const Icon(Icons.lock_reset),
-                  label: const Text('Reset Password'),
+                  onPressed: isLoading ? null : resetPassword,
+                  icon: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                  label: Text(isLoading ? 'กำลังส่ง...' : 'ส่งลิงก์รีเซ็ต'),
                 ),
               ),
 

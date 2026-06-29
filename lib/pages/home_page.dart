@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import '../data/user_data.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
 
-// หน้า Home หลังจาก Login สำเร็จ
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  // ฟังก์ชันยืนยันก่อนออกจากระบบ
   void confirmLogout(BuildContext context) {
     showDialog(
       context: context,
@@ -15,20 +14,13 @@ class HomePage extends StatelessWidget {
           content: const Text('คุณต้องการออกจากระบบหรือไม่?'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-              },
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ยกเลิก'),
             ),
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-
-                await logoutUser();
-
-                if (!context.mounted) return;
-
-                Navigator.pushReplacementNamed(context, '/login');
+                await AuthService.signOut();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -42,7 +34,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // การ์ดแสดงข้อมูลบน Dashboard
   Widget buildDashboardCard({
     required IconData icon,
     required String title,
@@ -89,9 +80,11 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = currentUser?['name'] ?? 'ผู้ใช้';
-    final email = currentUser?['email'] ?? '';
-    final role = currentUser?['role'] ?? 'user';
+    final user = currentUserModel;
+    final name = user?.name ?? 'ผู้ใช้';
+    final email = user?.email ?? '';
+    final role = user?.role ?? UserRole.student;
+    final isAdmin = role == UserRole.schoolAdmin;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFDF5FD),
@@ -102,7 +95,6 @@ class HomePage extends StatelessWidget {
         foregroundColor: Colors.white,
       ),
 
-      // เมนูด้านข้าง
       drawer: Drawer(
         child: Column(
           children: [
@@ -126,9 +118,7 @@ class HomePage extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.dashboard),
               title: const Text('Dashboard'),
-              onTap: () {
-                Navigator.pop(context);
-              },
+              onTap: () => Navigator.pop(context),
             ),
 
             ListTile(
@@ -140,7 +130,7 @@ class HomePage extends StatelessWidget {
               },
             ),
 
-            if (role == 'admin')
+            if (isAdmin)
               ListTile(
                 leading: const Icon(Icons.admin_panel_settings),
                 title: const Text('จัดการผู้ใช้'),
@@ -151,7 +141,6 @@ class HomePage extends StatelessWidget {
               ),
 
             const Spacer(),
-
             const Divider(),
 
             ListTile(
@@ -187,9 +176,9 @@ class HomePage extends StatelessWidget {
 
               const SizedBox(height: 6),
 
-              const Text(
-                'ยินดีต้อนรับเข้าสู่ระบบ',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+              Text(
+                role.label,
+                style: const TextStyle(fontSize: 16, color: Colors.grey),
               ),
 
               const SizedBox(height: 24),
@@ -209,21 +198,13 @@ class HomePage extends StatelessWidget {
               ),
 
               buildDashboardCard(
-                icon: role == 'admin'
+                icon: isAdmin
                     ? Icons.admin_panel_settings
                     : Icons.person_outline,
                 title: 'สิทธิ์การใช้งาน',
-                value: role,
-                color: role == 'admin' ? Colors.purple : Colors.green,
+                value: role.label,
+                color: isAdmin ? Colors.purple : Colors.green,
               ),
-
-              if (role == 'admin')
-                buildDashboardCard(
-                  icon: Icons.group,
-                  title: 'จำนวนผู้ใช้ทั้งหมด',
-                  value: '${users.length} คน',
-                  color: Colors.teal,
-                ),
 
               const SizedBox(height: 16),
 
@@ -231,28 +212,24 @@ class HomePage extends StatelessWidget {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/profile');
-                  },
+                  onPressed: () => Navigator.pushNamed(context, '/profile'),
                   icon: const Icon(Icons.person),
                   label: const Text('โปรไฟล์ของฉัน'),
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              if (role == 'admin')
+              if (isAdmin) ...[
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pushNamed(context, '/users');
-                    },
+                    onPressed: () => Navigator.pushNamed(context, '/users'),
                     icon: const Icon(Icons.admin_panel_settings),
                     label: const Text('จัดการผู้ใช้'),
                   ),
                 ),
+              ],
 
               const SizedBox(height: 12),
 
@@ -260,9 +237,7 @@ class HomePage extends StatelessWidget {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    confirmLogout(context);
-                  },
+                  onPressed: () => confirmLogout(context),
                   icon: const Icon(Icons.logout),
                   label: const Text('Logout'),
                   style: ElevatedButton.styleFrom(
