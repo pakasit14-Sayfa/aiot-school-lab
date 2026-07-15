@@ -44,8 +44,6 @@ dependencies:
   intl: ^0.20.2
   percent_indicator: ^4.2.5
 
-  # Firebase removed for now
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,46 +1,50 @@
 enum UserRole {
-  student,
-  teacher,
-  buildingAdmin,
+  superAdmin,
   schoolAdmin,
+  teacher,
   executive,
-  developer,
+  student,
   parent,
+  facilityManager,
+  technician,
 }
 
 extension UserRoleExt on UserRole {
   String get value {
     switch (this) {
-      case UserRole.student: return 'student';
+      case UserRole.superAdmin: return 'super_admin';
+      case UserRole.schoolAdmin: return 'school_admin';
       case UserRole.teacher: return 'teacher';
-      case UserRole.buildingAdmin: return 'buildingAdmin';
-      case UserRole.schoolAdmin: return 'schoolAdmin';
       case UserRole.executive: return 'executive';
-      case UserRole.developer: return 'developer';
+      case UserRole.student: return 'student';
       case UserRole.parent: return 'parent';
+      case UserRole.facilityManager: return 'facility_manager';
+      case UserRole.technician: return 'technician';
     }
   }
 
   String get label {
     switch (this) {
-      case UserRole.student: return 'นักเรียน';
-      case UserRole.teacher: return 'ครูประจำห้อง';
-      case UserRole.buildingAdmin: return 'ผู้ดูแลอาคาร';
+      case UserRole.superAdmin: return 'ผู้ดูแลระบบสูงสุด';
       case UserRole.schoolAdmin: return 'แอดมินโรงเรียน';
+      case UserRole.teacher: return 'ครูประจำห้อง';
       case UserRole.executive: return 'ผู้บริหาร';
-      case UserRole.developer: return 'ผู้พัฒนาระบบ';
+      case UserRole.student: return 'นักเรียน';
       case UserRole.parent: return 'ผู้ปกครอง';
+      case UserRole.facilityManager: return 'ผู้ดูแลอาคาร';
+      case UserRole.technician: return 'ช่างเทคนิค';
     }
   }
 
   static UserRole fromString(String v) {
     switch (v) {
+      case 'super_admin': return UserRole.superAdmin;
+      case 'school_admin': return UserRole.schoolAdmin;
       case 'teacher': return UserRole.teacher;
-      case 'buildingAdmin': return UserRole.buildingAdmin;
-      case 'schoolAdmin': return UserRole.schoolAdmin;
       case 'executive': return UserRole.executive;
-      case 'developer': return UserRole.developer;
       case 'parent': return UserRole.parent;
+      case 'facility_manager': return UserRole.facilityManager;
+      case 'technician': return UserRole.technician;
       default: return UserRole.student;
     }
   }
@@ -90,7 +94,7 @@ class UserModel {
 
   bool get canControlDevices =>
       role == UserRole.teacher ||
-      role == UserRole.buildingAdmin ||
+      role == UserRole.facilityManager ||
       role == UserRole.schoolAdmin;
 
   UserModel copyWith({String? name, UserRole? role}) {

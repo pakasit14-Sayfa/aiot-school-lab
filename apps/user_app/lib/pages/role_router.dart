@@ -6,7 +6,8 @@ import 'dashboard/teacher_dashboard.dart';
 import 'dashboard/building_admin_dashboard.dart';
 import 'dashboard/school_admin_dashboard.dart';
 import 'dashboard/executive_dashboard.dart';
-import 'dashboard/developer_dashboard.dart';
+import 'dashboard/super_admin_dashboard.dart';
+import 'dashboard/technician_dashboard.dart';
 import 'dashboard/parent_dashboard.dart';
 
 class RoleRouter extends StatelessWidget {
@@ -22,14 +23,16 @@ class RoleRouter extends StatelessWidget {
         return const StudentMainNav();
       case UserRole.teacher:
         return const TeacherDashboard();
-      case UserRole.buildingAdmin:
+      case UserRole.facilityManager:
         return const BuildingAdminDashboard();
       case UserRole.schoolAdmin:
         return const SchoolAdminDashboard();
       case UserRole.executive:
         return const ExecutiveDashboard();
-      case UserRole.developer:
-        return const DeveloperDashboard();
+      case UserRole.superAdmin:
+        return const SuperAdminDashboard();
+      case UserRole.technician:
+        return const TechnicianDashboard();
       case UserRole.parent:
         return const ParentDashboard();
     }

@@ -3,47 +3,40 @@ import 'package:shared_core/shared_core.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/info_card.dart';
 
-class DeveloperDashboard extends StatelessWidget {
-  const DeveloperDashboard({super.key});
+class SuperAdminDashboard extends StatelessWidget {
+  const SuperAdminDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
     final user = currentUserModel;
-    final name = user?.name ?? 'Developer';
-    final schoolId = user?.schoolId.isNotEmpty == true ? user!.schoolId : '-';
+    final name = user?.name ?? 'Super Admin';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Developer Console'),
+        title: const Text('ผู้ดูแลระบบสูงสุด'),
         backgroundColor: const Color(0xFF212121),
         foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [
           DrawerItem(
-            icon: Icons.developer_mode,
-            title: 'Developer Console',
-            color: Colors.grey,
-            onTap: (_) {},
-          ),
-          DrawerItem(
-            icon: Icons.receipt_long,
-            title: 'System Logs',
+            icon: Icons.school,
+            title: 'จัดการโรงเรียนทั้งระบบ',
             color: Colors.blueGrey,
             onTap: (_) {},
           ),
           DrawerItem(
-            icon: Icons.bug_report,
-            title: 'Error Reports',
-            color: Colors.red,
-            onTap: (_) {},
+            icon: Icons.people,
+            title: 'จัดการผู้ใช้ (ข้ามโรงเรียน)',
+            color: Colors.blueGrey,
+            onTap: (ctx) => Navigator.pushNamed(ctx, '/users'),
           ),
           DrawerItem(
-            icon: Icons.people,
-            title: 'จัดการผู้ใช้',
-            color: Colors.grey,
-            onTap: (ctx) => Navigator.pushNamed(ctx, '/users'),
+            icon: Icons.receipt_long,
+            title: 'Audit Log',
+            color: Colors.blueGrey,
+            onTap: (_) {},
           ),
         ],
       ),
@@ -58,17 +51,16 @@ class DeveloperDashboard extends StatelessWidget {
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
             const Text(
-              'Developer Mode',
-              style: TextStyle(fontSize: 15, color: Colors.grey),
+              'Super Admin — platform-level เท่านั้น ไม่มีสิทธิ์ Classroom/AIoT/Emergency/Security',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 20),
 
             InfoCard(
-              icon: Icons.code,
+              icon: Icons.admin_panel_settings,
               title: 'บทบาท',
-              value: 'ผู้พัฒนาระบบ',
+              value: 'ผู้ดูแลระบบสูงสุด',
               color: Colors.blueGrey,
-              subtitle: 'โรงเรียน: $schoolId',
             ),
 
             InfoCard(
@@ -80,29 +72,22 @@ class DeveloperDashboard extends StatelessWidget {
             ),
 
             const ComingSoonCard(
+              icon: Icons.school,
+              title: 'สร้าง/จัดการโรงเรียนทั้งระบบ',
+              phase: 'Phase 3',
+              color: Colors.indigo,
+            ),
+
+            const ComingSoonCard(
               icon: Icons.receipt_long,
-              title: 'System Logs & Action Logs',
-              phase: 'Phase 4',
+              title: 'Audit Log ข้ามโรงเรียน',
+              phase: 'Phase 3',
               color: Colors.blueGrey,
             ),
 
             const ComingSoonCard(
-              icon: Icons.cloud_sync,
-              title: 'Firebase Connection Status',
-              phase: 'Phase 3',
-              color: Colors.orange,
-            ),
-
-            const ComingSoonCard(
-              icon: Icons.bug_report,
-              title: 'Error Reports',
-              phase: 'Phase 4',
-              color: Colors.red,
-            ),
-
-            const ComingSoonCard(
               icon: Icons.settings_ethernet,
-              title: 'EdgeBox / IoT Device Status',
+              title: 'สถานะอุปกรณ์ (read-only ข้ามโรงเรียน)',
               phase: 'Phase 3',
               color: Colors.teal,
             ),
