@@ -1,0 +1,24 @@
+image: ghcr.io/cirruslabs/flutter:3.8.1
+
+stages:
+  - test
+
+analyze-and-test:
+  stage: test
+  parallel:
+    matrix:
+      - PACKAGE: apps/user_app
+      - PACKAGE: apps/admin_app
+      - PACKAGE: packages/shared_core
+  script:
+    - cd $PACKAGE
+    - flutter pub get
+    - flutter analyze
+    - |
+      if [ -d test ]; then
+        flutter test
+      else
+        echo "No test directory, skipping."
+      fi
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" || $CI_PIPELINE_SOURCE == "merge_request_event"'
