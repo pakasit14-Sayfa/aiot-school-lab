@@ -1,0 +1,9 @@
+name: my_app_workspace
+
+packages:
+  - "apps/**"
+  - "packages/**"
+
+command:
+  bootstrap:
+    usePubspecOverrides: true
