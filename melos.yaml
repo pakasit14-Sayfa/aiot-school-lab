@@ -1,4 +1,4 @@
-name: my_app_workspace
+name: aiot_school_lab_workspace
 
 packages:
   - "apps/**"
