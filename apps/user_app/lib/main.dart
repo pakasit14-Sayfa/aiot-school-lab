@@ -11,7 +11,8 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AuthService.initialize(); // Initialize our mock auth
+  await SupabaseConfig.initialize();
+  await AuthService.initialize();
   RealtimeService.enableOffline();
   runApp(const MyApp());
 }
