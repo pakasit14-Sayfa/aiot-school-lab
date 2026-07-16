@@ -4,6 +4,7 @@ import 'package:shared_core/shared_core.dart';
 import '../widgets/custom_text_field.dart';
 import '../utils/app_validators.dart';
 import 'accept_invitation_page.dart';
+import 'redeem_binding_code_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -307,6 +308,27 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   },
                                   child: const Text(
                                     'มีรหัสเชิญจากโรงเรียน? สร้างบัญชี',
+                                    style: TextStyle(
+                                      color: Color(0xFF2E7D32),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Redeem Parent Binding Code Link
+                              Center(
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const RedeemBindingCodePage(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    'ผู้ปกครอง: มีรหัสผูกบัญชีจากโรงเรียน?',
                                     style: TextStyle(
                                       color: Color(0xFF2E7D32),
                                       fontWeight: FontWeight.bold,

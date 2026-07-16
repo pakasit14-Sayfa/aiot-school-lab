@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'invite_staff_page.dart';
+import 'issue_binding_code_page.dart';
+import 'parent_link_review_page.dart';
 
 class UserListPage extends StatefulWidget {
   const UserListPage({super.key});
@@ -272,6 +274,26 @@ class _UserListPageState extends State<UserListPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const InviteStaffPage()),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'ออกรหัสผูกบัญชีผู้ปกครอง',
+            icon: const Icon(Icons.qr_code),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const IssueBindingCodePage()),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'คำขอผูกบัญชีผู้ปกครอง',
+            icon: const Icon(Icons.family_restroom),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ParentLinkReviewPage()),
               );
             },
           ),

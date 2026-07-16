@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/invitation_model.dart';
+import '../models/parent_binding_model.dart';
 import 'supabase_config.dart';
 
 UserModel? currentUserModel;
@@ -93,8 +94,8 @@ class AuthService {
 
   // ---------------------------------------------------------------------
   // Public self-signup ไม่อนุญาตตาม Decision Log ของวอลต์ — บัญชีต้องสร้างผ่าน
-  // School Admin/ครูที่เชิญ (ดู createInvitation/acceptInvitation ด้านล่าง)
-  // หรือ parent_binding_codes (ยังไม่ได้ทำ — เป็นคนละ flow)
+  // School Admin/ครูที่เชิญ (createInvitation/acceptInvitation) หรือรหัสผูก
+  // บัญชีผู้ปกครองที่โรงเรียนออกให้ (createBindingCode/redeemBindingCode)
   // ---------------------------------------------------------------------
 
   static Future<UserModel> register({
@@ -161,6 +162,101 @@ class AuthService {
     }
 
     return _applySession(rows.first as Map<String, dynamic>);
+  }
+
+  // ---------------------------------------------------------------------
+  // Parent binding — MVP scope. ไม่มี COI second-review, ไม่เก็บ PDPA
+  // consent จริง (consent_policies/consents/consent_events ยังไม่ต่อ) —
+  // ดู comment ใน migration 20260716030000_parent_binding_rpc.sql
+  // ---------------------------------------------------------------------
+
+  static Future<Map<String, dynamic>> createBindingCode({
+    required String studentCode,
+  }) async {
+    final rows = await supabase.rpc('create_parent_binding_code', params: {
+      'p_token': _sessionToken,
+      'p_student_code': studentCode.trim(),
+    }) as List;
+
+    final row = rows.first as Map<String, dynamic>;
+    return {
+      'code': row['binding_code'] as String,
+      'expiresAt': DateTime.parse(row['expires_at'] as String),
+      'studentName':
+          '${row['student_first_name']} ${row['student_last_name']}'.trim(),
+    };
+  }
+
+  static Future<List<BindingCode>> listBindingCodes({String? schoolId}) async {
+    final rows = await supabase.rpc('list_binding_codes', params: {
+      'p_token': _sessionToken,
+      'p_school_id': schoolId,
+    }) as List;
+
+    return rows
+        .map((row) => BindingCode.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> revokeBindingCode(String codeId) async {
+    await supabase.rpc('revoke_binding_code', params: {
+      'p_token': _sessionToken,
+      'p_code_id': codeId,
+    });
+  }
+
+  static Future<UserModel?> redeemBindingCode({
+    required String code,
+    required String relationship,
+    required String email,
+    required String firstName,
+    required String lastName,
+    required String password,
+  }) async {
+    final rows = await supabase.rpc('redeem_parent_binding_code', params: {
+      'p_code': code.trim(),
+      'p_relationship': relationship.trim(),
+      'p_email': email.trim().toLowerCase(),
+      'p_first_name': firstName.trim(),
+      'p_last_name': lastName.trim(),
+      'p_password': password,
+    }) as List;
+
+    if (rows.isEmpty) {
+      throw Exception('invalid_or_expired_code');
+    }
+
+    return _applySession(rows.first as Map<String, dynamic>);
+  }
+
+  static Future<List<ParentLink>> listParentLinks({
+    String status = 'pending',
+    String? schoolId,
+  }) async {
+    final rows = await supabase.rpc('list_parent_links', params: {
+      'p_token': _sessionToken,
+      'p_status': status,
+      'p_school_id': schoolId,
+    }) as List;
+
+    return rows
+        .map((row) => ParentLink.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> approveParentLink(String parentLinkId) async {
+    await supabase.rpc('approve_parent_link', params: {
+      'p_token': _sessionToken,
+      'p_parent_link_id': parentLinkId,
+    });
+  }
+
+  static Future<void> rejectParentLink(String parentLinkId, {String? reason}) async {
+    await supabase.rpc('reject_parent_link', params: {
+      'p_token': _sessionToken,
+      'p_parent_link_id': parentLinkId,
+      'p_reason': reason,
+    });
   }
 
   static Future<void> resetPassword(String email) async {
