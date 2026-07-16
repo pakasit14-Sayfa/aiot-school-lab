@@ -292,31 +292,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              
-                              // Sign Up Link
-                              Center(
-                                child: Wrap(
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  children: [
-                                    const Text(
-                                      "Don't have an account? ",
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                    InkWell(
-                                      onTap: () => Navigator.pushNamed(context, '/register'),
-                                      child: const Text(
-                                        "Sign Up",
-                                        style: TextStyle(
-                                          color: Color(0xFF2E7D32),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              
-                              const SizedBox(height: 24),
                               // Divider
                               Row(
                                 children: [
