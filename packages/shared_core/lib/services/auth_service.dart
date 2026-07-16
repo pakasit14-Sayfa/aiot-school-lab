@@ -106,11 +106,21 @@ class AuthService {
   }
 
   static Future<void> resetPassword(String email) async {
-    throw UnimplementedError(
-      'ยังไม่มี RPC สำหรับ password reset — otp_codes มี purpose password_reset '
-      'อยู่แล้วใน schema แต่ยังไม่มีช่องทางส่งอีเมลจริง (ไม่มี SMTP/edge function) '
-      'ต้องตัดสินใจเรื่อง email provider ก่อน',
-    );
+    await supabase.functions.invoke('request-password-reset', body: {
+      'email': email.trim().toLowerCase(),
+    });
+  }
+
+  static Future<void> confirmPasswordReset({
+    required String email,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    await supabase.rpc('confirm_password_reset', params: {
+      'p_email': email.trim().toLowerCase(),
+      'p_otp_code': otpCode.trim(),
+      'p_new_password': newPassword,
+    });
   }
 
   static Future<List<UserModel>> getAllUsers() async {
