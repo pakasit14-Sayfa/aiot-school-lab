@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../widgets/custom_text_field.dart';
 import '../utils/app_validators.dart';
+import 'accept_invitation_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -291,7 +292,30 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                         ),
                                 ),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 16),
+
+                              // Accept Invitation Link
+                              Center(
+                                child: TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const AcceptInvitationPage(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    'มีรหัสเชิญจากโรงเรียน? สร้างบัญชี',
+                                    style: TextStyle(
+                                      color: Color(0xFF2E7D32),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
                               // Divider
                               Row(
                                 children: [

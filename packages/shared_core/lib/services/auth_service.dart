@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import '../models/invitation_model.dart';
 import 'supabase_config.dart';
 
 UserModel? currentUserModel;
@@ -65,7 +66,10 @@ class AuthService {
       throw Exception('invalid_credentials');
     }
 
-    final row = rows.first as Map<String, dynamic>;
+    return _applySession(rows.first as Map<String, dynamic>);
+  }
+
+  static Future<UserModel?> _applySession(Map<String, dynamic> row) async {
     _sessionToken = row['session_token'] as String;
 
     final prefs = await SharedPreferences.getInstance();
@@ -88,9 +92,9 @@ class AuthService {
   }
 
   // ---------------------------------------------------------------------
-  // ยังไม่เชื่อม Supabase จริง — decision log ห้าม self-signup
-  // (register แบบ public ขัดกับ "ทุกบัญชีเริ่มจากโรงเรียนเท่านั้น") และยังไม่มี
-  // RPC สำหรับ invite flow นี้ ยังเป็น mock เดิมไปก่อน
+  // Public self-signup ไม่อนุญาตตาม Decision Log ของวอลต์ — บัญชีต้องสร้างผ่าน
+  // School Admin/ครูที่เชิญ (ดู createInvitation/acceptInvitation ด้านล่าง)
+  // หรือ parent_binding_codes (ยังไม่ได้ทำ — เป็นคนละ flow)
   // ---------------------------------------------------------------------
 
   static Future<UserModel> register({
@@ -103,6 +107,60 @@ class AuthService {
       'Self-signup ไม่อนุญาตตาม Decision Log ของวอลต์ — บัญชีต้องสร้างผ่าน '
       'School Admin/ครู (user_invitations) หรือ parent_binding_codes เท่านั้น',
     );
+  }
+
+  static Future<String> createInvitation({
+    required String email,
+    required UserRole role,
+    String? schoolId,
+  }) async {
+    final rows = await supabase.rpc('create_staff_invitation', params: {
+      'p_token': _sessionToken,
+      'p_email': email.trim().toLowerCase(),
+      'p_role': role.value,
+      'p_school_id': schoolId,
+    }) as List;
+
+    final row = rows.first as Map<String, dynamic>;
+    return row['invitation_token'] as String;
+  }
+
+  static Future<List<StaffInvitation>> listInvitations({String? schoolId}) async {
+    final rows = await supabase.rpc('list_school_invitations', params: {
+      'p_token': _sessionToken,
+      'p_school_id': schoolId,
+    }) as List;
+
+    return rows
+        .map((row) => StaffInvitation.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> revokeInvitation(String invitationId) async {
+    await supabase.rpc('revoke_staff_invitation', params: {
+      'p_token': _sessionToken,
+      'p_invitation_id': invitationId,
+    });
+  }
+
+  static Future<UserModel?> acceptInvitation({
+    required String invitationToken,
+    required String firstName,
+    required String lastName,
+    required String password,
+  }) async {
+    final rows = await supabase.rpc('accept_staff_invitation', params: {
+      'p_token': invitationToken.trim(),
+      'p_first_name': firstName.trim(),
+      'p_last_name': lastName.trim(),
+      'p_password': password,
+    }) as List;
+
+    if (rows.isEmpty) {
+      throw Exception('invalid_or_expired_invitation');
+    }
+
+    return _applySession(rows.first as Map<String, dynamic>);
   }
 
   static Future<void> resetPassword(String email) async {

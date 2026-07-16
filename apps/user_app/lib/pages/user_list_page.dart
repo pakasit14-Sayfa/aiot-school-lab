@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'invite_staff_page.dart';
 
 class UserListPage extends StatefulWidget {
   const UserListPage({super.key});
@@ -264,6 +265,16 @@ class _UserListPageState extends State<UserListPage> {
       appBar: AppBar(
         title: const Text('จัดการผู้ใช้'),
         actions: [
+          IconButton(
+            tooltip: 'เชิญผู้ใช้ใหม่',
+            icon: const Icon(Icons.person_add_alt),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const InviteStaffPage()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: loadUsers,
