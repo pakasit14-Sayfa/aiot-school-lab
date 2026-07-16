@@ -90,7 +90,7 @@ class AuthService {
   // ---------------------------------------------------------------------
   // ยังไม่เชื่อม Supabase จริง — decision log ห้าม self-signup
   // (register แบบ public ขัดกับ "ทุกบัญชีเริ่มจากโรงเรียนเท่านั้น") และยังไม่มี
-  // RPC สำหรับ invite/reset/admin flows เหล่านี้ ยังเป็น mock เดิมไปก่อน
+  // RPC สำหรับ invite flow นี้ ยังเป็น mock เดิมไปก่อน
   // ---------------------------------------------------------------------
 
   static Future<UserModel> register({
@@ -106,7 +106,11 @@ class AuthService {
   }
 
   static Future<void> resetPassword(String email) async {
-    throw UnimplementedError('ยังไม่มี RPC สำหรับ password reset');
+    throw UnimplementedError(
+      'ยังไม่มี RPC สำหรับ password reset — otp_codes มี purpose password_reset '
+      'อยู่แล้วใน schema แต่ยังไม่มีช่องทางส่งอีเมลจริง (ไม่มี SMTP/edge function) '
+      'ต้องตัดสินใจเรื่อง email provider ก่อน',
+    );
   }
 
   static Future<List<UserModel>> getAllUsers() async {
@@ -117,17 +121,39 @@ class AuthService {
     required String uid,
     required String name,
   }) async {
-    throw UnimplementedError('ยังไม่มี RPC สำหรับ updateProfile');
+    final trimmed = name.trim();
+    final parts = trimmed.split(RegExp(r'\s+'));
+    final firstName = parts.first;
+    final lastName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+    await supabase.rpc('update_user_profile', params: {
+      'p_token': _sessionToken,
+      'p_target_user_id': uid,
+      'p_first_name': firstName,
+      'p_last_name': lastName,
+    });
+
+    if (currentUserModel?.uid == uid) {
+      currentUserModel = currentUserModel!.copyWith(name: trimmed);
+      _authStateController.add(currentUserModel);
+    }
   }
 
   static Future<void> updateRole({
     required String uid,
     required UserRole role,
   }) async {
-    throw UnimplementedError('ยังไม่มี RPC สำหรับ updateRole');
+    await supabase.rpc('update_user_role', params: {
+      'p_token': _sessionToken,
+      'p_target_user_id': uid,
+      'p_new_role': role.value,
+    });
   }
 
   static Future<void> deleteUser(String uid) async {
-    throw UnimplementedError('ยังไม่มี RPC สำหรับ deleteUser');
+    await supabase.rpc('suspend_user', params: {
+      'p_token': _sessionToken,
+      'p_target_user_id': uid,
+    });
   }
 }

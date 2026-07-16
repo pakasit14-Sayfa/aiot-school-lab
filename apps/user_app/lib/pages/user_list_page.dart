@@ -159,8 +159,8 @@ class _UserListPageState extends State<UserListPage> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('ยืนยันการลบ'),
-          content: Text('ต้องการลบผู้ใช้นี้หรือไม่?\n${user.email}'),
+          title: const Text('ยืนยันการระงับผู้ใช้'),
+          content: Text('ต้องการระงับการใช้งานผู้ใช้นี้หรือไม่? (บัญชีจะไม่ถูกลบถาวร)\n${user.email}'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -176,7 +176,7 @@ class _UserListPageState extends State<UserListPage> {
 
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('ลบผู้ใช้เรียบร้อยแล้ว'),
+                    content: Text('ระงับผู้ใช้เรียบร้อยแล้ว'),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -185,7 +185,7 @@ class _UserListPageState extends State<UserListPage> {
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('ลบ'),
+              child: const Text('ระงับ'),
             ),
           ],
         );
@@ -412,7 +412,7 @@ class _UserListPageState extends State<UserListPage> {
                                                 showEditUserDialog(user),
                                           ),
                                           IconButton(
-                                            tooltip: 'ลบ',
+                                            tooltip: 'ระงับผู้ใช้',
                                             icon: const Icon(Icons.delete),
                                             color: Colors.red,
                                             onPressed: isMe
