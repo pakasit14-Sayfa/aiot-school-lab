@@ -278,7 +278,13 @@ class AuthService {
   }
 
   static Future<List<UserModel>> getAllUsers() async {
-    return currentUserModel != null ? [currentUserModel!] : [];
+    final rows = await supabase.rpc('list_school_users', params: {
+      'p_token': _sessionToken,
+    }) as List;
+
+    return rows
+        .map((row) => _userFromRow(row as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<void> updateProfile({
