@@ -12,11 +12,8 @@ class SuperAdminDashboard extends StatelessWidget {
     final name = user?.name ?? 'Super Admin';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('ผู้ดูแลระบบสูงสุด'),
-        backgroundColor: const Color(0xFF212121),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [

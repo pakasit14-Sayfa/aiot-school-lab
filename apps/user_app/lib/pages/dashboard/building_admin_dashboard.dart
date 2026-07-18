@@ -16,11 +16,8 @@ class BuildingAdminDashboard extends StatelessWidget {
     final hasLocation = schoolId.isNotEmpty && user?.building.isNotEmpty == true;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
       appBar: AppBar(
         title: const Text('ควบคุมอาคาร'),
-        backgroundColor: const Color(0xFFE65100),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [

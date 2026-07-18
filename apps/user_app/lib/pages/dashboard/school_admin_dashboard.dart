@@ -11,11 +11,8 @@ class SchoolAdminDashboard extends StatelessWidget {
     final name = currentUserModel?.name ?? 'แอดมิน';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F0FF),
       appBar: AppBar(
         title: const Text('จัดการโรงเรียน'),
-        backgroundColor: const Color(0xFF4527A0),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [

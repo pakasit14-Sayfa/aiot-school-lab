@@ -13,11 +13,8 @@ class TechnicianDashboard extends StatelessWidget {
     final schoolId = user?.schoolId.isNotEmpty == true ? user!.schoolId : '-';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFFF8F0),
       appBar: AppBar(
         title: const Text('ช่างเทคนิค'),
-        backgroundColor: const Color(0xFF00695C),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [

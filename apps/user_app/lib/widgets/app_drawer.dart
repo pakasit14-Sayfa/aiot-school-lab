@@ -53,7 +53,7 @@ class AppDrawer extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.indigo,
+                  color: Color(0xFF2E7D32),
                 ),
               ),
             ),
@@ -72,7 +72,7 @@ class AppDrawer extends StatelessWidget {
             ],
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF1565C0), Color(0xFF42A5F5)],
+                colors: [Color(0xFF2E7D32), Color(0xFF1ABC9C)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

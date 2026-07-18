@@ -11,11 +11,8 @@ class ExecutiveDashboard extends StatelessWidget {
     final name = currentUserModel?.name ?? 'ผู้บริหาร';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FF),
       appBar: AppBar(
         title: const Text('Executive Dashboard'),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [

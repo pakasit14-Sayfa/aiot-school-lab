@@ -19,11 +19,8 @@ class TeacherDashboard extends StatelessWidget {
     final roomLabel = hasLocation ? room : 'ยังไม่กำหนดห้อง';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FF),
       appBar: AppBar(
         title: const Text('ห้องเรียนของฉัน'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [

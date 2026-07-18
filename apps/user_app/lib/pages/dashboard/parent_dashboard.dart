@@ -11,11 +11,8 @@ class ParentDashboard extends StatelessWidget {
     final name = currentUserModel?.name ?? 'ผู้ปกครอง';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEFF9F7),
       appBar: AppBar(
         title: const Text('ติดตามบุตรหลาน'),
-        backgroundColor: const Color(0xFF00695C),
-        foregroundColor: Colors.white,
       ),
       drawer: AppDrawer(
         items: [
