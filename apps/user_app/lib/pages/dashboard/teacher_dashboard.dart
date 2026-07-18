@@ -34,6 +34,24 @@ class TeacherDashboard extends StatelessWidget {
             onTap: (_) {},
           ),
           DrawerItem(
+            icon: Icons.qr_code,
+            title: 'ออกรหัสผูกบัญชีผู้ปกครอง',
+            color: Colors.teal,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const IssueBindingCodePage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.family_restroom,
+            title: 'คำขอผูกบัญชีผู้ปกครอง',
+            color: Colors.teal,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const ParentLinkReviewPage()),
+            ),
+          ),
+          DrawerItem(
             icon: Icons.lightbulb,
             title: 'ควบคุมไฟห้องเรียน',
             color: Colors.amber,

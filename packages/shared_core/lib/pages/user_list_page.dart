@@ -223,7 +223,8 @@ class _UserListPageState extends State<UserListPage> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
-    if (currentUserModel?.role != UserRole.schoolAdmin) {
+    if (currentUserModel?.role != UserRole.schoolAdmin &&
+        currentUserModel?.role != UserRole.superAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('ไม่มีสิทธิ์เข้าถึง')),
         body: Center(
