@@ -36,7 +36,7 @@ dependencies:
     path: ../../packages/shared_core
   shared_preferences: ^2.5.3
   google_fonts: ^6.1.0
-  font_awesome_flutter: ^10.7.0
+  font_awesome_flutter: ^11.0.0
   auto_size_text: ^3.0.0
   cached_network_image: ^3.4.1
   provider: ^6.1.5
