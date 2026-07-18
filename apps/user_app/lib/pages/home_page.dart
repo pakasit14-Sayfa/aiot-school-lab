@@ -1,9 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'student/course_list_page.dart';
+import 'notifications_page.dart';
+import 'coming_soon_page.dart';
+import 'aiot_dashboard_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  int unreadCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUnreadCount();
+  }
+
+  Future<void> loadUnreadCount() async {
+    final notifications = await AuthService.listMyNotifications();
+    if (mounted) {
+      setState(() => unreadCount = notifications.where((n) => n.isUnread).length);
+    }
+  }
+
+  Future<void> openNotifications(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsPage()),
+    );
+    loadUnreadCount();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +45,7 @@ class HomePage extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F7F6), // สีพื้นหลังโทนสว่างดูสะอาดตา
       body: CustomScrollView(
         slivers: [
-          _buildSliverAppBar(name),
+          _buildSliverAppBar(context, name),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -54,7 +85,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildSliverAppBar(String name) {
+  Widget _buildSliverAppBar(BuildContext context, String name) {
     return SliverAppBar(
       expandedHeight: 220.0,
       floating: false,
@@ -126,13 +157,12 @@ class HomePage extends StatelessWidget {
           child: CircleAvatar(
             backgroundColor: Colors.white.withValues(alpha: 0.2),
             child: IconButton(
-              icon: const Badge(
-                label: Text('3'),
-                child: Icon(Icons.notifications, color: Colors.white),
+              icon: Badge(
+                isLabelVisible: unreadCount > 0,
+                label: Text('$unreadCount'),
+                child: const Icon(Icons.notifications, color: Colors.white),
               ),
-              onPressed: () {
-                // TODO: Navigate to notifications
-              },
+              onPressed: () => openNotifications(context),
             ),
           ),
         ),
@@ -169,7 +199,16 @@ class HomePage extends StatelessWidget {
           icon: Icons.bar_chart_rounded,
           color: const Color(0xFFF39C12),
           onTap: () {
-            // TODO: Navigate to grades
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ComingSoonPage(
+                  title: 'คะแนนของฉัน',
+                  icon: Icons.bar_chart_rounded,
+                  color: Color(0xFFF39C12),
+                ),
+              ),
+            );
           },
         ),
         _buildShortcutCard(
@@ -178,7 +217,10 @@ class HomePage extends StatelessWidget {
           icon: Icons.dashboard_rounded,
           color: const Color(0xFF1ABC9C),
           onTap: () {
-            // TODO: Navigate to AIoT
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AiotDashboardPage()),
+            );
           },
         ),
         _buildShortcutCard(
@@ -187,7 +229,16 @@ class HomePage extends StatelessWidget {
           icon: Icons.groups_rounded,
           color: const Color(0xFF9B59B6),
           onTap: () {
-            // TODO: Navigate to group
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ComingSoonPage(
+                  title: 'กลุ่มของฉัน',
+                  icon: Icons.groups_rounded,
+                  color: Color(0xFF9B59B6),
+                ),
+              ),
+            );
           },
         ),
       ],

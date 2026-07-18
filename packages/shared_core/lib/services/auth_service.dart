@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../models/invitation_model.dart';
 import '../models/parent_binding_model.dart';
+import '../models/notification_model.dart';
 import 'supabase_config.dart';
 
 UserModel? currentUserModel;
@@ -324,6 +325,23 @@ class AuthService {
     await supabase.rpc('suspend_user', params: {
       'p_token': _sessionToken,
       'p_target_user_id': uid,
+    });
+  }
+
+  static Future<List<AppNotification>> listMyNotifications() async {
+    final rows = await supabase.rpc('list_my_notifications', params: {
+      'p_token': _sessionToken,
+    }) as List;
+
+    return rows
+        .map((row) => AppNotification.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> markNotificationRead(String notificationId) async {
+    await supabase.rpc('mark_notification_read', params: {
+      'p_token': _sessionToken,
+      'p_notification_id': notificationId,
     });
   }
 }
