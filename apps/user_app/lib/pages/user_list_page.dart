@@ -3,6 +3,7 @@ import 'package:shared_core/shared_core.dart';
 import 'invite_staff_page.dart';
 import 'issue_binding_code_page.dart';
 import 'parent_link_review_page.dart';
+import 'role_router.dart';
 
 class UserListPage extends StatefulWidget {
   const UserListPage({super.key});
@@ -245,8 +246,10 @@ class _UserListPageState extends State<UserListPage> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, '/home'),
+                  onPressed: () => Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RoleRouter()),
+                  ),
                   icon: const Icon(Icons.home),
                   label: const Text('กลับหน้า Home'),
                 ),

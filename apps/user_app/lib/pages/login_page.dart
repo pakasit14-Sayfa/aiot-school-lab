@@ -5,6 +5,7 @@ import '../widgets/custom_text_field.dart';
 import '../utils/app_validators.dart';
 import 'accept_invitation_page.dart';
 import 'redeem_binding_code_page.dart';
+import 'role_router.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -52,7 +53,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             backgroundColor: const Color(0xFF2E7D32),
           ),
         );
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const RoleRouter()),
+        );
       }
     } catch (e) {
       if (!mounted) return;
