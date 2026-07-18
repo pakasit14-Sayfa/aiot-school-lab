@@ -1,54 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:shared_core/shared_core.dart';
+import '../models/user_model.dart';
+import '../models/parent_binding_model.dart';
+import '../services/auth_service.dart';
 
-class InviteStaffPage extends StatefulWidget {
-  const InviteStaffPage({super.key});
+class IssueBindingCodePage extends StatefulWidget {
+  const IssueBindingCodePage({super.key});
 
   @override
-  State<InviteStaffPage> createState() => _InviteStaffPageState();
+  State<IssueBindingCodePage> createState() => _IssueBindingCodePageState();
 }
 
-class _InviteStaffPageState extends State<InviteStaffPage> {
+class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-  final TextEditingController emailController = TextEditingController();
-  UserRole selectedRole = UserRole.teacher;
+  final TextEditingController studentCodeController = TextEditingController();
   bool isSending = false;
-  List<StaffInvitation> invitations = [];
+  List<BindingCode> codes = [];
   bool isLoadingList = true;
 
   @override
   void initState() {
     super.initState();
-    loadInvitations();
+    loadCodes();
   }
 
-  Future<void> loadInvitations() async {
+  Future<void> loadCodes() async {
     setState(() => isLoadingList = true);
     try {
-      final result = await AuthService.listInvitations();
-      if (mounted) setState(() => invitations = result);
+      final result = await AuthService.listBindingCodes();
+      if (mounted) setState(() => codes = result);
     } finally {
       if (mounted) setState(() => isLoadingList = false);
     }
   }
 
-  void showTokenDialog(String token) {
+  void showCodeDialog(Map<String, dynamic> result) {
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('เชิญสำเร็จ'),
+          title: const Text('ออกรหัสสำเร็จ'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('ส่งรหัสเชิญนี้ให้ผู้ถูกเชิญ (มีอายุ 7 วัน):'),
+              Text('สำหรับนักเรียน: ${result['studentName']}'),
               const SizedBox(height: 12),
+              const Text('ส่งรหัสนี้ให้ผู้ปกครอง (มีอายุ 14 วัน):'),
+              const SizedBox(height: 8),
               SelectableText(
-                token,
+                result['code'] as String,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontFamily: 'monospace',
+                  fontSize: 18,
                 ),
               ),
             ],
@@ -64,22 +68,21 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
     );
   }
 
-  void sendInvite() async {
+  void issueCode() async {
     if (!formKey.currentState!.validate()) return;
 
     setState(() => isSending = true);
 
     try {
-      final token = await AuthService.createInvitation(
-        email: emailController.text.trim(),
-        role: selectedRole,
+      final result = await AuthService.createBindingCode(
+        studentCode: studentCodeController.text.trim(),
       );
 
-      emailController.clear();
-      await loadInvitations();
+      studentCodeController.clear();
+      await loadCodes();
 
       if (!mounted) return;
-      showTokenDialog(token);
+      showCodeDialog(result);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -90,10 +93,10 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
     }
   }
 
-  void revokeInvite(StaffInvitation invitation) async {
+  void revokeCode(BindingCode code) async {
     try {
-      await AuthService.revokeInvitation(invitation.id);
-      await loadInvitations();
+      await AuthService.revokeBindingCode(code.id);
+      await loadCodes();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -104,22 +107,23 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
 
   @override
   void dispose() {
-    emailController.dispose();
+    studentCodeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (currentUserModel?.role != UserRole.schoolAdmin &&
+        currentUserModel?.role != UserRole.teacher &&
         currentUserModel?.role != UserRole.superAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('ไม่มีสิทธิ์เข้าถึง')),
-        body: const Center(child: Text('หน้านี้สำหรับแอดมินเท่านั้น')),
+        body: const Center(child: Text('หน้านี้สำหรับแอดมิน/ครูเท่านั้น')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('เชิญผู้ใช้ใหม่')),
+      appBar: AppBar(title: const Text('ออกรหัสผูกบัญชีผู้ปกครอง')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -130,54 +134,33 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'เชิญด้วยอีเมล',
+                    'ออกรหัสสำหรับนักเรียน',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: studentCodeController,
                     decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                    validator: (value) {
-                      final v = value?.trim() ?? '';
-                      if (v.isEmpty) return 'กรุณากรอกอีเมล';
-                      if (!v.contains('@')) return 'รูปแบบอีเมลไม่ถูกต้อง';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<UserRole>(
-                    initialValue: selectedRole,
-                    decoration: const InputDecoration(
-                      labelText: 'บทบาท',
+                      labelText: 'รหัสนักเรียน (Student Code)',
                       prefixIcon: Icon(Icons.badge),
                     ),
-                    items: UserRole.values
-                        .map((role) => DropdownMenuItem(
-                              value: role,
-                              child: Text(role.label),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) setState(() => selectedRole = value);
-                    },
+                    validator: (value) => (value == null || value.trim().isEmpty)
+                        ? 'กรุณากรอกรหัสนักเรียน'
+                        : null,
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: isSending ? null : sendInvite,
+                      onPressed: isSending ? null : issueCode,
                       icon: isSending
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.send),
-                      label: Text(isSending ? 'กำลังส่ง...' : 'สร้างคำเชิญ'),
+                          : const Icon(Icons.qr_code),
+                      label: Text(isSending ? 'กำลังออกรหัส...' : 'ออกรหัส'),
                     ),
                   ),
                 ],
@@ -188,35 +171,35 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'คำเชิญที่ส่งไปแล้ว',
+                  'รหัสที่ออกแล้ว',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: loadInvitations,
+                  onPressed: loadCodes,
                 ),
               ],
             ),
             const SizedBox(height: 8),
             if (isLoadingList)
               const Center(child: CircularProgressIndicator())
-            else if (invitations.isEmpty)
-              const Text('ยังไม่มีคำเชิญ', style: TextStyle(color: Colors.grey))
+            else if (codes.isEmpty)
+              const Text('ยังไม่มีรหัสที่ออก', style: TextStyle(color: Colors.grey))
             else
-              ...invitations.map((invitation) {
+              ...codes.map((code) {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
-                    title: Text(invitation.email),
+                    title: Text(code.studentName),
                     subtitle: Text(
-                      '${invitation.role.label} • ${invitation.status}'
-                      '${invitation.isPending ? " • หมดอายุ ${invitation.expiresAt.toLocal()}" : ""}',
+                      '${code.codeHint} • ${code.status}'
+                      '${code.isIssued ? " • หมดอายุ ${code.expiresAt.toLocal()}" : ""}',
                     ),
-                    trailing: invitation.isPending
+                    trailing: code.isIssued
                         ? IconButton(
-                            tooltip: 'ยกเลิกคำเชิญ',
+                            tooltip: 'ยกเลิกรหัส',
                             icon: const Icon(Icons.cancel, color: Colors.red),
-                            onPressed: () => revokeInvite(invitation),
+                            onPressed: () => revokeCode(code),
                           )
                         : null,
                   ),

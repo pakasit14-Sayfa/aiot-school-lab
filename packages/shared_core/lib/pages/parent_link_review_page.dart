@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:shared_core/shared_core.dart';
+import '../models/user_model.dart';
+import '../models/parent_binding_model.dart';
+import '../services/auth_service.dart';
 
 class ParentLinkReviewPage extends StatefulWidget {
   const ParentLinkReviewPage({super.key});

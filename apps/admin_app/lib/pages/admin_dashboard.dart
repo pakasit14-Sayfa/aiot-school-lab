@@ -51,7 +51,13 @@ class AdminDashboard extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.people),
               title: const Text('จัดการผู้ใช้'),
-              onTap: () {},
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UserListPage()),
+                );
+              },
             ),
             ListTile(
               leading: const Icon(Icons.book),
