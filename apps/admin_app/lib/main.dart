@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import 'pages/admin_login_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseConfig.initialize();
+  await AuthService.initialize();
   runApp(const AdminApp());
 }
 

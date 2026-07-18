@@ -16,30 +16,38 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
 
   Future<void> _login() async {
     setState(() => _isLoading = true);
-    
-    // ใช้ Mock Auth Service จาก shared_core
-    final success = await AuthService.signIn(
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
 
-    setState(() => _isLoading = false);
+    try {
+      final success = await AuthService.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
 
-    if (success != null && mounted) {
-      if (currentUserModel?.role == UserRole.schoolAdmin) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AdminDashboard()),
-        );
+      if (!mounted) return;
+
+      if (success != null) {
+        if (currentUserModel?.role == UserRole.schoolAdmin) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const AdminDashboard()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('คุณไม่มีสิทธิ์เข้าถึงระบบ Admin', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+          );
+          AuthService.signOut();
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('คุณไม่มีสิทธิ์เข้าถึงระบบ Admin', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+          const SnackBar(content: Text('อีเมลหรือรหัสผ่านไม่ถูกต้อง', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
         );
-        AuthService.signOut();
       }
-    } else if (mounted) {
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('อีเมลหรือรหัสผ่านไม่ถูกต้อง', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.red),
       );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
