@@ -30,6 +30,11 @@ begin
 
   v_password_hash := crypt('Test1234!', gen_salt('bf'));
 
+  -- 20260720000000_rotate_default_credentials.sql rotates the bootstrap
+  -- admin's default password away; restore the known dev password here so
+  -- local `supabase db reset` still leaves a usable super_admin login.
+  update users set password_hash = v_password_hash where id = v_super_admin_id;
+
   select id into v_package_id from packages where name = 'ทดสอบ Package';
   if v_package_id is null then
     insert into packages (name, license_type, max_users)
