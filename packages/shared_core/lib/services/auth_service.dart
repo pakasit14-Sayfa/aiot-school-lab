@@ -14,6 +14,10 @@ class AuthService {
 
   static Stream<UserModel?> get authStateChanges => _authStateController.stream;
 
+  /// Current session token, for services that call token-authenticated RPCs
+  /// (e.g. RealtimeService → sensor_latest). Null when signed out.
+  static String? get sessionToken => _sessionToken;
+
   static UserModel _userFromRow(Map<String, dynamic> row) {
     return UserModel(
       uid: row['user_id'] as String,

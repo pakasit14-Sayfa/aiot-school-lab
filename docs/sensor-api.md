@@ -35,7 +35,8 @@ Body:
 ```
 
 - `metric` ต้องเป็นค่าใดค่าหนึ่งของ:
-  `pm25`, `aqi`, `temperature`, `humidity`, `light_lux`, `energy_kwh`, `power_w`
+  `pm25`, `aqi`, `temperature`, `humidity`, `light_lux`, `energy_kwh`, `power_w`,
+  `water_flow_lmin` (อัตราการไหล ลิตร/นาที), `water_volume_l` (ปริมาณน้ำสะสม ลิตร)
 - `value` เป็นตัวเลข (จำเป็น)
 - `ts` เป็น ISO 8601 UTC (ไม่ส่ง = ใช้เวลาที่เซิร์ฟเวอร์รับ)
 - ส่งได้สูงสุด **500 ค่าต่อครั้ง** — แนะนำ batch สะสมแล้วส่งทุก 10–60 วินาที
