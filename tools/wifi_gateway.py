@@ -4,7 +4,7 @@ WiFi Gateway — รับ JSON จากบอร์ดเซนเซอร์
 แล้วส่งต่อเข้า AIoT School Lab (Supabase sensor_ingest)
 
 วิธีใช้ (บนคอมที่อยู่ WiFi วงเดียวกับบอร์ด):
-  1. แก้ค่าในส่วน CONFIG ด้านล่าง (API_KEY, DEVICE_TOKEN)
+  1. แก้ค่าในส่วน CONFIG ด้านล่าง (API_KEY, DEVICE_ID, DEVICE_TOKEN)
   2. รัน:  python3 wifi_gateway.py
   3. ให้บอร์ดยิง  POST http://<ip คอมเครื่องนี้>:8000/  เป็น JSON เช่น
        {"temp": 28.4, "hum": 61.2, "pm25": 12.0}
@@ -16,7 +16,10 @@ WiFi Gateway — รับ JSON จากบอร์ดเซนเซอร์
 ต้องใช้ Python 3.8+ เท่านั้น ไม่ต้องติดตั้งไลบรารีเพิ่ม
 """
 
+import hashlib
+import hmac
 import json
+import secrets
 import threading
 import time
 import urllib.request
@@ -29,6 +32,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 SUPABASE_URL = "https://smqoknnftgjyhrnzugar.supabase.co"
 API_KEY = "ใส่ publishable key ที่นี่"
 DEVICE_TOKEN = "ใส่ device token (dev_...) ที่นี่"
+DEVICE_ID = "ใส่ device UUID ที่นี่"
 
 LISTEN_PORT = 8000        # พอร์ตที่บอร์ดยิงเข้ามา
 SEND_INTERVAL = 15        # ส่งขึ้นเซิร์ฟเวอร์ทุกกี่วินาที
@@ -117,11 +121,31 @@ def send_batch() -> None:
         batch, remaining = queue[:500], queue[500:]  # เพดานฝั่งเซิร์ฟเวอร์ 500/ครั้ง
         queue[:] = remaining
 
-    body = json.dumps({"p_device_token": DEVICE_TOKEN, "p_readings": batch})
+    body = json.dumps(
+        {"readings": batch}, ensure_ascii=False, separators=(",", ":")
+    ).encode("utf-8")
+    timestamp = str(int(time.time()))
+    nonce = secrets.token_urlsafe(24)
+    path = "/functions/v1/gateway-sensor-ingest"
+    body_hash = hashlib.sha256(body).hexdigest()
+    signing_key = hashlib.sha256(DEVICE_TOKEN.encode("utf-8")).hexdigest()
+    signed_text = "\n".join(["POST", path, timestamp, nonce, body_hash])
+    signature = hmac.new(
+        signing_key.encode("ascii"),
+        signed_text.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
     req = urllib.request.Request(
-        f"{SUPABASE_URL}/rest/v1/rpc/sensor_ingest",
-        data=body.encode(),
-        headers={"apikey": API_KEY, "Content-Type": "application/json"},
+        f"{SUPABASE_URL}{path}",
+        data=body,
+        headers={
+            "apikey": API_KEY,
+            "Content-Type": "application/json",
+            "X-Gateway-Id": DEVICE_ID,
+            "X-Timestamp": timestamp,
+            "X-Nonce": nonce,
+            "X-Gateway-Signature": signature,
+        },
         method="POST",
     )
     try:
@@ -150,8 +174,11 @@ def sender_loop() -> None:
 
 
 def main() -> None:
-    if "ใส่" in API_KEY or "ใส่" in DEVICE_TOKEN:
-        log("ยังไม่ได้ตั้งค่า API_KEY / DEVICE_TOKEN — แก้ในส่วน CONFIG ก่อนรัน")
+    if "ใส่" in API_KEY or "ใส่" in DEVICE_TOKEN or "ใส่" in DEVICE_ID:
+        log(
+            "ยังไม่ได้ตั้งค่า API_KEY / DEVICE_ID / DEVICE_TOKEN — "
+            "แก้ในส่วน CONFIG ก่อนรัน"
+        )
         return
     threading.Thread(target=sender_loop, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", LISTEN_PORT), BoardHandler)
