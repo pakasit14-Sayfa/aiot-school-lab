@@ -11,9 +11,7 @@ class ParentDashboard extends StatelessWidget {
     final name = currentUserModel?.name ?? 'ผู้ปกครอง';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ติดตามบุตรหลาน'),
-      ),
+      appBar: AppBar(title: const Text('ติดตามบุตรหลาน')),
       drawer: AppDrawer(
         items: [
           DrawerItem(
@@ -37,8 +35,11 @@ class ParentDashboard extends StatelessWidget {
           DrawerItem(
             icon: Icons.shield,
             title: 'จัดการสิทธิ์ PDPA',
-            color: Colors.grey,
-            onTap: (_) {},
+            color: Colors.teal,
+            onTap: (context) => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ParentConsentPage()),
+            ),
           ),
         ],
       ),
@@ -87,11 +88,19 @@ class ParentDashboard extends StatelessWidget {
               color: Colors.blue,
             ),
 
-            const ComingSoonCard(
-              icon: Icons.shield,
-              title: 'จัดการสิทธิ์ PDPA',
-              phase: 'Phase 8',
-              color: Colors.grey,
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.shield, color: Colors.teal),
+                title: const Text('จัดการ Consent'),
+                subtitle: const Text(
+                  'ดู policy version ให้หรือถอน Consent พร้อมหลักฐาน',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ParentConsentPage()),
+                ),
+              ),
             ),
 
             const ComingSoonCard(

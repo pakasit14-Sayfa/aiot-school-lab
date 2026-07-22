@@ -21,22 +21,42 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
+  final TextEditingController otpController = TextEditingController();
 
   bool isPasswordHidden = true;
   bool isConfirmPasswordHidden = true;
   bool isLoading = false;
+  String? verificationToken;
 
-  void redeem() async {
+  void submit() async {
     if (!formKey.currentState!.validate()) return;
 
     setState(() => isLoading = true);
 
     try {
-      await AuthService.redeemBindingCode(
-        code: codeController.text.trim(),
+      if (verificationToken == null) {
+        final token = await AuthService.requestParentBindingOtp(
+          code: codeController.text.trim(),
+          email: emailController.text.trim(),
+        );
+
+        if (!mounted) return;
+        setState(() => verificationToken = token);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('หากข้อมูลถูกต้อง ระบบได้ส่ง OTP ไปยังอีเมลแล้ว'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        return;
+      }
+
+      await AuthService.confirmParentBinding(
+        verificationToken: verificationToken!,
+        otpCode: otpController.text.trim(),
         relationship: relationshipController.text.trim(),
-        email: emailController.text.trim(),
         firstName: firstNameController.text.trim(),
         lastName: lastNameController.text.trim(),
         password: passwordController.text.trim(),
@@ -51,12 +71,16 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
         ),
       );
 
-      Navigator.popUntil(context, (route) => route.isFirst);
+      Navigator.pop(context);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('รหัสไม่ถูกต้อง หมดอายุ ถูกใช้ไปแล้ว หรือรหัสผ่านไม่ตรงกับบัญชีเดิม'),
+        SnackBar(
+          content: Text(
+            verificationToken == null
+                ? 'ไม่สามารถส่งรหัสยืนยันได้ กรุณาลองใหม่ภายหลัง'
+                : 'OTP ไม่ถูกต้อง หมดอายุ หรือข้อมูลบัญชีไม่ตรงกัน',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -74,6 +98,7 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
     lastNameController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    otpController.dispose();
     super.dispose();
   }
 
@@ -90,7 +115,8 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
               const AuthHeader(
                 icon: Icons.family_restroom,
                 title: 'มีรหัสผูกบัญชีจากโรงเรียน?',
-                subtitle: 'กรอกรหัสที่ได้รับจากโรงเรียน พร้อมข้อมูลของคุณ '
+                subtitle:
+                    'กรอกรหัสที่ได้รับจากโรงเรียน พร้อมข้อมูลของคุณ '
                     'เพื่อผูกบัญชีกับบุตรหลาน (ต้องรอโรงเรียนอนุมัติก่อนใช้งานได้เต็มรูปแบบ)',
               ),
 
@@ -107,6 +133,23 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
               ),
 
               const SizedBox(height: 16),
+
+              if (verificationToken != null) ...[
+                CustomTextField(
+                  controller: otpController,
+                  labelText: 'รหัส OTP ทางอีเมล',
+                  hintText: 'กรอกรหัสตัวเลข 6 หลัก',
+                  prefixIcon: Icons.mark_email_read_outlined,
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (verificationToken == null) return null;
+                    return RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
+                        ? null
+                        : 'กรุณากรอก OTP 6 หลัก';
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
 
               CustomTextField(
                 controller: relationshipController,
@@ -154,7 +197,8 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
               CustomTextField(
                 controller: passwordController,
                 labelText: 'รหัสผ่าน',
-                hintText: 'ตั้งรหัสผ่าน (หรือกรอกรหัสผ่านเดิมถ้ามีบัญชีอยู่แล้ว)',
+                hintText:
+                    'ตั้งรหัสผ่าน (หรือกรอกรหัสผ่านเดิมถ้ามีบัญชีอยู่แล้ว)',
                 prefixIcon: Icons.lock,
                 obscureText: isPasswordHidden,
                 suffixIcon: IconButton(
@@ -183,8 +227,9 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
                         : Icons.visibility,
                   ),
                   onPressed: () {
-                    setState(() => isConfirmPasswordHidden =
-                        !isConfirmPasswordHidden);
+                    setState(
+                      () => isConfirmPasswordHidden = !isConfirmPasswordHidden,
+                    );
                   },
                 ),
                 validator: (value) => AppValidators.confirmPassword(
@@ -198,7 +243,7 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: isLoading ? null : redeem,
+                  onPressed: isLoading ? null : submit,
                   icon: isLoading
                       ? const SizedBox(
                           width: 20,
@@ -206,7 +251,13 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check_circle_outline),
-                  label: Text(isLoading ? 'กำลังส่งคำขอ...' : 'ส่งคำขอผูกบัญชี'),
+                  label: Text(
+                    isLoading
+                        ? 'กำลังดำเนินการ...'
+                        : verificationToken == null
+                        ? 'ส่ง OTP ทางอีเมล'
+                        : 'ยืนยัน OTP และส่งคำขอ',
+                  ),
                 ),
               ),
             ],

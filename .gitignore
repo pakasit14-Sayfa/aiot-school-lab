@@ -7,3 +7,4 @@ build/
 node_modules/
 บัญชีทดสอบระบบ.md
 env.json
+supabase/functions/.env

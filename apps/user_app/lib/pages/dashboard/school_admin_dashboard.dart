@@ -11,9 +11,7 @@ class SchoolAdminDashboard extends StatelessWidget {
     final name = currentUserModel?.name ?? 'แอดมิน';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('จัดการโรงเรียน'),
-      ),
+      appBar: AppBar(title: const Text('จัดการโรงเรียน')),
       drawer: AppDrawer(
         items: [
           DrawerItem(
@@ -27,6 +25,15 @@ class SchoolAdminDashboard extends StatelessWidget {
             title: 'จัดการผู้ใช้',
             color: Colors.purple,
             onTap: (ctx) => Navigator.pushNamed(ctx, '/users'),
+          ),
+          DrawerItem(
+            icon: Icons.policy,
+            title: 'Consent Policy',
+            color: Colors.teal,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const ConsentPolicyAdminPage()),
+            ),
           ),
           DrawerItem(
             icon: Icons.videocam,
@@ -70,6 +77,20 @@ class SchoolAdminDashboard extends StatelessWidget {
               value: 'แอดมินโรงเรียน',
               color: Colors.purple,
               subtitle: 'เข้าถึงได้ทุกระบบ',
+            ),
+
+            InfoCard(
+              icon: Icons.policy,
+              title: 'Consent Policy',
+              value: 'จัดการ Version',
+              color: Colors.teal,
+              subtitle: 'เผยแพร่และยุติ policy พร้อม Audit Log',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ConsentPolicyAdminPage(),
+                ),
+              ),
             ),
 
             InfoCard(

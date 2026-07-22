@@ -14,14 +14,15 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   bool isPasswordHidden = true;
   bool isLoading = false;
-  
+
   late AnimationController _floatingController;
 
   @override
@@ -39,12 +40,28 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     setState(() => isLoading = true);
 
     try {
-      final user = await AuthService.signIn(
+      final result = await AuthService.signIn(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
       if (!mounted) return;
+
+      UserModel? user = result.user;
+      final challenge = result.challenge;
+      if (challenge != null) {
+        user = await Navigator.of(context).push<UserModel>(
+          MaterialPageRoute(
+            builder: (otpContext) => LoginOtpPage(
+              challenge: challenge,
+              onVerified: (verifiedUser) {
+                Navigator.of(otpContext).pop(verifiedUser);
+              },
+            ),
+          ),
+        );
+        if (!mounted) return;
+      }
 
       if (user != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -61,7 +78,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -89,12 +109,15 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
               fit: BoxFit.cover,
             ),
           ),
-          
+
           // Form Content
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 20,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -118,7 +141,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                             animation: _floatingController,
                             builder: (context, child) {
                               return Transform.translate(
-                                offset: Offset(0, 10 * _floatingController.value),
+                                offset: Offset(
+                                  0,
+                                  10 * _floatingController.value,
+                                ),
                                 child: child,
                               );
                             },
@@ -144,7 +170,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           ),
                           const SizedBox(height: 12),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(20),
@@ -163,7 +192,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       ),
                     ),
                     const SizedBox(height: 32),
-                    
+
                     // Card with slide-up and fade-in animation
                     TweenAnimationBuilder<double>(
                       tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -172,10 +201,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                       builder: (context, value, child) {
                         return Transform.translate(
                           offset: Offset(0, 50 * (1 - value)),
-                          child: Opacity(
-                            opacity: value,
-                            child: child,
-                          ),
+                          child: Opacity(opacity: value, child: child),
                         );
                       },
                       child: Container(
@@ -214,7 +240,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              
+
                               CustomTextField(
                                 controller: emailController,
                                 labelText: '',
@@ -224,7 +250,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                 validator: AppValidators.email,
                               ),
                               const SizedBox(height: 16),
-                              
+
                               CustomTextField(
                                 controller: passwordController,
                                 labelText: '',
@@ -239,31 +265,42 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     color: Colors.grey,
                                   ),
                                   onPressed: () {
-                                    setState(() => isPasswordHidden = !isPasswordHidden);
+                                    setState(
+                                      () =>
+                                          isPasswordHidden = !isPasswordHidden,
+                                    );
                                   },
                                 ),
                                 validator: AppValidators.password,
                               ),
-                              
+
                               // Forgot Password Link
                               Align(
                                 alignment: Alignment.centerRight,
                                 child: TextButton(
                                   onPressed: () {
-                                    Navigator.pushNamed(context, '/forgot-password');
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/forgot-password',
+                                    );
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: const Color(0xFF2E7D32),
-                                    padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 0,
+                                      vertical: 8,
+                                    ),
                                   ),
                                   child: const Text(
                                     'Forgot Password?',
-                                    style: TextStyle(fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 16),
-                              
+
                               // Login Button
                               SizedBox(
                                 width: double.infinity,
@@ -272,8 +309,12 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     backgroundColor: const Color(0xFF2E7D32),
                                     foregroundColor: Colors.white,
                                     elevation: 5,
-                                    shadowColor: const Color(0xFF2E7D32).withValues(alpha: 0.5),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shadowColor: const Color(
+                                      0xFF2E7D32,
+                                    ).withValues(alpha: 0.5),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                     ),
@@ -306,7 +347,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const AcceptInvitationPage(),
+                                        builder: (_) =>
+                                            const AcceptInvitationPage(),
                                       ),
                                     );
                                   },
@@ -327,7 +369,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => const RedeemBindingCodePage(),
+                                        builder: (_) =>
+                                            const RedeemBindingCodePage(),
                                       ),
                                     );
                                   },
@@ -345,16 +388,28 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                               // Divider
                               Row(
                                 children: [
-                                  Expanded(child: Divider(color: Colors.grey.shade300)),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 16),
-                                    child: Text('or login with', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  Expanded(
+                                    child: Divider(color: Colors.grey.shade300),
                                   ),
-                                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: Text(
+                                      'or login with',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Divider(color: Colors.grey.shade300),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 24),
-                              
+
                               // Social Buttons
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -362,19 +417,31 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.g_mobiledata, size: 32, color: Colors.red),
+                                    child: const Icon(
+                                      Icons.g_mobiledata,
+                                      size: 32,
+                                      color: Colors.red,
+                                    ),
                                   ),
                                   const SizedBox(width: 16),
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
+                                      border: Border.all(
+                                        color: Colors.grey.shade300,
+                                      ),
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.apple, size: 32, color: Colors.black),
+                                    child: const Icon(
+                                      Icons.apple,
+                                      size: 32,
+                                      color: Colors.black,
+                                    ),
                                   ),
                                 ],
                               ),

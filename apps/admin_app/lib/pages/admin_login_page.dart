@@ -18,33 +18,67 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      final success = await AuthService.signIn(
+      final result = await AuthService.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
       if (!mounted) return;
 
-      if (success != null) {
+      UserModel? user = result.user;
+      final challenge = result.challenge;
+      if (challenge != null) {
+        user = await Navigator.of(context).push<UserModel>(
+          MaterialPageRoute(
+            builder: (otpContext) => LoginOtpPage(
+              challenge: challenge,
+              onVerified: (verifiedUser) {
+                Navigator.of(otpContext).pop(verifiedUser);
+              },
+            ),
+          ),
+        );
+        if (!mounted) return;
+      }
+
+      if (user != null) {
         if (currentUserModel?.role == UserRole.schoolAdmin) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const AdminDashboard()),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('คุณไม่มีสิทธิ์เข้าถึงระบบ Admin', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text(
+                'คุณไม่มีสิทธิ์เข้าถึงระบบ Admin',
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Colors.red,
+            ),
           );
           AuthService.signOut();
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('อีเมลหรือรหัสผ่านไม่ถูกต้อง', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text(
+              'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
+              style: TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e', style: const TextStyle(color: Colors.white)), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(
+            'เกิดข้อผิดพลาด: $e',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -60,25 +94,42 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
           constraints: const BoxConstraints(maxWidth: 400),
           child: Card(
             elevation: 8,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.admin_panel_settings, size: 64, color: Colors.blue),
+                  const Icon(
+                    Icons.admin_panel_settings,
+                    size: 64,
+                    color: Colors.blue,
+                  ),
                   const SizedBox(height: 16),
-                  const Text('Admin Portal', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Admin Portal',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 32),
                   TextField(
                     controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'อีเมลแอดมิน', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email)),
+                    decoration: const InputDecoration(
+                      labelText: 'อีเมลแอดมิน',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'รหัสผ่าน', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock)),
+                    decoration: const InputDecoration(
+                      labelText: 'รหัสผ่าน',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.lock),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
@@ -89,9 +140,16 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                      child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('เข้าสู่ระบบ', style: TextStyle(fontSize: 16)),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              'เข้าสู่ระบบ',
+                              style: TextStyle(fontSize: 16),
+                            ),
                     ),
                   ),
                 ],

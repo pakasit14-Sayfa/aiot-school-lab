@@ -92,9 +92,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('โปรไฟล์', style: TextStyle(fontWeight: FontWeight.bold))),
+        appBar: AppBar(
+          title: const Text(
+            'โปรไฟล์',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
         body: const Center(
-          child: Text('ยังไม่มีผู้ใช้ Login', style: TextStyle(fontSize: 18, color: Colors.grey)),
+          child: Text(
+            'ยังไม่มีผู้ใช้ Login',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
         ),
       );
     }
@@ -132,15 +140,21 @@ class _ProfilePageState extends State<ProfilePage> {
                               color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 10,
                               offset: const Offset(0, 5),
-                            )
+                            ),
                           ],
                         ),
                         child: CircleAvatar(
                           radius: 50,
                           backgroundColor: primaryColor.withValues(alpha: 0.1),
                           child: Text(
-                            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                            style: TextStyle(fontSize: 40, color: primaryColor, fontWeight: FontWeight.bold),
+                            user.name.isNotEmpty
+                                ? user.name[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: 40,
+                              color: primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -148,7 +162,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
               ),
-              title: const Text('โปรไฟล์ของฉัน', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              title: const Text(
+                'โปรไฟล์ของฉัน',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               centerTitle: true,
             ),
             backgroundColor: primaryColor,
@@ -163,29 +183,53 @@ class _ProfilePageState extends State<ProfilePage> {
                     children: [
                       Text(
                         user.name,
-                        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         user.email,
-                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: isAdmin ? Colors.purple.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+                          color: isAdmin
+                              ? Colors.purple.withValues(alpha: 0.1)
+                              : Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isAdmin ? Colors.purple.withValues(alpha: 0.3) : Colors.green.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: isAdmin
+                                ? Colors.purple.withValues(alpha: 0.3)
+                                : Colors.green.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(isAdmin ? Icons.admin_panel_settings : Icons.person_outline, size: 20, color: isAdmin ? Colors.purple : Colors.green),
+                            Icon(
+                              isAdmin
+                                  ? Icons.admin_panel_settings
+                                  : Icons.person_outline,
+                              size: 20,
+                              color: isAdmin ? Colors.purple : Colors.green,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               user.role.label,
-                              style: TextStyle(color: isAdmin ? Colors.purple : Colors.green, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: isAdmin ? Colors.purple : Colors.green,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -195,11 +239,23 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       Card(
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.2),
+                          ),
+                        ),
                         child: Column(
                           children: [
-                            _buildInfoTile(Icons.person, 'ชื่อผู้ใช้', user.name),
-                            Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                            _buildInfoTile(
+                              Icons.person,
+                              'ชื่อผู้ใช้',
+                              user.name,
+                            ),
+                            Divider(
+                              height: 1,
+                              color: Colors.grey.withValues(alpha: 0.2),
+                            ),
                             _buildInfoTile(Icons.email, 'อีเมล', user.email),
                           ],
                         ),
@@ -211,48 +267,66 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: ElevatedButton.icon(
                           onPressed: showEditProfileDialog,
                           icon: const Icon(Icons.edit, color: Colors.white),
-                          label: const Text('แก้ไขข้อมูล', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                          label: const Text(
+                            'แก้ไขข้อมูล',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryColor,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             elevation: 2,
                           ),
                         ),
                       ),
                       const SizedBox(height: 32),
-                      _buildSectionTitle('อุปกรณ์และการเข้าสู่ระบบ', Icons.security),
+                      _buildSectionTitle(
+                        'อุปกรณ์และการเข้าสู่ระบบ',
+                        Icons.security,
+                      ),
                       const SizedBox(height: 16),
                       Card(
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(
+                            color: Colors.grey.withValues(alpha: 0.2),
+                          ),
+                        ),
                         child: Column(
                           children: [
                             ListTile(
                               leading: Container(
                                 padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), shape: BoxShape.circle),
-                                child: const Icon(Icons.phone_iphone, color: Colors.green),
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.verified_user,
+                                  color: Colors.green,
+                                ),
                               ),
-                              title: const Text('iPhone 13 (ปัจจุบัน)', style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: const Text('เข้าสู่ระบบเมื่อ: วันนี้ 08:30 น.'),
+                              title: const Text(
+                                'เซสชันปัจจุบัน',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: const Text(
+                                'โทเคนถูกเก็บในพื้นที่ปลอดภัยของอุปกรณ์',
+                              ),
                               trailing: IconButton(
-                                icon: const Icon(Icons.logout, color: Colors.red),
-                                onPressed: () async => await AuthService.signOut(),
+                                icon: const Icon(
+                                  Icons.logout,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () async =>
+                                    await AuthService.signOut(),
                                 tooltip: 'ออกจากระบบ',
-                              ),
-                            ),
-                            Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
-                            ListTile(
-                              leading: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
-                                child: const Icon(Icons.computer, color: Colors.blue),
-                              ),
-                              title: const Text('Chrome (Windows)', style: TextStyle(fontWeight: FontWeight.bold)),
-                              subtitle: const Text('เข้าสู่ระบบเมื่อ: เมื่อวาน 15:45 น.'),
-                              trailing: TextButton(
-                                onPressed: () {},
-                                child: const Text('ลบ', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                               ),
                             ),
                           ],
@@ -263,12 +337,22 @@ class _ProfilePageState extends State<ProfilePage> {
                         width: double.infinity,
                         height: 50,
                         child: OutlinedButton.icon(
-                          onPressed: () async => await AuthService.signOut(),
+                          onPressed: () async =>
+                              await AuthService.signOutAllDevices(),
                           icon: const Icon(Icons.logout, color: Colors.red),
-                          label: const Text('ออกจากระบบทั้งหมด', style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold)),
+                          label: const Text(
+                            'ออกจากระบบทั้งหมด',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.red, width: 2),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
                       ),
@@ -291,7 +375,11 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(width: 8),
         Text(
           title,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[800],
+          ),
         ),
       ],
     );
@@ -307,8 +395,18 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         child: Icon(icon, color: Colors.black54),
       ),
-      title: Text(title, style: const TextStyle(fontSize: 14, color: Colors.grey)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 16, color: Colors.black87, fontWeight: FontWeight.w500)),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 14, color: Colors.grey),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.black87,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }

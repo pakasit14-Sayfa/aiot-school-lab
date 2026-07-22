@@ -23,10 +23,72 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
   Future<void> loadLinks() async {
     setState(() => isLoading = true);
     try {
-      final result = await AuthService.listParentLinks(status: 'pending');
-      if (mounted) setState(() => links = result);
+      final pending = await AuthService.listParentLinks(status: 'pending');
+      final secondReview = currentUserModel?.role == UserRole.schoolAdmin
+          ? await AuthService.listParentLinks(status: 'pending_second_review')
+          : <ParentLink>[];
+      if (mounted) setState(() => links = [...pending, ...secondReview]);
     } finally {
       if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  void requestSecondReview(ParentLink link) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ขอผู้ตรวจคนที่สอง'),
+        content: TextField(
+          controller: reasonController,
+          decoration: const InputDecoration(
+            labelText: 'เหตุผลข้อยกเว้น (จำเป็น)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ยกเลิก'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('ส่งตรวจ'),
+          ),
+        ],
+      ),
+    );
+
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+    if (confirmed != true || reason.isEmpty) return;
+
+    try {
+      await AuthService.requestParentLinkSecondReview(link.id, reason: reason);
+      await loadLinks();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
+    }
+  }
+
+  void secondApprove(ParentLink link) async {
+    try {
+      await AuthService.secondApproveParentLink(link.id);
+      await loadLinks();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('อนุมัติโดยผู้ตรวจคนที่สองแล้ว'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     }
   }
 
@@ -36,12 +98,18 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
       await loadLinks();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('อนุมัติแล้ว'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('อนุมัติแล้ว'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -55,7 +123,7 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
           title: const Text('ปฏิเสธคำขอผูกบัญชี'),
           content: TextField(
             controller: reasonController,
-            decoration: const InputDecoration(labelText: 'เหตุผล (ถ้ามี)'),
+            decoration: const InputDecoration(labelText: 'เหตุผล (จำเป็น)'),
           ),
           actions: [
             TextButton(
@@ -72,19 +140,26 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
       },
     );
 
-    if (confirmed != true) return;
+    final reason = reasonController.text.trim();
+    if (confirmed != true || reason.isEmpty) return;
 
     try {
-      await AuthService.rejectParentLink(link.id, reason: reasonController.text.trim());
+      await AuthService.rejectParentLink(link.id, reason: reason);
       await loadLinks();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ปฏิเสธคำขอแล้ว'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('ปฏิเสธคำขอแล้ว'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -110,55 +185,90 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : links.isEmpty
-              ? const Center(
-                  child: Text('ไม่มีคำขอที่รอตรวจสอบ', style: TextStyle(color: Colors.grey)),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: links.length,
-                  itemBuilder: (context, index) {
-                    final link = links[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${link.parentName} (${link.relationship})',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ? const Center(
+              child: Text(
+                'ไม่มีคำขอที่รอตรวจสอบ',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: links.length,
+              itemBuilder: (context, index) {
+                final link = links[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${link.parentName} (${link.relationship})',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          link.parentEmail,
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                        const SizedBox(height: 4),
+                        Text('นักเรียน: ${link.studentName}'),
+                        if (link.isPendingSecondReview)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Text(
+                              'รอ School Admin คนที่สองตรวจภายใน SLA',
+                              style: TextStyle(color: Colors.orange),
                             ),
-                            Text(link.parentEmail, style: const TextStyle(color: Colors.grey)),
-                            const SizedBox(height: 4),
-                            Text('นักเรียน: ${link.studentName}'),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => approve(link),
-                                    icon: const Icon(Icons.check),
-                                    label: const Text('อนุมัติ'),
-                                  ),
+                          ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  if (link.isPendingSecondReview) {
+                                    secondApprove(link);
+                                  } else if (currentUserModel?.role ==
+                                          UserRole.schoolAdmin &&
+                                      currentUserModel?.uid == link.parentId) {
+                                    requestSecondReview(link);
+                                  } else {
+                                    approve(link);
+                                  }
+                                },
+                                icon: const Icon(Icons.check),
+                                label: Text(
+                                  link.isPendingSecondReview
+                                      ? 'Second approve'
+                                      : currentUserModel?.uid == link.parentId
+                                      ? 'ขอผู้ตรวจคนที่สอง'
+                                      : 'อนุมัติ',
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => reject(link),
-                                    style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                                    icon: const Icon(Icons.close),
-                                    label: const Text('ปฏิเสธ'),
-                                  ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => reject(link),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.red,
                                 ),
-                              ],
+                                icon: const Icon(Icons.close),
+                                label: const Text('ปฏิเสธ'),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

@@ -21,8 +21,8 @@ class BindingCode {
     return BindingCode(
       id: row['id'] as String,
       studentId: row['student_id'] as String,
-      studentName:
-          '${row['student_first_name']} ${row['student_last_name']}'.trim(),
+      studentName: '${row['student_first_name']} ${row['student_last_name']}'
+          .trim(),
       codeHint: row['code_hint'] as String? ?? '',
       status: row['status'] as String,
       expiresAt: DateTime.parse(row['expires_at'] as String),
@@ -60,11 +60,11 @@ class ParentLink {
     return ParentLink(
       id: row['id'] as String,
       studentId: row['student_id'] as String,
-      studentName:
-          '${row['student_first_name']} ${row['student_last_name']}'.trim(),
+      studentName: '${row['student_first_name']} ${row['student_last_name']}'
+          .trim(),
       parentId: row['parent_id'] as String,
-      parentName:
-          '${row['parent_first_name']} ${row['parent_last_name']}'.trim(),
+      parentName: '${row['parent_first_name']} ${row['parent_last_name']}'
+          .trim(),
       parentEmail: row['parent_email'] as String,
       relationship: row['relationship'] as String,
       status: row['status'] as String,
@@ -73,4 +73,5 @@ class ParentLink {
   }
 
   bool get isPending => status == 'pending';
+  bool get isPendingSecondReview => status == 'pending_second_review';
 }
