@@ -36,13 +36,15 @@ dependencies:
     path: ../../packages/shared_core
   shared_preferences: ^2.5.3
   google_fonts: ^6.1.0
-  font_awesome_flutter: ^11.0.0
+  font_awesome_flutter: ^10.9.1
   auto_size_text: ^3.0.0
   cached_network_image: ^3.4.1
   provider: ^6.1.5
   flutter_animate: ^4.5.0
   intl: ^0.20.2
   percent_indicator: ^4.2.5
+  fl_chart: ^0.68.0
+  dropdown_button2: ^2.3.9
 
 dev_dependencies:
   flutter_test:

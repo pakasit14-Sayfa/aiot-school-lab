@@ -12,13 +12,11 @@ export 'form_section_model.dart';
 class FormSectionWidget extends StatefulWidget {
   const FormSectionWidget({
     super.key,
-    String? title,
-    this.title,
+    this.title = 'ACTIVITY DETAILS',
     this.error,
-  }) : this.title = title ?? 'ACTIVITY DETAILS';
+  });
 
   final String title;
-  final String? title;
   final String? error;
 
   @override
@@ -55,21 +53,18 @@ class _FormSectionWidgetState extends State<FormSectionWidget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(
-            widget!.title,
-            'ACTIVITY DETAILS',
-          ),
+          valueOrDefault<String>(widget!.title, 'ACTIVITY DETAILS'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                ),
-                color: FlutterFlowTheme.of(context).secondaryText,
-                letterSpacing: 0.0,
-                fontWeight: FontWeight.bold,
-                fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.bold,
+              fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            ),
+            color: FlutterFlowTheme.of(context).secondaryText,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.bold,
+            fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
         Column(
           mainAxisSize: MainAxisSize.min,

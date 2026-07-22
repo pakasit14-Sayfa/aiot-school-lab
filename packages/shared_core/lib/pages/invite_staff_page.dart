@@ -152,7 +152,7 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<UserRole>(
-                    initialValue: selectedRole,
+                    value: selectedRole,
                     decoration: const InputDecoration(
                       labelText: 'บทบาท',
                       prefixIcon: Icon(Icons.badge),
