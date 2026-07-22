@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ส่ง OTP ทดลองด้วย Resend</title>
+  <link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body><main>
+  <h1>ส่ง OTP ทดลองด้วย Resend</h1>
+  <p class="lead">เป้าหมาย: ให้ Edge Function ส่งจาก <code>Dilion &lt;onboarding@resend.dev&gt;</code> เข้าอีเมลของคุณ โดยไม่ทำ API Key รั่ว</p>
+
+  <section class="card">
+    <div class="step">ขั้นที่ 1 — สร้างบัญชี</div>
+    <ol>
+      <li>เปิด <a href="https://resend.com/signup">Resend Sign Up</a> และสมัครด้วยอีเมลที่คุณจะใช้รับ OTP</li>
+      <li>ยืนยันอีเมลและเข้าสู่ Dashboard</li>
+      <li>จำไว้ว่าโหมดทดลองส่งเข้าอีเมลบัญชีนี้เท่านั้น</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <div class="step">ขั้นที่ 2 — สร้าง API Key</div>
+    <ol>
+      <li>เข้าเมนู <strong>API Keys</strong> แล้วกด <strong>Create API Key</strong></li>
+      <li>ตั้งชื่อ <code>aiot-school-lab-local</code></li>
+      <li>เลือกสิทธิ์ <strong>Sending access</strong> ไม่ต้องเลือก Full access</li>
+      <li>คัดลอกคีย์ที่ขึ้นต้นด้วย <code>re_</code> เก็บไว้ชั่วคราว ระบบอาจไม่แสดงซ้ำ</li>
+    </ol>
+    <p>อ้างอิง: <a href="https://resend.com/docs/api-reference/api-keys/create-api-key">Resend API Keys</a></p>
+  </section>
+
+  <section class="card">
+    <div class="step">ขั้นที่ 3 — ใส่ Secret ในโปรเจกต์</div>
+    <p>ที่โฟลเดอร์ <code>/Users/sayfa/my_first_app</code> คัดลอกไฟล์ตัวอย่าง:</p>
+    <pre><code>cp supabase/functions/.env.example supabase/functions/.env</code></pre>
+    <p>เปิด <code>supabase/functions/.env</code> แล้วแทนค่าเฉพาะบรรทัดแรก:</p>
+    <pre><code>RESEND_API_KEY=re_คีย์จริงของคุณ
+RESEND_FROM_EMAIL=Dilion &lt;onboarding@resend.dev&gt;</code></pre>
+    <p>Supabase จะโหลดไฟล์นี้อัตโนมัติตอน <code>supabase start</code> ตาม <a href="https://supabase.com/docs/guides/functions/secrets">Supabase Secrets Guide</a></p>
+  </section>
+
+  <section class="card">
+    <div class="step">ขั้นที่ 4 — โหลด Secret และทดลอง</div>
+    <p>ถ้า Supabase ทำงานอยู่ ให้หยุดแล้วเริ่มใหม่เพื่อโหลด Secret:</p>
+    <pre><code>npx supabase stop
+npx supabase start</code></pre>
+    <p>จากนั้นใช้หน้าขอ OTP/รีเซ็ตรหัสผ่านของแอป โดยกรอกอีเมลเดียวกับบัญชี Resend แล้วตรวจ Inbox และ Spam</p>
+  </section>
+
+  <section class="card warning">
+    <strong>กติกาความปลอดภัย</strong>
+    <ul>
+      <li>อย่าส่ง API Key มาในแชต แม้ต้องการให้ช่วยตั้งค่า</li>
+      <li>อย่าใส่คีย์ไว้ใน Flutter เพราะผู้ใช้สามารถดึงคีย์จากแอปได้</li>
+      <li>ถ้าคีย์เคยหลุด ให้ลบทิ้งใน Resend และสร้างใหม่ทันที</li>
+    </ul>
+  </section>
+
+  <h2>เช็กว่าทำสำเร็จ</h2>
+  <ul class="check">
+    <li>Resend Dashboard แสดงสถานะอีเมลว่า Delivered</li>
+    <li>อีเมลเข้าบัญชีเดียวกับที่สมัคร Resend</li>
+    <li>ชื่อผู้ส่งแสดงเป็น Dilion</li>
+    <li>OTP ใช้งานได้และหมดอายุตามที่ระบบกำหนด</li>
+  </ul>
+
+  <h2>ลองตอบจากความจำ</h2>
+  <p>API Key ควรอยู่ใน Flutter หรือ Edge Function Secret? คำตอบที่ถูกคือ <strong>Edge Function Secret</strong></p>
+
+  <footer>
+    ถ้าติดตรงขั้นใด ให้บอกหมายเลขขั้นและข้อความผิดพลาด โดยปิดบังคีย์ทั้งหมดก่อนส่งมาให้ตรวจ · <a href="../reference/resend-test-setup.html">Quick reference</a>
+  </footer>
+</main></body>
+</html>
