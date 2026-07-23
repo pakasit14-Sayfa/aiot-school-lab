@@ -69,6 +69,18 @@ class UserModel {
     this.room = '',
   });
 
+  /// Parses the row shape returned by auth/session/user-list RPCs
+  /// (user_id, first_name, last_name, active_role, active_school_id).
+  factory UserModel.fromAuthRow(Map<String, dynamic> row) {
+    return UserModel(
+      uid: row['user_id'] as String,
+      name: '${row['first_name']} ${row['last_name']}'.trim(),
+      email: row['email'] as String,
+      role: UserRoleExt.fromString(row['active_role'] as String? ?? 'student'),
+      schoolId: row['active_school_id'] as String? ?? '',
+    );
+  }
+
   factory UserModel.fromMap(String uid, Map<String, dynamic> map) {
     return UserModel(
       uid: uid,
