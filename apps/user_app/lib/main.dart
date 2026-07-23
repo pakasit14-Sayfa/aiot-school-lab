@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:shared_ui/shared_ui.dart';
 import 'pages/login_page.dart';
 import 'pages/home_page.dart';
 import 'pages/profile_page.dart';

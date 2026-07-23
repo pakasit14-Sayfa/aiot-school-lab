@@ -21,7 +21,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Future<void> loadNotifications() async {
     setState(() => isLoading = true);
     try {
-      final result = await AuthService.listMyNotifications();
+      final result = await NotificationService.listMyNotifications();
       if (mounted) setState(() => notifications = result);
     } finally {
       if (mounted) setState(() => isLoading = false);
@@ -30,7 +30,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Future<void> openNotification(AppNotification notification) async {
     if (notification.isUnread) {
-      await AuthService.markNotificationRead(notification.id);
+      await NotificationService.markNotificationRead(notification.id);
       await loadNotifications();
     }
   }

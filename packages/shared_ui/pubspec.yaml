@@ -1,0 +1,19 @@
+name: shared_ui
+description: Shared Flutter screens for the AIoT School Lab apps.
+publish_to: none
+version: 0.0.1
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_core:
+    path: ../shared_core
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0

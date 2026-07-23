@@ -37,7 +37,7 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
 
     try {
       if (verificationToken == null) {
-        final token = await AuthService.requestParentBindingOtp(
+        final token = await ParentBindingService.requestParentBindingOtp(
           code: codeController.text.trim(),
           email: emailController.text.trim(),
         );
@@ -53,7 +53,7 @@ class _RedeemBindingCodePageState extends State<RedeemBindingCodePage> {
         return;
       }
 
-      await AuthService.confirmParentBinding(
+      await ParentBindingService.confirmParentBinding(
         verificationToken: verificationToken!,
         otpCode: otpController.text.trim(),
         relationship: relationshipController.text.trim(),

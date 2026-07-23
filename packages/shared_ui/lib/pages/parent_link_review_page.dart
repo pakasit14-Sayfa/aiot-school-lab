@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
-import '../models/parent_binding_model.dart';
-import '../services/auth_service.dart';
+import 'package:shared_core/models/user_model.dart';
+import 'package:shared_core/models/parent_binding_model.dart';
+import 'package:shared_core/services/auth_service.dart';
+import 'package:shared_core/services/parent_binding_service.dart';
 
 class ParentLinkReviewPage extends StatefulWidget {
   const ParentLinkReviewPage({super.key});
@@ -23,9 +24,9 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
   Future<void> loadLinks() async {
     setState(() => isLoading = true);
     try {
-      final pending = await AuthService.listParentLinks(status: 'pending');
+      final pending = await ParentBindingService.listParentLinks(status: 'pending');
       final secondReview = currentUserModel?.role == UserRole.schoolAdmin
-          ? await AuthService.listParentLinks(status: 'pending_second_review')
+          ? await ParentBindingService.listParentLinks(status: 'pending_second_review')
           : <ParentLink>[];
       if (mounted) setState(() => links = [...pending, ...secondReview]);
     } finally {
@@ -63,7 +64,7 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
     if (confirmed != true || reason.isEmpty) return;
 
     try {
-      await AuthService.requestParentLinkSecondReview(link.id, reason: reason);
+      await ParentBindingService.requestParentLinkSecondReview(link.id, reason: reason);
       await loadLinks();
     } catch (e) {
       if (!mounted) return;
@@ -75,7 +76,7 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
 
   void secondApprove(ParentLink link) async {
     try {
-      await AuthService.secondApproveParentLink(link.id);
+      await ParentBindingService.secondApproveParentLink(link.id);
       await loadLinks();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +95,7 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
 
   void approve(ParentLink link) async {
     try {
-      await AuthService.approveParentLink(link.id);
+      await ParentBindingService.approveParentLink(link.id);
       await loadLinks();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -144,7 +145,7 @@ class _ParentLinkReviewPageState extends State<ParentLinkReviewPage> {
     if (confirmed != true || reason.isEmpty) return;
 
     try {
-      await AuthService.rejectParentLink(link.id, reason: reason);
+      await ParentBindingService.rejectParentLink(link.id, reason: reason);
       await loadLinks();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

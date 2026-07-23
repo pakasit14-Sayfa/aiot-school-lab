@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../models/consent_model.dart';
-import '../services/auth_service.dart';
+import 'package:shared_core/models/consent_model.dart';
+import 'package:shared_core/services/consent_service.dart';
 
 class ConsentPolicyAdminPage extends StatefulWidget {
   const ConsentPolicyAdminPage({super.key});
@@ -23,7 +23,7 @@ class _ConsentPolicyAdminPageState extends State<ConsentPolicyAdminPage> {
   Future<void> loadPolicies() async {
     if (mounted) setState(() => isLoading = true);
     try {
-      final result = await AuthService.listAdminConsentPolicies();
+      final result = await ConsentService.listAdminConsentPolicies();
       if (mounted) setState(() => policies = result);
     } catch (error) {
       if (mounted) {
@@ -135,7 +135,7 @@ class _ConsentPolicyAdminPageState extends State<ConsentPolicyAdminPage> {
 
     if (shouldPublish == true) {
       try {
-        await AuthService.publishConsentPolicy(
+        await ConsentService.publishConsentPolicy(
           consentType: typeController.text,
           version: versionController.text,
           documentHash: hashController.text,
@@ -181,7 +181,7 @@ class _ConsentPolicyAdminPageState extends State<ConsentPolicyAdminPage> {
     );
     if (confirmed != true) return;
 
-    await AuthService.retireConsentPolicy(policy.id);
+    await ConsentService.retireConsentPolicy(policy.id);
     await loadPolicies();
   }
 

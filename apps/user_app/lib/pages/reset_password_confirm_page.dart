@@ -32,7 +32,7 @@ class _ResetPasswordConfirmPageState extends State<ResetPasswordConfirmPage> {
     setState(() => isLoading = true);
 
     try {
-      await AuthService.confirmPasswordReset(
+      await PasswordResetService.confirmPasswordReset(
         email: widget.email,
         otpCode: otpController.text.trim(),
         newPassword: newPasswordController.text.trim(),

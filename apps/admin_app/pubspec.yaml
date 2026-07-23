@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_core:
     path: ../../packages/shared_core
+  shared_ui:
+    path: ../../packages/shared_ui
 
 dev_dependencies:
   flutter_test:

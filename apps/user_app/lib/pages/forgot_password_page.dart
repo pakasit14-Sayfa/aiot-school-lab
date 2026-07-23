@@ -26,7 +26,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     try {
       final email = emailController.text.trim();
-      await AuthService.resetPassword(email);
+      await PasswordResetService.resetPassword(email);
 
       if (!mounted) return;
 

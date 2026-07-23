@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../models/consent_model.dart';
-import '../services/auth_service.dart';
+import 'package:shared_core/models/consent_model.dart';
+import 'package:shared_core/services/consent_service.dart';
 
 class ParentConsentPage extends StatefulWidget {
   const ParentConsentPage({super.key});
@@ -26,7 +26,7 @@ class _ParentConsentPageState extends State<ParentConsentPage> {
   Future<void> loadLinks() async {
     setState(() => isLoading = true);
     try {
-      final result = await AuthService.listMyParentLinks();
+      final result = await ConsentService.listMyParentLinks();
       final approved = result.where((link) => link.isApproved).toList();
       if (!mounted) return;
       setState(() {
@@ -42,7 +42,7 @@ class _ParentConsentPageState extends State<ParentConsentPage> {
   Future<void> loadConsents() async {
     final link = selectedLink;
     if (link == null) return;
-    final result = await AuthService.listMyConsents(link.id);
+    final result = await ConsentService.listMyConsents(link.id);
     if (mounted) setState(() => consents = result);
   }
 
@@ -51,7 +51,7 @@ class _ParentConsentPageState extends State<ParentConsentPage> {
     if (link == null) return;
 
     if (consent.isGranted) {
-      await AuthService.withdrawParentConsent(consent.consentId!);
+      await ConsentService.withdrawParentConsent(consent.consentId!);
     } else {
       if (!readPolicies.contains(consent.policyId)) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -59,7 +59,7 @@ class _ParentConsentPageState extends State<ParentConsentPage> {
         );
         return;
       }
-      await AuthService.grantParentConsent(
+      await ConsentService.grantParentConsent(
         parentLinkId: link.id,
         policyId: consent.policyId,
       );

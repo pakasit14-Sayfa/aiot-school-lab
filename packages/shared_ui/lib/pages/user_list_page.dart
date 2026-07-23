@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
-import '../services/auth_service.dart';
+import 'package:shared_core/models/user_model.dart';
+import 'package:shared_core/services/auth_service.dart';
+import 'package:shared_core/services/user_admin_service.dart';
 import 'invite_staff_page.dart';
 import 'issue_binding_code_page.dart';
 import 'parent_link_review_page.dart';
@@ -25,7 +26,7 @@ class _UserListPageState extends State<UserListPage> {
 
   Future<void> loadUsers() async {
     setState(() => isLoading = true);
-    final result = await AuthService.getAllUsers();
+    final result = await UserAdminService.getAllUsers();
     if (mounted) {
       setState(() {
         users = result;
@@ -132,7 +133,7 @@ class _UserListPageState extends State<UserListPage> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await AuthService.updateRole(
+                    await UserAdminService.updateRole(
                       uid: user.uid,
                       role: selectedRole,
                     );
@@ -172,7 +173,7 @@ class _UserListPageState extends State<UserListPage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                await AuthService.deleteUser(user.uid);
+                await UserAdminService.deleteUser(user.uid);
 
                 if (!mounted) return;
                 Navigator.pop(dialogContext);

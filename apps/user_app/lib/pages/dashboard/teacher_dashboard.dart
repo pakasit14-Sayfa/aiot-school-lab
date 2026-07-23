@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:shared_ui/shared_ui.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/info_card.dart';
 import '../../widgets/sensor_card.dart';

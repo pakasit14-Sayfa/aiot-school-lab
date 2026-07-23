@@ -1,6 +1,8 @@
 .idea/
 .vscode/
 .dart_tool/
+.flutter-plugins-dependencies
+packages/*/pubspec.lock
 build/
 *.iml
 .DS_Store

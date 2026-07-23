@@ -1,58 +1,57 @@
 import 'package:flutter/material.dart';
-import '../models/user_model.dart';
-import '../models/parent_binding_model.dart';
-import '../services/auth_service.dart';
+import 'package:shared_core/models/user_model.dart';
+import 'package:shared_core/models/invitation_model.dart';
+import 'package:shared_core/services/auth_service.dart';
+import 'package:shared_core/services/invitation_service.dart';
 
-class IssueBindingCodePage extends StatefulWidget {
-  const IssueBindingCodePage({super.key});
+class InviteStaffPage extends StatefulWidget {
+  const InviteStaffPage({super.key});
 
   @override
-  State<IssueBindingCodePage> createState() => _IssueBindingCodePageState();
+  State<InviteStaffPage> createState() => _InviteStaffPageState();
 }
 
-class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
+class _InviteStaffPageState extends State<InviteStaffPage> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-  final TextEditingController studentCodeController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  UserRole selectedRole = UserRole.teacher;
   bool isSending = false;
-  List<BindingCode> codes = [];
+  List<StaffInvitation> invitations = [];
   bool isLoadingList = true;
 
   @override
   void initState() {
     super.initState();
-    loadCodes();
+    loadInvitations();
   }
 
-  Future<void> loadCodes() async {
+  Future<void> loadInvitations() async {
     setState(() => isLoadingList = true);
     try {
-      final result = await AuthService.listBindingCodes();
-      if (mounted) setState(() => codes = result);
+      final result = await InvitationService.listInvitations();
+      if (mounted) setState(() => invitations = result);
     } finally {
       if (mounted) setState(() => isLoadingList = false);
     }
   }
 
-  void showCodeDialog(Map<String, dynamic> result) {
+  void showTokenDialog(String token) {
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('ออกรหัสสำเร็จ'),
+          title: const Text('เชิญสำเร็จ'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('สำหรับนักเรียน: ${result['studentName']}'),
+              const Text('ส่งรหัสเชิญนี้ให้ผู้ถูกเชิญ (มีอายุ 7 วัน):'),
               const SizedBox(height: 12),
-              const Text('ส่งรหัสนี้ให้ผู้ปกครอง (มีอายุ 14 วัน):'),
-              const SizedBox(height: 8),
               SelectableText(
-                result['code'] as String,
+                token,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontFamily: 'monospace',
-                  fontSize: 18,
                 ),
               ),
             ],
@@ -68,21 +67,22 @@ class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
     );
   }
 
-  void issueCode() async {
+  void sendInvite() async {
     if (!formKey.currentState!.validate()) return;
 
     setState(() => isSending = true);
 
     try {
-      final result = await AuthService.createBindingCode(
-        studentCode: studentCodeController.text.trim(),
+      final token = await InvitationService.createInvitation(
+        email: emailController.text.trim(),
+        role: selectedRole,
       );
 
-      studentCodeController.clear();
-      await loadCodes();
+      emailController.clear();
+      await loadInvitations();
 
       if (!mounted) return;
-      showCodeDialog(result);
+      showTokenDialog(token);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -93,10 +93,10 @@ class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
     }
   }
 
-  void revokeCode(BindingCode code) async {
+  void revokeInvite(StaffInvitation invitation) async {
     try {
-      await AuthService.revokeBindingCode(code.id);
-      await loadCodes();
+      await InvitationService.revokeInvitation(invitation.id);
+      await loadInvitations();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,23 +107,22 @@ class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
 
   @override
   void dispose() {
-    studentCodeController.dispose();
+    emailController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (currentUserModel?.role != UserRole.schoolAdmin &&
-        currentUserModel?.role != UserRole.teacher &&
         currentUserModel?.role != UserRole.superAdmin) {
       return Scaffold(
         appBar: AppBar(title: const Text('ไม่มีสิทธิ์เข้าถึง')),
-        body: const Center(child: Text('หน้านี้สำหรับแอดมิน/ครูเท่านั้น')),
+        body: const Center(child: Text('หน้านี้สำหรับแอดมินเท่านั้น')),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('ออกรหัสผูกบัญชีผู้ปกครอง')),
+      appBar: AppBar(title: const Text('เชิญผู้ใช้ใหม่')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -134,33 +133,54 @@ class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'ออกรหัสสำหรับนักเรียน',
+                    'เชิญด้วยอีเมล',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
-                    controller: studentCodeController,
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
-                      labelText: 'รหัสนักเรียน (Student Code)',
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    validator: (value) {
+                      final v = value?.trim() ?? '';
+                      if (v.isEmpty) return 'กรุณากรอกอีเมล';
+                      if (!v.contains('@')) return 'รูปแบบอีเมลไม่ถูกต้อง';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<UserRole>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'บทบาท',
                       prefixIcon: Icon(Icons.badge),
                     ),
-                    validator: (value) => (value == null || value.trim().isEmpty)
-                        ? 'กรุณากรอกรหัสนักเรียน'
-                        : null,
+                    items: UserRole.values
+                        .map((role) => DropdownMenuItem(
+                              value: role,
+                              child: Text(role.label),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) setState(() => selectedRole = value);
+                    },
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: isSending ? null : issueCode,
+                      onPressed: isSending ? null : sendInvite,
                       icon: isSending
                           ? const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.qr_code),
-                      label: Text(isSending ? 'กำลังออกรหัส...' : 'ออกรหัส'),
+                          : const Icon(Icons.send),
+                      label: Text(isSending ? 'กำลังส่ง...' : 'สร้างคำเชิญ'),
                     ),
                   ),
                 ],
@@ -171,35 +191,35 @@ class _IssueBindingCodePageState extends State<IssueBindingCodePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'รหัสที่ออกแล้ว',
+                  'คำเชิญที่ส่งไปแล้ว',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: loadCodes,
+                  onPressed: loadInvitations,
                 ),
               ],
             ),
             const SizedBox(height: 8),
             if (isLoadingList)
               const Center(child: CircularProgressIndicator())
-            else if (codes.isEmpty)
-              const Text('ยังไม่มีรหัสที่ออก', style: TextStyle(color: Colors.grey))
+            else if (invitations.isEmpty)
+              const Text('ยังไม่มีคำเชิญ', style: TextStyle(color: Colors.grey))
             else
-              ...codes.map((code) {
+              ...invitations.map((invitation) {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
-                    title: Text(code.studentName),
+                    title: Text(invitation.email),
                     subtitle: Text(
-                      '${code.codeHint} • ${code.status}'
-                      '${code.isIssued ? " • หมดอายุ ${code.expiresAt.toLocal()}" : ""}',
+                      '${invitation.role.label} • ${invitation.status}'
+                      '${invitation.isPending ? " • หมดอายุ ${invitation.expiresAt.toLocal()}" : ""}',
                     ),
-                    trailing: code.isIssued
+                    trailing: invitation.isPending
                         ? IconButton(
-                            tooltip: 'ยกเลิกรหัส',
+                            tooltip: 'ยกเลิกคำเชิญ',
                             icon: const Icon(Icons.cancel, color: Colors.red),
-                            onPressed: () => revokeCode(code),
+                            onPressed: () => revokeInvite(invitation),
                           )
                         : null,
                   ),

@@ -22,7 +22,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadUnreadCount() async {
-    final notifications = await AuthService.listMyNotifications();
+    final notifications = await NotificationService.listMyNotifications();
     if (mounted) {
       setState(() => unreadCount = notifications.where((n) => n.isUnread).length);
     }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../models/login_otp_challenge.dart';
-import '../models/user_model.dart';
-import '../services/auth_service.dart';
+import 'package:shared_core/models/login_otp_challenge.dart';
+import 'package:shared_core/models/user_model.dart';
+import 'package:shared_core/services/auth_service.dart';
 
 typedef LoginOtpVerifier =
     Future<UserModel> Function({
