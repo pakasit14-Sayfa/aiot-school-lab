@@ -58,7 +58,13 @@
 
 ## 5. ไฟล์สำคัญที่เพิ่มหรือแก้
 
-- `supabase/migrations/20260721020000_pdpa_security_hardening.sql`
+- `supabase/migrations/20260721020000_session_and_rate_limit_hardening.sql`
+- `supabase/migrations/20260721020100_parent_binding.sql`
+- `supabase/migrations/20260721020200_parent_link_review.sql`
+- `supabase/migrations/20260721020300_consent_policy.sql`
+- `supabase/migrations/20260721020400_sensor_read_scope.sql`
+- `supabase/migrations/20260721020500_signed_gateway_ingest.sql`
+- `supabase/migrations/20260721020600_rls_lockdown.sql` (แตกจาก `pdpa_security_hardening.sql` เดิม ทีหลัง — ต้อง apply เรียงตามลำดับนี้ ไฟล์สุดท้ายต้องรันหลังสุดเสมอ)
 - `supabase/functions/auth-sign-in/index.ts`
 - `supabase/functions/request-parent-binding-otp/index.ts`
 - `supabase/tests/database/03_auth_session_rate_limit.test.sql`
