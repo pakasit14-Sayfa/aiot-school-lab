@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'package:shared_core/shared_core.dart';
+import 'package:shared_ui/shared_ui.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/auth_header.dart';
 import '../widgets/auth_card.dart';
 import '../utils/app_validators.dart';
+import 'role_router.dart';
 
 class AcceptInvitationPage extends StatefulWidget {
   const AcceptInvitationPage({super.key});
@@ -31,7 +33,7 @@ class _AcceptInvitationPageState extends State<AcceptInvitationPage> {
     setState(() => isLoading = true);
 
     try {
-      await AuthService.acceptInvitation(
+      final result = await AuthService.acceptInvitation(
         invitationToken: tokenController.text.trim(),
         firstName: firstNameController.text.trim(),
         lastName: lastNameController.text.trim(),
@@ -40,6 +42,24 @@ class _AcceptInvitationPageState extends State<AcceptInvitationPage> {
 
       if (!mounted) return;
 
+      UserModel? user = result.user;
+      final challenge = result.challenge;
+      if (challenge != null) {
+        user = await Navigator.of(context).push<UserModel>(
+          MaterialPageRoute(
+            builder: (otpContext) => LoginOtpPage(
+              challenge: challenge,
+              onVerified: (verifiedUser) {
+                Navigator.of(otpContext).pop(verifiedUser);
+              },
+            ),
+          ),
+        );
+        if (!mounted) return;
+      }
+
+      if (user == null) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('สร้างบัญชีสำเร็จ ยินดีต้อนรับ'),
@@ -47,7 +67,11 @@ class _AcceptInvitationPageState extends State<AcceptInvitationPage> {
         ),
       );
 
-      Navigator.popUntil(context, (route) => route.isFirst);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RoleRouter()),
+        (route) => false,
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

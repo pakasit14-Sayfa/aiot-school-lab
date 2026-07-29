@@ -1,4 +1,4 @@
-image: ghcr.io/cirruslabs/flutter:3.8.1
+image: ghcr.io/cirruslabs/flutter:3.32.4
 
 stages:
   - test
@@ -10,6 +10,7 @@ analyze-and-test:
       - PACKAGE: apps/user_app
       - PACKAGE: apps/admin_app
       - PACKAGE: packages/shared_core
+      - PACKAGE: packages/shared_ui
   script:
     - cd $PACKAGE
     - flutter pub get

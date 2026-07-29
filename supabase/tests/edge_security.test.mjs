@@ -14,6 +14,14 @@ const loginOtpVerifySource = readFileSync(
   new URL("../functions/auth-verify-otp/index.ts", import.meta.url),
   "utf8",
 );
+const courseFileUploadSource = readFileSync(
+  new URL("../functions/course-file-upload/index.ts", import.meta.url),
+  "utf8",
+);
+const courseFileDownloadSource = readFileSync(
+  new URL("../functions/course-file-download/index.ts", import.meta.url),
+  "utf8",
+);
 
 test("parent OTP email delivery is detached from the public response", () => {
   assert.match(parentOtpSource, /EdgeRuntime\.waitUntil\(/);
@@ -42,4 +50,43 @@ test("login OTP verification stays behind the Edge service-role boundary", () =>
   assert.match(loginOtpVerifySource, /auth_verify_login_otp/);
   assert.match(loginOtpVerifySource, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(loginOtpVerifySource, /enforceMinimumResponseTime\(startedAt\)/);
+});
+
+test("course file upload checks membership before minting a signed URL", () => {
+  assert.match(courseFileUploadSource, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(courseFileUploadSource, /assert_course_upload_access/);
+  const accessCheckIndex = courseFileUploadSource.indexOf(
+    "assert_course_upload_access",
+  );
+  const signedUrlIndex = courseFileUploadSource.indexOf(
+    "createSignedUploadUrl",
+  );
+  assert.ok(accessCheckIndex > -1 && signedUrlIndex > -1);
+  assert.ok(
+    accessCheckIndex < signedUrlIndex,
+    "membership must be checked before a signed upload URL is created",
+  );
+});
+
+test("course file upload sanitizes the client-supplied file name", () => {
+  assert.match(courseFileUploadSource, /sanitizeFileName/);
+  assert.doesNotMatch(courseFileUploadSource, /\$\{fileName\}/);
+});
+
+test("course file download checks membership before minting a signed URL", () => {
+  assert.match(courseFileDownloadSource, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(courseFileDownloadSource, /get_course_file_for_download/);
+  const lookupIndex = courseFileDownloadSource.indexOf(
+    "get_course_file_for_download",
+  );
+  const signedUrlIndex = courseFileDownloadSource.indexOf("createSignedUrl");
+  assert.ok(lookupIndex > -1 && signedUrlIndex > -1);
+  assert.ok(
+    lookupIndex < signedUrlIndex,
+    "membership must be checked before a signed download URL is created",
+  );
+});
+
+test("course file download URLs are short-lived", () => {
+  assert.match(courseFileDownloadSource, /signedUrlTtlSeconds\s*=\s*60/);
 });

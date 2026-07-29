@@ -1,88 +1,260 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_core/shared_core.dart';
 import 'course_detail_page.dart';
 
-class CourseListPage extends StatelessWidget {
+class CourseListPage extends StatefulWidget {
   const CourseListPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Mock data for courses
-    final courses = [
-      {
-        'id': '1',
-        'name': 'วิทยาศาสตร์ ม.3',
-        'teacher': 'ครูสมปอง สุขใจ',
-        'status': 'active',
-      },
-      {
-        'id': '2',
-        'name': 'โครงงาน IoT เบื้องต้น',
-        'teacher': 'ครูสายฟ้า พาเพลิน',
-        'status': 'active',
-      },
-      {
-        'id': '3',
-        'name': 'คณิตศาสตร์พื้นฐาน ม.3',
-        'teacher': 'ครูวิภา งามตา',
-        'status': 'closed', // ปิดแล้ว
-      },
-    ];
+  State<CourseListPage> createState() => _CourseListPageState();
+}
 
+class _CourseListPageState extends State<CourseListPage> {
+  List<CourseSummary> courses = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    loadCourses();
+  }
+
+  Future<void> loadCourses() async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+    try {
+      final result = await CourseService.listMyCourses();
+      if (mounted) setState(() => courses = result);
+    } catch (e) {
+      if (mounted) setState(() => errorMessage = 'โหลดรายวิชาไม่สำเร็จ: $e');
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('รายวิชาของฉัน'),
-        backgroundColor: const Color(0xFF2E7D32),
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF047857), Color(0xFF10B981)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: courses.length,
-        itemBuilder: (context, index) {
-          final course = courses[index];
-          final isActive = course['status'] == 'active';
-          
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              title: Text(
-                course['name']!,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(10),
               ),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 8.0),
+              child: const Icon(Icons.groups_rounded, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'My Class Teams',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                Text(
+                  'ห้องเรียนแบบ Microsoft Teams',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search_rounded),
+            onPressed: () {},
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: loadCourses,
+          ),
+        ],
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : errorMessage != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('สอนโดย: ${course['teacher']}'),
-                    const SizedBox(height: 8),
-                    if (!isActive)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade100,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          'ปิดแล้ว — ดูอย่างเดียว',
-                          style: TextStyle(color: Colors.red, fontSize: 12),
-                        ),
-                      )
+                    Text(errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: loadCourses,
+                      child: const Text('ลองใหม่'),
+                    ),
                   ],
                 ),
               ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CourseDetailPage(
-                      courseName: course['name']!,
-                      isActive: isActive,
+            )
+          : RefreshIndicator(
+              onRefresh: loadCourses,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Teams Header Banner
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4F46E5), Color(0xFF0284C7)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF4F46E5).withOpacity(0.25),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Text(
+                                    '⚡ Active Semester 1/2569',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'วิชาเรียนในทีมของคุณ',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'เข้าสู่บทเรียน กระดานข่าวสาร ไฟล์งาน และเซนเซอร์เรียลไทม์',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.school_rounded,
+                            size: 64,
+                            color: Colors.white24,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                    const SizedBox(height: 24),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'ทีมรายวิชาทั้งหมด (${courses.length})',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        const Icon(Icons.grid_view_rounded, color: Colors.grey),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    if (courses.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: Text(
+                            'คุณยังไม่ได้ลงทะเบียนเรียนในรายวิชาใดเลย',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      )
+                    else
+                      ...courses.map((course) => _buildDbCourseCard(context, course)),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildDbCourseCard(BuildContext context, CourseSummary course) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(16),
+        title: Text(
+          course.subjectName,
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Text(
+          [
+            if (course.gradeLevel != null) course.gradeLevel!,
+            if (course.room != null) 'ห้อง ${course.room}',
+          ].join(' • '),
+        ),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CourseDetailPage(courseId: course.id),
             ),
           );
         },

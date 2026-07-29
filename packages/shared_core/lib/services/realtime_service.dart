@@ -170,4 +170,39 @@ class RealtimeService {
   static void enableOffline() {
     // Polling needs no offline setup; readings queue on the gateway side.
   }
+
+  /// Reading history for one device/metric window (LRN-8: lessons embed a
+  /// real sensor window via the sensor_history RPC — see
+  /// supabase/migrations/20260721020400_sensor_read_scope.sql).
+  static Future<List<({DateTime ts, num value})>> getSensorHistory({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'sensor_history',
+              params: {
+                'p_token': token,
+                'p_device_id': deviceId,
+                'p_metric': metric,
+                'p_from': from.toUtc().toIso8601String(),
+                'p_to': to?.toUtc().toIso8601String(),
+              },
+            )
+            as List;
+
+    return rows
+        .cast<Map<String, dynamic>>()
+        .map(
+          (row) => (
+            ts: DateTime.parse(row['ts'] as String).toUtc(),
+            value: row['value'] as num,
+          ),
+        )
+        .toList();
+  }
 }

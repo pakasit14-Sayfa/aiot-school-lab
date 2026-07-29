@@ -31,6 +31,19 @@
 
   <title>my_first_app</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    /* Global Chrome Extension Overlay Defense for Flutter Web */
+    use-chat-gpt-ai-content-menu,
+    use-chat-gpt-ai,
+    [id*="USE_CHAT_GPT_AI"],
+    [id*="MAXAI"],
+    [class*="use-chat-gpt-ai"],
+    [id*="extension-root"],
+    [class*="extension-overlay"] {
+      pointer-events: none !important;
+      z-index: -99999 !important;
+    }
+  </style>
 </head>
 <body>
   <!--
@@ -41,6 +54,15 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../pages/login_page.dart';
 
 class AppDrawer extends StatelessWidget {
   final List<DrawerItem> items;
@@ -21,6 +22,11 @@ class AppDrawer extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(ctx);
               await AuthService.signOut();
+              if (!context.mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

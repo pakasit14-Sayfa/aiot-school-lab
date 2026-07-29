@@ -6,6 +6,7 @@ import 'pages/home_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/forgot_password_page.dart';
 import 'pages/role_router.dart';
+import 'pages/student/course_detail_page.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -27,7 +28,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       home: StreamBuilder<UserModel?>(
         stream: AuthService.authStateChanges,
-        initialData: currentUserModel, // Use the initially loaded user if any
+        initialData: currentUserModel,
         builder: (context, snapshot) {
           if (snapshot.data != null) {
             return const RoleRouter();

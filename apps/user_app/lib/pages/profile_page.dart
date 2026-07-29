@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -9,6 +10,14 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  Future<void> _returnToLogin() async {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
+  }
+
   void showEditProfileDialog() {
     final nameController = TextEditingController(
       text: currentUserModel?.name ?? '',
@@ -120,7 +129,7 @@ class _ProfilePageState extends State<ProfilePage> {
               background: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [primaryColor.withValues(alpha: 0.8), primaryColor],
+                    colors: [Color(0xFF047857), Color(0xFF10B981)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -324,8 +333,10 @@ class _ProfilePageState extends State<ProfilePage> {
                                   Icons.logout,
                                   color: Colors.red,
                                 ),
-                                onPressed: () async =>
-                                    await AuthService.signOut(),
+                                onPressed: () async {
+                                  await AuthService.signOut();
+                                  await _returnToLogin();
+                                },
                                 tooltip: 'ออกจากระบบ',
                               ),
                             ),
@@ -337,8 +348,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         width: double.infinity,
                         height: 50,
                         child: OutlinedButton.icon(
-                          onPressed: () async =>
-                              await AuthService.signOutAllDevices(),
+                          onPressed: () async {
+                            await AuthService.signOutAllDevices();
+                            await _returnToLogin();
+                          },
                           icon: const Icon(Icons.logout, color: Colors.red),
                           label: const Text(
                             'ออกจากระบบทั้งหมด',

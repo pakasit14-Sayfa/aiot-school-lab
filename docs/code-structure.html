@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIoT School Lab — โครงสร้างโค้ด</title>
+<style>
+  :root {
+    --bg: #f7faf9;
+    --surface: #ffffff;
+    --surface-2: #eef5f2;
+    --border: #d5e2dd;
+    --text: #172622;
+    --text-dim: #5a7068;
+    --amber: #b36d16;
+    --teal: #087d70;
+    --coral: #bc5c43;
+    --blue: #3c6f91;
+    --trace: #b8ccc4;
+    --radius: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151a;
+      --surface: #171e24;
+      --surface-2: #1e2730;
+      --border: #2b3640;
+      --text: #dfe6ea;
+      --text-dim: #8b9aa4;
+      --amber: #e3a13a;
+      --teal: #4fbfae;
+      --coral: #ef927a;
+      --blue: #8db4d2;
+      --trace: #3a4652;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151a;
+    --surface: #171e24;
+    --surface-2: #1e2730;
+    --border: #2b3640;
+    --text: #dfe6ea;
+    --text-dim: #8b9aa4;
+    --amber: #e3a13a;
+    --teal: #4fbfae;
+    --coral: #ef927a;
+    --blue: #8db4d2;
+    --trace: #3a4652;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f0;
+    --surface: #ffffff;
+    --surface-2: #e6eae8;
+    --border: #cfd7d4;
+    --text: #171d1b;
+    --text-dim: #56635e;
+    --amber: #9c6a12;
+    --teal: #12796b;
+    --coral: #b44d36;
+    --blue: #4b7097;
+    --trace: #b7c1bd;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, "Segoe UI", "Noto Sans Thai", -apple-system,
+      system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    padding: 36px clamp(16px, 5vw, 72px) 88px;
+  }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+  }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+
+  header.top {
+    margin-bottom: 52px;
+    padding: 16px 0 30px 22px;
+    border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--teal);
+  }
+  .header-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .header-meta {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--text-dim);
+    border-left: 2px solid var(--teal);
+    padding-left: 10px;
+    min-width: 170px;
+  }
+  .header-meta strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 620px) {
+    .header-row { display: block; }
+    .header-meta { margin-top: 18px; max-width: 250px; }
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(28px, 3.8vw, 42px);
+    line-height: 1.12;
+    margin: 0 0 14px;
+    text-wrap: balance;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+  .sub {
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 67ch;
+    margin: 0;
+  }
+
+  section {
+    margin-bottom: 68px;
+    scroll-margin-top: 24px;
+  }
+  h2 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 0 24px;
+    padding: 0 0 12px 12px;
+    border-bottom: 1px solid var(--border);
+    border-left: 3px solid var(--amber);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  h2 .count {
+    color: var(--text-dim);
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  /* ---------- monorepo tree ---------- */
+  .tree {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 880px) {
+    .tree { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 520px) {
+    .tree { grid-template-columns: 1fr; }
+  }
+  .tree-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    border-top: 4px solid var(--teal);
+    padding: 18px 16px 16px;
+    min-height: 176px;
+    box-shadow: 0 1px 0 rgb(21 32 29 / 4%);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+  }
+  .tree-node:nth-child(2) { border-top-color: var(--coral); }
+  .tree-node:nth-child(3) { border-top-color: var(--amber); }
+  .tree-node:nth-child(4) { border-top-color: var(--blue); }
+  .tree-node:nth-child(5) { border-top-color: #5c8e54; }
+  .tree-node:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgb(21 32 29 / 8%); }
+  .tree-node .path {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 4px;
+  }
+  .tree-node .role {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin: 0 0 10px;
+  }
+  .tree-node ul {
+    list-style: none;
+    margin: 0;
+    padding: 10px 0 0;
+    border-top: 1px dashed var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .tree-node li {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .tree-node li::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--trace);
+    flex: none;
+    transform: translateY(-1px);
+  }
+  .tree-node.flagged {
+    border-color: color-mix(in srgb, var(--amber) 45%, var(--border));
+  }
+  .tree-node.flagged .path { color: var(--amber); }
+  .tag {
+    display: inline-block;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    margin-left: 8px;
+    vertical-align: middle;
+    font-weight: 600;
+  }
+  .tag.warn { color: var(--amber); }
+  .tag.ok { color: var(--teal); }
+
+  .jump-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 28px;
+  }
+  .jump-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+  }
+  .jump-nav a:hover { color: var(--surface); border-color: var(--teal); background: var(--teal); }
+
+  .flow {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 26px;
+    padding: 18px 0;
+    border-top: 1px dashed var(--border);
+  }
+  .flow-step {
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--teal);
+    background: var(--surface);
+    padding: 16px;
+    border-radius: var(--radius);
+  }
+  .flow-step.core { border-top-color: var(--amber); }
+  .flow-step:last-child { border-top-color: var(--blue); }
+  .flow-step .flow-name {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 12px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .flow-step p {
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.45;
+    margin: 7px 0 0;
+  }
+  .flow-arrow {
+    color: var(--trace);
+    font-size: 20px;
+    display: grid;
+    place-items: center;
+  }
+  @media (max-width: 760px) {
+    .flow { grid-template-columns: 1fr; gap: 6px; }
+    .flow-arrow { transform: rotate(90deg); height: 18px; }
+  }
+
+  /* ---------- split diagram ---------- */
+  .split-wrap {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    overflow-x: auto;
+  }
+  .split-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr 300px;
+    gap: 0 28px;
+    align-items: center;
+    min-width: 780px;
+  }
+  @media (max-width: 780px) {
+    .split-wrap { overflow-x: auto; }
+  }
+
+  .before-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 18px 18px;
+    border-top: 4px solid var(--coral);
+  }
+  .before-card .label {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .before-card .lines {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--amber);
+    margin: 10px 0 2px;
+  }
+  .before-card .lines-caption {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .before-card .desc {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.55;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+
+  .trace-col svg { display: block; width: 100%; height: 100%; }
+
+  .after-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .after-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 12px;
+    align-items: baseline;
+  }
+  .after-card.core {
+    border-color: color-mix(in srgb, var(--amber) 50%, var(--border));
+  }
+  .after-card .name {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .after-card .desc {
+    grid-column: 1 / -1;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    line-height: 1.45;
+  }
+  .after-card .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    color: var(--teal);
+    white-space: nowrap;
+  }
+  .after-card.core .n { color: var(--amber); }
+
+  /* ---------- callers table ---------- */
+  .callers {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .callers th {
+    text-align: left;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 500;
+    padding: 0 12px 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .callers td {
+    padding: 13px 14px 13px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    color: var(--text);
+  }
+  .callers tr:last-child td { border-bottom: none; }
+  .callers tbody tr:hover td { background: color-mix(in srgb, var(--teal) 5%, transparent); }
+  .callers .svc {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    font-size: 12.5px;
+    color: var(--teal);
+    white-space: nowrap;
+  }
+  .callers .pages {
+    color: var(--text-dim);
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  .callers .pages code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas,
+      monospace;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 11.5px;
+  }
+  .folder-table .svc {
+    width: 28%;
+    white-space: normal;
+    vertical-align: top;
+  }
+  .folder-table strong { color: var(--text); font-weight: 650; }
+  @media (max-width: 680px) {
+    .folder-table { display: block; overflow-x: auto; }
+    .folder-table .svc { min-width: 190px; }
+    .folder-table .pages { min-width: 270px; }
+  }
+
+  footer {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  footer .dot { color: var(--trace); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">my_first_app — melos monorepo</p>
+        <h1>โครงสร้างโค้ด AIoT School Lab</h1>
+        <p class="sub">
+          แผนผังโครงสร้างระดับบน และขอบเขตระหว่าง business logic กับ Flutter UI:
+          <code class="mono">shared_core</code> เก็บ model/service ส่วน
+          <code class="mono">shared_ui</code> เก็บหน้าจอที่ใช้ร่วมกันของทั้งสองแอป
+        </p>
+      </div>
+      <div class="header-meta">
+        <strong>สำหรับทีม UX/UI</strong><br>
+        เริ่มที่ <span class="mono">shared_ui/pages</span><br>
+        หน้าของแต่ละแอปอยู่ใน <span class="mono">apps/*/lib</span>
+      </div>
+    </div>
+    <nav class="jump-nav" aria-label="สารบัญ">
+      <a href="#overview">ภาพรวม</a>
+      <a href="#ui-work">งาน UX/UI</a>
+      <a href="#roles">สิทธิ์และหน้าที่</a>
+      <a href="#folder-guide">คู่มือโฟลเดอร์</a>
+      <a href="#services">บริการ</a>
+      <a href="#callers">การเรียกใช้</a>
+      <a href="#git-workflow">คู่มือ Git</a>
+    </nav>
+  </header>
+
+  <section id="overview">
+    <h2>โครงสร้างระดับบน <span class="count">apps / packages / supabase / docs</span></h2>
+    <div class="tree">
+      <div class="tree-node">
+        <p class="path">apps/user_app/</p>
+        <p class="role">แอปหลัก — นักเรียน / ผู้ปกครอง / ครู</p>
+        <ul>
+          <li>pages/ — หน้าจริงที่แก้ไข/เขียนเพิ่ม</li>
+          <li>widgets/, theme/, utils/</li>
+          <li>components/, flutter_flow/ — เศษ FlutterFlow เดิม</li>
+        </ul>
+      </div>
+      <div class="tree-node">
+        <p class="path">apps/admin_app/</p>
+        <p class="role">แอปแยกสำหรับ super_admin</p>
+        <ul>
+          <li>pages/ — หน้าของผู้ดูแล และเรียกหน้าร่วมจาก shared_ui</li>
+        </ul>
+      </div>
+      <div class="tree-node">
+        <p class="path">packages/shared_core/</p>
+        <p class="role">โค้ดที่ 2 แอปใช้ร่วมกัน</p>
+        <ul>
+          <li>models/ — UserModel, ConsentModel ฯลฯ</li>
+          <li>services/ — auth, consent, invitation, parent binding ฯลฯ</li>
+          <li>test/ — ทดสอบ service และ model behavior</li>
+        </ul>
+      </div>
+      <div class="tree-node">
+        <p class="path">packages/shared_ui/</p>
+        <p class="role">Flutter UI ที่ทั้ง user_app และ admin_app ใช้ร่วมกัน</p>
+        <ul>
+          <li>pages/ — OTP, ผู้ใช้, คำเชิญ, consent, parent binding</li>
+          <li>test/ — widget test ของหน้าร่วม</li>
+          <li>shared_ui.dart — public export ของ package</li>
+        </ul>
+      </div>
+      <div class="tree-node">
+        <p class="path">supabase/</p>
+        <p class="role">Backend — RPC + Edge Functions</p>
+        <ul>
+          <li>migrations/ — SQL เรียงตาม timestamp</li>
+          <li>functions/ — Edge Function แยกโฟลเดอร์ต่ออัน</li>
+          <li>tests/ — pgTAP + edge test</li>
+        </ul>
+      </div>
+      <div class="tree-node flagged">
+        <p class="path">tools/ · lessons/ · reference/ · assets/</p>
+        <p class="role">นอก monorepo หลัก — สคริปต์ฮาร์ดแวร์ + เอกสารทดลอง<span class="tag warn">ตรวจก่อนใช้</span></p>
+        <ul>
+          <li>tools/wifi_gateway.py — gateway ที่รันบนคอมเพื่อน อ่าน sensor แล้วยิงเข้า RPC</li>
+          <li>lessons/, reference/, assets/ — ไฟล์ HTML/CSS สาธิตการส่ง OTP ผ่าน Resend (ไม่ใช่ส่วนของแอป)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flow" aria-label="การไหลของโค้ด">
+      <div class="flow-step">
+        <div class="flow-name">apps/*</div>
+        <p>หน้าจอและ flow ที่เป็นเจ้าของโดยแต่ละแอป</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-step">
+        <div class="flow-name">shared_ui</div>
+        <p>หน้าจอ Flutter ที่ใช้ร่วมกัน</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-step core">
+        <div class="flow-name">shared_core</div>
+        <p>model, session และ service</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="flow-step core">
+        <div class="flow-name">supabase</div>
+        <p>database RPC และ Edge Functions</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="ui-work">
+    <h2>ตำแหน่งสำหรับงาน UX/UI <span class="count">แก้ใน shared_ui หรือ app owner</span></h2>
+    <table class="callers">
+      <thead>
+        <tr><th>ตำแหน่ง</th><th>หน้าที่</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="svc">packages/shared_ui/lib/pages/</td>
+          <td class="pages">
+            หน้าที่ใช้ข้ามแอป: <code>login_otp_page</code>, <code>user_list_page</code>,
+            <code>invite_staff_page</code>, <code>issue_binding_code_page</code>,
+            <code>parent_link_review_page</code>, <code>parent_consent_page</code> และ
+            <code>consent_policy_admin_page</code>.
+          </td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/pages/</td>
+          <td class="pages">หน้าที่เฉพาะผู้ใช้ เช่น login, dashboard, profile, notifications และ password reset.</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/admin_app/lib/pages/</td>
+          <td class="pages">หน้าที่เฉพาะผู้ดูแล เช่น admin login และ admin dashboard.</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/widgets/</td>
+          <td class="pages">องค์ประกอบ UI เฉพาะ user app; ถ้าใช้ร่วมสองแอปจึงค่อยย้ายเป็น shared_ui widget.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="roles">
+    <h2>สิทธิ์ (role) แต่ละแบบ — มีหน้าอะไร ทำอะไรได้บ้าง <span class="count">apps/user_app/lib/pages/dashboard/ · เลือกหน้าโดย role_router.dart</span></h2>
+    <p class="sub" style="margin-bottom: 12px;">
+      user_app มี 8 สิทธิ์ ทุกครั้งที่ login <code class="mono">RoleRouter</code> จะเช็ก
+      <code class="mono">user.role</code> แล้วพาไปหน้า dashboard ของสิทธิ์นั้นโดยอัตโนมัติ —
+      คอลัมน์ "ใช้งานได้จริง" คือ feature ที่เชื่อม service/RPC แล้ว ส่วน "coming soon"
+      คือช่องที่วาง UI ไว้แต่ยังไม่ผูก logic
+    </p>
+    <p class="sub" style="margin-bottom: 20px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius); border-left: 3px solid var(--amber);">
+      <strong style="color: var(--text);">หมายเหตุเรื่อง URL:</strong> แอปนี้ไม่ได้ใช้ URL router (เช่น go_router) —
+      มี named route แค่ 5 อันในทั้งโปรเจกต์ (ทั้งหมดอยู่ใน user_app, admin_app ไม่มีเลย)
+      หน้าที่เหลือเรียกด้วย <code class="mono">Navigator.push(MaterialPageRoute(...))</code> แบบไม่ตั้งชื่อ
+      ถ้ารันเป็น Flutter Web จะ<strong>ไม่เห็น URL เปลี่ยน</strong>ตอนกดเข้าหน้าเหล่านั้น (URL ค้างที่ path เดิม)
+      คอลัมน์ "URL/route" ด้านล่างจึงบอกแค่ path จริงที่มี ส่วนที่ไม่มีจะเขียนว่า "ไม่มี (push ไม่ตั้งชื่อ)"
+    </p>
+    <table class="callers folder-table">
+      <thead>
+        <tr><th>สิทธิ์</th><th>หน้า (dashboard file)</th><th>URL/route</th><th>ใช้งานได้จริงตอนนี้</th><th>Coming soon (วาง UI ไว้ ยังไม่ผูก logic)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="svc"><strong>นักเรียน</strong><br>student</td>
+          <td class="pages"><code>student/student_main_nav.dart</code></td>
+          <td class="pages"><code>/</code> (root — เลือกโดย <code>RoleRouter</code>) · หน้าย่อยในแถบล่างไม่มี route แยก</td>
+          <td class="pages">
+            แถบล่างสลับ 4 หน้า: หน้าแรก (คุณภาพอากาศห้องเรียนแบบเรียลไทม์), รายวิชา (<code>CourseListPage</code>), โปรไฟล์
+          </td>
+          <td class="pages">คะแนน (placeholder), Green Score, แจ้งเตือนฉุกเฉิน</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>ครู</strong><br>teacher</td>
+          <td class="pages"><code>dashboard/teacher_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root) · <code>IssueBindingCodePage</code>/<code>ParentLinkReviewPage</code> ไม่มี route แยก</td>
+          <td class="pages">
+            คุณภาพอากาศห้องเรียนแบบเรียลไทม์ ·
+            ออกรหัสผูกบัญชีผู้ปกครอง (<code>IssueBindingCodePage</code>) ·
+            อนุมัติ/ปฏิเสธคำขอผูกบัญชีผู้ปกครอง (<code>ParentLinkReviewPage</code>)
+          </td>
+          <td class="pages">ควบคุมไฟ/แอร์/น้ำในห้อง, เช็คชื่อนักเรียน, แจ้งเตือนพฤติกรรม</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>ผู้ดูแลอาคาร</strong><br>facility_manager</td>
+          <td class="pages"><code>dashboard/building_admin_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root)</td>
+          <td class="pages">
+            ข้อมูลอาคารที่รับผิดชอบ · คุณภาพอากาศทุกห้องในอาคารแบบเรียลไทม์ (ระดับคุณภาพ + ค่า CO2 ppm ต่อห้อง)
+          </td>
+          <td class="pages">ควบคุมอุปกรณ์ทั้งอาคาร (ไฟ/น้ำ), log ประวัติคำสั่ง</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>แอดมินโรงเรียน</strong><br>school_admin</td>
+          <td class="pages"><code>dashboard/school_admin_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root) · จัดการผู้ใช้เป็น <code>/users</code> (named route) · Consent Policy ไม่มี route แยก</td>
+          <td class="pages">
+            จัดการผู้ใช้ในโรงเรียน (<code>/users</code> — เพิ่ม/ลบ/เปลี่ยนสิทธิ์) ·
+            จัดการ Consent Policy (<code>ConsentPolicyAdminPage</code> — publish/retire พร้อม audit log)
+          </td>
+          <td class="pages">เมนูกล้องวงจรปิด (ยังไม่ผูก action), พลังงานรวมทั้งโรงเรียน, กล้อง+AI ตรวจจับ, ตั้งเวลาอุปกรณ์อัตโนมัติ, รายงาน ESG/Green Score</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>ผู้บริหาร</strong><br>executive</td>
+          <td class="pages"><code>dashboard/executive_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root)</td>
+          <td class="pages">การ์ดข้อมูลบทบาทเท่านั้น — ยังไม่มีข้อมูลจริงเชื่อมเข้ามา</td>
+          <td class="pages">ค่าไฟ/ค่าน้ำรายเดือน, Green Score/ลดคาร์บอน, พยากรณ์ค่าใช้จ่ายด้วย AI, รายงาน ESG สำหรับวางแผนงบ</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>ผู้ดูแลระบบสูงสุด</strong><br>super_admin</td>
+          <td class="pages"><code>dashboard/super_admin_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root) · จัดการผู้ใช้เป็น <code>/users</code> (named route)</td>
+          <td class="pages">
+            จัดการผู้ใช้ข้ามโรงเรียน (<code>/users</code>) — ระบุชัดว่าเป็นสิทธิ์ระดับ platform เท่านั้น
+            ไม่มีสิทธิ์ด้าน Classroom/AIoT/Emergency/Security
+          </td>
+          <td class="pages">สร้าง/จัดการโรงเรียนทั้งระบบ, audit log ข้ามโรงเรียน, สถานะอุปกรณ์ข้ามโรงเรียนแบบอ่านอย่างเดียว</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>ช่างเทคนิค</strong><br>technician</td>
+          <td class="pages"><code>dashboard/technician_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root)</td>
+          <td class="pages">การ์ดข้อมูลบทบาท/โรงเรียนเท่านั้น — ยังไม่มี RPC/service เชื่อมจริง</td>
+          <td class="pages">สถานะอุปกรณ์ทั้งหมด, บันทึกประวัติการซ่อมบำรุง</td>
+        </tr>
+        <tr>
+          <td class="svc"><strong>ผู้ปกครอง</strong><br>parent</td>
+          <td class="pages"><code>dashboard/parent_dashboard.dart</code></td>
+          <td class="pages"><code>/</code> (root) · <code>ParentConsentPage</code> ไม่มี route แยก</td>
+          <td class="pages">
+            จัดการสิทธิ์ PDPA/Consent (<code>ParentConsentPage</code> — ดู policy version, ให้/ถอน consent พร้อมหลักฐาน) — action เดียวที่ผูกจริง
+          </td>
+          <td class="pages">ประวัติเข้า-ออกของบุตรหลาน, แจ้งเตือนมาถึง/กลับบ้าน, log การสื่อสารกับครู, รายงานเกรด/พฤติกรรม</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 style="margin-top: 44px;">named route ทั้งหมดที่มีจริงในโปรเจกต์ <span class="count">รวม 5 อัน — ทั้งหมดอยู่ใน user_app</span></h2>
+    <table class="callers folder-table">
+      <thead>
+        <tr><th>URL/route</th><th>แอป</th><th>หน้าที่แสดง</th><th>ใครเข้าได้</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="svc"><code>/login</code></td>
+          <td class="pages">user_app</td>
+          <td class="pages"><code>LoginPage</code></td>
+          <td class="pages">ทุกคนที่ยังไม่ login</td>
+        </tr>
+        <tr>
+          <td class="svc"><code>/home</code></td>
+          <td class="pages">user_app</td>
+          <td class="pages"><code>HomePage</code></td>
+          <td class="pages">ทุกสิทธิ์ที่ login แล้ว (แต่หน้าเริ่มต้นจริงคือ <code>RoleRouter</code> ที่ path <code>/</code> ไม่ใช่ <code>/home</code>)</td>
+        </tr>
+        <tr>
+          <td class="svc"><code>/profile</code></td>
+          <td class="pages">user_app</td>
+          <td class="pages"><code>ProfilePage</code></td>
+          <td class="pages">ทุกสิทธิ์ที่ login แล้ว</td>
+        </tr>
+        <tr>
+          <td class="svc"><code>/users</code></td>
+          <td class="pages">user_app</td>
+          <td class="pages"><code>UserListPage</code> (จาก shared_ui)</td>
+          <td class="pages">school_admin, super_admin (หน้าไม่ได้เช็ก role เอง ขึ้นกับว่าใครกดปุ่มเข้ามา)</td>
+        </tr>
+        <tr>
+          <td class="svc"><code>/forgot-password</code></td>
+          <td class="pages">user_app</td>
+          <td class="pages"><code>ForgotPasswordPage</code></td>
+          <td class="pages">ทุกคน (ก่อน login)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="sub" style="margin-top: 14px; font-size: 12.5px;">
+      admin_app ไม่มี named route เลยแม้แต่อันเดียว — เริ่มที่ <code class="mono">AdminLoginPage</code> เป็น
+      <code class="mono">home</code> ตรง ๆ แล้ว push ไปหน้าอื่นแบบไม่ตั้งชื่อทั้งหมด
+    </p>
+    <p class="sub" style="margin-top: 10px; font-size: 12.5px;">
+      หมายเหตุ: มีไฟล์ <code class="mono">dashboard/student_dashboard.dart</code> อยู่ในโค้ดด้วย
+      แต่ <strong>ไม่ได้ถูกใช้จริง</strong> — <code class="mono">role_router.dart</code> พาสิทธิ์นักเรียนไปที่
+      <code class="mono">StudentMainNav</code> แทน ถือเป็น dead code ที่รอพิจารณาลบ
+    </p>
+  </section>
+
+  <section id="folder-guide">
+    <h2>คู่มือโฟลเดอร์และหน้าจอ <span class="count">อ่านก่อนเริ่มแก้ไฟล์</span></h2>
+    <table class="callers folder-table">
+      <thead>
+        <tr><th>ตำแหน่ง</th><th>มีอะไรอยู่ข้างใน / ใช้ทำอะไร</th><th>แก้ UX/UI เมื่อใด</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="svc">apps/user_app/lib/pages/</td>
+          <td class="pages"><strong>หน้าหลักของผู้ใช้</strong>: login, profile, home, dashboard ตาม role, notifications, invitation, binding code และ password reset</td>
+          <td class="pages">แก้เมื่อเป็น flow เฉพาะ user app</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/pages/dashboard/</td>
+          <td class="pages"><strong>แดชบอร์ดตามบทบาท</strong>: student, parent, teacher, school admin, building admin, technician, executive และ super admin</td>
+          <td class="pages">แก้ layout, metric, card และ navigation ของแต่ละ role</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/widgets/</td>
+          <td class="pages"><strong>ชิ้นส่วน UI ของ user app</strong>: header, card, field, drawer และ sensor card</td>
+          <td class="pages">แก้ component ที่ใช้เฉพาะ user app; ถ้าใช้ทั้งสองแอปให้พิจารณาย้ายไป shared_ui</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/theme/</td>
+          <td class="pages"><strong>ระบบหน้าตา user app</strong>: สี, typography, theme และค่ากลางของ Material</td>
+          <td class="pages">แก้เมื่อปรับ visual language ของ user app ทั้งระบบ</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/utils/</td>
+          <td class="pages"><strong>ฟังก์ชันช่วยฝั่ง UI</strong>: <code>app_validators.dart</code> ตรวจรูปแบบ input ในฟอร์ม (อีเมล, รหัสผ่าน ฯลฯ)</td>
+          <td class="pages">แก้เมื่อเปลี่ยนกฎ validate ของฟอร์ม</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/data/</td>
+          <td class="pages"><strong>ว่างเปล่าในตอนนี้</strong> — เผื่อไว้สำหรับ local cache/repository ในอนาคต</td>
+          <td class="pages">ยังไม่มีอะไรให้แก้</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/components/</td>
+          <td class="pages"><strong>คอมโพเนนต์จาก FlutterFlow เดิม</strong>: card, form, stat, row และ widget ที่ generate ไว้ (รวม <code>form_section</code>, <code>form_section2/3/4</code> ที่ชื่อซ้ำกันจากการ generate)</td>
+          <td class="pages">แก้เฉพาะเมื่อหน้ายังใช้งาน component เดิม; ควรตรวจ dependency ก่อน refactor — ตัวเลข 2/3/4 เป็นสัญญาณว่าอาจซ้ำซ้อนกัน ควรรีวิว</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/user_app/lib/flutter_flow/</td>
+          <td class="pages"><strong>เศษโค้ด FlutterFlow เดิม</strong>: theme helper, icon button, widget แบบ generate อัตโนมัติ</td>
+          <td class="pages">ไม่ควรแก้ต่อ; รอพิจารณาลบทั้งโฟลเดอร์เมื่อเลิกใช้จริง</td>
+        </tr>
+        <tr>
+          <td class="svc">apps/admin_app/lib/pages/</td>
+          <td class="pages"><strong>หน้าของแอปผู้ดูแล</strong>: admin login และ admin dashboard</td>
+          <td class="pages">แก้ flow และ visual ที่เป็นของ admin app โดยเฉพาะ</td>
+        </tr>
+        <tr>
+          <td class="svc">packages/shared_ui/lib/pages/</td>
+          <td class="pages"><strong>หน้าที่ใช้ร่วมกันสองแอป</strong>: OTP login, user list, invite staff, issue binding code, parent link review, parent consent และ consent policy admin</td>
+          <td class="pages">แก้เมื่อ UX/UI ต้องเหมือนกันทั้ง user app และ admin app</td>
+        </tr>
+        <tr>
+          <td class="svc">packages/shared_ui/test/</td>
+          <td class="pages"><strong>Widget test ของหน้าร่วม</strong>: ตรวจการกรอก OTP, การกดปุ่ม และ callback ของหน้า</td>
+          <td class="pages">อัปเดตเมื่อเปลี่ยน interaction หรือ accessibility key ของหน้า</td>
+        </tr>
+        <tr>
+          <td class="svc">packages/shared_core/lib/models/</td>
+          <td class="pages"><strong>รูปแบบข้อมูล</strong>: user, sensor, invitation, consent, notification, parent binding และ login challenge</td>
+          <td class="pages">ไม่ใช่ที่วาง UI; แก้เมื่อโครงสร้างข้อมูลเปลี่ยน</td>
+        </tr>
+        <tr>
+          <td class="svc">packages/shared_core/lib/services/</td>
+          <td class="pages"><strong>business logic และการเรียก backend</strong>: auth, OTP, invitation, consent, parent binding, reset password, admin และ notification</td>
+          <td class="pages">ไม่ควรแก้เพื่อเปลี่ยนหน้าตา; แก้เมื่อ behavior หรือ API เปลี่ยน</td>
+        </tr>
+        <tr>
+          <td class="svc">supabase/functions/</td>
+          <td class="pages">
+            <strong>Edge Function แยกโฟลเดอร์ต่ออัน</strong>:
+            <code>auth-sign-in</code> (login + rate limit),
+            <code>auth-verify-otp</code> (ยืนยัน OTP 2FA),
+            <code>request-password-reset</code>,
+            <code>request-parent-binding-otp</code> (ส่ง OTP ผูกผู้ปกครอง),
+            <code>gateway-sensor-ingest</code> (รับข้อมูล sensor แบบเซ็นด้วย HMAC)
+          </td>
+          <td class="pages">ไม่ใช่ UI; แก้เมื่อ flow backend หรือ security เปลี่ยน</td>
+        </tr>
+        <tr>
+          <td class="svc">supabase/migrations/</td>
+          <td class="pages"><strong>โครงสร้างและกฎของฐานข้อมูล</strong>: ตาราง, RPC, RLS, rate limit และ security policy — แยกเป็นไฟล์ตามหัวข้อ (session/rate-limit, parent binding, link review, consent policy, sensor read scope, gateway ingest, RLS lockdown)</td>
+          <td class="pages">ไม่ใช่ UI; ห้ามแก้ migration ที่ถูกใช้งานแล้วโดยไม่วางแผน migration ใหม่</td>
+        </tr>
+        <tr>
+          <td class="svc">supabase/tests/</td>
+          <td class="pages"><strong>การทดสอบ backend</strong>: pgTAP สำหรับ database และ source-security test ของ Edge Function</td>
+          <td class="pages">อัปเดตเมื่อ behavior ด้านความปลอดภัยหรือ database เปลี่ยน</td>
+        </tr>
+        <tr>
+          <td class="svc">docs/</td>
+          <td class="pages"><strong>เอกสารโครงการ</strong>: แผนผังโค้ดนี้, work log, สรุป PDPA/security และคู่มือ sensor API</td>
+          <td class="pages">อัปเดตเมื่อโครงสร้างหรือวิธีทำงานของทีมเปลี่ยน</td>
+        </tr>
+        <tr>
+          <td class="svc">tools/</td>
+          <td class="pages"><strong>สคริปต์ฝั่งฮาร์ดแวร์</strong>: <code>wifi_gateway.py</code> รันบนคอมของเพื่อน อ่านค่าจากบอร์ดผ่าน WiFi/JSON แล้วยิงเข้า RPC ingest</td>
+          <td class="pages">ไม่ใช่ Flutter/UI; แก้เมื่อ protocol หรือรูปแบบข้อมูล sensor เปลี่ยน</td>
+        </tr>
+        <tr>
+          <td class="svc">lessons/, reference/, assets/</td>
+          <td class="pages"><strong>ไฟล์ HTML/CSS สาธิตนอกแอป</strong>: ตัวอย่างการทดสอบส่ง OTP ผ่าน Resend — ไม่ได้เชื่อมกับ Flutter app หรือ deploy จริง</td>
+          <td class="pages">ไม่เกี่ยวกับ UX/UI ของแอป; พิจารณาย้ายไปโฟลเดอร์เอกสารหรือลบถ้าไม่ใช้ต่อ</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="services">
+    <h2>
+      การแตก auth_service.dart
+      <span class="count">1 ไฟล์ → 7 ไฟล์ · 586 → 895 บรรทัดรวม</span>
+    </h2>
+    <div class="split-wrap">
+      <div class="split-grid">
+        <div class="before-card">
+          <div class="label mono">auth_service.dart</div>
+          <div class="lines mono">586</div>
+          <div class="lines-caption">บรรทัด (ก่อนแตก)</div>
+          <p class="desc">
+            เดิมรวม 7 concern ไว้ในคลาสเดียว: session, invitation,
+            parent-binding, consent, password-reset, user-admin, notification
+            — ทุกอันเข้าถึง <code class="mono">_sessionToken</code> ตรง ๆ
+          </p>
+        </div>
+
+        <div class="trace-col" aria-hidden="true">
+          <svg viewBox="0 0 100 320" preserveAspectRatio="none">
+            <g fill="none" stroke="var(--trace)" stroke-width="1.4">
+              <path d="M0,160 H30 Q40,160 40,150 V22  Q40,12 50,12 H100" />
+              <path d="M0,160 H35 Q40,160 40,150 V90  Q40,80 50,80 H100" />
+              <path d="M0,160 H40" />
+              <path d="M0,160 H35 Q40,160 40,170 V148 Q40,158 50,158 H0" opacity="0" />
+              <path d="M0,160 H30 Q40,160 40,170 V228 Q40,238 50,238 H100" />
+              <path d="M0,160 H35 Q40,160 40,170 V280 Q40,290 50,290 H100" />
+            </g>
+            <g fill="var(--trace)">
+              <circle cx="2" cy="160" r="2.4" />
+            </g>
+          </svg>
+        </div>
+
+        <div class="after-col">
+          <div class="after-card core">
+            <span class="name">auth_service.dart</span>
+            <span class="n">212</span>
+            <span class="desc">แกนกลาง — sign in/out, OTP 2FA, session state, currentUserModel</span>
+          </div>
+          <div class="after-card">
+            <span class="name">parent_binding_service.dart</span>
+            <span class="n">172</span>
+            <span class="desc">รหัสผูกบัญชี, OTP, อนุมัติ/ปฏิเสธ parent link</span>
+          </div>
+          <div class="after-card">
+            <span class="name">consent_service.dart</span>
+            <span class="n">99</span>
+            <span class="desc">ดู/ให้/ถอน consent, จัดการ policy version</span>
+          </div>
+          <div class="after-card">
+            <span class="name">invitation_service.dart</span>
+            <span class="n">58</span>
+            <span class="desc">เชิญ/list/revoke บุคลากร</span>
+          </div>
+          <div class="after-card">
+            <span class="name">user_admin_service.dart</span>
+            <span class="n">42</span>
+            <span class="desc">list/update role/suspend user</span>
+          </div>
+          <div class="after-card">
+            <span class="name">notification_service.dart</span>
+            <span class="n">28</span>
+            <span class="desc">แจ้งเตือนในแอป</span>
+          </div>
+          <div class="after-card">
+            <span class="name">password_reset_service.dart</span>
+            <span class="n">26</span>
+            <span class="desc">ลืมรหัสผ่าน — ไม่ต้องมี session</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="callers">
+    <h2>ใครเรียก service ไหน <span class="count">business logic อยู่ใน shared_core</span></h2>
+    <table class="callers">
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>เรียกจากหน้า</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="svc">AuthService</td>
+          <td class="pages">
+            <code>login_page</code> <code>admin_login_page</code>
+            <code>shared_ui/login_otp_page</code> <code>profile_page</code>
+            <code>accept_invitation_page</code> <code>shared_ui/user_list_page</code>
+            + ทุกหน้าที่อ่าน <code>currentUserModel</code>
+          </td>
+        </tr>
+        <tr>
+          <td class="svc">InvitationService</td>
+          <td class="pages"><code>shared_ui/invite_staff_page</code></td>
+        </tr>
+        <tr>
+          <td class="svc">ParentBindingService</td>
+          <td class="pages">
+            <code>shared_ui/issue_binding_code_page</code>
+            <code>redeem_binding_code_page</code>
+            <code>shared_ui/parent_link_review_page</code>
+          </td>
+        </tr>
+        <tr>
+          <td class="svc">ConsentService</td>
+          <td class="pages">
+            <code>shared_ui/parent_consent_page</code>
+            <code>shared_ui/consent_policy_admin_page</code>
+          </td>
+        </tr>
+        <tr>
+          <td class="svc">UserAdminService</td>
+          <td class="pages"><code>shared_ui/user_list_page</code></td>
+        </tr>
+        <tr>
+          <td class="svc">NotificationService</td>
+          <td class="pages">
+            <code>notifications_page</code> <code>home_page</code>
+          </td>
+        </tr>
+        <tr>
+          <td class="svc">PasswordResetService</td>
+          <td class="pages">
+            <code>forgot_password_page</code>
+            <code>reset_password_confirm_page</code>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="git-workflow">
+    <h2>คู่มือ Git — วิธีบันทึกและอัปงาน <span class="count">commit + push</span></h2>
+
+    <div class="tree" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+      <div class="tree-node">
+        <p class="path">1. ทำไมต้อง commit/push</p>
+        <p class="role">บันทึกจุดที่ใช้งานได้ + สำรองงานไว้นอกเครื่อง</p>
+        <ul>
+          <li>commit = จุดย้อนกลับได้ถ้าแก้พัง</li>
+          <li>push = สำรองงาน กันเครื่องพัง/ลบไฟล์พลาด</li>
+          <li>ให้เพื่อน/Codex/Claude เครื่องอื่นดึงไปทำต่อได้</li>
+          <li>push ขึ้น 2 ที่พร้อมกัน: GitHub (<code class="mono">origin</code>) และ GitLab (<code class="mono">gitlab</code>) กันฝั่งใดฝั่งหนึ่งมีปัญหา</li>
+        </ul>
+      </div>
+      <div class="tree-node">
+        <p class="path">2. ก่อน commit ทุกครั้ง</p>
+        <p class="role">เช็กว่ากำลังจะบันทึกอะไรไป</p>
+        <ul>
+          <li><code class="mono">git status</code> — ดูไฟล์ที่แก้/ใหม่/ลบ</li>
+          <li><code class="mono">git diff</code> — ดูเนื้อหาที่เปลี่ยนจริง ก่อน add</li>
+          <li><code class="mono">git diff --cached</code> — ดูของที่ add แล้วรอ commit</li>
+          <li>ห้าม commit ไฟล์ที่มี secret เช่น <code class="mono">env.json</code></li>
+        </ul>
+      </div>
+      <div class="tree-node">
+        <p class="path">3. push ขึ้น remote</p>
+        <p class="role">อัปสิ่งที่ commit แล้วขึ้นไปเก็บจริง</p>
+        <ul>
+          <li><code class="mono">git remote -v</code> — เช็กก่อนว่ามี remote อะไรบ้าง</li>
+          <li><code class="mono">git push origin main</code> — ขึ้น GitHub</li>
+          <li><code class="mono">git push gitlab main</code> — ขึ้น GitLab</li>
+          <li>ถ้าถูก reject ให้ <code class="mono">git pull</code> ก่อน ห้าม force push ทับ</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="split-wrap" style="margin-top: 28px;">
+      <table class="callers folder-table">
+        <thead>
+          <tr><th>ขั้นตอน</th><th>คำสั่ง</th><th>ทำไปเพื่ออะไร</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="svc">1. เลือกไฟล์ที่จะบันทึก</td>
+            <td class="pages"><code>git add packages/.../auth_service.dart</code></td>
+            <td class="pages">เลือกทีละไฟล์/กลุ่มที่เกี่ยวข้องกัน — <strong>ห้ามใช้ <code>git add -A</code> หรือ <code>git add .</code></strong> พร่ำเพรื่อ เพราะอาจดึงไฟล์ที่ไม่ตั้งใจ (secret, ไฟล์ทดลอง) เข้ามาด้วย</td>
+          </tr>
+          <tr>
+            <td class="svc">2. บันทึก (commit)</td>
+            <td class="pages"><code>git commit -m "refactor: ..."</code></td>
+            <td class="pages">ตั้งชื่อสั้น บอกว่าทำอะไร ใช้ prefix <code>feat:</code> งานใหม่ · <code>fix:</code> แก้บั๊ก · <code>refactor:</code> จัดโครงสร้างใหม่ไม่เปลี่ยนพฤติกรรม · <code>docs:</code> แก้เอกสาร · <code>chore:</code> งานเบ็ดเตล็ด</td>
+          </tr>
+          <tr>
+            <td class="svc">3. แยก commit เป็นก้อนเล็ก</td>
+            <td class="pages">add + commit ทีละเรื่อง</td>
+            <td class="pages">ถ้าทำหลายเรื่องในคราวเดียว ให้แยก commit ตามเนื้อหา — เวลามีปัญหาจะ revert เฉพาะเรื่องนั้นได้ และคนอ่านประวัติ (<code>git log</code>) เข้าใจง่ายกว่ารวมทุกอย่างเป็นก้อนเดียว</td>
+          </tr>
+          <tr>
+            <td class="svc">4. push ขึ้น GitHub</td>
+            <td class="pages"><code>git push origin main</code></td>
+            <td class="pages">อัปงานขึ้น GitHub ผ่าน SSH (ตั้ง SSH key ไว้ล่วงหน้าแล้ว)</td>
+          </tr>
+          <tr>
+            <td class="svc">5. push ขึ้น GitLab</td>
+            <td class="pages"><code>git push gitlab main</code></td>
+            <td class="pages">อัปงานเดียวกันขึ้น GitLab ด้วย — เก็บสำรอง 2 ที่ และ GitLab มี CI pipeline คอย analyze/test อัตโนมัติ</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="sub" style="margin-top: 20px;">
+      <strong style="color: var(--text);">ข้อควรระวัง:</strong>
+      ห้าม commit ไฟล์ที่มี secret จริง (API key, password) ·
+      ไฟล์ที่ตั้งใจไม่ commit เช่น <code class="mono">docs/code-structure.html</code> นี้ ให้จำไว้ว่าอย่า <code class="mono">git add</code> ·
+      ไม่แน่ใจว่า commit ไหนทำอะไร ใช้ <code class="mono">git log --oneline -10</code> ดูประวัติล่าสุดก่อนตัดสินใจ
+    </p>
+  </section>
+
+  <footer>
+    <span>flutter analyze: 0 error</span>
+    <span class="dot">·</span>
+    <span>flutter test: 11/11 ผ่าน</span>
+    <span class="dot">·</span>
+    <span>ยังไม่ commit</span>
+  </footer>
+</div>
+</body>
+</html>
