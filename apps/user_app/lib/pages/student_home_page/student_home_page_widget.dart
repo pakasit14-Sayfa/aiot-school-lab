@@ -159,10 +159,9 @@ class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
   }
 
   Widget _buildPerfectOverlappingHeader(String name, String building, String room) {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
       children: [
-        // Top Emerald Gradient Container (Generous padding for clean breathing room)
+        // Top Emerald Gradient Container
         Container(
           width: double.infinity,
           decoration: const BoxDecoration(
@@ -176,7 +175,7 @@ class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
               bottomRight: Radius.circular(36),
             ),
           ),
-          padding: const EdgeInsets.fromLTRB(24, 56, 24, 155), // Generous 155px bottom space so top text never touches card
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
           child: Center(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 800),
@@ -249,24 +248,22 @@ class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
           ),
         ),
 
-        // Perfectly Positioned Floating Glass Card
-        Positioned(
-          left: 20,
-          right: 20,
-          bottom: -60,
-          child: Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 800),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8), // Lowered blur for subtle glass translucency
+        // Floating Glass Card in clean layout flow
+        Transform.translate(
+          offset: const Offset(0, -28),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 800),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.38), // Soft translucent white glass
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.2),
+                      border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(0xFF047857).withOpacity(0.08),
@@ -482,10 +479,10 @@ class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
         final Color cardBg = item['cardBg'] as Color;
         final Color iconColor = item['iconColor'] as Color;
 
-        return MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
             onTap: item['onTap'] as VoidCallback,
             child: Container(
               padding: const EdgeInsets.all(16),
@@ -664,28 +661,20 @@ class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
                       ],
                     ),
                   ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => CourseDetailPage(courseId: course.id)),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'เข้าเรียน',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.white),
-                        ),
-                      ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: color,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => CourseDetailPage(courseId: course.id)),
+                      );
+                    },
+                    child: const Text('เข้าเรียน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                   ),
                 ],
               ),

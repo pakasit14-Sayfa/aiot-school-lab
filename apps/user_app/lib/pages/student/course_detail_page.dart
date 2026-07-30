@@ -184,10 +184,10 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
           final isSelected = _currentTabIndex == index;
           final tab = tabs[index];
 
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
               onTap: () {
                 setState(() {
                   _currentTabIndex = index;
@@ -690,10 +690,10 @@ class _LessonsSectionState extends State<_LessonsSection> {
         itemBuilder: (context, index) {
           final lesson = _lessons[index];
 
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
               onTap: () async {
                 await Navigator.push(
                   context,
@@ -983,10 +983,10 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
         itemBuilder: (context, index) {
           final assignment = _assignments[index];
 
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
               onTap: () => _openAssignment(assignment),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 14),

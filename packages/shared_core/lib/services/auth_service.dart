@@ -25,22 +25,12 @@ class AuthService {
   /// (e.g. RealtimeService → sensor_latest). Null when signed out.
   static String? get sessionToken => _sessionToken;
 
-  static const _devStudentUser = UserModel(
-    uid: 'dev-student-1',
-    email: 'student@aiot-school-lab.local',
-    role: UserRole.student,
-    name: 'นักเรียน ทดสอบ',
-    schoolId: 'school-1',
-    building: 'อาคารวิทยาศาสตร์',
-    room: 'Lab 3',
-  );
-
   static Future<void> initialize() async {
     final token = await _tokenStorage.readAndMigrate();
 
     if (token == null) {
-      currentUserModel = _devStudentUser;
-      _authStateController.add(currentUserModel);
+      currentUserModel = null;
+      _authStateController.add(null);
       return;
     }
 
@@ -59,12 +49,12 @@ class AuthService {
         _authStateController.add(currentUserModel);
       } else {
         await _tokenStorage.delete();
-        currentUserModel = _devStudentUser;
-        _authStateController.add(currentUserModel);
+        currentUserModel = null;
+        _authStateController.add(null);
       }
     } catch (_) {
-      currentUserModel = _devStudentUser;
-      _authStateController.add(currentUserModel);
+      currentUserModel = null;
+      _authStateController.add(null);
     }
   }
 
@@ -72,13 +62,10 @@ class AuthService {
     return currentUserModel;
   }
 
-  static String? _lastAttemptedEmail;
-
   static Future<AuthSignInResult> signIn({
     required String email,
     required String password,
   }) async {
-    _lastAttemptedEmail = email.trim().toLowerCase();
     final response = await supabase.functions.invoke(
       'auth-sign-in',
       body: {'email': email.trim().toLowerCase(), 'password': password},
@@ -102,58 +89,16 @@ class AuthService {
     required String otpToken,
     required String otpCode,
   }) async {
-    final fallbackEmail = _lastAttemptedEmail ?? 'admin@aiot-school-lab.local';
-    final lowerEmail = fallbackEmail.toLowerCase();
-
-    UserRole devRole = UserRole.schoolAdmin;
-    String devName = 'แอดมินผู้ดูแลระบบ (Dev)';
-
-    if (lowerEmail.contains('teacher')) {
-      devRole = UserRole.teacher;
-      devName = 'ครูสมชาย สายวิทย์';
-    } else if (lowerEmail.contains('student')) {
-      devRole = UserRole.student;
-      devName = 'นักเรียน AIoT';
+    final response = await supabase.functions.invoke(
+      'auth-verify-otp',
+      body: {'otp_token': otpToken.trim(), 'otp_code': otpCode.trim()},
+    );
+    final data = response.data as Map<String, dynamic>?;
+    final session = data?['session'];
+    if (session is! Map) {
+      throw Exception('invalid_or_expired_otp');
     }
-
-    try {
-      final response = await supabase.functions.invoke(
-        'auth-verify-otp',
-        body: {'otp_token': otpToken.trim(), 'otp_code': otpCode.trim()},
-      );
-      final data = response.data as Map<String, dynamic>?;
-      final session = data?['session'];
-      if (session is Map) {
-        return _applySession(Map<String, dynamic>.from(session));
-      }
-    } catch (_) {
-      if (otpCode.trim() == '123456') {
-        final mockUser = UserModel(
-          uid: 'dev-user-id',
-          email: fallbackEmail,
-          name: devName,
-          role: devRole,
-        );
-        currentUserModel = mockUser;
-        _authStateController.add(mockUser);
-        return mockUser;
-      }
-      rethrow;
-    }
-
-    if (otpCode.trim() == '123456') {
-      final mockUser = UserModel(
-        uid: 'dev-user-id',
-        email: fallbackEmail,
-        name: devName,
-        role: devRole,
-      );
-      currentUserModel = mockUser;
-      _authStateController.add(mockUser);
-      return mockUser;
-    }
-
-    throw Exception('invalid_or_expired_otp');
+    return _applySession(Map<String, dynamic>.from(session));
   }
 
   static Future<UserModel> _applySession(Map<String, dynamic> row) async {

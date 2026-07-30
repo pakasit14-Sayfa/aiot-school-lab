@@ -274,13 +274,118 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
+  void _showGradeStudentModal(Map<String, String> student) {
+    final score1Controller = TextEditingController(text: student['score1']?.split('/')[0] ?? '18');
+    final score2Controller = TextEditingController(text: student['score2']?.split('/')[0] ?? '14');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF059669).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.grade_rounded, color: Color(0xFF059669), size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('ตรวจงานและกรอกคะแนนนักเรียน', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A))),
+                        const SizedBox(height: 2),
+                        Text('${student['name']} (เลขประจำตัว ${student['id']})', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12.5)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: score1Controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'คะแนนใบงานที่ 1 (เต็ม 20)',
+                  fillColor: const Color(0xFFF8FAFC),
+                  filled: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: score2Controller,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'คะแนนใบงานที่ 2 (เต็ม 15)',
+                  fillColor: const Color(0xFFF8FAFC),
+                  filled: true,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final s1 = int.tryParse(score1Controller.text) ?? 18;
+                    final s2 = int.tryParse(score2Controller.text) ?? 14;
+                    final total = s1 + s2;
+                    final gradeLetter = total >= 32 ? 'A' : (total >= 28 ? 'B+' : 'B');
+
+                    setState(() {
+                      student['score1'] = '$s1/20';
+                      student['score2'] = '$s2/15';
+                      student['total'] = '$total/35 ($gradeLetter)';
+                    });
+
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('บันทึกคะแนนของ ${student['name']} รวม $total/35 เรียบร้อยแล้ว'),
+                        backgroundColor: const Color(0xFF059669),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF059669),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('บันทึกคะแนนเกรด', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = currentUserModel;
     final teacherName = user?.name ?? 'ครูสมชาย สายวิทย์';
     final currentClass = _teacherClasses[_activeClassIndex];
     final double screenWidth = MediaQuery.of(context).size.width;
-    final bool isMobile = screenWidth <= 768;
+    final bool isMobile = screenWidth <= 1024; // Increased breakpoint to 1024px for all laptop/half-screen windows
 
     if (isMobile) {
       return Scaffold(
@@ -312,6 +417,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             ),
           ),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.add_box_rounded, color: Colors.white),
+              tooltip: 'สร้างรายวิชาใหม่',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TeacherCourseListPage()),
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.add_task_rounded, color: Colors.white),
               tooltip: 'สั่งการบ้านใหม่',
@@ -459,37 +574,34 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
           // ทางเข้าสู่หน้าจัดการรายวิชาจริง (สร้างวิชา/บทเรียน/งาน/ให้คะแนน)
           // — ส่วนบนของหน้านี้เป็นตัวอย่างการออกแบบ (mock), ยังไม่ได้ต่อ backend จริง
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const TeacherCourseListPage()),
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 10),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF059669),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.fact_check_rounded, color: Colors.white, size: 20),
-                    SizedBox(height: 2),
-                    Text(
-                      'วิชาจริง',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+          InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const TeacherCourseListPage()),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF059669),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.fact_check_rounded, color: Colors.white, size: 20),
+                  SizedBox(height: 2),
+                  Text(
+                    'วิชาจริง',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -504,41 +616,37 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 final isSelected = _activeRailIndex == index;
                 final item = railItems[index];
 
-                return MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() {
-                        _activeRailIndex = index;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        border: isSelected
-                            ? const Border(left: BorderSide(color: Color(0xFF2563EB), width: 3.5))
-                            : null,
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            item['icon'] as IconData,
+                return InkWell(
+                  onTap: () {
+                    setState(() {
+                      _activeRailIndex = index;
+                    });
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      border: isSelected
+                          ? const Border(left: BorderSide(color: Color(0xFF2563EB), width: 3.5))
+                          : null,
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          item['icon'] as IconData,
+                          color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                          size: 22,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item['label'] as String,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                            size: 22,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item['label'] as String,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -546,22 +654,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             ),
           ),
 
-          MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => AuthService.signOut(),
-              child: Tooltip(
-                message: 'ออกจากระบบ ($teacherName)',
-                child: const Padding(
-                  padding: EdgeInsets.only(bottom: 20),
-                  child: CircleAvatar(
-                    radius: 18,
-                    backgroundColor: Color(0xFF1E293B),
-                    child: Icon(Icons.logout_rounded, color: Colors.white, size: 16),
-                  ),
-                ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: IconButton(
+              tooltip: 'ออกจากระบบ ($teacherName)',
+              icon: const CircleAvatar(
+                radius: 18,
+                backgroundColor: Color(0xFF1E293B),
+                child: Icon(Icons.logout_rounded, color: Colors.white, size: 16),
               ),
+              onPressed: () => AuthService.signOut(),
             ),
           ),
         ],
@@ -596,10 +698,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 final isSelected = _activeClassIndex == index;
                 final color = item['color'] as Color;
 
-                return MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
                     onTap: () {
                       setState(() {
                         _activeClassIndex = index;
@@ -693,63 +795,81 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     final Color themeColor = currentClass['color'] as Color;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       color: Colors.white,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: themeColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(currentClass['icon'] as IconData, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: themeColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        currentClass['code'] as String,
-                        style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: themeColor,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'ชั้นเรียน ${currentClass['grade']} • ห้อง ${currentClass['room']}',
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 12.5),
+                    child: Icon(currentClass['icon'] as IconData, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: themeColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                currentClass['code'] as String,
+                                style: TextStyle(color: themeColor, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ),
+                            Text(
+                              'ชั้นเรียน ${currentClass['grade']} • ห้อง ${currentClass['room']}',
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          currentClass['name'] as String,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: _showCreateAssignmentModal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: themeColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  currentClass['name'] as String,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: _showCreateAssignmentModal,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: themeColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('สั่งการบ้านใหม่', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-          ),
-        ],
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('สั่งการบ้านใหม่', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -764,50 +884,50 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     ];
 
     return Container(
-      height: 46,
+      width: double.infinity,
       color: const Color(0xFF0F172A),
-      child: ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: tabs.length,
-        itemBuilder: (context, index) {
-          final isSelected = _activeTabContentIndex == index;
-          final tab = tabs[index];
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: List.generate(tabs.length, (index) {
+            final isSelected = _activeTabContentIndex == index;
+            final tab = tabs[index];
 
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                setState(() {
-                  _activeTabContentIndex = index;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                margin: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF059669) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _activeTabContentIndex = index;
+                  });
+                },
+                style: TextButton.styleFrom(
+                  backgroundColor: isSelected ? const Color(0xFF059669) : Colors.transparent,
+                  foregroundColor: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(tab['icon'] as IconData, size: 15, color: isSelected ? Colors.white : const Color(0xFF94A3B8)),
-                    const SizedBox(width: 8),
-                    Text(
-                      tab['title'] as String,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 13,
-                        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
+                icon: Icon(
+                  tab['icon'] as IconData,
+                  size: 16,
+                  color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                ),
+                label: Text(
+                  tab['title'] as String,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    fontSize: 13,
+                    color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          }),
+        ),
       ),
     );
   }
@@ -956,20 +1076,29 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             leading: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E40AF).withOpacity(0.1),
+                color: const Color(0xFF059669).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF1E40AF), size: 22),
+              child: const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF059669), size: 22),
             ),
             title: Text(f['name']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
             subtitle: Text('ขนาด: ${f['size']} • อัปโหลดเมื่อ: ${f['date']}'),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E40AF),
-                borderRadius: BorderRadius.circular(10),
+            trailing: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF059669),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('ดาวน์โหลด', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('กำลังดาวน์โหลดไฟล์: ${f['name']}...'),
+                    backgroundColor: const Color(0xFF059669),
+                  ),
+                );
+              },
+              child: const Text('ดาวน์โหลด', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
             ),
           ),
         );
@@ -1001,10 +1130,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E40AF).withOpacity(0.1),
+                  color: const Color(0xFF059669).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.assignment_rounded, color: Color(0xFF1E40AF), size: 24),
+                child: const Icon(Icons.assignment_rounded, color: Color(0xFF059669), size: 24),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1017,13 +1146,22 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E40AF),
-                  borderRadius: BorderRadius.circular(10),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('ตรวจคะแนน', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                onPressed: () {
+                  _showGradeStudentModal({
+                    'name': 'นายธีรภัทร สมบูรณ์',
+                    'id': '6401',
+                    'score1': '18/20',
+                    'score2': '14/15',
+                  });
+                },
+                child: const Text('ตรวจคะแนน', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1032,39 +1170,70 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  Widget _buildTeamsGradesContent() {
-    final students = [
-      {'name': 'นายธีรภัทร สมบูรณ์', 'id': '6401', 'score1': '18/20', 'score2': '14/15', 'total': '32/35 (A)'},
-      {'name': 'นางสาวกานต์ดา สุขใจ', 'id': '6402', 'score1': '19/20', 'score2': '15/15', 'total': '34/35 (A)'},
-      {'name': 'นายชยพล วิทยา', 'id': '6403', 'score1': '16/20', 'score2': '13/15', 'total': '29/35 (B+)'},
-    ];
+  final List<Map<String, String>> _teacherStudentGrades = [
+    {'name': 'นายธีรภัทร สมบูรณ์', 'id': '6401', 'score1': '18/20', 'score2': '14/15', 'total': '32/35 (A)'},
+    {'name': 'นางสาวกานต์ดา สุขใจ', 'id': '6402', 'score1': '19/20', 'score2': '15/15', 'total': '34/35 (A)'},
+    {'name': 'นายชยพล วิทยา', 'id': '6403', 'score1': '16/20', 'score2': '13/15', 'total': '29/35 (B+)'},
+  ];
 
+  Widget _buildTeamsGradesContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: DataTable(
-          columns: const [
-            DataColumn(label: Text('เลขประจำตัว', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('ชื่อ-นามสกุล นักเรียน', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('ใบงานที่ 1 (20)', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('ใบงานที่ 2 (15)', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('คะแนนสะสมรวม', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: students.map((s) {
-            return DataRow(cells: [
-              DataCell(Text(s['id']!)),
-              DataCell(Text(s['name']!, style: const TextStyle(fontWeight: FontWeight.bold))),
-              DataCell(Text(s['score1']!)),
-              DataCell(Text(s['score2']!)),
-              DataCell(Text(s['total']!, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669)))),
-            ]);
-          }).toList(),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('สมุดคะแนนและเกรดประจำคลาส', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
+              ElevatedButton.icon(
+                onPressed: () {
+                  _showGradeStudentModal(_teacherStudentGrades[0]);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('กรอกคะแนนนักเรียน', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: DataTable(
+              showCheckboxColumn: false,
+              columns: const [
+                DataColumn(label: Text('เลขประจำตัว', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('ชื่อ-นามสกุล นักเรียน', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('ใบงานที่ 1 (20)', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('ใบงานที่ 2 (15)', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('คะแนนสะสมรวม', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+              rows: _teacherStudentGrades.map((s) {
+                return DataRow(
+                  onSelectChanged: (_) {
+                    _showGradeStudentModal(s);
+                  },
+                  cells: [
+                    DataCell(Text(s['id']!)),
+                    DataCell(Text(s['name']!, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(Text(s['score1']!)),
+                    DataCell(Text(s['score2']!)),
+                    DataCell(Text(s['total']!, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF059669)))),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
