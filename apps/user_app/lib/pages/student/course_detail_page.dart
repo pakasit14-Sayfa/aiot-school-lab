@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'student_main_nav.dart';
@@ -252,7 +254,9 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     final room = _course?.room ?? '-';
     const themeColor = Color(0xFF0284C7);
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         elevation: 0,
@@ -359,6 +363,14 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
           ),
         ],
       ),
+        ),
+        if (_currentTabIndex == 0)
+          Positioned(
+            right: 20,
+            bottom: 90,
+            child: _Mascot3D(onWaveComplete: _openFloatingChatModal),
+          ),
+      ],
     );
   }
 }
@@ -1240,6 +1252,121 @@ class _TelemetrySection extends StatelessWidget {
           const SizedBox(height: 2),
           Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
+      ),
+    );
+  }
+}
+
+/// Floating 3D AI mascot — idle animation loops continuously; tapping plays
+/// the `wave` animation once, then opens the course chat modal.
+///
+/// model_viewer_plus has no cross-platform "animation finished" event and its
+/// `<model-viewer>` element doesn't react to a changed `animationName` after
+/// first mount (same on Web and mobile — see model_viewer_plus_web.dart /
+/// model_viewer_plus_mobile.dart, both build the WebView/HTML once in
+/// initState with no didUpdateWidget). So a second, temporary ModelViewer is
+/// stacked on top to play `wave`; [_waveDuration] is a fixed best-guess for
+/// that clip's length, not a measured value.
+class _Mascot3D extends StatefulWidget {
+  const _Mascot3D({required this.onWaveComplete});
+
+  final VoidCallback onWaveComplete;
+
+  @override
+  State<_Mascot3D> createState() => _Mascot3DState();
+}
+
+class _Mascot3DState extends State<_Mascot3D> {
+  static const _modelAsset = 'assets/models/mascot_animated.glb';
+  static const _posterAsset = 'assets/images/ai_mascot.png';
+  static const _waveDuration = Duration(milliseconds: 1800);
+  static const _width = 110.0;
+  static const _height = 190.0;
+
+  bool _isWaving = false;
+  bool _assetReady = false;
+  bool _assetMissing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _verifyAsset();
+  }
+
+  Future<void> _verifyAsset() async {
+    try {
+      await rootBundle.load(_modelAsset);
+      if (!mounted) return;
+      setState(() => _assetReady = true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _assetMissing = true);
+    }
+  }
+
+  void _handleTap() {
+    if (_isWaving || !_assetReady) return;
+    setState(() => _isWaving = true);
+    Future.delayed(_waveDuration, () {
+      if (!mounted) return;
+      setState(() => _isWaving = false);
+      widget.onWaveComplete();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _assetMissing ? widget.onWaveComplete : _handleTap,
+      child: Container(
+        width: _width,
+        height: _height,
+        clipBehavior: Clip.none,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0284C7).withOpacity(0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: _assetMissing
+            ? Image.asset(_posterAsset, fit: BoxFit.contain)
+            : Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ModelViewer(
+                    key: ValueKey('mascot-idle'),
+                    src: _modelAsset,
+                    alt: 'มาสคอต AI',
+                    poster: _posterAsset,
+                    autoPlay: true,
+                    animationName: 'idle',
+                    cameraControls: false,
+                    disableTap: true,
+                    disableZoom: true,
+                    disablePan: true,
+                    ar: false,
+                    backgroundColor: Colors.transparent,
+                  ),
+                  if (_isWaving)
+                    ModelViewer(
+                      key: UniqueKey(),
+                      src: _modelAsset,
+                      alt: 'มาสคอต AI กำลังโบกมือ',
+                      autoPlay: true,
+                      animationName: 'wave',
+                      cameraControls: false,
+                      disableTap: true,
+                      disableZoom: true,
+                      disablePan: true,
+                      ar: false,
+                      backgroundColor: Colors.transparent,
+                    ),
+                ],
+              ),
       ),
     );
   }

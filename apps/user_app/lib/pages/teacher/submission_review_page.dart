@@ -44,9 +44,7 @@ class _SubmissionReviewPageState extends State<SubmissionReviewPage> {
   Future<void> openSubmission(SubmissionRoster submission) async {
     List<AssignmentFeedback> feedback = [];
     try {
-      feedback = await AssignmentService.listFeedback(
-        submission.submissionId,
-      );
+      feedback = await AssignmentService.listFeedback(submission.submissionId);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -58,7 +56,7 @@ class _SubmissionReviewPageState extends State<SubmissionReviewPage> {
     if (!mounted) return;
     final feedbackController = TextEditingController();
 
-    await showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => Padding(
@@ -107,7 +105,7 @@ class _SubmissionReviewPageState extends State<SubmissionReviewPage> {
                   ),
                 )
               else
-                ...feedback.map(
+                ...feedback.map<Widget>(
                   (f) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: Column(
@@ -144,10 +142,10 @@ class _SubmissionReviewPageState extends State<SubmissionReviewPage> {
                         submissionId: submission.submissionId,
                         body: feedbackController.text,
                       );
-                      if (!sheetContext.mounted) return;
+                      if (!mounted) return;
                       Navigator.pop(sheetContext);
                     } catch (e) {
-                      if (!sheetContext.mounted) return;
+                      if (!mounted) return;
                       ScaffoldMessenger.of(sheetContext).showSnackBar(
                         SnackBar(content: Text('ส่ง feedback ไม่สำเร็จ: $e')),
                       );
@@ -181,7 +179,10 @@ class _SubmissionReviewPageState extends State<SubmissionReviewPage> {
                   children: [
                     Text(errorMessage!, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    ElevatedButton(onPressed: load, child: const Text('ลองใหม่')),
+                    ElevatedButton(
+                      onPressed: load,
+                      child: const Text('ลองใหม่'),
+                    ),
                   ],
                 ),
               ),

@@ -91,6 +91,18 @@ async function recordOperationalAlert(
   }
 }
 
+// Local Supabase (`supabase start`) has no real email provider — this must
+// never be true against a hosted project, since Deno.env only sees vars the
+// project's own Edge Runtime was started with.
+function isLocalDev(): boolean {
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  // `http://kong:8000` is the fixed internal hostname the Supabase CLI's
+  // local dev stack (`supabase start`) always gives the Edge Runtime
+  // container — never present against a hosted/deployed project.
+  return url.includes("127.0.0.1") || url.includes("localhost") ||
+    url.includes("kong:8000");
+}
+
 async function sendLoginOtpEmail(
   supabase: SupabaseClient,
   email: string,
@@ -100,12 +112,14 @@ async function sendLoginOtpEmail(
   const fromEmail = Deno.env.get("RESEND_FROM_EMAIL");
   if (!resendApiKey || !fromEmail) {
     console.error("login OTP email provider is not configured");
-    await recordOperationalAlert(
-      supabase,
-      "login_otp_email_configuration_missing",
-      "critical",
-      { provider: "resend" },
-    );
+    if (!isLocalDev()) {
+      await recordOperationalAlert(
+        supabase,
+        "login_otp_email_configuration_missing",
+        "critical",
+        { provider: "resend" },
+      );
+    }
     return;
   }
 
@@ -235,6 +249,13 @@ Deno.serve(async (req) => {
       mfa_required: true,
       otp_token: otpToken,
       otp_expires_at: data.otp_expires_at,
+      // Local Supabase has no email provider configured, so the OTP would
+      // otherwise be undeliverable and unrecoverable (only its hash is
+      // stored). Echo it back for local dev only — never against a real
+      // deployed project, since RESEND_API_KEY/SUPABASE_URL are per-project.
+      ...(isLocalDev() && !Deno.env.get("RESEND_API_KEY")
+        ? { dev_otp_code: otpCode }
+        : {}),
     });
   }
 

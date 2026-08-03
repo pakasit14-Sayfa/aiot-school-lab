@@ -105,6 +105,40 @@ class _LoginOtpPageState extends State<LoginOtpPage> {
                         'รหัสใช้ได้ครั้งเดียวและหมดอายุเวลา $expiresText น.',
                         textAlign: TextAlign.center,
                       ),
+                      if (widget.challenge.devOtpCode != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            border: Border.all(color: Colors.orange.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            children: [
+                              const Text(
+                                'โหมดพัฒนา (local dev) — ไม่มีการส่งอีเมลจริง',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepOrange,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.challenge.devOtpCode!,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       TextField(
                         key: const Key('login-otp-code'),

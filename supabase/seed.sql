@@ -71,6 +71,112 @@ begin
   end loop;
 end $$;
 
+-- =====================================================================
+-- Classroom & Learning sample data — one course taught by the seeded
+-- teacher account with the seeded student enrolled, so the UI has real
+-- content to show instead of empty states. Safe to re-run.
+-- =====================================================================
+
+do $$
+declare
+  v_super_admin_id uuid;
+  v_school_id uuid;
+  v_teacher_id uuid;
+  v_student_id uuid;
+  v_academic_year_id uuid;
+  v_term_id uuid;
+  v_course_id uuid;
+  v_lesson_id uuid;
+  v_assignment_id uuid;
+  v_submission_id uuid;
+  v_post_id uuid;
+begin
+  select id into v_super_admin_id from users where email = 'admin@aiot-school-lab.local';
+  select id into v_school_id from schools where school_code = 'TEST01';
+  select id into v_teacher_id from users where email = 'teacher@aiot-school-lab.local';
+  select id into v_student_id from users where email = 'student@aiot-school-lab.local';
+
+  select id into v_academic_year_id from academic_years where school_id = v_school_id and name = '2569';
+  if v_academic_year_id is null then
+    insert into academic_years (school_id, name)
+    values (v_school_id, '2569')
+    returning id into v_academic_year_id;
+  end if;
+
+  select id into v_term_id from terms where academic_year_id = v_academic_year_id and name = 'ภาคเรียนที่ 1/2569';
+  if v_term_id is null then
+    insert into terms (academic_year_id, name)
+    values (v_academic_year_id, 'ภาคเรียนที่ 1/2569')
+    returning id into v_term_id;
+  end if;
+
+  select id into v_course_id from courses where school_id = v_school_id and subject_name = 'AIoT ชีววิทยาและสิ่งแวดล้อม';
+  if v_course_id is null then
+    insert into courses (school_id, term_id, subject_name, grade_level, room, description, created_by)
+    values (
+      v_school_id, v_term_id, 'AIoT ชีววิทยาและสิ่งแวดล้อม', 'ม.4/1', 'Lab 3',
+      'เรียนรู้การใช้เซนเซอร์ IoT วัดคุณภาพอากาศและสภาพแวดล้อมในห้องเรียน',
+      v_teacher_id
+    )
+    returning id into v_course_id;
+  end if;
+
+  if not exists (select 1 from course_teachers where course_id = v_course_id and teacher_id = v_teacher_id) then
+    insert into course_teachers (course_id, teacher_id) values (v_course_id, v_teacher_id);
+  end if;
+
+  if not exists (select 1 from course_students where course_id = v_course_id and student_id = v_student_id) then
+    insert into course_students (course_id, student_id, enrolled_by) values (v_course_id, v_student_id, v_teacher_id);
+  end if;
+
+  select id into v_lesson_id from lessons where course_id = v_course_id and title = 'บทที่ 1: รู้จักเซนเซอร์ PM2.5';
+  if v_lesson_id is null then
+    insert into lessons (course_id, title, content, status, published_at, created_by, updated_at)
+    values (
+      v_course_id, 'บทที่ 1: รู้จักเซนเซอร์ PM2.5',
+      '{"body": "เซนเซอร์ PM2.5 วัดค่าฝุ่นละอองขนาดเล็กในอากาศ ใช้หลักการกระเจิงแสง (light scattering) ในการนับจำนวนอนุภาค"}'::jsonb,
+      'published', now(), v_teacher_id, now()
+    )
+    returning id into v_lesson_id;
+  end if;
+
+  select id into v_assignment_id from assignments where course_id = v_course_id and title = 'สำรวจคุณภาพอากาศในห้องเรียน';
+  if v_assignment_id is null then
+    insert into assignments (course_id, type, title, instructions, due_at, status, created_by)
+    values (
+      v_course_id, 'homework', 'สำรวจคุณภาพอากาศในห้องเรียน',
+      'บันทึกค่า PM2.5 และอุณหภูมิในห้องเรียนช่วงเช้า/บ่าย เป็นเวลา 3 วัน แล้วสรุปแนวโน้ม',
+      now() + interval '7 days', 'published', v_teacher_id
+    )
+    returning id into v_assignment_id;
+  end if;
+
+  select id into v_submission_id from submissions where assignment_id = v_assignment_id and student_id = v_student_id;
+  if v_submission_id is null then
+    insert into submissions (assignment_id, student_id, status, current_version)
+    values (v_assignment_id, v_student_id, 'submitted', 1)
+    returning id into v_submission_id;
+
+    insert into submission_versions (submission_id, version, content, submitted_by)
+    values (v_submission_id, 1, 'ค่าเฉลี่ย PM2.5 ช่วงเช้าอยู่ที่ 18 ไมโครกรัม/ลบ.ม. และช่วงบ่าย 24 ไมโครกรัม/ลบ.ม.', v_student_id);
+  end if;
+
+  if not exists (select 1 from grades where student_id = v_student_id and course_id = v_course_id) then
+    insert into grades (student_id, course_id, source_type, submission_id, score, max_score, status, graded_by, graded_at)
+    values (v_student_id, v_course_id, 'manual', v_submission_id, 18, 20, 'confirmed', v_teacher_id, now());
+  end if;
+
+  select id into v_post_id from course_posts where course_id = v_course_id and body like '%เตรียมรายงานผลค่าฝุ่น%';
+  if v_post_id is null then
+    insert into course_posts (course_id, author_id, body, is_pinned)
+    values (v_course_id, v_teacher_id, '[ประกาศ] ให้นักเรียนทุกคนเตรียมรายงานผลค่าฝุ่น PM2.5 มาส่งในคาบเรียนถัดไป', true)
+    returning id into v_post_id;
+
+    insert into course_post_replies (post_id, author_id, body)
+    values (v_post_id, v_student_id, 'รับทราบครับ/ค่ะ');
+  end if;
+end $$;
+
 -- Quick reference: everything logs in with password Test1234!
 -- (except admin@aiot-school-lab.local, which uses ChangeMe123! from the
 -- bootstrap migration).

@@ -1,10 +1,20 @@
 import 'user_model.dart';
 
 class LoginOtpChallenge {
-  const LoginOtpChallenge({required this.token, required this.expiresAt});
+  const LoginOtpChallenge({
+    required this.token,
+    required this.expiresAt,
+    this.devOtpCode,
+  });
 
   final String token;
   final DateTime expiresAt;
+
+  /// Only ever set by a local Supabase instance with no email provider
+  /// configured (see `isLocalDev()` in the auth-sign-in/accept-staff-invitation
+  /// Edge Functions) — a real deployed project never sends this field, since
+  /// the code is otherwise unrecoverable (only its hash is stored).
+  final String? devOtpCode;
 
   factory LoginOtpChallenge.fromResponse(Map<String, dynamic> response) {
     final token = response['otp_token'];
@@ -12,9 +22,11 @@ class LoginOtpChallenge {
     if (token is! String || !token.startsWith('lo_') || expiresAt is! String) {
       throw const FormatException('invalid_login_otp_challenge');
     }
+    final devOtpCode = response['dev_otp_code'];
     return LoginOtpChallenge(
       token: token,
       expiresAt: DateTime.parse(expiresAt).toUtc(),
+      devOtpCode: devOtpCode is String ? devOtpCode : null,
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../student_home_page/student_home_page_widget.dart';
+import '../student_redesign_prototype/student_redesign_prototype_page.dart';
 import 'course_list_page.dart';
 import 'grades_overview_page.dart';
 import '../profile_page.dart';
@@ -16,7 +15,7 @@ class _StudentMainNavState extends State<StudentMainNav> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const StudentHomePageWidget(),
+    const StudentRedesignPrototypePage(),
     const CourseListPage(),
     const GradesOverviewPage(),
     const ProfilePage(),

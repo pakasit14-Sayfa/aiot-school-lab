@@ -22,6 +22,10 @@ const courseFileDownloadSource = readFileSync(
   new URL("../functions/course-file-download/index.ts", import.meta.url),
   "utf8",
 );
+const acceptInvitationSource = readFileSync(
+  new URL("../functions/accept-staff-invitation/index.ts", import.meta.url),
+  "utf8",
+);
 
 test("parent OTP email delivery is detached from the public response", () => {
   assert.match(parentOtpSource, /EdgeRuntime\.waitUntil\(/);
@@ -89,4 +93,21 @@ test("course file download checks membership before minting a signed URL", () =>
 
 test("course file download URLs are short-lived", () => {
   assert.match(courseFileDownloadSource, /signedUrlTtlSeconds\s*=\s*60/);
+});
+
+test("the dev-only OTP echo is gated behind isLocalDev and a missing RESEND_API_KEY", () => {
+  for (const source of [authSource, acceptInvitationSource]) {
+    assert.match(source, /dev_otp_code/);
+    const gateIndex = source.indexOf("isLocalDev() && !Deno.env.get(\"RESEND_API_KEY\")");
+    const fieldIndex = source.indexOf("dev_otp_code: otpCode");
+    assert.ok(gateIndex > -1 && fieldIndex > -1);
+    assert.ok(
+      gateIndex < fieldIndex,
+      "dev_otp_code must be wrapped in the isLocalDev()+no-key spread guard, not returned unconditionally",
+    );
+    assert.match(
+      source,
+      /url\.includes\("127\.0\.0\.1"\)|url\.includes\("localhost"\)|url\.includes\("kong:8000"\)/,
+    );
+  }
 });
