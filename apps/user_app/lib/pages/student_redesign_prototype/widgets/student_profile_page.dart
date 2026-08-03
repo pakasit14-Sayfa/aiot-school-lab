@@ -115,22 +115,6 @@ class _ProfileMobileLayout extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _SectionCard(
-                title: 'DETAILS',
-                children: [
-                  _DetailRow(label: 'Student ID', value: 'AIOT-5-012'),
-                  _DividerLine(),
-                  _DetailRow(label: 'Class', value: profile.gradeLevel),
-                  _DividerLine(),
-                  _DetailRow(label: 'School', value: profile.schoolName),
-                  _DividerLine(),
-                  const _DetailRow(
-                    label: 'Advisor',
-                    value: 'ครูสมชาย สายวิทย์',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _SectionCard(
                 title: 'HELP',
                 children: const [
                   _MenuTile(
@@ -203,10 +187,10 @@ class _ProfileDesktopLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1240),
+        constraints: const BoxConstraints(maxWidth: 1520),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(28, 10, 28, 24),
+          padding: const EdgeInsets.fromLTRB(24, 10, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -232,7 +216,7 @@ class _ProfileDesktopLayout extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 7,
+                    flex: 8,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -281,36 +265,11 @@ class _ProfileDesktopLayout extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 18),
                   Expanded(
-                    flex: 5,
+                    flex: 4,
                     child: Column(
                       children: [
-                        _SectionCard(
-                          title: 'DETAILS',
-                          children: [
-                            _DetailRow(
-                              label: 'Student ID',
-                              value: 'AIOT-5-012',
-                            ),
-                            _DividerLine(),
-                            _DetailRow(
-                              label: 'Class',
-                              value: profile.gradeLevel,
-                            ),
-                            _DividerLine(),
-                            _DetailRow(
-                              label: 'School',
-                              value: profile.schoolName,
-                            ),
-                            _DividerLine(),
-                            const _DetailRow(
-                              label: 'Advisor',
-                              value: 'ครูสมชาย สายวิทย์',
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
                         _SectionCard(
                           title: 'HELP',
                           children: const [
@@ -456,6 +415,27 @@ class _ProfileHeader extends StatelessWidget {
                 fontSize: 13.5,
                 fontWeight: FontWeight.w800,
               ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE4EAF1)),
+            ),
+            child: Column(
+              children: [
+                const _DetailRow(label: 'Student ID', value: 'AIOT-5-012'),
+                _DividerLine(),
+                _DetailRow(label: 'Class', value: profile.gradeLevel),
+                _DividerLine(),
+                _DetailRow(label: 'School', value: profile.schoolName),
+                _DividerLine(),
+                const _DetailRow(label: 'Advisor', value: 'ครูสมชาย สายวิทย์'),
+              ],
             ),
           ),
         ],
