@@ -15,151 +15,363 @@ class StudentProfilePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            if (isDesktop) {
+              return _ProfileDesktopLayout(
+                profile: profile,
+                participationPercent: participationPercent,
+              );
+            }
+
+            return _ProfileMobileLayout(
+              profile: profile,
+              participationPercent: participationPercent,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileMobileLayout extends StatelessWidget {
+  const _ProfileMobileLayout({
+    required this.profile,
+    required this.participationPercent,
+  });
+
+  final StudentProfileState profile;
+  final double participationPercent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _ProfileHeader(profile: profile),
+              const SizedBox(height: 14),
+              _MetricGrid(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.maybePop(context),
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF334155),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                        ),
-                        child: const Text(
-                          'Close',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+                  _MetricCard(
+                    icon: Icons.verified_rounded,
+                    iconColor: SchoolPalette.green,
+                    label: 'G-Score',
+                    value: '${profile.gscoreValue}/${profile.gscoreMax}',
+                    caption: profile.gradeLabel,
                   ),
-                  const SizedBox(height: 8),
-                  _ProfileHeader(profile: profile),
-                  const SizedBox(height: 14),
-                  _MetricGrid(
-                    children: [
-                      _MetricCard(
-                        icon: Icons.verified_rounded,
-                        iconColor: SchoolPalette.green,
-                        label: 'G-Score',
-                        value: '${profile.gscoreValue}/${profile.gscoreMax}',
-                        caption: profile.gradeLabel,
-                      ),
-                      _MetricCard(
-                        icon: Icons.star_rounded,
-                        iconColor: const Color(0xFFF59E0B),
-                        label: 'GPA',
-                        value: profile.gpa.toStringAsFixed(2),
-                        caption: profile.gpaLabel,
-                      ),
-                      _MetricCard(
-                        icon: Icons.assignment_turned_in_rounded,
-                        iconColor: const Color(0xFF3B82F6),
-                        label: 'ส่งงาน',
-                        value:
-                            '${profile.submittedTasks}/${profile.totalTasks}',
-                        caption: 'ครบแล้ว ${profile.submittedTasks} งาน',
-                      ),
-                      _MetricCard(
-                        icon: Icons.trending_up_rounded,
-                        iconColor: const Color(0xFF8B5CF6),
-                        label: 'การมีส่วนร่วม',
-                        value: '${(participationPercent * 100).round()}%',
-                        caption: 'สม่ำเสมอระดับดี',
-                      ),
-                    ],
+                  _MetricCard(
+                    icon: Icons.star_rounded,
+                    iconColor: const Color(0xFFF59E0B),
+                    label: 'GPA',
+                    value: profile.gpa.toStringAsFixed(2),
+                    caption: profile.gpaLabel,
                   ),
-                  const SizedBox(height: 12),
-                  _ActivityCard(
-                    yearLabel: 'ปีการศึกษา 2569',
-                    streakDays: 24,
-                    participationPercent: participationPercent,
+                  _MetricCard(
+                    icon: Icons.assignment_turned_in_rounded,
+                    iconColor: const Color(0xFF3B82F6),
+                    label: 'ส่งงาน',
+                    value: '${profile.submittedTasks}/${profile.totalTasks}',
+                    caption: 'ครบแล้ว ${profile.submittedTasks} งาน',
                   ),
-                  const SizedBox(height: 12),
-                  _SectionCard(
-                    title: 'DETAILS',
-                    children: [
-                      _DetailRow(label: 'Student ID', value: 'AIOT-5-012'),
-                      _DividerLine(),
-                      _DetailRow(label: 'Class', value: profile.gradeLevel),
-                      _DividerLine(),
-                      _DetailRow(label: 'School', value: profile.schoolName),
-                      _DividerLine(),
-                      const _DetailRow(
-                        label: 'Advisor',
-                        value: 'ครูสมชาย สายวิทย์',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _SectionCard(
-                    title: 'HELP',
-                    children: const [
-                      _MenuTile(
-                        icon: Icons.tips_and_updates_rounded,
-                        title: 'Tips and Tricks',
-                        subtitle: 'เคล็ดลับการใช้งานและการเรียนให้ลื่นขึ้น',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.help_outline_rounded,
-                        title: 'Frequently Asked Questions',
-                        subtitle: 'คำถามที่พบบ่อยเกี่ยวกับบัญชีและชั้นเรียน',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.mail_outline_rounded,
-                        title: 'Contact Us',
-                        subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหา',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _SectionCard(
-                    title: 'SETTINGS',
-                    children: const [
-                      _MenuTile(
-                        icon: Icons.person_rounded,
-                        title: 'Personal Details',
-                        subtitle: 'แก้ไขชื่อ ห้องเรียน โรงเรียน และรูปโปรไฟล์',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.notifications_rounded,
-                        title: 'Notifications',
-                        subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.lock_outline_rounded,
-                        title: 'Privacy & PDPA',
-                        subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.logout_rounded,
-                        title: 'Sign out',
-                        subtitle: 'ออกจากระบบบนอุปกรณ์นี้',
-                        danger: true,
-                      ),
-                    ],
+                  _MetricCard(
+                    icon: Icons.trending_up_rounded,
+                    iconColor: const Color(0xFF8B5CF6),
+                    label: 'การมีส่วนร่วม',
+                    value: '${(participationPercent * 100).round()}%',
+                    caption: 'สม่ำเสมอระดับดี',
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 12),
+              _ActivityCard(
+                yearLabel: 'ปีการศึกษา 2569',
+                streakDays: 24,
+                participationPercent: participationPercent,
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'DETAILS',
+                children: [
+                  _DetailRow(label: 'Student ID', value: 'AIOT-5-012'),
+                  _DividerLine(),
+                  _DetailRow(label: 'Class', value: profile.gradeLevel),
+                  _DividerLine(),
+                  _DetailRow(label: 'School', value: profile.schoolName),
+                  _DividerLine(),
+                  const _DetailRow(
+                    label: 'Advisor',
+                    value: 'ครูสมชาย สายวิทย์',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'HELP',
+                children: const [
+                  _MenuTile(
+                    icon: Icons.tips_and_updates_rounded,
+                    title: 'Tips and Tricks',
+                    subtitle: 'เคล็ดลับการใช้งานและการเรียนให้ลื่นขึ้น',
+                  ),
+                  _DividerLine(),
+                  _MenuTile(
+                    icon: Icons.help_outline_rounded,
+                    title: 'Frequently Asked Questions',
+                    subtitle: 'คำถามที่พบบ่อยเกี่ยวกับบัญชีและชั้นเรียน',
+                  ),
+                  _DividerLine(),
+                  _MenuTile(
+                    icon: Icons.mail_outline_rounded,
+                    title: 'Contact Us',
+                    subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหา',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _SectionCard(
+                title: 'SETTINGS',
+                children: const [
+                  _MenuTile(
+                    icon: Icons.person_rounded,
+                    title: 'Personal Details',
+                    subtitle: 'แก้ไขชื่อ ห้องเรียน โรงเรียน และรูปโปรไฟล์',
+                  ),
+                  _DividerLine(),
+                  _MenuTile(
+                    icon: Icons.notifications_rounded,
+                    title: 'Notifications',
+                    subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
+                  ),
+                  _DividerLine(),
+                  _MenuTile(
+                    icon: Icons.lock_outline_rounded,
+                    title: 'Privacy & PDPA',
+                    subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
+                  ),
+                  _DividerLine(),
+                  _MenuTile(
+                    icon: Icons.logout_rounded,
+                    title: 'Sign out',
+                    subtitle: 'ออกจากระบบบนอุปกรณ์นี้',
+                    danger: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileDesktopLayout extends StatelessWidget {
+  const _ProfileDesktopLayout({
+    required this.profile,
+    required this.participationPercent,
+  });
+
+  final StudentProfileState profile;
+  final double participationPercent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1240),
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(28, 10, 28, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                  ),
+                  child: const Text(
+                    'Close',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 7,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _ProfileHeader(profile: profile),
+                        const SizedBox(height: 14),
+                        _MetricGrid(
+                          children: [
+                            _MetricCard(
+                              icon: Icons.verified_rounded,
+                              iconColor: SchoolPalette.green,
+                              label: 'G-Score',
+                              value:
+                                  '${profile.gscoreValue}/${profile.gscoreMax}',
+                              caption: profile.gradeLabel,
+                            ),
+                            _MetricCard(
+                              icon: Icons.star_rounded,
+                              iconColor: const Color(0xFFF59E0B),
+                              label: 'GPA',
+                              value: profile.gpa.toStringAsFixed(2),
+                              caption: profile.gpaLabel,
+                            ),
+                            _MetricCard(
+                              icon: Icons.assignment_turned_in_rounded,
+                              iconColor: const Color(0xFF3B82F6),
+                              label: 'ส่งงาน',
+                              value:
+                                  '${profile.submittedTasks}/${profile.totalTasks}',
+                              caption: 'ครบแล้ว ${profile.submittedTasks} งาน',
+                            ),
+                            _MetricCard(
+                              icon: Icons.trending_up_rounded,
+                              iconColor: const Color(0xFF8B5CF6),
+                              label: 'การมีส่วนร่วม',
+                              value: '${(participationPercent * 100).round()}%',
+                              caption: 'สม่ำเสมอระดับดี',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _ActivityCard(
+                          yearLabel: 'ปีการศึกษา 2569',
+                          streakDays: 24,
+                          participationPercent: participationPercent,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      children: [
+                        _SectionCard(
+                          title: 'DETAILS',
+                          children: [
+                            _DetailRow(
+                              label: 'Student ID',
+                              value: 'AIOT-5-012',
+                            ),
+                            _DividerLine(),
+                            _DetailRow(
+                              label: 'Class',
+                              value: profile.gradeLevel,
+                            ),
+                            _DividerLine(),
+                            _DetailRow(
+                              label: 'School',
+                              value: profile.schoolName,
+                            ),
+                            _DividerLine(),
+                            const _DetailRow(
+                              label: 'Advisor',
+                              value: 'ครูสมชาย สายวิทย์',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'HELP',
+                          children: const [
+                            _MenuTile(
+                              icon: Icons.tips_and_updates_rounded,
+                              title: 'Tips and Tricks',
+                              subtitle:
+                                  'เคล็ดลับการใช้งานและการเรียนให้ลื่นขึ้น',
+                            ),
+                            _DividerLine(),
+                            _MenuTile(
+                              icon: Icons.help_outline_rounded,
+                              title: 'Frequently Asked Questions',
+                              subtitle:
+                                  'คำถามที่พบบ่อยเกี่ยวกับบัญชีและชั้นเรียน',
+                            ),
+                            _DividerLine(),
+                            _MenuTile(
+                              icon: Icons.mail_outline_rounded,
+                              title: 'Contact Us',
+                              subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหา',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _SectionCard(
+                          title: 'SETTINGS',
+                          children: const [
+                            _MenuTile(
+                              icon: Icons.person_rounded,
+                              title: 'Personal Details',
+                              subtitle:
+                                  'แก้ไขชื่อ ห้องเรียน โรงเรียน และรูปโปรไฟล์',
+                            ),
+                            _DividerLine(),
+                            _MenuTile(
+                              icon: Icons.notifications_rounded,
+                              title: 'Notifications',
+                              subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
+                            ),
+                            _DividerLine(),
+                            _MenuTile(
+                              icon: Icons.lock_outline_rounded,
+                              title: 'Privacy & PDPA',
+                              subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
+                            ),
+                            _DividerLine(),
+                            _MenuTile(
+                              icon: Icons.logout_rounded,
+                              title: 'Sign out',
+                              subtitle: 'ออกจากระบบบนอุปกรณ์นี้',
+                              danger: true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -265,7 +477,7 @@ class _MetricGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
-      childAspectRatio: 1.42,
+      childAspectRatio: 1.35,
       children: children,
     );
   }
@@ -578,7 +790,7 @@ class _HeatmapGrid extends StatelessWidget {
       builder: (context, constraints) {
         const columns = 12;
         final cellSize = ((constraints.maxWidth - (columns - 1) * 4) / columns)
-            .clamp(10.0, 20.0);
+            .clamp(10.0, 18.0);
 
         return Wrap(
           spacing: 4,
