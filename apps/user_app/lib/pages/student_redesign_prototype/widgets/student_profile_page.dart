@@ -9,16 +9,18 @@ class StudentProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const profile = StudentProfileState.mock;
+    final participationPercent = (profile.submittedTasks / profile.totalTasks)
+        .clamp(0.0, 1.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF101014),
+      backgroundColor: const Color(0xFFF4F7FB),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
+            constraints: const BoxConstraints(maxWidth: 560),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -28,7 +30,7 @@ class StudentProfilePage extends StatelessWidget {
                       TextButton(
                         onPressed: () => Navigator.maybePop(context),
                         style: TextButton.styleFrom(
-                          foregroundColor: Colors.white.withValues(alpha: 0.92),
+                          foregroundColor: const Color(0xFF334155),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 10,
@@ -38,7 +40,7 @@ class StudentProfilePage extends StatelessWidget {
                           'Close',
                           style: TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -47,97 +49,78 @@ class StudentProfilePage extends StatelessWidget {
                   const SizedBox(height: 8),
                   _ProfileHeader(profile: profile),
                   const SizedBox(height: 14),
-                  _DarkActionCard(
-                    title: 'Activity Status',
-                    leading: const Icon(
-                      Icons.run_circle_rounded,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                    trailing: const _StatusChip(
-                      color: Color(0xFF22C55E),
-                      label: 'Active',
-                    ),
-                    child: const Row(
-                      children: [
-                        Text(
-                          'Profile connected · ',
-                          style: TextStyle(
-                            color: Color(0xFFB9BCC6),
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'พร้อมใช้งาน',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const _DarkSection(
-                    title: 'PERSONALIZE',
+                  _MetricGrid(
                     children: [
-                      _DarkMenuTile(
-                        icon: Icons.person_rounded,
-                        title: 'Personal Details',
-                        subtitle: 'แก้ไขชื่อ ห้องเรียน โรงเรียน และรูปโปรไฟล์',
+                      _MetricCard(
+                        icon: Icons.verified_rounded,
+                        iconColor: SchoolPalette.green,
+                        label: 'G-Score',
+                        value: '${profile.gscoreValue}/${profile.gscoreMax}',
+                        caption: profile.gradeLabel,
                       ),
-                      _DarkDivider(),
-                      _DarkMenuTile(
-                        icon: Icons.military_tech_rounded,
-                        title: 'Academic Snapshot',
-                        subtitle: 'G-Score, GPA, แบดจ์ และความคืบหน้า',
+                      _MetricCard(
+                        icon: Icons.star_rounded,
+                        iconColor: const Color(0xFFF59E0B),
+                        label: 'GPA',
+                        value: profile.gpa.toStringAsFixed(2),
+                        caption: profile.gpaLabel,
                       ),
-                      _DarkDivider(),
-                      _DarkMenuTile(
+                      _MetricCard(
                         icon: Icons.assignment_turned_in_rounded,
-                        title: 'Learning Progress',
-                        subtitle: 'บทเรียนล่าสุดและงานที่กำลังจะถึงกำหนด',
+                        iconColor: const Color(0xFF3B82F6),
+                        label: 'ส่งงาน',
+                        value:
+                            '${profile.submittedTasks}/${profile.totalTasks}',
+                        caption: 'ครบแล้ว ${profile.submittedTasks} งาน',
+                      ),
+                      _MetricCard(
+                        icon: Icons.trending_up_rounded,
+                        iconColor: const Color(0xFF8B5CF6),
+                        label: 'การมีส่วนร่วม',
+                        value: '${(participationPercent * 100).round()}%',
+                        caption: 'สม่ำเสมอระดับดี',
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _DarkSection(
+                  _ActivityCard(
+                    yearLabel: 'ปีการศึกษา 2569',
+                    streakDays: 24,
+                    participationPercent: participationPercent,
+                  ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
                     title: 'DETAILS',
                     children: [
-                      _DarkDetailRow(label: 'Student ID', value: 'AIOT-5-012'),
-                      _DarkDivider(),
-                      _DarkDetailRow(label: 'Class', value: profile.gradeLevel),
-                      _DarkDivider(),
-                      _DarkDetailRow(
-                        label: 'School',
-                        value: profile.schoolName,
-                      ),
-                      _DarkDivider(),
-                      _DarkDetailRow(
+                      _DetailRow(label: 'Student ID', value: 'AIOT-5-012'),
+                      _DividerLine(),
+                      _DetailRow(label: 'Class', value: profile.gradeLevel),
+                      _DividerLine(),
+                      _DetailRow(label: 'School', value: profile.schoolName),
+                      _DividerLine(),
+                      const _DetailRow(
                         label: 'Advisor',
                         value: 'ครูสมชาย สายวิทย์',
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _DarkSection(
+                  _SectionCard(
                     title: 'HELP',
                     children: const [
-                      _DarkMenuTile(
+                      _MenuTile(
                         icon: Icons.tips_and_updates_rounded,
                         title: 'Tips and Tricks',
                         subtitle: 'เคล็ดลับการใช้งานและการเรียนให้ลื่นขึ้น',
                       ),
-                      _DarkDivider(),
-                      _DarkMenuTile(
+                      _DividerLine(),
+                      _MenuTile(
                         icon: Icons.help_outline_rounded,
                         title: 'Frequently Asked Questions',
                         subtitle: 'คำถามที่พบบ่อยเกี่ยวกับบัญชีและชั้นเรียน',
                       ),
-                      _DarkDivider(),
-                      _DarkMenuTile(
+                      _DividerLine(),
+                      _MenuTile(
                         icon: Icons.mail_outline_rounded,
                         title: 'Contact Us',
                         subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหา',
@@ -145,27 +128,28 @@ class StudentProfilePage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _DarkSection(
-                    title: 'MEMBERSHIP',
-                    children: [_MembershipPanel(profile: profile)],
-                  ),
-                  const SizedBox(height: 12),
-                  _DarkSection(
+                  _SectionCard(
                     title: 'SETTINGS',
                     children: const [
-                      _DarkMenuTile(
+                      _MenuTile(
+                        icon: Icons.person_rounded,
+                        title: 'Personal Details',
+                        subtitle: 'แก้ไขชื่อ ห้องเรียน โรงเรียน และรูปโปรไฟล์',
+                      ),
+                      _DividerLine(),
+                      _MenuTile(
                         icon: Icons.notifications_rounded,
                         title: 'Notifications',
                         subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
                       ),
-                      _DarkDivider(),
-                      _DarkMenuTile(
+                      _DividerLine(),
+                      _MenuTile(
                         icon: Icons.lock_outline_rounded,
                         title: 'Privacy & PDPA',
                         subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
                       ),
-                      _DarkDivider(),
-                      _DarkMenuTile(
+                      _DividerLine(),
+                      _MenuTile(
                         icon: Icons.logout_rounded,
                         title: 'Sign out',
                         subtitle: 'ออกจากระบบบนอุปกรณ์นี้',
@@ -193,16 +177,16 @@ class _ProfileHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
       decoration: BoxDecoration(
-        color: const Color(0xFF17171C),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: const Color(0xFFE4EAF1)),
         boxShadow: const [
           BoxShadow(
-            color: Colors.black54,
-            blurRadius: 24,
-            offset: Offset(0, 12),
+            color: Color(0x0F0F172A),
+            blurRadius: 22,
+            offset: Offset(0, 10),
           ),
         ],
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
         children: [
@@ -211,19 +195,16 @@ class _ProfileHeader extends StatelessWidget {
             height: 96,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF3B3B44), Color(0xFF222227)],
+                colors: [Color(0xFFEAF2FB), Color(0xFFD9E6F3)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFFD9E2EC)),
             ),
             child: const Icon(
               Icons.person_rounded,
-              color: Colors.white,
+              color: Color(0xFF334155),
               size: 52,
             ),
           ),
@@ -232,7 +213,7 @@ class _ProfileHeader extends StatelessWidget {
             profile.name,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.white,
+              color: Color(0xFF0F172A),
               fontSize: 34,
               fontWeight: FontWeight.w800,
               height: 1.0,
@@ -243,32 +224,27 @@ class _ProfileHeader extends StatelessWidget {
             '${profile.gradeLevel} • ${profile.schoolName}',
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFFB3B6C3),
+              color: Color(0xFF64748B),
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniStatCard(
-                  icon: Icons.verified_rounded,
-                  label: profile.gradeLabel,
-                  value: 'G-Score ${profile.gscoreValue}/${profile.gscoreMax}',
-                  accent: SchoolPalette.green,
-                ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Text(
+              profile.gradeLabel,
+              style: const TextStyle(
+                color: Color(0xFF166534),
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _MiniStatCard(
-                  icon: Icons.workspace_premium_rounded,
-                  label: profile.gpaLabel,
-                  value: 'GPA ${profile.gpa.toStringAsFixed(2)}',
-                  accent: const Color(0xFF60A5FA),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -276,27 +252,55 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _MiniStatCard extends StatelessWidget {
-  const _MiniStatCard({
+class _MetricGrid extends StatelessWidget {
+  const _MetricGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.42,
+      children: children,
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  const _MetricCard({
     required this.icon,
+    required this.iconColor,
     required this.label,
     required this.value,
-    required this.accent,
+    required this.caption,
   });
 
   final IconData icon;
+  final Color iconColor;
   final String label;
   final String value;
-  final Color accent;
+  final String caption;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF23232A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE4EAF1)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,26 +308,26 @@ class _MiniStatCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.16),
+                  color: iconColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(icon, color: accent, size: 18),
+                child: Icon(icon, color: iconColor, size: 19),
               ),
               const Spacer(),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF9BA1AF),
+              color: Color(0xFF64748B),
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
@@ -332,9 +336,20 @@ class _MiniStatCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15.5,
-              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -343,104 +358,140 @@ class _MiniStatCard extends StatelessWidget {
   }
 }
 
-class _DarkActionCard extends StatelessWidget {
-  const _DarkActionCard({
-    required this.title,
-    required this.leading,
-    required this.trailing,
-    required this.child,
+class _ActivityCard extends StatelessWidget {
+  const _ActivityCard({
+    required this.yearLabel,
+    required this.streakDays,
+    required this.participationPercent,
   });
 
-  final String title;
-  final Widget leading;
-  final Widget trailing;
-  final Widget child;
+  final String yearLabel;
+  final int streakDays;
+  final double participationPercent;
 
   @override
   Widget build(BuildContext context) {
+    final levels = _buildHeatmapLevels();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF17171C),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: const Color(0xFF26262C),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(child: leading),
+        border: Border.all(color: const Color(0xFFE4EAF1)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'การมีส่วนร่วมในการเรียน',
+                  style: TextStyle(
+                    color: Color(0xFF0F172A),
                     fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFFE4EAF1)),
+                ),
+                child: Text(
+                  yearLabel,
+                  style: const TextStyle(
+                    color: Color(0xFF334155),
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
-                child,
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          trailing,
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: const Color(0xFF23232A),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.35),
-                  blurRadius: 10,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
+          const SizedBox(height: 8),
           Text(
-            label,
+            'สรุปการใช้งานและการเรียนต่อเนื่องของนักเรียน',
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13.5,
+              color: Color(0xFF64748B),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _ParticipationStat(
+                label: 'วันต่อเนื่อง',
+                value: '$streakDays วัน',
+                icon: Icons.local_fire_department_rounded,
+                color: const Color(0xFFF59E0B),
+              ),
+              const SizedBox(width: 10),
+              _ParticipationStat(
+                label: 'สม่ำเสมอ',
+                value: '${(participationPercent * 100).round()}%',
+                icon: Icons.bar_chart_rounded,
+                color: SchoolPalette.green,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _HeatmapGrid(levels: levels),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text(
+                'Less',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 8),
+              for (final color in _heatmapLegendColors)
+                Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                ),
+              const Spacer(),
+              const Text(
+                'More',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'เป้าหมายปีนี้: เก็บ G-Score 92+ และส่งงานครบ',
+            style: TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 12.5,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -450,8 +501,109 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-class _DarkSection extends StatelessWidget {
-  const _DarkSection({required this.title, required this.children});
+class _ParticipationStat extends StatelessWidget {
+  const _ParticipationStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE4EAF1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 17),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeatmapGrid extends StatelessWidget {
+  const _HeatmapGrid({required this.levels});
+
+  final List<int> levels;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const columns = 12;
+        final cellSize = ((constraints.maxWidth - (columns - 1) * 4) / columns)
+            .clamp(10.0, 20.0);
+
+        return Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          children: levels
+              .map(
+                (level) => Container(
+                  width: cellSize,
+                  height: cellSize,
+                  decoration: BoxDecoration(
+                    color: _heatmapColors[level],
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.children});
 
   final String title;
   final List<Widget> children;
@@ -461,9 +613,16 @@ class _DarkSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF17171C),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: const Color(0xFFE4EAF1)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +632,7 @@ class _DarkSection extends StatelessWidget {
             child: Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF8F95A3),
+                color: Color(0xFF94A3B8),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.1,
@@ -487,8 +646,8 @@ class _DarkSection extends StatelessWidget {
   }
 }
 
-class _DarkMenuTile extends StatelessWidget {
-  const _DarkMenuTile({
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -502,8 +661,12 @@ class _DarkMenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color iconColor = danger ? const Color(0xFFF87171) : Colors.white;
-    final Color titleColor = danger ? const Color(0xFFFCA5A5) : Colors.white;
+    final iconColor = danger
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF334155);
+    final titleColor = danger
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF0F172A);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -513,9 +676,9 @@ class _DarkMenuTile extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFF23232A),
+              color: const Color(0xFFF3F6FB),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              border: Border.all(color: const Color(0xFFE4EAF1)),
             ),
             child: Icon(icon, color: iconColor, size: 20),
           ),
@@ -536,7 +699,7 @@ class _DarkMenuTile extends StatelessWidget {
                 Text(
                   subtitle,
                   style: const TextStyle(
-                    color: Color(0xFF9BA1AF),
+                    color: Color(0xFF64748B),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     height: 1.2,
@@ -557,8 +720,8 @@ class _DarkMenuTile extends StatelessWidget {
   }
 }
 
-class _DarkDetailRow extends StatelessWidget {
-  const _DarkDetailRow({required this.label, required this.value});
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -575,7 +738,7 @@ class _DarkDetailRow extends StatelessWidget {
             child: Text(
               label,
               style: const TextStyle(
-                color: Color(0xFF8F95A3),
+                color: Color(0xFF64748B),
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
               ),
@@ -586,7 +749,7 @@ class _DarkDetailRow extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFF0F172A),
                 fontSize: 13.5,
                 fontWeight: FontWeight.w700,
               ),
@@ -598,233 +761,117 @@ class _DarkDetailRow extends StatelessWidget {
   }
 }
 
-class _DarkDivider extends StatelessWidget {
-  const _DarkDivider();
+class _DividerLine extends StatelessWidget {
+  const _DividerLine();
 
   @override
   Widget build(BuildContext context) {
-    return Divider(
-      height: 18,
-      thickness: 1,
-      color: Colors.white.withValues(alpha: 0.06),
-    );
+    return const Divider(height: 18, thickness: 1, color: Color(0xFFE8EEF3));
   }
 }
 
-class _MembershipPanel extends StatelessWidget {
-  const _MembershipPanel({required this.profile});
-
-  final StudentProfileState profile;
-
-  @override
-  Widget build(BuildContext context) {
-    const learning = ContinueLearningState.mock;
-    final tasks = TaskItemState.mockList.take(2).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MetricPill(
-                icon: Icons.school_rounded,
-                label: 'G-Score',
-                value: '${profile.gscoreValue}/${profile.gscoreMax}',
-                accent: SchoolPalette.green,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _MetricPill(
-                icon: Icons.star_rounded,
-                label: 'GPA',
-                value: profile.gpa.toStringAsFixed(2),
-                accent: const Color(0xFFF59E0B),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _MetricPill(
-                icon: Icons.menu_book_rounded,
-                label: 'บทเรียน',
-                value: '${learning.completedLessons}/${learning.totalLessons}',
-                accent: const Color(0xFF60A5FA),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _MetricPill(
-                icon: Icons.emoji_events_rounded,
-                label: 'แบดจ์',
-                value: '${profile.badgesCount}',
-                accent: const Color(0xFFA78BFA),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        Text(
-          learning.courseTitle,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          learning.chapterTitle,
-          style: const TextStyle(
-            color: Color(0xFF9BA1AF),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 14),
-        ...tasks.map(
-          (task) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _TaskRow(task: task),
-          ),
-        ),
-      ],
-    );
-  }
+List<int> _buildHeatmapLevels() {
+  const base = <int>[
+    0,
+    1,
+    0,
+    2,
+    1,
+    3,
+    1,
+    2,
+    0,
+    1,
+    2,
+    3,
+    1,
+    2,
+    3,
+    2,
+    1,
+    4,
+    2,
+    3,
+    1,
+    2,
+    3,
+    4,
+    0,
+    1,
+    2,
+    1,
+    3,
+    4,
+    2,
+    1,
+    3,
+    2,
+    4,
+    4,
+    1,
+    0,
+    2,
+    3,
+    2,
+    4,
+    1,
+    2,
+    3,
+    3,
+    2,
+    4,
+    0,
+    2,
+    1,
+    3,
+    4,
+    3,
+    2,
+    1,
+    2,
+    4,
+    3,
+    4,
+    1,
+    2,
+    3,
+    2,
+    4,
+    4,
+    2,
+    3,
+    1,
+    2,
+    3,
+    4,
+    0,
+    1,
+    2,
+    2,
+    3,
+    4,
+    1,
+    2,
+    3,
+    4,
+    2,
+    4,
+  ];
+  return base;
 }
 
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.accent,
-  });
+const List<Color> _heatmapColors = <Color>[
+  Color(0xFFF1F5F9),
+  Color(0xFFDDF4E8),
+  Color(0xFFB9EFCF),
+  Color(0xFF67D68D),
+  Color(0xFF2EA85B),
+];
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color accent;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF23232A),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 17, color: accent),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: Color(0xFF8F95A3),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TaskRow extends StatelessWidget {
-  const _TaskRow({required this.task});
-
-  final TaskItemState task;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF23232A),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          Text(task.avatarEmoji, style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  task.dueTimeText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF9BA1AF),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: task.priorityColor.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              task.priorityLabel,
-              style: TextStyle(
-                color: task.priorityColor,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+const List<Color> _heatmapLegendColors = <Color>[
+  Color(0xFFF1F5F9),
+  Color(0xFFDDF4E8),
+  Color(0xFFB9EFCF),
+  Color(0xFF67D68D),
+  Color(0xFF2EA85B),
+];
