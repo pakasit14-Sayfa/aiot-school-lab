@@ -70,13 +70,27 @@ class _StudentRedesignPrototypePageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: switch (variant) {
-        StudentPrototypeVariant.a => const StudentNavigationPrototype(),
-        StudentPrototypeVariant.b => const StudentVariantLearningPath(),
-        StudentPrototypeVariant.c => const StudentVariantFocusWorkspace(),
-        StudentPrototypeVariant.d => const StudentVariantCommandCenter(),
-      },
+    // ล็อกช่วงการขยายตัวอักษรของระบบ (การตั้งค่า "ขนาดตัวอักษรใหญ่" บน
+    // Android/iOS) ไว้ในช่วงแคบๆ เพื่อคง proportion ของ UI ที่ออกแบบไว้ —
+    // ถ้าปล่อยตามระบบเต็มๆ บนจอเล็ก ป้าย/การ์ดที่บีบพอดีตัวอักษรจะล้น
+    // หรือแตกเลย์เอาต์ได้ แต่ก็ยังให้ขยายได้บ้างเพื่อการเข้าถึง (accessibility)
+    final mediaQuery = MediaQuery.of(context);
+
+    return MediaQuery(
+      data: mediaQuery.copyWith(
+        textScaler: mediaQuery.textScaler.clamp(
+          minScaleFactor: 0.9,
+          maxScaleFactor: 1.15,
+        ),
+      ),
+      child: Scaffold(
+        body: switch (variant) {
+          StudentPrototypeVariant.a => const StudentNavigationPrototype(),
+          StudentPrototypeVariant.b => const StudentVariantLearningPath(),
+          StudentPrototypeVariant.c => const StudentVariantFocusWorkspace(),
+          StudentPrototypeVariant.d => const StudentVariantCommandCenter(),
+        },
+      ),
     );
   }
 }
@@ -1417,168 +1431,7 @@ class _SoftIconButton extends StatelessWidget {
   }
 }
 
-class StudentVariantSchoolHome extends StatefulWidget {
-  const StudentVariantSchoolHome({super.key});
 
-  @override
-  State<StudentVariantSchoolHome> createState() =>
-      _StudentVariantSchoolHomeState();
-}
-
-class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
-  String _previewMode = 'full';
-
-  @override
-  Widget build(BuildContext context) {
-    return PrototypeShell(
-      background: const Color(0xFFF1F5F9),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final screenWidth = constraints.maxWidth;
-          final isMobileDevice = screenWidth < 600;
-
-          double? effectiveMaxWidth;
-          if (_previewMode == 'mobile') {
-            effectiveMaxWidth = 420;
-          } else if (_previewMode == 'tablet') {
-            effectiveMaxWidth = 680;
-          } else {
-            // 'full' mode: 100% full desktop width
-            effectiveMaxWidth = null;
-          }
-
-          final isFullWidth = effectiveMaxWidth == null;
-
-          return Column(
-            children: [
-              if (!isMobileDevice)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  color: Colors.white,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        '🖥️ เลือกโหมดการแสดงผล: ',
-                        style: TextStyle(
-                          color: SchoolPalette.ink,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _ModeChip(
-                        label: '🖥️ เต็มจอคอม (100% Full Width)',
-                        active: _previewMode == 'full',
-                        onTap: () => setState(() => _previewMode = 'full'),
-                      ),
-                      const SizedBox(width: 6),
-                      _ModeChip(
-                        label: '💻 กรอบแท็บเล็ต (680px)',
-                        active: _previewMode == 'tablet',
-                        onTap: () => setState(() => _previewMode = 'tablet'),
-                      ),
-                      const SizedBox(width: 6),
-                      _ModeChip(
-                        label: '⚡ ตอบสนองอัตโนมัติ (Auto)',
-                        active: _previewMode == 'auto',
-                        onTap: () => setState(() => _previewMode = 'auto'),
-                      ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: Container(
-                  width: effectiveMaxWidth ?? double.infinity,
-                  height: double.infinity,
-                  constraints: effectiveMaxWidth != null
-                      ? BoxConstraints(maxWidth: effectiveMaxWidth)
-                      : null,
-                  margin: isMobileDevice || isFullWidth
-                      ? EdgeInsets.zero
-                      : const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFDF7),
-                    borderRadius: isMobileDevice || isFullWidth
-                        ? BorderRadius.zero
-                        : BorderRadius.circular(28),
-                    boxShadow: isMobileDevice || isFullWidth
-                        ? null
-                        : const [
-                            BoxShadow(
-                              color: Color(0x18000000),
-                              blurRadius: 24,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: isMobileDevice || isFullWidth
-                        ? BorderRadius.zero
-                        : BorderRadius.circular(28),
-                    child: ListView(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isFullWidth && screenWidth > 800 ? 32 : 16,
-                        vertical: 16,
-                      ),
-                      children: [
-                        const _AcademyHeroCard(),
-                        const SizedBox(height: 16),
-                        const _AcademyTodayExecutiveSummaryBar(),
-                        const SizedBox(height: 18),
-                        if (screenWidth >= 760)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
-                              Expanded(
-                                flex: 3,
-                                child: AiotWeatherSensorsCard(),
-                              ),
-                              SizedBox(width: 18),
-                              Expanded(
-                                flex: 2,
-                                child: Column(
-                                  children: [
-                                    _AcademyWeatherSensorCard(),
-                                    SizedBox(height: 16),
-                                    SchoolEncouragementCard(),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          )
-                        else ...const [
-                          AiotWeatherSensorsCard(),
-                          SizedBox(height: 18),
-                          _AcademyWeatherSensorCard(),
-                          SizedBox(height: 16),
-                          SchoolEncouragementCard(),
-                        ],
-                        const SizedBox(height: 18),
-                        const AcademyQuickActions(),
-                        const SizedBox(height: 18),
-                        const AcademyContinueLearningCard(),
-                        const SizedBox(height: 18),
-                        const AcademyTasksDueCard(),
-                        const SizedBox(height: 18),
-                        const _AcademySchoolAnnouncementsCard(),
-                        const SizedBox(height: 24),
-                        const _AcademyBottomNavMock(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _ModeChip extends StatelessWidget {
   const _ModeChip({
@@ -2272,7 +2125,7 @@ class __AcademyStudent3DVisualState extends State<_AcademyStudent3DVisual>
                     ),
                     SizedBox(width: 3),
                     Text(
-                      'PM2.5: 18',
+                      'PM2.5: 19',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,

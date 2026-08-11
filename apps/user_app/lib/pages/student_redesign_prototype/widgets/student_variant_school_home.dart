@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../notifications_page.dart';
 import '../../../widgets/course_card.dart';
 import 'student_redesign_palette.dart';
@@ -10,8 +11,179 @@ import 'academy_tasks_due_card.dart';
 import 'learning_progress_card.dart';
 import 'student_course_catalog_page.dart';
 
-class StudentVariantSchoolHome extends StatelessWidget {
-  const StudentVariantSchoolHome({super.key});
+class StudentVariantSchoolHome extends StatefulWidget {
+  const StudentVariantSchoolHome({super.key, this.onViewScore});
+
+  /// Lets the G-Score summary card open the full "คะแนน" page — the score
+  /// snapshot lives on the home page since it updates daily, while the full
+  /// breakdown is one tap away instead of living in the main nav.
+  final VoidCallback? onViewScore;
+
+  @override
+  State<StudentVariantSchoolHome> createState() =>
+      _StudentVariantSchoolHomeState();
+}
+
+class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
+  final List<Map<String, String>> _activeSafetyAlerts = [
+    {
+      'id': 'ALT-101',
+      'title': 'แจ้งเตือนฝันตกสะสมและน้ำขังผิวถนน ⚠️',
+      'content':
+          'หลีกเลี่ยงการสัญจรบริเวณด้านหลังอาคาร 4 และใกล้สระน้ำ เนื่องจากกระเบื้องลื่นและอาจเกิดการลื่นล้มได้ง่าย',
+      'area': 'หลังอาคาร 4',
+    },
+    {
+      'id': 'ALT-102',
+      'title': 'ประกาศซ้อมหนีไฟและฝึกซ้อมความปลอดภัย 🔥',
+      'content':
+          'ขอให้นักเรียนทุกคนศึกษาจุดรวมพลของอาคารเรียนตนเอง คาบเรียนที่ 7 จะมีการจำลองซ้อมสัญญาณอพยพหนีไฟ',
+      'area': 'ทุกอาคารเรียน',
+    },
+  ];
+
+  Widget _buildSafetyAlertBanner() {
+    if (_activeSafetyAlerts.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final alert = _activeSafetyAlerts.first;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C0F172A),
+            blurRadius: 16,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              color: const Color(0xFFFEF3C7),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFD97706),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'ประกาศความปลอดภัยด่วน 🚨',
+                      style: TextStyle(
+                        color: Color(0xFFB45309),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'พื้นที่: ${alert['area']}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    alert['title']!,
+                    style: const TextStyle(
+                      color: Color(0xFF1E293B),
+                      fontSize: 14.0,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    alert['content']!,
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 12.0,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  // Align แทน Row(mainAxisAlignment: end) — Row เดี่ยวแบบ
+                  // นี้เจอ BoxConstraints ความกว้างไม่จำกัดในบาง layout
+                  // (เช่น sidebar เดสก์ท็อป) ทำให้ทั้งหน้าพังแบบเงียบ ๆ ใน
+                  // release build (ไม่มี assert เตือนเหมือน debug)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD97706),
+                        foregroundColor: Colors.white,
+                        elevation: 2,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _activeSafetyAlerts.removeAt(0);
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'รับทราบประกาศความปลอดภัยเรียบร้อยแล้ว',
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: const Text(
+                        'รับทราบประกาศ',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +210,15 @@ class StudentVariantSchoolHome extends StatelessWidget {
                   children: [
                     _buildPrototypeBanner(context),
                     const SizedBox(height: 12),
+                    _buildSafetyAlertBanner(),
                     _buildHeroHeader(context),
                     const SizedBox(height: 16),
-                    const AcademyTodayExecutiveSummaryBar(),
+                    const AiotBuildingResourceChartCard(),
                     SizedBox(height: afterSummaryGap),
-                    _buildTopSectionGrid(context),
+                    _buildTopSectionGrid(
+                      context,
+                      onViewScore: widget.onViewScore,
+                    ),
                     SizedBox(height: sectionGap),
                     const AcademyQuickActions(),
                     SizedBox(height: sectionGap),
@@ -76,13 +252,17 @@ class StudentVariantSchoolHome extends StatelessWidget {
         children: [
           Icon(Icons.science_rounded, size: 15, color: Color(0xFFEA580C)),
           SizedBox(width: 6),
-          Text(
-            '🧪 โต๊ะลองงาน (PROTOTYPE SANDBOX) · Variant A',
-            style: TextStyle(
-              color: Color(0xFFC2410C),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.3,
+          Flexible(
+            child: Text(
+              '🧪 โต๊ะลองงาน (PROTOTYPE SANDBOX) · Variant A',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Color(0xFFC2410C),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.3,
+              ),
             ),
           ),
         ],
@@ -226,7 +406,10 @@ class StudentVariantSchoolHome extends StatelessWidget {
     );
   }
 
-  Widget _buildTopSectionGrid(BuildContext context) {
+  Widget _buildTopSectionGrid(
+    BuildContext context, {
+    VoidCallback? onViewScore,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -234,13 +417,13 @@ class StudentVariantSchoolHome extends StatelessWidget {
         final columnGap = width >= 1100 ? 18.0 : 14.0;
 
         if (!isTwoColumn) {
-          return const Column(
+          return Column(
             children: [
-              AiotWeatherSensorsCard(),
-              SizedBox(height: 16),
-              AcademyLearningScoreCard(),
-              SizedBox(height: 16),
-              SchoolEncouragementCard(),
+              const AiotWeatherSensorsCard(),
+              const SizedBox(height: 16),
+              AcademyLearningScoreCard(onTap: onViewScore),
+              const SizedBox(height: 16),
+              const SchoolEncouragementCard(),
             ],
           );
         }
@@ -265,7 +448,7 @@ class StudentVariantSchoolHome extends StatelessWidget {
                 children: [
                   SizedBox(
                     height: scoreCardHeight,
-                    child: const AcademyLearningScoreCard(),
+                    child: AcademyLearningScoreCard(onTap: onViewScore),
                   ),
                   SizedBox(height: columnGap),
                   SizedBox(
@@ -341,17 +524,23 @@ class StudentVariantSchoolHome extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F3FF),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFDDD6FE)),
+                    color: const Color(0xFF7C3AED),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x337C3AED),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: const Icon(
                     Icons.campaign_rounded,
-                    color: Color(0xFF7C3AED),
-                    size: 24,
+                    color: Colors.white,
+                    size: 20,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -406,106 +595,262 @@ class StudentVariantSchoolHome extends StatelessWidget {
   }
 }
 
-class AcademyTodayExecutiveSummaryBar extends StatelessWidget {
-  const AcademyTodayExecutiveSummaryBar({super.key});
+class AiotBuildingResourceChartCard extends StatelessWidget {
+  const AiotBuildingResourceChartCard({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-      ),
+    return SoftCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.today_rounded, color: SchoolPalette.green, size: 16),
-              SizedBox(width: 6),
-              Text(
-                'สรุปภาพรวมวันนี้สำหรับนักเรียน',
-                style: TextStyle(
-                  color: SchoolPalette.ink,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w900,
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F4EA),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFA3E635)),
+                ),
+                child: const Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      left: 2,
+                      top: 4,
+                      child: Icon(
+                        Icons.bolt_rounded,
+                        color: Color(0xFFD97706),
+                        size: 16,
+                      ),
+                    ),
+                    Positioned(
+                      right: 2,
+                      bottom: 4,
+                      child: Icon(
+                        Icons.water_drop_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'คะแนนประหยัดพลังงานของอาคารเรียน ⚡💧',
+                      style: TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 1),
+                    Text(
+                      'ภาพรวมทั้งอาคาร (ยิ่งคะแนนสูง ยิ่งประหยัดได้ดีเยี่ยม)',
+                      style: TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    '73.5 คะแนน',
+                    style: TextStyle(
+                      color: Color(0xFF16A34A),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    'ระดับ: ประหยัดดีเยี่ยม 🏆',
+                    style: TextStyle(
+                      color: const Color(0xFF16A34A),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Chart section (Combined average in %)
+          SizedBox(
+            height: 120,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 95,
+                      getTitlesWidget: (value, meta) {
+                        final valInt = value.toInt();
+                        if (valInt == 100) {
+                          return const Text(
+                            '100 (ประหยัดมาก)',
+                            style: TextStyle(
+                              color: Color(0xFF16A34A),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 9.5,
+                            ),
+                          );
+                        } else if (valInt == 75) {
+                          return const Text(
+                            '75 (ประหยัดดี)',
+                            style: TextStyle(
+                              color: SchoolPalette.muted,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 9.5,
+                            ),
+                          );
+                        } else if (valInt == 50) {
+                          return const Text(
+                            '50 (ปานกลาง)',
+                            style: TextStyle(
+                              color: SchoolPalette.muted,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 9.5,
+                            ),
+                          );
+                        } else if (valInt == 25) {
+                          return const Text(
+                            '25 (ใช้ไฟเยอะ)',
+                            style: TextStyle(
+                              color: Color(0xFFEA580C),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 9.5,
+                            ),
+                          );
+                        } else if (valInt == 0) {
+                          return const Text(
+                            '0 (ใช้เยอะมาก)',
+                            style: TextStyle(
+                              color: Color(0xFFE11D48),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 9.5,
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      interval: 1, // Fixes repeating labels
+                      getTitlesWidget: (value, meta) {
+                        const days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
+                        final index = value.toInt();
+                        if (index >= 0 && index < days.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              days[index],
+                              style: const TextStyle(
+                                color: SchoolPalette.muted,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                minX: 0,
+                maxX: 4,
+                minY: 0,
+                maxY: 100,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: const [
+                      FlSpot(0, 55), // Mon: (52% + 58%) / 2 = 55%
+                      FlSpot(1, 63.5), // Tue: (65% + 62%) / 2 = 63.5%
+                      FlSpot(2, 80), // Wed: (82% + 78%) / 2 = 80%
+                      FlSpot(3, 59), // Thu: (58% + 60%) / 2 = 59%
+                      FlSpot(4, 86.5), // Fri: (88% + 85%) / 2 = 86.5%
+                    ],
+                    isCurved: true,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF10B981), Color(0xFF0EA5E9)],
+                    ),
+                    barWidth: 4,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFFD1FAE5).withValues(alpha: 0.4),
+                          const Color(0xFFE0F2FE).withValues(alpha: 0.1),
+                        ],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Divider(height: 1, color: Color(0xFFEFF4F8)),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.tips_and_updates_rounded,
+                color: Color(0xFF16A34A),
+                size: 13,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  'คิดจากปริมาณน้ำและไฟที่อาคารใช้จริง ยิ่งใช้น้อย คะแนนยิ่งสูงขึ้น! 💡',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.green[800],
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          const Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              SummaryChip(
-                icon: Icons.assignment_late_rounded,
-                label: 'งานต้องส่งวันนี้: 2 ชิ้น',
-                color: Color(0xFFC2410C),
-                bgColor: Color(0xFFFFEDD5),
-              ),
-              SummaryChip(
-                icon: Icons.timer_rounded,
-                label: 'ด่วนที่สุด: ใบงานชีววิทยา',
-                color: Color(0xFFBE123C),
-                bgColor: Color(0xFFFFE4E6),
-              ),
-              SummaryChip(
-                icon: Icons.schedule_rounded,
-                label: 'คาบถัดไป: 13:30 น.',
-                color: Color(0xFF0369A1),
-                bgColor: Color(0xFFE0F2FE),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class SummaryChip extends StatelessWidget {
-  const SummaryChip({
-    super.key,
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.bgColor,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final Color bgColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 238),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 13),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
           ),
         ],
       ),
@@ -514,11 +859,14 @@ class SummaryChip extends StatelessWidget {
 }
 
 class AcademyLearningScoreCard extends StatelessWidget {
-  const AcademyLearningScoreCard({super.key});
+  const AcademyLearningScoreCard({super.key, this.onTap});
+
+  /// Opens the full "คะแนน" page with subject grades, trend, and badges.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SoftCard(
+    final content = SoftCard(
       padding: const EdgeInsets.fromLTRB(16, 17, 16, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -554,22 +902,12 @@ class AcademyLearningScoreCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF8F3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFC7E2D0)),
+              if (onTap != null)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: SchoolPalette.muted,
+                  size: 20,
                 ),
-                child: const Text(
-                  'GRADE A+ 🌟',
-                  style: TextStyle(
-                    color: SchoolPalette.green,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -650,6 +988,16 @@ class AcademyLearningScoreCard extends StatelessWidget {
         ],
       ),
     );
+
+    if (onTap == null) {
+      return content;
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: content,
+    );
   }
 }
 
@@ -684,19 +1032,20 @@ class LearningScoreTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(7),
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
+              color: color,
+              borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: color.withValues(alpha: 0.2),
-                  blurRadius: 6,
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 5,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: Colors.white, size: 17),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -708,8 +1057,8 @@ class LearningScoreTile extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color.withValues(alpha: 0.9),
+                  style: const TextStyle(
+                    color: SchoolPalette.muted,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w800,
                   ),
@@ -728,10 +1077,10 @@ class LearningScoreTile extends StatelessWidget {
                   status,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color,
+                  style: const TextStyle(
+                    color: SchoolPalette.muted,
                     fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],

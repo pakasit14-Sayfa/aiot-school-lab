@@ -1,9 +1,13 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../student/course_list_page.dart';
-import '../../student/grades_overview_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_assignments_page.dart';
 import 'student_lessons_page.dart';
+import 'student_score_page.dart';
+import 'student_course_files_page.dart';
+import 'student_calendar_page.dart';
+import 'student_pretest_posttest_page.dart';
+import '../student_safety_page.dart';
 
 class AcademyQuickActions extends StatelessWidget {
   const AcademyQuickActions({super.key});
@@ -29,7 +33,7 @@ class AcademyQuickActions extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const CourseListPage()),
+                  MaterialPageRoute(builder: (_) => const StudentLessonsPage()),
                 );
               },
               style: TextButton.styleFrom(
@@ -64,8 +68,8 @@ class AcademyQuickActions extends StatelessWidget {
                 icon: Icons.menu_book_rounded,
                 title: 'บทเรียน',
                 subtitle: 'เรียนต่อ 5 บท',
-                color: Color(0xFF0284C7),
-                bgTint: Color(0xFFF0F9FF),
+                color: const Color(0xFF0284C7),
+                bgTint: const Color(0xFFF0F9FF),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -80,8 +84,8 @@ class AcademyQuickActions extends StatelessWidget {
                 title: 'ใบงาน',
                 subtitle: '2 งานด่วน',
                 badgeCount: '2',
-                color: Color(0xFFEA580C),
-                bgTint: Color(0xFFFFF7ED),
+                color: const Color(0xFFEA580C),
+                bgTint: const Color(0xFFFFF7ED),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -95,14 +99,12 @@ class AcademyQuickActions extends StatelessWidget {
                 icon: Icons.bar_chart_rounded,
                 title: 'คะแนน',
                 subtitle: 'ยืนยันแล้ว',
-                color: Color(0xFFD97706),
-                bgTint: Color(0xFFFFFBEB),
+                color: const Color(0xFFD97706),
+                bgTint: const Color(0xFFFFFBEB),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => const GradesOverviewPage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const StudentScorePage()),
                   );
                 },
               ),
@@ -110,12 +112,14 @@ class AcademyQuickActions extends StatelessWidget {
                 icon: Icons.quiz_rounded,
                 title: 'สอบก่อนเรียนและหลังเรียน',
                 subtitle: 'ประเมินผล',
-                color: SchoolPalette.green,
-                bgTint: Color(0xFFECFDF5),
+                color: const Color.fromARGB(255, 28, 127, 70),
+                bgTint: const Color(0xFFF0FDF4),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const CourseListPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const StudentPretestPosttestPage(),
+                    ),
                   );
                 },
               ),
@@ -123,12 +127,14 @@ class AcademyQuickActions extends StatelessWidget {
                 icon: Icons.auto_stories_rounded,
                 title: 'คลังความรู้',
                 subtitle: 'สื่อ & เอกสาร',
-                color: Color(0xFF0D9488),
-                bgTint: Color(0xFFF0FDFA),
+                color: const Color(0xFF0D9488),
+                bgTint: const Color(0xFFF0FDFA),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const CourseListPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const StudentCourseFilesPage(),
+                    ),
                   );
                 },
               ),
@@ -136,72 +142,86 @@ class AcademyQuickActions extends StatelessWidget {
                 icon: Icons.calendar_month_rounded,
                 title: 'ปฏิทิน',
                 subtitle: 'กิจกรรมโรงเรียน',
-                color: Color(0xFF7C3AED),
-                bgTint: Color(0xFFF5F3FF),
+                color: const Color(0xFF7C3AED),
+                bgTint: const Color(0xFFF5F3FF),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const CourseListPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const StudentCalendarPage(),
+                    ),
+                  );
+                },
+              ),
+              AcademyActionTile(
+                icon: Icons.shield_rounded,
+                title: 'แจ้งเหตุ / SOS',
+                subtitle: 'ความปลอดภัยห้องเรียน',
+                color: const Color(0xFFEF4444),
+                bgTint: const Color(0xFFFEF2F2),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StudentSafetyPage(),
+                    ),
                   );
                 },
               ),
             ];
 
             if (isMobile) {
-              // Mobile View: 2 columns x 3 rows (spacious, zero truncation)
-              return Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: items[0]),
-                      const SizedBox(width: 10),
-                      Expanded(child: items[1]),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(child: items[2]),
-                      const SizedBox(width: 10),
-                      Expanded(child: items[3]),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(child: items[4]),
-                      const SizedBox(width: 10),
-                      Expanded(child: items[5]),
-                    ],
-                  ),
-                ],
-              );
+              // Mobile View: 2 columns dynamic rows grid (spacious, zero truncation)
+              final List<Widget> rows = [];
+              for (int i = 0; i < items.length; i += 2) {
+                if (i + 1 < items.length) {
+                  rows.add(
+                    Row(
+                      children: [
+                        Expanded(child: items[i]),
+                        const SizedBox(width: 10),
+                        Expanded(child: items[i + 1]),
+                      ],
+                    ),
+                  );
+                } else {
+                  rows.add(
+                    Row(
+                      children: [
+                        Expanded(child: items[i]),
+                        const SizedBox(width: 10),
+                        const Expanded(child: SizedBox.shrink()),
+                      ],
+                    ),
+                  );
+                }
+                if (i + 2 < items.length) {
+                  rows.add(const SizedBox(height: 10));
+                }
+              }
+              return Column(children: rows);
             }
 
-            // Desktop / Tablet View: 3 columns x 2 rows
-            return Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(child: items[0]),
-                    const SizedBox(width: 10),
-                    Expanded(child: items[1]),
-                    const SizedBox(width: 10),
-                    Expanded(child: items[2]),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: items[3]),
-                    const SizedBox(width: 10),
-                    Expanded(child: items[4]),
-                    const SizedBox(width: 10),
-                    Expanded(child: items[5]),
-                  ],
-                ),
-              ],
-            );
+            // Desktop / Tablet View: 3 columns dynamic rows grid
+            final List<Widget> rows = [];
+            for (int i = 0; i < items.length; i += 3) {
+              final List<Widget> rowItems = [];
+              for (int j = 0; j < 3; j++) {
+                if (i + j < items.length) {
+                  rowItems.add(Expanded(child: items[i + j]));
+                } else {
+                  rowItems.add(const Expanded(child: SizedBox.shrink()));
+                }
+                if (j < 2) {
+                  rowItems.add(const SizedBox(width: 10));
+                }
+              }
+              rows.add(Row(children: rowItems));
+              if (i + 3 < items.length) {
+                rows.add(const SizedBox(height: 10));
+              }
+            }
+            return Column(children: rows);
           },
         ),
       ],
@@ -231,132 +251,148 @@ class AcademyActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 74,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: InkWell(
-          onTap:
-              onTap ??
-              () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('กำลังเปิด: $title'),
-                    duration: const Duration(seconds: 2),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-              },
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                child: Container(
-                  width: 4.5,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.75),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(18),
-                      bottomLeft: Radius.circular(18),
-                    ),
-                  ),
-                ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+        child: Container(
+          height: 74,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.90),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.07),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
               ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: 14,
-                  right: 12,
-                  top: 10,
-                  bottom: 10,
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: bgTint,
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(icon, color: color, size: 24),
+            ],
+          ),
+          child: InkWell(
+            onTap:
+                onTap ??
+                () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('กำลังเปิด: $title'),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  title,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: SchoolPalette.ink,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 12.5,
-                                    height: 1.15,
-                                  ),
-                                ),
-                              ),
-                              if (badgeCount != null) ...[
-                                const SizedBox(width: 4),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 1.5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEF4444),
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
+                  );
+                },
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 4.5,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.75),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(18),
+                        bottomLeft: Radius.circular(18),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 14,
+                    right: 12,
+                    top: 10,
+                    bottom: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(9),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
                                   child: Text(
-                                    badgeCount!,
+                                    title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
+                                      color: SchoolPalette.ink,
                                       fontWeight: FontWeight.w900,
+                                      fontSize: 12.5,
+                                      height: 1.15,
                                     ),
                                   ),
                                 ),
+                                if (badgeCount != null) ...[
+                                  const SizedBox(width: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      badgeCount!,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: color,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 3),
+                            Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: SchoolPalette.muted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFFC7C7CC),
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

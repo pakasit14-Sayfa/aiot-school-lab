@@ -6,6 +6,11 @@ import 'student_variant_school_home.dart';
 import 'student_assignments_page.dart';
 import 'student_course_catalog_page.dart';
 import 'student_profile_page.dart';
+import 'student_score_page.dart';
+import 'student_calendar_page.dart';
+import 'student_dashboard_models.dart';
+import 'student_qr_login_page.dart';
+import '../student_safety_page.dart';
 
 class StudentNavigationPrototype extends StatefulWidget {
   const StudentNavigationPrototype({super.key});
@@ -18,13 +23,18 @@ class StudentNavigationPrototype extends StatefulWidget {
 class _StudentNavigationPrototypeState
     extends State<StudentNavigationPrototype> {
   int _currentIndex = 0;
+  bool _isSidebarCollapsed = false;
   final ValueNotifier<int> _courseSearchPopupTick = ValueNotifier<int>(0);
+  final GlobalKey<ScaffoldState> _mobileScaffoldKey =
+      GlobalKey<ScaffoldState>();
 
+  // "คะแนน" ไม่ได้อยู่เป็นแท็บหลัก เพราะเกรดออกเทอมละครั้งเท่านั้น
+  // เข้าถึงผ่านปุ่มในหน้าโปรไฟล์แทน (ดู _openScorePage)
   final List<String> _titles = [
     'หน้าแรกนักเรียน',
     'วิชาเรียนและบทเรียน',
     'ใบงานและการบ้าน',
-    'สรุปคะแนน G-Score',
+    'ปฏิทิน / ตารางเรียน',
     'ข้อมูลส่วนตัวนักเรียน',
   ];
 
@@ -40,6 +50,12 @@ class _StudentNavigationPrototypeState
 
   void _openGlassNotificationModal() {
     _showGlassNotificationModal(context);
+  }
+
+  void _openScorePage() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const StudentScorePage()));
   }
 
   Future<void> _showGlassNotificationModal(BuildContext context) async {
@@ -482,14 +498,17 @@ class _StudentNavigationPrototypeState
   }
 
   List<Widget> get _pages => [
-    const StudentVariantSchoolHome(),
+    StudentVariantSchoolHome(onViewScore: _openScorePage),
     StudentCourseCatalogPage(
       showAppBar: false,
       searchPopupTick: _courseSearchPopupTick,
     ),
     const StudentAssignmentsPage(),
-    const _DummyGradesTab(),
-    const StudentProfilePage(),
+    const StudentCalendarPage(),
+    StudentProfilePage(
+      onViewScore: _openScorePage,
+      onViewAssignments: () => setState(() => _currentIndex = 2),
+    ),
   ];
 
   @override
@@ -502,13 +521,24 @@ class _StudentNavigationPrototypeState
         }
 
         return Scaffold(
+          key: _mobileScaffoldKey,
           backgroundColor: Colors.white,
+          drawer: _buildMobileDrawer(context),
           appBar: AppBar(
             automaticallyImplyLeading: false,
             backgroundColor: Colors.white,
             elevation: 0,
             scrolledUnderElevation: 0.5,
             centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.menu_rounded,
+                color: SchoolPalette.ink,
+                size: 24,
+              ),
+              tooltip: 'เมนู',
+              onPressed: () => _mobileScaffoldKey.currentState?.openDrawer(),
+            ),
             title: Text(
               _titles[_currentIndex],
               style: const TextStyle(
@@ -538,41 +568,24 @@ class _StudentNavigationPrototypeState
                     ),
                     onPressed: _openGlassNotificationModal,
                   ),
+                  // White ring makes the dot read clearly as "attached to
+                  // the bell" instead of a stray mark floating beside it.
                   Positioned(
-                    right: 10,
-                    top: 10,
+                    right: 8,
+                    top: 8,
                     child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE11D48),
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE11D48),
                         shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 4),
-              Padding(
-                padding: const EdgeInsets.only(right: 14),
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: const Color(0xFFECFDF5),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/mascot_lion_clean.png',
-                      width: 28,
-                      height: 28,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => const Icon(
-                        Icons.person_rounded,
-                        size: 18,
-                        color: SchoolPalette.green,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              const SizedBox(width: 6),
             ],
           ),
           body: SafeArea(
@@ -596,9 +609,200 @@ class _StudentNavigationPrototypeState
     );
   }
 
+  Widget _buildMobileDrawer(BuildContext context) {
+    const profile = StudentProfileState.mock;
+    // "ข้อมูลส่วนตัว" ไม่อยู่ในกลุ่มนี้แล้ว — ย้ายไปกลุ่มบัญชี/ตั้งค่า
+    // ด้านล่างเส้นคั่นแทน เพราะเป็นเรื่องจัดการบัญชีตัวเอง คนละหมวดกับ
+    // เนื้อหาที่จะไปดู (หน้าแรก/บทเรียน/ใบงาน/ปฏิทิน)
+    final navItems = [
+      (icon: Icons.home_rounded, label: 'หน้าแรก', index: 0),
+      (icon: Icons.menu_book_rounded, label: 'วิชาเรียนและบทเรียน', index: 1),
+      (icon: Icons.assignment_rounded, label: 'ใบงานและการบ้าน', index: 2),
+      (
+        icon: Icons.calendar_month_rounded,
+        label: 'ปฏิทิน / ตารางเรียน',
+        index: 3,
+      ),
+    ];
+
+    Widget buildTile({
+      required IconData icon,
+      required String label,
+      required VoidCallback onTap,
+      bool selected = false,
+    }) {
+      return ListTile(
+        leading: Icon(
+          icon,
+          color: selected ? SchoolPalette.deepGreen : SchoolPalette.muted,
+        ),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: selected ? SchoolPalette.deepGreen : SchoolPalette.ink,
+            fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+            fontSize: 14,
+          ),
+        ),
+        selected: selected,
+        selectedTileColor: SchoolPalette.softGreenBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onTap: onTap,
+      );
+    }
+
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+              decoration: const BoxDecoration(
+                gradient: SchoolPalette.primaryGradient,
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.white.withValues(alpha: 0.16),
+                    child: const Icon(
+                      Icons.person_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15.5,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${profile.gradeLevel} · ${profile.schoolName}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                children: [
+                  for (final item in navItems)
+                    buildTile(
+                      icon: item.icon,
+                      label: item.label,
+                      selected: _currentIndex == item.index,
+                      onTap: () {
+                        setState(() => _currentIndex = item.index);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  ),
+                  buildTile(
+                    icon: Icons.shield_rounded,
+                    label: 'ความปลอดภัยห้องเรียน',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const StudentSafetyPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  buildTile(
+                    icon: Icons.qr_code_scanner_rounded,
+                    label: 'เข้าสู่ระบบด้วย QR',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const StudentQrLoginPage(startInScanMode: true),
+                        ),
+                      );
+                    },
+                  ),
+                  buildTile(
+                    icon: Icons.help_outline_rounded,
+                    label: 'ช่วยเหลือ',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  buildTile(
+                    icon: Icons.settings_outlined,
+                    label: 'ตั้งค่า',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  buildTile(
+                    icon: Icons.logout_rounded,
+                    label: 'ออกจากระบบ',
+                    onTap: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            // "ข้อมูลส่วนตัว" ตรึงติดขอบล่างสุดของ Drawer จริงๆ (นอก
+            // ListView ที่เลื่อนได้) เหมือนตำแหน่ง "โปรไฟล์" ใน sidebar
+            // เดสก์ท็อปที่ดันไปท้ายสุดด้วย Spacer() — ไม่ใช่แค่รายการ
+            // สุดท้ายในลิสต์ที่เลื่อนตามเนื้อหา
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+              child: Column(
+                children: [
+                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                  const SizedBox(height: 8),
+                  buildTile(
+                    icon: Icons.person_rounded,
+                    label: 'ข้อมูลส่วนตัว',
+                    selected: _currentIndex == 4,
+                    onTap: () {
+                      setState(() => _currentIndex = 4);
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDesktopShell(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6FAF8),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Row(
           children: [
@@ -630,15 +834,18 @@ class _StudentNavigationPrototypeState
       ),
       child: Row(
         children: [
-          Text(
-            _titles[_currentIndex],
-            style: const TextStyle(
-              color: SchoolPalette.ink,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
+          Expanded(
+            child: Text(
+              _titles[_currentIndex],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: SchoolPalette.ink,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
-          const Spacer(),
           _buildDesktopAction(
             icon: Icons.search_rounded,
             onTap: _openInPlaceSearchDialog,
@@ -649,42 +856,15 @@ class _StudentNavigationPrototypeState
             badge: true,
             onTap: _openGlassNotificationModal,
           ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFA7F3D0)),
-            ),
-            child: const Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person_rounded,
-                    size: 18,
-                    color: SchoolPalette.green,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'สายฟ้า',
-                  style: TextStyle(
-                    color: SchoolPalette.ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                SizedBox(width: 6),
-                Icon(
-                  Icons.expand_more_rounded,
-                  color: SchoolPalette.muted,
-                  size: 20,
-                ),
-              ],
-            ),
+          const SizedBox(width: 10),
+          _buildDesktopAction(
+            icon: Icons.qr_code_scanner_rounded,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const StudentQrLoginPage()),
+              );
+            },
           ),
         ],
       ),
@@ -721,14 +901,15 @@ class _StudentNavigationPrototypeState
         ),
         if (badge)
           Positioned(
-            right: 2,
-            top: 2,
+            right: 1,
+            top: 1,
             child: Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFFE11D48),
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE11D48),
                 shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
               ),
             ),
           ),
@@ -737,116 +918,233 @@ class _StudentNavigationPrototypeState
   }
 
   Widget _buildDesktopSidebar(BuildContext context) {
+    // "โปรไฟล์" แยกไว้ท้ายสุดของ sidebar (ดูตอนสร้าง profileNavItem
+    // ด้านล่าง) ส่วนนี้เหลือแค่เมนูหลักที่ใช้งานบ่อย
     final navItems = <_NavItem>[
       _NavItem(icon: Icons.home_rounded, label: 'หน้าแรก'),
       _NavItem(icon: Icons.menu_book_rounded, label: 'บทเรียน'),
       _NavItem(icon: Icons.assignment_rounded, label: 'ใบงาน'),
-      _NavItem(icon: Icons.military_tech_rounded, label: 'คะแนน'),
-      _NavItem(icon: Icons.person_rounded, label: 'โปรไฟล์'),
+      _NavItem(icon: Icons.calendar_month_rounded, label: 'ปฏิทิน'),
     ];
+    const profileIndex = 4;
+    const profileNavItem = _NavItem(
+      icon: Icons.person_rounded,
+      label: 'โปรไฟล์',
+    );
 
-    return Container(
-      width: 292,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+    final isCollapsed = _isSidebarCollapsed;
+    final sidebarWidth = isCollapsed ? 104.0 : 292.0;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      width: sidebarWidth,
+      padding: EdgeInsets.fromLTRB(
+        isCollapsed ? 12 : 18,
+        18,
+        isCollapsed ? 12 : 18,
+        20,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.86),
+            SchoolPalette.softGreenBg.withValues(alpha: 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: const Border(
+          right: BorderSide(color: Color(0xCCE2E8F0), width: 1),
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F0F172A),
+            blurRadius: 28,
+            offset: Offset(8, 0),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F3E33), Color(0xFF165042)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Colors.white.withValues(alpha: 0.16),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/mascot_lion_clean.png',
-                      width: 42,
-                      height: 42,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.person_rounded, color: Colors.white),
+          Row(
+            mainAxisAlignment: isCollapsed
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.spaceBetween,
+            children: [
+              if (!isCollapsed)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.eco_rounded,
+                      size: 16,
+                      color: SchoolPalette.deepGreen.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'เมนู',
+                      style: TextStyle(
+                        color: SchoolPalette.muted.withValues(alpha: 0.9),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+              Material(
+                color: Colors.white.withValues(alpha: 0.78),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => setState(
+                    () => _isSidebarCollapsed = !_isSidebarCollapsed,
+                  ),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: SchoolPalette.glassBorder),
+                    ),
+                    child: Icon(
+                      isCollapsed
+                          ? Icons.chevron_right_rounded
+                          : Icons.chevron_left_rounded,
+                      size: 20,
+                      color: SchoolPalette.deepGreen,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'AIoT Smart School',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Student Workspace',
-                        style: TextStyle(
-                          color: Color(0xFFA7F3D0),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+          const SizedBox(height: 14),
+          _buildSidebarClassCard(isCollapsed: isCollapsed),
           const SizedBox(height: 18),
-          Expanded(
-            child: ListView.separated(
-              itemCount: navItems.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final item = navItems[index];
-                final isSelected = _currentIndex == index;
-                return _DesktopNavTile(
-                  icon: item.icon,
-                  label: item.label,
-                  isSelected: isSelected,
-                  onTap: () => setState(() => _currentIndex = index),
-                );
-              },
-            ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: navItems.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final item = navItems[index];
+              final isSelected = _currentIndex == index;
+              return _DesktopNavTile(
+                icon: item.icon,
+                label: item.label,
+                isSelected: isSelected,
+                isCollapsed: isCollapsed,
+                onTap: () => setState(() => _currentIndex = index),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          _DesktopNavTile(
+            icon: Icons.shield_rounded,
+            label: 'ความปลอดภัยห้องเรียน',
+            isSelected: false,
+            isCollapsed: isCollapsed,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const StudentSafetyPage(),
+                ),
+              );
+            },
+          ),
+          const Spacer(),
+          _DesktopNavTile(
+            icon: profileNavItem.icon,
+            label: profileNavItem.label,
+            isSelected: _currentIndex == profileIndex,
+            isCollapsed: isCollapsed,
+            onTap: () => setState(() => _currentIndex = profileIndex),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: const Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Color(0xFFECFDF5),
-                  child: Icon(
-                    Icons.school_rounded,
-                    color: SchoolPalette.green,
-                    size: 18,
-                  ),
+          _buildSidebarFooter(isCollapsed: isCollapsed),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarFooter({required bool isCollapsed}) {
+    if (isCollapsed) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: Center(
+          child: Icon(
+            Icons.eco_rounded,
+            size: 18,
+            color: SchoolPalette.deepGreen.withValues(alpha: 0.5),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        children: [
+          const Divider(height: 1, color: SchoolPalette.glassBorder),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.eco_rounded,
+                size: 14,
+                color: SchoolPalette.deepGreen.withValues(alpha: 0.6),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'AIoT Smart School · v1.0',
+                style: TextStyle(
+                  color: SchoolPalette.muted.withValues(alpha: 0.8),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
                 ),
-                SizedBox(width: 10),
-                Expanded(
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarClassCard({required bool isCollapsed}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          padding: EdgeInsets.all(isCollapsed ? 12 : 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.68),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.78)),
+          ),
+          child: Row(
+            mainAxisAlignment: isCollapsed
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
+            children: [
+              const CircleAvatar(
+                radius: 18,
+                backgroundColor: SchoolPalette.softGreenBg,
+                child: Icon(
+                  Icons.school_rounded,
+                  color: SchoolPalette.deepGreen,
+                  size: 18,
+                ),
+              ),
+              if (!isCollapsed) ...[
+                const SizedBox(width: 10),
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -871,9 +1169,9 @@ class _StudentNavigationPrototypeState
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -893,13 +1191,17 @@ class _StudentNavigationPrototypeState
         children: [
           Icon(Icons.science_rounded, size: 14, color: Color(0xFFEA580C)),
           SizedBox(width: 6),
-          Text(
-            '🧪 โต๊ะลองงาน (PROTOTYPE SANDBOX) · สลับหน้าด้วย Bottom Nav & Drawer (3 ขีด)',
-            style: TextStyle(
-              color: Color(0xFFC2410C),
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.2,
+          Flexible(
+            child: Text(
+              '🧪 โต๊ะลองงาน (PROTOTYPE SANDBOX) · สลับหน้าด้วย Bottom Nav & Drawer (3 ขีด)',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Color(0xFFC2410C),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ],
@@ -949,9 +1251,9 @@ class _StudentNavigationPrototypeState
             label: 'ใบงาน',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.military_tech_outlined),
-            activeIcon: Icon(Icons.military_tech_rounded),
-            label: 'คะแนน',
+            icon: Icon(Icons.calendar_month_outlined),
+            activeIcon: Icon(Icons.calendar_month_rounded),
+            label: 'ปฏิทิน',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline_rounded),
@@ -1019,97 +1321,93 @@ class _DesktopNavTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.isSelected,
+    required this.isCollapsed,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
   final bool isSelected;
+  final bool isCollapsed;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final selectedColor = const Color(0xFFECFDF5);
-    final textColor = isSelected ? SchoolPalette.green : SchoolPalette.ink;
+    final selectedColor = SchoolPalette.softGreenBg;
+    final textColor = isSelected ? SchoolPalette.deepGreen : SchoolPalette.ink;
     final iconColor = isSelected
-        ? SchoolPalette.green
+        ? SchoolPalette.deepGreen
         : const Color(0xFF64748B);
 
-    return Material(
-      color: isSelected ? selectedColor : Colors.white,
-      borderRadius: BorderRadius.circular(18),
+    final tile = Material(
+      color: isSelected
+          ? selectedColor.withValues(alpha: 0.78)
+          : Colors.white.withValues(alpha: 0.46),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          height: isCollapsed ? 58 : 62,
+          padding: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 0 : 14,
+            vertical: 0,
+          ),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFFA7F3D0)
-                  : const Color(0xFFE2E8F0),
+                  ? const Color(0xFFBFE0D2)
+                  : Colors.white.withValues(alpha: 0.78),
               width: 1,
             ),
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14165042),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
+            mainAxisAlignment: isCollapsed
+                ? MainAxisAlignment.center
+                : MainAxisAlignment.start,
             children: [
               Icon(icon, color: iconColor, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
+              if (!isCollapsed) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-              ),
-              if (isSelected)
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: SchoolPalette.green,
-                  size: 20,
-                ),
+                if (isSelected)
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: SchoolPalette.deepGreen,
+                    size: 20,
+                  ),
+              ],
             ],
           ),
         ),
       ),
     );
-  }
-}
 
-class _DummyGradesTab extends StatelessWidget {
-  const _DummyGradesTab();
+    if (isCollapsed) {
+      return Tooltip(message: label, child: tile);
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.military_tech_rounded,
-            size: 64,
-            color: SchoolPalette.green,
-          ),
-          SizedBox(height: 12),
-          Text(
-            '🏆 หน้าสรุปคะแนน G-Score และเหรียญรางวัล',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: SchoolPalette.ink,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            'เกรดเฉลี่ยสะสม GPA 3.85 · ได้รับ 15 แบดจ์เกียรติยศ',
-            style: TextStyle(fontSize: 12.5, color: SchoolPalette.muted),
-          ),
-        ],
-      ),
-    );
+    return tile;
   }
 }

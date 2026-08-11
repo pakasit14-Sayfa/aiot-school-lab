@@ -26,7 +26,7 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0x6643AC60),
+                        color: Color(0x662F8F5B),
                         blurRadius: 8,
                         spreadRadius: 2,
                       ),
@@ -44,31 +44,6 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: SchoolPalette.green,
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x3343AC60),
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: const Text(
-                    'LIVE ⚡',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 10.5,
-                    ),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -78,8 +53,8 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               value: '18',
               unit: 'µg/m³',
               subtitle: 'สภาพอากาศดีมาก',
-              level: 'ดีมาก',
-              color: Color(0xFF0284C7),
+              level: 'ปกติ',
+              color: Color.fromARGB(255, 28, 127, 70),
               showDivider: true,
             ),
             const AiotSensorItemTile(
@@ -88,8 +63,8 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               value: '28.5',
               unit: '°C',
               subtitle: 'อบอุ่นกำลังดี',
-              level: 'เหมาะสม',
-              color: Color(0xFFEA580C),
+              level: 'ปกติ',
+              color: Color.fromARGB(255, 28, 127, 70),
               showDivider: true,
             ),
             const AiotSensorItemTile(
@@ -99,16 +74,17 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               unit: '%RH',
               subtitle: 'สภาพแวดล้อมเหมาะสม',
               level: 'ปกติ',
-              color: Color(0xFF059669),
+              color: Color.fromARGB(255, 28, 127, 70),
               showDivider: true,
             ),
             const AiotSensorItemTile(
               icon: Icons.wb_sunny_rounded,
               title: 'ดัชนีรังสี UV',
-              value: 'UV 2',
-              subtitle: 'ระดับปลอดภัย',
-              level: 'ปลอดภัย',
-              color: Color(0xFFD97706),
+              value: 'UV 6',
+              subtitle: 'เฝ้าระวังแสงแดดจัด',
+              level: 'ไม่ปลอดภัย',
+              color: Color(0xFFDC2626),
+              showDivider: false,
             ),
             if (height != null) const Spacer() else const SizedBox(height: 22),
             SizedBox(
@@ -133,10 +109,15 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: SchoolPalette.green,
+                  backgroundColor: const Color.fromARGB(255, 28, 127, 70),
                   foregroundColor: Colors.white,
                   elevation: 1,
-                  shadowColor: SchoolPalette.green.withValues(alpha: 0.25),
+                  shadowColor: const Color.fromARGB(
+                    255,
+                    28,
+                    127,
+                    70,
+                  ).withValues(alpha: 0.25),
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -197,13 +178,20 @@ class AiotSensorItemTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: isCompact ? 42 : 40,
-                  height: isCompact ? 42 : 40,
+                  width: 36,
+                  height: 36,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(16),
+                    color: color,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Icon(icon, color: color, size: isCompact ? 22 : 23),
+                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -266,20 +254,62 @@ class AiotSensorItemTile extends StatelessWidget {
                 const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                    horizontal: 11,
+                    vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    level,
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w900,
-                      fontSize: isCompact ? 10 : 10.5,
+                    border: Border.all(
+                      color: level == 'ปกติ'
+                          ? const Color(0xFF86EFAC)
+                          : const Color(0xFFFECACA),
+                      width: 1.2,
                     ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0A0F172A),
+                        blurRadius: 4,
+                        offset: Offset(0, 1.5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Crisp Status Indicator Dot
+                      Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: level == 'ปกติ'
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFDC2626),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  (level == 'ปกติ'
+                                          ? const Color(0xFF16A34A)
+                                          : const Color(0xFFDC2626))
+                                      .withValues(alpha: 0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        level,
+                        style: const TextStyle(
+                          color: Color(0xFF1E293B),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11.5,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'student_redesign_palette.dart';
 import 'student_lessons_page.dart';
 import 'student_assignments_page.dart';
+import 'academy_continue_learning_card.dart' show PatternedProgressBar;
 
 class StudentCourseCatalogPage extends StatefulWidget {
   const StudentCourseCatalogPage({
@@ -67,60 +69,88 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (dialogContext) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 24,
+          alignment: Alignment.topCenter,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 52,
+            bottom: 24,
           ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'ค้นหารายวิชาและบทเรียน',
-                          style: TextStyle(
-                            color: Color(0xFF0F172A),
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.12),
+                      blurRadius: 32,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'ค้นหารายวิชาและบทเรียน 🔍',
+                                style: TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 18.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              icon: const Icon(Icons.close_rounded),
+                              color: const Color(0xFF334155),
+                              tooltip: 'ปิด',
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        _buildSearchField(),
+                        const SizedBox(height: 12),
+                        _buildSearchSuggestionChips(),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              _clearSearch();
+                              Navigator.of(dialogContext).pop();
+                            },
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            label: const Text('ล้างคำค้น'),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                        color: const Color(0xFF334155),
-                        tooltip: 'ปิด',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  _buildSearchField(),
-                  const SizedBox(height: 12),
-                  _buildSearchSuggestionChips(),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        _clearSearch();
-                        Navigator.of(dialogContext).pop();
-                      },
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      label: const Text('ล้างคำค้น'),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -282,49 +312,67 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
   }
 
   Widget _buildSearchField() {
-    return Container(
-      height: 46,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        ),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+          onChanged: (value) => setState(() => _searchQuery = value),
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+          style: const TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
           ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        autofocus: true,
-        textInputAction: TextInputAction.search,
-        onChanged: (value) => setState(() => _searchQuery = value),
-        onSubmitted: (_) => FocusScope.of(context).unfocus(),
-        decoration: InputDecoration(
-          hintText: 'ค้นหารายวิชา บทเรียน หรือครูผู้สอน',
-          hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            color: Color(0xFF059669),
-            size: 20,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF1F5F9),
+            focusedBorder: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            border: InputBorder.none,
+            errorBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            hintText: 'Search for actions, people, instruments...',
+            hintStyle: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: const Padding(
+              padding: EdgeInsets.only(left: 14, right: 8),
+              child: Icon(
+                Icons.search_rounded,
+                color: Color(0xFF94A3B8),
+                size: 18,
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
+            ),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(
+                      Icons.clear_rounded,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
+                    onPressed: () {
+                      _clearSearch();
+                    },
+                  )
+                : null,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
           ),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear_rounded, size: 18),
-                  onPressed: () {
-                    _clearSearch();
-                  },
-                )
-              : null,
-          suffixIconConstraints: const BoxConstraints(
-            minHeight: 24,
-            minWidth: 24,
-          ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
     );
@@ -394,6 +442,7 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         icon: Icons.memory_rounded,
         progress: 0.60,
         progressText: '60% (12/20 บทเรียน)',
+        progressFraction: '12/20',
         urgentBadge: '🔴 2 งานค้างส่ง',
         badgeBg: Color(0xFFFFE4E6),
         badgeText: Color(0xFFE11D48),
@@ -409,6 +458,7 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         icon: Icons.bolt_rounded,
         progress: 0.85,
         progressText: '85% (17/20 บทเรียน)',
+        progressFraction: '17/20',
         urgentBadge: '🟢 งานส่งครบแล้ว',
         badgeBg: Color(0xFFECFDF5),
         badgeText: Color(0xFF059669),
@@ -419,11 +469,12 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         title: 'วิชา คณิตศาสตร์เพิ่มเติม (สถิติและพีชคณิต)',
         teacher: 'ครูอนันต์ คำนวณ',
         studentsCount: '35 คน',
-        themeColor: Color(0xFF1E293B),
-        headerGradient: [Color(0xFF1E293B), Color(0xFF334155)],
+        themeColor: Color(0xFF0E4D40),
+        headerGradient: [Color(0xFF0E4D40), Color(0xFF1B6B57)],
         icon: Icons.calculate_rounded,
         progress: 0.40,
         progressText: '40% (8/20 บทเรียน)',
+        progressFraction: '8/20',
         urgentBadge: '🔵 1 งานกำลังทำ',
         badgeBg: Color(0xFFE0F2FE),
         badgeText: Color(0xFF0284C7),
@@ -439,6 +490,7 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         icon: Icons.science_rounded,
         progress: 0.90,
         progressText: '90% (18/20 บทเรียน)',
+        progressFraction: '18/20',
         urgentBadge: '🔴 1 งานค้างส่ง',
         badgeBg: Color(0xFFFFE4E6),
         badgeText: Color(0xFFE11D48),
@@ -454,6 +506,7 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         icon: Icons.nature_people_rounded,
         progress: 0.75,
         progressText: '75% (15/20 บทเรียน)',
+        progressFraction: '15/20',
         urgentBadge: '⭐ ตรวจแล้ว (A+)',
         badgeBg: Color(0xFFFEF3C7),
         badgeText: Color(0xFFD97706),
@@ -571,6 +624,7 @@ class CourseClassroomCardItem extends StatelessWidget {
     required this.icon,
     required this.progress,
     required this.progressText,
+    required this.progressFraction,
     required this.urgentBadge,
     required this.badgeBg,
     required this.badgeText,
@@ -586,6 +640,7 @@ class CourseClassroomCardItem extends StatelessWidget {
   final IconData icon;
   final double progress;
   final String progressText;
+  final String progressFraction;
   final String urgentBadge;
   final Color badgeBg;
   final Color badgeText;
@@ -744,35 +799,54 @@ class CourseClassroomCardItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'ความคืบหน้าการเรียน:',
-                          style: TextStyle(
-                            color: SchoolPalette.muted,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          progressText,
-                          style: const TextStyle(
-                            color: Color(0xFF0F3E33),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
+                    const Text(
+                      'ความคืบหน้าการเรียน',
+                      style: TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 7,
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        color: const Color(0xFF10B981),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: const Color(0xFFEDF1F5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            '${(progress * 100).round()}%',
+                            style: const TextStyle(
+                              color: Color(0xFF0F3E33),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: PatternedProgressBar(
+                              progress: progress,
+                              height: 9,
+                              backgroundColor: const Color(0xFFE2E8F0),
+                              fillColor: const Color(0xFF10B981),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            progressFraction,
+                            style: const TextStyle(
+                              color: Color(0xFF0F3E33),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 12),
