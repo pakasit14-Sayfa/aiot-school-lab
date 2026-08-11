@@ -1875,6 +1875,9 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                     : 'เผยแพร่',
               ),
               style: ElevatedButton.styleFrom(
+                // ปุ่มนี้อยู่ใน AppBar actions (Row) ไม่ใช่เต็มความกว้าง —
+                // ต้อง override minimumSize ของธีมเหมือนจุดอื่นในไฟล์นี้
+                minimumSize: const Size(0, 40),
                 backgroundColor: TeacherPalette.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(

@@ -131,6 +131,7 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
 
     return TeacherMockPageShell(
       title: 'นักเรียน',
+      activeMenuLabel: 'นักเรียน',
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

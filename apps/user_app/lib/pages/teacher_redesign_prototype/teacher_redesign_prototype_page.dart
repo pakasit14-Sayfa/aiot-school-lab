@@ -111,40 +111,57 @@ class _TeacherRedesignPrototypePageState
 // เป็นหลัก เพราะสองตัวนี้ผูกอยู่กับแทบทุกองค์ประกอบ (sidebar, hero,
 // การ์ด, sidebar active state) ทำให้เปลี่ยนธีมทั้งหน้าครูจากจุดเดียว
 class TeacherPalette {
-  static const ink = Color(0xFF35204E);        // #35204E (Indigo - Darkest text & headings)
-  static const muted = Color(0xFF542E85);      // #542E85 (Violet - Subtitles)
-  static const softText = Color(0xFF7448A6);   // #7448A6 (Mauve - Secondary text)
+  static const ink = Color(
+    0xFF35204E,
+  ); // #35204E (Indigo - Darkest text & headings)
+  static const muted = Color(0xFF542E85); // #542E85 (Violet - Subtitles)
+  static const softText = Color(0xFF7448A6); // #7448A6 (Mauve - Secondary text)
 
   // Exact 6 Color Palette from User Screenshot:
-  static const indigo = Color(0xFF35204E);     // #35204E (Indigo - Darkest Base)
-  static const violet = Color(0xFF542E85);     // #542E85 (Violet - Deep Button Base!)
-  static const mauve = Color(0xFF7448A6);      // #7448A6 (Mauve - Primary Brand Base)
-  static const iris = Color(0xFF9367C1);       // #9367C1 (Iris - Medium Accent)
-  static const periwinkle = Color(0xFFB186D7); // #B186D7 (Periwinkle - Soft Accent)
-  static const lavender = Color(0xFFC5A9DC);   // #C5A9DC (Lavender - Soft Tint)
+  static const indigo = Color(0xFF35204E); // #35204E (Indigo - Darkest Base)
+  static const violet = Color(
+    0xFF542E85,
+  ); // #542E85 (Violet - Deep Button Base!)
+  static const mauve = Color(
+    0xFF7448A6,
+  ); // #7448A6 (Mauve - Primary Brand Base)
+  static const iris = Color(0xFF9367C1); // #9367C1 (Iris - Medium Accent)
+  static const periwinkle = Color(
+    0xFFB186D7,
+  ); // #B186D7 (Periwinkle - Soft Accent)
+  static const lavender = Color(0xFFC5A9DC); // #C5A9DC (Lavender - Soft Tint)
 
   // Palette Aliases (Mapped 100% directly to the user screenshot!)
-  static const primary = Color(0xFF542E85);     // #542E85 (Violet - Deep Dark Purple Button Base!)
-  static const primary2 = Color(0xFF35204E);    // #35204E (Indigo - Darkest Primary Accent)
-  static const skyDeep = Color(0xFF7448A6);     // #7448A6 (Mauve)
-  static const skyMid = Color(0xFF9367C1);      // #9367C1 (Iris)
-  static const skyBright = Color(0xFFB186D7);   // #B186D7 (Periwinkle)
-  static const skySoft = Color(0xFFC5A9DC);     // #C5A9DC (Lavender Tint)
-  static const skyVivid = Color(0xFFE8DBF4);    // #E8DBF4 (Light Soft Lavender Fill)
-  static const skyLight = Color(0xFFF6F0FA);    // #F6F0FA (Ultra Soft Page Tint)
-  static const skyPale = Color(0xFFF8F5FB);     // #F8F5FB (Page Background)
+  static const primary = Color(
+    0xFF542E85,
+  ); // #542E85 (Violet - Deep Dark Purple Button Base!)
+  static const primary2 = Color(
+    0xFF35204E,
+  ); // #35204E (Indigo - Darkest Primary Accent)
+  static const skyDeep = Color(0xFF7448A6); // #7448A6 (Mauve)
+  static const skyMid = Color(0xFF9367C1); // #9367C1 (Iris)
+  static const skyBright = Color(0xFFB186D7); // #B186D7 (Periwinkle)
+  static const skySoft = Color(0xFFC5A9DC); // #C5A9DC (Lavender Tint)
+  static const skyVivid = Color(
+    0xFFE8DBF4,
+  ); // #E8DBF4 (Light Soft Lavender Fill)
+  static const skyLight = Color(0xFFF6F0FA); // #F6F0FA (Ultra Soft Page Tint)
+  static const skyPale = Color(0xFFF8F5FB); // #F8F5FB (Page Background)
 
   // Functional Status Accents:
-  static const blue = Color(0xFF542E85);        // Violet
-  static const sky = Color(0xFF9367C1);         // Iris
-  static const orange = Color(0xFFF97316);      // Soft Amber Orange
-  static const red = Color(0xFFEF4444);         // Soft Rose Red
-  static const green = Color(0xFF10B981);       // Soft Emerald Mint
+  static const blue = Color(0xFF542E85); // Violet
+  static const sky = Color(0xFF9367C1); // Iris
+  static const orange = Color(0xFFF97316); // Soft Amber Orange
+  static const red = Color(0xFFEF4444); // Soft Rose Red
+  static const green = Color(0xFF10B981); // Soft Emerald Mint
 
-  static const page = Colors.white;             // Pure Crisp White Page Background (#FFFFFF)
-  static const sidebar = Color(0xFFF1F5F9);     // Soft Slate Grey Sidebar (#F1F5F9)
-  static const card = Color(0xFFF8FAFC);        // Soft Slate Grey Tinted Card (#F8FAFC)
-  static const border = Color(0xFFE2E8F0);      // Crisp Slate Border (#E2E8F0)
+  static const page =
+      Colors.white; // Pure Crisp White Page Background (#FFFFFF)
+  static const sidebar = Color(0xFFF1F5F9); // Soft Slate Grey Sidebar (#F1F5F9)
+  static const card = Color(
+    0xFFF8FAFC,
+  ); // Soft Slate Grey Tinted Card (#F8FAFC)
+  static const border = Color(0xFFE2E8F0); // Crisp Slate Border (#E2E8F0)
 }
 
 /// 5 breakpoints ไล่ระดับตามที่ทีมส่ง reference มา (BP1 การ์ดเดียวไม่มี
@@ -466,6 +483,8 @@ class _TeacherSidebar extends StatelessWidget {
     required this.onPreviousVariant,
     required this.onNextVariant,
     this.onToggleCompact,
+    this.insideDrawer = false,
+    this.forcedActiveLabel,
   });
 
   final bool compact;
@@ -473,6 +492,15 @@ class _TeacherSidebar extends StatelessWidget {
   final ValueChanged<TeacherPrototypeVariant> onVariantSelected;
   final VoidCallback onPreviousVariant;
   final VoidCallback onNextVariant;
+
+  /// true เมื่อ sidebar นี้ถูกแสดงผ่าน Drawer (TeacherAppDrawer) แทนที่จะ
+  /// เป็น sidebar ถาวรฝั่งซ้ายของจอกว้าง — ต้องปิด Drawer ก่อนนำทางเสมอ
+  /// ไม่งั้น Drawer จะค้างเปิดอยู่ใต้หน้าใหม่ที่ push ทับไป
+  final bool insideDrawer;
+
+  /// บังคับ highlight เมนูตาม label ของหน้าปัจจุบัน (ใช้เมื่อ insideDrawer
+  /// เพราะ Drawer นี้ใช้ร่วมกันหลายหน้า ไม่ได้ผูกกับ currentVariant จริง)
+  final String? forcedActiveLabel;
 
   /// ปุ่มเก็บ/ขยาย sidebar ด้วยมือ — null ในที่ที่ยังไม่รองรับการสลับเอง
   /// (เช่น Variant B/C ที่ตายแล้ว ไม่ได้ใช้งานจริงผ่าน UI)
@@ -483,94 +511,128 @@ class _TeacherSidebar extends StatelessWidget {
     final width = compact ? 96.0 : 248.0;
     return SafeArea(
       right: false,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(34),
-              bottomRight: Radius.circular(34),
-            ),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                width: width,
-                margin: const EdgeInsets.fromLTRB(14, 14, 0, 14),
-                padding: EdgeInsets.fromLTRB(
-                  compact ? 12 : 18,
-                  18,
-                  compact ? 12 : 18,
-                  18,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  borderRadius: BorderRadius.circular(34),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.78),
+      // Align(topLeft) กัน Stack ถูกยืดเต็มความสูงจอโดยพ่อแม่ (เช่น
+      // Row(crossAxisAlignment: stretch) ของหน้าที่ปักหมุด sidebar) —
+      // ถ้าไม่กันไว้ Stack จะสูงเท่าทั้งจอ แล้วปุ่มย่อ/ขยายที่ใช้
+      // Positioned.fill + Align(centerRight) จะไปลอยอยู่กึ่งกลางความสูง
+      // ทั้งจอแทนที่จะอยู่กึ่งกลางการ์ด sidebar จริง เกิดเป็นพื้นที่ว่าง
+      // โล่งๆ ด้านล่างการ์ดพร้อมปุ่มลอยค้างอยู่ตรงนั้น
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(34),
+                bottomRight: Radius.circular(34),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  width: width,
+                  margin: const EdgeInsets.fromLTRB(14, 14, 0, 14),
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 12 : 18,
+                    18,
+                    compact ? 12 : 18,
+                    18,
                   ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x140F172A),
-                      blurRadius: 28,
-                      offset: Offset(0, 14),
+                  decoration: BoxDecoration(
+                    // alpha เดิม 0.68 ต่ำเกินไป — สีพื้นหลังของแต่ละหน้า
+                    // (เช่น hero การ์ดม่วงเข้มของหน้ารายวิชา เทียบกับพื้นขาว
+                    // ของแดชบอร์ด) เลยโปร่งทะลุมาทำให้ sidebar ดูคนละสีกัน
+                    // ทั้งที่เป็น widget เดียวกัน ปรับให้ทึบขึ้นเพื่อให้สีคงที่
+                    color: Colors.white.withValues(alpha: 0.94),
+                    borderRadius: BorderRadius.circular(34),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.78),
                     ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    _TeacherBrandCard(compact: compact),
-                    const SizedBox(height: 18),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: TeacherMock.menu.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final item = TeacherMock.menu[index];
-                          return _SidebarMenuTile(
-                            item: item,
-                            active:
-                                index == 0 &&
-                                currentVariant == TeacherPrototypeVariant.a,
-                            compact: compact,
-                            onTap: () {
-                              if (item.label == 'แดชบอร์ด') {
-                                onVariantSelected(TeacherPrototypeVariant.a);
-                                return;
-                              }
-                              _openTeacherMenuItem(context, item.label);
-                            },
-                          );
-                        },
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x140F172A),
+                        blurRadius: 28,
+                        offset: Offset(0, 14),
                       ),
-                    ),
-                    _SidebarProfileCard(compact: compact),
-                    const SizedBox(height: 10),
-                    _SidebarMiniClassCard(compact: compact),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // ปุ่มเก็บ/ขยาย sidebar — ลอยทับขอบขวาตรงกึ่งกลางแนวตั้งของ
-          // sidebar (ระหว่างการ์ดแบรนด์บนสุดกับการ์ดโปรไฟล์/ห้องประจำชั้น
-          // ล่างสุด) แทนที่จะแทรกอยู่ในลิสต์การ์ดแบบเดิม เพื่อให้เป็น
-          // "แฮนเดิลย่อ/ขยาย" ที่หยิบกดได้ทุกเมื่อโดยไม่รบกวนเนื้อหา
-          if (onToggleCompact != null)
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: FractionalTranslation(
-                  translation: const Offset(0.5, 0),
-                  child: _SidebarCollapseToggle(
-                    compact: compact,
-                    onTap: onToggleCompact!,
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      _TeacherBrandCard(compact: compact),
+                      const SizedBox(height: 18),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: TeacherMock.menu.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final item = TeacherMock.menu[index];
+                            // forcedActiveLabel != null คือสัญญาณว่า sidebar
+                            // นี้ถูกใช้ซ้ำจากหน้าอื่น (Drawer หรือ sidebar
+                            // ถาวรของหน้ารายวิชา/นักเรียน/คะแนน) ไม่ใช่
+                            // sidebar ของหน้าแดชบอร์ดเอง — ต้อง push ไปจริง
+                            // แทนการสลับ variant ภายในหน้าเดิม
+                            final isReusedElsewhere = forcedActiveLabel != null;
+                            return _SidebarMenuTile(
+                              item: item,
+                              active: isReusedElsewhere
+                                  ? item.label == forcedActiveLabel
+                                  : (index == 0 &&
+                                        currentVariant ==
+                                            TeacherPrototypeVariant.a),
+                              compact: compact,
+                              onTap: () {
+                                if (insideDrawer) Navigator.pop(context);
+                                if (item.label == 'แดชบอร์ด') {
+                                  if (isReusedElsewhere) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const TeacherRedesignPrototypePage(),
+                                      ),
+                                    );
+                                  } else {
+                                    onVariantSelected(
+                                      TeacherPrototypeVariant.a,
+                                    );
+                                  }
+                                  return;
+                                }
+                                _openTeacherMenuItem(context, item.label);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      _SidebarProfileCard(compact: compact),
+                      const SizedBox(height: 10),
+                      _SidebarMiniClassCard(compact: compact),
+                    ],
                   ),
                 ),
               ),
             ),
-        ],
+            // ปุ่มเก็บ/ขยาย sidebar — ลอยทับขอบขวาตรงกึ่งกลางแนวตั้งของ
+            // sidebar (ระหว่างการ์ดแบรนด์บนสุดกับการ์ดโปรไฟล์/ห้องประจำชั้น
+            // ล่างสุด) แทนที่จะแทรกอยู่ในลิสต์การ์ดแบบเดิม เพื่อให้เป็น
+            // "แฮนเดิลย่อ/ขยาย" ที่หยิบกดได้ทุกเมื่อโดยไม่รบกวนเนื้อหา
+            if (onToggleCompact != null)
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionalTranslation(
+                    translation: const Offset(0.5, 0),
+                    child: _SidebarCollapseToggle(
+                      compact: compact,
+                      onTap: onToggleCompact!,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -698,7 +760,9 @@ class _SidebarMenuTile extends StatelessWidget {
       height: 38,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: active ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFF1EEF9),
+        color: active
+            ? Colors.white.withValues(alpha: 0.25)
+            : const Color(0xFFF1EEF9),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
@@ -3099,7 +3163,6 @@ void _openTeacherMenuItem(BuildContext context, String label) {
   }
 }
 
-
 class TeacherAppDrawer extends StatelessWidget {
   const TeacherAppDrawer({super.key, this.activeLabel});
 
@@ -3116,7 +3179,38 @@ class TeacherAppDrawer extends StatelessWidget {
         onPreviousVariant: () {},
         onNextVariant: () {},
         compact: false,
+        insideDrawer: true,
+        forcedActiveLabel: activeLabel,
       ),
+    );
+  }
+}
+
+/// Sidebar ถาวรฝั่งซ้าย ใช้แทน TeacherAppDrawer บนจอกว้าง (>=900px) สำหรับ
+/// หน้า mock อื่นๆ (รายวิชา/นักเรียน/คะแนน) — ผู้ใช้ไม่ต้องกดแฮมเบอร์เกอร์
+/// เปิดปิดทุกครั้งเหมือนหน้าแดชบอร์ดที่ปักหมุด sidebar ไว้ค้างอยู่แล้ว
+class TeacherPersistentSidebar extends StatelessWidget {
+  const TeacherPersistentSidebar({
+    super.key,
+    this.activeLabel,
+    this.compact = false,
+    this.onToggleCompact,
+  });
+
+  final String? activeLabel;
+  final bool compact;
+  final VoidCallback? onToggleCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TeacherSidebar(
+      currentVariant: TeacherPrototypeVariant.a,
+      onVariantSelected: (_) {},
+      onPreviousVariant: () {},
+      onNextVariant: () {},
+      compact: compact,
+      onToggleCompact: onToggleCompact,
+      forcedActiveLabel: activeLabel,
     );
   }
 }

@@ -54,6 +54,7 @@ class TeacherGradesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'คะแนน',
+      activeMenuLabel: 'คะแนน',
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

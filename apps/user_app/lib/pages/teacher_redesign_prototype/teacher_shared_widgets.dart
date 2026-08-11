@@ -4,7 +4,8 @@
 
 import 'package:flutter/material.dart';
 
-import 'teacher_redesign_prototype_page.dart' show TeacherPalette, TeacherAppDrawer;
+import 'teacher_redesign_prototype_page.dart'
+    show TeacherPalette, TeacherAppDrawer, TeacherPersistentSidebar;
 
 class TeacherSectionCard extends StatelessWidget {
   const TeacherSectionCard({
@@ -171,11 +172,12 @@ void showTeacherMockAction(BuildContext context, String label) {
 
 /// โครง Scaffold มาตรฐานของหน้า mock ฝั่งครู (AppBar โปร่ง + กลับ + จำกัด
 /// ความกว้างเนื้อหา + topCenter กันปัญหาเนื้อหาสั้นแล้ว "หด" ไปกลางจอ)
-class TeacherMockPageShell extends StatelessWidget {
+class TeacherMockPageShell extends StatefulWidget {
   const TeacherMockPageShell({
     required this.title,
     required this.builder,
     this.actions,
+    this.activeMenuLabel,
     super.key,
   });
 
@@ -183,50 +185,123 @@ class TeacherMockPageShell extends StatelessWidget {
   final Widget Function(BuildContext context, bool isDesktop) builder;
   final List<Widget>? actions;
 
+  /// ชื่อเมนู sidebar ที่ตรงกับหน้านี้ (เช่น 'รายวิชา', 'นักเรียน') — ใช้
+  /// ไฮไลต์เมนูที่ถูกต้องใน Drawer ให้ทำงานเหมือนหน้าแดชบอร์ด แทนที่จะ
+  /// ไม่ไฮไลต์อะไรเลยหรือค้างไฮไลต์ผิดหน้า
+  final String? activeMenuLabel;
+
+  @override
+  State<TeacherMockPageShell> createState() => _TeacherMockPageShellState();
+}
+
+class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
+  // null = ให้จอกว้างขยาย sidebar ไว้เสมอ, true/false = ครูกดปุ่มเก็บ/
+  // ขยายเองแล้ว จำค่านั้นไว้ทับ default จนกว่าจะกดสลับอีกที — พฤติกรรม
+  // เดียวกับปุ่มเก็บ/ขยาย sidebar ของหน้าแดชบอร์ด
+  bool? _manualCompact;
+
+  void _toggleSidebar(bool currentlyCompact) {
+    setState(() => _manualCompact = !currentlyCompact);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: TeacherPalette.page,
-      drawer: const TeacherAppDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: TeacherPalette.ink,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu_rounded),
-            tooltip: 'เมนูนำทาง',
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: TeacherPalette.ink,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-          ),
-        ),
-        actions: actions,
-      ),
-      body: SafeArea(
-        child: Align(
+    return LayoutBuilder(
+      builder: (context, screenConstraints) {
+        // จอกว้าง (>=900px) ปักหมุด sidebar ไว้ค้างข้างซ้ายเหมือนหน้า
+        // แดชบอร์ด แทนที่จะต้องกดแฮมเบอร์เกอร์เปิด Drawer ทุกครั้ง —
+        // จอแคบยังใช้ Drawer เดิมเพราะพื้นที่ไม่พอวาง sidebar ค้าง
+        final isWideDesktop = screenConstraints.maxWidth >= 900;
+        final sidebarCompact = _manualCompact ?? false;
+
+        final content = Align(
           alignment: Alignment.topCenter,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 900;
-              return ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isDesktop ? 1080 : 640),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                  child: builder(context, isDesktop),
-                ),
-              );
-            },
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: isWideDesktop ? 1080 : 640),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              child: widget.builder(context, isWideDesktop),
+            ),
           ),
-        ),
-      ),
+        );
+
+        final titleRow = Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.title,
+                  style: const TextStyle(
+                    color: TeacherPalette.ink,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              if (widget.actions != null) ...widget.actions!,
+            ],
+          ),
+        );
+
+        if (isWideDesktop) {
+          // จอกว้าง: ไม่ใช้ AppBar คั่นด้านบน sidebar เหมือนหน้าแดชบอร์ด
+          // — ถ้าใช้ AppBar ร่วมกันทั้งแถว sidebar จะเริ่มต่ำกว่าแนว
+          // ขอบบนจริง ทำให้สูง/สัดส่วนต่างจาก sidebar ของหน้าแดชบอร์ด
+          // ที่ไม่มี AppBar คั่นเลย ชื่อหน้าย้ายไปอยู่ในคอลัมน์เนื้อหาแทน
+          return Scaffold(
+            backgroundColor: TeacherPalette.page,
+            body: SafeArea(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TeacherPersistentSidebar(
+                    activeLabel: widget.activeMenuLabel,
+                    compact: sidebarCompact,
+                    onToggleCompact: () => _toggleSidebar(sidebarCompact),
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        titleRow,
+                        Expanded(child: content),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: TeacherPalette.page,
+          drawer: TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            foregroundColor: TeacherPalette.ink,
+            leading: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu_rounded),
+                tooltip: 'เมนูนำทาง',
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+            title: Text(
+              widget.title,
+              style: const TextStyle(
+                color: TeacherPalette.ink,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+            ),
+            actions: widget.actions,
+          ),
+          body: SafeArea(child: content),
+        );
+      },
     );
   }
 }

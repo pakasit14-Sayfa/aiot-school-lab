@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import 'teacher_exam_builder_page.dart';
 import 'teacher_grading_page.dart';
+import 'teacher_incident_inbox_page.dart';
 import 'teacher_lesson_editor_page.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
@@ -177,6 +178,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'จัดการรายวิชาที่สอน',
+      activeMenuLabel: 'รายวิชา',
       actions: [
         IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
@@ -434,6 +436,41 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                     ),
                     label: const Text(
                       'ไปยังศูนย์ตรวจงาน',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.4),
+                        width: 1.2,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 11,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TeacherIncidentInboxPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.emergency_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'รับแจ้งเหตุฉุกเฉิน',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -1741,7 +1778,8 @@ class TeacherCourseDetailPage extends StatefulWidget {
   final TeacherCourseModel? course;
 
   @override
-  State<TeacherCourseDetailPage> createState() => _TeacherCourseDetailPageState();
+  State<TeacherCourseDetailPage> createState() =>
+      _TeacherCourseDetailPageState();
 }
 
 class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
@@ -1753,6 +1791,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
 
     return TeacherMockPageShell(
       title: 'รายละเอียดวิชา ${c.code}',
+      activeMenuLabel: 'รายวิชา',
       actions: [
         IconButton(
           icon: const Icon(Icons.settings_outlined),
@@ -1885,34 +1924,53 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: ['นักเรียน', 'บทเรียน', 'ใบงาน', 'แบบทดสอบ', 'กลุ่ม', 'คะแนน'].map((tab) {
-                  final isActive = _activeTab == tab;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: InkWell(
-                      onTap: () => setState(() => _activeTab = tab),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isActive ? TeacherPalette.primary : Colors.white,
+                children:
+                    [
+                      'นักเรียน',
+                      'บทเรียน',
+                      'ใบงาน',
+                      'แบบทดสอบ',
+                      'กลุ่ม',
+                      'คะแนน',
+                    ].map((tab) {
+                      final isActive = _activeTab == tab;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: InkWell(
+                          onTap: () => setState(() => _activeTab = tab),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isActive ? TeacherPalette.primary : TeacherPalette.border,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? TeacherPalette.primary
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isActive
+                                    ? TeacherPalette.primary
+                                    : TeacherPalette.border,
+                              ),
+                            ),
+                            child: Text(
+                              tab,
+                              style: TextStyle(
+                                color: isActive
+                                    ? Colors.white
+                                    : TeacherPalette.ink,
+                                fontWeight: isActive
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Text(
-                          tab,
-                          style: TextStyle(
-                            color: isActive ? Colors.white : TeacherPalette.ink,
-                            fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                      );
+                    }).toList(),
               ),
             ),
             const SizedBox(height: 18),
@@ -1941,11 +1999,27 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.widgets_outlined, size: 48, color: TeacherPalette.muted.withValues(alpha: 0.4)),
+                    Icon(
+                      Icons.widgets_outlined,
+                      size: 48,
+                      color: TeacherPalette.muted.withValues(alpha: 0.4),
+                    ),
                     const SizedBox(height: 12),
-                    Text('หน้า $_activeTab วิชา ${c.code}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                    Text(
+                      'หน้า $_activeTab วิชา ${c.code}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('ข้อมูลและเครื่องมือสำหรับแถบ $_activeTab พร้อมใช้งาน', style: const TextStyle(fontSize: 13, color: TeacherPalette.muted)),
+                    Text(
+                      'ข้อมูลและเครื่องมือสำหรับแถบ $_activeTab พร้อมใช้งาน',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: TeacherPalette.muted,
+                      ),
+                    ),
                   ],
                 ),
               ),
