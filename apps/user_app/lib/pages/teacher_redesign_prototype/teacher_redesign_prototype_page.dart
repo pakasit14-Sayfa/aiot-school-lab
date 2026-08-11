@@ -10,6 +10,7 @@ import 'teacher_aiot_lab_page.dart';
 import 'teacher_courses_page.dart';
 import 'teacher_grades_page.dart';
 import 'teacher_grading_page.dart';
+import 'teacher_incident_inbox_page.dart';
 import 'teacher_profile_page.dart';
 import 'teacher_students_page.dart';
 
@@ -2898,6 +2899,7 @@ class TeacherMock {
     _MenuItem('ตรวจงาน', Icons.assignment_turned_in_rounded),
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
     _MenuItem('AIoT', Icons.sensors_rounded),
+    _MenuItem('แจ้งเหตุฉุกเฉิน', Icons.emergency_rounded),
   ];
 
   static const stats = [
@@ -3157,6 +3159,11 @@ void _openTeacherMenuItem(BuildContext context, String label) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherAiotLabPage()),
+      );
+    case 'แจ้งเหตุฉุกเฉิน':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherIncidentInboxPage()),
       );
     default:
       _showComingSoon(context, label);

@@ -197,6 +197,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
     return TeacherMockPageShell(
       title: 'รับแจ้งเหตุฉุกเฉิน',
+      activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
       actions: [
         IconButton(
           icon: const Icon(Icons.history_rounded),
@@ -750,6 +751,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
 
     return TeacherMockPageShell(
       title: 'เหตุ ${incident.id}',
+      activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1029,6 +1031,7 @@ class _TeacherIncidentHistoryPageState
 
     return TeacherMockPageShell(
       title: 'ประวัติเหตุทั้งหมด',
+      activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
