@@ -6,6 +6,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../aiot_dashboard_page.dart';
 import 'teacher_aiot_lab_page.dart';
 import 'teacher_courses_page.dart';
 import 'teacher_grades_page.dart';
@@ -430,6 +431,10 @@ class _TeacherMobileDashboard extends StatelessWidget {
           SizedBox(height: 16),
           _TeacherHero(),
           SizedBox(height: 16),
+          _HomeroomUtilityCard(),
+          SizedBox(height: 16),
+          _AiotWeatherSensorsCard(),
+          SizedBox(height: 16),
           _TeacherSummaryStrip(),
           SizedBox(height: 16),
           _DashboardChartsRow(),
@@ -751,8 +756,17 @@ class _SidebarMenuTile extends StatelessWidget {
   final bool compact;
   final VoidCallback? onTap;
 
+  // เมนูแจ้งเหตุฉุกเฉินใช้สีแดงเสมอ ไม่ตามธีมม่วงปกติของเมนูอื่น —
+  // เตือนความสำคัญ/ความเร่งด่วนให้ครูสังเกตเห็นได้ทันทีแม้ไม่ได้ active
+  bool get _isEmergencyItem => item.label == 'แจ้งเหตุฉุกเฉิน';
+
   @override
   Widget build(BuildContext context) {
+    const emergencyRed = Color(0xFFDC2626);
+    final accentColor = _isEmergencyItem
+        ? emergencyRed
+        : TeacherPalette.primary;
+
     // ไอคอนอยู่ในกล่องเหลี่ยมมนของตัวเอง (badge) เสมอ ไม่ว่าจะ active
     // หรือไม่ — ต่างจากเดิมที่ไอคอนลอยอยู่เฉยๆ — ตามแบบ reference ที่ส่งมา
     // และเพิ่มแถบสีบางๆ ชิดขอบขวาตอน active แทนกรอบเส้นรอบการ์ดทั้งใบ
@@ -763,12 +777,14 @@ class _SidebarMenuTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: active
             ? Colors.white.withValues(alpha: 0.25)
-            : const Color(0xFFF1EEF9),
+            : (_isEmergencyItem
+                  ? emergencyRed.withValues(alpha: 0.12)
+                  : const Color(0xFFF1EEF9)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(
         item.icon,
-        color: active ? Colors.white : TeacherPalette.primary,
+        color: active ? Colors.white : accentColor,
         size: 20,
       ),
     );
@@ -777,18 +793,22 @@ class _SidebarMenuTile extends StatelessWidget {
       height: 56,
       padding: EdgeInsets.symmetric(horizontal: compact ? 0 : 12),
       decoration: BoxDecoration(
-        color: active ? TeacherPalette.primary : Colors.white,
+        color: active ? accentColor : Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: active ? TeacherPalette.primary : const Color(0xFFE5D5F2),
+          color: active
+              ? accentColor
+              : (_isEmergencyItem
+                    ? emergencyRed.withValues(alpha: 0.35)
+                    : const Color(0xFFE5D5F2)),
           width: 1.2,
         ),
         boxShadow: active
-            ? const [
+            ? [
                 BoxShadow(
-                  color: Color(0x29542E85),
+                  color: accentColor.withValues(alpha: 0.16),
                   blurRadius: 12,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ]
             : null,
@@ -805,7 +825,11 @@ class _SidebarMenuTile extends StatelessWidget {
               child: Text(
                 item.label,
                 style: TextStyle(
-                  color: active ? Colors.white : const Color(0xFF0F172A),
+                  color: active
+                      ? Colors.white
+                      : (_isEmergencyItem
+                            ? emergencyRed
+                            : const Color(0xFF0F172A)),
                   fontWeight: FontWeight.w900,
                   fontSize: 14.5,
                 ),
@@ -1003,7 +1027,12 @@ class _TeacherMainDashboardContent extends StatelessWidget {
       children: [
         const _TeacherTopBar(title: 'แดชบอร์ดครู'),
         const SizedBox(height: 20),
+        const _EmergencyAlertBanner(),
         const _TeacherHero(),
+        const SizedBox(height: 18),
+        const _HomeroomUtilityCard(),
+        const SizedBox(height: 18),
+        const _AiotWeatherSensorsCard(),
         const SizedBox(height: 18),
         const _TeacherSummaryStrip(),
         const SizedBox(height: 20),
@@ -2224,6 +2253,955 @@ class _StudentsWatchCard extends StatelessWidget {
           const SizedBox(height: 14),
           ...TeacherMock.students.map(
             (student) => _StudentWatchTile(student: student),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// แบนเนอร์เตือนเหตุฉุกเฉินที่ยังไม่มีใครรับเรื่อง — โผล่บนสุดของแดชบอร์ด
+/// เฉพาะตอนมีเหตุค้างจริง (ไม่มีก็ไม่แสดงอะไรเลย) สีแดงถ้ามี SOS ปนอยู่
+/// ไม่งั้นใช้สีอำพัน แตะแล้วพาไปหน้ารับแจ้งเหตุตรงๆ
+class _EmergencyAlertBanner extends StatelessWidget {
+  const _EmergencyAlertBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = mockIncidentReports
+        .where((i) => i.status == IncidentStatus.newReport)
+        .toList();
+    if (pending.isEmpty) return const SizedBox.shrink();
+
+    final hasSos = pending.any((i) => i.category == IncidentCategory.sos);
+    final color = hasSos ? const Color(0xFFDC2626) : const Color(0xFFD97706);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const TeacherIncidentInboxPage(),
+              ),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    hasSos
+                        ? Icons.emergency_rounded
+                        : Icons.warning_amber_rounded,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        hasSos
+                            ? 'มีเหตุ SOS ฉุกเฉินรอดำเนินการ!'
+                            : 'มีการแจ้งเหตุรอดำเนินการ',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${pending.length} รายการ · แตะเพื่อดูรายละเอียด',
+                        style: const TextStyle(
+                          color: TeacherPalette.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: color),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// สีฟ้าน้ำเงินสื่อความหมาย "น้ำ" ตรงตัว — ใช้แทน TeacherPalette.sky (ม่วง
+/// อ่อน) ในจุดนี้โดยเฉพาะ เพราะสีฟ้าจริงสื่อชัดเจนกว่าเวลาแสดงคู่กับไฟฟ้า
+const _kWaterBlue = Color(0xFF0EA5E9);
+
+/// การใช้น้ำ-ไฟของ "ห้องประจำชั้น" ที่ครูเป็นที่ปรึกษา (คนละส่วนกับ
+/// AIoT Classroom ที่โชว์สภาพอากาศห้องที่สอน) — mock ตัวเลขรายสัปดาห์
+/// เทียบกับสัปดาห์ก่อนหน้า ให้ครูเห็นแนวโน้มการประหยัดพลังงานของห้องตน
+class _HomeroomUtilityCard extends StatelessWidget {
+  const _HomeroomUtilityCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle(
+            title: 'การใช้น้ำ-ไฟ ห้องประจำชั้น',
+            subtitle: 'ม.5/2 · สัปดาห์นี้',
+            icon: Icons.bolt_rounded,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _UtilityMiniMetric(
+                  icon: Icons.bolt_rounded,
+                  label: 'ไฟฟ้า',
+                  value: '142',
+                  unit: 'kWh',
+                  trendUp: true,
+                  trendLabel: '+8%',
+                  color: TeacherPalette.orange,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _UtilityMiniMetric(
+                  icon: Icons.water_drop_rounded,
+                  label: 'น้ำ',
+                  value: '3.2',
+                  unit: 'm³',
+                  trendUp: false,
+                  trendLabel: '-4%',
+                  color: _kWaterBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'เทียบกับค่าเฉลี่ยสัปดาห์ก่อนหน้าของห้องเดียวกัน',
+            style: TextStyle(
+              color: TeacherPalette.muted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const _UtilityWeeklyChart(),
+        ],
+      ),
+    );
+  }
+}
+
+/// การ์ดเซนเซอร์สภาพอากาศ AIoT — เนื้อหา/เลย์เอาต์แบบเดียวกับ
+/// AiotWeatherSensorsCard ฝั่งนักเรียน (aiot_weather_sensors_card.dart)
+/// แต่ปรับให้ใช้ TeacherPalette/_GlassCard ของแดชบอร์ดครูแทน SchoolPalette
+/// เพื่อให้เข้ากับ Design System เดิมของหน้านี้ ปุ่มด้านล่างพาไปหน้า
+/// AiotDashboardPage ตัวจริง (อ่านค่าเซนเซอร์สดจาก Supabase) เหมือนกัน
+class _AiotWeatherSensorsCard extends StatelessWidget {
+  const _AiotWeatherSensorsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              _StatusPulseDot(color: Color(0xFF16A34A)),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
+                  style: TextStyle(
+                    color: TeacherPalette.ink,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const _AiotSensorRow(
+            icon: Icons.air_rounded,
+            title: 'ฝุ่น PM2.5 (ห้องเรียนปลอดภัย)',
+            value: '18',
+            unit: 'µg/m³',
+            subtitle: 'สภาพอากาศดีมาก',
+            level: 'ปกติ',
+            showDivider: true,
+          ),
+          const _AiotSensorRow(
+            icon: Icons.thermostat_rounded,
+            title: 'อุณหภูมิห้องเรียน',
+            value: '28.5',
+            unit: '°C',
+            subtitle: 'อบอุ่นกำลังดี',
+            level: 'ปกติ',
+            showDivider: true,
+          ),
+          const _AiotSensorRow(
+            icon: Icons.water_drop_rounded,
+            title: 'ความชื้นสัมพัทธ์',
+            value: '62',
+            unit: '%RH',
+            subtitle: 'สภาพแวดล้อมเหมาะสม',
+            level: 'ปกติ',
+            showDivider: true,
+          ),
+          const _AiotSensorRow(
+            icon: Icons.wb_sunny_rounded,
+            title: 'ดัชนีรังสี UV',
+            value: 'UV 6',
+            subtitle: 'เฝ้าระวังแสงแดดจัด',
+            level: 'ไม่ปลอดภัย',
+            showDivider: false,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: FilledButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiotDashboardPage()),
+              ),
+              icon: const Icon(
+                Icons.arrow_forward_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
+              label: const Text(
+                'ไปหน้า AIoT Dashboard',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPulseDot extends StatelessWidget {
+  const _StatusPulseDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 8,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiotSensorRow extends StatelessWidget {
+  const _AiotSensorRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.level,
+    this.value,
+    this.unit,
+    this.showDivider = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String level;
+  final String? value;
+  final String? unit;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final isNormal = level == 'ปกติ';
+    final statusColor = isNormal
+        ? const Color(0xFF16A34A)
+        : const Color(0xFFDC2626);
+    final avatarColor = isNormal
+        ? const Color(0xFF1C7F46)
+        : const Color(0xFFDC2626);
+    final borderColor = isNormal
+        ? const Color(0xFF86EFAC)
+        : const Color(0xFFFECACA);
+
+    return Container(
+      padding: EdgeInsets.only(top: 10, bottom: showDivider ? 10 : 0),
+      decoration: BoxDecoration(
+        border: showDivider
+            ? const Border(
+                bottom: BorderSide(color: Color(0xFFE8EEF3), width: 1),
+              )
+            : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: avatarColor,
+              borderRadius: BorderRadius.circular(9),
+              boxShadow: [
+                BoxShadow(
+                  color: avatarColor.withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (value != null) const SizedBox(height: 1),
+                if (value != null)
+                  Text.rich(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: value,
+                          style: TextStyle(
+                            color: avatarColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16.5,
+                          ),
+                        ),
+                        if (unit != null) ...[
+                          const TextSpan(text: ' '),
+                          TextSpan(
+                            text: unit,
+                            style: TextStyle(
+                              color: avatarColor,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: borderColor, width: 1.2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A0F172A),
+                  blurRadius: 4,
+                  offset: Offset(0, 1.5),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.35),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  level,
+                  style: const TextStyle(
+                    color: Color(0xFF1E293B),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11.5,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// กราฟแท่งคู่ (ไฟฟ้า/น้ำ) รายวันของห้องประจำชั้น จ.-ศ. — ปรับสเกลแท่งแยก
+/// ต่อชนิดพลังงาน (kWh กับ m³ หน่วยต่างกัน) เทียบกับค่าสูงสุดของตัวเอง
+/// ในสัปดาห์ ไม่เทียบข้ามหน่วยกัน ผลรวมของแต่ละชุดตรงกับตัวเลขสรุปด้านบน
+/// (ไฟฟ้า 142 kWh, น้ำ 3.2 m³) ข้อมูล mock ทั้งหมด พร้อมสลับเป็น API ทีหลัง
+/// เวอร์ชันดัดแปลงของ "Project Scope & Progress Trend Line Chart" (การ์ด 7
+/// ใน teacher_storybook_page.dart) — เอาเทคนิคเส้นวิ่งเรืองแสง (running
+/// glow) + crosshair hover มาใช้ซ้ำ เหลือ 2 เส้นแทน 3 (ไฟฟ้า/น้ำ) แล้ว
+/// เปลี่ยนสีให้เข้ากับ TeacherPalette ของแดชบอร์ดนี้แทนโทนน้ำเงิน/แดง/เขียว
+/// เดิม ป้ายแกน X เปลี่ยนจากวันที่โปรเจกต์เป็นวันในสัปดาห์ (จ.-ศ.)
+class _UtilityWeeklyChart extends StatefulWidget {
+  const _UtilityWeeklyChart();
+
+  @override
+  State<_UtilityWeeklyChart> createState() => _UtilityWeeklyChartState();
+}
+
+class _UtilityWeeklyChartState extends State<_UtilityWeeklyChart>
+    with SingleTickerProviderStateMixin {
+  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
+
+  late final AnimationController _controller;
+  double _hoverXRatio = 0.72;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Text(
+              'ค่าเฉลี่ยรายวัน',
+              style: TextStyle(
+                color: TeacherPalette.ink,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Spacer(),
+            _UtilityLegendDot(color: TeacherPalette.orange, label: 'ไฟฟ้า'),
+            SizedBox(width: 10),
+            _UtilityLegendDot(color: _kWaterBlue, label: 'น้ำ'),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 96,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return MouseRegion(
+                onHover: (event) {
+                  final box = context.findRenderObject() as RenderBox?;
+                  if (box != null) {
+                    final localPos = box.globalToLocal(event.position);
+                    setState(() {
+                      _hoverXRatio = (localPos.dx / box.size.width).clamp(
+                        0.0,
+                        1.0,
+                      );
+                      _isHovered = true;
+                    });
+                  }
+                },
+                onExit: (_) {
+                  setState(() {
+                    _isHovered = false;
+                    _hoverXRatio = 0.72;
+                  });
+                },
+                child: CustomPaint(
+                  painter: _UtilityGlowLineChartPainter(
+                    pulsePhase: _controller.value,
+                    hoverXRatio: _hoverXRatio,
+                    isHovered: _isHovered,
+                  ),
+                  size: Size.infinite,
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            for (final day in _days)
+              Expanded(
+                child: Text(
+                  day,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _UtilityGlowLineChartPainter extends CustomPainter {
+  _UtilityGlowLineChartPainter({
+    required this.pulsePhase,
+    required this.hoverXRatio,
+    required this.isHovered,
+  });
+
+  final double pulsePhase;
+  final double hoverXRatio;
+  final bool isHovered;
+
+  static const _electricColor = TeacherPalette.orange; // ไฟฟ้า
+  static const _waterColor = _kWaterBlue; // น้ำ
+  static const _electricGlow = Color(0xFFFDBA74);
+  static const _waterGlow = Color(0xFF7DD3FC);
+  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // เส้นไฟฟ้า (จ.-ศ. อิงสัดส่วนจาก 26/24/30/28/34 kWh ที่ใช้ในการ์ดนี้)
+    final electricPath = Path();
+    electricPath.moveTo(0, h * 0.68);
+    electricPath.cubicTo(
+      w * 0.10,
+      h * 0.80,
+      w * 0.18,
+      h * 0.90,
+      w * 0.25,
+      h * 0.72,
+    );
+    electricPath.cubicTo(
+      w * 0.34,
+      h * 0.52,
+      w * 0.42,
+      h * 0.48,
+      w * 0.50,
+      h * 0.55,
+    );
+    electricPath.cubicTo(
+      w * 0.62,
+      h * 0.65,
+      w * 0.78,
+      h * 0.30,
+      w * 1.0,
+      h * 0.10,
+    );
+
+    // เส้นน้ำ (จ.-ศ. อิงสัดส่วนจาก 0.6/0.5/0.7/0.6/0.8 m³) — ไล่ระดับต่ำกว่า
+    // เส้นไฟฟ้าตลอด เพราะหน่วยคนละอย่างกัน แค่โชว์ทิศทางแนวโน้ม
+    final waterPath = Path();
+    waterPath.moveTo(0, h * 0.90);
+    waterPath.cubicTo(
+      w * 0.10,
+      h * 0.96,
+      w * 0.18,
+      h * 0.85,
+      w * 0.25,
+      h * 0.80,
+    );
+    waterPath.cubicTo(
+      w * 0.34,
+      h * 0.75,
+      w * 0.42,
+      h * 0.88,
+      w * 0.50,
+      h * 0.90,
+    );
+    waterPath.cubicTo(
+      w * 0.62,
+      h * 0.92,
+      w * 0.78,
+      h * 0.68,
+      w * 1.0,
+      h * 0.58,
+    );
+
+    final electricBasePaint = Paint()
+      ..color = _electricColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    final waterBasePaint = Paint()
+      ..color = _waterColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawPath(electricPath, electricBasePaint);
+    canvas.drawPath(waterPath, waterBasePaint);
+
+    // เส้นวิ่งเรืองแสง (running glow) — สลับจังหวะกันเล็กน้อยเหมือนต้นฉบับ
+    _drawRunningGlowEffect(canvas, electricPath, _electricGlow, pulsePhase);
+    _drawRunningGlowEffect(
+      canvas,
+      waterPath,
+      _waterGlow,
+      (pulsePhase + 0.5) % 1.0,
+    );
+
+    // End node circles
+    final electricEnd = Offset(w, h * 0.10);
+    final waterEnd = Offset(w, h * 0.58);
+    canvas.drawCircle(electricEnd, 4.5, Paint()..color = _electricColor);
+    canvas.drawCircle(
+      electricEnd,
+      4.5,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+    canvas.drawCircle(waterEnd, 4.5, Paint()..color = _waterColor);
+    canvas.drawCircle(
+      waterEnd,
+      4.5,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    // Crosshair + tooltip แสดงวันที่ตรงตำแหน่ง hover บนเส้นไฟฟ้า
+    final targetX = hoverXRatio * w;
+    final focusY = _getElectricLineYAtX(targetX, w, h);
+    final pinCenter = Offset(targetX, focusY);
+
+    final crossPaint = Paint()
+      ..color = const Color(0xFFE2D9F0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    canvas.drawLine(Offset(targetX, 0), Offset(targetX, h), crossPaint);
+
+    canvas.drawCircle(pinCenter, 5.0, Paint()..color = _electricColor);
+    canvas.drawCircle(
+      pinCenter,
+      7.5,
+      Paint()..color = _electricColor.withValues(alpha: 0.2),
+    );
+    canvas.drawCircle(
+      pinCenter,
+      5.0,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+
+    final dayIndex = (hoverXRatio * _days.length).floor().clamp(
+      0,
+      _days.length - 1,
+    );
+    _drawTooltipBadge(canvas, pinCenter, _days[dayIndex]);
+  }
+
+  void _drawRunningGlowEffect(
+    Canvas canvas,
+    Path path,
+    Color glowColor,
+    double phase,
+  ) {
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      final totalLen = metric.length;
+      final headDist = totalLen * phase;
+      final tailLen = totalLen * 0.28;
+
+      final pulsePath = metric.extractPath(
+        (headDist - tailLen).clamp(0.0, totalLen),
+        headDist.clamp(0.0, totalLen),
+      );
+
+      final glowPaint = Paint()
+        ..color = glowColor.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4.5
+        ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 3.0);
+
+      final corePaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5;
+
+      canvas.drawPath(pulsePath, glowPaint);
+      canvas.drawPath(pulsePath, corePaint);
+    }
+  }
+
+  double _getElectricLineYAtX(double x, double w, double h) {
+    if (x <= w * 0.25) {
+      final t = (x / (w * 0.25)).clamp(0.0, 1.0);
+      return h * 0.68 - (h * -0.04) * t;
+    } else if (x <= w * 0.50) {
+      final t = ((x - w * 0.25) / (w * 0.25)).clamp(0.0, 1.0);
+      return h * 0.72 - (h * 0.17) * t;
+    } else {
+      final t = ((x - w * 0.50) / (w * 0.50)).clamp(0.0, 1.0);
+      return h * 0.55 - (h * 0.45) * t;
+    }
+  }
+
+  void _drawTooltipBadge(Canvas canvas, Offset pinCenter, String text) {
+    final tooltipOffset = Offset(pinCenter.dx - 16, pinCenter.dy - 30);
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(tooltipOffset.dx, tooltipOffset.dy, 32, 20),
+      const Radius.circular(7),
+    );
+
+    final borderPaint = Paint()
+      ..color = const Color(0xFFE2D9F0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+    final fillPaint = Paint()..color = Colors.white;
+
+    canvas.drawRRect(rect, fillPaint);
+    canvas.drawRRect(rect, borderPaint);
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: TeacherPalette.ink,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    textPainter.paint(
+      canvas,
+      Offset(
+        tooltipOffset.dx + (32 - textPainter.width) / 2,
+        tooltipOffset.dy + (20 - textPainter.height) / 2,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _UtilityGlowLineChartPainter oldDelegate) =>
+      true;
+}
+
+class _UtilityLegendDot extends StatelessWidget {
+  const _UtilityLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            color: TeacherPalette.muted,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UtilityMiniMetric extends StatelessWidget {
+  const _UtilityMiniMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.trendUp,
+    required this.trendLabel,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String unit;
+  final bool trendUp;
+  final String trendLabel;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: TeacherPalette.muted,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          RichText(
+            text: TextSpan(
+              text: value,
+              style: TextStyle(
+                color: TeacherPalette.ink,
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
+              children: [
+                TextSpan(
+                  text: ' $unit',
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                trendUp
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                size: 13,
+                color: trendUp
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFF059669),
+              ),
+              const SizedBox(width: 2),
+              Text(
+                '$trendLabel จากสัปดาห์ก่อน',
+                style: TextStyle(
+                  color: trendUp
+                      ? const Color(0xFFDC2626)
+                      : const Color(0xFF059669),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ],
       ),

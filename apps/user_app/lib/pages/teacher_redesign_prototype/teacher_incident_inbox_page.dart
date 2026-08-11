@@ -744,6 +744,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
   Widget build(BuildContext context) {
     final incident = widget.incident;
     final accent = _categoryColor(incident.category);
+    final isNew = incident.status == IncidentStatus.newReport;
     final isTerminal =
         incident.status == IncidentStatus.resolved ||
         incident.status == IncidentStatus.cancelled ||
@@ -757,218 +758,426 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Hero: แถบสีบนสุด + ไอคอนวงกลม ให้เข้าชุดกับการ์ดใบงาน/
+            // บทเรียนที่เหลือของแอปฝั่งครู
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: accent.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        incident.category == IncidentCategory.sos
-                            ? Icons.emergency_rounded
-                            : Icons.warning_amber_rounded,
-                        color: accent,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _categoryLabel(incident.category),
-                        style: TextStyle(
-                          color: accent,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const Spacer(),
-                      TeacherStatusChip(
-                        label: _statusLabel(incident.status),
-                        color: _statusColor(incident.status),
-                      ),
-                    ],
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: TeacherPalette.border),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A0F172A),
+                    blurRadius: 14,
+                    offset: Offset(0, 6),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'ห้อง ${incident.room} · แจ้งโดย ${incident.reporterName} · ${_timeAgo(incident.createdAt)}',
-                    style: const TextStyle(
-                      color: TeacherPalette.muted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (incident.assignedTo != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'มอบหมายให้: ${incident.assignedTo}',
-                      style: const TextStyle(
-                        color: TeacherPalette.ink,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
                 ],
               ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'Timeline',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-            ),
-            const SizedBox(height: 10),
-            if (incident.timeline.isEmpty)
-              const Text(
-                'ยังไม่มีการบันทึกการดำเนินการ',
-                style: TextStyle(color: TeacherPalette.muted, fontSize: 12.5),
-              )
-            else
-              ...List.generate(incident.timeline.length, (i) {
-                final log = incident.timeline[i];
-                final isLast = i == incident.timeline.length - 1;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        margin: const EdgeInsets.only(top: 4),
-                        decoration: BoxDecoration(
-                          color: isLast
-                              ? TeacherPalette.primary
-                              : TeacherPalette.border,
-                          shape: BoxShape.circle,
-                        ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(22),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              log.note,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13,
-                                color: TeacherPalette.ink,
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                incident.category == IncidentCategory.sos
+                                    ? Icons.emergency_rounded
+                                    : Icons.warning_amber_rounded,
+                                color: accent,
+                                size: 24,
                               ),
                             ),
-                            Text(
-                              '${log.actor} · ${_timeAgo(log.time)}',
-                              style: const TextStyle(
-                                color: TeacherPalette.muted,
-                                fontSize: 11,
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _categoryLabel(incident.category),
+                                    style: TextStyle(
+                                      color: accent,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 16.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    incident.id,
+                                    style: const TextStyle(
+                                      color: TeacherPalette.muted,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                            TeacherStatusChip(
+                              label: _statusLabel(incident.status),
+                              color: _statusColor(incident.status),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            const SizedBox(height: 18),
-            if (!isTerminal) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: incident.status == IncidentStatus.newReport
-                          ? _acknowledge
-                          : null,
-                      icon: const Icon(
-                        Icons.check_circle_outline_rounded,
-                        size: 18,
-                      ),
-                      label: const Text('รับเรื่อง'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: incident.status == IncidentStatus.newReport
-                          ? null
-                          : _assign,
-                      icon: const Icon(
-                        Icons.person_add_alt_1_rounded,
-                        size: 18,
-                      ),
-                      label: const Text('มอบหมาย'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _IncidentMetaTag(
+                              icon: Icons.room_outlined,
+                              label: 'ห้อง ${incident.room}',
+                              color: accent,
+                            ),
+                            _IncidentMetaTag(
+                              icon: Icons.person_outline_rounded,
+                              label: incident.reporterName,
+                              color: accent,
+                            ),
+                            _IncidentMetaTag(
+                              icon: Icons.schedule_rounded,
+                              label: _timeAgo(incident.createdAt),
+                              color: accent,
+                            ),
+                            if (incident.assignedTo != null)
+                              _IncidentMetaTag(
+                                icon: Icons.assignment_ind_outlined,
+                                label: 'มอบหมาย: ${incident.assignedTo}',
+                                color: accent,
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _noteCtrl,
-                enabled: incident.status != IncidentStatus.newReport,
-                decoration: InputDecoration(
-                  hintText: 'บันทึกการดำเนินการ...',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: const Icon(
-                      Icons.send_rounded,
-                      color: TeacherPalette.primary,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Timeline',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                color: TeacherPalette.ink,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (incident.timeline.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: TeacherPalette.border),
+                ),
+                child: const Center(
+                  child: Text(
+                    'ยังไม่มีการบันทึกการดำเนินการ',
+                    style: TextStyle(
+                      color: TeacherPalette.muted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
                     ),
-                    onPressed: incident.status == IncidentStatus.newReport
-                        ? null
-                        : _saveNote,
                   ),
                 ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: TeacherPalette.border),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(incident.timeline.length, (i) {
+                    final log = incident.timeline[i];
+                    final isLast = i == incident.timeline.length - 1;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Column(
+                            children: [
+                              Container(
+                                width: 11,
+                                height: 11,
+                                decoration: BoxDecoration(
+                                  color: isLast
+                                      ? TeacherPalette.primary
+                                      : TeacherPalette.border,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              if (!isLast)
+                                Container(
+                                  width: 2,
+                                  height: 34,
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  log.note,
+                                  style: TextStyle(
+                                    fontWeight: isLast
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    fontSize: 13,
+                                    color: isLast
+                                        ? TeacherPalette.ink
+                                        : TeacherPalette.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${log.actor} · ${_timeAgo(log.time)}',
+                                  style: const TextStyle(
+                                    color: TeacherPalette.muted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
               ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: incident.status == IncidentStatus.newReport
-                          ? null
-                          : _escalate,
-                      icon: const Icon(Icons.priority_high_rounded, size: 18),
-                      label: const Text('ยกระดับเหตุ'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFDC2626),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+            if (!isTerminal) ...[
+              const SizedBox(height: 22),
+              // ปุ่มหลัก "รับเรื่อง" เด่นสุดตอนยังเป็นเหตุใหม่ — เข้าชุดกับ
+              // แพทเทิร์นปุ่มหลัก+ปุ่มรองที่ใช้ในการ์ดบทเรียน/ใบงาน
+              if (isNew)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _acknowledge,
+                    icon: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 20,
+                    ),
+                    label: const Text('รับเรื่องนี้'),
+                    style: FilledButton.styleFrom(
+                      // อำพัน/ส้ม สื่อ "ต้องลงมือทำตอนนี้" — แยกจากแดง
+                      // (SOS/ยกระดับ) และเขียว (ปิดเหตุ) ที่ใช้อยู่แล้ว
+                      backgroundColor: const Color(0xFFD97706),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: incident.status == IncidentStatus.newReport
-                          ? null
-                          : _close,
-                      icon: const Icon(Icons.task_alt_rounded, size: 18),
-                      label: const Text('ปิดเหตุ'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF059669),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                )
+              else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _IncidentToolButton(
+                        icon: Icons.person_add_alt_1_rounded,
+                        label: 'มอบหมาย',
+                        color: const Color(0xFF2563EB),
+                        onTap: _assign,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _IncidentToolButton(
+                        icon: Icons.priority_high_rounded,
+                        label: 'ยกระดับเหตุ',
+                        color: const Color(0xFFDC2626),
+                        onTap: _escalate,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _IncidentToolButton(
+                        icon: Icons.task_alt_rounded,
+                        label: 'ปิดเหตุ',
+                        color: const Color(0xFF059669),
+                        onTap: _close,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: TeacherPalette.border),
+                  ),
+                  child: TextField(
+                    controller: _noteCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'บันทึกการดำเนินการ...',
+                      hintStyle: const TextStyle(fontSize: 13),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      suffixIcon: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Material(
+                          color: TeacherPalette.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _saveNote,
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.arrow_upward_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ],
           ],
         );
       },
+    );
+  }
+}
+
+class _IncidentMetaTag extends StatelessWidget {
+  const _IncidentMetaTag({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: TeacherPalette.muted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ปุ่มเครื่องมือทรงกลม+label ใต้ไอคอน ใช้แถวเดียวกัน 3 ปุ่ม (มอบหมาย/
+// ยกระดับ/ปิดเหตุ) แทนปุ่มยาวเต็มแถวแบบเดิม ให้กดพลาดยากขึ้นและดูเป็น
+// ชุดเครื่องมือมากกว่าปุ่มฟอร์ม
+class _IncidentToolButton extends StatelessWidget {
+  const _IncidentToolButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
