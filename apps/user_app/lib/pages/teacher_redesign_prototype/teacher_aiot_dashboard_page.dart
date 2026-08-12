@@ -3,9 +3,22 @@
 // Features: Real-time sensor metrics per classroom/device, Threshold settings, Abnormal alerts list with acknowledge action, and Data Export (CSV/Excel).
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
+
+/// หน้านี้มี Threshold/Alert/Export ให้แก้ค่าจริงได้ — ตาม decision log
+/// ("ครูดูข้อมูลตาม school/course scope และตั้งค่า Threshold หรือรับทราบ
+/// Alert ได้ตาม Permission Matrix" / "นักเรียนดูได้แบบ read-only ไม่เห็น
+/// เมนูตั้งค่า Threshold") สิทธิ์นี้เป็นของครู/แอดมินเท่านั้น เช็คที่ตัวหน้า
+/// เองด้วย (ไม่พึ่งแค่การไม่มีลิงก์จากฝั่งนักเรียน) กันเผื่อวันหนึ่งมี
+/// deep link หรือ route อื่นพาเข้ามาได้โดยไม่ผ่านเมนูที่ตั้งใจไว้
+const _kAiotDashboardAllowedRoles = {
+  UserRole.teacher,
+  UserRole.schoolAdmin,
+  UserRole.superAdmin,
+};
 
 /// Model ข้อมูลเซนเซอร์เรียลไทม์ต่ออุปกรณ์
 class AiotDeviceModel {
@@ -301,6 +314,17 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
   @override
   Widget build(BuildContext context) {
+    // หน้านี้อยู่ใน teacher_redesign_prototype ที่ยังไม่ผ่าน auth จริง —
+    // currentUserModel จึงเป็น null เสมอตอนเดโม (ยังไม่ได้ login ผ่าน
+    // Supabase) ห้าม block กรณี null เพราะจะทำให้เดโมพังทันที บล็อกเฉพาะ
+    // กรณีที่ "รู้ชัด" ว่า login เข้ามาแล้วด้วย role ที่ไม่ใช่ครู/แอดมิน
+    // เท่านั้น (เผื่ออนาคตต่อ auth จริงแล้วมี route/deep link เข้าถึงหน้านี้
+    // ได้โดยไม่ผ่านเมนูที่ตั้งใจไว้)
+    final role = currentUserModel?.role;
+    if (role != null && !_kAiotDashboardAllowedRoles.contains(role)) {
+      return const _AiotDashboardAccessDenied();
+    }
+
     final unackAlertsCount = _alerts.where((a) => !a.isAcknowledged).length;
 
     return TeacherMockPageShell(
@@ -1041,6 +1065,69 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AiotDashboardAccessDenied extends StatelessWidget {
+  const _AiotDashboardAccessDenied();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: TeacherPalette.page,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: TeacherPalette.ink,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.lock_outline_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'ไม่มีสิทธิ์เข้าถึงหน้านี้',
+                style: TextStyle(
+                  color: TeacherPalette.ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'AIoT Dashboard (ตั้งค่า Threshold/รับ Alert/Export ข้อมูล)\nเป็นสิทธิ์เฉพาะครูและแอดมินเท่านั้น',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: TeacherPalette.muted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
