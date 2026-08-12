@@ -431,9 +431,7 @@ class _TeacherMobileDashboard extends StatelessWidget {
           SizedBox(height: 16),
           _TeacherHero(),
           SizedBox(height: 16),
-          _HomeroomUtilityCard(),
-          SizedBox(height: 16),
-          _AiotWeatherSensorsCard(),
+          _UtilityAndAiotSensorRow(),
           SizedBox(height: 16),
           _TeacherSummaryStrip(),
           SizedBox(height: 16),
@@ -1030,9 +1028,7 @@ class _TeacherMainDashboardContent extends StatelessWidget {
         const _EmergencyAlertBanner(),
         const _TeacherHero(),
         const SizedBox(height: 18),
-        const _HomeroomUtilityCard(),
-        const SizedBox(height: 18),
-        const _AiotWeatherSensorsCard(),
+        const _UtilityAndAiotSensorRow(),
         const SizedBox(height: 18),
         const _TeacherSummaryStrip(),
         const SizedBox(height: 20),
@@ -2355,6 +2351,45 @@ class _EmergencyAlertBanner extends StatelessWidget {
 /// สีฟ้าน้ำเงินสื่อความหมาย "น้ำ" ตรงตัว — ใช้แทน TeacherPalette.sky (ม่วง
 /// อ่อน) ในจุดนี้โดยเฉพาะ เพราะสีฟ้าจริงสื่อชัดเจนกว่าเวลาแสดงคู่กับไฟฟ้า
 const _kWaterBlue = Color(0xFF0EA5E9);
+
+/// จอกว้างพอ (คอม/แท็บเล็ตแนวนอน) วางการ์ดน้ำ-ไฟ กับการ์ดเซนเซอร์ AIoT
+/// เคียงข้างกันซ้าย-ขวาแทนการวางซ้อนกันแนวตั้ง เพื่อลดความยาวของหน้าจอ
+/// ใช้ความกว้างของพื้นที่เนื้อหาหลัก (ไม่ใช่ความกว้างจอทั้งหมด) ตัดสินใจ
+/// เพราะคอลัมน์เนื้อหาหลักอาจแคบกว่าจอจริงเมื่อมี sidebar/panel ขวา
+class _UtilityAndAiotSensorRow extends StatelessWidget {
+  const _UtilityAndAiotSensorRow();
+
+  static const _sideBySideBreakpoint = 700.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _sideBySideBreakpoint) {
+          // จงใจไม่ใช้ IntrinsicHeight+stretch ให้สองการ์ดสูงเท่ากัน เพราะ
+          // การคำนวณ intrinsic height ทำที่ความกว้างเต็ม แล้วพอ Expanded
+          // บีบให้แคบลงจริง ข้อความบางบรรทัดตัดคำใหม่ทำให้สูงเกินมาไม่กี่
+          // px จน overflow — ปล่อยให้แต่ละการ์ดสูงตามเนื้อหาตัวเองแทน
+          return const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: _HomeroomUtilityCard()),
+              SizedBox(width: 18),
+              Expanded(child: _AiotWeatherSensorsCard()),
+            ],
+          );
+        }
+        return const Column(
+          children: [
+            _HomeroomUtilityCard(),
+            SizedBox(height: 18),
+            _AiotWeatherSensorsCard(),
+          ],
+        );
+      },
+    );
+  }
+}
 
 /// การใช้น้ำ-ไฟของ "ห้องประจำชั้น" ที่ครูเป็นที่ปรึกษา (คนละส่วนกับ
 /// AIoT Classroom ที่โชว์สภาพอากาศห้องที่สอน) — mock ตัวเลขรายสัปดาห์
