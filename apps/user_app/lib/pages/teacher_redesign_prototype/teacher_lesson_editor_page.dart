@@ -824,21 +824,32 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
 
   Widget _buildLessonItemCard(LessonModel les, double cardWidth) {
     final isPublished = les.status == LessonStatus.published;
-    final tint = isPublished
+
+    final badgeBgColor = isPublished
+        ? const Color(0xFFECFDF5)
+        : const Color(0xFFFFF7ED);
+    final badgeTextColor = isPublished
         ? const Color(0xFF059669)
         : const Color(0xFFD97706);
+    final badgeDotColor = isPublished
+        ? const Color(0xFF10B981)
+        : const Color(0xFFF59E0B);
+    final badgeBorderColor = isPublished
+        ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
+        : const Color(0xFFFED7AA).withValues(alpha: 0.6);
 
     return SizedBox(
       width: cardWidth,
       child: Container(
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: TeacherPalette.border),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x060F172A),
-              blurRadius: 10,
+              color: Color(0x0A0F172A),
+              blurRadius: 14,
               offset: Offset(0, 4),
             ),
           ],
@@ -847,207 +858,192 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // แถบสีบางด้านบนบอกสถานะ แทนพื้นหลังไล่สีทั้งการ์ด — ลดความจำเจ
-            // เวลามีบทเรียนสถานะเดียวกันติดกันหลายใบ
-            Container(
-              height: 4,
-              decoration: BoxDecoration(
-                color: tint,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            // Top Status Pill & Timestamp Row
+            Row(
+              children: [
+                // Soft Status Pill Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badgeBgColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: badgeBorderColor, width: 1.0),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        width: 7,
+                        height: 7,
                         decoration: BoxDecoration(
-                          color: tint.withValues(alpha: 0.1),
+                          color: badgeDotColor,
                           shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isPublished
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.edit_note_rounded,
-                          color: tint,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: tint,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  isPublished ? 'Published' : 'Draft',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w900,
-                                    color: tint,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'แก้ไขล่าสุด: ${les.lastEdited}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: TeacherPalette.muted,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              les.title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w800,
-                                color: TeacherPalette.ink,
-                              ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: badgeDotColor.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _LessonMetaTag(
-                        icon: Icons.attachment_rounded,
-                        label: '${les.materials.length} สื่อแนบ',
-                        color: tint,
-                      ),
-                      _LessonMetaTag(
-                        icon: Icons.sensors_rounded,
-                        label: '${les.sensorLinks.length} กราฟ AIoT',
-                        color: tint,
+                      const SizedBox(width: 5),
+                      Text(
+                        isPublished ? 'Published' : 'Draft',
+                        style: TextStyle(
+                          color: badgeTextColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  // ปุ่มหลัก "แก้ไข" เด่นสุด ส่วนปุ่มรองเหลือแค่ไอคอนกลม
-                  // ให้ดูโล่งขึ้นและตาโฟกัสงานหลักได้เร็ว
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: widget.isCourseClosed
-                              ? null
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          TeacherLessonEditorPage(lesson: les),
-                                    ),
-                                  );
+                ),
+                const Spacer(),
+                Text(
+                  'แก้ไขล่าสุด: ${les.lastEdited}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: TeacherPalette.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Lesson Title
+            Text(
+              les.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w900,
+                color: TeacherPalette.ink,
+                height: 1.25,
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
+            // Soft Glass Metadata Chips
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                _LessonMetaTag(
+                  icon: Icons.attachment_rounded,
+                  label: '${les.materials.length} สื่อแนบ',
+                  color: const Color(0xFF475569),
+                  bgColor: const Color(0xFFF1F5F9),
+                ),
+                _LessonMetaTag(
+                  icon: Icons.sensors_rounded,
+                  label: '${les.sensorLinks.length} กราฟ AIoT',
+                  color: const Color(0xFF0284C7),
+                  bgColor: const Color(0xFFE0F2FE),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 18),
+
+            // Integrated Bottom Actions Toolbar
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: widget.isCourseClosed
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    TeacherLessonEditorPage(lesson: les),
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.edit_rounded, size: 15),
+                    label: const Text('แก้ไขบทเรียน'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 38),
+                      backgroundColor: TeacherPalette.primary,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _LessonIconAction(
+                  icon: Icons.visibility_outlined,
+                  tooltip: 'ดูตัวอย่างแบบนักเรียน',
+                  color: const Color(0xFF2563EB),
+                  bgColor: const Color(0xFFEFF6FF),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TeacherLessonPreviewPage(lesson: les),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(width: 6),
+                _LessonIconAction(
+                  icon: Icons.bar_chart_rounded,
+                  tooltip: 'ดูสถิติบทเรียน',
+                  color: const Color(0xFF059669),
+                  bgColor: const Color(0xFFECFDF5),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TeacherLessonAnalyticsPage(lesson: les),
+                      ),
+                    );
+                  },
+                ),
+                if (!isPublished) ...[
+                  const SizedBox(width: 6),
+                  _LessonIconAction(
+                    icon: Icons.publish_rounded,
+                    tooltip: 'เผยแพร่บทเรียน',
+                    color: const Color(0xFFD97706),
+                    bgColor: const Color(0xFFFFF7ED),
+                    onTap: widget.isCourseClosed
+                        ? null
+                        : () {
+                            showDialog<void>(
+                              context: context,
+                              builder: (_) => TeacherPublishChecklistDialog(
+                                lesson: les,
+                                onConfirmedPublish: () {
+                                  setState(() {
+                                    les.status = LessonStatus.published;
+                                  });
                                 },
-                          icon: const Icon(Icons.edit_rounded, size: 16),
-                          label: const Text('แก้ไข'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(0, 40),
-                            backgroundColor: TeacherPalette.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            textStyle: const TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      _LessonIconAction(
-                        icon: Icons.visibility_outlined,
-                        tooltip: 'ดูตัวอย่างแบบนักเรียน',
-                        color: const Color(0xFF2563EB),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  TeacherLessonPreviewPage(lesson: les),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      _LessonIconAction(
-                        icon: Icons.bar_chart_rounded,
-                        tooltip: 'ดูสถิติบทเรียน',
-                        color: const Color(0xFF059669),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  TeacherLessonAnalyticsPage(lesson: les),
-                            ),
-                          );
-                        },
-                      ),
-                      if (!isPublished) ...[
-                        const SizedBox(width: 6),
-                        _LessonIconAction(
-                          icon: Icons.publish_rounded,
-                          tooltip: 'เผยแพร่บทเรียน',
-                          color: const Color(0xFFD97706),
-                          onTap: widget.isCourseClosed
-                              ? null
-                              : () {
-                                  showDialog<void>(
-                                    context: context,
-                                    builder: (_) =>
-                                        TeacherPublishChecklistDialog(
-                                          lesson: les,
-                                          onConfirmedPublish: () {
-                                            setState(() {
-                                              les.status =
-                                                  LessonStatus.published;
-                                            });
-                                          },
-                                        ),
-                                  );
-                                },
-                        ),
-                      ],
-                    ],
+                              ),
+                            );
+                          },
                   ),
                 ],
-              ),
+              ],
             ),
           ],
         ),
@@ -1139,20 +1135,24 @@ class _LessonMetaTag extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    this.bgColor,
   });
 
   final IconData icon;
   final String label;
   final Color color;
+  final Color? bgColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: bgColor ?? Colors.white,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
+        border: bgColor == null
+            ? Border.all(color: color.withValues(alpha: 0.18))
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1161,10 +1161,10 @@ class _LessonMetaTag extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: TeacherPalette.muted,
+              fontWeight: FontWeight.w800,
+              color: color,
             ),
           ),
         ],
@@ -1181,27 +1181,36 @@ class _LessonIconAction extends StatelessWidget {
     required this.tooltip,
     required this.color,
     required this.onTap,
+    this.bgColor,
   });
 
   final IconData icon;
   final String tooltip;
   final Color color;
+  final Color? bgColor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final effectiveColor = onTap == null ? TeacherPalette.muted : color;
+    final effectiveBgColor = bgColor ?? effectiveColor.withValues(alpha: 0.1);
+
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: effectiveColor.withValues(alpha: 0.1),
-        shape: const CircleBorder(),
+        color: effectiveBgColor,
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          customBorder: const CircleBorder(),
+          borderRadius: BorderRadius.circular(10),
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(11),
-            child: Icon(icon, size: 18, color: effectiveColor),
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 11),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: effectiveColor.withValues(alpha: 0.2)),
+            ),
+            child: Center(child: Icon(icon, size: 17, color: effectiveColor)),
           ),
         ),
       ),

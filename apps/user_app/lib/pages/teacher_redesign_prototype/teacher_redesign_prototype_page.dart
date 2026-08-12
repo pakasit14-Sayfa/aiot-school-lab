@@ -6,13 +6,15 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../aiot_dashboard_page.dart';
+import 'teacher_aiot_dashboard_page.dart';
 import 'teacher_aiot_lab_page.dart';
 import 'teacher_courses_page.dart';
 import 'teacher_grades_page.dart';
 import 'teacher_grading_page.dart';
 import 'teacher_incident_inbox_page.dart';
+import 'teacher_notifications_page.dart';
 import 'teacher_profile_page.dart';
+import 'teacher_rubric_page.dart';
 import 'teacher_students_page.dart';
 
 enum TeacherPrototypeVariant {
@@ -432,6 +434,8 @@ class _TeacherMobileDashboard extends StatelessWidget {
           _TeacherHero(),
           SizedBox(height: 16),
           _UtilityAndAiotSensorRow(),
+          SizedBox(height: 16),
+          _SmartWiringLabCard(),
           SizedBox(height: 16),
           _TeacherSummaryStrip(),
           SizedBox(height: 16),
@@ -1026,9 +1030,12 @@ class _TeacherMainDashboardContent extends StatelessWidget {
         const _TeacherTopBar(title: 'แดชบอร์ดครู'),
         const SizedBox(height: 20),
         const _EmergencyAlertBanner(),
+        const _CameraSecuritySummaryCard(),
         const _TeacherHero(),
         const SizedBox(height: 18),
         const _UtilityAndAiotSensorRow(),
+        const SizedBox(height: 18),
+        const _SmartWiringLabCard(),
         const SizedBox(height: 18),
         const _TeacherSummaryStrip(),
         const SizedBox(height: 20),
@@ -1355,7 +1362,14 @@ class _TeacherTopBar extends StatelessWidget {
           icon: Icons.notifications_none_rounded,
           dot: true,
           tooltip: 'การแจ้งเตือน',
-          onTap: () => _showComingSoon(context, 'การแจ้งเตือน'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const TeacherNotificationsPage(),
+              ),
+            );
+          },
         ),
         const SizedBox(width: 12),
         const _TeacherProfilePill(),
@@ -2348,6 +2362,267 @@ class _EmergencyAlertBanner extends StatelessWidget {
   }
 }
 
+/// การ์ดสรุปเหตุการณ์กล้อง AI Security ตรวจพบบุคคล/ความผิดปกติรอการตรวจ
+class _CameraSecuritySummaryCard extends StatelessWidget {
+  const _CameraSecuritySummaryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const TeacherNotificationsPage(),
+              ),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDBEAFE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.videocam_rounded,
+                    color: Color(0xFF2563EB),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'เหตุการณ์กล้อง AI Security รอตรวจ 2 รายการ',
+                        style: TextStyle(
+                          color: Color(0xFF1D4ED8),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'ตรวจพบบุคคลภายนอก · ประตูหลังโรงเรียน (09:10 น.)',
+                        style: TextStyle(
+                          color: TeacherPalette.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF2563EB),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiotSensorRow extends StatelessWidget {
+  const _AiotSensorRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.level,
+    this.value,
+    this.unit,
+    this.showDivider = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String level;
+  final String? value;
+  final String? unit;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final isNormal = level == 'ปกติ';
+
+    // Theme-matched soft pastel icon container palette
+    Color iconBgColor;
+    Color iconColor;
+
+    if (icon == Icons.air_rounded) {
+      iconBgColor = const Color(0xFFE0F2FE); // Soft Cyan/Sky
+      iconColor = const Color(0xFF0284C7);
+    } else if (icon == Icons.thermostat_rounded) {
+      iconBgColor = const Color(0xFFFFF7ED); // Soft Orange/Amber
+      iconColor = const Color(0xFFEA580C);
+    } else if (icon == Icons.water_drop_rounded) {
+      iconBgColor = const Color(0xFFEFF6FF); // Soft Blue
+      iconColor = const Color(0xFF2563EB);
+    } else {
+      iconBgColor = const Color(0xFFFFF1F2); // Soft Rose/Pink
+      iconColor = const Color(0xFFE11D48);
+    }
+
+    final badgeBgColor = isNormal
+        ? const Color(0xFFECFDF5)
+        : const Color(0xFFFEF2F2);
+    final badgeTextColor = isNormal
+        ? const Color(0xFF059669)
+        : const Color(0xFFDC2626);
+    final badgeDotColor = isNormal
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
+    final badgeBorderColor = isNormal
+        ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
+        : const Color(0xFFFECACA).withValues(alpha: 0.6);
+
+    return Container(
+      padding: EdgeInsets.only(top: 10, bottom: showDivider ? 10 : 0),
+      decoration: BoxDecoration(
+        border: showDivider
+            ? const Border(
+                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+              )
+            : null,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Theme-matched Soft Glass Icon Container
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF334155),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (value != null) const SizedBox(height: 1),
+                if (value != null)
+                  Text.rich(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: value,
+                          style: TextStyle(
+                            color: iconColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16.5,
+                          ),
+                        ),
+                        if (unit != null) ...[
+                          const TextSpan(text: ' '),
+                          TextSpan(
+                            text: unit,
+                            style: TextStyle(
+                              color: iconColor.withValues(alpha: 0.8),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // Redesigned Theme-matched Soft Status Pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: badgeBgColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: badgeBorderColor, width: 1.0),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: badgeDotColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: badgeDotColor.withValues(alpha: 0.35),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  level,
+                  style: TextStyle(
+                    color: badgeTextColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// สีฟ้าน้ำเงินสื่อความหมาย "น้ำ" ตรงตัว — ใช้แทน TeacherPalette.sky (ม่วง
 /// อ่อน) ในจุดนี้โดยเฉพาะ เพราะสีฟ้าจริงสื่อชัดเจนกว่าเวลาแสดงคู่กับไฟฟ้า
 const _kWaterBlue = Color(0xFF0EA5E9);
@@ -2391,6 +2666,301 @@ class _UtilityAndAiotSensorRow extends StatelessWidget {
   }
 }
 
+/// ภาพรวม Smart Wiring Lab ต้องอยู่เหนือข้อมูลการสอนทั่วไป เพราะเป็นงาน
+/// หลักของครูในโครงการนี้ ส่วนข้อมูลรายกลุ่มและการควบคุมอุปกรณ์อยู่ใน
+/// TeacherAiotLabPage เพื่อไม่ให้ Dashboard กลายเป็นหน้าจัดการรายละเอียด
+/// ทั้งหมดในหน้าเดียว
+class _SmartWiringLabCard extends StatelessWidget {
+  const _SmartWiringLabCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: TeacherPalette.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.cable_rounded,
+                  color: TeacherPalette.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AIoT Smart Wiring Lab วันนี้',
+                      style: TextStyle(
+                        color: TeacherPalette.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'AIOT-501 · ม.5/2 · คาบ 10:30 น. · ชุดฝึก 6 ชุด',
+                      style: TextStyle(
+                        color: TeacherPalette.muted,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const _LabStatusChip(
+                label: 'กำลังใช้งาน',
+                icon: Icons.play_circle_rounded,
+                color: TeacherPalette.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 760
+                  ? 3
+                  : constraints.maxWidth >= 480
+                  ? 2
+                  : 1;
+              final itemWidth =
+                  (constraints.maxWidth - ((columns - 1) * 10)) / columns;
+              const metrics = [
+                _LabMetric(
+                  label: 'ชุดฝึกพร้อม',
+                  value: '5/6',
+                  icon: Icons.checklist_rounded,
+                  color: TeacherPalette.green,
+                ),
+                _LabMetric(
+                  label: 'Pico 2 ออนไลน์',
+                  value: '10/12',
+                  icon: Icons.memory_rounded,
+                  color: TeacherPalette.primary,
+                ),
+                _LabMetric(
+                  label: 'กำลังต่อสาย',
+                  value: '4 กลุ่ม',
+                  icon: Icons.cable_rounded,
+                  color: TeacherPalette.skyDeep,
+                ),
+                _LabMetric(
+                  label: 'ผ่านการตรวจ',
+                  value: '2 กลุ่ม',
+                  icon: Icons.verified_rounded,
+                  color: TeacherPalette.green,
+                ),
+                _LabMetric(
+                  label: 'รอเริ่มระบบจริง',
+                  value: '1 กลุ่ม',
+                  icon: Icons.pending_actions_rounded,
+                  color: TeacherPalette.orange,
+                ),
+                _LabMetric(
+                  label: 'ต้องตรวจสอบ',
+                  value: '1 รายการ',
+                  icon: Icons.error_outline_rounded,
+                  color: TeacherPalette.red,
+                ),
+              ];
+
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: metrics
+                    .map(
+                      (metric) => SizedBox(
+                        width: itemWidth,
+                        child: _LabMetricTile(metric: metric),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          const _LabDeviceNotice(),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TeacherAiotLabPage()),
+                );
+              },
+              icon: const Icon(Icons.settings_input_component_rounded),
+              label: const Text('เปิด AIoT Lab'),
+              style: FilledButton.styleFrom(
+                backgroundColor: TeacherPalette.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LabMetric {
+  const _LabMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+}
+
+class _LabMetricTile extends StatelessWidget {
+  const _LabMetricTile({required this.metric});
+
+  final _LabMetric metric;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 78,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: metric.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: metric.color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(metric.icon, color: metric.color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  metric.value,
+                  style: const TextStyle(
+                    color: TeacherPalette.ink,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  metric.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LabStatusChip extends StatelessWidget {
+  const _LabStatusChip({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 15),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LabDeviceNotice extends StatelessWidget {
+  const _LabDeviceNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: TeacherPalette.red.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: TeacherPalette.red.withValues(alpha: 0.2)),
+      ),
+      child: const Row(
+        children: [
+          Icon(
+            Icons.portable_wifi_off_rounded,
+            size: 18,
+            color: TeacherPalette.red,
+          ),
+          SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'ชุดฝึก 06: Pico 2 ไม่ตอบสนอง ต้องตรวจสาย USB ก่อนเริ่มคาบ',
+              style: TextStyle(
+                color: TeacherPalette.ink,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// การใช้น้ำ-ไฟของ "ห้องประจำชั้น" ที่ครูเป็นที่ปรึกษา (คนละส่วนกับ
 /// AIoT Classroom ที่โชว์สภาพอากาศห้องที่สอน) — mock ตัวเลขรายสัปดาห์
 /// เทียบกับสัปดาห์ก่อนหน้า ให้ครูเห็นแนวโน้มการประหยัดพลังงานของห้องตน
@@ -2405,8 +2975,8 @@ class _HomeroomUtilityCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _SectionTitle(
-            title: 'การใช้น้ำ-ไฟ ห้องประจำชั้น',
-            subtitle: 'ม.5/2 · สัปดาห์นี้',
+            title: 'การใช้น้ำ-ไฟ',
+            subtitle: 'สัปดาห์นี้',
             icon: Icons.bolt_rounded,
           ),
           const SizedBox(height: 14),
@@ -2416,6 +2986,7 @@ class _HomeroomUtilityCard extends StatelessWidget {
                 child: _UtilityMiniMetric(
                   icon: Icons.bolt_rounded,
                   label: 'ไฟฟ้า',
+                  scopeBadge: 'รายห้อง',
                   value: '142',
                   unit: 'kWh',
                   trendUp: true,
@@ -2428,6 +2999,7 @@ class _HomeroomUtilityCard extends StatelessWidget {
                 child: _UtilityMiniMetric(
                   icon: Icons.water_drop_rounded,
                   label: 'น้ำ',
+                  scopeBadge: 'รายอาคาร',
                   value: '3.2',
                   unit: 'm³',
                   trendUp: false,
@@ -2439,7 +3011,7 @@ class _HomeroomUtilityCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'เทียบกับค่าเฉลี่ยสัปดาห์ก่อนหน้าของห้องเดียวกัน',
+            'เทียบกับค่าเฉลี่ยสัปดาห์ก่อนหน้า',
             style: TextStyle(
               color: TeacherPalette.muted,
               fontSize: 11,
@@ -2524,11 +3096,13 @@ class _AiotWeatherSensorsCard extends StatelessWidget {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            height: 40,
+            height: 42,
             child: FilledButton.icon(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AiotDashboardPage()),
+                MaterialPageRoute(
+                  builder: (_) => const TeacherAiotDashboardPage(),
+                ),
               ),
               icon: const Icon(
                 Icons.arrow_forward_rounded,
@@ -2540,9 +3114,10 @@ class _AiotWeatherSensorsCard extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: const Color(0xFF9333EA),
                 foregroundColor: Colors.white,
-                minimumSize: const Size(0, 40),
+                elevation: 0,
+                minimumSize: const Size(0, 42),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -2573,176 +3148,6 @@ class _StatusPulseDot extends StatelessWidget {
             color: color.withValues(alpha: 0.4),
             blurRadius: 8,
             spreadRadius: 2,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AiotSensorRow extends StatelessWidget {
-  const _AiotSensorRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.level,
-    this.value,
-    this.unit,
-    this.showDivider = false,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String level;
-  final String? value;
-  final String? unit;
-  final bool showDivider;
-
-  @override
-  Widget build(BuildContext context) {
-    final isNormal = level == 'ปกติ';
-    final statusColor = isNormal
-        ? const Color(0xFF16A34A)
-        : const Color(0xFFDC2626);
-    final avatarColor = isNormal
-        ? const Color(0xFF1C7F46)
-        : const Color(0xFFDC2626);
-    final borderColor = isNormal
-        ? const Color(0xFF86EFAC)
-        : const Color(0xFFFECACA);
-
-    return Container(
-      padding: EdgeInsets.only(top: 10, bottom: showDivider ? 10 : 0),
-      decoration: BoxDecoration(
-        border: showDivider
-            ? const Border(
-                bottom: BorderSide(color: Color(0xFFE8EEF3), width: 1),
-              )
-            : null,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: avatarColor,
-              borderRadius: BorderRadius.circular(9),
-              boxShadow: [
-                BoxShadow(
-                  color: avatarColor.withValues(alpha: 0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (value != null) const SizedBox(height: 1),
-                if (value != null)
-                  Text.rich(
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: value,
-                          style: TextStyle(
-                            color: avatarColor,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16.5,
-                          ),
-                        ),
-                        if (unit != null) ...[
-                          const TextSpan(text: ' '),
-                          TextSpan(
-                            text: unit,
-                            style: TextStyle(
-                              color: avatarColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 1),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: TeacherPalette.muted,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: borderColor, width: 1.2),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A0F172A),
-                  blurRadius: 4,
-                  offset: Offset(0, 1.5),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 9,
-                  height: 9,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: statusColor.withValues(alpha: 0.35),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  level,
-                  style: const TextStyle(
-                    color: Color(0xFF1E293B),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11.5,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
@@ -2920,34 +3325,69 @@ class _UtilityGlowLineChartPainter extends CustomPainter {
       h * 0.10,
     );
 
-    // เส้นน้ำ (จ.-ศ. อิงสัดส่วนจาก 0.6/0.5/0.7/0.6/0.8 m³) — ไล่ระดับต่ำกว่า
-    // เส้นไฟฟ้าตลอด เพราะหน่วยคนละอย่างกัน แค่โชว์ทิศทางแนวโน้ม
+    // เส้นน้ำ (จ.-ศ. อิงสัดส่วนจาก m³) — มีจุดตัดกับเส้นไฟฟ้าช่วง อ.-พ.
     final waterPath = Path();
-    waterPath.moveTo(0, h * 0.90);
+    waterPath.moveTo(0, h * 0.82);
     waterPath.cubicTo(
       w * 0.10,
-      h * 0.96,
+      h * 0.88,
       w * 0.18,
-      h * 0.85,
+      h * 0.76,
       w * 0.25,
-      h * 0.80,
+      h * 0.70, // ตัดและอยู่เหนือเส้นไฟฟ้าเล็กน้อยตรงช่วง อ.
     );
     waterPath.cubicTo(
       w * 0.34,
-      h * 0.75,
+      h * 0.65,
       w * 0.42,
-      h * 0.88,
+      h * 0.82,
       w * 0.50,
-      h * 0.90,
+      h * 0.85,
     );
     waterPath.cubicTo(
       w * 0.62,
-      h * 0.92,
+      h * 0.88,
       w * 0.78,
-      h * 0.68,
+      h * 0.65,
       w * 1.0,
       h * 0.58,
     );
+
+    // 1. แรเงาใต้เส้นน้ำ (Water Cyan Gradient Fill)
+    final waterFillPath = Path.from(waterPath)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+
+    final waterFillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          _waterColor.withValues(alpha: 0.22),
+          _waterColor.withValues(alpha: 0.02),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    // 2. แรเงาใต้เส้นไฟฟ้า (Electric Orange Gradient Fill)
+    final electricFillPath = Path.from(electricPath)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+
+    final electricFillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          _electricColor.withValues(alpha: 0.22),
+          _electricColor.withValues(alpha: 0.02),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, w, h));
+
+    // วาดแรเงาสีฟ้าของน้ำไว้ล่างสุด แล้วตามด้วยแรเงาสีส้มของไฟซ้อนทับ
+    canvas.drawPath(waterFillPath, waterFillPaint);
+    canvas.drawPath(electricFillPath, electricFillPaint);
 
     final electricBasePaint = Paint()
       ..color = _electricColor
@@ -2964,14 +3404,10 @@ class _UtilityGlowLineChartPainter extends CustomPainter {
     canvas.drawPath(electricPath, electricBasePaint);
     canvas.drawPath(waterPath, waterBasePaint);
 
-    // เส้นวิ่งเรืองแสง (running glow) — สลับจังหวะกันเล็กน้อยเหมือนต้นฉบับ
+    // เส้นวิ่งเรืองแสง (running glow) — วิ่งพร้อมกันตาม pulsePhase เดียวกัน
+    // วาดเส้นไฟก่อน แล้วตามด้วยเส้นน้ำ เพื่อให้แรงเงาไฟไปซ่อนอยู่ด้านหลังแรงเหนาน้ำ
     _drawRunningGlowEffect(canvas, electricPath, _electricGlow, pulsePhase);
-    _drawRunningGlowEffect(
-      canvas,
-      waterPath,
-      _waterGlow,
-      (pulsePhase + 0.5) % 1.0,
-    );
+    _drawRunningGlowEffect(canvas, waterPath, _waterGlow, pulsePhase);
 
     // End node circles
     final electricEnd = Offset(w, h * 0.10);
@@ -3155,6 +3591,7 @@ class _UtilityMiniMetric extends StatelessWidget {
     required this.trendUp,
     required this.trendLabel,
     required this.color,
+    this.scopeBadge,
   });
 
   final IconData icon;
@@ -3164,14 +3601,16 @@ class _UtilityMiniMetric extends StatelessWidget {
   final bool trendUp;
   final String trendLabel;
   final Color color;
+  final String? scopeBadge;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
+        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3179,26 +3618,48 @@ class _UtilityMiniMetric extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: color),
+              Icon(icon, size: 18, color: color),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: const TextStyle(
-                  color: TeacherPalette.muted,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11.5,
+                  color: TeacherPalette.ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13.5,
                 ),
               ),
+              if (scopeBadge != null) ...[
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    scopeBadge!,
+                    style: const TextStyle(
+                      color: TeacherPalette.muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           RichText(
             text: TextSpan(
               text: value,
-              style: TextStyle(
+              style: const TextStyle(
                 color: TeacherPalette.ink,
                 fontWeight: FontWeight.w900,
-                fontSize: 18,
+                fontSize: 22,
+                letterSpacing: -0.5,
               ),
               children: [
                 TextSpan(
@@ -3206,13 +3667,13 @@ class _UtilityMiniMetric extends StatelessWidget {
                   style: const TextStyle(
                     color: TeacherPalette.muted,
                     fontWeight: FontWeight.w700,
-                    fontSize: 11,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -3220,20 +3681,20 @@ class _UtilityMiniMetric extends StatelessWidget {
                 trendUp
                     ? Icons.trending_up_rounded
                     : Icons.trending_down_rounded,
-                size: 13,
+                size: 14,
                 color: trendUp
                     ? const Color(0xFFDC2626)
                     : const Color(0xFF059669),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 3),
               Text(
                 '$trendLabel จากสัปดาห์ก่อน',
                 style: TextStyle(
                   color: trendUp
                       ? const Color(0xFFDC2626)
                       : const Color(0xFF059669),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
@@ -3797,6 +4258,142 @@ class _RoundAction extends StatelessWidget {
 class _TeacherProfilePill extends StatelessWidget {
   const _TeacherProfilePill();
 
+  void _showRoleSwitcherModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(
+                  Icons.swap_horiz_rounded,
+                  color: TeacherPalette.primary,
+                  size: 24,
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'สลับสิทธิ์การทำงาน (Active Role)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'เลือกสิทธิ์ในการเข้าถึงเมนูและข้อมูลของโรงเรียน (สำหรับผู้มีหลายบทบาท)',
+              style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+            ),
+            const SizedBox(height: 16),
+            _buildRoleOption(
+              context,
+              roleName: 'ครูประจำชั้น (Homeroom Teacher)',
+              sub: 'ม.5/2 • เข้าถึงข้อมูลนักเรียนและบรรยากาศห้องเรียน',
+              isSelected: true,
+            ),
+            const SizedBox(height: 10),
+            _buildRoleOption(
+              context,
+              roleName: 'ครูผู้สอนรายวิชา (Subject Teacher)',
+              sub: 'กลุ่มสาระวิทยาศาสตร์และเทคโนโลยี • จัดการวิชาและตรวจงาน',
+              isSelected: false,
+            ),
+            const SizedBox(height: 10),
+            _buildRoleOption(
+              context,
+              roleName: 'หัวหน้าหมวดวิชา (Head of Department)',
+              sub: 'อนุมัติเกณฑ์ Rubric และดูภาพรวมการสอนทั้งหมวด',
+              isSelected: false,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleOption(
+    BuildContext context, {
+    required String roleName,
+    required String sub,
+    required bool isSelected,
+  }) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('สลับสิทธิ์การทำงานเป็น "$roleName" เรียบร้อยแล้ว'),
+            backgroundColor: TeacherPalette.primary,
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? TeacherPalette.primary.withValues(alpha: 0.08)
+              : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected
+                ? TeacherPalette.primary
+                : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              color: isSelected
+                  ? TeacherPalette.primary
+                  : const Color(0xFF94A3B8),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    roleName,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected
+                          ? TeacherPalette.primary
+                          : TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -3804,12 +4401,7 @@ class _TeacherProfilePill extends StatelessWidget {
       borderRadius: BorderRadius.circular(99),
       child: InkWell(
         borderRadius: BorderRadius.circular(99),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const TeacherProfilePage()),
-          );
-        },
+        onTap: () => _showRoleSwitcherModal(context),
         child: Container(
           padding: const EdgeInsets.fromLTRB(8, 7, 12, 7),
           decoration: BoxDecoration(
@@ -3837,12 +4429,27 @@ class _TeacherProfilePill extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'ครูสมชาย',
-                style: TextStyle(
-                  color: TeacherPalette.primary,
-                  fontWeight: FontWeight.w900,
-                ),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'ครูสมชาย',
+                    style: TextStyle(
+                      color: TeacherPalette.primary,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  Text(
+                    'ครูประจำชั้น (ม.5/2) ▾',
+                    style: TextStyle(
+                      color: TeacherPalette.muted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -3911,7 +4518,9 @@ class TeacherMock {
     _MenuItem('นักเรียน', Icons.groups_2_rounded),
     _MenuItem('ตรวจงาน', Icons.assignment_turned_in_rounded),
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
-    _MenuItem('AIoT', Icons.sensors_rounded),
+    _MenuItem('Rubric', Icons.fact_check_rounded),
+    _MenuItem('Wiring Lab', Icons.cable_rounded),
+    _MenuItem('AIoT Dashboard', Icons.sensors_rounded),
     _MenuItem('แจ้งเหตุฉุกเฉิน', Icons.emergency_rounded),
   ];
 
@@ -4168,10 +4777,20 @@ void _openTeacherMenuItem(BuildContext context, String label) {
         context,
         MaterialPageRoute(builder: (_) => const TeacherGradesPage()),
       );
-    case 'AIoT':
+    case 'Rubric':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherRubricPage()),
+      );
+    case 'Wiring Lab':
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherAiotLabPage()),
+      );
+    case 'AIoT Dashboard':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherAiotDashboardPage()),
       );
     case 'แจ้งเหตุฉุกเฉิน':
       Navigator.push(

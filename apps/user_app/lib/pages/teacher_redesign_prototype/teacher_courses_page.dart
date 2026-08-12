@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'teacher_assignment_editor_page.dart';
 import 'teacher_exam_builder_page.dart';
 import 'teacher_grading_page.dart';
 import 'teacher_incident_inbox_page.dart';
@@ -418,6 +419,40 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       elevation: 0,
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TeacherAssignmentEditorPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.assignment_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'จัดการใบงาน/โจทย์',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 11,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -1793,10 +1828,35 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       title: 'รายละเอียดวิชา ${c.code}',
       activeMenuLabel: 'รายวิชา',
       actions: [
-        IconButton(
-          icon: const Icon(Icons.settings_outlined),
-          tooltip: 'ตั้งค่ารายวิชา',
-          onPressed: () => showTeacherMockAction(context, 'ตั้งค่ารายวิชา'),
+        ElevatedButton.icon(
+          onPressed: () => _openGroupManagementModal(context),
+          icon: const Icon(Icons.groups_rounded, size: 16),
+          label: const Text('จัดการกลุ่มนักเรียน'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: TeacherPalette.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            elevation: 0,
+          ),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: () => _handleCloseCourse(context, c),
+          icon: const Icon(Icons.lock_reset_rounded, size: 16),
+          label: const Text('ปิดรายวิชา'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFFDC2626),
+            side: const BorderSide(color: Color(0xFFFECACA)),
+            minimumSize: const Size(0, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
         ),
       ],
       builder: (context, isDesktop) {
@@ -1987,6 +2047,8 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
               TeacherStudentsPage(initialRoomFilter: c.rooms)
             else if (_activeTab == 'ใบงาน' || _activeTab == 'คะแนน')
               const TeacherGradingPage()
+            else if (_activeTab == 'กลุ่ม')
+              const _StudentGroupManagementWidget()
             else
               Container(
                 width: double.infinity,
@@ -2026,6 +2088,466 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
           ],
         );
       },
+    );
+  }
+
+  void _openGroupManagementModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        maxChildSize: 0.95,
+        minChildSize: 0.5,
+        builder: (ctx, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: ListView(
+            controller: scrollController,
+            children: const [_StudentGroupManagementWidget()],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleCloseCourse(BuildContext context, TeacherCourseModel course) {
+    // Mock simulation: check if there are pending gradings or COI review pending
+    final bool hasPendingCoiReview = course.pendingGradingCount > 0;
+
+    if (hasPendingCoiReview) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                color: Color(0xFFDC2626),
+                size: 24,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'ไม่สามารถปิดรายวิชาได้',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: Color(0xFFDC2626),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'รายวิชา ${course.code} (${course.name}) ยังมีภารกิจค้างอยู่ ไม่สามารถปิดรายวิชาได้ในขณะนี้:',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '• มีใบงานรอตรวจค้างอยู่: ${course.pendingGradingCount} รายการ',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFDC2626),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      '• มีสถานะคะแนนรออนุมัติ COI (coi_review_status = pending) ค้างอยู่',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFDC2626),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'กรุณาตรวจงานและอนุมัติคะแนนทั้งหมดให้เสร็จสิ้น ก่อนดำเนินการปิดรายวิชา',
+                style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: TeacherPalette.primary,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('รับทราบ'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Row(
+            children: [
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFEA580C),
+                size: 24,
+              ),
+              SizedBox(width: 10),
+              Text(
+                'ยืนยันการปิดรายวิชา',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+              ),
+            ],
+          ),
+          content: Text(
+            'เมื่อปิดรายวิชา ${course.code} แล้วจะไม่สามารถแก้ไขคะแนน แก้ไขใบงาน หรือเพิ่มนักเรียนย้อนหลังได้อีก คุณต้องการปิดวิชานี้ใช่หรือไม่?',
+            style: const TextStyle(fontSize: 13, color: TeacherPalette.muted),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('ปิดรายวิชา ${course.code} เรียบร้อยแล้ว'),
+                    backgroundColor: const Color(0xFF10B981),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('ยืนยันปิดรายวิชา'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+}
+
+/// Widget สำหรับจัดการกลุ่มนักเรียนในวิชา (Student Group Management)
+class _StudentGroupManagementWidget extends StatefulWidget {
+  const _StudentGroupManagementWidget();
+
+  @override
+  State<_StudentGroupManagementWidget> createState() =>
+      __StudentGroupManagementWidgetState();
+}
+
+class __StudentGroupManagementWidgetState
+    extends State<_StudentGroupManagementWidget> {
+  final List<Map<String, dynamic>> _groups = [
+    {
+      'id': 'g1',
+      'name': 'กลุ่ม 1: AIoT Smart Agriculture (ฟาร์มอัจฉริยะ)',
+      'members': [
+        'นายสมชาย เข็มกลัด (ม.5/2 เลขที่ 1)',
+        'นางสาวมณี รุ่งเรือง (ม.5/2 เลขที่ 2)',
+      ],
+    },
+    {
+      'id': 'g2',
+      'name': 'กลุ่ม 2: Weather Sensor Station (สถานีวัดอากาศ)',
+      'members': [
+        'นายปิติ สุขใจ (ม.5/2 เลขที่ 3)',
+        'นางสาววิภาดา เรียนดี (ม.5/2 เลขที่ 4)',
+      ],
+    },
+  ];
+
+  final List<String> _availableStudents = [
+    'นายกิตติศักดิ์ ขยันยิ่ง (ม.5/2 เลขที่ 5)',
+    'นางสาวชลดา สายธาร (ม.5/2 เลขที่ 6)',
+    'นายธนากร เกียรติศักดิ์ (ม.5/2 เลขที่ 7)',
+  ];
+
+  void _addGroup() {
+    setState(() {
+      _groups.add({
+        'id': 'g-${DateTime.now().millisecondsSinceEpoch}',
+        'name': 'กลุ่ม ${_groups.length + 1}: โครงงานใหม่',
+        'members': <String>[],
+      });
+    });
+  }
+
+  void _addStudentToGroup(String groupName, String studentName) {
+    // Rule Enforcement: Check if student already belongs to another group!
+    for (final g in _groups) {
+      final members = g['members'] as List<String>;
+      if (members.contains(studentName)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '⚠️ ไม่สามารถเพิ่ม $studentName ได้ เนื่องจากอยู่ใน "${g['name']}" อยู่แล้ว (กติกา: นักเรียน 1 คนอยู่ได้เพียง 1 กลุ่มต่อกิจกรรมเท่านั้น)',
+            ),
+            backgroundColor: const Color(0xFFEA580C),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      final targetGroup = _groups.firstWhere((g) => g['name'] == groupName);
+      (targetGroup['members'] as List<String>).add(studentName);
+      _availableStudents.remove(studentName);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('เพิ่ม $studentName เข้าสู่ $groupName เรียบร้อยแล้ว'),
+        backgroundColor: const Color(0xFF10B981),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: TeacherPalette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'จัดการกลุ่มนักเรียนสำหรับทำกิจกรรม',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'กติกา: นักเรียน 1 คนสังกัดได้เพียง 1 กลุ่มต่อกิจกรรมเท่านั้น',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                onPressed: _addGroup,
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('เพิ่มกลุ่มใหม่'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: TeacherPalette.primary,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Group List Loop
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _groups.length,
+            itemBuilder: (context, gIndex) {
+              final group = _groups[gIndex];
+              final members = group['members'] as List<String>;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.groups_rounded,
+                          color: TeacherPalette.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            group['name'] as String,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              color: TeacherPalette.ink,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${members.length} สมาชิก',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0284C7),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    if (members.isEmpty)
+                      const Text(
+                        'ยังไม่มีสมาชิกในกลุ่มนี้',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: TeacherPalette.muted,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      )
+                    else
+                      Column(
+                        children: members.map((m) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.person_rounded,
+                                  size: 14,
+                                  color: TeacherPalette.muted,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    m,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: TeacherPalette.ink,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      members.remove(m);
+                                      _availableStudents.add(m);
+                                    });
+                                  },
+                                  icon: const Icon(
+                                    Icons.remove_circle_outline_rounded,
+                                    color: Color(0xFFEF4444),
+                                    size: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    const SizedBox(height: 10),
+                    if (_availableStudents.isNotEmpty)
+                      PopupMenuButton<String>(
+                        onSelected: (st) =>
+                            _addStudentToGroup(group['name'] as String, st),
+                        itemBuilder: (ctx) => _availableStudents
+                            .map(
+                              (st) => PopupMenuItem(
+                                value: st,
+                                child: Text(
+                                  st,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.person_add_alt_1_rounded,
+                                size: 14,
+                                color: TeacherPalette.primary,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                '+ เพิ่มสมาชิกเข้ากลุ่ม',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: TeacherPalette.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

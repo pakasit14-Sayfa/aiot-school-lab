@@ -65,13 +65,15 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         'MQ-2 (Combustible Gas Sensor)',
       ],
       correctIndex: 1,
-      explanation: 'GP2Y1014AU0F เป็นเซนเซอร์วัดความหนาแน่นของฝุ่นละอองโดยใช้หลักการสะท้อนของแสงอินฟราเรด',
+      explanation:
+          'GP2Y1014AU0F เป็นเซนเซอร์วัดความหนาแน่นของฝุ่นละอองโดยใช้หลักการสะท้อนของแสงอินฟราเรด',
       score: 2,
       hasImage: true,
       imageName: 'sensor_circuit_diagram.png',
     ),
     _ExamQuestionMock(
-      questionText: 'พอร์ตใดย่อมาจากแบบสื่อสารบัสอนุกรม 2 สาย (SDA, SCL) ที่ใช้เชื่อมต่อหน้าจอ LCD?',
+      questionText:
+          'พอร์ตใดย่อมาจากแบบสื่อสารบัสอนุกรม 2 สาย (SDA, SCL) ที่ใช้เชื่อมต่อหน้าจอ LCD?',
       options: [
         'I2C (Inter-Integrated Circuit)',
         'SPI (Serial Peripheral Interface)',
@@ -79,11 +81,13 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         'PWM (Pulse Width Modulation)',
       ],
       correctIndex: 0,
-      explanation: 'I2C ใช้สายสัญญาณเพียง 2 เส้น คือ SDA (Serial Data) และ SCL (Serial Clock)',
+      explanation:
+          'I2C ใช้สายสัญญาณเพียง 2 เส้น คือ SDA (Serial Data) และ SCL (Serial Clock)',
       score: 2,
     ),
     _ExamQuestionMock(
-      questionText: 'ค่าความชื้นสัมพัทธ์ในอากาศที่แสดงบนบอร์ดเซนเซอร์มีหน่วยเป็นอะไร?',
+      questionText:
+          'ค่าความชื้นสัมพัทธ์ในอากาศที่แสดงบนบอร์ดเซนเซอร์มีหน่วยเป็นอะไร?',
       options: [
         'องศาเซลเซียส (°C)',
         'เปอร์เซ็นต์ (%RH)',
@@ -131,12 +135,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
       _questions.add(
         _ExamQuestionMock(
           questionText: 'โจทย์ข้อสอบข้อที่ ${_questions.length + 1}',
-          options: [
-            'ตัวเลือก ก',
-            'ตัวเลือก ข',
-            'ตัวเลือก ค',
-            'ตัวเลือก ง',
-          ],
+          options: ['ตัวเลือก ก', 'ตัวเลือก ข', 'ตัวเลือก ค', 'ตัวเลือก ง'],
           correctIndex: 0,
           explanation: 'ระบุคำอธิบายเฉลยคำตอบถูกต้องเพิ่มเติม...',
           score: 2,
@@ -149,7 +148,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     setState(() {
       _questions.add(
         _ExamQuestionMock(
-          questionText: '(ดึงจากคลัง) การต่อตัวต้านทาน pull-up กับขาบัส I2C มีวัตถุประสงค์เพื่ออะไร?',
+          questionText:
+              '(ดึงจากคลัง) การต่อตัวต้านทาน pull-up กับขาบัส I2C มีวัตถุประสงค์เพื่ออะไร?',
           options: [
             'รักษาลอจิกแรงดันในสภาวะปกติให้เป็น HIGH (5V/3.3V)',
             'เพิ่มกระแสไฟฟ้าให้กับเซนเซอร์',
@@ -157,7 +157,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
             'ป้องกันสัญญาณรบกวนคลื่นวิทยุ',
           ],
           correctIndex: 0,
-          explanation: 'บัส I2C เป็นแบบ open-drain จึงต้องใช้ตัวต้านทาน Pull-up ดึงแรงดันไว้ในสภาวะว่าง',
+          explanation:
+              'บัส I2C เป็นแบบ open-drain จึงต้องใช้ตัวต้านทาน Pull-up ดึงแรงดันไว้ในสภาวะว่าง',
           score: 2,
         ),
       );
@@ -229,7 +230,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('อัปโหลดรูปภาพ "${pickedFile.name}" จากเครื่องสำเร็จ!'),
+            content: Text(
+              'อัปโหลดรูปภาพ "${pickedFile.name}" จากเครื่องสำเร็จ!',
+            ),
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
           ),
@@ -251,7 +254,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
       );
       return;
     }
-    final statusText = isPublished ? 'เผยแพร่ข้อสอบสำเร็จ' : 'บันทึกร่างข้อสอบสำเร็จ';
+    final statusText = isPublished
+        ? 'เผยแพร่ข้อสอบสำเร็จ'
+        : 'บันทึกร่างข้อสอบสำเร็จ';
     showTeacherMockAction(context, '$statusText ($title)');
     Navigator.pop(context);
   }
@@ -343,7 +348,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         child: _KindChip(
                           label: 'ข้อสอบก่อนเรียน (Pre-test)',
                           selected: _selectedKind == _ExamKind.preTest,
-                          onTap: () => setState(() => _selectedKind = _ExamKind.preTest),
+                          onTap: () =>
+                              setState(() => _selectedKind = _ExamKind.preTest),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -351,7 +357,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         child: _KindChip(
                           label: 'ข้อสอบหลังเรียน (Post-test)',
                           selected: _selectedKind == _ExamKind.postTest,
-                          onTap: () => setState(() => _selectedKind = _ExamKind.postTest),
+                          onTap: () => setState(
+                            () => _selectedKind = _ExamKind.postTest,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -359,7 +367,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         child: _KindChip(
                           label: 'แบบทดสอบเก็บคะแนน',
                           selected: _selectedKind == _ExamKind.quiz,
-                          onTap: () => setState(() => _selectedKind = _ExamKind.quiz),
+                          onTap: () =>
+                              setState(() => _selectedKind = _ExamKind.quiz),
                         ),
                       ),
                     ],
@@ -395,11 +404,15 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: TeacherPalette.border),
+                        borderSide: const BorderSide(
+                          color: TeacherPalette.border,
+                        ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: TeacherPalette.border),
+                        borderSide: const BorderSide(
+                          color: TeacherPalette.border,
+                        ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -479,7 +492,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                           subtitle: 'สุ่มลำดับข้อ 1, 2, 3 สดๆ',
                           icon: Icons.shuffle_rounded,
                           selected: _shuffleQuestions,
-                          onTap: () => setState(() => _shuffleQuestions = !_shuffleQuestions),
+                          onTap: () => setState(
+                            () => _shuffleQuestions = !_shuffleQuestions,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -489,7 +504,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                           subtitle: 'สุ่มลำดับ ก, ข, ค, ง สดๆ',
                           icon: Icons.alt_route_rounded,
                           selected: _shuffleOptions,
-                          onTap: () => setState(() => _shuffleOptions = !_shuffleOptions),
+                          onTap: () => setState(
+                            () => _shuffleOptions = !_shuffleOptions,
+                          ),
                         ),
                       ),
                     ],
@@ -512,7 +529,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: TeacherPalette.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -553,11 +573,17 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _addNewQuestion,
-                    icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.add_circle_outline_rounded,
+                      size: 18,
+                    ),
                     label: const Text('+ เพิ่มข้อสอบใหม่'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: TeacherPalette.primary,
-                      side: const BorderSide(color: TeacherPalette.primary, width: 1.5),
+                      side: const BorderSide(
+                        color: TeacherPalette.primary,
+                        width: 1.5,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -577,7 +603,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                     label: const Text('ดึงโจทย์จากคลัง'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: TeacherPalette.primary,
-                      side: const BorderSide(color: TeacherPalette.primary, width: 1.5),
+                      side: const BorderSide(
+                        color: TeacherPalette.primary,
+                        width: 1.5,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -976,7 +1005,11 @@ class _QuestionBuilderCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.aspect_ratio_rounded, size: 12, color: TeacherPalette.muted),
+                const Icon(
+                  Icons.aspect_ratio_rounded,
+                  size: 12,
+                  color: TeacherPalette.muted,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   'แสดงตามสัดส่วนจริงของไฟล์อัปโหลด ($sizeText)',
@@ -1014,7 +1047,10 @@ class _QuestionBuilderCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: TeacherPalette.primary,
                   borderRadius: BorderRadius.circular(10),
@@ -1067,7 +1103,9 @@ class _QuestionBuilderCard extends StatelessWidget {
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline_rounded, size: 16),
                 tooltip: 'ลบข้อนี้',
-                style: IconButton.styleFrom(foregroundColor: TeacherPalette.red),
+                style: IconButton.styleFrom(
+                  foregroundColor: TeacherPalette.red,
+                ),
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.all(4),
               ),
@@ -1122,14 +1160,20 @@ class _QuestionBuilderCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: TeacherPalette.page,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: TeacherPalette.primary.withValues(alpha: 0.3)),
+                border: Border.all(
+                  color: TeacherPalette.primary.withValues(alpha: 0.3),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.image_rounded, size: 16, color: TeacherPalette.primary),
+                      const Icon(
+                        Icons.image_rounded,
+                        size: 16,
+                        color: TeacherPalette.primary,
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -1163,7 +1207,10 @@ class _QuestionBuilderCard extends StatelessWidget {
                           question.imagePath = null;
                           onChanged();
                         },
-                        icon: const Icon(Icons.delete_outline_rounded, size: 14),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 14,
+                        ),
                         label: const Text('ลบรูป'),
                         style: TextButton.styleFrom(
                           foregroundColor: TeacherPalette.red,
@@ -1187,7 +1234,10 @@ class _QuestionBuilderCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: TeacherPalette.primary,
                 side: const BorderSide(color: TeacherPalette.border),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1334,12 +1384,8 @@ class _QuestionBuilderCard extends StatelessWidget {
   }
 }
 
-
 class _QuestionPointsPill extends StatelessWidget {
-  const _QuestionPointsPill({
-    required this.score,
-    required this.onChanged,
-  });
+  const _QuestionPointsPill({required this.score, required this.onChanged});
 
   final int score;
   final ValueChanged<int> onChanged;
@@ -1355,9 +1401,16 @@ class _QuestionPointsPill extends StatelessWidget {
           value: 1,
           child: Row(
             children: [
-              Icon(Icons.star_outline_rounded, size: 16, color: TeacherPalette.green),
+              Icon(
+                Icons.star_outline_rounded,
+                size: 16,
+                color: TeacherPalette.green,
+              ),
               SizedBox(width: 8),
-              Text('1 คะแนน (มาตรฐาน)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              Text(
+                '1 คะแนน (มาตรฐาน)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -1365,9 +1418,16 @@ class _QuestionPointsPill extends StatelessWidget {
           value: 2,
           child: Row(
             children: [
-              Icon(Icons.star_half_rounded, size: 16, color: TeacherPalette.green),
+              Icon(
+                Icons.star_half_rounded,
+                size: 16,
+                color: TeacherPalette.green,
+              ),
               SizedBox(width: 8),
-              Text('2 คะแนน (ปานกลาง)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              Text(
+                '2 คะแนน (ปานกลาง)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -1377,7 +1437,10 @@ class _QuestionPointsPill extends StatelessWidget {
             children: [
               Icon(Icons.star_rounded, size: 16, color: TeacherPalette.green),
               SizedBox(width: 8),
-              Text('5 คะแนน (โจทย์ยาก/อัตนัย)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              Text(
+                '5 คะแนน (โจทย์ยาก/อัตนัย)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -1385,9 +1448,16 @@ class _QuestionPointsPill extends StatelessWidget {
           value: 10,
           child: Row(
             children: [
-              Icon(Icons.military_tech_rounded, size: 16, color: TeacherPalette.green),
+              Icon(
+                Icons.military_tech_rounded,
+                size: 16,
+                color: TeacherPalette.green,
+              ),
               SizedBox(width: 8),
-              Text('10 คะแนน (โจทย์ใหญ่)', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+              Text(
+                '10 คะแนน (โจทย์ใหญ่)',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -1397,12 +1467,18 @@ class _QuestionPointsPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: TeacherPalette.green.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: TeacherPalette.green.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: TeacherPalette.green.withValues(alpha: 0.3),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.stars_rounded, size: 14, color: TeacherPalette.green),
+            const Icon(
+              Icons.stars_rounded,
+              size: 14,
+              color: TeacherPalette.green,
+            ),
             const SizedBox(width: 4),
             Text(
               '$score คะแนน',
@@ -1413,7 +1489,11 @@ class _QuestionPointsPill extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.arrow_drop_down_rounded, size: 16, color: TeacherPalette.green),
+            const Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 16,
+              color: TeacherPalette.green,
+            ),
           ],
         ),
       ),

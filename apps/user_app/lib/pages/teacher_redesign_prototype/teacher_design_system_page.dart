@@ -8,7 +8,8 @@ class TeacherDesignSystemPage extends StatefulWidget {
   const TeacherDesignSystemPage({super.key});
 
   @override
-  State<TeacherDesignSystemPage> createState() => _TeacherDesignSystemPageState();
+  State<TeacherDesignSystemPage> createState() =>
+      _TeacherDesignSystemPageState();
 }
 
 class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
@@ -72,7 +73,8 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
             // 🔔 SECTION 3: ALERT & NOTIFICATION BANNERS
             _buildSectionHeader(
               title: '3. การ์ดและแบนเนอร์แจ้งเตือนระบบ (Alert & Banners)',
-              subtitle: 'การ์ดเตือนงานค้างตรวจ การ์ดแจ้งเตือนสำเร็จ การ์ดเตือนภัย',
+              subtitle:
+                  'การ์ดเตือนงานค้างตรวจ การ์ดแจ้งเตือนสำเร็จ การ์ดเตือนภัย',
               icon: Icons.notifications_active_rounded,
             ),
             const SizedBox(height: 12),
@@ -285,11 +287,17 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: TeacherPalette.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               // Secondary Outlined Button
@@ -300,11 +308,17 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: TeacherPalette.primary,
                   side: const BorderSide(color: TeacherPalette.primary),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
                 ),
               ),
               // Danger Button
@@ -315,11 +329,17 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: TeacherPalette.red,
                   side: const BorderSide(color: TeacherPalette.red),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
@@ -342,23 +362,43 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
               // LMS Point Pill
               PopupMenuButton<int>(
                 onSelected: (val) => setState(() => _selectedPointPill = val),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 itemBuilder: (context) => [
-                  const PopupMenuItem(value: 1, child: Text('1 คะแนน (มาตรฐาน)')),
-                  const PopupMenuItem(value: 2, child: Text('2 คะแนน (ปานกลาง)')),
-                  const PopupMenuItem(value: 5, child: Text('5 คะแนน (โจทย์ยาก)')),
+                  const PopupMenuItem(
+                    value: 1,
+                    child: Text('1 คะแนน (มาตรฐาน)'),
+                  ),
+                  const PopupMenuItem(
+                    value: 2,
+                    child: Text('2 คะแนน (ปานกลาง)'),
+                  ),
+                  const PopupMenuItem(
+                    value: 5,
+                    child: Text('5 คะแนน (โจทย์ยาก)'),
+                  ),
                 ],
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: TeacherPalette.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: TeacherPalette.green.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: TeacherPalette.green.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.stars_rounded, size: 14, color: TeacherPalette.green),
+                      const Icon(
+                        Icons.stars_rounded,
+                        size: 14,
+                        color: TeacherPalette.green,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '$_selectedPointPill คะแนน',
@@ -368,14 +408,21 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const Icon(Icons.arrow_drop_down_rounded, size: 16, color: TeacherPalette.green),
+                      const Icon(
+                        Icons.arrow_drop_down_rounded,
+                        size: 16,
+                        color: TeacherPalette.green,
+                      ),
                     ],
                   ),
                 ),
               ),
               // Success Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: TeacherPalette.green.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -391,7 +438,10 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
               ),
               // Urgent Pending Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: TeacherPalette.orange.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -407,7 +457,10 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
               ),
               // Draft Badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: TeacherPalette.skyDeep.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
@@ -437,7 +490,9 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
           decoration: BoxDecoration(
             color: TeacherPalette.orange.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: TeacherPalette.orange.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: TeacherPalette.orange.withValues(alpha: 0.3),
+            ),
           ),
           child: Row(
             children: [
@@ -447,7 +502,11 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   color: TeacherPalette.orange,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -480,11 +539,17 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: TeacherPalette.orange,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 11.5,
+                  ),
                 ),
                 child: const Text('ตรวจงาน ->'),
               ),
@@ -499,7 +564,9 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
           decoration: BoxDecoration(
             color: TeacherPalette.green.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: TeacherPalette.green.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: TeacherPalette.green.withValues(alpha: 0.3),
+            ),
           ),
           child: Row(
             children: [
@@ -509,7 +576,11 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   color: TeacherPalette.green,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -547,7 +618,9 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
           decoration: BoxDecoration(
             color: TeacherPalette.primary.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: TeacherPalette.primary.withValues(alpha: 0.2)),
+            border: Border.all(
+              color: TeacherPalette.primary.withValues(alpha: 0.2),
+            ),
           ),
           child: Row(
             children: [
@@ -557,7 +630,11 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   color: TeacherPalette.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.info_rounded, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.info_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 12),
               const Expanded(
@@ -616,7 +693,10 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: TeacherPalette.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -632,7 +712,10 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: TeacherPalette.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -677,7 +760,9 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                         value: 0.875,
                         minHeight: 6,
                         backgroundColor: TeacherPalette.page,
-                        valueColor: AlwaysStoppedAnimation(TeacherPalette.green),
+                        valueColor: AlwaysStoppedAnimation(
+                          TeacherPalette.green,
+                        ),
                       ),
                     ),
                   ),
@@ -689,11 +774,17 @@ class _TeacherDesignSystemPageState extends State<TeacherDesignSystemPage> {
                     style: FilledButton.styleFrom(
                       backgroundColor: TeacherPalette.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 11.5),
+                      textStyle: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11.5,
+                      ),
                     ),
                   ),
                 ],
