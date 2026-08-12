@@ -433,6 +433,12 @@ class _TeacherMobileDashboard extends StatelessWidget {
           SizedBox(height: 16),
           _TeacherHero(),
           SizedBox(height: 16),
+          // การ์ดน้ำ-ไฟ/เซนเซอร์ + AIoT Smart Wiring Lab อยู่ใต้แจ้งเตือนทันที
+          // เหนือตารางสอนวันนี้
+          _UtilityAndAiotSensorRow(),
+          SizedBox(height: 16),
+          _SmartWiringLabCard(),
+          SizedBox(height: 16),
           // Tier 2 — บริบทการสอนวันนี้ + ต้องติดตาม
           _ScheduleCard(),
           SizedBox(height: 16),
@@ -443,10 +449,6 @@ class _TeacherMobileDashboard extends StatelessWidget {
           _StudentsWatchCard(),
           SizedBox(height: 16),
           // Tier 3 — ข้อมูลอ้างอิง/สถิติ
-          _UtilityAndAiotSensorRow(),
-          SizedBox(height: 16),
-          _SmartWiringLabCard(),
-          SizedBox(height: 16),
           _TeacherSummaryStrip(),
           SizedBox(height: 16),
           _DashboardChartsRow(),
@@ -1035,6 +1037,12 @@ class _TeacherMainDashboardContent extends StatelessWidget {
         const _CameraSecuritySummaryCard(),
         const _TeacherHero(),
         const SizedBox(height: 18),
+        // การ์ดน้ำ-ไฟ/เซนเซอร์ + AIoT Smart Wiring Lab อยู่ใต้แจ้งเตือนทันที
+        // เหนือตารางสอนวันนี้
+        const _UtilityAndAiotSensorRow(),
+        const SizedBox(height: 18),
+        const _SmartWiringLabCard(),
+        const SizedBox(height: 18),
         // Tier 2 — บริบทการสอนวันนี้ (ต้องรู้ก่อนเริ่มคาบ)
         const _ScheduleCard(),
         const SizedBox(height: 20),
@@ -1049,10 +1057,6 @@ class _TeacherMainDashboardContent extends StatelessWidget {
           const SizedBox(height: 20),
         ],
         // Tier 3 — ข้อมูลอ้างอิง/สถิติ (ดูตอนไหนก็ได้ ไม่เร่งด่วน)
-        const _UtilityAndAiotSensorRow(),
-        const SizedBox(height: 18),
-        const _SmartWiringLabCard(),
-        const SizedBox(height: 18),
         const _TeacherSummaryStrip(),
         const SizedBox(height: 20),
         const _DashboardChartsRow(),
