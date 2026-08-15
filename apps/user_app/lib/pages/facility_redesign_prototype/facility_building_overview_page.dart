@@ -26,6 +26,12 @@ import 'facility_notifications_page.dart';
 import 'facility_security_events_page.dart';
 import 'facility_shared_widgets.dart';
 
+// 2026-08-15: ออกแบบหน้านี้ใหม่ให้ดูพรีเมียมขึ้น ตามแนวทางเดียวกับที่ทำไป
+// แล้วในหน้าควบคุมไฟ/น้ำ (STK-11) — ยืม DottedBorderContainer จากไฟล์นั้น
+// มาใช้กับแถบ "ทดสอบ State" ให้สไตล์เดียวกันทั้งแอป (แผงทดสอบ = กรอบเส้น
+// ประบางๆ แยกจาก UI จริงด้วยสายตา) ไม่ได้แตะ business logic/threshold
+// rules ใดๆ ในไฟล์นี้เลย แก้แค่ชั้น UI
+
 enum _OverviewDemoState { normal, loading, noData, noBuilding, staleTemporary }
 
 enum _MetricStatus { normal, watch, abnormal, noData }
@@ -685,11 +691,9 @@ class _FacilityBuildingOverviewContentState
             ),
           ),
         ),
-        _QuickLinkButton(
-          icon: Icons.bolt_rounded,
-          label: 'พลังงานอาคาร (STK-6)',
-          onTap: () => setState(() => _selectedTab = 1),
-        ),
+        // 2026-08-15: ตัดปุ่ม 'พลังงานอาคาร (STK-6)' ออก — ซ้ำกับแท็บ
+        // "⚡ พลังงานไฟฟ้า (STK-6)" ที่อยู่เหนือแถวปุ่มลัดนี้อยู่แล้ว
+        // (กดแท็บได้ตรงๆ ไม่ต้องมีปุ่มลัดมาสลับแท็บซ้ำอีกทาง)
         _QuickLinkButton(
           icon: Icons.history_rounded,
           label: 'ประวัติการสั่งงาน',
@@ -804,13 +808,7 @@ class _FacilityBuildingOverviewContentState
       (_OverviewDemoState.staleTemporary, 'อัปเดตไม่ได้ชั่วคราว'),
     ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
+    return DottedBorderContainer(
       child: Row(
         children: [
           const Icon(
@@ -1010,42 +1008,82 @@ class _FacilityBuildingOverviewContentState
     );
   }
 
+  /// 🌈 Hero greeting card — ไล่เฉดสีน้ำเงินเข้มของธีม (เหมือนหน้าควบคุม
+  /// ไฟ/น้ำ STK-11) แทนข้อความเรียบธรรมดา — ยังรับพารามิเตอร์ building
+  /// ตามเดิม เพื่อให้ demo state "ยังไม่ได้กำหนดอาคาร" ยังใช้งานได้ถูกต้อง
   Widget _buildUserGreetingHeader({
     required String userName,
     required String building,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'สวัสดี, $userName',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: FacilityTheme.inkIndigo,
-            letterSpacing: -0.4,
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FacilityTheme.primaryNavy, Color(0xFF2D6A85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: FacilityTheme.primaryNavy.withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
           ),
-        ),
-        const SizedBox(height: 2),
-        Row(
-          children: [
-            const Icon(
-              Icons.apartment_rounded,
-              size: 16,
-              color: FacilityTheme.softMauve,
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 6),
-            Text(
-              'อาคารที่รับผิดชอบ: $building',
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: FacilityTheme.softMauve,
-              ),
+            child: const Icon(
+              Icons.waving_hand_rounded,
+              color: Color(0xFFE8A519),
+              size: 26,
             ),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'สวัสดี, $userName',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.apartment_rounded,
+                      size: 14,
+                      color: Colors.white70,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'อาคารที่รับผิดชอบ: $building',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1214,44 +1252,55 @@ class _SummaryGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FacilityGlassCard(
-      padding: const EdgeInsets.all(16),
-      borderRadius: 18,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconBg,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 18, color: iconColor),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: FacilityTheme.softMauve,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: FacilityTheme.inkIndigo,
-              letterSpacing: -0.4,
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: iconColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
           ),
         ],
@@ -1519,7 +1568,7 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-/// ปุ่มลัดนำทาง — ลดน้ำหนักภาพ ไม่ใช้ GlassCard หนาเท่าการ์ดสถานะหลัก (ปรับตามข้อ 2)
+/// ปุ่มลัดนำทาง — พื้นขาวยกตัวเบาๆ + ไอคอนวงกลมสีม่วงธีม (แทนชิปสีเทาแบน)
 class _QuickLinkButton extends StatelessWidget {
   const _QuickLinkButton({
     required this.icon,
@@ -1536,19 +1585,33 @@ class _QuickLinkButton extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: FacilityTheme.softMauve),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: FacilityTheme.lightPurpleBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 14, color: FacilityTheme.primaryPurple),
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -1556,8 +1619,8 @@ class _QuickLinkButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: FacilityTheme.softMauve,
+                    fontWeight: FontWeight.w800,
+                    color: FacilityTheme.inkIndigo,
                   ),
                 ),
               ),
