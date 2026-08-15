@@ -1602,6 +1602,13 @@ class _QuickLinkButton extends StatelessWidget {
             ],
           ),
           child: Row(
+            // 2026-08-15: จุดที่แก้ตอนแรก (ตัด Flexible ออก) ไม่ใช่สาเหตุ
+            // จริง — ตัวการจริงคือ Row มี mainAxisSize เป็น .max โดย default
+            // เสมอ พอเป็นลูกของ Wrap (ที่ให้ max width เท่ากับพื้นที่ว่าง
+            // ทั้งแถว ไม่ใช่แค่พื้นที่ที่เนื้อหาต้องการ) Row เลยยืดเต็ม
+            // ความกว้างนั้นไปเลย ไม่ว่าจะมี Flexible อยู่ข้างในหรือไม่ก็ตาม
+            // — แก้จริงคือบังคับ .min ให้ Row หุบตามเนื้อหาเสมอ
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
@@ -1613,12 +1620,6 @@ class _QuickLinkButton extends StatelessWidget {
                 child: Icon(icon, size: 14, color: FacilityTheme.primaryPurple),
               ),
               const SizedBox(width: 8),
-              // 2026-08-15: เดิมห่อ Text ด้วย Flexible — Row ที่มี
-              // Flexible/Expanded อยู่ภายใต้ Wrap (ซึ่งให้ width ไม่จำกัด
-              // กับลูกของมัน) จะเสีย intrinsic-width sizing ไป ทำให้ปุ่มยืด
-              // เต็มความกว้างแถวแทนที่จะหุบตามเนื้อหาเหมือนชิปอื่นๆ ในหน้านี้
-              // (ป้ายข้อความเป็นสตริงคงที่สั้นๆ อยู่แล้ว ไม่มีความเสี่ยง
-              // overflow จริง จึงตัด Flexible/ellipsis ออกได้เลย)
               Text(
                 label,
                 style: const TextStyle(
