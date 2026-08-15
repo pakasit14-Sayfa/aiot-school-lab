@@ -12,6 +12,7 @@ import 'pages/teacher_redesign_prototype/teacher_design_system_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_storybook_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_courses_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
+import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
@@ -63,7 +64,7 @@ class MyApp extends StatelessWidget {
         '/prototype/teacher-storybook': (context) =>
             const TeacherStorybookPage(),
         '/prototype/facility-storybook': (context) =>
-            const FacilityStorybookPage(),
+            const FacilityUXShowcasePage(),
         '/prototype/facility-redesign': (context) =>
             const FacilityStorybookPage(),
         '/prototype/facility': (context) => const FacilityStorybookPage(),
@@ -125,8 +126,13 @@ class MyApp extends StatelessWidget {
             builder: (_) => const TeacherStorybookPage(),
           );
         }
-        if (uri.path == '/prototype/facility-storybook' ||
-            uri.path == '/prototype/facility-redesign' ||
+        if (uri.path == '/prototype/facility-storybook') {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const FacilityUXShowcasePage(),
+          );
+        }
+        if (uri.path == '/prototype/facility-redesign' ||
             uri.path == '/prototype/facility') {
           return MaterialPageRoute(
             settings: settings,
@@ -155,6 +161,9 @@ class MyApp extends StatelessWidget {
   Widget _buildPrototypeHome(Uri uri) {
     final path = uri.fragment.isNotEmpty ? uri.fragment : uri.path;
 
+    if (path.contains('facility-storybook')) {
+      return const FacilityUXShowcasePage();
+    }
     if (path.contains('facility')) {
       return const FacilityStorybookPage();
     }

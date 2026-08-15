@@ -72,204 +72,27 @@ class _FacilityStorybookPageState extends State<FacilityStorybookPage> {
           onNavigateToMaintenance: () => setState(() => _activeRouteIndex = 2),
           // 2026-08-15: 'แผนที่อาคาร' เป็นเมนูซ้ำกับ 'ภาพรวมอาคาร (สเปกใหม่)'
           // (ชี้ไปหน้าเดียวกัน) ถูกตัดออกจาก _navItems แล้ว ปุ่มลัดนี้เลย
-          // ต้องชี้ไปที่เมนูจริงที่เหลืออยู่แทน (index 4 หลังจัดลำดับใหม่)
-          onNavigateToMap: () => setState(() => _activeRouteIndex = 4),
+          // ต้องชี้ไปที่เมนูจริงที่เหลืออยู่แทน (index 3 หลังตัด Storybook
+          // ออกจาก nav ด้วย ทำให้ index เลื่อนขึ้นมาอีก 1)
+          onNavigateToMap: () => setState(() => _activeRouteIndex = 3),
         );
       case 1:
         return const FacilityLightWaterControlPage();
       case 2:
         return const FacilityIncidentInboxPage();
       // 2026-08-15: ตัดเมนูซ้ำ 3 อัน ('แผนที่อาคาร', 'งานซ่อมบำรุง',
-      // 'อุปกรณ์ AIoT') และเมนูไม่มี UC รองรับ 1 อัน ('เวรและการตรวจ') ออก
-      // จาก _navItems แล้ว (ทั้ง 3 อันแรกชี้ไปหน้าเดียวกับเมนูอื่นที่มีอยู่
-      // แล้วเป๊ะ ไม่จำเป็นต้องมี 2 ทางเข้าไปหน้าเดียวกัน) เหลือ index 3-6
-      // ตรงกับ Storybook/ภาพรวมอาคาร/STK-9/STK-10 ตามลำดับ
+      // 'อุปกรณ์ AIoT'), เมนูไม่มี UC รองรับ 1 อัน ('เวรและการตรวจ'), และ
+      // 'Storybook' (ไม่ใช่ฟีเจอร์จริง แยกไปเป็น FacilityUXShowcasePage
+      // เข้าถึงผ่าน URL /prototype/facility-storybook แทน) ออกจาก
+      // _navItems แล้ว เหลือ index 3-5 ตรงกับภาพรวมอาคาร/STK-9/STK-10
       case 3:
-        return _buildUXStatesShowcase();
-      case 4:
         return const FacilityBuildingOverviewContent();
-      case 5:
+      case 4:
         return const FacilityDeviceHealthPage();
-      case 6:
+      case 5:
         return const FacilitySecurityEventsPage();
       default:
         return const FacilityIncidentInboxPage();
     }
-  }
-
-  /// Showcase of 3-Tier Notifications & 6 Required UX States
-  Widget _buildUXStatesShowcase() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '🎨 Facility Design System Tokens & 6 UX States Gallery',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'ทดสอบและตรวจสอบการแสดงผลของ Notification Banners และ UX States ทั้งหมดในระบบ',
-            style: TextStyle(fontSize: 13, color: FacilityTheme.textMuted),
-          ),
-
-          const SizedBox(height: 20),
-
-          // 2026-08-15: STK-12 BR6 — สัญญาณเตือนพื้นที่ที่ผู้ดูแลอาคารเปิด
-          // เองปิดเองไม่ได้ ต้องรอครู/ผู้บริหารยืนยัน แต่โปรโตไทป์นี้มีแค่
-          // มุมมองผู้ดูแลอาคาร ไม่มีหน้าจอฝั่งครูจริง — ปุ่มนี้จำลองแค่การ
-          // กด "ยืนยันปิด" จากฝั่งครู เพื่อให้ทดสอบวงจรทั้งหมดได้ครบ
-          // (เปิด SOS → แบนเนอร์ค้าง → จำลองครูยืนยันปิด → แบนเนอร์หาย)
-          // ไม่ใช่ฟีเจอร์จริงของผู้ดูแลอาคาร จึงแยก section ต่างหากชัดเจน
-          const Text(
-            '0. จำลองฝั่งครู/ผู้บริหาร (Demo เท่านั้น — ไม่ใช่ฟีเจอร์ของผู้ดูแลอาคาร):',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: FacilityTheme.bgSlate,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: FacilityTheme.purpleBorder),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _activeAreaAlertLocation == null
-                        ? 'ไม่มีสัญญาณเตือนพื้นที่ค้างอยู่ตอนนี้'
-                        : 'มีสัญญาณเตือนค้างอยู่: $_activeAreaAlertLocation',
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: FacilityTheme.inkIndigo,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton(
-                  onPressed: _activeAreaAlertLocation == null
-                      ? null
-                      : () {
-                          setState(() => _activeAreaAlertLocation = null);
-                          FacilityUXStates.showSuccessToast(
-                            context,
-                            'ครู/ผู้บริหารยืนยันปิดสัญญาณแล้ว (จำลอง)',
-                          );
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: FacilityTheme.safeGreen,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                  ),
-                  child: const Text('จำลองครูยืนยันปิด'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // 1. 3-Tier Notification Banners
-          const Text(
-            '1. ระบบแจ้งเตือน 3 ระดับ (3-Tier Notifications):',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          FacilityNotificationBanner(
-            tier: FacilityNotificationTier.critical,
-            title: 'Critical Alert: สัญญาณ SOS แจ้งเหตุฉุกเฉิน!',
-            message: 'พบการกดปุ่ม SOS จากห้อง 302 อาคาร 3',
-            actionLabel: 'รับเรื่องทันที',
-            onActionPressed: () {},
-          ),
-          FacilityNotificationBanner(
-            tier: FacilityNotificationTier.warning,
-            title: 'Warning Alert: กล้อง C-12 สถานะ Offline',
-            message: 'กล้องบริเวณทางเดินชั้น 2 ขาดการติดต่อ 12 นาที',
-            actionLabel: 'ตรวจสอบ',
-            onActionPressed: () {},
-          ),
-          FacilityNotificationBanner(
-            tier: FacilityNotificationTier.info,
-            title: 'Info Alert: ประกาศแจ้งเวรประจำวัน',
-            message: 'ตารางเวรตรวจรอบบ่ายวันนี้เป็นของ ครูสมชาย',
-            actionLabel: 'ดูตารางเวร',
-            onActionPressed: () {},
-          ),
-
-          const SizedBox(height: 24),
-
-          // 2. 6 Required UX States Showcase
-          const Text(
-            '2. ตัวอย่าง 6 UX States (Skeleton, Empty, Error, Offline, Permission, Success):',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-
-          const Text(
-            '• Loading Skeleton:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          FacilityUXStates.buildSkeleton(height: 100),
-
-          const SizedBox(height: 14),
-
-          const Text(
-            '• Empty State:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          FacilityUXStates.buildEmptyState(
-            title: 'ยังไม่มีงานซ่อมค้างในระบบ',
-            message: 'ทุกรายการซ่อมได้รับการแก้ไขเรียบร้อยแล้ว',
-          ),
-
-          const SizedBox(height: 14),
-
-          const Text(
-            '• Error State:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          FacilityUXStates.buildErrorState(
-            errorMessage: 'ไม่สามารถเชื่อมต่อเซิฟเวอร์ Realtime ได้',
-            onRetry: () {},
-          ),
-
-          const SizedBox(height: 14),
-
-          const Text(
-            '• Offline Sync Pending State:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          FacilityUXStates.buildOfflineSyncBanner(
-            pendingCount: 3,
-            lastSyncedTime: '15:20 น.',
-            onSyncNow: () {},
-          ),
-
-          const SizedBox(height: 14),
-
-          const Text(
-            '• Permission Denied State:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          FacilityUXStates.buildPermissionDenied(
-            requiredRoleTitle: 'สิทธิ์อนุมัติข้ามของหัวหน้าอาคาร',
-            message:
-                'ต้องได้รับการยืนยันรหัสผ่านหรือสิทธิ์จากหัวหน้าอาคารในการปิดจุดเสี่ยง',
-          ),
-        ],
-      ),
-    );
   }
 }
