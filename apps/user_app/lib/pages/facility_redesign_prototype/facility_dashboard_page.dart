@@ -186,8 +186,164 @@ class _FacilityDashboardPageState extends State<FacilityDashboardPage> {
     );
   }
 
-  /// 🟢 Integrated Command Header Card
+  /// 🟢 Integrated Command Header — แบ่งเป็น 2 การ์ด (2026-08-15):
+  /// hero gradient card (ทักทาย) + white card (รอบตรวจ/สุขภาพ AIoT) แทน
+  /// การ์ดขาวก้อนเดียวเดิม ให้สไตล์ทักทายตรงกับหน้าควบคุมไฟ/น้ำ (STK-11)
+  /// และหน้าภาพรวมอาคาร (STK-6/7) ที่ทำไปก่อนหน้านี้ — ไม่แตะโครงสร้าง/
+  /// LayoutBuilder breakpoint ภายในแต่ละส่วนเลย (มีบั๊กมือถือที่เคยแก้ไว้
+  /// เยอะมาก) แค่ย้ายให้อยู่คนละการ์ด
   Widget _buildUnifiedHeaderBanner() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildGreetingHeroCard(),
+        const SizedBox(height: 14),
+        _buildDutyAndHealthCard(),
+      ],
+    );
+  }
+
+  /// 🌈 Hero การ์ดทักทาย — ไล่เฉดสีน้ำเงินเข้มของธีม (แบบเดียวกับ STK-11 /
+  /// ภาพรวมอาคาร) แทนกล่องข้อความสีขาวเดิม
+  Widget _buildGreetingHeroCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FacilityTheme.primaryNavy, Color(0xFF2D6A85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: FacilityTheme.primaryNavy.withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: _buildGreetingRow(),
+    );
+  }
+
+  /// Welcome & Building Selector — LayoutBuilder เพื่อสลับเป็น Column ตอน
+  /// จอแคบ (มือถือ) เดิมยัด Expanded(ข้อความทักทาย) + Dropdown pill +
+  /// Status badge ไว้ใน Row เดียวกันตายตัว พอจอแคบ 2 pill ที่ไม่ยอมย่อขนาด
+  /// บีบพื้นที่ Expanded จนเหลือเกือบ 0 ทำให้ตัวอักษรตกบรรทัดทีละตัวใน
+  /// แนวตั้ง (บั๊กจริงที่เจอ) — สีข้อความ/pill ปรับให้อ่านออกบนพื้นไล่เฉด
+  /// น้ำเงินเข้มแล้ว (2026-08-15 ย้ายมาอยู่ hero card แยกจากการ์ดขาว)
+  Widget _buildGreetingRow() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final greeting = const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'สวัสดี, ครูสมชาย! 👋',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.5,
+              ),
+            ),
+            SizedBox(height: 2),
+            Text(
+              'ระบบบริหารจัดการความปลอดภัยและสิ่งแวดล้อมอาคาร',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white70,
+              ),
+            ),
+          ],
+        );
+
+        // 2026-08-15: เปลี่ยนจาก dropdown สลับอาคารเป็น pill แสดงอาคารที่
+        // รับผิดชอบเฉยๆ (ดูเหตุผลที่ state ด้านบน) — ไม่มีทางกดเปลี่ยน
+        // อาคารจากตรงนี้แล้ว
+        final buildingDropdownPill = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.apartment_rounded, size: 14, color: Color(0xFFE8A519)),
+              SizedBox(width: 6),
+              Text(
+                _assignedBuilding,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        final statusBadge = Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.door_sliding_rounded,
+                color: Color(0xFF6EE7B7),
+                size: 16,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'เปิดอาคารอยู่',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        if (constraints.maxWidth < 560) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              greeting,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 8,
+                children: [buildingDropdownPill, statusBadge],
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(child: greeting),
+            const SizedBox(width: 12),
+            buildingDropdownPill,
+            const SizedBox(width: 10),
+            statusBadge,
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDutyAndHealthCard() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -205,135 +361,6 @@ class _FacilityDashboardPageState extends State<FacilityDashboardPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 👤 Header Top Row: Welcome & Building Selector — LayoutBuilder
-          // เพื่อสลับเป็น Column ตอนจอแคบ (มือถือ) เดิมยัด Expanded(ข้อความ
-          // ทักทาย) + Dropdown pill + Status badge ไว้ใน Row เดียวกันตายตัว
-          // พอจอแคบ 2 pill ที่ไม่ยอมย่อขนาดบีบพื้นที่ Expanded จนเหลือเกือบ
-          // 0 ทำให้ตัวอักษรตกบรรทัดทีละตัวในแนวตั้ง (บั๊กจริงที่เจอ)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final greeting = const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'สวัสดี, ครูสมชาย! 👋',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: FacilityTheme.inkIndigo,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'ระบบบริหารจัดการความปลอดภัยและสิ่งแวดล้อมอาคาร',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: FacilityTheme.softMauve,
-                    ),
-                  ),
-                ],
-              );
-
-              // 2026-08-15: เปลี่ยนจาก dropdown สลับอาคารเป็น pill แสดง
-              // อาคารที่รับผิดชอบเฉยๆ (ดูเหตุผลที่ state ด้านบน) — ไม่มี
-              // ทางกดเปลี่ยนอาคารจากตรงนี้แล้ว
-              final buildingDropdownPill = Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: FacilityTheme.lightPurpleBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: FacilityTheme.purpleBorder),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.apartment_rounded,
-                      size: 14,
-                      color: FacilityTheme.primaryPurple,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      _assignedBuilding,
-                      style: TextStyle(
-                        color: FacilityTheme.primaryPurple,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-
-              final statusBadge = Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFA7F3D0)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.door_sliding_rounded,
-                      color: FacilityTheme.safeGreen,
-                      size: 16,
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      'เปิดอาคารอยู่',
-                      style: TextStyle(
-                        color: FacilityTheme.safeGreen,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-
-              if (constraints.maxWidth < 560) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    greeting,
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 8,
-                      children: [buildingDropdownPill, statusBadge],
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(child: greeting),
-                  const SizedBox(width: 12),
-                  buildingDropdownPill,
-                  const SizedBox(width: 10),
-                  statusBadge,
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-          const Divider(color: Color(0xFFF1F5F9), height: 1),
-          const SizedBox(height: 14),
-
           // ⏱️ Duty Timer & Log Navigation Row
           Row(
             children: [
