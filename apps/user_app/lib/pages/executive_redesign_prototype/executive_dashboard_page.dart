@@ -20,6 +20,7 @@
 // implement เป็น demo-state switcher แบบที่ทำไว้ในฝั่งผู้ดูแลอาคาร (รอ
 // feedback ก่อนว่าต้องการระดับความสมจริงแค่ไหนสำหรับ role นี้)
 import 'package:flutter/material.dart';
+import 'executive_escalation_inbox_page.dart';
 import 'executive_shared_widgets.dart';
 
 class ExecutiveDashboardPage extends StatefulWidget {
@@ -291,10 +292,70 @@ class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
             ),
           );
 
+          // 2026-08-15: ยังไม่มี shell/แถบเมนูสำหรับ role นี้ (มีแค่ 2
+          // หน้า) เลยใช้กระดิ่งแจ้งเตือนตรงนี้เป็นทางเข้าไปหน้า "ศูนย์
+          // แจ้งเตือน/เคสที่ต้องตัดสินใจ" ไปก่อน — ตัวเลข badge (2) เป็น
+          // mock คงที่ ยังไม่ได้คำนวณจากจำนวนเคสค้างจริง
+          final notificationBell = Material(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                if (ModalRoute.of(context)?.isCurrent ?? true) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ExecutiveEscalationInboxPage(),
+                    ),
+                  );
+                }
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(11),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Icon(
+                      Icons.notifications_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                    Positioned(
+                      right: -4,
+                      top: -4,
+                      child: CircleAvatar(
+                        radius: 7,
+                        backgroundColor: ExecutiveTheme.emergencyRed,
+                        child: Text(
+                          '2',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+
           if (constraints.maxWidth < 520) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [greeting, const SizedBox(height: 14), exportButton],
+              children: [
+                greeting,
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    notificationBell,
+                    const SizedBox(width: 10),
+                    Expanded(child: exportButton),
+                  ],
+                ),
+              ],
             );
           }
 
@@ -302,6 +363,8 @@ class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
             children: [
               Expanded(child: greeting),
               const SizedBox(width: 12),
+              notificationBell,
+              const SizedBox(width: 10),
               exportButton,
             ],
           );

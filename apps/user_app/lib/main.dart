@@ -14,6 +14,7 @@ import 'pages/teacher_redesign_prototype/teacher_courses_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
 import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
 import 'pages/executive_redesign_prototype/executive_dashboard_page.dart';
+import 'pages/executive_redesign_prototype/executive_escalation_inbox_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
@@ -70,6 +71,8 @@ class MyApp extends StatelessWidget {
             const FacilityStorybookPage(),
         '/prototype/facility': (context) => const FacilityStorybookPage(),
         '/prototype/executive': (context) => const ExecutiveDashboardPage(),
+        '/prototype/executive-inbox': (context) =>
+            const ExecutiveEscalationInboxPage(),
         '/prototype/storybook': (context) => const TeacherStorybookPage(),
         '/prototype/teacher-courses': (context) => const TeacherCoursesPage(),
         '/prototype/course-detail': (context) =>
@@ -147,6 +150,12 @@ class MyApp extends StatelessWidget {
             builder: (_) => const ExecutiveDashboardPage(),
           );
         }
+        if (uri.path == '/prototype/executive-inbox') {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const ExecutiveEscalationInboxPage(),
+          );
+        }
         if (uri.path == '/prototype/teacher-courses' ||
             uri.path == '/prototype/courses') {
           return MaterialPageRoute(
@@ -174,6 +183,9 @@ class MyApp extends StatelessWidget {
     }
     if (path.contains('facility')) {
       return const FacilityStorybookPage();
+    }
+    if (path.contains('executive-inbox')) {
+      return const ExecutiveEscalationInboxPage();
     }
     if (path.contains('executive')) {
       return const ExecutiveDashboardPage();
