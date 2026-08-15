@@ -11,6 +11,7 @@ import 'pages/teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_design_system_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_storybook_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_courses_page.dart';
+import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
@@ -61,6 +62,11 @@ class MyApp extends StatelessWidget {
             const TeacherDesignSystemPage(),
         '/prototype/teacher-storybook': (context) =>
             const TeacherStorybookPage(),
+        '/prototype/facility-storybook': (context) =>
+            const FacilityStorybookPage(),
+        '/prototype/facility-redesign': (context) =>
+            const FacilityStorybookPage(),
+        '/prototype/facility': (context) => const FacilityStorybookPage(),
         '/prototype/storybook': (context) => const TeacherStorybookPage(),
         '/prototype/teacher-courses': (context) => const TeacherCoursesPage(),
         '/prototype/course-detail': (context) =>
@@ -119,6 +125,14 @@ class MyApp extends StatelessWidget {
             builder: (_) => const TeacherStorybookPage(),
           );
         }
+        if (uri.path == '/prototype/facility-storybook' ||
+            uri.path == '/prototype/facility-redesign' ||
+            uri.path == '/prototype/facility') {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (_) => const FacilityStorybookPage(),
+          );
+        }
         if (uri.path == '/prototype/teacher-courses' ||
             uri.path == '/prototype/courses') {
           return MaterialPageRoute(
@@ -141,6 +155,9 @@ class MyApp extends StatelessWidget {
   Widget _buildPrototypeHome(Uri uri) {
     final path = uri.fragment.isNotEmpty ? uri.fragment : uri.path;
 
+    if (path.contains('facility')) {
+      return const FacilityStorybookPage();
+    }
     if (path.contains('teacher-dashboard')) {
       return const TeacherDashboard();
     }

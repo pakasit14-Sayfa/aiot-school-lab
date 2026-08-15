@@ -589,13 +589,13 @@ class _FacilityAppShellState extends State<FacilityAppShell> {
       'title': 'เหตุอุปกรณ์/อาคาร (STK-12)',
       'icon': Icons.report_problem_rounded,
     },
-    {'title': 'แผนที่อาคาร', 'icon': Icons.map_rounded},
-    {'title': 'งานซ่อมบำรุง', 'icon': Icons.build_rounded},
-    {'title': 'อุปกรณ์ AIoT', 'icon': Icons.sensors_rounded},
-    // 2026-08-15: ตัด 'เวรและการตรวจ' ทิ้ง — ไล่หา UC รองรับใน STK-6..12
-    // แล้วไม่เจอตัวไหนพูดถึงตารางเวร/รอบตรวจของผู้ดูแลอาคารเลย (แจ้งผู้ใช้
-    // แล้ว ผู้ใช้ยืนยันให้ตัดทิ้ง) ทำให้ index ตั้งแต่ 'Storybook' เป็นต้น
-    // ไปเลื่อนขึ้นมา 1 ตำแหน่ง — อัปเดต switch ใน
+    // 2026-08-15: ตัด 'เวรและการตรวจ' ทิ้ง — ไม่มี UC รองรับใน STK-6..12
+    // (ผู้ใช้ยืนยันให้ตัด) — และตัด 'แผนที่อาคาร'/'งานซ่อมบำรุง'/'อุปกรณ์
+    // AIoT' ออกด้วย เพราะพบว่าทั้ง 3 ชื่อนี้ชี้ไปหน้าเดียวกันกับเมนูอื่นที่
+    // มีอยู่แล้วเป๊ะ (ภาพรวมอาคาร/เหตุอุปกรณ์ STK-12/สุขภาพอุปกรณ์ STK-9
+    // ตามลำดับ) — กดชื่อไหนก็เจอเนื้อหาเดียวกัน สร้างความสับสนโดยไม่จำเป็น
+    // เหลือเมนูเดียวต่อ 1 หน้าจริง ทำให้ index ตั้งแต่ 'Storybook' เป็นต้น
+    // ไปเลื่อนขึ้นมา 4 ตำแหน่งจากชุดเดิม — อัปเดต switch ใน
     // FacilityStorybookPage._buildActivePage() ให้ตรงกันแล้ว
     {'title': ' Storybook', 'icon': Icons.auto_awesome_rounded},
     // เพิ่มท้ายลิสต์เสมอ ห้ามแทรกกลาง — index ของแต่ละแถวถูก hardcode ใช้
@@ -979,7 +979,7 @@ class _FacilityAppShellState extends State<FacilityAppShell> {
           IconButton(
             onPressed: () => _showMoreMenu(context),
             icon: Icon(
-              // ปุ่ม "เพิ่มเติม" — เข้าถึงเมนูที่เหลือทั้งหมด (index 3-9)
+              // ปุ่ม "เพิ่มเติม" — เข้าถึงเมนูที่เหลือทั้งหมด (index 3-6)
               // รวม STK-6(ใหม่)/STK-9/STK-10 ที่ก่อนหน้านี้เข้าจากมือถือ
               // ไม่ได้เลยเพราะ bottom nav มีแค่ 4 ปุ่มคงที่ index 0/1/2/7
               Icons.more_horiz_rounded,

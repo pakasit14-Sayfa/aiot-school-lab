@@ -70,39 +70,27 @@ class _FacilityStorybookPageState extends State<FacilityStorybookPage> {
           onNavigateToWizard: () => setState(() => _activeRouteIndex = 1),
           onNavigateToIncidents: () => setState(() => _activeRouteIndex = 2),
           onNavigateToMaintenance: () => setState(() => _activeRouteIndex = 2),
-          // 2026-08-15: เดิมชี้ไป index 2 (incident inbox) เหมือน
-          // maintenance เพราะตอนนั้น index 3 ('แผนที่อาคาร') ยังไม่มี
-          // เนื้อหาจริง (ตกไป default) — ตอนนี้มีแล้ว ชี้ให้ตรงเมนูเดียวกัน
-          onNavigateToMap: () => setState(() => _activeRouteIndex = 3),
+          // 2026-08-15: 'แผนที่อาคาร' เป็นเมนูซ้ำกับ 'ภาพรวมอาคาร (สเปกใหม่)'
+          // (ชี้ไปหน้าเดียวกัน) ถูกตัดออกจาก _navItems แล้ว ปุ่มลัดนี้เลย
+          // ต้องชี้ไปที่เมนูจริงที่เหลืออยู่แทน (index 4 หลังจัดลำดับใหม่)
+          onNavigateToMap: () => setState(() => _activeRouteIndex = 4),
         );
       case 1:
         return const FacilityLightWaterControlPage();
       case 2:
         return const FacilityIncidentInboxPage();
-      // 2026-08-15: case 3/4/5 เดิมไม่มีเลย ตกไป default (แสดง incident
-      // inbox) ทั้งที่ sidebar ไฮไลต์เมนูอื่น (แผนที่อาคาร/งานซ่อมบำรุง/
-      // อุปกรณ์ AIoT) ทำให้เมนูกับเนื้อหาไม่ตรงกัน — ไม่มี UC แยกสำหรับ
-      // "แผนที่อาคาร" แบบ 3D จริง จึงชี้ไปหน้าภาพรวมอาคารที่มีข้อมูลระดับ
-      // อาคารตรงตาม STK-6/7 อยู่แล้วแทน ส่วน "งานซ่อมบำรุง" กับ "อุปกรณ์
-      // AIoT" คือ flow เดียวกับ STK-12/STK-9 ที่มีอยู่แล้วพอดี (ชี้ไปหน้า
-      // เดียวกัน ไม่ได้สร้างซ้ำ)
+      // 2026-08-15: ตัดเมนูซ้ำ 3 อัน ('แผนที่อาคาร', 'งานซ่อมบำรุง',
+      // 'อุปกรณ์ AIoT') และเมนูไม่มี UC รองรับ 1 อัน ('เวรและการตรวจ') ออก
+      // จาก _navItems แล้ว (ทั้ง 3 อันแรกชี้ไปหน้าเดียวกับเมนูอื่นที่มีอยู่
+      // แล้วเป๊ะ ไม่จำเป็นต้องมี 2 ทางเข้าไปหน้าเดียวกัน) เหลือ index 3-6
+      // ตรงกับ Storybook/ภาพรวมอาคาร/STK-9/STK-10 ตามลำดับ
       case 3:
-        return const FacilityBuildingOverviewContent();
+        return _buildUXStatesShowcase();
       case 4:
-        return const FacilityIncidentInboxPage();
+        return const FacilityBuildingOverviewContent();
       case 5:
         return const FacilityDeviceHealthPage();
-      // 2026-08-15: เดิม index 6 คือ 'เวรและการตรวจ' (ไม่มี UC รองรับ ตกไป
-      // default) — ตัดเมนูนั้นออกจาก _navItems แล้วตามที่ผู้ใช้ยืนยัน ทำให้
-      // Storybook/ภาพรวมอาคาร/STK-9/STK-10 เลื่อนขึ้นมาคนละ 1 (เดิม 7-10
-      // ตอนนี้เป็น 6-9)
       case 6:
-        return _buildUXStatesShowcase();
-      case 7:
-        return const FacilityBuildingOverviewContent();
-      case 8:
-        return const FacilityDeviceHealthPage();
-      case 9:
         return const FacilitySecurityEventsPage();
       default:
         return const FacilityIncidentInboxPage();
