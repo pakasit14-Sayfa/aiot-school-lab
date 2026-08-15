@@ -615,35 +615,16 @@ class _FacilityBuildingOverviewContentState
   }
 
   /// ปุ่มลัดนำทาง — ลดน้ำหนักภาพลง ไม่ใช้ GlassCard หนาเท่าการ์ดสถานะหลัก (ปรับตามข้อ 2)
+  ///
+  /// 2026-08-15: ตัดปุ่ม "ควบคุมไฟและน้ำ (STK-11)" ออก — ผู้ใช้ทักว่าซ้ำกับ
+  /// เมนู "เปิด-ปิดไฟ/น้ำ (STK-11)" ในแถบข้าง (จอกว้าง) และซ้ำกับปุ่มคงที่
+  /// อันที่ 2 ใน bottom nav (มือถือ) ด้วย ไม่มีข้อยกเว้นแบบ STK-9/STK-10 ที่
+  /// มือถือยังต้องกด "เพิ่มเติม" อ้อมไปหา — เหลือ STK-9/STK-10/ประวัติ
   Widget _buildQuickLinksRow(BuildContext context) {
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
-        _QuickLinkButton(
-          icon: Icons.toggle_on_rounded,
-          label: 'ควบคุมไฟและน้ำ (STK-11)',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              // FacilityLightWaterControlPage เป็น content-only แล้ว (ใช้
-              // เป็น nav item index 1 ด้วย) — ตอน push แบบหน้าเดี่ยวต้องห่อ
-              // Scaffold+AppBar เอง เหมือน STK-9/STK-10
-              builder: (_) => Scaffold(
-                backgroundColor: FacilityTheme.bgSlate,
-                appBar: AppBar(
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  foregroundColor: FacilityTheme.inkIndigo,
-                  title: const Text(
-                    'ควบคุมไฟและน้ำ (STK-11)',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-                  ),
-                ),
-                body: const SafeArea(child: FacilityLightWaterControlPage()),
-              ),
-            ),
-          ),
-        ),
         _QuickLinkButton(
           icon: Icons.health_and_safety_rounded,
           label: 'สุขภาพอุปกรณ์ (STK-9)',
