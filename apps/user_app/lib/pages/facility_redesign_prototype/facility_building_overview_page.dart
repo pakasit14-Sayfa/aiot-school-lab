@@ -1613,15 +1613,18 @@ class _QuickLinkButton extends StatelessWidget {
                 child: Icon(icon, size: 14, color: FacilityTheme.primaryPurple),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: FacilityTheme.inkIndigo,
-                  ),
+              // 2026-08-15: เดิมห่อ Text ด้วย Flexible — Row ที่มี
+              // Flexible/Expanded อยู่ภายใต้ Wrap (ซึ่งให้ width ไม่จำกัด
+              // กับลูกของมัน) จะเสีย intrinsic-width sizing ไป ทำให้ปุ่มยืด
+              // เต็มความกว้างแถวแทนที่จะหุบตามเนื้อหาเหมือนชิปอื่นๆ ในหน้านี้
+              // (ป้ายข้อความเป็นสตริงคงที่สั้นๆ อยู่แล้ว ไม่มีความเสี่ยง
+              // overflow จริง จึงตัด Flexible/ellipsis ออกได้เลย)
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: FacilityTheme.inkIndigo,
                 ),
               ),
             ],
