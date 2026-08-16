@@ -120,7 +120,10 @@ class _ScoreSummaryRow extends StatelessWidget {
 
     final gscoreCard = _SummaryHeroCard(
       title: 'G-Score (พฤติกรรม)',
-      subtitle: 'วัดจากวินัย การมีส่วนร่วม และความรับผิดชอบ',
+      subtitle: profile.gscorePendingValue > 0
+          ? 'วัดจากวินัย การมีส่วนร่วม และความรับผิดชอบ · '
+                'รอครูยืนยันอีก ${profile.gscorePendingValue} คะแนน'
+          : 'วัดจากวินัย การมีส่วนร่วม และความรับผิดชอบ',
       value: '${profile.gscoreValue}',
       valueSuffix: '/ ${profile.gscoreMax}',
       percent: profile.gscorePercent,

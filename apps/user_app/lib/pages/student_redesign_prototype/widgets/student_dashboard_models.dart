@@ -11,6 +11,7 @@ class StudentProfileState {
     required this.schoolName,
     required this.gscoreValue,
     required this.gscoreMax,
+    this.gscorePendingValue = 0,
     required this.gradeLabel,
     required this.gpa,
     required this.gpaLabel,
@@ -25,6 +26,9 @@ class StudentProfileState {
   final String schoolName;
   final int gscoreValue;
   final int gscoreMax;
+  // LRN-11/LRN-12: คะแนนที่ระบบสะสมไว้แต่ครูยังไม่ยืนยัน — ไม่นับรวมใน
+  // gscoreValue จนกว่าจะยืนยัน (นักเรียนเห็นได้แค่ว่ามีรออยู่เท่าไหร่)
+  final int gscorePendingValue;
   final String gradeLabel;
   final double gpa;
   final String gpaLabel;
@@ -44,6 +48,7 @@ class StudentProfileState {
     schoolName: 'โรงเรียนสาธิต AIoT',
     gscoreValue: 92,
     gscoreMax: 100,
+    gscorePendingValue: 8,
     gradeLabel: 'GRADE A+ 🌟',
     gpa: 3.85,
     gpaLabel: 'เกียรตินิยม',

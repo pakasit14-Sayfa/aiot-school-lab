@@ -916,7 +916,10 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'ส่งใบงานเรียบร้อยแล้ว! รับ ${widget.gscorePoints} G-Score',
+                          // LRN-11: ยังไม่ได้คะแนนจริง แค่เข้าคิวรอครูยืนยัน
+                          // (LRN-12) — ห้ามบอกว่า "รับ" ไปแล้วทันที
+                          'ส่งใบงานเรียบร้อยแล้ว! ได้ ${widget.gscorePoints} '
+                          'G-Score เข้าคิวรอครูยืนยัน',
                         ),
                         behavior: SnackBarBehavior.floating,
                       ),

@@ -2120,6 +2120,9 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
     final bool hasPendingCoiReview = course.pendingGradingCount > 0;
 
     if (hasPendingCoiReview) {
+      // CLS-8 Exception Flow: มีงานที่ยังไม่ตรวจ/คะแนนยังไม่ยืนยัน → เตือนก่อนปิด
+      // ให้ครูเลือกได้ว่าจะ "ดำเนินการต่อ" (กลับไปตรวจงานก่อน) หรือ
+      // "ปิดโดยรับทราบความเสี่ยง" — ไม่ใช่การบล็อกเด็ดขาดแบบเดิม
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -2135,7 +2138,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
               ),
               SizedBox(width: 10),
               Text(
-                'ไม่สามารถปิดรายวิชาได้',
+                'รายวิชานี้ยังมีภารกิจค้างอยู่',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 16,
@@ -2149,7 +2152,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'รายวิชา ${course.code} (${course.name}) ยังมีภารกิจค้างอยู่ ไม่สามารถปิดรายวิชาได้ในขณะนี้:',
+                'รายวิชา ${course.code} (${course.name}) ยังมีภารกิจค้างอยู่:',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -2188,19 +2191,28 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
               ),
               const SizedBox(height: 14),
               const Text(
-                'กรุณาตรวจงานและอนุมัติคะแนนทั้งหมดให้เสร็จสิ้น ก่อนดำเนินการปิดรายวิชา',
+                'แนะนำให้ตรวจงานและอนุมัติคะแนนให้เสร็จก่อนปิดรายวิชา แต่ถ้าจำเป็น '
+                'สามารถปิดรายวิชาโดยรับทราบความเสี่ยงได้ — งานค้างเหล่านี้จะแก้ไข/'
+                'ตรวจต่อไม่ได้อีกหลังปิด',
                 style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
               ),
             ],
           ),
           actions: [
-            ElevatedButton(
+            TextButton(
               onPressed: () => Navigator.pop(ctx),
+              child: const Text('กลับไปตรวจงานก่อน'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _confirmCloseCourseWithRisk(context, course);
+              },
               style: ElevatedButton.styleFrom(
-                backgroundColor: TeacherPalette.primary,
+                backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('รับทราบ'),
+              child: const Text('ปิดโดยรับทราบความเสี่ยง'),
             ),
           ],
         ),
@@ -2255,6 +2267,59 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
         ),
       );
     }
+  }
+
+  /// ยืนยันขั้นสุดท้ายก่อนปิดรายวิชาทั้งที่ยังมีงานค้าง (CLS-8 Exception Flow)
+  void _confirmCloseCourseWithRisk(
+    BuildContext context,
+    TeacherCourseModel course,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFEA580C), size: 24),
+            SizedBox(width: 10),
+            Text(
+              'ยืนยันปิดรายวิชาโดยรับทราบความเสี่ยง',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+            ),
+          ],
+        ),
+        content: Text(
+          'รายวิชา ${course.code} จะถูกล็อกเป็น read-only ทันที '
+          'งานที่ยังไม่ตรวจและคะแนนที่ยังไม่ยืนยัน COI จะค้างอยู่แบบนั้นถาวร '
+          'แก้ไขหรือตรวจต่อไม่ได้อีก ยืนยันหรือไม่?',
+          style: const TextStyle(fontSize: 13, color: TeacherPalette.muted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ยกเลิก'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'ปิดรายวิชา ${course.code} เรียบร้อยแล้ว (รับทราบความเสี่ยงจากงานค้าง)',
+                  ),
+                  backgroundColor: const Color(0xFFDC2626),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('ยืนยันปิดรายวิชา'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
