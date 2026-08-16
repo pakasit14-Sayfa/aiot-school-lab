@@ -353,66 +353,61 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        Future.delayed(const Duration(seconds: 15), () {
-                          if (mounted) {
-                            setState(() {
-                              incident.status = 'ครูรับเรื่องแล้ว';
-                              incident.timelineTimes.add(DateTime.now());
-                              incident.timelineNotes.add(
-                                'ครูวิจิตร (ครูเวรประจำอาคาร) รับทราบเรื่องแล้ว กำลังเดินทางมาที่ห้องเรียน',
-                              );
-                            });
-                          }
-                        });
-                      },
-                      child: const Text(
-                        'ปิดเพื่อดูสถานะ',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
+              const SizedBox(height: 8),
+              const Text(
+                'มีเพียงครูทุกคน และครูอาคาร เท่านั้นที่ปิดเหตุได้ หลังจาก'
+                'ตรวจสอบและบันทึกผลแล้ว (ตาม EMG-5) — ติดตามสถานะได้จาก'
+                'หน้านี้ ไม่ต้องกดอะไรเพิ่ม',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SchoolPalette.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: SchoolPalette.green,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(context);
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // จำลองฝั่งครูเวร: รับเรื่อง → ตรวจสอบ → ปิดเหตุ ทั้งหมด
+                    // เป็นสถานะที่มาจากครูเท่านั้น นักเรียนไม่มีปุ่มปิดเหตุเอง
+                    Future.delayed(const Duration(seconds: 15), () {
+                      if (mounted) {
+                        setState(() {
+                          incident.status = 'ครูรับเรื่องแล้ว';
+                          incident.timelineTimes.add(DateTime.now());
+                          incident.timelineNotes.add(
+                            'ครูวิจิตร (ครูเวรประจำอาคาร) รับทราบเรื่องแล้ว กำลังเดินทางมาที่ห้องเรียน',
+                          );
+                        });
+                      }
+                    });
+                    Future.delayed(const Duration(seconds: 35), () {
+                      if (mounted) {
                         setState(() {
                           incident.status = 'ปิดเหตุแล้ว';
                           incident.timelineTimes.add(DateTime.now());
                           incident.timelineNotes.add(
-                            'นักเรียนและครูในห้องเรียนร่วมยืนยันระงับเหตุเรียบร้อย',
+                            'ครูวิจิตรตรวจสอบที่ห้องเรียนแล้ว บันทึกผลและปิดเหตุเรียบร้อย',
                           );
                           classroomSafetyStatus = 'ปกติ';
                         });
-                      },
-                      child: const Text(
-                        'สถานการณ์ปกติแล้ว',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                    ),
+                      }
+                    });
+                  },
+                  child: const Text(
+                    'ปิดเพื่อดูสถานะ',
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
-                ],
+                ),
               ),
             ],
           ),
