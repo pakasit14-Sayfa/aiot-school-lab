@@ -11,6 +11,12 @@
 // 2. SEC-5 (Exception): "ครูไม่แน่ใจ ต้องการข้อมูลเพิ่ม → ส่งต่อให้ School
 //    Admin/ผู้บริหารช่วยตัดสินใจ" — ครูคือผู้ยืนยัน/ปฏิเสธ Alert หลักตาม
 //    Main Flow เดิม (SEC-5), ผอ ช่วยตัดสินใจเฉพาะกรณีครูไม่แน่ใจเท่านั้น
+// 3. [เพิ่ม 2026-08-16] STK-12 BR6/Exception 2: เมื่อผู้ดูแลอาคารเปิด
+//    Warning Light แบบ proactive (STK-12 §3b) "Warning Light ที่เปิดจาก
+//    ข้อ 3b ต้องรอครู/ผู้บริหารยืนยันก่อนปิดเท่านั้น" — ผู้ดูแลอาคารเปิดเอง
+//    ปิดเองไม่ได้ ต้องมีครูหรือ ผอ ยืนยันก่อนเสมอ และถ้าเกิน 15 นาทีไม่มีใคร
+//    ยืนยัน ระบบยกระดับแจ้ง School Admin ให้ยืนยันแทนได้ (Exception 2) —
+//    ตกหล่นตอน scope โฟลเดอร์นี้ครั้งแรก พบจากการตรวจสอบเทียบ UC ภายหลัง
 //
 // [ยืนยันแล้ว 2026-08-16] SEC-5 escalation ให้ ผอ เห็นภาพจริงจากกล้อง
 // ประกอบการตัดสินใจได้ — ผู้ใช้ (เจ้าของโปรเจกต์) ยืนยันโดยตรง สอดคล้องกับ
@@ -82,10 +88,35 @@ class _ExecutiveEscalationInboxContentState
     },
   ];
 
+  // STK-12 BR6/Exception 2 — ไฟเตือนที่ผู้ดูแลอาคารเปิดแบบ proactive (§3b)
+  // ต้องรอครู/ผอ ยืนยันก่อนปิดเท่านั้น ผู้ดูแลอาคารเปิดเองปิดเองไม่ได้
+  final List<Map<String, dynamic>> _warningLightEscalations = [
+    {
+      'id': 'STK-2026-007',
+      'title': 'ไฟเตือนพื้นที่ · อาคาร 2 ชั้น 3',
+      'location': 'อาคาร 2 ชั้น 3 ใกล้บันไดหนีไฟ',
+      'time': '12 นาทีที่แล้ว',
+      'triggeredBy':
+          'ผู้ดูแลอาคาร (สมชาย ใจดี) แจ้งเชิงรุก: พบสายไฟชำรุดเสี่ยงลัดวงจร',
+      'minutesElapsed': 12,
+      'confirmed': false,
+    },
+    {
+      'id': 'STK-2026-005',
+      'title': 'ไฟเตือนพื้นที่ · โรงอาหาร',
+      'location': 'อาคารกลาง ชั้น 1',
+      'time': '22 นาทีที่แล้ว',
+      'triggeredBy':
+          'ผู้ดูแลอาคาร (มานพ ศรีสุข) แจ้งเชิงรุก: กลิ่นแก๊สรั่วบริเวณครัว',
+      'minutesElapsed': 22,
+      'confirmed': false,
+    },
+  ];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -98,6 +129,8 @@ class _ExecutiveEscalationInboxContentState
       _emergencyEscalations.where((e) => e['acknowledged'] == false).length;
   int get _pendingSecCount =>
       _secReviewEscalations.where((e) => e['decision'] == null).length;
+  int get _pendingWarningLightCount =>
+      _warningLightEscalations.where((e) => e['confirmed'] == false).length;
 
   @override
   Widget build(BuildContext context) {
@@ -116,16 +149,22 @@ class _ExecutiveEscalationInboxContentState
               fontWeight: FontWeight.w900,
               fontSize: 13,
             ),
+            isScrollable: true,
             tabs: [
               Tab(text: 'เหตุฉุกเฉินที่ยกระดับมา ($_pendingEmergencyCount)'),
               Tab(text: 'รอความเห็นจากกล้อง AI ($_pendingSecCount)'),
+              Tab(text: 'ไฟเตือนรอยืนยันปิด ($_pendingWarningLightCount)'),
             ],
           ),
         ),
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [_buildEmergencyList(), _buildSecReviewList()],
+            children: [
+              _buildEmergencyList(),
+              _buildSecReviewList(),
+              _buildWarningLightList(),
+            ],
           ),
         ),
       ],
@@ -414,6 +453,182 @@ class _ExecutiveEscalationInboxContentState
         );
       },
     );
+  }
+
+  /// STK-12 BR6/Exception 2 — รายการไฟเตือนที่ผู้ดูแลอาคารเปิดแบบ proactive
+  /// (§3b) รอครู/ผอ ยืนยันก่อนปิด ผู้ดูแลอาคารเปิดเองปิดเองไม่ได้ และถ้าเกิน
+  /// 15 นาทีไม่มีใครยืนยัน ระบบยกระดับแจ้ง School Admin ให้ยืนยันแทนได้
+  Widget _buildWarningLightList() {
+    if (_warningLightEscalations.isEmpty) {
+      return _buildEmptyState('ไม่มีไฟเตือนที่รอยืนยันปิดตอนนี้');
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _warningLightEscalations.length,
+      itemBuilder: (context, i) {
+        final item = _warningLightEscalations[i];
+        final confirmed = item['confirmed'] as bool;
+        final minutesElapsed = item['minutesElapsed'] as int;
+        final escalatedToAdmin = !confirmed && minutesElapsed > 15;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: ExecutiveGlassCard(
+            padding: const EdgeInsets.all(16),
+            borderRadius: 18,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      color: confirmed
+                          ? ExecutiveTheme.safeGreen
+                          : ExecutiveTheme.warningOrange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item['title'] as String,
+                            style: const TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              color: ExecutiveTheme.inkIndigo,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${item['location']} · ${item['time']}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: ExecutiveTheme.softMauve,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ExecutiveTheme.lightIndigoBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    item['triggeredBy'] as String,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontStyle: FontStyle.italic,
+                      color: ExecutiveTheme.inkIndigo,
+                    ),
+                  ),
+                ),
+                if (escalatedToAdmin) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.priority_high_rounded,
+                          size: 14,
+                          color: ExecutiveTheme.warningOrange,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'เกิน 15 นาทีไม่มีผู้ยืนยันปิด — ระบบยกระดับแจ้ง '
+                            'School Admin ให้ยืนยันแทนได้แล้ว',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: ExecutiveTheme.warningOrange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                if (!confirmed)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _confirmCloseWarningLight(item),
+                      icon: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 16,
+                      ),
+                      label: const Text('ยืนยันปิดไฟเตือน'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ExecutiveTheme.primaryIndigo,
+                        foregroundColor: Colors.white,
+                        minimumSize: Size.zero,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: ExecutiveTheme.safeGreen,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'ยืนยันปิดไฟเตือนแล้ว · ผู้ดูแลอาคารปิดไฟจริงได้',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: ExecutiveTheme.safeGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmCloseWarningLight(Map<String, dynamic> item) {
+    setState(() => item['confirmed'] = true);
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(content: Text('ยืนยันปิดไฟเตือน ${item['id']} แล้ว')),
+      );
   }
 
   /// พรีวิวภาพนิ่งจากกล้อง — ยืนยันกับผู้ใช้แล้วว่าให้เห็นภาพจริงประกอบ

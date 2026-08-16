@@ -54,6 +54,64 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
     'มัธยมปลาย (ม.4-6)',
   ];
 
+  // ชุดข้อมูลจำลองที่ตอบสนองต่อตัวกรอง — LA-9 Main Flow ข้อ 3 "กรองดูตาม
+  // ช่วงเวลา/ระดับชั้นได้" ต้องทำให้ตัวเลขบนหน้าจริงเปลี่ยนตามตัวกรองที่
+  // เลือก ไม่ใช่แค่ dropdown ที่กดได้แต่ไม่มีผล
+  String get _periodTrendSuffix {
+    switch (_selectedPeriod) {
+      case '7 วันที่ผ่านมา':
+        return 'จากสัปดาห์ที่แล้ว';
+      case 'ภาคเรียนนี้':
+        return 'จากภาคเรียนที่แล้ว';
+      default:
+        return 'จากเดือนที่แล้ว';
+    }
+  }
+
+  ({String kwh, String cost}) get _energyByPeriod {
+    switch (_selectedPeriod) {
+      case '7 วันที่ผ่านมา':
+        return (kwh: '1,120 kWh', cost: 'ประมาณ 4,330 บาท');
+      case 'ภาคเรียนนี้':
+        return (kwh: '20,750 kWh', cost: 'ประมาณ 80,200 บาท');
+      default:
+        return (kwh: '4,820 kWh', cost: 'ประมาณ 18,650 บาท');
+    }
+  }
+
+  String get _safetyEventsByPeriod {
+    switch (_selectedPeriod) {
+      case '7 วันที่ผ่านมา':
+        return '6 ครั้ง';
+      case 'ภาคเรียนนี้':
+        return '102 ครั้ง';
+      default:
+        return '24 ครั้ง';
+    }
+  }
+
+  ({String score, String submitRate, String attendRate}) get _learningByGrade {
+    switch (_selectedGrade) {
+      case 'มัธยมต้น (ม.1-3)':
+        return (score: '80.2%', submitRate: '85%', attendRate: '93%');
+      case 'มัธยมปลาย (ม.4-6)':
+        return (score: '76.1%', submitRate: '78%', attendRate: '88%');
+      default:
+        return (score: '78.5%', submitRate: '82%', attendRate: '91%');
+    }
+  }
+
+  ({String users, String rate}) get _activeUsersByGrade {
+    switch (_selectedGrade) {
+      case 'มัธยมต้น (ม.1-3)':
+        return (users: '640 / 730 คน', rate: '87.7% ของบัญชีทั้งหมด');
+      case 'มัธยมปลาย (ม.4-6)':
+        return (users: '600 / 720 คน', rate: '83.3% ของบัญชีทั้งหมด');
+      default:
+        return (users: '1,240 / 1,450 คน', rate: '85.5% ของบัญชีทั้งหมด');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -70,29 +128,30 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
           _buildDimensionSection(
             icon: Icons.school_rounded,
             title: 'ผลการเรียน',
-            subtitle: 'รวมจากทุกห้องเรียนในโรงเรียน',
+            subtitle:
+                'รวมจากทุกห้องเรียนในโรงเรียน · $_selectedPeriod · $_selectedGrade',
             color: ExecutiveTheme.primaryIndigo,
             hasData: true,
             cards: [
               _StatCardData(
                 icon: Icons.grade_rounded,
                 label: 'คะแนนเฉลี่ยทั้งโรงเรียน',
-                value: '78.5%',
-                trend: '↗ +2.1% จากเดือนที่แล้ว',
+                value: _learningByGrade.score,
+                trend: '↗ +2.1% $_periodTrendSuffix',
                 trendColor: ExecutiveTheme.safeGreen,
               ),
               _StatCardData(
                 icon: Icons.assignment_turned_in_rounded,
                 label: 'อัตราส่งงานตรงเวลา',
-                value: '82%',
-                trend: '↗ +5% จากเดือนที่แล้ว',
+                value: _learningByGrade.submitRate,
+                trend: '↗ +5% $_periodTrendSuffix',
                 trendColor: ExecutiveTheme.safeGreen,
               ),
               _StatCardData(
                 icon: Icons.play_lesson_rounded,
                 label: 'อัตราเข้าเรียนบทเรียน',
-                value: '91%',
-                trend: '↘ -1% จากเดือนที่แล้ว',
+                value: _learningByGrade.attendRate,
+                trend: '↘ -1% $_periodTrendSuffix',
                 trendColor: ExecutiveTheme.warningOrange,
               ),
             ],
@@ -101,16 +160,16 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
           _buildDimensionSection(
             icon: Icons.bolt_rounded,
             title: 'พลังงาน & สิ่งแวดล้อม',
-            subtitle: 'รวมทุกอาคารในโรงเรียน',
+            subtitle: 'รวมทุกอาคารในโรงเรียน · $_selectedPeriod',
             color: ExecutiveTheme.warningOrange,
             hasData: !_demoMissingEnergyData,
             emptyMessage: 'ยังไม่มีข้อมูล — อาคาร 2 ยังไม่ติดตั้งเซนเซอร์ครบ',
             cards: [
               _StatCardData(
                 icon: Icons.electric_bolt_rounded,
-                label: 'พลังงานสะสมเดือนนี้',
-                value: '4,820 kWh',
-                trend: 'ประมาณ 18,650 บาท',
+                label: 'พลังงานสะสม ($_selectedPeriod)',
+                value: _energyByPeriod.kwh,
+                trend: _energyByPeriod.cost,
                 trendColor: ExecutiveTheme.softMauve,
               ),
               _StatCardData(
@@ -134,15 +193,15 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
             icon: Icons.shield_rounded,
             title: 'ความปลอดภัย',
             subtitle:
-                'อ้างอิงจากรายงานเหตุการณ์ความปลอดภัยทั้งโรงเรียน (SEC-7)',
+                'อ้างอิงจากรายงานเหตุการณ์ความปลอดภัยทั้งโรงเรียน (SEC-7) · $_selectedPeriod',
             color: ExecutiveTheme.emergencyRed,
             hasData: true,
             cards: [
               _StatCardData(
                 icon: Icons.report_rounded,
-                label: 'เหตุการณ์ทั้งหมดเดือนนี้',
-                value: '24 ครั้ง',
-                trend: '↘ -8% จากเดือนที่แล้ว',
+                label: 'เหตุการณ์ทั้งหมด ($_selectedPeriod)',
+                value: _safetyEventsByPeriod,
+                trend: '↘ -8% $_periodTrendSuffix',
                 trendColor: ExecutiveTheme.safeGreen,
               ),
               _StatCardData(
@@ -156,7 +215,7 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
                 icon: Icons.task_alt_rounded,
                 label: 'ปิดเหตุการณ์สำเร็จ',
                 value: '96%',
-                trend: '↗ +1% จากเดือนที่แล้ว',
+                trend: '↗ +1% $_periodTrendSuffix',
                 trendColor: ExecutiveTheme.safeGreen,
               ),
             ],
@@ -165,15 +224,16 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
           _buildDimensionSection(
             icon: Icons.insights_rounded,
             title: 'การใช้งานระบบ',
-            subtitle: 'ภาพรวมการใช้งานทั้งโรงเรียน',
+            subtitle:
+                'ภาพรวมการใช้งานทั้งโรงเรียน · $_selectedPeriod · $_selectedGrade',
             color: ExecutiveTheme.infoCyan,
             hasData: true,
             cards: [
               _StatCardData(
                 icon: Icons.people_alt_rounded,
                 label: 'ผู้ใช้งาน active วันนี้',
-                value: '1,240 / 1,450 คน',
-                trend: '85.5% ของบัญชีทั้งหมด',
+                value: _activeUsersByGrade.users,
+                trend: _activeUsersByGrade.rate,
                 trendColor: ExecutiveTheme.softMauve,
               ),
               _StatCardData(
@@ -187,7 +247,7 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
                 icon: Icons.login_rounded,
                 label: 'อัตราล็อกอินสำเร็จ',
                 value: '98.2%',
-                trend: '↗ +0.4% จากเดือนที่แล้ว',
+                trend: '↗ +0.4% $_periodTrendSuffix',
                 trendColor: ExecutiveTheme.safeGreen,
               ),
             ],
