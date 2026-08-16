@@ -1,16 +1,29 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
+// เชื่อมกับ ParentBindingService จริงแล้ว (2026-08-16) — เดิม mock ล้วน
 //
 // STK-1: ผูกบัญชีผู้ปกครองกับนักเรียน (แบบ B ไม่มี self-signup) — ต้องมี
 // Binding Code/QR จากโรงเรียนก่อนเสมอ ตามด้วยยืนยันอีเมลด้วย OTP แล้วจบที่
 // สถานะ "รออนุมัติ" เท่านั้น (BR5: ก่อนอนุมัติ ผู้ปกครองยังเห็นข้อมูลบุตร
 // ไม่ได้) — ต่อไปที่ STK-1a (สิทธิ์ครู/admin อนุมัติ ไม่ใช่หน้าฝั่งนี้)
+//
+// ⚠️ backend จริงต่างจาก mock เดิม 2 จุดสำคัญ:
+// 1. RPC ตรวจรหัส+อีเมลพร้อมกันจุดเดียว (request-parent-binding-otp) ไม่มี
+//    endpoint แยกไว้เช็คแค่รหัสอย่างเดียวก่อน — เพื่อกันการเดารหัส/สแกน
+//    รายชื่อนักเรียน (BR3) จึงตอบข้อความเดียวกันเสมอไม่ว่ารหัส/อีเมลจะถูก
+//    หรือผิด (anti-enumeration) — หน้านี้ยังคงแยกเป็น 2 หน้าจอเพื่อ UX แต่
+//    ยิง API จริงตอนกรอกอีเมลเสร็จ (ไม่ใช่ตอนกรอกรหัสเสร็จแบบ mock เดิม)
+// 2. confirm_parent_binding ไม่คืนข้อมูลนักเรียนกลับมาเลยแม้แต่ชื่อแบบปิดบัง
+//    (คืนแค่ parent_link_id/status) และต้องกรอกข้อมูลผู้ปกครอง (ความ
+//    สัมพันธ์/ชื่อ/รหัสผ่าน) มาพร้อม OTP ในคำขอเดียวกันเลย — ไม่ใช่แค่
+//    "ยืนยัน OTP" เฉยๆ แล้วค่อยเห็นข้อมูลบุตรแบบปิดบังแบบที่ mock เดิมทำ
+//    (หน้าจอ "ด.ช. ปุ** ใจ**" เดิมตัดออกเพราะไม่มีอะไรรองรับจริง)
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'parent_shared_widgets.dart';
 
-const _validDemoCode = 'SCH-AIOT-2026';
+const _relationshipOptions = ['บิดา', 'มารดา', 'ผู้ปกครองตามกฎหมาย'];
 
 class ParentBindingPage extends StatefulWidget {
   const ParentBindingPage({super.key});
@@ -24,9 +37,16 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
   final _codeCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  String _relationship = _relationshipOptions.first;
   String? _codeError;
-  String? _otpError;
-  int _otpAttempts = 0;
+  String? _requestError;
+  String? _confirmError;
+  bool _requestingOtp = false;
+  bool _confirming = false;
+  String? _verificationToken;
   Timer? _otpTimer;
   int _otpSecondsLeft = 600;
 
@@ -35,18 +55,16 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
     _codeCtrl.dispose();
     _emailCtrl.dispose();
     _otpCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _passwordCtrl.dispose();
     _otpTimer?.cancel();
     super.dispose();
   }
 
   void _submitCode() {
-    // Exception Flow 1: รหัสผิด → ตอบกลางๆ ไม่เจาะจงว่าผิดตรงไหน กัน brute
-    // force เดาข้อมูลเด็ก
-    if (_codeCtrl.text.trim().toUpperCase() != _validDemoCode) {
-      setState(
-        () => _codeError =
-            'รหัสไม่ถูกต้อง กรุณาตรวจสอบอีกครั้งหรือติดต่อโรงเรียน',
-      );
+    if (_codeCtrl.text.trim().isEmpty) {
+      setState(() => _codeError = 'กรุณากรอกรหัสผูกบัญชี');
       return;
     }
     setState(() {
@@ -55,52 +73,88 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
     });
   }
 
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     setState(() {
-      _step = 2;
-      _otpSecondsLeft = 600;
-      _otpAttempts = 0;
-      _otpError = null;
+      _requestingOtp = true;
+      _requestError = null;
     });
-    _otpTimer?.cancel();
-    _otpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_otpSecondsLeft <= 1) {
-        timer.cancel();
-        setState(() => _otpSecondsLeft = 0);
-        return;
-      }
-      setState(() => _otpSecondsLeft -= 1);
-    });
+    try {
+      final token = await ParentBindingService.requestParentBindingOtp(
+        code: _codeCtrl.text,
+        email: _emailCtrl.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _verificationToken = token;
+        _requestingOtp = false;
+        _step = 2;
+        _otpSecondsLeft = 600;
+        _confirmError = null;
+      });
+      _otpTimer?.cancel();
+      _otpTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_otpSecondsLeft <= 1) {
+          timer.cancel();
+          setState(() => _otpSecondsLeft = 0);
+          return;
+        }
+        setState(() => _otpSecondsLeft -= 1);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _requestingOtp = false;
+        // ระบบตอบข้อความเดียวกันเสมอ (BR3 anti-enumeration) ไม่บอกว่ารหัส
+        // หรืออีเมลผิดจุดไหน — ข้อความนี้จึงเป็นข้อความกลางๆ ตั้งใจ
+        _requestError =
+            'ส่งคำขอไม่สำเร็จ กรุณาตรวจสอบรหัสและอีเมลอีกครั้ง หรือลองใหม่ภายหลัง';
+      });
+    }
   }
 
-  void _verifyOtp() {
-    if (_otpSecondsLeft <= 0) {
-      setState(() => _otpError = 'OTP หมดอายุแล้ว กรุณาขอรหัสใหม่');
+  Future<void> _confirm() async {
+    if (_verificationToken == null) return;
+    if (_otpCtrl.text.trim().length != 6) {
+      setState(() => _confirmError = 'กรุณากรอกรหัส OTP ให้ครบ 6 หลัก');
       return;
     }
-    // mock: รหัสถูกต้องคือ 111111 เท่านั้น
-    if (_otpCtrl.text.trim() != '111111') {
-      _otpAttempts += 1;
-      if (_otpAttempts >= 5) {
-        _otpTimer?.cancel();
-        setState(() {
-          _otpError =
-              'กรอกผิดครบ 5 ครั้งแล้ว OTP ชุดนี้ถูกยกเลิก กรุณาขอรหัสใหม่';
-          _otpSecondsLeft = 0;
-        });
-        return;
-      }
-      setState(
-        () => _otpError =
-            'รหัส OTP ไม่ถูกต้อง (ลองผิดแล้ว $_otpAttempts/5 ครั้ง)',
-      );
+    if (_firstNameCtrl.text.trim().isEmpty ||
+        _lastNameCtrl.text.trim().isEmpty) {
+      setState(() => _confirmError = 'กรุณากรอกชื่อ-นามสกุลของท่าน');
       return;
     }
-    _otpTimer?.cancel();
+    if (_passwordCtrl.text.trim().length < 8) {
+      setState(() => _confirmError = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร');
+      return;
+    }
     setState(() {
-      _otpError = null;
-      _step = 3;
+      _confirming = true;
+      _confirmError = null;
     });
+    try {
+      await ParentBindingService.confirmParentBinding(
+        verificationToken: _verificationToken!,
+        otpCode: _otpCtrl.text,
+        relationship: _relationship,
+        firstName: _firstNameCtrl.text,
+        lastName: _lastNameCtrl.text,
+        password: _passwordCtrl.text,
+      );
+      _otpTimer?.cancel();
+      if (!mounted) return;
+      setState(() {
+        _confirming = false;
+        _step = 3;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _confirming = false;
+        _confirmError = e.toString().contains('too_many_attempts')
+            ? 'กรอกผิดครบหลายครั้งแล้ว กรุณาขอรหัสใหม่'
+            : 'รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาตรวจสอบอีกครั้ง';
+      });
+    }
   }
 
   String get _otpTimeLabel {
@@ -117,8 +171,8 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
         return switch (_step) {
           0 => _buildCodeStep(),
           1 => _buildEmailStep(),
-          2 => _buildOtpStep(),
-          _ => _buildConfirmStep(),
+          2 => _buildOtpAndProfileStep(),
+          _ => _buildPendingStatus(),
         };
       },
     );
@@ -161,15 +215,6 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () {
-              // mock สแกน QR — เติมรหัสเดโมให้เลย
-              _codeCtrl.text = _validDemoCode;
-            },
-            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-            label: const Text('สแกน QR Code แทน'),
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -220,6 +265,7 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
             decoration: InputDecoration(
               labelText: 'อีเมล',
               hintText: 'parent@example.com',
+              errorText: _requestError,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -229,12 +275,23 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: _emailCtrl.text.trim().isEmpty ? null : _sendOtp,
+              onPressed: _requestingOtp || _emailCtrl.text.trim().isEmpty
+                  ? null
+                  : _sendOtp,
               style: FilledButton.styleFrom(
                 backgroundColor: ParentTheme.primaryTeal,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('ส่งรหัส OTP'),
+              child: _requestingOtp
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('ส่งรหัส OTP'),
             ),
           ),
         ],
@@ -242,7 +299,7 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
     );
   }
 
-  Widget _buildOtpStep() {
+  Widget _buildOtpAndProfileStep() {
     final expired = _otpSecondsLeft <= 0;
     return ParentGlassCard(
       child: Column(
@@ -254,9 +311,9 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
             color: ParentTheme.primaryTeal,
           ),
           const SizedBox(height: 12),
-          Text(
-            'กรอกรหัส OTP 6 หลัก',
-            style: const TextStyle(
+          const Text(
+            'กรอกรหัส OTP และข้อมูลผู้ปกครอง',
+            style: TextStyle(
               fontWeight: FontWeight.w900,
               fontSize: 17,
               color: ParentTheme.ink,
@@ -264,7 +321,7 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            'ส่งไปที่ ${_emailCtrl.text.trim()} แล้ว (เดโม: 111111)',
+            'ส่งรหัส OTP ไปที่ ${_emailCtrl.text.trim()} แล้ว',
             style: const TextStyle(color: ParentTheme.muted, fontSize: 12.5),
           ),
           const SizedBox(height: 18),
@@ -274,7 +331,6 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
             maxLength: 6,
             decoration: InputDecoration(
               labelText: 'รหัส OTP',
-              errorText: _otpError,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -297,95 +353,92 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
                 ),
               ),
               const Spacer(),
-              TextButton(onPressed: _sendOtp, child: const Text('ขอรหัสใหม่')),
+              TextButton(
+                onPressed: _requestingOtp ? null : _sendOtp,
+                child: const Text('ขอรหัสใหม่'),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          const Divider(),
+          const SizedBox(height: 6),
+          const Text(
+            'ข้อมูลผู้ปกครอง (สำหรับสร้างบัญชี)',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              color: ParentTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            value: _relationship,
+            decoration: InputDecoration(
+              labelText: 'ความสัมพันธ์กับนักเรียน',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            items: _relationshipOptions
+                .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                .toList(),
+            onChanged: (v) => setState(() => _relationship = v!),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _firstNameCtrl,
+            decoration: InputDecoration(
+              labelText: 'ชื่อ',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _lastNameCtrl,
+            decoration: InputDecoration(
+              labelText: 'นามสกุล',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _passwordCtrl,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: 'ตั้งรหัสผ่าน (อย่างน้อย 8 ตัวอักษร)',
+              errorText: _confirmError,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: expired ? null : _verifyOtp,
+              onPressed: expired || _confirming ? null : _confirm,
               style: FilledButton.styleFrom(
                 backgroundColor: ParentTheme.primaryTeal,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              child: const Text('ยืนยัน'),
+              child: _confirming
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('ยืนยันและส่งคำขอผูกบัญชี'),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildConfirmStep() {
-    return Column(
-      children: [
-        ParentGlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'ตรวจสอบข้อมูลก่อนยืนยัน',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 17,
-                  color: ParentTheme.ink,
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                // BR3: QR/Code ห้ามฝัง PII — ระบบจึงปิดบังข้อมูลบางส่วนไว้
-                // ให้ผู้ปกครองยืนยันเองว่าใช่บุตรจริงก่อนส่งคำขอ
-                'ระบบปิดบังข้อมูลบางส่วนไว้เพื่อความปลอดภัย โปรดตรวจสอบว่าถูกต้อง',
-                style: TextStyle(color: ParentTheme.muted, fontSize: 12.5),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: ParentTheme.lightTealBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: ParentTheme.tealBorder),
-                ),
-                child: const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ด.ช. ปุ**  ใจ**',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                        color: ParentTheme.ink,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'ม.5/2 · โรงเรียนสาธิต AIoT',
-                      style: TextStyle(
-                        color: ParentTheme.softText,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: () => setState(() => _step = 4),
-            style: FilledButton.styleFrom(
-              backgroundColor: ParentTheme.primaryTeal,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            child: const Text('ใช่ นี่คือบุตรของฉัน — ส่งคำขอผูกบัญชี'),
-          ),
-        ),
-        if (_step == 4) ...[const SizedBox(height: 20), _buildPendingStatus()],
-      ],
     );
   }
 
