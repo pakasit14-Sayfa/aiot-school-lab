@@ -153,3 +153,22 @@ Major ก่อน (อีก 3 จุด Minor ยังไม่แก้ — 
   `decidedAt`) ตาม SEC-5 Postcondition
 
 `flutter analyze`: 482 issues เท่าเดิม (baseline เดิม ไม่มี error เพิ่ม)
+
+## ✅ [แก้ไข 2026-08-16] แก้ 3 จุด Minor ที่เหลือ — ครบทั้ง 5 จุดจากการตรวจสอบ
+
+1. **SEC-9 BR2 audit UX** — เพิ่มข้อความ "การเข้าถึงภาพนี้ถูกบันทึกลง Audit
+   Log ตาม SEC-9 BR2" ใต้ภาพกล้องเสมอ (ไม่มีเงื่อนไข) + บังคับกรอก
+   "เหตุผลที่ต้องดูภาพนี้" ในช่อง TextField ก่อนปุ่ม "ยืนยันเป็นเหตุจริง"/
+   "False Positive" จะกดได้ (`_accessReasonControllers` คุมสถานะ enable/
+   disable) — สอดคล้อง SEC-9 "กรณีจำเป็น" ไม่ใช่สิทธิ์อัตโนมัติ
+2. **LA-11 Export format picker** — เปลี่ยนปุ่ม Export จากยิง snackbar
+   ทันทีเป็นเปิด bottom sheet ให้เลือก PDF หรือ Excel ก่อนเสมอ
+   (`_showExportFormatPicker`) ตรงตาม Main Flow ข้อ 2 ที่ระบุว่าต้องเลือก
+   รูปแบบไฟล์
+3. **SEC-5 decidedBy/decidedAt** — เพิ่ม field ในโมเดล mock + แสดงผล
+   "โดย [ชื่อ ผอ] · [เวลา]" ใต้ป้ายผลตัดสินใจเมื่อกดยืนยัน/ปฏิเสธแล้ว
+   (mock ชื่อ ผอ คงที่ `_currentExecutiveName` เพราะโฟลเดอร์นี้ยังไม่ผูก
+   auth จริง — ตอนต่อ Supabase ต้องดึงชื่อจาก session จริงแทน)
+
+`flutter analyze`: 482 issues เท่าเดิม (baseline เดิม ไม่มี error เพิ่ม) —
+ครบทั้ง 5 จุดจากรายงานตรวจสอบเทียบ UC แล้ว

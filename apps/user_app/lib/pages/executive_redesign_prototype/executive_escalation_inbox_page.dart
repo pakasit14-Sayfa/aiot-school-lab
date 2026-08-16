@@ -75,6 +75,8 @@ class _ExecutiveEscalationInboxContentState
       'confidence': 'ความมั่นใจของระบบ: 62%',
       'note': 'ครูภานุพงศ์: "ไม่แน่ใจว่าเป็นคนหรือแมวจร ขอความเห็นเพิ่ม"',
       'decision': null, // null = รอ, 'confirmed' | 'rejected'
+      'decidedBy': null,
+      'decidedAt': null,
     },
     {
       'id': 'SEC-2026-039',
@@ -85,8 +87,20 @@ class _ExecutiveEscalationInboxContentState
       'confidence': 'ความมั่นใจของระบบ: 78%',
       'note': 'ครูสมหญิง: "กล้องมุมอับ มองไม่ชัดว่าใครเข้า ขอความเห็นเพิ่ม"',
       'decision': null,
+      'decidedBy': null,
+      'decidedAt': null,
     },
   ];
+
+  // ชื่อ ผอ ที่ล็อกอินอยู่ตอนนี้ — mock เฉยๆ เพราะโฟลเดอร์นี้ยังไม่ผูก auth
+  // จริง (ดูคอมเมนต์หัวไฟล์), ใช้บันทึกลง decidedBy ตาม SEC-5 Postcondition
+  // "ยืนยัน/ปฏิเสธเหตุการณ์ได้ ผลถูกบันทึกพร้อมผู้ตัดสินใจ"
+  static const _currentExecutiveName = 'ผอ.สมศักดิ์ เจริญยิ่ง';
+
+  // SEC-9 BR2 "การเข้าถึงภาพจริงทุกครั้งต้อง audit" — บังคับให้กรอกเหตุผล
+  // ที่ต้องดูภาพก่อนตัดสินใจได้เสมอ (สอดคล้อง SEC-9 "กรณีจำเป็น" ไม่ใช่
+  // สิทธิ์อัตโนมัติของทุก ผอ ทุกครั้ง)
+  final Map<String, TextEditingController> _accessReasonControllers = {};
 
   // STK-12 BR6/Exception 2 — ไฟเตือนที่ผู้ดูแลอาคารเปิดแบบ proactive (§3b)
   // ต้องรอครู/ผอ ยืนยันก่อนปิดเท่านั้น ผู้ดูแลอาคารเปิดเองปิดเองไม่ได้
@@ -117,11 +131,17 @@ class _ExecutiveEscalationInboxContentState
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    for (final item in _secReviewEscalations) {
+      _accessReasonControllers[item['id'] as String] = TextEditingController();
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    for (final c in _accessReasonControllers.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -353,6 +373,28 @@ class _ExecutiveEscalationInboxContentState
                 ),
                 const SizedBox(height: 10),
                 _buildCameraSnapshot(item['cameraLabel'] as String),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.privacy_tip_outlined,
+                      size: 12,
+                      color: ExecutiveTheme.softMauve,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'การเข้าถึงภาพนี้ถูกบันทึกลง Audit Log ตาม SEC-9 BR2',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          color: ExecutiveTheme.softMauve,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Text(
                   item['confidence'] as String,
@@ -379,39 +421,74 @@ class _ExecutiveEscalationInboxContentState
                   ),
                 ),
                 const SizedBox(height: 12),
-                if (decision == null)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => _decideSec(item, 'confirmed'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ExecutiveTheme.emergencyRed,
-                            foregroundColor: Colors.white,
-                            minimumSize: Size.zero,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                          child: const Text('ยืนยันเป็นเหตุจริง'),
-                        ),
+                if (decision == null) ...[
+                  TextField(
+                    controller: _accessReasonControllers[item['id']],
+                    onChanged: (_) => setState(() {}),
+                    style: const TextStyle(fontSize: 12.5),
+                    decoration: InputDecoration(
+                      hintText: 'เหตุผลที่ต้องดูภาพนี้ (บันทึกลง audit) *',
+                      hintStyle: const TextStyle(fontSize: 12),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _decideSec(item, 'rejected'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: Size.zero,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                          child: const Text('False Positive'),
-                        ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  )
-                else
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Builder(
+                    builder: (context) {
+                      final reasonEmpty =
+                          (_accessReasonControllers[item['id']]?.text ?? '')
+                              .trim()
+                              .isEmpty;
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: reasonEmpty
+                                  ? null
+                                  : () => _decideSec(item, 'confirmed'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: ExecutiveTheme.emergencyRed,
+                                foregroundColor: Colors.white,
+                                minimumSize: Size.zero,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                              ),
+                              child: const Text('ยืนยันเป็นเหตุจริง'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: reasonEmpty
+                                  ? null
+                                  : () => _decideSec(item, 'rejected'),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: Size.zero,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
+                              ),
+                              child: const Text('False Positive'),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ] else
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 6,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       color: decision == 'confirmed'
@@ -419,29 +496,43 @@ class _ExecutiveEscalationInboxContentState
                           : const Color(0xFFECFDF5),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          decision == 'confirmed'
-                              ? Icons.warning_rounded
-                              : Icons.check_circle_rounded,
-                          size: 14,
-                          color: decision == 'confirmed'
-                              ? ExecutiveTheme.emergencyRed
-                              : ExecutiveTheme.safeGreen,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              decision == 'confirmed'
+                                  ? Icons.warning_rounded
+                                  : Icons.check_circle_rounded,
+                              size: 14,
+                              color: decision == 'confirmed'
+                                  ? ExecutiveTheme.emergencyRed
+                                  : ExecutiveTheme.safeGreen,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              decision == 'confirmed'
+                                  ? 'ยืนยันเป็นเหตุจริงแล้ว'
+                                  : 'บันทึกเป็น False Positive แล้ว',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: decision == 'confirmed'
+                                    ? ExecutiveTheme.emergencyRed
+                                    : ExecutiveTheme.safeGreen,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(height: 4),
                         Text(
-                          decision == 'confirmed'
-                              ? 'ยืนยันเป็นเหตุจริงแล้ว'
-                              : 'บันทึกเป็น False Positive แล้ว',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: decision == 'confirmed'
-                                ? ExecutiveTheme.emergencyRed
-                                : ExecutiveTheme.safeGreen,
+                          'โดย ${item['decidedBy']} · ${item['decidedAt']}',
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: ExecutiveTheme.softMauve,
                           ),
                         ),
                       ],
@@ -691,7 +782,11 @@ class _ExecutiveEscalationInboxContentState
   }
 
   void _decideSec(Map<String, dynamic> item, String decision) {
-    setState(() => item['decision'] = decision);
+    setState(() {
+      item['decision'] = decision;
+      item['decidedBy'] = _currentExecutiveName;
+      item['decidedAt'] = 'เมื่อสักครู่';
+    });
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(

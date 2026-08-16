@@ -332,15 +332,7 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(
-                    const SnackBar(
-                      content: Text('ส่งออกรายงาน PDF/Excel เรียบร้อยแล้ว 📄'),
-                    ),
-                  );
-              },
+              onTap: () => _showExportFormatPicker(context),
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 child: Row(
@@ -432,6 +424,71 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
         },
       ),
     );
+  }
+
+  /// LA-11 Main Flow ข้อ 2 "เลือก 'Export' และรูปแบบไฟล์ (PDF/Excel)" —
+  /// ต้องให้เลือกฟอร์แมตก่อนสร้างไฟล์ ไม่ใช่ export ทันทีแบบไม่มีตัวเลือก
+  void _showExportFormatPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'เลือกรูปแบบไฟล์ Export',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: ExecutiveTheme.inkIndigo,
+                    ),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.picture_as_pdf_rounded,
+                  color: ExecutiveTheme.emergencyRed,
+                ),
+                title: const Text('PDF'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _exportReport(context, 'PDF');
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.table_chart_rounded,
+                  color: ExecutiveTheme.safeGreen,
+                ),
+                title: const Text('Excel'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _exportReport(context, 'Excel');
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _exportReport(BuildContext context, String format) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(content: Text('ส่งออกรายงานเป็น $format เรียบร้อยแล้ว 📄')),
+      );
   }
 
   /// ตัวกรองช่วงเวลา/ระดับชั้น — ตาม LA-9 Main Flow ข้อ 3
