@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'teacher_aiot_dashboard_page.dart' show TeacherAiotDashboardPage;
 import 'teacher_emergency_events_page.dart' show TeacherEmergencyEventsPage;
 import 'teacher_grading_page.dart' show TeacherGradingPage;
+import 'teacher_incident_inbox_page.dart' show TeacherIncidentInboxPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
 
@@ -31,6 +32,53 @@ class NotificationItemModel {
   String targetRoute;
 }
 
+/// ข้อมูลแจ้งเตือน mock ชุดเดียวที่ทั้งหน้าเต็ม (`TeacherNotificationsPage`)
+/// และป็อปอัพตัวอย่างแจ้งเตือนแบบกระจกฝ้าบนแดชบอร์ดใช้ร่วมกัน กันไม่ให้
+/// ข้อมูลไม่ตรงกันระหว่างสองที่
+List<NotificationItemModel> mockTeacherNotifications() {
+  return [
+    NotificationItemModel(
+      id: 'notif-1',
+      title: '🚨 เกิดเหตุ SOS ฉุกเฉิน!',
+      message:
+          'ปุ่มกดกายภาพ PANIC-BTN-05B ถูกกดที่ ห้องปฏิบัติการเคมี (ห้อง 532)',
+      category: 'emergency',
+      timestamp: '14:22 น. (วันนี้)',
+      isRead: false,
+      targetRoute: 'emergency',
+    ),
+    NotificationItemModel(
+      id: 'notif-2',
+      title: '⚠️ ค่าดัชนีรังสี UV สูงเกินขอบเขต',
+      message:
+          'เซนเซอร์ AIoT-Node-01 ห้อง ม.5/2 ตรวจพบรังสี UV ระดับ 6 (เกินเกณฑ์สูงสุด UV 5)',
+      category: 'sensor',
+      timestamp: '13:45 น. (วันนี้)',
+      isRead: false,
+      targetRoute: 'aiot',
+    ),
+    NotificationItemModel(
+      id: 'notif-3',
+      title: '📝 มีนักเรียนส่งใบงานทดลองใหม่รอตรวจ 18 รายการ',
+      message:
+          'วิชา ม.5/2 การออกแบบเทคโนโลยี — ใบงานทดลองที่ 3 การวัดค่าฝุ่น PM2.5',
+      category: 'grading',
+      timestamp: '11:30 น. (วันนี้)',
+      isRead: true,
+      targetRoute: 'grading',
+    ),
+    NotificationItemModel(
+      id: 'notif-4',
+      title: '📷 กล้อง AI Security ตรวจพบความผิดปกติ',
+      message: 'กล้องประตูหลังโรงเรียน ตรวจพบเคสความปลอดภัยรอการรีวิว',
+      category: 'camera',
+      timestamp: '09:10 น. (วันนี้)',
+      isRead: true,
+      targetRoute: 'camera',
+    ),
+  ];
+}
+
 class TeacherNotificationsPage extends StatefulWidget {
   const TeacherNotificationsPage({super.key});
 
@@ -48,51 +96,7 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
   @override
   void initState() {
     super.initState();
-    _notifications = _getMockNotifications();
-  }
-
-  List<NotificationItemModel> _getMockNotifications() {
-    return [
-      NotificationItemModel(
-        id: 'notif-1',
-        title: '🚨 เกิดเหตุ SOS ฉุกเฉิน!',
-        message:
-            'ปุ่มกดกายภาพ PANIC-BTN-05B ถูกกดที่ ห้องปฏิบัติการเคมี (ห้อง 532)',
-        category: 'emergency',
-        timestamp: '14:22 น. (วันนี้)',
-        isRead: false,
-        targetRoute: 'emergency',
-      ),
-      NotificationItemModel(
-        id: 'notif-2',
-        title: '⚠️ ค่าดัชนีรังสี UV สูงเกินขอบเขต',
-        message:
-            'เซนเซอร์ AIoT-Node-01 ห้อง ม.5/2 ตรวจพบรังสี UV ระดับ 6 (เกินเกณฑ์สูงสุด UV 5)',
-        category: 'sensor',
-        timestamp: '13:45 น. (วันนี้)',
-        isRead: false,
-        targetRoute: 'aiot',
-      ),
-      NotificationItemModel(
-        id: 'notif-3',
-        title: '📝 มีนักเรียนส่งใบงานทดลองใหม่รอตรวจ 18 รายการ',
-        message:
-            'วิชา ม.5/2 การออกแบบเทคโนโลยี — ใบงานทดลองที่ 3 การวัดค่าฝุ่น PM2.5',
-        category: 'grading',
-        timestamp: '11:30 น. (วันนี้)',
-        isRead: true,
-        targetRoute: 'grading',
-      ),
-      NotificationItemModel(
-        id: 'notif-4',
-        title: '📷 กล้อง AI Security ตรวจพบความผิดปกติ',
-        message: 'กล้องประตูหลังโรงเรียน ตรวจพบเคสความปลอดภัยรอการรีวิว',
-        category: 'camera',
-        timestamp: '09:10 น. (วันนี้)',
-        isRead: true,
-        targetRoute: 'camera',
-      ),
-    ];
+    _notifications = mockTeacherNotifications();
   }
 
   void _handleNotificationTap(NotificationItemModel notif) {
@@ -112,6 +116,11 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherGradingPage()),
+      );
+    } else if (notif.targetRoute == 'camera') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherIncidentInboxPage()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

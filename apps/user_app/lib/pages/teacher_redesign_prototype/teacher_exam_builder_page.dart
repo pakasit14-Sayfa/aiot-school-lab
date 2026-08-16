@@ -4,31 +4,53 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'teacher_redesign_prototype_page.dart';
 import 'teacher_shared_widgets.dart';
+import 'teacher_question_bank_page.dart';
 
 enum _ExamKind { preTest, postTest, quiz }
+
+enum _QuestionType { multipleChoice, essay }
+
+enum _ExamDisplayMode { onePerScreen, allAtOnce }
+
+/// Accent color per question type — purple reads as "structured/pick one"
+/// (Forms), orange reads as "free write" so the two are scannable at a
+/// glance without reading the toggle label.
+Color _typeAccent(_QuestionType type) => type == _QuestionType.multipleChoice
+    ? TeacherPalette.primary
+    : TeacherPalette.orange;
 
 class _ExamQuestionMock {
   _ExamQuestionMock({
     required this.questionText,
     required this.options,
-    required this.correctIndex,
+    this.correctIndex,
     required this.explanation,
+    this.type = _QuestionType.multipleChoice,
     this.score = 2,
     this.hasImage = false,
     this.imageName,
     this.imageBytes,
     this.imagePath,
+    this.hasVideo = false,
+    this.videoName,
+    this.videoBytes,
+    this.videoPath,
   });
 
   String questionText;
   List<String> options;
-  int correctIndex;
+  int? correctIndex;
   String explanation;
+  _QuestionType type;
   int score;
   bool hasImage;
   String? imageName;
   Uint8List? imageBytes;
   String? imagePath;
+  bool hasVideo;
+  String? videoName;
+  Uint8List? videoBytes;
+  String? videoPath;
 }
 
 class TeacherExamBuilderPage extends StatefulWidget {
@@ -54,6 +76,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
   int _passingPercentage = 60;
   bool _shuffleQuestions = true;
   bool _shuffleOptions = true;
+  _ExamDisplayMode _displayMode = _ExamDisplayMode.allAtOnce;
 
   final List<_ExamQuestionMock> _questions = [
     _ExamQuestionMock(
@@ -136,7 +159,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         _ExamQuestionMock(
           questionText: 'โจทย์ข้อสอบข้อที่ ${_questions.length + 1}',
           options: ['ตัวเลือก ก', 'ตัวเลือก ข', 'ตัวเลือก ค', 'ตัวเลือก ง'],
-          correctIndex: 0,
+          correctIndex: null,
           explanation: 'ระบุคำอธิบายเฉลยคำตอบถูกต้องเพิ่มเติม...',
           score: 2,
         ),
@@ -144,29 +167,39 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     });
   }
 
-  void _importFromBank() {
+  Future<void> _importFromBank() async {
+    final chosen = await Navigator.push<List<BankQuestion>>(
+      context,
+      MaterialPageRoute(builder: (_) => const TeacherQuestionBankPage()),
+    );
+    if (chosen == null || chosen.isEmpty || !mounted) return;
     setState(() {
-      _questions.add(
-        _ExamQuestionMock(
-          questionText:
-              '(ดึงจากคลัง) การต่อตัวต้านทาน pull-up กับขาบัส I2C มีวัตถุประสงค์เพื่ออะไร?',
-          options: [
-            'รักษาลอจิกแรงดันในสภาวะปกติให้เป็น HIGH (5V/3.3V)',
-            'เพิ่มกระแสไฟฟ้าให้กับเซนเซอร์',
-            'แปลงสัญญาณจากดิจิทัลเป็นแอนะล็อก',
-            'ป้องกันสัญญาณรบกวนคลื่นวิทยุ',
-          ],
-          correctIndex: 0,
-          explanation:
-              'บัส I2C เป็นแบบ open-drain จึงต้องใช้ตัวต้านทาน Pull-up ดึงแรงดันไว้ในสภาวะว่าง',
-          score: 2,
-        ),
-      );
+      for (final bq in chosen) {
+        _questions.add(
+          _ExamQuestionMock(
+            questionText: bq.questionText,
+            options: bq.type == BankQuestionType.multipleChoice
+                ? List.from(bq.options)
+                : const [
+                    'ตัวเลือก ก',
+                    'ตัวเลือก ข',
+                    'ตัวเลือก ค',
+                    'ตัวเลือก ง',
+                  ],
+            correctIndex: bq.correctIndex,
+            explanation: bq.explanation,
+            type: bq.type == BankQuestionType.multipleChoice
+                ? _QuestionType.multipleChoice
+                : _QuestionType.essay,
+            score: bq.score,
+          ),
+        );
+      }
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ดึงโจทย์ข้อสอบมาตรฐานจากคลังสำเร็จ (+1 ข้อ)'),
-        duration: Duration(seconds: 2),
+      SnackBar(
+        content: Text('ดึงโจทย์จากคลังสำเร็จ (+${chosen.length} ข้อ)'),
+        duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -182,11 +215,16 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
           options: List.from(q.options),
           correctIndex: q.correctIndex,
           explanation: q.explanation,
+          type: q.type,
           score: q.score,
           hasImage: q.hasImage,
           imageName: q.imageName,
           imageBytes: q.imageBytes,
           imagePath: q.imagePath,
+          hasVideo: q.hasVideo,
+          videoName: q.videoName,
+          videoBytes: q.videoBytes,
+          videoPath: q.videoPath,
         ),
       );
     });
@@ -246,6 +284,52 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     }
   }
 
+  Future<void> _pickVideoForQuestion(_ExamQuestionMock question) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        withData: true,
+      );
+      if (result != null && result.files.isNotEmpty) {
+        final pickedFile = result.files.first;
+        setState(() {
+          question.hasVideo = true;
+          question.videoName = pickedFile.name;
+          question.videoBytes = pickedFile.bytes;
+          question.videoPath = kIsWeb ? null : pickedFile.path;
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('แนบวิดีโอ "${pickedFile.name}" จากเครื่องสำเร็จ!'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์วิดีโอ: $e')),
+      );
+    }
+  }
+
+  void _openStudentPreview() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _StudentExamPreviewPage(
+          examTitle: _examTitleCtrl.text.trim().isEmpty
+              ? 'ตัวอย่างข้อสอบ'
+              : _examTitleCtrl.text.trim(),
+          questions: _questions,
+          displayMode: _displayMode,
+        ),
+      ),
+    );
+  }
+
   void _saveExam(bool isPublished) {
     final title = _examTitleCtrl.text.trim();
     if (title.isEmpty) {
@@ -253,6 +337,26 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         const SnackBar(content: Text('กรุณากรอกชื่อชุดข้อสอบก่อนบันทึก')),
       );
       return;
+    }
+    // ASM-1 Exception Flow: ห้ามเผยแพร่ถ้าคำถามแบบเลือกตอบข้อใดยังไม่มีเฉลย
+    if (isPublished) {
+      final missingAnswerKey = <int>[
+        for (var i = 0; i < _questions.length; i++)
+          if (_questions[i].type == _QuestionType.multipleChoice &&
+              _questions[i].correctIndex == null)
+            i + 1,
+      ];
+      if (missingAnswerKey.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'ยังไม่ได้เลือกเฉลยข้อที่ ${missingAnswerKey.join(", ")} '
+              '— ต้องระบุเฉลยให้ครบก่อนเผยแพร่ข้อสอบ',
+            ),
+          ),
+        );
+        return;
+      }
     }
     final statusText = isPublished
         ? 'เผยแพร่ข้อสอบสำเร็จ'
@@ -263,253 +367,220 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: TeacherPalette.page,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: TeacherPalette.ink,
-        title: const Text(
-          'ออกแบบทดสอบ / ออกข้อสอบ',
-          style: TextStyle(
-            color: TeacherPalette.ink,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
+    return TeacherMockPageShell(
+      title: 'ออกแบบทดสอบ / ออกข้อสอบ',
+      builder: (context, isDesktop) {
+        return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Header Card
+            // Top Header Card — Forms-style: colored top strip, big
+            // borderless title, settings collapsed into compact pills.
             Container(
-              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: TeacherPalette.border, width: 1.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: TeacherPalette.border, width: 1),
                 boxShadow: const [
                   BoxShadow(
                     color: Color(0x0F0F172A),
-                    blurRadius: 16,
-                    offset: Offset(0, 6),
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
                   ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: TeacherPalette.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          'วิชา ${widget.courseName} (${widget.courseCode})',
-                          style: const TextStyle(
-                            color: TeacherPalette.primary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 12,
-                          ),
-                        ),
+                  Container(
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: TeacherPalette.primary,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(20),
                       ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        style: IconButton.styleFrom(
-                          backgroundColor: TeacherPalette.page,
-                          foregroundColor: TeacherPalette.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'ประเภทข้อสอบ',
-                    style: TextStyle(
-                      color: TeacherPalette.muted,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _KindChip(
-                          label: 'ข้อสอบก่อนเรียน (Pre-test)',
-                          selected: _selectedKind == _ExamKind.preTest,
-                          onTap: () =>
-                              setState(() => _selectedKind = _ExamKind.preTest),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: TeacherPalette.primary.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '${widget.courseName} · ${widget.courseCode}',
+                                style: const TextStyle(
+                                  color: TeacherPalette.primary,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              style: IconButton.styleFrom(
+                                backgroundColor: TeacherPalette.card,
+                                foregroundColor: TeacherPalette.muted,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _KindChip(
-                          label: 'ข้อสอบหลังเรียน (Post-test)',
-                          selected: _selectedKind == _ExamKind.postTest,
-                          onTap: () => setState(
-                            () => _selectedKind = _ExamKind.postTest,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _KindChip(
-                          label: 'แบบทดสอบเก็บคะแนน',
-                          selected: _selectedKind == _ExamKind.quiz,
-                          onTap: () =>
-                              setState(() => _selectedKind = _ExamKind.quiz),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    'ชื่อชุดข้อสอบ / หัวข้อประเมิน',
-                    style: TextStyle(
-                      color: TeacherPalette.ink,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _examTitleCtrl,
-                    style: const TextStyle(
-                      color: TeacherPalette.ink,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(
-                        Icons.quiz_rounded,
-                        color: TeacherPalette.primary,
-                        size: 20,
-                      ),
-                      filled: true,
-                      fillColor: TeacherPalette.page,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(
-                          color: TeacherPalette.border,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(
-                          color: TeacherPalette.border,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(
+                        const SizedBox(height: 16),
+                        _SegmentedCapsule<_ExamKind>(
+                          value: _selectedKind,
+                          segments: const [
+                            (
+                              value: _ExamKind.preTest,
+                              label: 'ก่อนเรียน',
+                              icon: Icons.flag_outlined,
+                            ),
+                            (
+                              value: _ExamKind.postTest,
+                              label: 'หลังเรียน',
+                              icon: Icons.flag_rounded,
+                            ),
+                            (
+                              value: _ExamKind.quiz,
+                              label: 'เก็บคะแนน',
+                              icon: Icons.emoji_events_outlined,
+                            ),
+                          ],
                           color: TeacherPalette.primary,
-                          width: 1.8,
+                          onChanged: (v) => setState(() => _selectedKind = v),
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Metrics Row (Time, Total Score, Passing Grade)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _MetricSettingCard(
-                          icon: Icons.timer_rounded,
-                          label: 'เวลาทำข้อสอบ',
-                          value: '$_timeLimitMinutes นาที',
-                          onDecrease: () {
-                            if (_timeLimitMinutes > 5) {
-                              setState(() => _timeLimitMinutes -= 5);
-                            }
-                          },
-                          onIncrease: () {
-                            setState(() => _timeLimitMinutes += 5);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MetricSettingCard(
-                          icon: Icons.grade_rounded,
-                          label: 'คะแนนเต็มรวม',
-                          value: '$_totalScore คะแนน',
-                          color: TeacherPalette.green,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _MetricSettingCard(
-                          icon: Icons.verified_rounded,
-                          label: 'เกณฑ์ผ่านขั้นต่ำ',
-                          value: '$_passingPercentage%',
-                          onDecrease: () {
-                            if (_passingPercentage > 40) {
-                              setState(() => _passingPercentage -= 5);
-                            }
-                          },
-                          onIncrease: () {
-                            if (_passingPercentage < 90) {
-                              setState(() => _passingPercentage += 5);
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Automatic Shuffle Anti-Cheating Toggles
-                  const Text(
-                    'ระบบสลับข้อสอบและตัวเลือกอัตโนมัติ (ป้องกันการลอกข้อสอบ)',
-                    style: TextStyle(
-                      color: TeacherPalette.ink,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _ShuffleToggleCard(
-                          title: 'สลับลำดับข้อสอบ',
-                          subtitle: 'สุ่มลำดับข้อ 1, 2, 3 สดๆ',
-                          icon: Icons.shuffle_rounded,
-                          selected: _shuffleQuestions,
-                          onTap: () => setState(
-                            () => _shuffleQuestions = !_shuffleQuestions,
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: _examTitleCtrl,
+                          style: const TextStyle(
+                            color: TeacherPalette.ink,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 19,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'ชื่อชุดข้อสอบ / หัวข้อประเมิน',
+                            hintStyle: TextStyle(
+                              color: TeacherPalette.muted.withValues(
+                                alpha: 0.5,
+                              ),
+                              fontWeight: FontWeight.w800,
+                            ),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ),
+                            border: const UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: TeacherPalette.border,
+                                width: 1.4,
+                              ),
+                            ),
+                            enabledBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: TeacherPalette.border,
+                                width: 1.4,
+                              ),
+                            ),
+                            focusedBorder: const UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: TeacherPalette.primary,
+                                width: 2,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _ShuffleToggleCard(
-                          title: 'สลับตัวเลือกคำตอบ',
-                          subtitle: 'สุ่มลำดับ ก, ข, ค, ง สดๆ',
-                          icon: Icons.alt_route_rounded,
-                          selected: _shuffleOptions,
-                          onTap: () => setState(
-                            () => _shuffleOptions = !_shuffleOptions,
+                        const SizedBox(height: 18),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _SpecPill(
+                              icon: Icons.timer_rounded,
+                              label: '$_timeLimitMinutes นาที',
+                              color: TeacherPalette.primary,
+                              onDecrease: _timeLimitMinutes > 5
+                                  ? () => setState(() => _timeLimitMinutes -= 5)
+                                  : null,
+                              onIncrease: () =>
+                                  setState(() => _timeLimitMinutes += 5),
+                            ),
+                            _SpecPill(
+                              icon: Icons.stars_rounded,
+                              label: '$_totalScore คะแนนเต็ม',
+                              color: TeacherPalette.green,
+                            ),
+                            _SpecPill(
+                              icon: Icons.verified_rounded,
+                              label: 'ผ่าน $_passingPercentage%',
+                              color: TeacherPalette.green,
+                              onDecrease: _passingPercentage > 40
+                                  ? () =>
+                                        setState(() => _passingPercentage -= 5)
+                                  : null,
+                              onIncrease: _passingPercentage < 90
+                                  ? () =>
+                                        setState(() => _passingPercentage += 5)
+                                  : null,
+                            ),
+                            _ToggleChip(
+                              icon: Icons.shuffle_rounded,
+                              label: 'สุ่มลำดับข้อ',
+                              selected: _shuffleQuestions,
+                              onTap: () => setState(
+                                () => _shuffleQuestions = !_shuffleQuestions,
+                              ),
+                            ),
+                            _ToggleChip(
+                              icon: Icons.alt_route_rounded,
+                              label: 'สุ่มตัวเลือก',
+                              selected: _shuffleOptions,
+                              onTap: () => setState(
+                                () => _shuffleOptions = !_shuffleOptions,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'มุมมองนักเรียน',
+                          style: TextStyle(
+                            color: TeacherPalette.muted,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11.5,
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        _SegmentedCapsule<_ExamDisplayMode>(
+                          value: _displayMode,
+                          segments: const [
+                            (
+                              value: _ExamDisplayMode.onePerScreen,
+                              label: 'ทีละข้อ',
+                              icon: Icons.view_agenda_rounded,
+                            ),
+                            (
+                              value: _ExamDisplayMode.allAtOnce,
+                              label: 'เห็นทั้งหมดพร้อมกัน',
+                              icon: Icons.view_list_rounded,
+                            ),
+                          ],
+                          color: TeacherPalette.primary,
+                          onChanged: (v) => setState(() => _displayMode = v),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -535,7 +606,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                   ),
                   decoration: BoxDecoration(
                     color: TeacherPalette.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '${_questions.length} ข้อ',
@@ -562,61 +633,37 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                 onDuplicate: () => _duplicateQuestion(i),
                 onDelete: () => _deleteQuestion(i),
                 onPickImage: () => _pickImageForQuestion(_questions[i]),
+                onPickVideo: () => _pickVideoForQuestion(_questions[i]),
                 onChanged: () => setState(() {}),
               ),
               const SizedBox(height: 16),
             ],
 
-            // Add Question Action Buttons Row
-            Row(
+            // Add Question Action Buttons
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _addNewQuestion,
-                    icon: const Icon(
-                      Icons.add_circle_outline_rounded,
-                      size: 18,
-                    ),
-                    label: const Text('+ เพิ่มข้อสอบใหม่'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: TeacherPalette.primary,
-                      side: const BorderSide(
-                        color: TeacherPalette.primary,
-                        width: 1.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
+                _PillActionButton(
+                  icon: Icons.add_circle_rounded,
+                  label: 'เพิ่มข้อสอบใหม่',
+                  color: TeacherPalette.primary,
+                  filled: true,
+                  onTap: _addNewQuestion,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _importFromBank,
-                    icon: const Icon(Icons.download_rounded, size: 18),
-                    label: const Text('ดึงโจทย์จากคลัง'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: TeacherPalette.primary,
-                      side: const BorderSide(
-                        color: TeacherPalette.primary,
-                        width: 1.5,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
+                _PillActionButton(
+                  icon: Icons.download_rounded,
+                  label: 'ดึงโจทย์จากคลัง',
+                  color: TeacherPalette.primary,
+                  filled: false,
+                  onTap: _importFromBank,
+                ),
+                _PillActionButton(
+                  icon: Icons.visibility_rounded,
+                  label: 'ดูตัวอย่างที่นักเรียนจะเห็น',
+                  color: TeacherPalette.orange,
+                  filled: false,
+                  onTap: _openStudentPreview,
                 ),
               ],
             ),
@@ -624,10 +671,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
 
             // Bottom Sticky Action Footer
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(999),
                 border: Border.all(color: TeacherPalette.border, width: 1.2),
                 boxShadow: const [
                   BoxShadow(
@@ -646,9 +693,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         foregroundColor: TeacherPalette.ink,
                         side: const BorderSide(color: TeacherPalette.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                        shape: const StadiumBorder(),
                         textStyle: const TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w800,
@@ -668,9 +713,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                         backgroundColor: TeacherPalette.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                        shape: const StadiumBorder(),
                         textStyle: const TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w900,
@@ -682,232 +725,291 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
               ),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
-class _ShuffleToggleCard extends StatelessWidget {
-  const _ShuffleToggleCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? TeacherPalette.primary.withValues(alpha: 0.08)
-          : TeacherPalette.page,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected ? TeacherPalette.primary : TeacherPalette.border,
-              width: selected ? 2 : 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? TeacherPalette.primary
-                      : TeacherPalette.border.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  size: 16,
-                  color: selected ? Colors.white : TeacherPalette.muted,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: selected
-                            ? TeacherPalette.primary
-                            : TeacherPalette.ink,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      selected ? 'เปิดสลับแล้ว ✓' : subtitle,
-                      style: TextStyle(
-                        color: selected
-                            ? TeacherPalette.primary
-                            : TeacherPalette.muted,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _KindChip extends StatelessWidget {
-  const _KindChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? TeacherPalette.primary : TeacherPalette.page,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? TeacherPalette.primary : TeacherPalette.border,
-            ),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? Colors.white : TeacherPalette.ink,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricSettingCard extends StatelessWidget {
-  const _MetricSettingCard({
-    required this.icon,
-    required this.label,
+/// Generic pill-shaped segmented control (2–3 options) used for exam kind,
+/// question type, and student display mode — replaces the old boxy chip
+/// rows with one compact, consistent Forms/Kahoot-style capsule.
+class _SegmentedCapsule<T> extends StatelessWidget {
+  const _SegmentedCapsule({
     required this.value,
-    this.onDecrease,
-    this.onIncrease,
+    required this.segments,
+    required this.onChanged,
     this.color = TeacherPalette.primary,
+    super.key,
   });
 
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onDecrease;
-  final VoidCallback? onIncrease;
+  final T value;
+  final List<({T value, String label, IconData icon})> segments;
+  final ValueChanged<T> onChanged;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: TeacherPalette.card,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: TeacherPalette.border),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
+          for (final seg in segments)
+            Flexible(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => onChanged(seg.value),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: value == seg.value ? color : Colors.transparent,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          seg.icon,
+                          size: 14,
+                          color: value == seg.value
+                              ? Colors.white
+                              : TeacherPalette.muted,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            seg.label,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: value == seg.value
+                                  ? Colors.white
+                                  : TeacherPalette.muted,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact rounded stat pill (Kahoot/Forms style) — shows an icon+value and
+/// optionally tiny +/- steppers when [onDecrease]/[onIncrease] are given.
+class _SpecPill extends StatelessWidget {
+  const _SpecPill({
+    required this.icon,
+    required this.label,
+    this.color = TeacherPalette.primary,
+    this.onDecrease,
+    this.onIncrease,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onDecrease;
+  final VoidCallback? onIncrease;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasStepper = onDecrease != null || onIncrease != null;
+    return Container(
+      padding: EdgeInsets.fromLTRB(12, 8, hasStepper ? 4 : 12, 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
           Text(
-            value,
-            style: const TextStyle(
-              color: TeacherPalette.ink,
-              fontSize: 15,
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
             ),
           ),
-          if (onDecrease != null && onIncrease != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                InkWell(
-                  onTap: onDecrease,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: TeacherPalette.border),
-                    ),
-                    child: const Icon(Icons.remove_rounded, size: 14),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: onIncrease,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: TeacherPalette.border),
-                    ),
-                    child: const Icon(Icons.add_rounded, size: 14),
-                  ),
-                ),
-              ],
+          if (hasStepper) ...[
+            const SizedBox(width: 4),
+            _StepperDot(
+              icon: Icons.remove_rounded,
+              onTap: onDecrease,
+              color: color,
+            ),
+            _StepperDot(
+              icon: Icons.add_rounded,
+              onTap: onIncrease,
+              color: color,
             ),
           ],
         ],
       ),
     );
+  }
+}
+
+class _StepperDot extends StatelessWidget {
+  const _StepperDot({
+    required this.icon,
+    required this.onTap,
+    required this.color,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 1),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: onTap == null ? Colors.transparent : Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 12,
+          color: onTap == null ? color.withValues(alpha: 0.3) : color,
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact on/off pill (Kahoot-style) used for the anti-cheat shuffle
+/// switches.
+class _ToggleChip extends StatelessWidget {
+  const _ToggleChip({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? TeacherPalette.primary : TeacherPalette.card,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? TeacherPalette.primary : TeacherPalette.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? Icons.check_circle_rounded : icon,
+                size: 14,
+                color: selected ? Colors.white : TeacherPalette.muted,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.white : TeacherPalette.muted,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PillActionButton extends StatelessWidget {
+  const _PillActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.filled,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool filled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return filled
+        ? FilledButton.icon(
+            onPressed: onTap,
+            icon: Icon(icon, size: 18),
+            label: Text(label),
+            style: FilledButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          )
+        : OutlinedButton.icon(
+            onPressed: onTap,
+            icon: Icon(icon, size: 18),
+            label: Text(label),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color,
+              side: BorderSide(color: color, width: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          );
   }
 }
 
@@ -922,6 +1024,7 @@ class _QuestionBuilderCard extends StatelessWidget {
     required this.onDuplicate,
     required this.onDelete,
     required this.onPickImage,
+    required this.onPickVideo,
     required this.onChanged,
   });
 
@@ -934,11 +1037,13 @@ class _QuestionBuilderCard extends StatelessWidget {
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
   final VoidCallback onPickImage;
+  final VoidCallback onPickVideo;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     final optionLabels = ['ก.', 'ข.', 'ค.', 'ง.'];
+    final accent = _typeAccent(question.type);
 
     Widget buildImageDisplay() {
       final sizeText = question.imageBytes != null
@@ -949,18 +1054,18 @@ class _QuestionBuilderCard extends StatelessWidget {
       if (question.imageBytes != null) {
         imageWidget = Image.memory(
           question.imageBytes!,
-          height: 240,
+          height: 200,
           fit: BoxFit.contain,
         );
       } else if (question.imagePath != null && !kIsWeb) {
         imageWidget = Image.file(
           File(question.imagePath!),
-          height: 240,
+          height: 200,
           fit: BoxFit.contain,
         );
       } else {
         imageWidget = Container(
-          height: 140,
+          height: 120,
           width: double.infinity,
           alignment: Alignment.center,
           child: Column(
@@ -968,7 +1073,7 @@ class _QuestionBuilderCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.schema_rounded,
-                size: 40,
+                size: 36,
                 color: TeacherPalette.primary.withValues(alpha: 0.6),
               ),
               const SizedBox(height: 6),
@@ -988,9 +1093,8 @@ class _QuestionBuilderCard extends StatelessWidget {
       return Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: TeacherPalette.page,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: TeacherPalette.border),
+          color: TeacherPalette.card,
+          borderRadius: BorderRadius.circular(12),
         ),
         padding: const EdgeInsets.all(8),
         alignment: Alignment.center,
@@ -998,308 +1102,63 @@ class _QuestionBuilderCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               child: imageWidget,
             ),
             const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.aspect_ratio_rounded,
-                  size: 12,
-                  color: TeacherPalette.muted,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'แสดงตามสัดส่วนจริงของไฟล์อัปโหลด ($sizeText)',
-                  style: const TextStyle(
-                    color: TeacherPalette.muted,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
+            Text(
+              'แสดงตามสัดส่วนจริงของไฟล์อัปโหลด ($sizeText)',
+              style: const TextStyle(
+                color: TeacherPalette.muted,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: TeacherPalette.border, width: 1.2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0F172A),
-            blurRadius: 14,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Row
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: TeacherPalette.primary,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  'ข้อที่ $index',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // International LMS Standard Point Selector Pill
-              _QuestionPointsPill(
-                score: question.score,
-                onChanged: (newScore) {
-                  question.score = newScore;
-                  onChanged();
-                },
-              ),
-              const Spacer(),
-
-              // Up/Down reorder
-              IconButton(
-                onPressed: isFirst ? null : onMoveUp,
-                icon: const Icon(Icons.arrow_upward_rounded, size: 16),
-                tooltip: 'เลื่อนข้อสอบขึ้น',
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
-              ),
-              IconButton(
-                onPressed: isLast ? null : onMoveDown,
-                icon: const Icon(Icons.arrow_downward_rounded, size: 16),
-                tooltip: 'เลื่อนข้อสอบลง',
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                onPressed: onDuplicate,
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                tooltip: 'คัดลอกข้อนี้',
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                tooltip: 'ลบข้อนี้',
-                style: IconButton.styleFrom(
-                  foregroundColor: TeacherPalette.red,
-                ),
-                constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(4),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Question Input
-          TextFormField(
-            initialValue: question.questionText,
-            onChanged: (val) {
-              question.questionText = val;
+    Widget optionRow(int optIdx) {
+      final isCorrect = question.correctIndex == optIdx;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Material(
+          color: isCorrect
+              ? TeacherPalette.green.withValues(alpha: 0.06)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              question.correctIndex = optIdx;
               onChanged();
             },
-            decoration: InputDecoration(
-              labelText: 'โจทย์คำถามข้อที่ $index',
-              labelStyle: const TextStyle(
-                color: TeacherPalette.ink,
-                fontWeight: FontWeight.w800,
-                fontSize: 13,
-              ),
-              filled: true,
-              fillColor: TeacherPalette.page,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: TeacherPalette.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: TeacherPalette.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: TeacherPalette.primary,
-                  width: 1.6,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Real Device FilePicker Image Section
-          if (question.hasImage)
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 6),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: TeacherPalette.page,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: TeacherPalette.primary.withValues(alpha: 0.3),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.image_rounded,
-                        size: 16,
-                        color: TeacherPalette.primary,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'รูปภาพประกอบ: ${question.imageName ?? "รูปจากเครื่อง"}',
-                          style: const TextStyle(
-                            color: TeacherPalette.primary,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      TextButton.icon(
-                        onPressed: onPickImage,
-                        icon: const Icon(Icons.folder_open_rounded, size: 14),
-                        label: const Text('เปลี่ยนรูป'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: TeacherPalette.primary,
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      TextButton.icon(
-                        onPressed: () {
-                          question.hasImage = false;
-                          question.imageBytes = null;
-                          question.imagePath = null;
-                          onChanged();
-                        },
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          size: 14,
-                        ),
-                        label: const Text('ลบรูป'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: TeacherPalette.red,
-                          padding: EdgeInsets.zero,
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  buildImageDisplay(),
-                ],
-              ),
-            )
-          else
-            OutlinedButton.icon(
-              onPressed: onPickImage,
-              icon: const Icon(Icons.add_photo_alternate_rounded, size: 16),
-              label: const Text('+ อัปโหลดรูปภาพจากเครื่องจริง'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: TeacherPalette.primary,
-                side: const BorderSide(color: TeacherPalette.border),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          const SizedBox(height: 12),
-
-          const Text(
-            'ตัวเลือกคำตอบ (เลือกปุ่มวิทยุหน้าข้อเพื่อกำหนดเฉลยที่ถูกต้อง):',
-            style: TextStyle(
-              color: TeacherPalette.muted,
-              fontWeight: FontWeight.w700,
-              fontSize: 11.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // 4 Options
-          for (int optIdx = 0; optIdx < question.options.length; optIdx++) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: question.correctIndex == optIdx
-                    ? TeacherPalette.green.withValues(alpha: 0.08)
-                    : TeacherPalette.page,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: question.correctIndex == optIdx
-                      ? TeacherPalette.green
-                      : TeacherPalette.border,
-                  width: question.correctIndex == optIdx ? 1.8 : 1,
-                ),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Row(
                 children: [
-                  Radio<int>(
-                    value: optIdx,
-                    groupValue: question.correctIndex,
-                    activeColor: TeacherPalette.green,
-                    onChanged: (val) {
-                      if (val != null) {
-                        question.correctIndex = val;
-                        onChanged();
-                      }
-                    },
+                  Icon(
+                    isCorrect
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 20,
+                    color: isCorrect
+                        ? TeacherPalette.green
+                        : TeacherPalette.border,
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     optionLabels[optIdx],
                     style: TextStyle(
-                      color: question.correctIndex == optIdx
+                      color: isCorrect
                           ? TeacherPalette.green
-                          : TeacherPalette.ink,
+                          : TeacherPalette.muted,
                       fontWeight: FontWeight.w900,
-                      fontSize: 13,
+                      fontSize: 12.5,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: TextFormField(
                       initialValue: question.options[optIdx],
@@ -1307,32 +1166,28 @@ class _QuestionBuilderCard extends StatelessWidget {
                         question.options[optIdx] = val;
                         onChanged();
                       },
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: isCorrect
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: TeacherPalette.ink,
                       ),
                       decoration: const InputDecoration(
                         isDense: true,
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(vertical: 6),
                       ),
                     ),
                   ),
-                  if (question.correctIndex == optIdx)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: TeacherPalette.green,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'เฉลยข้อถูก ✓',
+                  if (isCorrect)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Text(
+                        'เฉลย',
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
+                          color: TeacherPalette.green,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -1340,46 +1195,416 @@ class _QuestionBuilderCard extends StatelessWidget {
                 ],
               ),
             ),
-          ],
-          const SizedBox(height: 10),
+          ),
+        ),
+      );
+    }
 
-          // Explanation Input
-          TextFormField(
-            initialValue: question.explanation,
-            onChanged: (val) {
-              question.explanation = val;
-              onChanged();
-            },
-            decoration: InputDecoration(
-              labelText: 'คำอธิบายเฉลยเพิ่มเติม (แสดงหลังนักเรียนส่งข้อสอบ)',
-              labelStyle: const TextStyle(
-                color: TeacherPalette.muted,
-                fontWeight: FontWeight.w700,
-                fontSize: 11.5,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: TeacherPalette.border, width: 1),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D0F172A),
+              blurRadius: 14,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 6, color: accent),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Row
+                      Row(
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: accent,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '$index',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _SegmentedCapsule<_QuestionType>(
+                            value: question.type,
+                            color: accent,
+                            segments: const [
+                              (
+                                value: _QuestionType.multipleChoice,
+                                label: 'ปรนัย',
+                                icon: Icons.list_alt_rounded,
+                              ),
+                              (
+                                value: _QuestionType.essay,
+                                label: 'อัตนัย',
+                                icon: Icons.edit_note_rounded,
+                              ),
+                            ],
+                            onChanged: (t) {
+                              question.type = t;
+                              onChanged();
+                            },
+                          ),
+                          const Spacer(),
+                          _QuestionPointsPill(
+                            score: question.score,
+                            onChanged: (newScore) {
+                              question.score = newScore;
+                              onChanged();
+                            },
+                          ),
+                          IconButton(
+                            onPressed: isFirst ? null : onMoveUp,
+                            icon: const Icon(
+                              Icons.arrow_upward_rounded,
+                              size: 15,
+                            ),
+                            tooltip: 'เลื่อนข้อสอบขึ้น',
+                            visualDensity: VisualDensity.compact,
+                            color: TeacherPalette.muted,
+                          ),
+                          IconButton(
+                            onPressed: isLast ? null : onMoveDown,
+                            icon: const Icon(
+                              Icons.arrow_downward_rounded,
+                              size: 15,
+                            ),
+                            tooltip: 'เลื่อนข้อสอบลง',
+                            visualDensity: VisualDensity.compact,
+                            color: TeacherPalette.muted,
+                          ),
+                          IconButton(
+                            onPressed: onDuplicate,
+                            icon: const Icon(Icons.copy_rounded, size: 15),
+                            tooltip: 'คัดลอกข้อนี้',
+                            visualDensity: VisualDensity.compact,
+                            color: TeacherPalette.muted,
+                          ),
+                          IconButton(
+                            onPressed: onDelete,
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 15,
+                            ),
+                            tooltip: 'ลบข้อนี้',
+                            visualDensity: VisualDensity.compact,
+                            color: TeacherPalette.red,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Question Input — underline only, Forms-style
+                      TextFormField(
+                        initialValue: question.questionText,
+                        onChanged: (val) {
+                          question.questionText = val;
+                          onChanged();
+                        },
+                        style: const TextStyle(
+                          color: TeacherPalette.ink,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'พิมพ์โจทย์คำถาม...',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8),
+                          border: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: TeacherPalette.border,
+                            ),
+                          ),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: TeacherPalette.border,
+                            ),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: TeacherPalette.primary,
+                              width: 1.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Compact icon-only media attach row
+                      Row(
+                        children: [
+                          _MediaIconButton(
+                            icon: Icons.add_photo_alternate_rounded,
+                            tooltip: 'แนบรูปภาพ',
+                            color: TeacherPalette.primary,
+                            active: question.hasImage,
+                            onTap: onPickImage,
+                          ),
+                          const SizedBox(width: 8),
+                          _MediaIconButton(
+                            icon: Icons.video_call_rounded,
+                            tooltip: 'แนบคลิป/วิดีโอ',
+                            color: TeacherPalette.orange,
+                            active: question.hasVideo,
+                            onTap: onPickVideo,
+                          ),
+                        ],
+                      ),
+
+                      if (question.hasImage) ...[
+                        const SizedBox(height: 10),
+                        _AttachmentChipHeader(
+                          icon: Icons.image_rounded,
+                          color: TeacherPalette.primary,
+                          label: question.imageName ?? 'รูปจากเครื่อง',
+                          onRemove: () {
+                            question.hasImage = false;
+                            question.imageBytes = null;
+                            question.imagePath = null;
+                            onChanged();
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        buildImageDisplay(),
+                      ],
+
+                      if (question.hasVideo) ...[
+                        const SizedBox(height: 10),
+                        _AttachmentChipHeader(
+                          icon: Icons.videocam_rounded,
+                          color: TeacherPalette.orange,
+                          label: question.videoName ?? 'วิดีโอจากเครื่อง',
+                          onRemove: () {
+                            question.hasVideo = false;
+                            question.videoBytes = null;
+                            question.videoPath = null;
+                            onChanged();
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          height: 120,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.85),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.play_circle_fill_rounded,
+                            size: 38,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+
+                      if (question.type == _QuestionType.multipleChoice) ...[
+                        for (
+                          int optIdx = 0;
+                          optIdx < question.options.length;
+                          optIdx++
+                        )
+                          optionRow(optIdx),
+                      ] else
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: TeacherPalette.orange.withValues(
+                              alpha: 0.06,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: TeacherPalette.orange.withValues(
+                                alpha: 0.25,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.edit_note_rounded,
+                                size: 18,
+                                color: TeacherPalette.orange,
+                              ),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'คำถามแบบอัตนัย — นักเรียนจะพิมพ์คำตอบเองในช่องข้อความ ครูตรวจให้คะแนนภายหลัง',
+                                  style: TextStyle(
+                                    color: TeacherPalette.muted,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+
+                      // Explanation Input — underline only
+                      TextFormField(
+                        initialValue: question.explanation,
+                        onChanged: (val) {
+                          question.explanation = val;
+                          onChanged();
+                        },
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          labelText:
+                              question.type == _QuestionType.multipleChoice
+                              ? 'คำอธิบายเฉลยเพิ่มเติม (แสดงหลังนักเรียนส่งข้อสอบ)'
+                              : 'แนวคำตอบ/เกณฑ์ให้คะแนน (สำหรับครูใช้ตรวจ)',
+                          labelStyle: const TextStyle(
+                            color: TeacherPalette.muted,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.lightbulb_outline_rounded,
+                            color: TeacherPalette.orange,
+                            size: 16,
+                          ),
+                          isDense: true,
+                          border: const UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: TeacherPalette.border,
+                            ),
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: TeacherPalette.border,
+                            ),
+                          ),
+                          focusedBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: TeacherPalette.primary,
+                              width: 1.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              prefixIcon: const Icon(
-                Icons.lightbulb_outline_rounded,
-                color: TeacherPalette.orange,
-                size: 18,
-              ),
-              filled: true,
-              fillColor: TeacherPalette.page,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: TeacherPalette.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: TeacherPalette.border),
-              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MediaIconButton extends StatelessWidget {
+  const _MediaIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? color : color.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: color.withValues(alpha: active ? 1 : 0.25),
             ),
           ),
-        ],
+          child: Icon(icon, size: 16, color: active ? Colors.white : color),
+        ),
       ),
+    );
+  }
+}
+
+class _AttachmentChipHeader extends StatelessWidget {
+  const _AttachmentChipHeader({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onRemove,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 11.5,
+            ),
+          ),
+        ),
+        InkWell(
+          onTap: onRemove,
+          borderRadius: BorderRadius.circular(999),
+          child: const Padding(
+            padding: EdgeInsets.all(2),
+            child: Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: TeacherPalette.red,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1463,40 +1688,286 @@ class _QuestionPointsPill extends StatelessWidget {
         ),
       ],
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        margin: const EdgeInsets.only(right: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: TeacherPalette.green.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: TeacherPalette.green.withValues(alpha: 0.3),
-          ),
+          color: TeacherPalette.green,
+          borderRadius: BorderRadius.circular(999),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.stars_rounded,
-              size: 14,
-              color: TeacherPalette.green,
-            ),
-            const SizedBox(width: 4),
+            const Icon(Icons.stars_rounded, size: 13, color: Colors.white),
+            const SizedBox(width: 3),
             Text(
-              '$score คะแนน',
+              '$score',
               style: const TextStyle(
-                color: TeacherPalette.green,
-                fontSize: 11.5,
+                color: Colors.white,
+                fontSize: 12,
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(width: 2),
             const Icon(
               Icons.arrow_drop_down_rounded,
-              size: 16,
-              color: TeacherPalette.green,
+              size: 15,
+              color: Colors.white,
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Read-only demo of how students will see the exam, respecting the
+/// teacher's chosen display mode (one question per screen vs. all at once).
+class _StudentExamPreviewPage extends StatefulWidget {
+  const _StudentExamPreviewPage({
+    required this.examTitle,
+    required this.questions,
+    required this.displayMode,
+  });
+
+  final String examTitle;
+  final List<_ExamQuestionMock> questions;
+  final _ExamDisplayMode displayMode;
+
+  @override
+  State<_StudentExamPreviewPage> createState() =>
+      _StudentExamPreviewPageState();
+}
+
+class _StudentExamPreviewPageState extends State<_StudentExamPreviewPage> {
+  int _currentIndex = 0;
+  final Map<int, int> _selectedOption = {};
+  final Map<int, String> _essayAnswers = {};
+
+  Widget _buildAttachments(_ExamQuestionMock q) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (q.hasImage) ...[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: q.imageBytes != null
+                ? Image.memory(q.imageBytes!, height: 180, fit: BoxFit.contain)
+                : (q.imagePath != null && !kIsWeb
+                      ? Image.file(
+                          File(q.imagePath!),
+                          height: 180,
+                          fit: BoxFit.contain,
+                        )
+                      : Container(
+                          height: 120,
+                          color: TeacherPalette.card,
+                          alignment: Alignment.center,
+                          child: Text(q.imageName ?? 'รูปภาพประกอบ'),
+                        )),
+          ),
+          const SizedBox(height: 10),
+        ],
+        if (q.hasVideo) ...[
+          Container(
+            height: 160,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.play_circle_fill_rounded,
+                  size: 44,
+                  color: Colors.white,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  q.videoName ?? 'วิดีโอประกอบคำถาม',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildQuestionCard(_ExamQuestionMock q, int qIndex) {
+    final optionLabels = ['ก.', 'ข.', 'ค.', 'ง.'];
+    final accent = _typeAccent(q.type);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: TeacherPalette.border, width: 1),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 6, color: accent),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ข้อที่ ${qIndex + 1}. ${q.questionText}',
+                        style: const TextStyle(
+                          color: TeacherPalette.ink,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildAttachments(q),
+                      if (q.type == _QuestionType.multipleChoice)
+                        for (int i = 0; i < q.options.length; i++)
+                          RadioListTile<int>(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            activeColor: TeacherPalette.primary,
+                            value: i,
+                            groupValue: _selectedOption[qIndex],
+                            onChanged: (val) =>
+                                setState(() => _selectedOption[qIndex] = val!),
+                            title: Text('${optionLabels[i]} ${q.options[i]}'),
+                          )
+                      else
+                        TextField(
+                          maxLines: 4,
+                          onChanged: (val) => _essayAnswers[qIndex] = val,
+                          decoration: InputDecoration(
+                            hintText: 'พิมพ์คำตอบของคุณที่นี่...',
+                            filled: true,
+                            fillColor: TeacherPalette.card,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final questions = widget.questions;
+    final isOnePerScreen = widget.displayMode == _ExamDisplayMode.onePerScreen;
+
+    return Scaffold(
+      backgroundColor: TeacherPalette.card,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: TeacherPalette.ink,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.examTitle,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+            ),
+            Text(
+              isOnePerScreen
+                  ? 'มุมมองนักเรียน · ทีละข้อ'
+                  : 'มุมมองนักเรียน · เห็นทั้งหมดพร้อมกัน',
+              style: const TextStyle(fontSize: 11, color: TeacherPalette.muted),
+            ),
+          ],
+        ),
+      ),
+      body: isOnePerScreen
+          ? Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: (_currentIndex + 1) / questions.length,
+                      minHeight: 8,
+                      color: TeacherPalette.primary,
+                      backgroundColor: TeacherPalette.border,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'ข้อที่ ${_currentIndex + 1} จาก ${questions.length}',
+                    style: const TextStyle(
+                      color: TeacherPalette.muted,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: _buildQuestionCard(
+                        questions[_currentIndex],
+                        _currentIndex,
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _currentIndex == 0
+                              ? null
+                              : () => setState(() => _currentIndex -= 1),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: const Text('ย้อนกลับ'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _currentIndex == questions.length - 1
+                              ? () => Navigator.pop(context)
+                              : () => setState(() => _currentIndex += 1),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: TeacherPalette.primary,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: const StadiumBorder(),
+                          ),
+                          child: Text(
+                            _currentIndex == questions.length - 1
+                                ? 'ส่งข้อสอบ'
+                                : 'ข้อถัดไป',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: questions.length,
+              itemBuilder: (context, i) => _buildQuestionCard(questions[i], i),
+            ),
     );
   }
 }
