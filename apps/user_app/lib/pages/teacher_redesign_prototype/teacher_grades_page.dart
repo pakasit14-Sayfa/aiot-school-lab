@@ -1,63 +1,134 @@
-// PROTOTYPE ONLY: "คะแนน" — mock overview of room grades (G-Score, average,
-// per-assignment contribution). UI/UX only, mock data, no backend.
-
+// เชื่อมกับ GradeService จริงแล้ว (2026-08-16) — เดิมเป็น mock ล้วน
+// (weighted-contribution breakdown ที่ไม่มีสคีมารองรับจริง) ตัดส่วนที่ไม่มี
+// ข้อมูลจริงรองรับออก (สัดส่วนคะแนนตามงาน/G-Score เฉลี่ย ไม่มี RPC ให้ดึง)
+// เหลือแค่สิ่งที่ GradeService รองรับจริง: คะแนนเฉลี่ยต่อรายวิชา (จาก
+// listCourseGrades) + รายการรอยืนยัน (confirmedAt == null) ที่ครูกดยืนยันได้
+// จริงผ่าน GradeService.confirmGrade — ตรงตามหลักการ "ครูยืนยันขั้นสุดท้าย
+// เสมอ" ที่ล็อกไว้ในวอลต์
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
-class _GradeContribution {
-  const _GradeContribution({
-    required this.title,
-    required this.weightPercent,
-    required this.avgScore,
-    required this.color,
-  });
-
-  final String title;
-  final double weightPercent;
-  final double avgScore;
-  final Color color;
-}
-
-const _contributions = [
-  _GradeContribution(
-    title: 'ใบงาน AIoT บทที่ 1-4',
-    weightPercent: 0.30,
-    avgScore: 0.82,
-    color: TeacherPalette.primary,
-  ),
-  _GradeContribution(
-    title: 'โครงงานเซนเซอร์ (PBL)',
-    weightPercent: 0.35,
-    avgScore: 0.76,
-    color: TeacherPalette.skyDeep,
-  ),
-  _GradeContribution(
-    title: 'แบบทดสอบย่อย',
-    weightPercent: 0.20,
-    avgScore: 0.68,
-    color: TeacherPalette.orange,
-  ),
-  _GradeContribution(
-    title: 'การมีส่วนร่วมในชั้นเรียน',
-    weightPercent: 0.15,
-    avgScore: 0.90,
-    color: TeacherPalette.violet,
-  ),
-];
-
-class TeacherGradesPage extends StatelessWidget {
+class TeacherGradesPage extends StatefulWidget {
   const TeacherGradesPage({super.key});
 
   @override
+  State<TeacherGradesPage> createState() => _TeacherGradesPageState();
+}
+
+class _CourseGradeSummary {
+  _CourseGradeSummary({
+    required this.courseId,
+    required this.subjectName,
+    required this.records,
+  });
+
+  final String courseId;
+  final String subjectName;
+  final List<GradeRecord> records;
+
+  double get average {
+    final confirmed = records.where((r) => r.confirmedAt != null).toList();
+    if (confirmed.isEmpty) return 0;
+    final total = confirmed.fold<double>(
+      0,
+      (sum, r) => sum + (r.score / r.maxScore),
+    );
+    return total / confirmed.length;
+  }
+
+  List<GradeRecord> get pending =>
+      records.where((r) => r.confirmedAt == null).toList();
+}
+
+class _TeacherGradesPageState extends State<TeacherGradesPage> {
+  bool _loading = true;
+  String? _error;
+  List<_CourseGradeSummary> _summaries = [];
+  final Set<String> _confirming = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final courses = await CourseService.listMyCourses();
+      final summaries = <_CourseGradeSummary>[];
+      for (final c in courses) {
+        List<GradeRecord> records;
+        try {
+          records = await GradeService.listCourseGrades(c.id);
+        } catch (_) {
+          records = const [];
+        }
+        summaries.add(
+          _CourseGradeSummary(
+            courseId: c.id,
+            subjectName: c.subjectName,
+            records: records,
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _summaries = summaries;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'โหลดข้อมูลคะแนนไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _confirm(GradeRecord record) async {
+    setState(() => _confirming.add(record.id));
+    try {
+      await GradeService.confirmGrade(record.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'ยืนยันคะแนน ${record.studentFirstName} ${record.studentLastName} แล้ว',
+          ),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ยืนยันคะแนนไม่สำเร็จ: $e')));
+    } finally {
+      if (mounted) setState(() => _confirming.remove(record.id));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final allPending = _summaries.expand((s) => s.pending).length;
+    final overallAverage = () {
+      final withData = _summaries.where((s) => s.average > 0).toList();
+      if (withData.isEmpty) return 0.0;
+      return withData.fold<double>(0, (sum, s) => sum + s.average) /
+          withData.length;
+    }();
+
     return TeacherMockPageShell(
       title: 'คะแนน',
       activeMenuLabel: 'คะแนน',
       actions: [
-        // LA-11: export เฉพาะข้อมูลที่ครูมีสิทธิ์อยู่แล้ว (ห้องที่ตนสอน) —
-        // หน้านี้ scope ไว้แบบนั้นอยู่แล้วโดยธรรมชาติ ไม่ต้องเช็คสิทธิ์เพิ่ม
         PopupMenuButton<String>(
           tooltip: 'Export รายงาน',
           icon: const Icon(Icons.file_download_outlined),
@@ -76,6 +147,33 @@ class TeacherGradesPage extends StatelessWidget {
         ),
       ],
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          );
+        }
+        if (_error != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _error!,
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: _load, child: const Text('ลองใหม่')),
+              ],
+            ),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -89,56 +187,74 @@ class TeacherGradesPage extends StatelessWidget {
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
                   childAspectRatio: isDesktop ? 1.6 : 1.3,
-                  children: const [
+                  children: [
                     TeacherStatCard(
-                      label: 'G-Score เฉลี่ยห้อง',
-                      value: '3.4',
-                      icon: Icons.workspace_premium_rounded,
-                      color: TeacherPalette.primary,
-                    ),
-                    TeacherStatCard(
-                      label: 'คะแนนเฉลี่ย',
-                      value: '78%',
+                      label: 'คะแนนเฉลี่ยทุกวิชา',
+                      value: overallAverage > 0
+                          ? '${(overallAverage * 100).round()}%'
+                          : '-',
                       icon: Icons.bar_chart_rounded,
                       color: TeacherPalette.skyDeep,
                     ),
                     TeacherStatCard(
-                      label: 'งานที่มีผลต่อคะแนน',
-                      value: '4 รายการ',
-                      icon: Icons.checklist_rounded,
-                      color: TeacherPalette.violet,
+                      label: 'รายวิชาที่มีคะแนน',
+                      value: '${_summaries.length} วิชา',
+                      icon: Icons.menu_book_rounded,
+                      color: TeacherPalette.primary,
+                    ),
+                    TeacherStatCard(
+                      label: 'รอยืนยันคะแนน',
+                      value: '$allPending รายการ',
+                      icon: Icons.pending_actions_rounded,
+                      color: allPending > 0
+                          ? TeacherPalette.orange
+                          : TeacherPalette.green,
                     ),
                   ],
                 );
               },
             ),
             const SizedBox(height: 16),
-            TeacherSectionCard(
-              title: 'สัดส่วนคะแนนตามงาน',
-              icon: Icons.pie_chart_rounded,
-              child: Column(
-                children: [
-                  for (var i = 0; i < _contributions.length; i++) ...[
-                    _ContributionRow(item: _contributions[i]),
-                    if (i != _contributions.length - 1)
-                      const SizedBox(height: 14),
+            if (allPending > 0)
+              TeacherSectionCard(
+                title: 'รอครูยืนยันคะแนน',
+                icon: Icons.verified_rounded,
+                child: Column(
+                  children: [
+                    for (final s in _summaries)
+                      for (final r in s.pending) ...[
+                        _PendingGradeRow(
+                          courseName: s.subjectName,
+                          record: r,
+                          isConfirming: _confirming.contains(r.id),
+                          onConfirm: () => _confirm(r),
+                        ),
+                        const Divider(height: 18, color: Color(0xFFE8EEF3)),
+                      ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
+            if (allPending > 0) const SizedBox(height: 16),
             TeacherSectionCard(
-              title: 'ภาพรวมห้องเรียน',
+              title: 'ภาพรวมรายวิชา',
               icon: Icons.groups_2_rounded,
-              child: Column(
-                children: const [
-                  _RoomGradeRow(room: 'ม.5/1', course: 'AIOT-501', avg: 0.81),
-                  Divider(height: 18, color: Color(0xFFE8EEF3)),
-                  _RoomGradeRow(room: 'ม.6/2', course: 'PHYS-302', avg: 0.72),
-                  Divider(height: 18, color: Color(0xFFE8EEF3)),
-                  _RoomGradeRow(room: 'ม.4/3', course: 'BIO-204', avg: 0.85),
-                ],
-              ),
+              child: _summaries.isEmpty
+                  ? const Text(
+                      'ยังไม่มีรายวิชาที่มีคะแนน',
+                      style: TextStyle(
+                        color: TeacherPalette.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < _summaries.length; i++) ...[
+                          _CourseGradeRow(summary: _summaries[i]),
+                          if (i != _summaries.length - 1)
+                            const Divider(height: 18, color: Color(0xFFE8EEF3)),
+                        ],
+                      ],
+                    ),
             ),
           ],
         );
@@ -147,74 +263,18 @@ class TeacherGradesPage extends StatelessWidget {
   }
 }
 
-class _ContributionRow extends StatelessWidget {
-  const _ContributionRow({required this.item});
-
-  final _GradeContribution item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: TeacherPalette.ink,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-            Text(
-              'สัดส่วน ${(item.weightPercent * 100).round()}%',
-              style: const TextStyle(
-                color: TeacherPalette.muted,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'เฉลี่ย ${(item.avgScore * 100).round()}%',
-              style: TextStyle(
-                color: item.color,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: item.avgScore,
-            minHeight: 7,
-            backgroundColor: const Color(0xFFEAF2F8),
-            valueColor: AlwaysStoppedAnimation(item.color),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RoomGradeRow extends StatelessWidget {
-  const _RoomGradeRow({
-    required this.room,
-    required this.course,
-    required this.avg,
+class _PendingGradeRow extends StatelessWidget {
+  const _PendingGradeRow({
+    required this.courseName,
+    required this.record,
+    required this.isConfirming,
+    required this.onConfirm,
   });
 
-  final String room;
-  final String course;
-  final double avg;
+  final String courseName;
+  final GradeRecord record;
+  final bool isConfirming;
+  final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +285,9 @@ class _RoomGradeRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                room,
+                '${record.studentFirstName} ${record.studentLastName}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: TeacherPalette.ink,
                   fontWeight: FontWeight.w800,
@@ -234,7 +296,69 @@ class _RoomGradeRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                course,
+                '$courseName · ${record.score}/${record.maxScore}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: TeacherPalette.muted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton(
+          onPressed: isConfirming ? null : onConfirm,
+          style: FilledButton.styleFrom(
+            backgroundColor: TeacherPalette.primary,
+            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          ),
+          child: isConfirming
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('ยืนยัน', style: TextStyle(fontSize: 12.5)),
+        ),
+      ],
+    );
+  }
+}
+
+class _CourseGradeRow extends StatelessWidget {
+  const _CourseGradeRow({required this.summary});
+
+  final _CourseGradeSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                summary.subjectName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: TeacherPalette.ink,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${summary.records.length} รายการ · ยืนยันแล้ว '
+                '${summary.records.length - summary.pending.length}',
                 style: const TextStyle(
                   color: TeacherPalette.muted,
                   fontSize: 11.5,
@@ -245,7 +369,7 @@ class _RoomGradeRow extends StatelessWidget {
           ),
         ),
         Text(
-          '${(avg * 100).round()}%',
+          summary.average > 0 ? '${(summary.average * 100).round()}%' : '-',
           style: const TextStyle(
             color: TeacherPalette.primary,
             fontWeight: FontWeight.w900,
