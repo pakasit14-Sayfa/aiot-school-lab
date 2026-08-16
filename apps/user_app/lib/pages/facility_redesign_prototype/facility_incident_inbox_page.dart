@@ -99,6 +99,44 @@ class _FacilityIncidentInboxPageState extends State<FacilityIncidentInboxPage>
       color: FacilityTheme.bgSlate,
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeroHeader(),
+                const SizedBox(height: 14),
+                FacilityResponsiveGrid(
+                  spacing: 12,
+                  minItemWidth: 160,
+                  children: [
+                    _buildStatCard(
+                      icon: Icons.fiber_new_rounded,
+                      label: 'เหตุใหม่',
+                      value: '${_countForTab(0)} รายการ',
+                      color: FacilityTheme.emergencyRed,
+                      bg: const Color(0xFFFEF2F2),
+                    ),
+                    _buildStatCard(
+                      icon: Icons.build_circle_rounded,
+                      label: 'กำลังดำเนินการ',
+                      value: '${_countForTab(1) + _countForTab(2)} รายการ',
+                      color: FacilityTheme.warningOrange,
+                      bg: const Color(0xFFFFFBEB),
+                    ),
+                    _buildStatCard(
+                      icon: Icons.task_alt_rounded,
+                      label: 'ปิดแล้ว',
+                      value: '${_countForTab(3)} รายการ',
+                      color: FacilityTheme.safeGreen,
+                      bg: const Color(0xFFECFDF5),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+            ),
+          ),
           // 2026-08-15: แถบอธิบายขอบเขตของหน้านี้ตาม STK-12 — กันไม่ให้มีใคร
           // (รวมถึง agent อื่น) เอาเหตุฉุกเฉินบุคคลกลับมาใส่ในลิสต์นี้อีก
           Container(
@@ -173,6 +211,133 @@ class _FacilityIncidentInboxPageState extends State<FacilityIncidentInboxPage>
     );
   }
 
+  Widget _buildHeroHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FacilityTheme.primaryNavy, Color(0xFF2D6A85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: FacilityTheme.primaryNavy.withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.build_circle_rounded,
+              color: Color(0xFFE8A519),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'เหตุอุปกรณ์/อาคาร',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                SizedBox(height: 3),
+                Text(
+                  'STK-12 · รับเรื่อง ตรวจสอบ และปิดเหตุ',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required Color bg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: FacilityTheme.softMauve,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Single Incident Card with Primary Action Button State Machine
   Widget _buildIncidentCard(Map<String, dynamic> item) {
     final severity = item['severity'] as String;
@@ -215,133 +380,164 @@ class _FacilityIncidentInboxPageState extends State<FacilityIncidentInboxPage>
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: badgeBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: badgeBorder),
-                ),
-                child: Text(
-                  item['id'] as String,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: badgeText,
+      child: FacilityGlassCard(
+        padding: const EdgeInsets.all(20),
+        borderRadius: 20,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: badgeBorder),
+                  ),
+                  child: Text(
+                    item['id'] as String,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: badgeText,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item['title'] as String,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: FacilityTheme.textDark,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['title'] as String,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: FacilityTheme.textDark,
+                        ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${item['location']} · ${item['timeAgo']}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: FacilityTheme.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              item['description'] as String,
+              style: const TextStyle(
+                fontSize: 13,
+                color: FacilityTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 14),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final assigneeInfo = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.person_pin_rounded,
+                      size: 16,
+                      color: FacilityTheme.textMuted,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${item['location']} · ${item['timeAgo']}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: FacilityTheme.textMuted,
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'ผู้รับผิดชอบ: ${item['assignedTechnician']}',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: FacilityTheme.textDark,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            item['description'] as String,
-            style: const TextStyle(fontSize: 13, color: FacilityTheme.textDark),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.person_pin_rounded,
-                    size: 16,
-                    color: FacilityTheme.textMuted,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'ผู้รับผิดชอบ: ${item['assignedTechnician']}',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: FacilityTheme.textDark,
+                );
+
+                final actionBtns = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => _showIncidentDetailDialog(context, item),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: FacilityTheme.textDark,
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      child: const Text('ดูรายละเอียด'),
                     ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  OutlinedButton(
-                    onPressed: () => _showIncidentDetailDialog(context, item),
-                    child: const Text(
-                      'ดูรายละเอียด',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                    ElevatedButton.icon(
+                      onPressed: () => _handlePrimaryAction(item),
+                      icon: Icon(actionBtnIcon, size: 15),
+                      label: Text(actionBtnLabel),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: badgeText,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 9,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () => _handlePrimaryAction(item),
-                    icon: Icon(actionBtnIcon, size: 16),
-                    label: Text(actionBtnLabel),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: badgeText,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      minimumSize: Size.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                  ],
+                );
+
+                if (constraints.maxWidth < 480) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      assigneeInfo,
+                      const SizedBox(height: 10),
+                      actionBtns,
+                    ],
+                  );
+                }
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: assigneeInfo),
+                    const SizedBox(width: 10),
+                    actionBtns,
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -358,7 +554,10 @@ class _FacilityIncidentInboxPageState extends State<FacilityIncidentInboxPage>
       });
       FacilityUXStates.showSuccessToast(
         context,
-        'รับเรื่อง ${item['id']} เรียบร้อยแล้ว!',
+        'รับเรื่อง ${item['id']} เรียบร้อยแล้ว ⚡',
+        subtitle: 'เปลี่ยนสถานะเป็นกำลังดำเนินการและบันทึกเวลาลงระบบแล้ว',
+        accentColor: FacilityTheme.primaryBlue,
+        icon: Icons.check_circle_rounded,
       );
     } else if (tabIdx == 1 || tabIdx == 2) {
       _showCloseIncidentDialog(item);
@@ -396,15 +595,18 @@ class _FacilityIncidentInboxPageState extends State<FacilityIncidentInboxPage>
                   contentPadding: const EdgeInsets.all(12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(
+                      color: FacilityTheme.primaryPurple,
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),

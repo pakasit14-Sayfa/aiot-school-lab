@@ -125,53 +125,46 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 🏷️ Header + Export Button (ย้ายมาจาก AppBar action เดิม เพื่อ
-          // ให้หน้านี้เป็น content-only ต่อกับ FacilityAppShell ได้)
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'สถานะสุขภาพอุปกรณ์ AIoT (STK-9)',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: FacilityTheme.inkIndigo,
-                  ),
+          _buildHeroHeader(),
+
+          const SizedBox(height: 14),
+
+          // 🏷️ Export Button (ย้ายมาจาก AppBar action เดิม เพื่อให้หน้านี้
+          // เป็น content-only ต่อกับ FacilityAppShell ได้)
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                FacilityUXStates.showSuccessToast(
+                  context,
+                  'ส่งออกรายงานสุขภาพอุปกรณ์แล้ว 📡',
+                  subtitle:
+                      'ระบบทำการประมวลผลและส่งออกรายงานสุขภาพอุปกรณ์ AIoT ครบถ้วนแล้ว',
+                  accentColor: FacilityTheme.primaryPurple,
+                  icon: Icons.download_done_rounded,
+                );
+              },
+              icon: const Icon(Icons.download_rounded, size: 16),
+              label: const Text('Export รายงาน'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: FacilityTheme.primaryPurple,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  FacilityUXStates.showSuccessToast(
-                    context,
-                    'ส่งออกรายงานสุขภาพอุปกรณ์แล้ว 📡',
-                    subtitle:
-                        'ระบบทำการประมวลผลและส่งออกรายงานสุขภาพอุปกรณ์ AIoT ครบถ้วนแล้ว',
-                    accentColor: FacilityTheme.primaryPurple,
-                    icon: Icons.download_done_rounded,
-                  );
-                },
-                icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Export รายงาน'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: FacilityTheme.primaryPurple,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  textStyle: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
 
           const SizedBox(height: 16),
@@ -349,12 +342,15 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                device['name'] as String,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w900,
-                                  color: FacilityTheme.inkIndigo,
+                              Flexible(
+                                child: Text(
+                                  device['name'] as String,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: FacilityTheme.inkIndigo,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -477,6 +473,70 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
                   if (entry != _maintenanceHistory.last)
                     const Divider(height: 1, color: FacilityTheme.purpleBorder),
                 ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [FacilityTheme.primaryNavy, Color(0xFF2D6A85)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: FacilityTheme.primaryNavy.withValues(alpha: 0.28),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.sensors_rounded,
+              color: Color(0xFFE8A519),
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'สุขภาพอุปกรณ์ AIoT',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'STK-9 · $_selectedScope',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),

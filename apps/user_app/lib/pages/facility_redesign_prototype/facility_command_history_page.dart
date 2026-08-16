@@ -70,10 +70,42 @@ class FacilityCommandHistoryPage extends StatelessWidget {
       body: SafeArea(
         child: ListView.separated(
           padding: const EdgeInsets.all(16),
-          itemCount: _mockLog.length,
+          itemCount: _mockLog.length + 1,
           separatorBuilder: (_, _) => const SizedBox(height: 10),
           itemBuilder: (context, index) {
-            final entry = _mockLog[index];
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: FacilityResponsiveGrid(
+                  spacing: 12,
+                  minItemWidth: 160,
+                  children: [
+                    _buildStatCard(
+                      icon: Icons.history_rounded,
+                      label: 'รายการทั้งหมด',
+                      value: '${_mockLog.length} รายการ',
+                      color: FacilityTheme.primaryPurple,
+                      bg: FacilityTheme.lightPurpleBg,
+                    ),
+                    _buildStatCard(
+                      icon: Icons.access_time_rounded,
+                      label: 'ล่าสุดเมื่อ',
+                      value: _mockLog.first.time,
+                      color: FacilityTheme.warningOrange,
+                      bg: const Color(0xFFFFFBEB),
+                    ),
+                  ],
+                ),
+              );
+            }
+            final entry = _mockLog[index - 1];
+            final isWater = entry.action.contains('น้ำ');
+            final accentColor = isWater
+                ? const Color(0xFF0284C7)
+                : const Color(0xFFE8A519);
+            final accentBg = isWater
+                ? const Color(0xFFF0F9FF)
+                : const Color(0xFFFFFBEB);
             return FacilityGlassCard(
               padding: const EdgeInsets.all(14),
               borderRadius: 16,
@@ -82,14 +114,10 @@ class FacilityCommandHistoryPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: FacilityTheme.lightPurpleBg,
+                      color: accentBg,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      entry.icon,
-                      size: 18,
-                      color: FacilityTheme.primaryPurple,
-                    ),
+                    child: Icon(entry.icon, size: 18, color: accentColor),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -98,6 +126,8 @@ class FacilityCommandHistoryPage extends StatelessWidget {
                       children: [
                         Text(
                           '${entry.action} · ${entry.location}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w800,
@@ -107,6 +137,8 @@ class FacilityCommandHistoryPage extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           '${entry.actor} · ${entry.time}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 11.5,
                             color: FacilityTheme.softMauve,
@@ -121,6 +153,69 @@ class FacilityCommandHistoryPage extends StatelessWidget {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required Color bg,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: FacilityTheme.softMauve,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
