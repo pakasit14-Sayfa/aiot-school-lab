@@ -12,13 +12,13 @@
 //    Admin/ผู้บริหารช่วยตัดสินใจ" — ครูคือผู้ยืนยัน/ปฏิเสธ Alert หลักตาม
 //    Main Flow เดิม (SEC-5), ผอ ช่วยตัดสินใจเฉพาะกรณีครูไม่แน่ใจเท่านั้น
 //
-// ⚠️ เรื่องที่ยังไม่ได้ยืนยัน (เปิดไว้ ไม่ได้ตัดสินใจเอง): SEC-5 escalation
-// ควรให้ ผอ เห็นภาพจริงจากกล้องประกอบการตัดสินใจไหม — SEC-4 บอกว่าไม่ใช้
-// Face Recognition แต่ไม่ได้ห้ามภาพนิ่งเด็ดขาด และ SEC-9 (สิทธิ์เข้าถึง
-// ภาพกล้อง) ก็เปิดช่องให้ "School Admin/ผู้บริหารกรณีจำเป็น" เข้าถึงภาพจริง
-// ได้ — แต่เป็นเรื่องละเอียดอ่อนด้าน PDPA จึงยังไม่ใส่ภาพ/พรีวิวกล้องในหน้า
-// นี้ ทำแค่ Event Metadata (เวลา/พื้นที่/ประเภท/ระดับความมั่นใจ) ไปก่อน
-// เหมือนที่ทำกับ STK-10 ของผู้ดูแลอาคาร — ต้องถามผู้ใช้ก่อนถ้าจะเพิ่มภาพจริง
+// [ยืนยันแล้ว 2026-08-16] SEC-5 escalation ให้ ผอ เห็นภาพจริงจากกล้อง
+// ประกอบการตัดสินใจได้ — ผู้ใช้ (เจ้าของโปรเจกต์) ยืนยันโดยตรง สอดคล้องกับ
+// SEC-9 ที่เปิดช่องให้ "School Admin/ผู้บริหารกรณีจำเป็น" เข้าถึงภาพจริงได้
+// อยู่แล้ว — เพิ่มพรีวิวภาพนิ่งต่อเคสในหน้านี้แล้ว (ตอนนี้เป็น placeholder
+// เพราะยังไม่มีระบบกล้อง/Storage จริงให้ดึงภาพมา — จุดที่ต้องทำต่อตอนต่อ
+// Supabase จริง: ต้องผ่าน SEC-9 policy check ก่อนคืนภาพเสมอ ไม่ใช่แค่เช็ค
+// role เฉยๆ เพราะ SEC-9 ระบุ "กรณีจำเป็น" ไม่ใช่สิทธิ์อัตโนมัติเสมอไป)
 //
 // 2026-08-15: แยกออกมาเป็น content-only widget (ไม่มี Scaffold/gradient
 // header ของตัวเองแล้ว) เพื่อให้ ExecutiveHomePage (shell ใหม่) ใช้เป็น
@@ -65,6 +65,7 @@ class _ExecutiveEscalationInboxContentState
       'title': 'ตรวจพบความเคลื่อนไหวผิดปกติหลังเวลาปิดเรียน',
       'location': 'อาคาร 3 โถงชั้น 2',
       'time': '18 นาทีที่แล้ว',
+      'cameraLabel': 'กล้อง C-12 · โถงชั้น 2',
       'confidence': 'ความมั่นใจของระบบ: 62%',
       'note': 'ครูภานุพงศ์: "ไม่แน่ใจว่าเป็นคนหรือแมวจร ขอความเห็นเพิ่ม"',
       'decision': null, // null = รอ, 'confirmed' | 'rejected'
@@ -74,6 +75,7 @@ class _ExecutiveEscalationInboxContentState
       'title': 'ตรวจพบการเข้าพื้นที่เสี่ยง (ห้องเก็บสารเคมี)',
       'location': 'อาคาร 3 ชั้น 1',
       'time': '2 ชั่วโมงที่แล้ว',
+      'cameraLabel': 'กล้อง C-05 · หน้าห้องเก็บสารเคมี',
       'confidence': 'ความมั่นใจของระบบ: 78%',
       'note': 'ครูสมหญิง: "กล้องมุมอับ มองไม่ชัดว่าใครเข้า ขอความเห็นเพิ่ม"',
       'decision': null,
@@ -311,6 +313,8 @@ class _ExecutiveEscalationInboxContentState
                   ],
                 ),
                 const SizedBox(height: 10),
+                _buildCameraSnapshot(item['cameraLabel'] as String),
+                const SizedBox(height: 10),
                 Text(
                   item['confidence'] as String,
                   style: const TextStyle(
@@ -409,6 +413,65 @@ class _ExecutiveEscalationInboxContentState
           ),
         );
       },
+    );
+  }
+
+  /// พรีวิวภาพนิ่งจากกล้อง — ยืนยันกับผู้ใช้แล้วว่าให้เห็นภาพจริงประกอบ
+  /// การตัดสินใจได้ (ดูคอมเมนต์หัวไฟล์) ตอนนี้เป็น placeholder เพราะยังไม่
+  /// มีระบบกล้อง/Storage จริงให้ดึงภาพมา — ต่อ Supabase จริงทีหลังต้องผ่าน
+  /// SEC-9 policy check ก่อนคืนภาพเสมอ ไม่ใช่แค่เช็ค role
+  Widget _buildCameraSnapshot(String cameraLabel) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: double.infinity,
+        height: 140,
+        color: const Color(0xFF1E293B),
+        child: Stack(
+          children: [
+            const Center(
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                color: Colors.white24,
+                size: 36,
+              ),
+            ),
+            Positioned(
+              left: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: ExecutiveTheme.emergencyRed,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '● LIVE SNAPSHOT (mock)',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              right: 8,
+              bottom: 8,
+              child: Text(
+                cameraLabel,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
