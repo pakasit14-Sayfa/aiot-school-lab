@@ -55,6 +55,26 @@ class TeacherGradesPage extends StatelessWidget {
     return TeacherMockPageShell(
       title: 'คะแนน',
       activeMenuLabel: 'คะแนน',
+      actions: [
+        // LA-11: export เฉพาะข้อมูลที่ครูมีสิทธิ์อยู่แล้ว (ห้องที่ตนสอน) —
+        // หน้านี้ scope ไว้แบบนั้นอยู่แล้วโดยธรรมชาติ ไม่ต้องเช็คสิทธิ์เพิ่ม
+        PopupMenuButton<String>(
+          tooltip: 'Export รายงาน',
+          icon: const Icon(Icons.file_download_outlined),
+          onSelected: (format) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('กำลังสร้างไฟล์ $format ของรายงานคะแนนนี้...'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'PDF', child: Text('Export เป็น PDF')),
+            PopupMenuItem(value: 'Excel', child: Text('Export เป็น Excel')),
+          ],
+        ),
+      ],
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

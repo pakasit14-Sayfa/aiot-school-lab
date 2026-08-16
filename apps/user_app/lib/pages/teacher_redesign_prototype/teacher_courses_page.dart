@@ -3,6 +3,7 @@
 // Redesigned with modern glassmorphic aesthetics, rich stat cards, dynamic badges, and progress indicators.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import 'teacher_assignment_editor_page.dart';
 import 'teacher_exam_builder_page.dart';
@@ -46,6 +47,11 @@ class TeacherCourseModel {
   final bool isClosed;
   // ครูคนนี้ไม่มีสิทธิ์สอนวิชานี้ (เช่น ถูกถอดออกจากวิชาแล้ว)
   final bool hasAccess;
+
+  // CLS-1 Main Flow ข้อ 4 / BR1: รหัสเข้าร่วมผูกกับรายวิชานั้นเท่านั้น
+  // เปลี่ยนรายวิชาต้องสร้างใหม่ — คำนวณจากรหัสวิชาเอง (deterministic)
+  // แทนการสุ่ม เพื่อให้ mock data คงที่ทุกครั้งที่เปิดหน้า
+  String get joinCode => '${code.toUpperCase()}-JOIN';
 }
 
 final List<TeacherCourseModel> mockTeacherCourses = [
@@ -175,12 +181,207 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
     );
   }
 
+  // CLS-6: คัดลอกโครงสร้างรายวิชา (บทเรียน/ใบงาน/รูบริก) ไปภาคเรียนใหม่ —
+  // BR1: ห้ามคัดลอกรายชื่อนักเรียนและคะแนนเดิมมาด้วยเด็ดขาด
+  void _openCopyCourseModal() {
+    TeacherCourseModel? sourceCourse = mockTeacherCourses.first;
+    String targetSemester = 'ภาคเรียนที่ 2/2569';
+    final nameCtrl = TextEditingController(
+      text: '${mockTeacherCourses.first.name} (คัดลอก)',
+    );
+    String? nameError;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            title: const Text(
+              'คัดลอกรายวิชาจากภาคเรียนก่อน',
+              style: TextStyle(fontSize: 16),
+            ),
+            content: SizedBox(
+              width: 380,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'เลือกรายวิชาต้นทาง',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<TeacherCourseModel>(
+                    value: sourceCourse,
+                    isExpanded: true,
+                    items: mockTeacherCourses
+                        .map(
+                          (c) => DropdownMenuItem(
+                            value: c,
+                            child: Text(
+                              '${c.code} · ${c.name}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setModalState(() {
+                      sourceCourse = v;
+                      nameCtrl.text = '${v!.name} (คัดลอก)';
+                      nameError = null;
+                    }),
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'ภาคเรียนปลายทาง',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: targetSemester,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'ภาคเรียนที่ 2/2569',
+                        child: Text(
+                          'ภาคเรียนที่ 2/2569',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'ภาคเรียนที่ 1/2570',
+                        child: Text(
+                          'ภาคเรียนที่ 1/2570',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setModalState(() => targetSemester = v!),
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'ชื่อรายวิชาใหม่',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: nameCtrl,
+                    onChanged: (_) => setModalState(() => nameError = null),
+                    decoration: InputDecoration(
+                      errorText: nameError,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'จะคัดลอกโครงสร้างบทเรียน/ใบงาน/Rubric เท่านั้น — ไม่คัดลอก'
+                      'รายชื่อนักเรียนหรือคะแนนเดิมมาด้วย',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF1D4ED8),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('ยกเลิก'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final newName = nameCtrl.text.trim();
+                  // Exception Flow 1: ชื่อซ้ำในภาคเรียนปลายทาง → ต้องตั้งชื่อใหม่
+                  final isDuplicate = mockTeacherCourses.any(
+                    (c) => c.name == newName,
+                  );
+                  if (isDuplicate) {
+                    setModalState(
+                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                    );
+                    return;
+                  }
+                  final src = sourceCourse!;
+                  final copy = TeacherCourseModel(
+                    code: '${src.code}-C',
+                    name: newName,
+                    category: src.category,
+                    rooms: const [],
+                    // BR1: ไม่คัดลอกนักเรียน/คะแนน/งานที่ส่งแล้วมาด้วยเด็ดขาด
+                    studentCount: 0,
+                    activeAssignments: 0,
+                    pendingGradingCount: 0,
+                    completionRate: 0,
+                    coverGradient: src.coverGradient,
+                    accentColor: src.accentColor,
+                    nextPeriodText: 'ยังไม่กำหนดตาราง — $targetSemester',
+                  );
+                  setState(() => mockTeacherCourses.insert(0, copy));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'คัดลอกโครงสร้างวิชา "${src.name}" ไปเป็น "$newName" ($targetSemester) แล้ว '
+                        '— ตรวจสอบก่อนเผยแพร่',
+                      ),
+                      backgroundColor: const Color(0xFF10B981),
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: TeacherPalette.primary,
+                ),
+                child: const Text('คัดลอกรายวิชา'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'จัดการรายวิชาที่สอน',
       activeMenuLabel: 'รายวิชา',
       actions: [
+        IconButton(
+          icon: const Icon(Icons.copy_all_rounded),
+          tooltip: 'คัดลอกรายวิชาจากภาคเรียนก่อน',
+          onPressed: _openCopyCourseModal,
+        ),
         IconButton(
           icon: const Icon(Icons.add_circle_outline_rounded),
           tooltip: 'สร้างรายวิชาใหม่',
@@ -1817,8 +2018,26 @@ class TeacherCourseDetailPage extends StatefulWidget {
       _TeacherCourseDetailPageState();
 }
 
+// CLS-4: รายชื่อนักเรียนของโรงเรียนที่เลือกเพิ่มเข้ารายวิชานี้ได้ — คนที่ทำ
+// เครื่องหมาย "อยู่ในวิชานี้แล้ว" ไว้ล่วงหน้าจำลอง Exception Flow
+// "นักเรียนอยู่ในรายวิชานี้แล้ว → ข้าม ไม่เพิ่มซ้ำ"
+const _schoolRosterMock = [
+  'นายกิตติศักดิ์ ขยันยิ่ง (ม.5/2)',
+  'นางสาวชลดา สายธาร (ม.5/2)',
+  'นายธนากร เกียรติศักดิ์ (ม.5/2)',
+  'นางสาวปาริชาติ ใจงาม (ม.5/1)',
+  'นายวรากร สุขสันต์ (ม.5/1)',
+  'นางสาวศิริพร รุ่งโรจน์ (ม.4/3)',
+];
+
 class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
   String _activeTab = 'บทเรียน';
+
+  // เดโม: จำลองว่า 2 คนแรกอยู่ในวิชานี้อยู่แล้วก่อนเปิดหน้า
+  final Set<String> _enrolledFromRoster = {
+    'นายกิตติศักดิ์ ขยันยิ่ง (ม.5/2)',
+    'นางสาวชลดา สายธาร (ม.5/2)',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -1828,6 +2047,21 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       title: 'รายละเอียดวิชา ${c.code}',
       activeMenuLabel: 'รายวิชา',
       actions: [
+        OutlinedButton.icon(
+          onPressed: () => _openJoinCodeModal(context, c),
+          icon: const Icon(Icons.qr_code_2_rounded, size: 16),
+          label: const Text('รหัสเข้าร่วม'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: TeacherPalette.primary,
+            side: const BorderSide(color: TeacherPalette.primary),
+            minimumSize: const Size(0, 40),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
         ElevatedButton.icon(
           onPressed: () => _openGroupManagementModal(context),
           icon: const Icon(Icons.groups_rounded, size: 16),
@@ -2043,8 +2277,22 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                 isCourseClosed: c.isClosed,
                 hasAccess: c.hasAccess,
               )
-            else if (_activeTab == 'นักเรียน')
-              TeacherStudentsPage(initialRoomFilter: c.rooms)
+            else if (_activeTab == 'นักเรียน') ...[
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openAddStudentModal(context, c),
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                  label: const Text('เพิ่มนักเรียนเข้ารายวิชา'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: TeacherPalette.primary,
+                    side: const BorderSide(color: TeacherPalette.primary),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TeacherStudentsPage(initialRoomFilter: c.rooms),
+            ]
             else if (_activeTab == 'ใบงาน' || _activeTab == 'คะแนน')
               const TeacherGradingPage()
             else if (_activeTab == 'กลุ่ม')
@@ -2088,6 +2336,228 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
           ],
         );
       },
+    );
+  }
+
+  // CLS-1 Main Flow ข้อ 4-5: หลังสร้างรายวิชาแล้วมีรหัสเข้าร่วม/QR ให้ครู
+  // เผยแพร่ให้นักเรียนเข้าร่วม — BR1: รหัสผูกกับรายวิชานี้เท่านั้น
+  void _openJoinCodeModal(BuildContext context, TeacherCourseModel course) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('รหัสเข้าร่วมรายวิชา', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 2),
+            Text(
+              '${course.code} · ${course.name}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: TeacherPalette.muted,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 160,
+              height: 160,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1EEF9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: TeacherPalette.border),
+              ),
+              child: const Icon(
+                Icons.qr_code_2_rounded,
+                size: 96,
+                color: TeacherPalette.primary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                course.joinCode,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: TeacherPalette.ink,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'รหัสนี้ผูกกับรายวิชานี้เท่านั้น หากต้องการใช้กับรายวิชาอื่นต้องสร้างใหม่',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: TeacherPalette.muted),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ปิด'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: course.joinCode));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('คัดลอกรหัสเข้าร่วมแล้ว'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('คัดลอกรหัส'),
+            style: FilledButton.styleFrom(
+              backgroundColor: TeacherPalette.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // CLS-4: ค้นหา/เลือกนักเรียนจากรายชื่อโรงเรียนเพื่อเพิ่มเข้ารายวิชานี้ —
+  // ข้ามคนที่อยู่ในวิชาแล้ว (Exception Flow 1) ไม่เพิ่มซ้ำ
+  void _openAddStudentModal(BuildContext context, TeacherCourseModel course) {
+    final selected = <String>{};
+    String query = '';
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final results = _schoolRosterMock
+              .where((name) => name.toLowerCase().contains(query.toLowerCase()))
+              .toList();
+          return DraggableScrollableSheet(
+            initialChildSize: 0.75,
+            maxChildSize: 0.9,
+            minChildSize: 0.5,
+            builder: (ctx, scrollController) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'เพิ่มนักเรียนเข้าวิชา ${course.code}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'ค้นหา/เลือกได้จากรายชื่อนักเรียนของโรงเรียนเดียวกันเท่านั้น',
+                    style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    onChanged: (v) => setModalState(() => query = v),
+                    decoration: InputDecoration(
+                      hintText: 'ค้นหาชื่อนักเรียน...',
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.separated(
+                      controller: scrollController,
+                      itemCount: results.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final name = results[index];
+                        final alreadyIn = _enrolledFromRoster.contains(name);
+                        final isSelected = selected.contains(name);
+                        return CheckboxListTile(
+                          value: alreadyIn ? true : isSelected,
+                          onChanged: alreadyIn
+                              ? null
+                              : (v) => setModalState(() {
+                                  if (v == true) {
+                                    selected.add(name);
+                                  } else {
+                                    selected.remove(name);
+                                  }
+                                }),
+                          title: Text(
+                            name,
+                            style: const TextStyle(fontSize: 13.5),
+                          ),
+                          subtitle: alreadyIn
+                              ? const Text(
+                                  'อยู่ในวิชานี้แล้ว',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: TeacherPalette.muted,
+                                  ),
+                                )
+                              : null,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: selected.isEmpty
+                          ? null
+                          : () {
+                              setState(() {
+                                _enrolledFromRoster.addAll(selected);
+                              });
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'เพิ่มนักเรียน ${selected.length} คนเข้าวิชา ${course.code} แล้ว',
+                                  ),
+                                  backgroundColor: const Color(0xFF10B981),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: TeacherPalette.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        selected.isEmpty
+                            ? 'เลือกนักเรียนก่อน'
+                            : 'เพิ่ม ${selected.length} คนเข้าวิชา',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
