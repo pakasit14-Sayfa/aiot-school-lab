@@ -14,6 +14,7 @@ import 'teacher_grading_page.dart';
 import 'teacher_gscore_confirm_page.dart';
 import 'teacher_incident_inbox_page.dart';
 import 'teacher_notifications_page.dart';
+import 'teacher_parent_binding_approval_page.dart';
 import 'teacher_profile_page.dart';
 import 'teacher_rubric_page.dart';
 import 'teacher_student_support_page.dart';
@@ -4536,6 +4537,7 @@ class TeacherMock {
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
     _MenuItem('ยืนยัน G-Score', Icons.verified_rounded),
     _MenuItem('ช่วยเหลือนักเรียน', Icons.support_rounded),
+    _MenuItem('อนุมัติผูกบัญชี', Icons.family_restroom_rounded),
     _MenuItem('Rubric', Icons.fact_check_rounded),
     _MenuItem('Wiring Lab', Icons.cable_rounded),
     _MenuItem('AIoT Dashboard', Icons.sensors_rounded),
@@ -4804,6 +4806,13 @@ void _openTeacherMenuItem(BuildContext context, String label) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherStudentSupportPage()),
+      );
+    case 'อนุมัติผูกบัญชี':
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const TeacherParentBindingApprovalPage(),
+        ),
       );
     case 'Rubric':
       Navigator.push(
