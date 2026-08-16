@@ -178,6 +178,7 @@ class TeacherMockPageShell extends StatefulWidget {
     required this.builder,
     this.actions,
     this.activeMenuLabel,
+    this.extraLeadingAction,
     super.key,
   });
 
@@ -189,6 +190,14 @@ class TeacherMockPageShell extends StatefulWidget {
   /// ไฮไลต์เมนูที่ถูกต้องใน Drawer ให้ทำงานเหมือนหน้าแดชบอร์ด แทนที่จะ
   /// ไม่ไฮไลต์อะไรเลยหรือค้างไฮไลต์ผิดหน้า
   final String? activeMenuLabel;
+
+  /// วิดเจ็ตเสริมข้างปุ่มแฮมเบอร์เกอร์ (จอแคบ) / ข้างชื่อหน้า (จอกว้าง) —
+  /// ใช้สำหรับปุ่ม/dropdown ที่หน้านั้นๆ อยากเพิ่มเองโดยไม่ต้องแก้ shell
+  /// ที่ใช้ร่วมกันทุกหน้า เช่น dropdown ลิงก์ไปหน้า prototype อื่นที่ยังไม่
+  /// ได้ผูกเข้าเมนู sidebar จริง — shell นี้แค่วางตำแหน่งให้ ไม่รู้จักปลาย
+  /// ทางที่ผูกไว้ข้างในเลย (กันไม่ให้ shared_widgets ต้อง import หน้าอื่น
+  /// กลับเข้ามาแล้วเกิด circular import)
+  final Widget? extraLeadingAction;
 
   @override
   State<TeacherMockPageShell> createState() => _TeacherMockPageShellState();
@@ -240,6 +249,10 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                   ),
                 ),
               ),
+              if (widget.extraLeadingAction != null) ...[
+                widget.extraLeadingAction!,
+                const SizedBox(width: 8),
+              ],
               if (widget.actions != null) ...widget.actions!,
             ],
           ),
@@ -282,11 +295,19 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             foregroundColor: TeacherPalette.ink,
+            leadingWidth: widget.extraLeadingAction != null ? 96 : null,
             leading: Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu_rounded),
-                tooltip: 'เมนูนำทาง',
-                onPressed: () => Scaffold.of(context).openDrawer(),
+              builder: (context) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.menu_rounded),
+                    tooltip: 'เมนูนำทาง',
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                  ),
+                  if (widget.extraLeadingAction != null)
+                    widget.extraLeadingAction!,
+                ],
               ),
             ),
             title: Text(
