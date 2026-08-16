@@ -1,13 +1,24 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
-// STK-9: "ดูสถานะสุขภาพอุปกรณ์ AIoT ในอาคาร" (จาก DEV-15)
+// เชื่อมกับ RealtimeService.listMyBuildingDevices จริงแล้ว (2026-08-17)
+// STK-9: "ดูสถานะสุขภาพอุปกรณ์ AIoT ในอาคาร" (จาก DEV-15) — เดิม mock ล้วน
+// ตอนนี้ดึงรายชื่ออุปกรณ์จริงในอาคารที่รับผิดชอบผ่าน RPC ใหม่
+// list_devices_in_my_building (สโคปตามอาคารแล้วในระดับ SQL ตาม BR4)
+//
+// ⚠️ สิ่งที่ตัดออกเพราะไม่มี backend รองรับ:
+// - "แบตเตอรี่"/"lastPing" ต่อเครื่อง — ตาราง devices ไม่มีคอลัมน์นี้เลย
+// - "ประวัติบำรุงรักษาล่าสุด" ทั้งหมด — ไม่มีตาราง/RPC เก็บ log บำรุงรักษา
+//   เลย ตัดทิ้งแทนที่จะโชว์ข้อมูลปลอม
 //
 // เป็น Widget content ต่อกับ FacilityAppShell เดิม (ไม่มี Scaffold/AppBar
 // เป็นของตัวเอง) ใช้เป็น nav item index 9 ได้โดยตรง — ถ้าจะ Navigator.push
 // จากที่อื่น (เช่นปุ่มลัดใน facility_building_overview_page.dart) ต้องห่อ
 // ด้วย Scaffold+AppBar ที่จุดเรียกเอง (ดูตัวอย่างที่ _buildQuickLinksRow)
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
+
 import 'facility_shared_widgets.dart';
 import 'facility_ux_states.dart';
+
+const _allScope = 'ทั้งหมด';
 
 class FacilityDeviceHealthPage extends StatefulWidget {
   const FacilityDeviceHealthPage({super.key});
@@ -18,107 +29,151 @@ class FacilityDeviceHealthPage extends StatefulWidget {
 }
 
 class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
-  String _selectedScope = 'อาคาร 3 ทั้งหมด';
+  String _selectedScope = _allScope;
+  bool _loading = true;
+  String? _loadError;
+  List<DeviceOption> _devices = [];
 
-  final List<String> _scopeOptions = [
-    'อาคาร 3 ทั้งหมด',
-    'อาคาร 3 ชั้น 1',
-    'อาคาร 3 ชั้น 2',
-    'อาคาร 3 ชั้น 3 (ห้อง 302)',
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final devices = await RealtimeService.listMyBuildingDevices();
+      if (!mounted) return;
+      setState(() {
+        _devices = devices;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดข้อมูลอุปกรณ์ไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  List<String> get _scopeOptions => [
+    _allScope,
+    ...{
+      for (final d in _devices)
+        if (d.location != null) d.location!,
+    }.toList()..sort(),
   ];
 
-  final List<Map<String, dynamic>> _devices = [
-    {
-      'id': 'DEV-101',
-      'name': 'กล้อง CCTV C-12',
-      'location': 'อาคาร 3 ชั้น 2 โถงทางเดิน',
-      'status': 'offline', // 'online', 'offline', 'warning'
-      'statusText': '🔴 ออฟไลน์',
-      'statusColor': FacilityTheme.emergencyRed,
-      'statusBg': const Color(0xFFFEF2F2),
-      'battery': 'N/A (AC Power)',
-      'lastPing': 'ออฟไลน์ 12 นาทีที่แล้ว',
-      'icon': Icons.videocam_rounded,
-    },
-    {
-      'id': 'DEV-102',
-      'name': 'กล่อง SOS Box #03',
-      'location': 'อาคาร 3 ชั้น 3 ห้อง 302',
-      'status': 'warning',
-      'statusText': '⚠️ แบตเตอรี่ต่ำ (15%)',
-      'statusColor': FacilityTheme.warningOrange,
-      'statusBg': const Color(0xFFFFFBEB),
-      'battery': '15%',
-      'lastPing': 'ปกติเมื่อ 1 นาทีที่แล้ว',
-      'icon': Icons.sensors_rounded,
-    },
-    {
-      'id': 'DEV-103',
-      'name': 'เซนเซอร์ PM2.5 #01',
-      'location': 'อาคาร 3 ชั้น 1 ห้องปฏิบัติการ',
-      'status': 'online',
-      'statusText': '🟢 ออนไลน์ปกติ',
-      'statusColor': FacilityTheme.safeGreen,
-      'statusBg': const Color(0xFFECFDF5),
-      'battery': '95%',
-      'lastPing': 'ปกติเมื่อ 15 วินาทีที่แล้ว',
-      'icon': Icons.air_rounded,
-    },
-    {
-      'id': 'DEV-104',
-      'name': 'IoT Gateway G-01',
-      'location': 'อาคาร 3 ชั้น 1 ห้องควบคุม',
-      'status': 'online',
-      'statusText': '🟢 ออนไลน์ปกติ (99.8%)',
-      'statusColor': FacilityTheme.safeGreen,
-      'statusBg': const Color(0xFFECFDF5),
-      'battery': '100% (AC Power)',
-      'lastPing': 'ปกติเมื่อ 5 วินาทีที่แล้ว',
-      'icon': Icons.router_rounded,
-    },
-    {
-      'id': 'DEV-105',
-      'name': 'กล้อง CCTV C-15',
-      'location': 'อาคาร 3 ชั้น 3 หน้าห้อง 302',
-      'status': 'offline',
-      'statusText': '🔴 ออฟไลน์',
-      'statusColor': FacilityTheme.emergencyRed,
-      'statusBg': const Color(0xFFFEF2F2),
-      'battery': 'N/A',
-      'lastPing': 'ออฟไลน์ 45 นาทีที่แล้ว',
-      'icon': Icons.videocam_rounded,
-    },
-  ];
+  List<DeviceOption> get _visibleDevices => _selectedScope == _allScope
+      ? _devices
+      : _devices.where((d) => d.location == _selectedScope).toList();
 
-  // ประวัติบำรุงรักษาล่าสุด (DEV-15 ต้องมีตามสเปก — ก่อนหน้านี้หน้านี้ยังขาดจุดนี้)
-  final List<Map<String, String>> _maintenanceHistory = [
-    {
-      'device': 'กล้อง CCTV C-12',
-      'action': 'เปลี่ยนอะแดปเตอร์ไฟเลี้ยง (สงสัยไฟตกเป็นสาเหตุหลุด)',
-      'technician': 'ช่างวิทยา (ทีมเทคนิค)',
-      'date': '10/10/2024 09:30 น.',
-    },
-    {
-      'device': 'กล่อง SOS Box #03',
-      'action': 'เปลี่ยนแบตเตอรี่สำรอง',
-      'technician': 'ครูสมชาย (ตรวจเวรประจำวัน)',
-      'date': '02/10/2024 15:10 น.',
-    },
-    {
-      'device': 'IoT Gateway G-01',
-      'action': 'อัปเดตเฟิร์มแวร์ + รีสตาร์ทตามรอบบำรุงรักษา',
-      'technician': 'ช่างวิทยา (ทีมเทคนิค)',
-      'date': '28/09/2024 13:00 น.',
-    },
-  ];
+  ({IconData icon, String label}) _typeInfo(String type) {
+    switch (type) {
+      case 'camera':
+        return (icon: Icons.videocam_rounded, label: 'กล้อง CCTV');
+      case 'pm25_sensor':
+        return (icon: Icons.air_rounded, label: 'เซนเซอร์ PM2.5');
+      case 'air_quality_sensor':
+        return (icon: Icons.eco_rounded, label: 'เซนเซอร์คุณภาพอากาศ');
+      case 'light_sensor':
+        return (icon: Icons.light_mode_rounded, label: 'เซนเซอร์แสง');
+      case 'energy_meter':
+        return (icon: Icons.electric_bolt_rounded, label: 'มิเตอร์ไฟ');
+      case 'relay':
+        return (icon: Icons.toggle_on_rounded, label: 'รีเลย์ควบคุม');
+      case 'emergency_button':
+        return (icon: Icons.emergency_rounded, label: 'ปุ่มฉุกเฉิน');
+      case 'warning_light':
+        return (icon: Icons.warning_amber_rounded, label: 'ไฟเตือน');
+      case 'aiot_gateway':
+        return (icon: Icons.router_rounded, label: 'AIoT Gateway');
+      case 'mini_pc':
+        return (icon: Icons.dns_rounded, label: 'Mini PC');
+      default:
+        return (icon: Icons.devices_other_rounded, label: type);
+    }
+  }
+
+  ({Color color, Color bg, String label}) _statusInfo(String status) {
+    switch (status) {
+      case 'online':
+        return (
+          color: FacilityTheme.safeGreen,
+          bg: const Color(0xFFECFDF5),
+          label: '🟢 ออนไลน์ปกติ',
+        );
+      case 'offline':
+        return (
+          color: FacilityTheme.emergencyRed,
+          bg: const Color(0xFFFEF2F2),
+          label: '🔴 ออฟไลน์',
+        );
+      case 'error':
+        return (
+          color: FacilityTheme.emergencyRed,
+          bg: const Color(0xFFFEF2F2),
+          label: '⚠️ มีปัญหา',
+        );
+      case 'maintenance':
+        return (
+          color: FacilityTheme.warningOrange,
+          bg: const Color(0xFFFFFBEB),
+          label: '🛠️ ซ่อมบำรุง',
+        );
+      default:
+        return (
+          color: FacilityTheme.softMauve,
+          bg: FacilityTheme.lightPurpleBg,
+          label: status,
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final offlineCount = _devices.where((d) => d['status'] == 'offline').length;
-    final totalCount = _devices.length;
-    final offlinePercentage = (offlineCount / totalCount) * 100;
-    final isHighOfflineAlert =
-        offlinePercentage > 30.0; // DEV-15: ออฟไลน์ > 30% เตือนพิเศษ
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(48),
+        child: Center(
+          child: CircularProgressIndicator(color: FacilityTheme.primaryNavy),
+        ),
+      );
+    }
+    if (_loadError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _loadError!,
+              style: const TextStyle(
+                color: FacilityTheme.emergencyRed,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: _load, child: const Text('ลองใหม่')),
+          ],
+        ),
+      );
+    }
+
+    final visible = _visibleDevices;
+    final offlineCount = visible
+        .where((d) => d.status == 'offline' || d.status == 'error')
+        .length;
+    final totalCount = visible.length;
+    final offlinePercentage = totalCount == 0
+        ? 0.0
+        : (offlineCount / totalCount) * 100;
+    final isHighOfflineAlert = totalCount > 0 && offlinePercentage > 30.0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -129,8 +184,6 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
 
           const SizedBox(height: 14),
 
-          // 🏷️ Export Button (ย้ายมาจาก AppBar action เดิม เพื่อให้หน้านี้
-          // เป็น content-only ต่อกับ FacilityAppShell ได้)
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton.icon(
@@ -169,7 +222,6 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
 
           const SizedBox(height: 16),
 
-          // 🚨 HIGH OFFLINE ALERT BANNER (DEV-15 Exception Flow: ออฟไลน์ > 30%)
           if (isHighOfflineAlert)
             Container(
               margin: const EdgeInsets.only(bottom: 16),
@@ -201,7 +253,7 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '⚠️ เตือนพิเศษ: อุปกรณ์ออฟไลน์ $offlineCount จาก $totalCount ตัว (${offlinePercentage.toStringAsFixed(0)}%)',
+                          '⚠️ เตือนพิเศษ: อุปกรณ์ออฟไลน์/มีปัญหา $offlineCount จาก $totalCount ตัว (${offlinePercentage.toStringAsFixed(0)}%)',
                           style: const TextStyle(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w900,
@@ -210,7 +262,7 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
                         ),
                         const SizedBox(height: 2),
                         const Text(
-                          'พบนนอัตราการออฟไลน์สูงกว่า 30% กรุณาตรวจสอบการเชื่อมต่อ Gateway หรือระบบจ่ายไฟ',
+                          'พบอัตราการออฟไลน์สูงกว่า 30% กรุณาตรวจสอบการเชื่อมต่อ Gateway หรือระบบจ่ายไฟ',
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w700,
@@ -224,7 +276,6 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
               ),
             ),
 
-          // 🏢 Scope Filter Selector
           Row(
             children: [
               const Text(
@@ -273,7 +324,6 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
 
           const SizedBox(height: 16),
 
-          // 📊 3 Health Summary Cards
           FacilityResponsiveGrid(
             spacing: 12,
             minItemWidth: 160,
@@ -312,170 +362,96 @@ class _FacilityDeviceHealthPageState extends State<FacilityDeviceHealthPage> {
 
           const SizedBox(height: 12),
 
-          // 📡 Devices List
-          ..._devices.map((device) {
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: FacilityGlassCard(
-                padding: const EdgeInsets.all(16),
-                borderRadius: 18,
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: (device['statusColor'] as Color).withValues(
-                          alpha: 0.12,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        device['icon'] as IconData,
-                        color: device['statusColor'] as Color,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  device['name'] as String,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w900,
-                                    color: FacilityTheme.inkIndigo,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: device['statusBg'] as Color,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  device['statusText'] as String,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    color: device['statusColor'] as Color,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${device['location']} · แบตเตอรี่: ${device['battery']}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: FacilityTheme.softMauve,
-                            ),
-                          ),
-                          Text(
-                            device['lastPing'] as String,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: FacilityTheme.softMauve,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+          if (visible.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'ไม่พบอุปกรณ์ในขอบเขตที่เลือก',
+                style: TextStyle(
+                  color: FacilityTheme.softMauve,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            );
-          }),
-
-          const SizedBox(height: 20),
-
-          // 🛠️ ประวัติบำรุงรักษาล่าสุด (DEV-15 — เพิ่มกลับเข้ามาให้ครบสเปก)
-          const Text(
-            'ประวัติบำรุงรักษาล่าสุด',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: FacilityTheme.inkIndigo,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          FacilityGlassCard(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            borderRadius: 18,
-            child: Column(
-              children: [
-                for (final entry in _maintenanceHistory) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.build_circle_rounded,
-                          size: 20,
-                          color: FacilityTheme.primaryPurple,
+            )
+          else
+            ...visible.map((device) {
+              final typeInfo = _typeInfo(device.type);
+              final statusInfo = _statusInfo(device.status);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: FacilityGlassCard(
+                  padding: const EdgeInsets.all(16),
+                  borderRadius: 18,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: statusInfo.color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                entry['device']!,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  color: FacilityTheme.inkIndigo,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                entry['action']!,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: FacilityTheme.softMauve,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${entry['technician']} · ${entry['date']}',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: FacilityTheme.softMauve,
-                                ),
-                              ),
-                            ],
-                          ),
+                        child: Icon(
+                          typeInfo.icon,
+                          color: statusInfo.color,
+                          size: 22,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    device.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: FacilityTheme.inkIndigo,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusInfo.bg,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    statusInfo.label,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      color: statusInfo.color,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${typeInfo.label} · ${device.location ?? 'ไม่ระบุตำแหน่ง'}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: FacilityTheme.softMauve,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  if (entry != _maintenanceHistory.last)
-                    const Divider(height: 1, color: FacilityTheme.purpleBorder),
-                ],
-              ],
-            ),
-          ),
+                ),
+              );
+            }),
         ],
       ),
     );
