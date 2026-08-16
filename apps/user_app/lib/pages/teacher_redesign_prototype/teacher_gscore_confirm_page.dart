@@ -12,28 +12,6 @@ import 'package:flutter/material.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSectionCard;
-import 'teacher_student_support_page.dart' show TeacherStudentSupportPage;
-
-/// dropdown ทางลัดไปหน้า prototype อื่นที่กำลังสร้างคู่กันในเซสชันนี้
-/// แต่ยังไม่ได้ผูกเข้าเมนู sidebar จริง — วางไว้ข้างปุ่มแฮมเบอร์เกอร์
-/// (จอแคบ) / ข้างชื่อหน้า (จอกว้าง) ผ่าน TeacherMockPageShell.
-/// extraLeadingAction เอาไว้ก่อน ลบทิ้งได้ทันทีที่ผูกเข้าเมนูจริงแล้ว
-Widget _buildWipMenu(BuildContext context) {
-  return PopupMenuButton<VoidCallback>(
-    tooltip: 'หน้าอื่นที่กำลังพัฒนา',
-    icon: const Icon(Icons.explore_outlined, color: TeacherPalette.primary),
-    onSelected: (action) => action(),
-    itemBuilder: (context) => [
-      PopupMenuItem<VoidCallback>(
-        value: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const TeacherStudentSupportPage()),
-        ),
-        child: const Text('นักเรียนที่ต้องการการสนับสนุน (AI-4..8)'),
-      ),
-    ],
-  );
-}
 
 class _PendingGScoreEntry {
   _PendingGScoreEntry({
@@ -130,7 +108,6 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
     return TeacherMockPageShell(
       title: 'ยืนยันคะแนน G-Score',
       activeMenuLabel: 'คะแนน',
-      extraLeadingAction: Builder(builder: _buildWipMenu),
       builder: (context, isDesktop) {
         final pending = _pending;
         return Column(
