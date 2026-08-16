@@ -1,40 +1,34 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
+// เชื่อมกับ ConsentService จริงแล้ว (2026-08-16) — เดิม mock ล้วน
 //
 // กลุ่ม CON ทั้งหมดของผู้ปกครองรวมอยู่หน้าเดียว เพราะเป็น flow ต่อเนื่องกัน
 // ตามธรรมชาติ: CON-1 (ให้ความยินยอมแยกวัตถุประสงค์) กับ CON-2 (ถอนความ
-// ยินยอม) คือ toggle เดียวกัน (เปิด=ยินยอม, ปิด=ถอน) — CON-3 (ดูสถานะ/
-// ประวัติ) คือส่วนแสดงผลของ toggle เดียวกันนี้บวกประวัติด้านล่าง — CON-4
-// (ขอสำเนาข้อมูล) กับ CON-5 (ขอลบ/แก้ไข) เป็นคำขอที่ School Admin ต้อง
-// พิจารณาต่อ จึงแยกเป็นปุ่ม "ยื่นคำขอ" ต่างหาก ไม่ใช่ toggle
-
+// ยินยอม) คือ toggle เดียวกัน (เปิด=ยินยอม, ปิด=ถอน) ผ่าน
+// grantParentConsent/withdrawParentConsent จริง — CON-3 (ดูสถานะ) คือส่วน
+// แสดงผลของ toggle เดียวกันนี้จาก listMyConsents จริง
+//
+// ⚠️ สิ่งที่ตัดออกเพราะไม่มี backend รองรับ (ตรวจ RPC ทั้งไฟล์ consent_policy
+// แล้วไม่พบ):
+// - "ประวัติความยินยอม" (ใครให้/ถอนเมื่อไหร่) — ไม่มี RPC ดึงประวัติเลย มีแค่
+//   สถานะปัจจุบัน ตัดส่วนนี้ทิ้งแทนที่จะโชว์ประวัติปลอม
+// - CON-4/CON-5 (ขอสำเนา/ขอลบข้อมูล) — ไม่มี RPC สร้างคำขอ ยังคงเป็นฟอร์ม
+//   UI เฉยๆ (ปรับข้อความให้ตรงว่ายังไม่เชื่อมระบบจริง ไม่ใช่ยิงคำขอจริง)
+//
+// รับ parentLinkId (ไม่ใช่ studentId) เพราะ listMyConsents ต้องใช้
+// parent_link_id ของบุตรที่กำลังดูอยู่ — ส่งมาจาก parent_home_page.dart
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'parent_shared_widgets.dart';
 
-class _ConsentPurpose {
-  _ConsentPurpose({
-    required this.title,
-    required this.description,
-    required this.grantedAt,
-    this.granted = true,
+class ParentConsentStatusPage extends StatefulWidget {
+  const ParentConsentStatusPage({
+    super.key,
+    required this.parentLinkId,
+    required this.childName,
   });
 
-  final String title;
-  final String description;
-  final String grantedAt;
-  bool granted;
-}
-
-class _HistoryEntry {
-  const _HistoryEntry(this.text, this.timeLabel);
-  final String text;
-  final String timeLabel;
-}
-
-const _policyVersion = 'v2.3 (มีผล 1 ส.ค. 2569)';
-
-class ParentConsentStatusPage extends StatefulWidget {
-  const ParentConsentStatusPage({super.key});
+  final String parentLinkId;
+  final String childName;
 
   @override
   State<ParentConsentStatusPage> createState() =>
@@ -42,71 +36,78 @@ class ParentConsentStatusPage extends StatefulWidget {
 }
 
 class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
-  final List<_ConsentPurpose> _purposes = [
-    _ConsentPurpose(
-      title: 'ข้อมูลการเรียน',
-      description: 'คะแนน ผลการเรียน ความคืบหน้าบทเรียน',
-      grantedAt: '1 ส.ค. 2569',
-    ),
-    _ConsentPurpose(
-      title: 'ข้อมูลพฤติกรรม',
-      description: 'การส่งงาน การเข้าเรียน สถิติการมีส่วนร่วม',
-      grantedAt: '1 ส.ค. 2569',
-    ),
-    _ConsentPurpose(
-      title: 'ภาพเหตุการณ์ความปลอดภัย',
-      description: 'สรุปเหตุการณ์จากกล้อง/ระบบความปลอดภัยที่เกี่ยวข้องกับบุตร',
-      grantedAt: '1 ส.ค. 2569',
-      granted: false,
-    ),
-    _ConsentPurpose(
-      title: 'การแจ้งเตือน',
-      description: 'แจ้งเตือนฉุกเฉินและรายงานสรุปเป็นระยะ',
-      grantedAt: '1 ส.ค. 2569',
-    ),
-  ];
+  bool _loading = true;
+  String? _loadError;
+  List<ParentConsent> _consents = [];
+  final Set<String> _busy = {};
 
-  final List<_HistoryEntry> _history = [
-    const _HistoryEntry(
-      'ให้ความยินยอม "ข้อมูลการเรียน", "ข้อมูลพฤติกรรม", "การแจ้งเตือน"',
-      '1 ส.ค. 2569 · 09:12 น.',
-    ),
-    const _HistoryEntry(
-      'ไม่ให้ความยินยอม "ภาพเหตุการณ์ความปลอดภัย"',
-      '1 ส.ค. 2569 · 09:12 น.',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void _toggle(_ConsentPurpose purpose, bool value) {
+  Future<void> _load() async {
     setState(() {
-      purpose.granted = value;
-      _history.insert(
-        0,
-        _HistoryEntry(
-          '${value ? "ให้" : "ถอน"}ความยินยอม "${purpose.title}"',
-          'วันนี้ · ${TimeOfDay.now().format(context)}',
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final consents = await ConsentService.listMyConsents(widget.parentLinkId);
+      if (!mounted) return;
+      setState(() {
+        _consents = consents;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดข้อมูลความยินยอมไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _toggle(ParentConsent consent, bool value) async {
+    setState(() => _busy.add(consent.policyId));
+    try {
+      if (value) {
+        await ConsentService.grantParentConsent(
+          parentLinkId: widget.parentLinkId,
+          policyId: consent.policyId,
+        );
+      } else {
+        if (consent.consentId == null) return;
+        await ConsentService.withdrawParentConsent(consent.consentId!);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? 'ให้ความยินยอม "${consent.consentType}" แล้ว'
+                : 'ถอนความยินยอม "${consent.consentType}" แล้ว — ระบบหยุดใช้ข้อมูลส่วนนี้ทันที',
+          ),
+          backgroundColor: value
+              ? ParentTheme.safeGreen
+              : ParentTheme.warningOrange,
+          behavior: SnackBarBehavior.floating,
         ),
       );
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value
-              ? 'ให้ความยินยอม "${purpose.title}" แล้ว'
-              : 'ถอนความยินยอม "${purpose.title}" แล้ว — ระบบหยุดใช้ข้อมูลส่วนนี้ทันที',
-        ),
-        backgroundColor: value
-            ? ParentTheme.safeGreen
-            : ParentTheme.warningOrange,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ทำรายการไม่สำเร็จ: $e')));
+    } finally {
+      if (mounted) setState(() => _busy.remove(consent.policyId));
+    }
   }
 
   Future<void> _openRequestDialog({
     required String title,
     required String description,
-    required String submitLabel,
   }) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
@@ -154,14 +155,17 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    // ยังไม่มี RPC รับคำขอ DSAR/ลบข้อมูลจริง — บอกตรงๆ แทนที่จะแสร้งว่า
+    // ส่งคำขอสำเร็จแล้ว
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'ส่งคำขอ "$title" แล้ว — ฝ่ายทะเบียน/School Admin จะพิจารณาและแจ้งผลกลับ',
+          'ยังไม่รองรับการยื่นคำขอ "$title" ผ่านระบบในตอนนี้ — กรุณาติดต่อ'
+          'ฝ่ายทะเบียนของโรงเรียนโดยตรง',
         ),
-        backgroundColor: ParentTheme.primaryTeal,
+        backgroundColor: ParentTheme.warningOrange,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -171,6 +175,33 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
     return ParentMockPageShell(
       title: 'ความเป็นส่วนตัวและ PDPA',
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: CircularProgressIndicator(color: ParentTheme.primaryTeal),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _loadError!,
+                  style: const TextStyle(
+                    color: ParentTheme.emergencyRed,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: _load, child: const Text('ลองใหม่')),
+              ],
+            ),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -182,20 +213,15 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: ParentTheme.tealBorder),
               ),
-              child: const Text(
-                'เลือกให้/ถอนความยินยอมแยกตามวัตถุประสงค์ได้อิสระ ไม่ใช่แบบ '
-                'all-or-nothing — ส่วนที่ไม่ยินยอมจะถูกปิดใช้งาน แต่ส่วนอื่นยังใช้ได้ปกติ',
-                style: TextStyle(
+              child: Text(
+                'ความยินยอมของ ${widget.childName} — เลือกให้/ถอนแยกตาม'
+                'วัตถุประสงค์ได้อิสระ ไม่ใช่แบบ all-or-nothing',
+                style: const TextStyle(
                   color: ParentTheme.primaryTeal,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'นโยบายความเป็นส่วนตัวเวอร์ชันปัจจุบัน: $_policyVersion',
-              style: TextStyle(color: ParentTheme.muted, fontSize: 11),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -207,13 +233,24 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
               ),
             ),
             const SizedBox(height: 10),
-            for (final purpose in _purposes) ...[
-              _ConsentTile(
-                purpose: purpose,
-                onChanged: (v) => _toggle(purpose, v),
-              ),
-              const SizedBox(height: 10),
-            ],
+            if (_consents.isEmpty)
+              const Text(
+                'ยังไม่มีนโยบายความยินยอมที่โรงเรียนเผยแพร่ไว้',
+                style: TextStyle(
+                  color: ParentTheme.muted,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              )
+            else
+              for (final consent in _consents) ...[
+                _ConsentTile(
+                  consent: consent,
+                  isBusy: _busy.contains(consent.policyId),
+                  onChanged: (v) => _toggle(consent, v),
+                ),
+                const SizedBox(height: 10),
+              ],
             const SizedBox(height: 12),
             const Text(
               'สิทธิ์เจ้าของข้อมูล',
@@ -233,7 +270,6 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
                 title: 'ขอสำเนาข้อมูล (DSAR)',
                 description:
                     'ระบบจะรวบรวมข้อมูลของบุตรท่านและส่งสำเนาให้ภายในกรอบเวลาตามกฎหมาย',
-                submitLabel: 'ยื่นคำขอสำเนา',
               ),
             ),
             const SizedBox(height: 10),
@@ -247,27 +283,6 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
                 description:
                     'หากข้อมูลบางส่วนต้องเก็บไว้ตามกฎหมาย (เช่นหลักฐานการศึกษา) '
                     'คำขออาจถูกปฏิเสธบางส่วนพร้อมเหตุผล',
-                submitLabel: 'ยื่นคำขอ',
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'ประวัติความยินยอม',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
-                color: ParentTheme.ink,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ParentGlassCard(
-              child: Column(
-                children: [
-                  for (var i = 0; i < _history.length; i++) ...[
-                    if (i != 0) const Divider(height: 20),
-                    _HistoryRow(entry: _history[i]),
-                  ],
-                ],
               ),
             ),
           ],
@@ -278,13 +293,19 @@ class _ParentConsentStatusPageState extends State<ParentConsentStatusPage> {
 }
 
 class _ConsentTile extends StatelessWidget {
-  const _ConsentTile({required this.purpose, required this.onChanged});
+  const _ConsentTile({
+    required this.consent,
+    required this.isBusy,
+    required this.onChanged,
+  });
 
-  final _ConsentPurpose purpose;
+  final ParentConsent consent;
+  final bool isBusy;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final granted = consent.isGranted;
     return ParentGlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
@@ -293,17 +314,48 @@ class _ConsentTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  purpose.title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5,
-                    color: ParentTheme.ink,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        consent.consentType,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          color: ParentTheme.ink,
+                        ),
+                      ),
+                    ),
+                    if (consent.isRequired) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ParentTheme.warningOrange.withValues(
+                            alpha: 0.12,
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'จำเป็น',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: ParentTheme.warningOrange,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  purpose.description,
+                  'เวอร์ชันนโยบาย ${consent.version}',
                   style: const TextStyle(
                     color: ParentTheme.muted,
                     fontSize: 11.5,
@@ -311,13 +363,9 @@ class _ConsentTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  purpose.granted
-                      ? 'ยินยอมตั้งแต่ ${purpose.grantedAt}'
-                      : 'ยังไม่ได้ให้ความยินยอม',
+                  granted ? 'ยินยอมแล้ว' : 'ยังไม่ได้ให้ความยินยอม',
                   style: TextStyle(
-                    color: purpose.granted
-                        ? ParentTheme.safeGreen
-                        : ParentTheme.muted,
+                    color: granted ? ParentTheme.safeGreen : ParentTheme.muted,
                     fontSize: 10.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -325,11 +373,18 @@ class _ConsentTile extends StatelessWidget {
               ],
             ),
           ),
-          Switch(
-            value: purpose.granted,
-            activeTrackColor: ParentTheme.primaryTeal,
-            onChanged: onChanged,
-          ),
+          if (isBusy)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            Switch(
+              value: granted,
+              activeTrackColor: ParentTheme.primaryTeal,
+              onChanged: onChanged,
+            ),
         ],
       ),
     );
@@ -401,45 +456,6 @@ class _RequestActionCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _HistoryRow extends StatelessWidget {
-  const _HistoryRow({required this.entry});
-
-  final _HistoryEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.history_rounded, size: 15, color: ParentTheme.muted),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.text,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: ParentTheme.softText,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                entry.timeLabel,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: ParentTheme.muted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

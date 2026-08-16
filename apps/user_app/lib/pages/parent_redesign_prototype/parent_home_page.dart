@@ -54,7 +54,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
       final children = [
         for (final l in approved)
           ParentChildMock(
-            id: l.studentId,
+            // ใช้ parent_link_id (ไม่ใช่ studentId) เป็น id ของตัวสลับ
+            // เพราะหน้าความยินยอม (CON) ต้องใช้ parentLinkId เรียก
+            // ConsentService.listMyConsents ต่อ
+            id: l.id,
             name: l.studentName,
             gradeRoom: l.relationship,
             avatarColor: ParentTheme.primaryTeal,
@@ -249,7 +252,10 @@ class _ParentHomePageState extends State<ParentHomePage> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const ParentConsentStatusPage(),
+                  builder: (_) => ParentConsentStatusPage(
+                    parentLinkId: selectedChild.id,
+                    childName: selectedChild.name,
+                  ),
                 ),
               ),
             ),
