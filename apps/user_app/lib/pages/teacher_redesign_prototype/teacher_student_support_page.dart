@@ -171,76 +171,82 @@ class _RiskCard extends StatelessWidget {
     final riskColor = flag.riskLevel == 'สูง'
         ? const Color(0xFFDC2626)
         : const Color(0xFFD97706);
-    return InkWell(
-      onTap: onTap,
+    // ClipRRect แยกจาก BoxDecoration.borderRadius เพราะ Border ที่นี่มีสี
+    // ไม่เท่ากันทุกด้าน (ซ้ายเป็นสีเน้นความเสี่ยง) — Flutter ไม่ยอมให้ตั้ง
+    // borderRadius พร้อมกับ Border ที่มีสีไม่สม่ำเสมอในกล่องเดียวกัน (throw
+    // "A borderRadius can only be given on borders with uniform colors"
+    // แล้วการ์ดทั้งใบจะไม่ render ออกมาเลย)
+    return ClipRRect(
       borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border(
-            top: const BorderSide(color: TeacherPalette.border),
-            right: const BorderSide(color: TeacherPalette.border),
-            bottom: const BorderSide(color: TeacherPalette.border),
-            left: BorderSide(color: riskColor, width: 5),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: const BorderSide(color: TeacherPalette.border),
+              right: const BorderSide(color: TeacherPalette.border),
+              bottom: const BorderSide(color: TeacherPalette.border),
+              left: BorderSide(color: riskColor, width: 5),
+            ),
           ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${flag.studentName} · ${flag.studentNo}',
-                    style: const TextStyle(
-                      color: TeacherPalette.ink,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w900,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${flag.studentName} · ${flag.studentNo}',
+                      style: const TextStyle(
+                        color: TeacherPalette.ink,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                ),
-                TeacherStatusChip(
-                  label: 'ความเสี่ยง${flag.riskLevel}',
-                  color: riskColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: 2),
-            Text(
-              flag.courseLabel,
-              style: const TextStyle(
-                color: TeacherPalette.muted,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                  TeacherStatusChip(
+                    label: 'ความเสี่ยง${flag.riskLevel}',
+                    color: riskColor,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              flag.reasons.first,
-              style: const TextStyle(
-                color: TeacherPalette.softText,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (flag.reasons.length > 1)
+              const SizedBox(height: 2),
               Text(
-                '+ อีก ${flag.reasons.length - 1} เหตุผล',
+                flag.courseLabel,
                 style: const TextStyle(
                   color: TeacherPalette.muted,
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            const SizedBox(height: 10),
-            TeacherStatusChip(
-              label: flag.status.label,
-              color: flag.status.color,
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                flag.reasons.first,
+                style: const TextStyle(
+                  color: TeacherPalette.softText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (flag.reasons.length > 1)
+                Text(
+                  '+ อีก ${flag.reasons.length - 1} เหตุผล',
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              const SizedBox(height: 10),
+              TeacherStatusChip(
+                label: flag.status.label,
+                color: flag.status.color,
+              ),
+            ],
+          ),
         ),
       ),
     );
