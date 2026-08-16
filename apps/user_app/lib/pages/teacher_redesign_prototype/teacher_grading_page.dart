@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
+import 'teacher_submission_review_page.dart' show TeacherSubmissionRosterPage;
 
 enum _GradingBucket { urgent, normal, done }
 
@@ -698,12 +699,26 @@ class _GradingCard extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => showTeacherMockAction(
-                      context,
-                      !item.isPublished
-                          ? 'เผยแพร่: ${item.title}'
-                          : 'ตรวจงาน: ${item.title}',
-                    ),
+                    onPressed: () {
+                      if (!item.isPublished) {
+                        showTeacherMockAction(
+                          context,
+                          'เผยแพร่: ${item.title}',
+                        );
+                        return;
+                      }
+                      // ASM-7: เปิดหน้ารายชื่อนักเรียนที่ส่งงาน → ให้คะแนน
+                      // ทีละคนตาม Rubric จริง แทนที่จะเป็นแค่ mock action ลอยๆ
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TeacherSubmissionRosterPage(
+                            worksheetTitle: item.title,
+                            courseLabel: '${item.course} · ${item.room}',
+                          ),
+                        ),
+                      );
+                    },
                     icon: Icon(
                       !item.isPublished
                           ? Icons.publish_rounded
