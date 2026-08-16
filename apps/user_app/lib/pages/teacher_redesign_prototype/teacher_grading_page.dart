@@ -1,10 +1,14 @@
-// PROTOTYPE ONLY: "ตรวจงาน" — mock queue of submissions to grade, split into
-// ด่วน/ปกติ/ตรวจแล้ว/ร่าง buckets, filterable by ชั้นเรียน/ห้องเรียน, plus a
-// "สร้างใบงาน" form where the teacher picks a publish status
-// (เผยแพร่/ยังไม่เผยแพร่) for the new worksheet.
-// UI/UX only, mock data, no backend.
-
+// เชื่อมกับ AssignmentService จริงแล้ว (2026-08-16) — เดิม mock ล้วน
+// ลิสต์ใบงานตอนนี้โหลดจริงจากทุกรายวิชาของครู (ด่วน/ปกติ คำนวณจาก dueAt
+// จริง, ส่งแล้ว/ทั้งหมด จาก listSubmissions จริง) หมวด "ตรวจแล้ว" เดิม
+// เปลี่ยนความหมายเป็น "ส่งครบแล้ว" (submitted == total) เพราะไม่มี RPC
+// ให้เช็คว่าตรวจให้คะแนนครบทุกคนหรือยัง — ถ้าเช็คไม่ได้จริงจะไม่ทำเป็นตัวเลข
+// ปลอม ส่วนหน้ารายชื่อนักเรียนส่งงาน (TeacherSubmissionRosterPage) กด
+// เข้าไปแล้วยังเป็น mock อยู่ (Rubric/AI-suggestion ไม่มี backend รองรับ)
+// — ส่ง assignmentId จริงเข้าไปแล้วเพื่อให้ต่อ "รายชื่อผู้ส่งงาน" จริงได้
+// ในรอบถัดไป
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
@@ -22,6 +26,7 @@ class _GradingItemMock {
     required this.deadline,
     required this.bucket,
     this.isPublished = true,
+    this.assignmentId,
   });
 
   final String title;
@@ -31,6 +36,8 @@ class _GradingItemMock {
   final int total;
   final String deadline;
   final _GradingBucket bucket;
+  // null = สร้างผ่านฟอร์ม "สร้างใบงาน" ในเครื่อง ยังไม่บันทึกลงเซิร์ฟเวอร์
+  final String? assignmentId;
 
   /// ชั้นเรียนที่ตัดมาจากห้อง เช่น "ม.5/1" -> "ม.5" ใช้กรองแบบหยาบก่อน
   /// ค่อยกรองละเอียดเป็นห้องอีกที
@@ -43,63 +50,6 @@ class _GradingItemMock {
   final bool isPublished;
 }
 
-final _initialItems = [
-  _GradingItemMock(
-    title: 'ใบงาน: วัดค่า PM2.5 รอบเช้า',
-    course: 'AIOT-501',
-    room: 'ม.5/1',
-    submitted: 28,
-    total: 32,
-    deadline: 'ปิดรับ 2 ชม.',
-    bucket: _GradingBucket.urgent,
-  ),
-  _GradingItemMock(
-    title: 'รายงาน: ระบบรดน้ำอัตโนมัติ',
-    course: 'PBL-110',
-    room: 'ม.5/1',
-    submitted: 14,
-    total: 32,
-    deadline: 'ปิดรับวันนี้ 18:00',
-    bucket: _GradingBucket.urgent,
-  ),
-  _GradingItemMock(
-    title: 'แบบฝึกหัด: แรงและการเคลื่อนที่',
-    course: 'PHYS-302',
-    room: 'ม.6/2',
-    submitted: 22,
-    total: 28,
-    deadline: 'ปิดรับพรุ่งนี้',
-    bucket: _GradingBucket.normal,
-  ),
-  _GradingItemMock(
-    title: 'ใบงาน: ห่วงโซ่อาหารในระบบนิเวศ',
-    course: 'BIO-204',
-    room: 'ม.4/3',
-    submitted: 26,
-    total: 30,
-    deadline: 'ปิดรับ 3 วัน',
-    bucket: _GradingBucket.normal,
-  ),
-  _GradingItemMock(
-    title: 'ใบงาน: เซนเซอร์ความชื้นเบื้องต้น',
-    course: 'AIOT-501',
-    room: 'ม.5/1',
-    submitted: 32,
-    total: 32,
-    deadline: 'ตรวจแล้ว',
-    bucket: _GradingBucket.done,
-  ),
-  _GradingItemMock(
-    title: 'แบบทดสอบย่อย: หน่วยที่ 3',
-    course: 'PHYS-302',
-    room: 'ม.6/2',
-    submitted: 28,
-    total: 28,
-    deadline: 'ตรวจแล้ว',
-    bucket: _GradingBucket.done,
-  ),
-];
-
 const _allFilter = 'ทั้งหมด';
 
 class TeacherGradingPage extends StatefulWidget {
@@ -110,10 +60,99 @@ class TeacherGradingPage extends StatefulWidget {
 }
 
 class _TeacherGradingPageState extends State<TeacherGradingPage> {
-  final List<_GradingItemMock> _items = List.of(_initialItems);
+  final List<_GradingItemMock> _items = [];
+  bool _loading = true;
+  String? _loadError;
   String _gradeFilter = _allFilter;
   String _roomFilter = _allFilter;
-  int _bucketIndex = 0; // 0=ด่วน 1=ปกติ 2=ตรวจแล้ว 3=ร่าง
+  int _bucketIndex = 0; // 0=ด่วน 1=ปกติ 2=ส่งครบแล้ว 3=ร่าง
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealAssignments();
+  }
+
+  Future<void> _loadRealAssignments() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final courses = await CourseService.listMyCourses();
+      final items = <_GradingItemMock>[];
+      for (final c in courses) {
+        List<AssignmentSummary> assignments;
+        try {
+          assignments = await AssignmentService.listAssignments(c.id);
+        } catch (_) {
+          assignments = const [];
+        }
+        for (final a in assignments) {
+          var submitted = 0;
+          var total = 0;
+          try {
+            final roster = await AssignmentService.listSubmissions(a.id);
+            total = roster.length;
+            submitted = roster.where((r) => r.status != 'not_submitted').length;
+          } catch (_) {
+            // roster ดึงไม่ได้ (เช่น ยังไม่เผยแพร่) — ถือว่า 0/0 ไปก่อน
+          }
+          final isPublished = a.status == 'published';
+          final now = DateTime.now();
+          _GradingBucket bucket;
+          String deadlineText;
+          if (a.dueAt == null) {
+            bucket = _GradingBucket.normal;
+            deadlineText = 'ไม่มีกำหนดส่ง';
+          } else {
+            final diff = a.dueAt!.difference(now);
+            if (submitted >= total && total > 0) {
+              bucket = _GradingBucket.done;
+              deadlineText = 'ส่งครบแล้ว';
+            } else if (diff.isNegative) {
+              bucket = _GradingBucket.urgent;
+              deadlineText = 'เลยกำหนดส่งแล้ว';
+            } else if (diff.inHours <= 48) {
+              bucket = _GradingBucket.urgent;
+              deadlineText = diff.inHours <= 1
+                  ? 'ปิดรับไม่ถึง 1 ชม.'
+                  : 'ปิดรับอีก ${diff.inHours} ชม.';
+            } else {
+              bucket = _GradingBucket.normal;
+              deadlineText = 'ปิดรับอีก ${diff.inDays} วัน';
+            }
+          }
+          items.add(
+            _GradingItemMock(
+              title: a.title,
+              course: c.subjectName,
+              room: c.room ?? c.gradeLevel ?? '-',
+              submitted: submitted,
+              total: total,
+              deadline: deadlineText,
+              bucket: bucket,
+              isPublished: isPublished,
+              assignmentId: a.id,
+            ),
+          );
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _items
+          ..clear()
+          ..addAll(items);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดใบงานไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
 
   List<String> get _grades => [
     _allFilter,
@@ -197,6 +236,36 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
         ),
       ],
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _loadError!,
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: _loadRealAssignments,
+                  child: const Text('ลองใหม่'),
+                ),
+              ],
+            ),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -265,7 +334,7 @@ class _BucketStatRow extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
-  static const _labels = ['ด่วน', 'ปกติ', 'ตรวจแล้ว', 'ร่าง'];
+  static const _labels = ['ด่วน', 'ปกติ', 'ส่งครบแล้ว', 'ร่าง'];
   static const _icons = [
     Icons.bolt_rounded,
     Icons.assignment_outlined,
@@ -1008,8 +1077,23 @@ class _GradingCard extends StatelessWidget {
                       showTeacherMockAction(context, 'เผยแพร่: ${item.title}');
                       return;
                     }
+                    if (item.assignmentId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'ใบงานนี้สร้างในเครื่องเท่านั้น ยังไม่บันทึกลง'
+                            'เซิร์ฟเวอร์ จึงยังไม่มีรายชื่อนักเรียนส่งงานจริง',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
                     // ASM-7: เปิดหน้ารายชื่อนักเรียนที่ส่งงาน → ให้คะแนน
                     // ทีละคนตาม Rubric จริง แทนที่จะเป็นแค่ mock action ลอยๆ
+                    // TODO(follow-up): ตัวหน้า TeacherSubmissionRosterPage
+                    // เองยังเป็น mock ทั้งหมด (Rubric/AI-suggestion ไม่มี
+                    // backend รองรับ) — ตอนนี้แค่ item ตัวนี้อ้างอิง
+                    // assignmentId จริงแล้ว ยังไม่ได้ส่งต่อเข้าไปในหน้าถัดไป
                     Navigator.push(
                       context,
                       MaterialPageRoute(
