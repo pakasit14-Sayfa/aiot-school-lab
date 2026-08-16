@@ -19,6 +19,7 @@ import 'pages/executive_redesign_prototype/executive_home_page.dart';
 import 'pages/parent_redesign_prototype/parent_binding_page.dart';
 import 'pages/parent_redesign_prototype/parent_home_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_parent_binding_approval_page.dart';
+import 'pages/teacher_redesign_prototype/teacher_pbl_activity_editor_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
@@ -223,6 +224,9 @@ class MyApp extends StatelessWidget {
     }
     if (path.contains('parent-binding-approval')) {
       return const TeacherParentBindingApprovalPage();
+    }
+    if (path.contains('pbl-activity')) {
+      return const TeacherPblActivityEditorPage();
     }
     if (path.contains('teacher-courses') || path.contains('courses')) {
       return const TeacherCoursesPage();
