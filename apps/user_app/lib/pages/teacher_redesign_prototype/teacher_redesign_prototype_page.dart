@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_aiot_dashboard_page.dart';
 import 'teacher_aiot_lab_page.dart';
@@ -918,25 +919,25 @@ class _SidebarProfileCard extends StatelessWidget {
                   children: [
                     avatar,
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ครูสมชาย สายวิทย์',
+                            currentUserModel?.name ?? 'ครูผู้สอน',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: TeacherPalette.ink,
                               fontWeight: FontWeight.w900,
                               fontSize: 13.5,
                             ),
                           ),
                           Text(
-                            'ครูผู้สอน AIoT',
+                            currentUserModel?.email ?? 'ครูผู้สอน',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: TeacherPalette.muted,
                               fontWeight: FontWeight.w700,
                               fontSize: 11.5,
@@ -1594,13 +1595,15 @@ class _TeacherMobileHeader extends StatelessWidget {
         const SizedBox(width: 10),
         const _AvatarBadge(size: 52, icon: Icons.person_rounded),
         const SizedBox(width: 12),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ครูสมชาย',
-                style: TextStyle(
+                currentUserModel?.name ?? 'ครูผู้สอน',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
                   color: TeacherPalette.ink,
                   fontWeight: FontWeight.w900,
                   fontSize: 22,
@@ -1747,8 +1750,65 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _ClassesCarousel extends StatelessWidget {
+class _ClassesCarousel extends StatefulWidget {
   const _ClassesCarousel();
+
+  @override
+  State<_ClassesCarousel> createState() => _ClassesCarouselState();
+}
+
+class _ClassesCarouselState extends State<_ClassesCarousel> {
+  List<_ClassItem>? _items;
+  String? _error;
+
+  static const _gradients = [
+    [TeacherPalette.primary, TeacherPalette.primary2],
+    [TeacherPalette.skyDeep, TeacherPalette.skyMid],
+    [TeacherPalette.skyBright, TeacherPalette.skyVivid],
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final courses = await CourseService.listMyCourses();
+      final items = <_ClassItem>[];
+      for (var i = 0; i < courses.length; i++) {
+        final c = courses[i];
+        var studentCount = 0;
+        try {
+          studentCount = (await CourseService.listCourseStudents(c.id)).length;
+        } catch (_) {
+          studentCount = 0;
+        }
+        items.add(
+          _ClassItem(
+            c.termId.length > 8
+                ? c.termId.substring(0, 8).toUpperCase()
+                : c.termId.toUpperCase(),
+            c.subjectName,
+            c.room ?? c.gradeLevel ?? '-',
+            studentCount,
+            Icons.menu_book_rounded,
+            c.status == 'published' ? 'เผยแพร่แล้ว' : 'ฉบับร่าง',
+            c.status == 'published'
+                ? TeacherPalette.green
+                : TeacherPalette.orange,
+            _gradients[i % _gradients.length],
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() => _items = items);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดรายวิชาไม่สำเร็จ: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1763,29 +1823,55 @@ class _ClassesCarousel extends StatelessWidget {
             icon: Icons.menu_book_rounded,
           ),
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 620
-                  ? 2
-                  : 1;
-              final itemWidth =
-                  (constraints.maxWidth - ((columns - 1) * 14)) / columns;
-              return Wrap(
-                spacing: 14,
-                runSpacing: 14,
-                children: TeacherMock.classes
-                    .map(
-                      (item) => SizedBox(
-                        width: itemWidth,
-                        child: _TeacherClassCard(item: item),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
-          ),
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else if (_items == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (_items!.isEmpty)
+            const Text(
+              'ยังไม่มีรายวิชาที่คุณสอน',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 900
+                    ? 3
+                    : constraints.maxWidth >= 620
+                    ? 2
+                    : 1;
+                final itemWidth =
+                    (constraints.maxWidth - ((columns - 1) * 14)) / columns;
+                return Wrap(
+                  spacing: 14,
+                  runSpacing: 14,
+                  children: _items!
+                      .map(
+                        (item) => SizedBox(
+                          width: itemWidth,
+                          child: _TeacherClassCard(item: item),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -4511,20 +4597,22 @@ class _TeacherProfilePill extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'ครูสมชาย',
-                    style: TextStyle(
+                    currentUserModel?.name ?? 'ครูผู้สอน',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
                       color: TeacherPalette.primary,
                       fontWeight: FontWeight.w900,
                       fontSize: 12.5,
                     ),
                   ),
-                  Text(
-                    'ครูประจำชั้น (ม.5/2) ▾',
+                  const Text(
+                    'ครูผู้สอน ▾',
                     style: TextStyle(
                       color: TeacherPalette.muted,
                       fontSize: 10,

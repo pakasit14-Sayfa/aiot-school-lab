@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_assignment_editor_page.dart';
 import 'teacher_exam_builder_page.dart';
@@ -150,6 +151,81 @@ class TeacherCoursesPage extends StatefulWidget {
 class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
   String _searchQuery = '';
   String _selectedRoom = 'ทั้งหมด';
+  bool _loading = true;
+  String? _loadError;
+
+  static const _coverGradients = [
+    [Color(0xFF0F766E), Color(0xFF14B8A6)],
+    [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+    [Color(0xFF6D28D9), Color(0xFF8B5CF6)],
+    [Color(0xFF4338CA), Color(0xFF6366F1)],
+    [Color(0xFFC2410C), Color(0xFFF97316)],
+  ];
+  static const _accentColors = [
+    Color(0xFF0D9488),
+    Color(0xFF2563EB),
+    Color(0xFF7C3AED),
+    Color(0xFF4F46E5),
+    Color(0xFFEA580C),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealCourses();
+  }
+
+  // แทนที่รายการ mock ต้นทางด้วยรายวิชาจริงของครูที่ login อยู่ตอนเปิดหน้า
+  // — ยังคง mockTeacherCourses เป็น list เดิม (แค่เปลี่ยนเนื้อหา) เพื่อไม่
+  // ต้องแตะ logic สร้าง/คัดลอกรายวิชา (CLS-1/CLS-6) ที่ผูกกับ list ตัวนี้
+  // อยู่แล้ว — ฟีเจอร์สร้าง/คัดลอกยังคงบันทึกแค่ในเครื่อง (ไม่ยิง
+  // CourseService.createCourse จริง) เพราะฟอร์มปัจจุบันยังไม่มีช่องเลือก
+  // ภาคเรียน (termId) ที่ RPC จริงต้องการ — จุดนี้ต้องทำต่อ ไม่ใช่ยังทำเสร็จ
+  Future<void> _loadRealCourses() async {
+    try {
+      final courses = await CourseService.listMyCourses();
+      final mapped = <TeacherCourseModel>[];
+      for (var i = 0; i < courses.length; i++) {
+        final c = courses[i];
+        var studentCount = 0;
+        try {
+          studentCount = (await CourseService.listCourseStudents(c.id)).length;
+        } catch (_) {
+          studentCount = 0;
+        }
+        mapped.add(
+          TeacherCourseModel(
+            code: c.id.length > 8 ? c.id.substring(0, 8) : c.id,
+            name: c.subjectName,
+            category: c.gradeLevel ?? '-',
+            rooms: [if (c.room != null) c.room!],
+            studentCount: studentCount,
+            activeAssignments: 0,
+            pendingGradingCount: 0,
+            completionRate: 0,
+            coverGradient: _coverGradients[i % _coverGradients.length],
+            accentColor: _accentColors[i % _accentColors.length],
+            nextPeriodText: c.status == 'published'
+                ? 'เผยแพร่แล้ว'
+                : 'ฉบับร่าง — ยังไม่เผยแพร่',
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        mockTeacherCourses
+          ..clear()
+          ..addAll(mapped);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดรายวิชาไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
 
   void _openNewCourseModal() {
     showModalBottomSheet<void>(
@@ -165,12 +241,17 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded, color: Colors.white),
+                  const Icon(Icons.info_outline_rounded, color: Colors.white),
                   const SizedBox(width: 10),
-                  Text('สร้างรายวิชา ${newCourse.code} สำเร็จ!'),
+                  Expanded(
+                    child: Text(
+                      'เพิ่ม ${newCourse.name} ในรายการแล้ว (ยังไม่บันทึกลง'
+                      'เซิร์ฟเวอร์ — ฟีเจอร์สร้างรายวิชาจริงอยู่ระหว่างพัฒนา)',
+                    ),
+                  ),
                 ],
               ),
-              backgroundColor: const Color(0xFF059669),
+              backgroundColor: const Color(0xFFD97706),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -185,6 +266,14 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
   // CLS-6: คัดลอกโครงสร้างรายวิชา (บทเรียน/ใบงาน/รูบริก) ไปภาคเรียนใหม่ —
   // BR1: ห้ามคัดลอกรายชื่อนักเรียนและคะแนนเดิมมาด้วยเด็ดขาด
   void _openCopyCourseModal() {
+    if (mockTeacherCourses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่มีรายวิชาให้คัดลอก — สร้างรายวิชาใหม่ก่อน'),
+        ),
+      );
+      return;
+    }
     TeacherCourseModel? sourceCourse = mockTeacherCourses.first;
     String targetSemester = 'ภาคเรียนที่ 2/2569';
     final nameCtrl = TextEditingController(
@@ -351,12 +440,13 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        'คัดลอกโครงสร้างวิชา "${src.name}" ไปเป็น "$newName" ($targetSemester) แล้ว '
-                        '— ตรวจสอบก่อนเผยแพร่',
+                        'เพิ่ม "$newName" ($targetSemester) ในรายการแล้ว '
+                        '(ยังไม่บันทึกลงเซิร์ฟเวอร์ — ฟีเจอร์คัดลอกรายวิชาจริง'
+                        'อยู่ระหว่างพัฒนา)',
                       ),
-                      backgroundColor: const Color(0xFF10B981),
+                      backgroundColor: const Color(0xFFD97706),
                       behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 3),
+                      duration: const Duration(seconds: 4),
                     ),
                   );
                 },
@@ -390,6 +480,42 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
         ),
       ],
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _loadError!,
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _loading = true;
+                      _loadError = null;
+                    });
+                    _loadRealCourses();
+                  },
+                  child: const Text('ลองใหม่'),
+                ),
+              ],
+            ),
+          );
+        }
         final filteredCourses = mockTeacherCourses.where((c) {
           final matchesSearch =
               c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
