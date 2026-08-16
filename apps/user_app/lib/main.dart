@@ -13,8 +13,7 @@ import 'pages/teacher_redesign_prototype/teacher_storybook_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_courses_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
 import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
-import 'pages/executive_redesign_prototype/executive_dashboard_page.dart';
-import 'pages/executive_redesign_prototype/executive_escalation_inbox_page.dart';
+import 'pages/executive_redesign_prototype/executive_home_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
@@ -70,9 +69,9 @@ class MyApp extends StatelessWidget {
         '/prototype/facility-redesign': (context) =>
             const FacilityStorybookPage(),
         '/prototype/facility': (context) => const FacilityStorybookPage(),
-        '/prototype/executive': (context) => const ExecutiveDashboardPage(),
+        '/prototype/executive': (context) => const ExecutiveHomePage(),
         '/prototype/executive-inbox': (context) =>
-            const ExecutiveEscalationInboxPage(),
+            const ExecutiveHomePage(initialIndex: 1),
         '/prototype/storybook': (context) => const TeacherStorybookPage(),
         '/prototype/teacher-courses': (context) => const TeacherCoursesPage(),
         '/prototype/course-detail': (context) =>
@@ -147,13 +146,13 @@ class MyApp extends StatelessWidget {
         if (uri.path == '/prototype/executive') {
           return MaterialPageRoute(
             settings: settings,
-            builder: (_) => const ExecutiveDashboardPage(),
+            builder: (_) => const ExecutiveHomePage(),
           );
         }
         if (uri.path == '/prototype/executive-inbox') {
           return MaterialPageRoute(
             settings: settings,
-            builder: (_) => const ExecutiveEscalationInboxPage(),
+            builder: (_) => const ExecutiveHomePage(initialIndex: 1),
           );
         }
         if (uri.path == '/prototype/teacher-courses' ||
@@ -185,10 +184,10 @@ class MyApp extends StatelessWidget {
       return const FacilityStorybookPage();
     }
     if (path.contains('executive-inbox')) {
-      return const ExecutiveEscalationInboxPage();
+      return const ExecutiveHomePage(initialIndex: 1);
     }
     if (path.contains('executive')) {
-      return const ExecutiveDashboardPage();
+      return const ExecutiveHomePage();
     }
     if (path.contains('teacher-dashboard')) {
       return const TeacherDashboard();

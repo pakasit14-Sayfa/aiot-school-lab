@@ -15,24 +15,32 @@
 // - เหตุการณ์ความปลอดภัย ← SEC-7 (รายงานความปลอดภัยทั้งโรงเรียน)
 // - การใช้งานระบบ ← ไม่มี UC ต้นทางเฉพาะ เป็นสถิติระบบ (active user/uptime)
 //
-// Exception Flow ของ LA-9: "บางด้านยังไม่มีข้อมูล (เช่นยังไม่ติดตั้ง
-// เซนเซอร์) → แสดงเฉพาะด้านที่มีข้อมูล ระบุด้านที่ยังไม่มีให้ชัดเจน" — ยังไม่
-// implement เป็น demo-state switcher แบบที่ทำไว้ในฝั่งผู้ดูแลอาคาร (รอ
-// feedback ก่อนว่าต้องการระดับความสมจริงแค่ไหนสำหรับ role นี้)
+// 2026-08-15: แยกออกมาเป็น content-only widget (ไม่มี Scaffold ของตัวเอง)
+// เพื่อให้ ExecutiveHomePage (shell ใหม่) ใช้เป็นแท็บได้ — เดิมเป็นหน้า
+// standalone มี Scaffold เอง ตอนนี้ปุ่มกระดิ่งเรียก onOpenInbox() (callback
+// จาก shell) แทนที่จะ Navigator.push ตรงๆ — เพิ่ม demo-state switcher
+// ให้ Exception Flow ของ LA-9 ("บางด้านยังไม่มีข้อมูล เช่นยังไม่ติดตั้ง
+// เซนเซอร์ → แสดงเฉพาะด้านที่มีข้อมูล ระบุด้านที่ยังไม่มีให้ชัดเจน") ด้วย
 import 'package:flutter/material.dart';
-import 'executive_escalation_inbox_page.dart';
 import 'executive_shared_widgets.dart';
 
-class ExecutiveDashboardPage extends StatefulWidget {
-  const ExecutiveDashboardPage({super.key});
+class ExecutiveDashboardContent extends StatefulWidget {
+  const ExecutiveDashboardContent({super.key, required this.onOpenInbox});
+
+  final VoidCallback onOpenInbox;
 
   @override
-  State<ExecutiveDashboardPage> createState() => _ExecutiveDashboardPageState();
+  State<ExecutiveDashboardContent> createState() =>
+      _ExecutiveDashboardContentState();
 }
 
-class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
+class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
   String _selectedPeriod = '30 วันที่ผ่านมา';
   String _selectedGrade = 'ทุกระดับชั้น';
+
+  // Exception Flow ของ LA-9 — จำลองกรณี "บางด้านยังไม่มีข้อมูล" (เช่น
+  // อาคารบางหลังยังไม่ติดตั้งเซนเซอร์ครบ) เพื่อทดสอบว่าหน้านี้แสดงผลถูกต้อง
+  bool _demoMissingEnergyData = false;
 
   static const _periodOptions = [
     '7 วันที่ผ่านมา',
@@ -48,147 +56,149 @@ class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ExecutiveTheme.bgSlate,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeroHeader(),
-              const SizedBox(height: 18),
-              _buildFilterRow(),
-              const SizedBox(height: 24),
-              _buildDimensionSection(
-                icon: Icons.school_rounded,
-                title: 'ผลการเรียน',
-                subtitle: 'รวมจากทุกห้องเรียนในโรงเรียน',
-                color: ExecutiveTheme.primaryIndigo,
-                cards: [
-                  _StatCardData(
-                    icon: Icons.grade_rounded,
-                    label: 'คะแนนเฉลี่ยทั้งโรงเรียน',
-                    value: '78.5%',
-                    trend: '↗ +2.1% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                  _StatCardData(
-                    icon: Icons.assignment_turned_in_rounded,
-                    label: 'อัตราส่งงานตรงเวลา',
-                    value: '82%',
-                    trend: '↗ +5% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                  _StatCardData(
-                    icon: Icons.play_lesson_rounded,
-                    label: 'อัตราเข้าเรียนบทเรียน',
-                    value: '91%',
-                    trend: '↘ -1% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.warningOrange,
-                  ),
-                ],
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeroHeader(),
+          const SizedBox(height: 18),
+          _buildFilterRow(),
+          const SizedBox(height: 14),
+          _buildDemoStateSwitcher(),
+          const SizedBox(height: 24),
+          _buildDimensionSection(
+            icon: Icons.school_rounded,
+            title: 'ผลการเรียน',
+            subtitle: 'รวมจากทุกห้องเรียนในโรงเรียน',
+            color: ExecutiveTheme.primaryIndigo,
+            hasData: true,
+            cards: [
+              _StatCardData(
+                icon: Icons.grade_rounded,
+                label: 'คะแนนเฉลี่ยทั้งโรงเรียน',
+                value: '78.5%',
+                trend: '↗ +2.1% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
               ),
-              const SizedBox(height: 22),
-              _buildDimensionSection(
-                icon: Icons.bolt_rounded,
-                title: 'พลังงาน & สิ่งแวดล้อม',
-                subtitle: 'รวมทุกอาคารในโรงเรียน',
-                color: ExecutiveTheme.warningOrange,
-                cards: [
-                  _StatCardData(
-                    icon: Icons.electric_bolt_rounded,
-                    label: 'พลังงานสะสมเดือนนี้',
-                    value: '4,820 kWh',
-                    trend: 'ประมาณ 18,650 บาท',
-                    trendColor: ExecutiveTheme.softMauve,
-                  ),
-                  _StatCardData(
-                    icon: Icons.eco_rounded,
-                    label: 'จุดตรวจสิ่งแวดล้อมปกติ',
-                    value: '92%',
-                    trend: '↗ +3% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                  _StatCardData(
-                    icon: Icons.apartment_rounded,
-                    label: 'อาคารที่มีเซนเซอร์ครบ',
-                    value: '3 / 3 อาคาร',
-                    trend: 'ครบทุกอาคารแล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                ],
+              _StatCardData(
+                icon: Icons.assignment_turned_in_rounded,
+                label: 'อัตราส่งงานตรงเวลา',
+                value: '82%',
+                trend: '↗ +5% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
               ),
-              const SizedBox(height: 22),
-              _buildDimensionSection(
-                icon: Icons.shield_rounded,
-                title: 'ความปลอดภัย',
-                subtitle:
-                    'อ้างอิงจากรายงานเหตุการณ์ความปลอดภัยทั้งโรงเรียน (SEC-7)',
-                color: ExecutiveTheme.emergencyRed,
-                cards: [
-                  _StatCardData(
-                    icon: Icons.report_rounded,
-                    label: 'เหตุการณ์ทั้งหมดเดือนนี้',
-                    value: '24 ครั้ง',
-                    trend: '↘ -8% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                  _StatCardData(
-                    icon: Icons.timer_rounded,
-                    label: 'เวลาตอบสนองเฉลี่ย',
-                    value: '3 นาที 20 วิ',
-                    trend: '✓ ตามมาตรฐาน',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                  _StatCardData(
-                    icon: Icons.task_alt_rounded,
-                    label: 'ปิดเหตุการณ์สำเร็จ',
-                    value: '96%',
-                    trend: '↗ +1% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              _buildDimensionSection(
-                icon: Icons.insights_rounded,
-                title: 'การใช้งานระบบ',
-                subtitle: 'ภาพรวมการใช้งานทั้งโรงเรียน',
-                color: ExecutiveTheme.infoCyan,
-                cards: [
-                  _StatCardData(
-                    icon: Icons.people_alt_rounded,
-                    label: 'ผู้ใช้งาน active วันนี้',
-                    value: '1,240 / 1,450 คน',
-                    trend: '85.5% ของบัญชีทั้งหมด',
-                    trendColor: ExecutiveTheme.softMauve,
-                  ),
-                  _StatCardData(
-                    icon: Icons.dns_rounded,
-                    label: 'Uptime ระบบเดือนนี้',
-                    value: '99.6%',
-                    trend: '✓ ตามเป้าหมาย',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                  _StatCardData(
-                    icon: Icons.login_rounded,
-                    label: 'อัตราล็อกอินสำเร็จ',
-                    value: '98.2%',
-                    trend: '↗ +0.4% จากเดือนที่แล้ว',
-                    trendColor: ExecutiveTheme.safeGreen,
-                  ),
-                ],
+              _StatCardData(
+                icon: Icons.play_lesson_rounded,
+                label: 'อัตราเข้าเรียนบทเรียน',
+                value: '91%',
+                trend: '↘ -1% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.warningOrange,
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 22),
+          _buildDimensionSection(
+            icon: Icons.bolt_rounded,
+            title: 'พลังงาน & สิ่งแวดล้อม',
+            subtitle: 'รวมทุกอาคารในโรงเรียน',
+            color: ExecutiveTheme.warningOrange,
+            hasData: !_demoMissingEnergyData,
+            emptyMessage: 'ยังไม่มีข้อมูล — อาคาร 2 ยังไม่ติดตั้งเซนเซอร์ครบ',
+            cards: [
+              _StatCardData(
+                icon: Icons.electric_bolt_rounded,
+                label: 'พลังงานสะสมเดือนนี้',
+                value: '4,820 kWh',
+                trend: 'ประมาณ 18,650 บาท',
+                trendColor: ExecutiveTheme.softMauve,
+              ),
+              _StatCardData(
+                icon: Icons.eco_rounded,
+                label: 'จุดตรวจสิ่งแวดล้อมปกติ',
+                value: '92%',
+                trend: '↗ +3% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+              _StatCardData(
+                icon: Icons.apartment_rounded,
+                label: 'อาคารที่มีเซนเซอร์ครบ',
+                value: '3 / 3 อาคาร',
+                trend: 'ครบทุกอาคารแล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          _buildDimensionSection(
+            icon: Icons.shield_rounded,
+            title: 'ความปลอดภัย',
+            subtitle:
+                'อ้างอิงจากรายงานเหตุการณ์ความปลอดภัยทั้งโรงเรียน (SEC-7)',
+            color: ExecutiveTheme.emergencyRed,
+            hasData: true,
+            cards: [
+              _StatCardData(
+                icon: Icons.report_rounded,
+                label: 'เหตุการณ์ทั้งหมดเดือนนี้',
+                value: '24 ครั้ง',
+                trend: '↘ -8% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+              _StatCardData(
+                icon: Icons.timer_rounded,
+                label: 'เวลาตอบสนองเฉลี่ย',
+                value: '3 นาที 20 วิ',
+                trend: '✓ ตามมาตรฐาน',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+              _StatCardData(
+                icon: Icons.task_alt_rounded,
+                label: 'ปิดเหตุการณ์สำเร็จ',
+                value: '96%',
+                trend: '↗ +1% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          _buildDimensionSection(
+            icon: Icons.insights_rounded,
+            title: 'การใช้งานระบบ',
+            subtitle: 'ภาพรวมการใช้งานทั้งโรงเรียน',
+            color: ExecutiveTheme.infoCyan,
+            hasData: true,
+            cards: [
+              _StatCardData(
+                icon: Icons.people_alt_rounded,
+                label: 'ผู้ใช้งาน active วันนี้',
+                value: '1,240 / 1,450 คน',
+                trend: '85.5% ของบัญชีทั้งหมด',
+                trendColor: ExecutiveTheme.softMauve,
+              ),
+              _StatCardData(
+                icon: Icons.dns_rounded,
+                label: 'Uptime ระบบเดือนนี้',
+                value: '99.6%',
+                trend: '✓ ตามเป้าหมาย',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+              _StatCardData(
+                icon: Icons.login_rounded,
+                label: 'อัตราล็อกอินสำเร็จ',
+                value: '98.2%',
+                trend: '↗ +0.4% จากเดือนที่แล้ว',
+                trendColor: ExecutiveTheme.safeGreen,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  /// 🌈 Hero header — ไล่เฉดสี indigo เข้ม (ธีมของ role นี้) + ปุ่ม Export
-  /// (LA-11) ตรงมุมขวา
+  /// 🌈 Hero header — ไล่เฉดสี indigo เข้ม (ธีมของ role นี้) + กระดิ่ง
+  /// แจ้งเตือน (เรียก onOpenInbox) + ปุ่ม Export (LA-11)
   Widget _buildHeroHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -292,24 +302,15 @@ class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
             ),
           );
 
-          // 2026-08-15: ยังไม่มี shell/แถบเมนูสำหรับ role นี้ (มีแค่ 2
-          // หน้า) เลยใช้กระดิ่งแจ้งเตือนตรงนี้เป็นทางเข้าไปหน้า "ศูนย์
-          // แจ้งเตือน/เคสที่ต้องตัดสินใจ" ไปก่อน — ตัวเลข badge (2) เป็น
-          // mock คงที่ ยังไม่ได้คำนวณจากจำนวนเคสค้างจริง
+          // ตัวเลข badge (2) เป็น mock คงที่ ยังไม่ได้คำนวณจากจำนวนเคส
+          // ค้างจริง — กดแล้วเรียก onOpenInbox() ให้ ExecutiveHomePage
+          // (shell) สลับไปแท็บศูนย์แจ้งเตือนแทนการ Navigator.push ตรงๆ
           final notificationBell = Material(
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                if (ModalRoute.of(context)?.isCurrent ?? true) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ExecutiveEscalationInboxPage(),
-                    ),
-                  );
-                }
-              },
+              onTap: widget.onOpenInbox,
               child: const Padding(
                 padding: EdgeInsets.all(11),
                 child: Stack(
@@ -446,12 +447,52 @@ class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
     );
   }
 
+  /// แผงทดสอบ Exception Flow ของ LA-9 — สไตล์กรอบเส้นประเดียวกับที่ใช้ใน
+  /// ฝั่งผู้ดูแลอาคาร (แยกจาก UI จริงด้วยสายตา ไม่ใช่ฟีเจอร์จริง)
+  Widget _buildDemoStateSwitcher() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: ExecutiveTheme.bgSlate,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.science_outlined,
+            size: 14,
+            color: ExecutiveTheme.softMauve,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'ทดสอบ Exception Flow: จำลองบางอาคารยังไม่ติดตั้งเซนเซอร์ (Demo)',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: ExecutiveTheme.softMauve,
+              ),
+            ),
+          ),
+          Switch(
+            value: _demoMissingEnergyData,
+            onChanged: (v) => setState(() => _demoMissingEnergyData = v),
+            activeColor: ExecutiveTheme.primaryIndigo,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDimensionSection({
     required IconData icon,
     required String title,
     required String subtitle,
     required Color color,
+    required bool hasData,
     required List<_StatCardData> cards,
+    String? emptyMessage,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,11 +536,42 @@ class _ExecutiveDashboardPageState extends State<ExecutiveDashboardPage> {
           ],
         ),
         const SizedBox(height: 12),
-        ExecutiveResponsiveGrid(
-          spacing: 12,
-          minItemWidth: 220,
-          children: [for (final c in cards) _buildStatCard(c)],
-        ),
+        if (!hasData)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: ExecutiveTheme.softMauve,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    emptyMessage ?? 'ยังไม่มีข้อมูลสำหรับมิตินี้',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: ExecutiveTheme.softMauve,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ExecutiveResponsiveGrid(
+            spacing: 12,
+            minItemWidth: 220,
+            children: [for (final c in cards) _buildStatCard(c)],
+          ),
       ],
     );
   }

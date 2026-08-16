@@ -19,19 +19,24 @@
 // ได้ — แต่เป็นเรื่องละเอียดอ่อนด้าน PDPA จึงยังไม่ใส่ภาพ/พรีวิวกล้องในหน้า
 // นี้ ทำแค่ Event Metadata (เวลา/พื้นที่/ประเภท/ระดับความมั่นใจ) ไปก่อน
 // เหมือนที่ทำกับ STK-10 ของผู้ดูแลอาคาร — ต้องถามผู้ใช้ก่อนถ้าจะเพิ่มภาพจริง
+//
+// 2026-08-15: แยกออกมาเป็น content-only widget (ไม่มี Scaffold/gradient
+// header ของตัวเองแล้ว) เพื่อให้ ExecutiveHomePage (shell ใหม่) ใช้เป็น
+// แท็บที่ 2 ได้ — ตัด _buildHeader() เดิม (รวมถึงปุ่มย้อนกลับ) ออก เพราะ
+// shell มี top bar ของตัวเองอยู่แล้ว ไม่ต้องมี header ซ้อนกัน 2 ชั้น
 import 'package:flutter/material.dart';
 import 'executive_shared_widgets.dart';
 
-class ExecutiveEscalationInboxPage extends StatefulWidget {
-  const ExecutiveEscalationInboxPage({super.key});
+class ExecutiveEscalationInboxContent extends StatefulWidget {
+  const ExecutiveEscalationInboxContent({super.key});
 
   @override
-  State<ExecutiveEscalationInboxPage> createState() =>
-      _ExecutiveEscalationInboxPageState();
+  State<ExecutiveEscalationInboxContent> createState() =>
+      _ExecutiveEscalationInboxContentState();
 }
 
-class _ExecutiveEscalationInboxPageState
-    extends State<ExecutiveEscalationInboxPage>
+class _ExecutiveEscalationInboxContentState
+    extends State<ExecutiveEscalationInboxContent>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -94,95 +99,34 @@ class _ExecutiveEscalationInboxPageState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ExecutiveTheme.bgSlate,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TabBar(
-                controller: _tabController,
-                labelColor: ExecutiveTheme.primaryIndigo,
-                unselectedLabelColor: ExecutiveTheme.softMauve,
-                indicatorColor: ExecutiveTheme.primaryIndigo,
-                indicatorWeight: 3,
-                labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                ),
-                tabs: [
-                  Tab(
-                    text: 'เหตุฉุกเฉินที่ยกระดับมา ($_pendingEmergencyCount)',
-                  ),
-                  Tab(text: 'รอความเห็นจากกล้อง AI ($_pendingSecCount)'),
-                ],
-              ),
+    return Column(
+      children: [
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: ExecutiveTheme.primaryIndigo,
+            unselectedLabelColor: ExecutiveTheme.softMauve,
+            indicatorColor: ExecutiveTheme.primaryIndigo,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
             ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [_buildEmergencyList(), _buildSecReviewList()],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            ExecutiveTheme.primaryIndigo,
-            ExecutiveTheme.primaryIndigoLight,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Row(
-        children: [
-          if (Navigator.canPop(context))
-            IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          if (Navigator.canPop(context)) const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.notifications_active_rounded,
-              color: ExecutiveTheme.goldAccent,
-              size: 22,
-            ),
+            tabs: [
+              Tab(text: 'เหตุฉุกเฉินที่ยกระดับมา ($_pendingEmergencyCount)'),
+              Tab(text: 'รอความเห็นจากกล้อง AI ($_pendingSecCount)'),
+            ],
           ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'ศูนย์แจ้งเตือน/เคสที่ต้องตัดสินใจ',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16.5,
-                fontWeight: FontWeight.w900,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [_buildEmergencyList(), _buildSecReviewList()],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
