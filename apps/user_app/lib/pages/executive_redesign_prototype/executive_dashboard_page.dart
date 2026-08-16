@@ -22,7 +22,18 @@
 // ให้ Exception Flow ของ LA-9 ("บางด้านยังไม่มีข้อมูล เช่นยังไม่ติดตั้ง
 // เซนเซอร์ → แสดงเฉพาะด้านที่มีข้อมูล ระบุด้านที่ยังไม่มีให้ชัดเจน") ด้วย
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
+
 import 'executive_shared_widgets.dart';
+
+// อุปกรณ์ประเภทเซนเซอร์สิ่งแวดล้อม/พลังงาน — ใช้แยกจากอุปกรณ์ประเภทอื่น
+// (กล้อง/ปุ่มฉุกเฉิน/ไฟเตือน ฯลฯ) ตอนคำนวณมิติ "พลังงาน & สิ่งแวดล้อม"
+const _environmentDeviceTypes = {
+  'pm25_sensor',
+  'air_quality_sensor',
+  'light_sensor',
+  'energy_meter',
+};
 
 class ExecutiveDashboardContent extends StatefulWidget {
   const ExecutiveDashboardContent({super.key, required this.onOpenInbox});
@@ -41,6 +52,53 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
   // Exception Flow ของ LA-9 — จำลองกรณี "บางด้านยังไม่มีข้อมูล" (เช่น
   // อาคารบางหลังยังไม่ติดตั้งเซนเซอร์ครบ) เพื่อทดสอบว่าหน้านี้แสดงผลถูกต้อง
   bool _demoMissingEnergyData = false;
+
+  // มิติ "พลังงาน & สิ่งแวดล้อม" กับ "การใช้งานระบบ" เชื่อมกับข้อมูลจริงแล้ว
+  // (2026-08-16) ผ่าน count_school_users_by_role/list_school_devices ที่
+  // เพิ่งเปิดสิทธิ์ให้ executive เรียกได้ — ไม่ตอบสนองตัวกรองช่วงเวลา/
+  // ระดับชั้นเหมือนมิติอื่น เพราะเป็นตัวเลข ณ ปัจจุบัน ไม่มี RPC สรุปย้อนหลัง
+  // ตามช่วงเวลาให้ (ต่างจาก "ผลการเรียน"/"ความปลอดภัย" ที่ยังเป็น mock อยู่
+  // เพราะไม่มี RPC สรุปทั้งโรงเรียนเลย ไม่ใช่แค่เรื่องช่วงเวลา)
+  bool _loadingRealStats = true;
+  String? _realStatsError;
+  Map<String, int> _userCountsByRole = {};
+  List<DeviceOption> _devices = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealStats();
+  }
+
+  Future<void> _loadRealStats() async {
+    setState(() {
+      _loadingRealStats = true;
+      _realStatsError = null;
+    });
+    try {
+      final results = await Future.wait([
+        UserAdminService.countUsersByRole(),
+        LessonService.listSchoolDevices(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _userCountsByRole = results[0] as Map<String, int>;
+        _devices = results[1] as List<DeviceOption>;
+        _loadingRealStats = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _realStatsError = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _loadingRealStats = false;
+      });
+    }
+  }
+
+  List<DeviceOption> get _environmentDevices =>
+      _devices.where((d) => _environmentDeviceTypes.contains(d.type)).toList();
+
+  int get _totalUsers => _userCountsByRole.values.fold(0, (sum, v) => sum + v);
 
   static const _periodOptions = [
     '7 วันที่ผ่านมา',
@@ -68,17 +126,6 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
     }
   }
 
-  ({String kwh, String cost}) get _energyByPeriod {
-    switch (_selectedPeriod) {
-      case '7 วันที่ผ่านมา':
-        return (kwh: '1,120 kWh', cost: 'ประมาณ 4,330 บาท');
-      case 'ภาคเรียนนี้':
-        return (kwh: '20,750 kWh', cost: 'ประมาณ 80,200 บาท');
-      default:
-        return (kwh: '4,820 kWh', cost: 'ประมาณ 18,650 บาท');
-    }
-  }
-
   String get _safetyEventsByPeriod {
     switch (_selectedPeriod) {
       case '7 วันที่ผ่านมา':
@@ -101,17 +148,6 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
     }
   }
 
-  ({String users, String rate}) get _activeUsersByGrade {
-    switch (_selectedGrade) {
-      case 'มัธยมต้น (ม.1-3)':
-        return (users: '640 / 730 คน', rate: '87.7% ของบัญชีทั้งหมด');
-      case 'มัธยมปลาย (ม.4-6)':
-        return (users: '600 / 720 คน', rate: '83.3% ของบัญชีทั้งหมด');
-      default:
-        return (users: '1,240 / 1,450 คน', rate: '85.5% ของบัญชีทั้งหมด');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -120,6 +156,42 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildHeroHeader(),
+          if (_realStatsError != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    size: 16,
+                    color: ExecutiveTheme.emergencyRed,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _realStatsError!,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: ExecutiveTheme.emergencyRed,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _loadRealStats,
+                    child: const Text('ลองใหม่'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           _buildFilterRow(),
           const SizedBox(height: 14),
@@ -160,33 +232,43 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
           _buildDimensionSection(
             icon: Icons.bolt_rounded,
             title: 'พลังงาน & สิ่งแวดล้อม',
-            subtitle: 'รวมทุกอาคารในโรงเรียน · $_selectedPeriod',
+            subtitle:
+                'รวมทุกอาคารในโรงเรียน · ข้อมูล ณ ปัจจุบัน (ไม่แยกตามช่วงเวลา)',
             color: ExecutiveTheme.warningOrange,
-            hasData: !_demoMissingEnergyData,
-            emptyMessage: 'ยังไม่มีข้อมูล — อาคาร 2 ยังไม่ติดตั้งเซนเซอร์ครบ',
-            cards: [
-              _StatCardData(
-                icon: Icons.electric_bolt_rounded,
-                label: 'พลังงานสะสม ($_selectedPeriod)',
-                value: _energyByPeriod.kwh,
-                trend: _energyByPeriod.cost,
-                trendColor: ExecutiveTheme.softMauve,
-              ),
-              _StatCardData(
-                icon: Icons.eco_rounded,
-                label: 'จุดตรวจสิ่งแวดล้อมปกติ',
-                value: '92%',
-                trend: '↗ +3% จากเดือนที่แล้ว',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-              _StatCardData(
-                icon: Icons.apartment_rounded,
-                label: 'อาคารที่มีเซนเซอร์ครบ',
-                value: '3 / 3 อาคาร',
-                trend: 'ครบทุกอาคารแล้ว',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-            ],
+            hasData:
+                !_demoMissingEnergyData &&
+                (_loadingRealStats || _environmentDevices.isNotEmpty),
+            emptyMessage:
+                'ยังไม่มีข้อมูล — ยังไม่ได้ติดตั้งเซนเซอร์สิ่งแวดล้อม',
+            cards: _loadingRealStats
+                ? const []
+                : [
+                    _StatCardData(
+                      icon: Icons.sensors_rounded,
+                      label: 'เซนเซอร์สิ่งแวดล้อมทั้งหมด',
+                      value: '${_environmentDevices.length} ตัว',
+                      trend:
+                          '${_environmentDevices.where((d) => d.status == 'online').length} ตัวออนไลน์',
+                      trendColor: ExecutiveTheme.softMauve,
+                    ),
+                    _StatCardData(
+                      icon: Icons.eco_rounded,
+                      label: 'เซนเซอร์ออนไลน์',
+                      value: _environmentDevices.isEmpty
+                          ? '-'
+                          : '${(_environmentDevices.where((d) => d.status == 'online').length / _environmentDevices.length * 100).round()}%',
+                      trend: 'ข้อมูลสด ณ ตอนนี้',
+                      trendColor: ExecutiveTheme.safeGreen,
+                    ),
+                    _StatCardData(
+                      icon: Icons.apartment_rounded,
+                      label: 'พื้นที่ที่มีเซนเซอร์',
+                      value:
+                          '${_environmentDevices.map((d) => d.location).toSet().length} จุด',
+                      trend: 'นับจากตำแหน่งอุปกรณ์จริง',
+                      trendColor: ExecutiveTheme.safeGreen,
+                    ),
+                  ],
           ),
           const SizedBox(height: 22),
           _buildDimensionSection(
@@ -225,32 +307,40 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
             icon: Icons.insights_rounded,
             title: 'การใช้งานระบบ',
             subtitle:
-                'ภาพรวมการใช้งานทั้งโรงเรียน · $_selectedPeriod · $_selectedGrade',
+                'ภาพรวมการใช้งานทั้งโรงเรียน · ข้อมูล ณ ปัจจุบัน (ไม่แยกตามช่วงเวลา/ระดับชั้น)',
             color: ExecutiveTheme.infoCyan,
             hasData: true,
-            cards: [
-              _StatCardData(
-                icon: Icons.people_alt_rounded,
-                label: 'ผู้ใช้งาน active วันนี้',
-                value: _activeUsersByGrade.users,
-                trend: _activeUsersByGrade.rate,
-                trendColor: ExecutiveTheme.softMauve,
-              ),
-              _StatCardData(
-                icon: Icons.dns_rounded,
-                label: 'Uptime ระบบเดือนนี้',
-                value: '99.6%',
-                trend: '✓ ตามเป้าหมาย',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-              _StatCardData(
-                icon: Icons.login_rounded,
-                label: 'อัตราล็อกอินสำเร็จ',
-                value: '98.2%',
-                trend: '↗ +0.4% $_periodTrendSuffix',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-            ],
+            cards: _loadingRealStats
+                ? const []
+                : [
+                    _StatCardData(
+                      icon: Icons.people_alt_rounded,
+                      label: 'ผู้ใช้ทั้งหมดในระบบ',
+                      value: '$_totalUsers คน',
+                      trend:
+                          'ครู ${_userCountsByRole['teacher'] ?? 0} · '
+                          'นักเรียน ${_userCountsByRole['student'] ?? 0} · '
+                          'ผู้ปกครอง ${_userCountsByRole['parent'] ?? 0}',
+                      trendColor: ExecutiveTheme.softMauve,
+                    ),
+                    _StatCardData(
+                      icon: Icons.dns_rounded,
+                      label: 'อุปกรณ์ AIoT ทั้งหมด',
+                      value: '${_devices.length} ตัว',
+                      trend:
+                          '${_devices.where((d) => d.status == 'online').length} ตัวออนไลน์',
+                      trendColor: ExecutiveTheme.safeGreen,
+                    ),
+                    _StatCardData(
+                      icon: Icons.login_rounded,
+                      label: 'อุปกรณ์ออนไลน์',
+                      value: _devices.isEmpty
+                          ? '-'
+                          : '${(_devices.where((d) => d.status == 'online').length / _devices.length * 100).round()}%',
+                      trend: 'ข้อมูลสด ณ ตอนนี้',
+                      trendColor: ExecutiveTheme.safeGreen,
+                    ),
+                  ],
           ),
         ],
       ),

@@ -39,4 +39,22 @@ class UserAdminService {
       params: {'p_token': AuthService.sessionToken, 'p_target_user_id': uid},
     );
   }
+
+  // LA-9 BR1: ผู้บริหารเห็นภาพรวมระดับโรงเรียนเท่านั้น ไม่ใช่รายชื่อ/อีเมล
+  // รายคน — RPC นี้คืนแค่ {role, count} ต่างจาก list_school_users ที่คืน
+  // ข้อมูลรายคนทั้งหมด (getAllUsers ด้านบน ยังจำกัดสิทธิ์ school_admin/
+  // super_admin เหมือนเดิม ไม่เปิดให้ executive)
+  static Future<Map<String, int>> countUsersByRole() async {
+    final rows =
+        await supabase.rpc(
+              'count_school_users_by_role',
+              params: {'p_token': AuthService.sessionToken},
+            )
+            as List;
+
+    return {
+      for (final row in rows.cast<Map<String, dynamic>>())
+        row['active_role'] as String: (row['user_count'] as num).toInt(),
+    };
+  }
 }
