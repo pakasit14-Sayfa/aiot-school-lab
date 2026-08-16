@@ -32,10 +32,11 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.initialize();
-  // ⚠️ ต้องเปลี่ยนเป็น false ก่อนขึ้นระบบจริง — ตอนนี้ true ทำให้แอปข้าม
-  // login/auth จริงไปเข้าโหมด prototype เสมอ (ดูรายละเอียดใน
-  // teacher_redesign_prototype/NOTES.md และ student_redesign_prototype/NOTES.md)
-  const isPrototypeRoute = true;
+  // false = เข้า login/auth จริงตามปกติ (RoleRouter ตัดสินหน้าแรกจาก role
+  // จริงใน Supabase) — เปลี่ยนกลับเป็น true ชั่วคราวได้เวลาต้องการรีวิว
+  // หน้า prototype โดยไม่ผ่าน login จริง (ดู teacher_redesign_prototype/
+  // NOTES.md และ student_redesign_prototype/NOTES.md)
+  const isPrototypeRoute = false;
   runApp(const MyApp(isPrototypeMode: isPrototypeRoute));
 }
 
