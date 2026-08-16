@@ -12,6 +12,7 @@ import 'pages/teacher_redesign_prototype/teacher_design_system_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_storybook_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_courses_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_gscore_confirm_page.dart';
+import 'pages/teacher_redesign_prototype/teacher_student_support_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
 import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
 import 'pages/executive_redesign_prototype/executive_home_page.dart';
@@ -207,6 +208,9 @@ class MyApp extends StatelessWidget {
     }
     if (path.contains('gscore-confirm')) {
       return const TeacherGScoreConfirmPage();
+    }
+    if (path.contains('student-support')) {
+      return const TeacherStudentSupportPage();
     }
     if (path.contains('teacher-courses') || path.contains('courses')) {
       return const TeacherCoursesPage();

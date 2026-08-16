@@ -86,6 +86,10 @@ class _SubmissionMock {
     required this.studentNo,
     this.score,
     this.feedback,
+    this.aiSuggestedLevelIndex,
+    this.aiSuggestedFeedback,
+    this.aiAnomalyNote,
+    this.aiUnavailableReason,
   });
 
   final String studentName;
@@ -93,12 +97,43 @@ class _SubmissionMock {
   double? score;
   String? feedback;
 
+  // AI-1/AI-2: ดัชนีระดับ (index ใน RubricCriterion.levels) ที่ AI เสนอต่อ
+  // เกณฑ์แต่ละข้อ (key = criterion id) + ร่างข้อเสนอแนะที่ AI เขียนไว้ —
+  // เป็นแค่ "ข้อเสนอ" เสมอ ไม่มีผลจนกว่าครูจะยืนยัน (AI-1 BR1)
+  final Map<String, int>? aiSuggestedLevelIndex;
+  final String? aiSuggestedFeedback;
+
+  // AI-9: ธงเตือนคะแนนผิดปกติ (คำเตือนเฉยๆ ไม่บล็อก — BR1)
+  final String? aiAnomalyNote;
+
+  // AI-1 Exception 1: บางชนิดงาน (เช่นไฟล์วิดีโอ) AI วิเคราะห์ไม่ได้เลย
+  final String? aiUnavailableReason;
+
+  // AI-10: ร่องรอยเมื่อครูแก้ไขคะแนนจากที่ AI เสนอ
+  String? aiDeviationReason;
+  bool coiFlagged = false;
+
   bool get isGraded => score != null;
+  bool get hasAiSuggestion => aiSuggestedLevelIndex != null;
 }
 
 List<_SubmissionMock> _mockSubmissions() => [
-  _SubmissionMock(studentName: 'ด.ช. ธนกร ใจดี', studentNo: 'เลขที่ 1'),
-  _SubmissionMock(studentName: 'ด.ญ. พิมพ์ชนก แสงทอง', studentNo: 'เลขที่ 2'),
+  _SubmissionMock(
+    studentName: 'ด.ช. ธนกร ใจดี',
+    studentNo: 'เลขที่ 1',
+    aiSuggestedLevelIndex: const {'c1': 0, 'c2': 1},
+    aiSuggestedFeedback:
+        'อธิบายข้อมูลเซนเซอร์ได้ถูกต้องและครบถ้วนมาก ลองเพิ่มภาพประกอบ'
+        'ให้จัดวางเป็นระบบขึ้นอีกนิดจะดียิ่งขึ้น',
+  ),
+  _SubmissionMock(
+    studentName: 'ด.ญ. พิมพ์ชนก แสงทอง',
+    studentNo: 'เลขที่ 2',
+    aiSuggestedLevelIndex: const {'c1': 0, 'c2': 0},
+    aiSuggestedFeedback: 'ทำได้ดีมากทั้งเนื้อหาและการนำเสนอ',
+    aiAnomalyNote:
+        'คะแนนที่เสนอ (20/20) สูงกว่าค่าเฉลี่ยของห้องนี้มาก ควรตรวจสอบเพิ่มเติมก่อนยืนยัน',
+  ),
   _SubmissionMock(
     studentName: 'ด.ช. ปารมี ศรีสุข',
     studentNo: 'เลขที่ 3',
@@ -108,6 +143,7 @@ List<_SubmissionMock> _mockSubmissions() => [
   _SubmissionMock(
     studentName: 'ด.ญ. กัญญาพัชร รุ่งเรือง',
     studentNo: 'เลขที่ 4',
+    aiUnavailableReason: 'ส่งงานเป็นไฟล์วิดีโอ — AI วิเคราะห์รูปแบบนี้ไม่ได้',
   ),
   _SubmissionMock(
     studentName: 'ด.ช. กิตติศักดิ์ ขยันยิ่ง',
@@ -116,6 +152,20 @@ List<_SubmissionMock> _mockSubmissions() => [
     feedback: 'เนื้อหาถูกต้อง แต่การนำเสนอควรจัดรูปแบบให้เป็นระบบกว่านี้',
   ),
 ];
+
+class _ScoringResult {
+  _ScoringResult({
+    required this.score,
+    required this.feedback,
+    required this.coiFlagged,
+    this.aiDeviationReason,
+  });
+
+  final double score;
+  final String feedback;
+  final bool coiFlagged;
+  final String? aiDeviationReason;
+}
 
 class TeacherSubmissionRosterPage extends StatefulWidget {
   const TeacherSubmissionRosterPage({
@@ -140,7 +190,7 @@ class _TeacherSubmissionRosterPageState
   int get _gradedCount => _submissions.where((s) => s.isGraded).length;
 
   Future<void> _openScoring(_SubmissionMock submission) async {
-    final result = await showModalBottomSheet<(double, String)>(
+    final result = await showModalBottomSheet<_ScoringResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -148,8 +198,10 @@ class _TeacherSubmissionRosterPageState
     );
     if (result == null || !mounted) return;
     setState(() {
-      submission.score = result.$1;
-      submission.feedback = result.$2;
+      submission.score = result.score;
+      submission.feedback = result.feedback;
+      submission.coiFlagged = result.coiFlagged;
+      submission.aiDeviationReason = result.aiDeviationReason;
     });
   }
 
@@ -269,6 +321,44 @@ class _RosterRow extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  if (!submission.isGraded && submission.hasAiSuggestion) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 12,
+                          color: Color(0xFF7C3AED),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          submission.aiAnomalyNote != null
+                              ? 'AI เสนอคะแนนแล้ว · ควรตรวจสอบเพิ่มเติม'
+                              : 'AI เสนอคะแนนแล้ว รอครูตรวจสอบ',
+                          style: TextStyle(
+                            color: submission.aiAnomalyNote != null
+                                ? const Color(0xFFD97706)
+                                : const Color(0xFF7C3AED),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (!submission.isGraded &&
+                      submission.aiUnavailableReason != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      submission.aiUnavailableReason!,
+                      style: const TextStyle(
+                        color: TeacherPalette.muted,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -333,21 +423,69 @@ class _ScoringSheetState extends State<_ScoringSheet> {
   late final TextEditingController _feedbackCtrl = TextEditingController(
     text: widget.submission.feedback ?? '',
   );
+  late final TextEditingController _deviationReasonCtrl =
+      TextEditingController();
+  late bool _coiFlagged = widget.submission.coiFlagged;
 
   double get _total =>
       _selected.values.fold(0.0, (sum, level) => sum + (level?.score ?? 0));
 
   bool get _allScored => _selected.values.every((v) => v != null);
 
+  // AI-9/AI-10: ครูเลือกต่างจากที่ AI เสนอในเกณฑ์ไหนบ้าง (นับเฉพาะเกณฑ์ที่
+  // ให้คะแนนแล้ว) — ใช้ตัดสินว่าต้องโชว์ช่องเหตุผลการแก้ไขไหม
+  bool get _deviatedFromAi {
+    final aiSuggestion = widget.submission.aiSuggestedLevelIndex;
+    if (aiSuggestion == null) return false;
+    for (final criterion in widget.rubric.criteria) {
+      final picked = _selected[criterion.id];
+      if (picked == null) continue;
+      final suggestedIndex = aiSuggestion[criterion.id];
+      if (suggestedIndex == null) continue;
+      if (criterion.levels.indexOf(picked) != suggestedIndex) return true;
+    }
+    return false;
+  }
+
+  void _applyAiSuggestion() {
+    final aiSuggestion = widget.submission.aiSuggestedLevelIndex;
+    if (aiSuggestion == null) return;
+    setState(() {
+      for (final criterion in widget.rubric.criteria) {
+        final idx = aiSuggestion[criterion.id];
+        if (idx != null && idx < criterion.levels.length) {
+          _selected[criterion.id] = criterion.levels[idx];
+        }
+      }
+      if (_feedbackCtrl.text.trim().isEmpty &&
+          widget.submission.aiSuggestedFeedback != null) {
+        _feedbackCtrl.text = widget.submission.aiSuggestedFeedback!;
+      }
+    });
+  }
+
   @override
   void dispose() {
     _feedbackCtrl.dispose();
+    _deviationReasonCtrl.dispose();
     super.dispose();
   }
 
   void _save() {
     if (!_allScored) return;
-    Navigator.pop(context, (_total, _feedbackCtrl.text.trim()));
+    Navigator.pop(
+      context,
+      _ScoringResult(
+        score: _total,
+        feedback: _feedbackCtrl.text.trim(),
+        coiFlagged: _coiFlagged,
+        aiDeviationReason: _deviatedFromAi
+            ? (_deviationReasonCtrl.text.trim().isEmpty
+                  ? null
+                  : _deviationReasonCtrl.text.trim())
+            : null,
+      ),
+    );
   }
 
   @override
@@ -396,7 +534,84 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 14),
+                    if (widget.submission.aiUnavailableReason != null) ...[
+                      _InfoBanner(
+                        icon: Icons.info_outline_rounded,
+                        color: TeacherPalette.muted,
+                        text:
+                            'AI วิเคราะห์งานนี้ไม่ได้ (${widget.submission.aiUnavailableReason}) '
+                            '— ให้คะแนนเองทั้งหมด',
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    if (widget.submission.aiAnomalyNote != null) ...[
+                      _InfoBanner(
+                        icon: Icons.warning_amber_rounded,
+                        color: const Color(0xFFD97706),
+                        text: widget.submission.aiAnomalyNote!,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    if (widget.submission.hasAiSuggestion) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F3FF),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFDDD6FE)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 16,
+                                  color: Color(0xFF7C3AED),
+                                ),
+                                const SizedBox(width: 6),
+                                const Expanded(
+                                  child: Text(
+                                    'AI แนะนำคะแนนเบื้องต้น (ยังไม่มีผลจนกว่าครูจะยืนยัน)',
+                                    style: TextStyle(
+                                      color: Color(0xFF6D28D9),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            TextButton(
+                              onPressed: _applyAiSuggestion,
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF6D28D9),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'ใช้ตามที่ AI แนะนำทั้งหมด',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     for (final criterion in widget.rubric.criteria) ...[
                       _CriterionScorer(
                         criterion: criterion,
@@ -434,6 +649,58 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                         ),
                       ),
                     ),
+                    if (_deviatedFromAi) ...[
+                      const SizedBox(height: 14),
+                      const Text(
+                        'เหตุผลที่แก้ไขจากคะแนนที่ AI เสนอ (ไม่บังคับ)',
+                        style: TextStyle(
+                          color: TeacherPalette.ink,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _deviationReasonCtrl,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText:
+                              'เช่น งานจริงมีรายละเอียดมากกว่าที่ AI อ่านได้...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: TeacherPalette.border,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: TeacherPalette.border,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      value: _coiFlagged,
+                      onChanged: (v) =>
+                          setState(() => _coiFlagged = v ?? false),
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                      title: const Text(
+                        'ฉันเป็นผู้ปกครองของนักเรียนคนนี้ด้วย (CoI)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'ระบบจะติด coi_flag และบันทึก audit ตาม AUTH-8 BR3 — ยังยืนยันคะแนนได้ตามปกติ',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -468,7 +735,13 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                         ),
                       ),
                       child: Text(
-                        _allScored ? 'บันทึกคะแนน' : 'ให้คะแนนครบทุกเกณฑ์ก่อน',
+                        !_allScored
+                            ? 'ให้คะแนนครบทุกเกณฑ์ก่อน'
+                            : (widget.submission.hasAiSuggestion
+                                  ? (_deviatedFromAi
+                                        ? 'ยืนยันคะแนน (แก้ไขจาก AI)'
+                                        : 'ยืนยันตามที่ AI แนะนำ')
+                                  : 'บันทึกคะแนน'),
                       ),
                     ),
                   ],
@@ -478,6 +751,48 @@ class _ScoringSheetState extends State<_ScoringSheet> {
           ),
         );
       },
+    );
+  }
+}
+
+class _InfoBanner extends StatelessWidget {
+  const _InfoBanner({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
