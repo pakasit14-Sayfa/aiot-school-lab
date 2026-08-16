@@ -880,34 +880,18 @@ class _AiotHardwareCard extends StatelessWidget {
       title: 'อุปกรณ์ & บอร์ดแล็บ AIoT',
       icon: Icons.developer_board_rounded,
       children: [
-        _HardwareTile(
+        const _HardwareTile(
           deviceName: 'ชุดคิท Smart Lab #2 (Demonstration Kit)',
           status: 'Online',
           statusColor: TeacherPalette.green,
           macAddress: 'AA:BB:CC:DD:EE:01',
-          onSync: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('ซิงก์ข้อมูลบอร์ดแล็บ #2 (mock)'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
         ),
         const _DividerLine(),
-        _HardwareTile(
+        const _HardwareTile(
           deviceName: 'บอร์ดทดลองส่วนตัว (Teacher Board #1)',
           status: 'Offline',
           statusColor: TeacherPalette.muted,
           macAddress: '11:22:33:44:55:66',
-          onSync: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('พยายามเชื่อมต่อบอร์ดทดลองส่วนตัว (mock)'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
         ),
       ],
     );
@@ -920,14 +904,12 @@ class _HardwareTile extends StatelessWidget {
     required this.status,
     required this.statusColor,
     required this.macAddress,
-    required this.onSync,
   });
 
   final String deviceName;
   final String status;
   final Color statusColor;
   final String macAddress;
-  final VoidCallback onSync;
 
   @override
   Widget build(BuildContext context) {
@@ -997,15 +979,6 @@ class _HardwareTile extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.sync_rounded,
-              color: TeacherPalette.primary2,
-              size: 20,
-            ),
-            onPressed: onSync,
-            tooltip: 'เช็กการเชื่อมต่อ',
           ),
         ],
       ),
