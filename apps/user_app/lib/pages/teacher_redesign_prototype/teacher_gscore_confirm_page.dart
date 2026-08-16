@@ -107,7 +107,7 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'ยืนยันคะแนน G-Score',
-      activeMenuLabel: 'คะแนน',
+      activeMenuLabel: 'ยืนยัน G-Score',
       builder: (context, isDesktop) {
         final pending = _pending;
         return Column(

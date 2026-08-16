@@ -124,7 +124,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'นักเรียนที่ต้องการการสนับสนุน',
-      activeMenuLabel: 'นักเรียน',
+      activeMenuLabel: 'ช่วยเหลือนักเรียน',
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
