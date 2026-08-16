@@ -1,27 +1,11 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก
-// NotificationService.listMyNotifications จริง — สร้างเพื่อแทนที่ popup
-// ข้อความเดียวเดิม ตามสเปกข้อ 6.1 ที่ต้องการ "หน้า" การแจ้งเตือนจริง
-// (เปิดหน้า → ดึงรายการ → กดทำเครื่องหมายว่าอ่านแล้วได้)
+// เชื่อมกับ NotificationService จริงแล้ว (2026-08-17) — เดิม mock ล้วน
+// list_my_notifications/mark_notification_read เป็น RPC ทั่วไปที่ทุก role
+// เรียกได้ (ไม่ได้ scope เฉพาะผู้ดูแลอาคาร) จึงใช้ได้ตรงๆ ไม่ต้องเพิ่ม
+// backend ใหม่
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
+
 import 'facility_shared_widgets.dart';
-
-class _FacilityNotification {
-  _FacilityNotification({
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.icon,
-    required this.iconBg,
-    this.isRead = false,
-  });
-
-  final String title;
-  final String subtitle;
-  final String time;
-  final IconData icon;
-  final Color iconBg;
-  bool isRead;
-}
 
 class FacilityNotificationsPage extends StatefulWidget {
   const FacilityNotificationsPage({super.key});
@@ -32,39 +16,102 @@ class FacilityNotificationsPage extends StatefulWidget {
 }
 
 class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
-  // 2026-08-15: 2 รายการเดิมในนี้ผิดสโคป — (1) "SOS ฉุกเฉินจากห้อง 302"
-  // เป็นเหตุฉุกเฉินบุคคลที่สื่อว่าผู้ดูแลอาคารต้อง "รับเรื่อง" ได้ ขัดกับ
-  // STK-12 Exception ข้อ 1 (2) "เปิดอาคาร 3 เรียบร้อยแล้ว" อ้างอิงฟีเจอร์
-  // checklist wizard เดิมที่ถูกแทนที่ด้วยควบคุมไฟ/น้ำ STK-11 ไปแล้วเมื่อ
-  // 2026-08-14 (ดู NOTES.md) — เปลี่ยนทั้งคู่ให้ตรงกับฟีเจอร์ปัจจุบัน
-  final List<_FacilityNotification> _notifications = [
-    _FacilityNotification(
-      title: 'แจ้งเหตุอุปกรณ์ใหม่: แอร์ห้อง 210 ผิดปกติ',
-      subtitle: 'อาคาร 3 ชั้น 2 · ยังไม่มีผู้รับเรื่อง (STK-12)',
-      time: '2 นาทีที่แล้ว',
-      icon: Icons.report_problem_rounded,
-      iconBg: FacilityTheme.emergencyRed,
-    ),
-    _FacilityNotification(
-      title: 'ค่า PM2.5 สูงเกินมาตรฐาน (78 µg/m³)',
-      subtitle: 'อาคาร 3 ห้อง 302 · เฝ้าระวัง',
-      time: '15 นาทีที่แล้ว',
-      icon: Icons.warning_amber_rounded,
-      iconBg: FacilityTheme.warningOrange,
-    ),
-    _FacilityNotification(
-      title: 'ปิดไฟอาคาร 3 ทั้งหมดเรียบร้อยแล้ว',
-      subtitle: 'อาคาร 3 ทั้งหมด · โดย ผู้ดูแลอาคาร (STK-11)',
-      time: '45 นาทีที่แล้ว',
-      icon: Icons.check_circle_rounded,
-      iconBg: FacilityTheme.safeGreen,
-      isRead: true,
-    ),
-  ];
+  bool _loading = true;
+  String? _loadError;
+  List<AppNotification> _notifications = [];
+  final Set<String> _markingRead = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final notifications = await NotificationService.listMyNotifications();
+      if (!mounted) return;
+      setState(() {
+        _notifications = notifications;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดการแจ้งเตือนไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _markRead(AppNotification n) async {
+    if (n.readAt != null || _markingRead.contains(n.id)) return;
+    setState(() => _markingRead.add(n.id));
+    try {
+      await NotificationService.markNotificationRead(n.id);
+      await _load();
+    } catch (_) {
+      // เงียบไว้ — ไม่ใช่ action ที่ critical พอจะรบกวนผู้ใช้ด้วย error
+    } finally {
+      if (mounted) setState(() => _markingRead.remove(n.id));
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    final unread = _notifications.where((n) => n.readAt == null).toList();
+    setState(() => _markingRead.addAll(unread.map((n) => n.id)));
+    for (final n in unread) {
+      try {
+        await NotificationService.markNotificationRead(n.id);
+      } catch (_) {
+        // ทำต่อรายการอื่นแม้บางรายการล้มเหลว
+      }
+    }
+    await _load();
+  }
+
+  ({IconData icon, Color color}) _iconFor(String type) {
+    switch (type) {
+      case 'incident':
+      case 'device_alert':
+        return (
+          icon: Icons.report_problem_rounded,
+          color: FacilityTheme.emergencyRed,
+        );
+      case 'warning':
+      case 'sensor_alert':
+        return (
+          icon: Icons.warning_amber_rounded,
+          color: FacilityTheme.warningOrange,
+        );
+      case 'device_command':
+        return (
+          icon: Icons.check_circle_rounded,
+          color: FacilityTheme.safeGreen,
+        );
+      default:
+        return (
+          icon: Icons.notifications_rounded,
+          color: FacilityTheme.primaryPurple,
+        );
+    }
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'เมื่อสักครู่';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
+    if (diff.inHours < 24) return '${diff.inHours} ชั่วโมงที่แล้ว';
+    return '${diff.inDays} วันที่แล้ว';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final unreadCount = _notifications.where((n) => !n.isRead).length;
+    final unreadCount = _notifications.where((n) => n.readAt == null).length;
 
     return Scaffold(
       backgroundColor: FacilityTheme.bgSlate,
@@ -79,13 +126,7 @@ class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
         actions: [
           if (unreadCount > 0)
             TextButton(
-              onPressed: () {
-                setState(() {
-                  for (final n in _notifications) {
-                    n.isRead = true;
-                  }
-                });
-              },
+              onPressed: _markAllRead,
               child: const Text(
                 'อ่านทั้งหมดแล้ว',
                 style: TextStyle(
@@ -98,7 +139,34 @@ class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
         ],
       ),
       body: SafeArea(
-        child: _notifications.isEmpty
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  color: FacilityTheme.primaryPurple,
+                ),
+              )
+            : _loadError != null
+            ? Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _loadError!,
+                      style: const TextStyle(
+                        color: FacilityTheme.emergencyRed,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: _load,
+                      child: const Text('ลองใหม่'),
+                    ),
+                  ],
+                ),
+              )
+            : _notifications.isEmpty
             ? const Center(
                 child: Text(
                   'ยังไม่มีการแจ้งเตือน',
@@ -144,13 +212,15 @@ class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
                       separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final n = _notifications[index];
+                        final isRead = n.readAt != null;
+                        final iconInfo = _iconFor(n.type);
                         return InkWell(
                           borderRadius: BorderRadius.circular(18),
-                          onTap: () => setState(() => n.isRead = true),
+                          onTap: () => _markRead(n),
                           child: FacilityGlassCard(
                             padding: const EdgeInsets.all(14),
                             borderRadius: 18,
-                            backgroundColor: n.isRead
+                            backgroundColor: isRead
                                 ? Colors.white.withValues(alpha: 0.7)
                                 : null,
                             child: Row(
@@ -160,11 +230,11 @@ class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
                                   width: 38,
                                   height: 38,
                                   decoration: BoxDecoration(
-                                    color: n.iconBg,
+                                    color: iconInfo.color,
                                     borderRadius: BorderRadius.circular(13),
                                   ),
                                   child: Icon(
-                                    n.icon,
+                                    iconInfo.icon,
                                     color: Colors.white,
                                     size: 19,
                                   ),
@@ -182,14 +252,14 @@ class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
                                               n.title,
                                               style: TextStyle(
                                                 fontSize: 13.5,
-                                                fontWeight: n.isRead
+                                                fontWeight: isRead
                                                     ? FontWeight.w600
                                                     : FontWeight.w800,
                                                 color: FacilityTheme.inkIndigo,
                                               ),
                                             ),
                                           ),
-                                          if (!n.isRead)
+                                          if (!isRead)
                                             Container(
                                               width: 8,
                                               height: 8,
@@ -204,20 +274,23 @@ class _FacilityNotificationsPageState extends State<FacilityNotificationsPage> {
                                             ),
                                         ],
                                       ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        n.subtitle,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: FacilityTheme.softMauve,
-                                          fontWeight: FontWeight.w600,
+                                      if (n.body != null &&
+                                          n.body!.isNotEmpty) ...[
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          n.body!,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: FacilityTheme.softMauve,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                       const SizedBox(height: 3),
                                       Text(
-                                        n.time,
+                                        _timeAgo(n.createdAt),
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: Color(0xFF94A3B8),
