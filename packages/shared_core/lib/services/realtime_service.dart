@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/lesson_model.dart' show DeviceOption;
 import '../models/sensor_model.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
@@ -20,7 +21,10 @@ class RealtimeService {
   static Future<List<Map<String, dynamic>>> _fetchLatest() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
-    final rows = await supabase.rpc('sensor_latest', params: {'p_token': token});
+    final rows = await supabase.rpc(
+      'sensor_latest',
+      params: {'p_token': token},
+    );
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
@@ -166,6 +170,39 @@ class RealtimeService {
     required String device,
     required bool value,
   }) async {}
+
+  /// STK-11: สั่งเปิด/ปิดอุปกรณ์จริงผ่าน queue_device_command (ดู
+  /// supabase/migrations/20260721010000_relay_commands.sql) — เกตเวย์จะ
+  /// poll คำสั่งนี้แล้วส่งต่อผ่าน MQTT ให้บอร์ดจริง ไม่ใช่ mock/no-op แบบ
+  /// setSwitch ด้านบนอีกต่อไป (เหลือของเดิมไว้เผื่อจุดอื่นยังอ้างอิงอยู่)
+  static Future<void> queueDeviceCommand({
+    required String deviceId,
+    required Map<String, dynamic> command,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'queue_device_command',
+      params: {'p_token': token, 'p_device_id': deviceId, 'p_command': command},
+    );
+  }
+
+  /// STK-9/STK-11: รายชื่ออุปกรณ์จริงในอาคารที่ผู้ดูแลอาคารรับผิดชอบ (ดู
+  /// supabase/migrations/20260817000000_facility_manager_device_list.sql)
+  /// — สโคปตามอาคารในระดับ SQL แล้ว (BR4) ไม่ต้องกรองซ้ำฝั่ง Flutter
+  static Future<List<DeviceOption>> listMyBuildingDevices() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'list_devices_in_my_building',
+              params: {'p_token': token},
+            )
+            as List;
+    return rows
+        .map((row) => DeviceOption.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
 
   static void enableOffline() {
     // Polling needs no offline setup; readings queue on the gateway side.
