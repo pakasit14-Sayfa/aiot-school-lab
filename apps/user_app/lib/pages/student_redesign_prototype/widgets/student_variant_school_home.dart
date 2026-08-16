@@ -213,7 +213,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                     _buildSafetyAlertBanner(),
                     _buildHeroHeader(context),
                     const SizedBox(height: 16),
-                    const AiotBuildingResourceChartCard(),
+                    const StudentHomeroomUtilityCard(),
                     SizedBox(height: afterSummaryGap),
                     _buildTopSectionGrid(
                       context,
@@ -595,46 +595,104 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
   }
 }
 
-class AiotBuildingResourceChartCard extends StatelessWidget {
-  const AiotBuildingResourceChartCard({super.key});
+/// การ์ด "การใช้น้ำ-ไฟ" ของห้องเรียนประจำของนักเรียน — พอร์ตมาจาก
+/// storybook ("Card 8: Homeroom Utility 2-Line Chart") แต่รวมเส้นไฟฟ้า
+/// (ส้ม) กับน้ำ (ฟ้า) เป็นเส้นเดียวแสดง "ระดับคะแนน" แทนตัวเลขดิบ เพราะ
+/// นักเรียนควรเห็นแค่ระดับ ไม่ต้องเห็นตัวเลข kWh/m³ แยกแบบที่ครูเห็น
+/// (คนละการ์ดกับ AiotBuildingResourceChartCard ด้านบนที่โชว์คะแนนรวม
+/// ทั้งอาคาร ใบนี้คือคะแนนเฉพาะห้องเรียนของนักเรียนเอง) ข้อมูลเป็น mock
+class StudentHomeroomUtilityCard extends StatefulWidget {
+  const StudentHomeroomUtilityCard({super.key});
+
+  @override
+  State<StudentHomeroomUtilityCard> createState() =>
+      _StudentHomeroomUtilityCardState();
+}
+
+class _StudentHomeroomUtilityCardState
+    extends State<StudentHomeroomUtilityCard> {
+  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
+  // คะแนนรวมไฟฟ้า+น้ำต่อวันของห้องเรียน (mock) — ไล่ตามทิศทางเดียวกับ
+  // ตัวเลขดิบฝั่งครู (ไฟ 26/24/30/28/34 kWh, น้ำ 0.6/0.5/0.7/0.6/0.8 m³)
+  // คือใช้เยอะขึ้นช่วงกลาง-ปลายสัปดาห์ ยิ่งใช้เยอะ คะแนนยิ่งต่ำ
+  static const _scoreByDay = [72.0, 82.0, 58.0, 65.0, 45.0];
+
+  int _selectedDayIdx = 4; // ศ. (ค่าล่าสุด)
+
+  static Color _levelColor(double score) {
+    if (score >= 75) return const Color(0xFF16A34A);
+    if (score >= 50) return const Color(0xFFD97706);
+    return const Color(0xFFDC2626);
+  }
+
+  static String _levelLabel(double score) {
+    if (score >= 75) return 'ประหยัดดีเยี่ยม 🏆';
+    if (score >= 50) return 'ปานกลาง ⚠️';
+    return 'ควรปรับปรุง 🔴';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final selectedScore = _scoreByDay[_selectedDayIdx];
+    final levelColor = _levelColor(selectedScore);
+
+    final barData = LineChartBarData(
+      spots: [
+        for (var i = 0; i < _scoreByDay.length; i++)
+          FlSpot(i.toDouble(), _scoreByDay[i]),
+      ],
+      isCurved: true,
+      gradient: const LinearGradient(
+        colors: [Color(0xFFF97316), Color(0xFF0EA5E9)],
+      ),
+      barWidth: 4,
+      isStrokeCapRound: true,
+      dotData: const FlDotData(show: true),
+      belowBarData: BarAreaData(
+        show: true,
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFFFEDD5).withValues(alpha: 0.4),
+            const Color(0xFFE0F2FE).withValues(alpha: 0.1),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+    );
+
     return SoftCard(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 32,
-                height: 32,
+                padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE6F4EA),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFA3E635)),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFF7ED), Color(0xFFF0F9FF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Stack(
-                  alignment: Alignment.center,
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Positioned(
-                      left: 2,
-                      top: 4,
-                      child: Icon(
-                        Icons.bolt_rounded,
-                        color: Color(0xFFD97706),
-                        size: 16,
-                      ),
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 16,
+                      color: Color(0xFFF97316),
                     ),
-                    Positioned(
-                      right: 2,
-                      bottom: 4,
-                      child: Icon(
-                        Icons.water_drop_rounded,
-                        color: Color(0xFF0284C7),
-                        size: 14,
-                      ),
+                    SizedBox(width: 2),
+                    Icon(
+                      Icons.water_drop_rounded,
+                      size: 15,
+                      color: Color(0xFF0EA5E9),
                     ),
                   ],
                 ),
@@ -645,7 +703,7 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'คะแนนประหยัดพลังงานของอาคารเรียน ⚡💧',
+                      'การใช้น้ำ-ไฟของห้องเรียนฉัน',
                       style: TextStyle(
                         color: SchoolPalette.ink,
                         fontSize: 14.5,
@@ -654,7 +712,7 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
                     ),
                     SizedBox(height: 1),
                     Text(
-                      'ภาพรวมทั้งอาคาร (ยิ่งคะแนนสูง ยิ่งประหยัดได้ดีเยี่ยม)',
+                      'รวมเป็นคะแนนเดียว (ยิ่งสูง ยิ่งประหยัดดี)',
                       style: TextStyle(
                         color: SchoolPalette.muted,
                         fontSize: 11,
@@ -667,18 +725,18 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    '73.5 คะแนน',
+                  Text(
+                    '${selectedScore.toStringAsFixed(0)} คะแนน',
                     style: TextStyle(
-                      color: Color(0xFF16A34A),
+                      color: levelColor,
                       fontSize: 17,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                   Text(
-                    'ระดับ: ประหยัดดีเยี่ยม 🏆',
+                    'ระดับ: ${_levelLabel(selectedScore)}',
                     style: TextStyle(
-                      color: const Color(0xFF16A34A),
+                      color: levelColor,
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -688,7 +746,6 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          // Chart section (Combined average in %)
           SizedBox(
             height: 120,
             child: LineChart(
@@ -763,30 +820,9 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
                       },
                     ),
                   ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 22,
-                      interval: 1, // Fixes repeating labels
-                      getTitlesWidget: (value, meta) {
-                        const days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
-                        final index = value.toInt();
-                        if (index >= 0 && index < days.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              days[index],
-                              style: const TextStyle(
-                                color: SchoolPalette.muted,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 10.5,
-                              ),
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
+                  bottomTitles: const AxisTitles(
+                    // ซ่อนป้ายวันของกราฟเอง ใช้แถวปุ่มแตะได้ด้านล่างแทน
+                    sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
                 borderData: FlBorderData(show: false),
@@ -794,37 +830,95 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
                 maxX: 4,
                 minY: 0,
                 maxY: 100,
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: const [
-                      FlSpot(0, 55), // Mon: (52% + 58%) / 2 = 55%
-                      FlSpot(1, 63.5), // Tue: (65% + 62%) / 2 = 63.5%
-                      FlSpot(2, 80), // Wed: (82% + 78%) / 2 = 80%
-                      FlSpot(3, 59), // Thu: (58% + 60%) / 2 = 59%
-                      FlSpot(4, 86.5), // Fri: (88% + 85%) / 2 = 86.5%
-                    ],
-                    isCurved: true,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF10B981), Color(0xFF0EA5E9)],
-                    ),
-                    barWidth: 4,
-                    isStrokeCapRound: true,
-                    dotData: const FlDotData(show: true),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFD1FAE5).withValues(alpha: 0.4),
-                          const Color(0xFFE0F2FE).withValues(alpha: 0.1),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
+                lineBarsData: [barData],
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (spot) => _levelColor(spot.y),
+                    tooltipRoundedRadius: 10,
+                    fitInsideVertically: true,
+                    fitInsideHorizontally: true,
+                    getTooltipItems: (spots) => spots.map((spot) {
+                      final idx = spot.x.toInt();
+                      return LineTooltipItem(
+                        '${_days[idx]} • ${spot.y.toStringAsFixed(0)} คะแนน',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                        ),
+                      );
+                    }).toList(),
                   ),
+                  touchCallback: (event, response) {
+                    final spot = response?.lineBarSpots?.firstOrNull;
+                    if (spot == null) return;
+                    final idx = spot.x.toInt();
+                    if (idx != _selectedDayIdx) {
+                      setState(() => _selectedDayIdx = idx);
+                    }
+                  },
+                  getTouchedSpotIndicator: (bar, indexes) => indexes
+                      .map(
+                        (index) => TouchedSpotIndicatorData(
+                          FlLine(
+                            color: _levelColor(bar.spots[index].y),
+                            strokeWidth: 1.5,
+                            dashArray: [4, 4],
+                          ),
+                          FlDotData(
+                            getDotPainter: (spot, percent, bar, index) =>
+                                FlDotCirclePainter(
+                                  radius: 5,
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                  strokeColor: _levelColor(spot.y),
+                                ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                showingTooltipIndicators: [
+                  ShowingTooltipIndicators([
+                    LineBarSpot(barData, 0, barData.spots[_selectedDayIdx]),
+                  ]),
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(_days.length, (idx) {
+              final isSelected = idx == _selectedDayIdx;
+              final dayColor = _levelColor(_scoreByDay[idx]);
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedDayIdx = idx),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? dayColor.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _days[idx],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w700,
+                        color: isSelected ? dayColor : SchoolPalette.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
           ),
           const SizedBox(height: 12),
           const Divider(height: 1, color: Color(0xFFEFF4F8)),
@@ -840,7 +934,7 @@ class AiotBuildingResourceChartCard extends StatelessWidget {
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  'คิดจากปริมาณน้ำและไฟที่อาคารใช้จริง ยิ่งใช้น้อย คะแนนยิ่งสูงขึ้น! 💡',
+                  'คิดจากปริมาณน้ำและไฟที่ห้องใช้จริง ยิ่งใช้น้อย คะแนนยิ่งสูงขึ้น! 💡',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

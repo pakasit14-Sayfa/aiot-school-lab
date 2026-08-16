@@ -3,48 +3,18 @@
 import 'package:flutter/material.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
+import 'teacher_shared_widgets.dart';
 
 class TeacherProfilePage extends StatelessWidget {
   const TeacherProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: TeacherPalette.page,
-      appBar: AppBar(
-        backgroundColor: TeacherPalette.page,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-        iconTheme: const IconThemeData(color: TeacherPalette.ink),
-        title: const Text(
-          'โปรไฟล์ครู',
-          style: TextStyle(
-            color: TeacherPalette.ink,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 900;
-              return ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isDesktop ? 900 : 560),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 24),
-                  child: isDesktop
-                      ? const _DesktopLayout()
-                      : const _MobileLayout(),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    return TeacherMockPageShell(
+      title: 'โปรไฟล์ครู',
+      builder: (context, isDesktop) {
+        return isDesktop ? const _DesktopLayout() : const _MobileLayout();
+      },
     );
   }
 }
@@ -991,28 +961,28 @@ class _AppInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        children: [
-          Text(
-            'Smart School AIoT Teacher App',
-            style: TextStyle(
-              color: TeacherPalette.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+    return const Column(
+      children: [
+        Text(
+          'Smart School AIoT Teacher App',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: TeacherPalette.muted,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
-          SizedBox(height: 4),
-          Text(
-            'Version 1.2.0 (Build 302)',
-            style: TextStyle(
-              color: TeacherPalette.softText,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          'Version 1.2.0 (Build 302)',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: TeacherPalette.softText,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

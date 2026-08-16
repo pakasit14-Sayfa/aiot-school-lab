@@ -54,7 +54,6 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               unit: 'µg/m³',
               subtitle: 'สภาพอากาศดีมาก',
               level: 'ปกติ',
-              color: Color.fromARGB(255, 28, 127, 70),
               showDivider: true,
             ),
             const AiotSensorItemTile(
@@ -64,7 +63,6 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               unit: '°C',
               subtitle: 'อบอุ่นกำลังดี',
               level: 'ปกติ',
-              color: Color.fromARGB(255, 28, 127, 70),
               showDivider: true,
             ),
             const AiotSensorItemTile(
@@ -74,7 +72,6 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               unit: '%RH',
               subtitle: 'สภาพแวดล้อมเหมาะสม',
               level: 'ปกติ',
-              color: Color.fromARGB(255, 28, 127, 70),
               showDivider: true,
             ),
             const AiotSensorItemTile(
@@ -83,7 +80,6 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               value: 'UV 6',
               subtitle: 'เฝ้าระวังแสงแดดจัด',
               level: 'ไม่ปลอดภัย',
-              color: Color(0xFFDC2626),
               showDivider: false,
             ),
             if (height != null) const Spacer() else const SizedBox(height: 22),
@@ -139,7 +135,6 @@ class AiotSensorItemTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.level,
-    required this.color,
     this.value,
     this.unit,
     this.showDivider = false,
@@ -149,7 +144,6 @@ class AiotSensorItemTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final String level;
-  final Color color;
   final String? value;
   final String? unit;
   final bool showDivider;
@@ -159,6 +153,38 @@ class AiotSensorItemTile extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 560;
+        final isNormal = level == 'ปกติ';
+
+        // สีไอคอนแยกตามชนิดเซนเซอร์ (เหมือนการ์ดฝั่งครู _AiotSensorRow)
+        // แทนที่จะใช้สีเขียวเดียวทั้งหมดแบบเดิม
+        Color iconBgColor;
+        Color iconColor;
+        if (icon == Icons.air_rounded) {
+          iconBgColor = const Color(0xFFE0F2FE);
+          iconColor = const Color(0xFF0284C7);
+        } else if (icon == Icons.thermostat_rounded) {
+          iconBgColor = const Color(0xFFFFF7ED);
+          iconColor = const Color(0xFFEA580C);
+        } else if (icon == Icons.water_drop_rounded) {
+          iconBgColor = const Color(0xFFEFF6FF);
+          iconColor = const Color(0xFF2563EB);
+        } else {
+          iconBgColor = const Color(0xFFFFF1F2);
+          iconColor = const Color(0xFFE11D48);
+        }
+
+        final badgeBgColor = isNormal
+            ? const Color(0xFFECFDF5)
+            : const Color(0xFFFEF2F2);
+        final badgeTextColor = isNormal
+            ? const Color(0xFF059669)
+            : const Color(0xFFDC2626);
+        final badgeDotColor = isNormal
+            ? const Color(0xFF10B981)
+            : const Color(0xFFEF4444);
+        final badgeBorderColor = isNormal
+            ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
+            : const Color(0xFFFECACA).withValues(alpha: 0.6);
 
         return Container(
           padding: EdgeInsets.only(
@@ -178,20 +204,13 @@ class AiotSensorItemTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(9),
-                    boxShadow: [
-                      BoxShadow(
-                        color: color.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    color: iconBgColor,
+                    borderRadius: BorderRadius.circular(11),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 20),
+                  child: Icon(icon, color: iconColor, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -217,7 +236,7 @@ class AiotSensorItemTile extends StatelessWidget {
                               TextSpan(
                                 text: value!,
                                 style: TextStyle(
-                                  color: color,
+                                  color: iconColor,
                                   fontWeight: FontWeight.w900,
                                   fontSize: isCompact ? 16.5 : 17,
                                 ),
@@ -227,7 +246,7 @@ class AiotSensorItemTile extends StatelessWidget {
                                 TextSpan(
                                   text: unit!,
                                   style: TextStyle(
-                                    color: color,
+                                    color: iconColor.withValues(alpha: 0.8),
                                     fontWeight: FontWeight.w800,
                                     fontSize: isCompact ? 10.5 : 11,
                                   ),
@@ -254,58 +273,39 @@ class AiotSensorItemTile extends StatelessWidget {
                 const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 5,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: level == 'ปกติ'
-                          ? const Color(0xFF86EFAC)
-                          : const Color(0xFFFECACA),
-                      width: 1.2,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x0A0F172A),
-                        blurRadius: 4,
-                        offset: Offset(0, 1.5),
-                      ),
-                    ],
+                    color: badgeBgColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: badgeBorderColor, width: 1.0),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Crisp Status Indicator Dot
                       Container(
-                        width: 9,
-                        height: 9,
+                        width: 7,
+                        height: 7,
                         decoration: BoxDecoration(
-                          color: level == 'ปกติ'
-                              ? const Color(0xFF16A34A)
-                              : const Color(0xFFDC2626),
+                          color: badgeDotColor,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color:
-                                  (level == 'ปกติ'
-                                          ? const Color(0xFF16A34A)
-                                          : const Color(0xFFDC2626))
-                                      .withValues(alpha: 0.35),
+                              color: badgeDotColor.withValues(alpha: 0.35),
                               blurRadius: 4,
                               offset: const Offset(0, 1),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 5),
                       Text(
                         level,
-                        style: const TextStyle(
-                          color: Color(0xFF1E293B),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 11.5,
+                        style: TextStyle(
+                          color: badgeTextColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
                           letterSpacing: 0.2,
                         ),
                       ),

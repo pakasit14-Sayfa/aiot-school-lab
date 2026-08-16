@@ -10,6 +10,7 @@ import 'teacher_exam_builder_page.dart';
 import 'teacher_grading_page.dart';
 import 'teacher_incident_inbox_page.dart';
 import 'teacher_lesson_editor_page.dart';
+import 'teacher_pbl_activity_editor_page.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 import 'teacher_students_page.dart';
@@ -264,8 +265,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                         ),
                       ),
                     ],
-                    onChanged: (v) =>
-                        setModalState(() => targetSemester = v!),
+                    onChanged: (v) => setModalState(() => targetSemester = v!),
                     decoration: InputDecoration(
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -326,7 +326,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError =
+                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -620,40 +621,6 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       elevation: 0,
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const TeacherAssignmentEditorPage(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.assignment_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'จัดการใบงาน/โจทย์',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.35),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -2292,8 +2259,9 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
               ),
               const SizedBox(height: 12),
               TeacherStudentsPage(initialRoomFilter: c.rooms),
-            ]
-            else if (_activeTab == 'ใบงาน' || _activeTab == 'คะแนน')
+            ] else if (_activeTab == 'ใบงาน')
+              _AssignmentTabEntry(courseCode: c.code, courseName: c.name)
+            else if (_activeTab == 'คะแนน')
               const TeacherGradingPage()
             else if (_activeTab == 'กลุ่ม')
               const _StudentGroupManagementWidget()
@@ -2750,7 +2718,11 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFEA580C), size: 24),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFEA580C),
+              size: 24,
+            ),
             SizedBox(width: 10),
             Text(
               'ยืนยันปิดรายวิชาโดยรับทราบความเสี่ยง',
@@ -2786,6 +2758,125 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
               foregroundColor: Colors.white,
             ),
             child: const Text('ยืนยันปิดรายวิชา'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// การ์ดทางเข้าแท็บ "ใบงาน" ในหน้ารายละเอียดวิชา — ไม่ embed
+/// TeacherAssignmentEditorPage ตรงๆ เพราะตัวมันเป็น TeacherMockPageShell
+/// (Scaffold เต็มหน้าที่ออกแบบมาสำหรับ Navigator.push เป็น route ของตัวเอง)
+/// ถ้า embed ใน Column ที่อยู่ใน SingleChildScrollView ของแท็บนี้จะชน
+/// unbounded-height ("RenderCustomMultiChildLayoutBox ... infinite size")
+/// ทันที จึงเปิดผ่านปุ่มแทน — แก้ปัญหาเดิมที่ปุ่มลอยอยู่นอกวิชา (หาไม่เจอ)
+/// โดยยังคงเข้าถึงได้จากในบริบทของวิชานั้นๆ ตรงตามที่ควรจะเป็น
+class _AssignmentTabEntry extends StatelessWidget {
+  const _AssignmentTabEntry({
+    required this.courseCode,
+    required this.courseName,
+  });
+
+  final String courseCode;
+  final String courseName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: TeacherPalette.border),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1EEF9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.assignment_rounded,
+              color: TeacherPalette.primary,
+              size: 30,
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'จัดการใบงาน/โจทย์',
+            style: TextStyle(
+              color: TeacherPalette.ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'สร้าง แก้ไข และดูสถานะส่งงานของวิชา $courseCode · $courseName',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: TeacherPalette.muted,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TeacherAssignmentEditorPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+            label: const Text(
+              'เปิดหน้าจัดการใบงาน',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: TeacherPalette.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // PBL-2: กิจกรรม PBL แบบครบวงจร (หัวข้อ+ข้อมูล AIoT+Rubric+
+          // ระยะเวลา) ต่างจากใบงานทั่วไป (PBL-1) ด้านบน จึงแยกปุ่มออกมา
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TeacherPblActivityEditorPage(),
+                ),
+              );
+            },
+            icon: const Icon(Icons.science_rounded, size: 18),
+            label: const Text(
+              'สร้างกิจกรรม PBL (ผูกข้อมูล AIoT)',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: TeacherPalette.primary,
+              side: const BorderSide(color: TeacherPalette.primary),
+              minimumSize: const Size(0, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
           ),
         ],
       ),

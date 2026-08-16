@@ -161,11 +161,29 @@ class TeacherStatusChip extends StatelessWidget {
 }
 
 void showTeacherMockAction(BuildContext context, String label) {
+  ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text('$label (mock)'),
+      content: Row(
+        children: [
+          const Icon(
+            Icons.design_services_rounded,
+            color: Colors.white,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'ฟังก์ชัน "$label" อยู่ในช่วงการออกแบบดีไซน์ (UI Prototype)',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
       duration: const Duration(seconds: 2),
+      backgroundColor: const Color(0xFF0F172A),
       behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
   );
 }
@@ -213,11 +231,17 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
         // จอแคบยังใช้ Drawer เดิมเพราะพื้นที่ไม่พอวาง sidebar ค้าง
         final isWideDesktop = screenConstraints.maxWidth >= 900;
         final sidebarCompact = _manualCompact ?? false;
+        // จอกว้างมาก (เช่นจอคอมทั่วไป ≥1600px รวม sidebar แล้ว) ให้ขยาย
+        // พื้นที่เนื้อหาตามไปด้วย แทนที่จะตรึงไว้แค่ 1080 เท่ากับ tablet —
+        // เผื่อความกว้างของ sidebar ที่หักออกไปแล้วในเลย์เอาต์นี้
+        final contentMaxWidth = screenConstraints.maxWidth >= 1600
+            ? 1320.0
+            : (isWideDesktop ? 1080.0 : 640.0);
 
         final content = Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: isWideDesktop ? 1080 : 640),
+            constraints: BoxConstraints(maxWidth: contentMaxWidth),
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
@@ -302,6 +326,451 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
           body: SafeArea(child: content),
         );
       },
+    );
+  }
+}
+
+/// เมนูปุ่ม 3 จุด (Kebab Menu) ดีไซน์สำเร็จรูปสำหรับทั้งโปรเจกต์
+/// มีตัวเลือก: แก้ไข, คัดลอก/ทำซ้ำ, ดูรายละเอียด, แชร์ และ ลบ (พร้อม Confirmation Dialog)
+enum TeacherActionType { edit, duplicate, viewDetails, share, delete }
+
+class TeacherThreeDotsMenu extends StatelessWidget {
+  const TeacherThreeDotsMenu({
+    required this.onSelected,
+    this.itemTitle = 'รายการนี้',
+    this.iconColor,
+    this.showDelete = true,
+    super.key,
+  });
+
+  final ValueChanged<TeacherActionType> onSelected;
+  final String itemTitle;
+  final Color? iconColor;
+  final bool showDelete;
+
+  void _showDeleteDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
+            SizedBox(width: 8),
+            Text(
+              'ยืนยันการลบข้อมูล',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Text(
+          'คุณต้องการลบ "$itemTitle" ใช่หรือไม่?\nการดำเนินการนี้ไม่สามารถกู้คืนได้',
+          style: const TextStyle(color: Color(0xFF334155), height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'ยกเลิก',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              onSelected(TeacherActionType.delete);
+            },
+            child: const Text(
+              'ลบรายการ',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<TeacherActionType>(
+      onSelected: (action) {
+        if (action == TeacherActionType.delete) {
+          _showDeleteDialog(context);
+        } else {
+          onSelected(action);
+        }
+      },
+      tooltip: 'ตัวเลือกเพิ่มเติม',
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 8,
+      offset: const Offset(0, 38),
+      color: Colors.white,
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: TeacherActionType.edit,
+          height: 40,
+          child: Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 18, color: Color(0xFF334155)),
+              SizedBox(width: 10),
+              Text(
+                'แก้ไขข้อมูล',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: TeacherActionType.duplicate,
+          height: 40,
+          child: Row(
+            children: [
+              Icon(
+                Icons.content_copy_rounded,
+                size: 18,
+                color: Color(0xFF334155),
+              ),
+              SizedBox(width: 10),
+              Text(
+                'คัดลอก / ทำซ้ำ',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: TeacherActionType.viewDetails,
+          height: 40,
+          child: Row(
+            children: [
+              Icon(
+                Icons.visibility_outlined,
+                size: 18,
+                color: Color(0xFF334155),
+              ),
+              SizedBox(width: 10),
+              Text(
+                'ดูรายละเอียด',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: TeacherActionType.share,
+          height: 40,
+          child: Row(
+            children: [
+              Icon(Icons.share_outlined, size: 18, color: Color(0xFF334155)),
+              SizedBox(width: 10),
+              Text(
+                'แชร์ / ส่งออก',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (showDelete) ...[
+          const PopupMenuDivider(height: 12),
+          const PopupMenuItem(
+            value: TeacherActionType.delete,
+            height: 40,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.delete_outline_rounded,
+                  size: 18,
+                  color: Color(0xFFEF4444),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'ลบรายการนี้',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          Icons.more_vert_rounded,
+          size: 18,
+          color: iconColor ?? const Color(0xFF64748B),
+        ),
+      ),
+    );
+  }
+}
+
+/// ป้ายสถานะแอนิเมชัน 6 รูปแบบ (Animated Status Badges & Pills)
+/// รองรับ: สำเร็จ, ไม่สำเร็จ, กำลังโหลด, กำลังอัปโหลด, อัปโหลดไม่สำเร็จ, โหลดไม่สำเร็จ
+enum StatusBadgeType {
+  success,
+  failed,
+  loading,
+  uploading,
+  uploadFailed,
+  loadFailed,
+}
+
+class AnimatedStatusBadge extends StatefulWidget {
+  const AnimatedStatusBadge({
+    required this.type,
+    this.customText,
+    this.progress,
+    this.onRetry,
+    super.key,
+  });
+
+  final StatusBadgeType type;
+  final String? customText;
+  final double? progress;
+  final VoidCallback? onRetry;
+
+  @override
+  State<AnimatedStatusBadge> createState() => _AnimatedStatusBadgeState();
+}
+
+class _AnimatedStatusBadgeState extends State<AnimatedStatusBadge>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _pulseAnim;
+  late Animation<double> _floatAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+
+    _pulseAnim = Tween<double>(begin: 0.88, end: 1.08).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+
+    _floatAnim = Tween<double>(begin: -2.0, end: 2.0).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    switch (widget.type) {
+      case StatusBadgeType.success:
+        return _buildBadgeChrome(
+          bg: const Color(0xFFECFDF5),
+          border: const Color(0xFFA7F3D0),
+          fg: const Color(0xFF059669),
+          text: widget.customText ?? 'ทำสำเร็จ',
+          leading: ScaleTransition(
+            scale: _pulseAnim,
+            child: const Icon(
+              Icons.check_circle_rounded,
+              size: 15,
+              color: Color(0xFF059669),
+            ),
+          ),
+        );
+
+      case StatusBadgeType.failed:
+        return _buildBadgeChrome(
+          bg: const Color(0xFFFEF2F2),
+          border: const Color(0xFFFECACA),
+          fg: const Color(0xFFDC2626),
+          text: widget.customText ?? 'ทำไม่สำเร็จ',
+          leading: ScaleTransition(
+            scale: _pulseAnim,
+            child: const Icon(
+              Icons.cancel_rounded,
+              size: 15,
+              color: Color(0xFFDC2626),
+            ),
+          ),
+        );
+
+      case StatusBadgeType.loading:
+        return _buildBadgeChrome(
+          bg: const Color(0xFFF0F9FF),
+          border: const Color(0xFFBAE6FD),
+          fg: const Color(0xFF0284C7),
+          text: widget.customText ?? 'กำลังโหลด...',
+          leading: const SizedBox(
+            width: 13,
+            height: 13,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
+            ),
+          ),
+        );
+
+      case StatusBadgeType.uploading:
+        return _buildBadgeChrome(
+          bg: const Color(0xFFEEF2FF),
+          border: const Color(0xFFC7D2FE),
+          fg: const Color(0xFF4F46E5),
+          text: widget.progress != null
+              ? 'กำลังอัปโหลด ${(widget.progress! * 100).toInt()}%'
+              : (widget.customText ?? 'กำลังอัปโหลด...'),
+          leading: AnimatedBuilder(
+            animation: _floatAnim,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(0, _floatAnim.value),
+                child: const Icon(
+                  Icons.cloud_upload_rounded,
+                  size: 16,
+                  color: Color(0xFF4F46E5),
+                ),
+              );
+            },
+          ),
+          showProgress: widget.progress != null,
+          progressValue: widget.progress,
+        );
+
+      case StatusBadgeType.uploadFailed:
+        return _buildBadgeChrome(
+          bg: const Color(0xFFFFF7ED),
+          border: const Color(0xFFFDE68A),
+          fg: const Color(0xFFD97706),
+          text: widget.customText ?? 'อัปโหลดไม่สำเร็จ',
+          leading: ScaleTransition(
+            scale: _pulseAnim,
+            child: const Icon(
+              Icons.cloud_off_rounded,
+              size: 15,
+              color: Color(0xFFD97706),
+            ),
+          ),
+          onRetry: widget.onRetry,
+        );
+
+      case StatusBadgeType.loadFailed:
+        return _buildBadgeChrome(
+          bg: const Color(0xFFF1F5F9),
+          border: const Color(0xFFCBD5E1),
+          fg: const Color(0xFF475569),
+          text: widget.customText ?? 'โหลดไม่สำเร็จ',
+          leading: ScaleTransition(
+            scale: _pulseAnim,
+            child: const Icon(
+              Icons.error_outline_rounded,
+              size: 15,
+              color: Color(0xFF475569),
+            ),
+          ),
+          onRetry: widget.onRetry,
+        );
+    }
+  }
+
+  Widget _buildBadgeChrome({
+    required Color bg,
+    required Color border,
+    required Color fg,
+    required String text,
+    required Widget leading,
+    bool showProgress = false,
+    double? progressValue,
+    VoidCallback? onRetry,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: border, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: fg.withValues(alpha: 0.08),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          leading,
+          const SizedBox(width: 7),
+          Text(
+            text,
+            style: TextStyle(
+              color: fg,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.1,
+            ),
+          ),
+          if (showProgress && progressValue != null) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 44,
+              height: 4,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: progressValue,
+                  backgroundColor: fg.withValues(alpha: 0.2),
+                  valueColor: AlwaysStoppedAnimation<Color>(fg),
+                ),
+              ),
+            ),
+          ],
+          if (onRetry != null) ...[
+            const SizedBox(width: 6),
+            InkWell(
+              onTap: onRetry,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Icon(Icons.refresh_rounded, size: 14, color: fg),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

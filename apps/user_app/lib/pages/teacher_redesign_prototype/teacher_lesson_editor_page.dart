@@ -805,10 +805,12 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
         else
           LayoutBuilder(
             builder: (context, cons) {
-              final isGrid = cons.maxWidth >= 720;
-              final cardWidth = isGrid
-                  ? (cons.maxWidth - 14) / 2
-                  : cons.maxWidth;
+              final columns = cons.maxWidth >= 1180
+                  ? 3
+                  : (cons.maxWidth >= 720 ? 2 : 1);
+              final cardWidth = columns == 1
+                  ? cons.maxWidth
+                  : (cons.maxWidth - 14 * (columns - 1)) / columns;
               return Wrap(
                 spacing: 14,
                 runSpacing: 14,

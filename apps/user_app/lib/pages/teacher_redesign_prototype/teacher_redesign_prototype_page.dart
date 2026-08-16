@@ -2,6 +2,7 @@
 // Three variants of the teacher dashboard, switchable in-app on
 // /prototype/teacher-redesign?variant=A, B, or C.
 
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -16,7 +17,10 @@ import 'teacher_incident_inbox_page.dart';
 import 'teacher_notifications_page.dart';
 import 'teacher_parent_binding_approval_page.dart';
 import 'teacher_profile_page.dart';
+import 'teacher_knowledge_library_page.dart';
+import 'teacher_question_bank_page.dart';
 import 'teacher_rubric_page.dart';
+import 'teacher_shared_widgets.dart';
 import 'teacher_student_support_page.dart';
 import 'teacher_students_page.dart';
 
@@ -1370,21 +1374,14 @@ class _TeacherTopBar extends StatelessWidget {
         _RoundAction(
           icon: Icons.search_rounded,
           tooltip: 'ค้นหา',
-          onTap: () => _showComingSoon(context, 'ค้นหา'),
+          onTap: () => _showTeacherSearchDialog(context),
         ),
         const SizedBox(width: 10),
         _RoundAction(
           icon: Icons.notifications_none_rounded,
           dot: true,
           tooltip: 'การแจ้งเตือน',
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TeacherNotificationsPage(),
-              ),
-            );
-          },
+          onTap: () => _showTeacherNotificationPreview(context),
         ),
         const SizedBox(width: 12),
         const _TeacherProfilePill(),
@@ -1464,8 +1461,12 @@ class _TeacherHero extends StatelessWidget {
                       runSpacing: 10,
                       children: [
                         FilledButton(
-                          onPressed: () =>
-                              _showComingSoon(context, 'ตรวจงานเลย'),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TeacherGradingPage(),
+                            ),
+                          ),
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: TeacherPalette.primary,
@@ -1484,7 +1485,12 @@ class _TeacherHero extends StatelessWidget {
                           child: const Text('ตรวจงานเลย'),
                         ),
                         OutlinedButton(
-                          onPressed: () => _showComingSoon(context, 'ดูรายงาน'),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const TeacherGradesPage(),
+                            ),
+                          ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,
                             side: const BorderSide(color: Colors.white70),
@@ -1610,7 +1616,12 @@ class _TeacherMobileHeader extends StatelessWidget {
             ],
           ),
         ),
-        const _RoundAction(icon: Icons.notifications_none_rounded, dot: true),
+        _RoundAction(
+          icon: Icons.notifications_none_rounded,
+          dot: true,
+          tooltip: 'การแจ้งเตือน',
+          onTap: () => _showTeacherNotificationPreview(context),
+        ),
       ],
     );
   }
@@ -1793,7 +1804,7 @@ class _TeacherClassCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(26),
       child: InkWell(
         borderRadius: BorderRadius.circular(26),
-        onTap: () => _showComingSoon(context, item.title),
+        onTap: () => _openClassDetail(context, item),
         child: Container(
           height: 166,
           padding: const EdgeInsets.all(18),
@@ -1901,7 +1912,7 @@ class _ScheduleTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: () => _showComingSoon(context, lesson.title),
+        onTap: () => _openLessonDetail(context, lesson),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
@@ -2026,7 +2037,11 @@ class _LargeScheduleItem extends StatelessWidget {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             ),
-            onPressed: () {},
+            onPressed: () => showTeacherMockAction(
+              context,
+              'เปิดคาบ ${lesson.title} (${lesson.room})',
+            ),
+
             child: const Text('เปิดคาบ'),
           ),
         ],
@@ -2061,18 +2076,67 @@ class _TeacherRightPanel extends StatelessWidget {
 /// ปฏิทินย่อประจำเดือน แบบเดียวกับ "Upcoming Check-ups" ใน reference —
 /// mock ตายตัวไว้ที่เดือนปัจจุบัน ยังไม่เชื่อมกิจกรรมจริง แค่ไฮไลต์
 /// "วันนี้" กับวันที่มีคาบสอน/นัดหมายไว้เป็นตัวอย่าง
-class _MiniCalendarCard extends StatelessWidget {
+class _MiniCalendarCard extends StatefulWidget {
   const _MiniCalendarCard();
 
   @override
+  State<_MiniCalendarCard> createState() => _MiniCalendarCardState();
+}
+
+class _MiniCalendarCardState extends State<_MiniCalendarCard> {
+  // "วันนี้" ของ mock ทั้งแอปคือพุธ 5/6 ส.ค. 2569 (ดู _TeacherTopBar) — ยึด
+  // วันเดียวกันไว้ตรงนี้เพื่อให้ปฏิทินตรงกับข้อความหัวหน้าจอ
+  static final DateTime _mockToday = DateTime(2026, 8, 6);
+  late DateTime _displayedMonth = DateTime(_mockToday.year, _mockToday.month);
+  int? _selectedDay;
+
+  static const _thaiMonths = [
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
+  ];
+  static const _weekdays = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
+  static const _markedDays = {13, 20, 27};
+
+  void _changeMonth(int delta) {
+    setState(() {
+      _displayedMonth = DateTime(
+        _displayedMonth.year,
+        _displayedMonth.month + delta,
+      );
+      _selectedDay = null;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const monthLabel = 'สิงหาคม 2569';
-    const weekdays = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
-    // เดือนนี้เริ่มวันเสาร์ (index 5), มี 31 วัน — ใช้เลขคงที่เป็น mock
-    const leadingBlanks = 5;
-    const daysInMonth = 31;
-    const today = 6;
-    const markedDays = {13, 20, 27};
+    final monthLabel =
+        '${_thaiMonths[_displayedMonth.month - 1]} ${_displayedMonth.year + 543}';
+    // DateTime.weekday: จันทร์=1 ... อาทิตย์=7 ตรงกับลำดับ _weekdays พอดี
+    final firstWeekday = DateTime(
+      _displayedMonth.year,
+      _displayedMonth.month,
+      1,
+    ).weekday;
+    final leadingBlanks = firstWeekday - 1;
+    final daysInMonth = DateTime(
+      _displayedMonth.year,
+      _displayedMonth.month + 1,
+      0,
+    ).day;
+    final isCurrentMonth =
+        _displayedMonth.year == _mockToday.year &&
+        _displayedMonth.month == _mockToday.month;
+    final todayDay = isCurrentMonth ? _mockToday.day : null;
 
     return _GlassCard(
       padding: const EdgeInsets.all(18),
@@ -2081,10 +2145,10 @@ class _MiniCalendarCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   monthLabel,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: TeacherPalette.ink,
                     fontWeight: FontWeight.w900,
                     fontSize: 14.5,
@@ -2093,7 +2157,7 @@ class _MiniCalendarCard extends StatelessWidget {
               ),
               InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => _showComingSoon(context, 'เดือนก่อนหน้า'),
+                onTap: () => _changeMonth(-1),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
                   child: Icon(
@@ -2105,7 +2169,7 @@ class _MiniCalendarCard extends StatelessWidget {
               ),
               InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => _showComingSoon(context, 'เดือนถัดไป'),
+                onTap: () => _changeMonth(1),
                 child: const Padding(
                   padding: EdgeInsets.all(4),
                   child: Icon(
@@ -2120,7 +2184,7 @@ class _MiniCalendarCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              for (final w in weekdays)
+              for (final w in _weekdays)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -2149,11 +2213,12 @@ class _MiniCalendarCard extends StatelessWidget {
             itemBuilder: (context, index) {
               final day = index - leadingBlanks + 1;
               if (day < 1) return const SizedBox.shrink();
-              final isToday = day == today;
-              final isMarked = markedDays.contains(day);
+              final isToday = day == todayDay;
+              final isSelected = day == _selectedDay;
+              final isMarked = _markedDays.contains(day);
               return InkWell(
                 borderRadius: BorderRadius.circular(999),
-                onTap: () => _showComingSoon(context, 'วันที่ $day'),
+                onTap: () => setState(() => _selectedDay = day),
                 child: Container(
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
@@ -2161,6 +2226,9 @@ class _MiniCalendarCard extends StatelessWidget {
                         ? TeacherPalette.primary
                         : Colors.transparent,
                     shape: BoxShape.circle,
+                    border: (isSelected && !isToday)
+                        ? Border.all(color: TeacherPalette.primary, width: 1.4)
+                        : null,
                   ),
                   child: Stack(
                     alignment: Alignment.center,
@@ -2170,7 +2238,7 @@ class _MiniCalendarCard extends StatelessWidget {
                         style: TextStyle(
                           color: isToday ? Colors.white : TeacherPalette.ink,
                           fontSize: 11.5,
-                          fontWeight: isToday
+                          fontWeight: (isToday || isSelected)
                               ? FontWeight.w900
                               : FontWeight.w700,
                         ),
@@ -2981,8 +3049,41 @@ class _LabDeviceNotice extends StatelessWidget {
 /// การใช้น้ำ-ไฟของ "ห้องประจำชั้น" ที่ครูเป็นที่ปรึกษา (คนละส่วนกับ
 /// AIoT Classroom ที่โชว์สภาพอากาศห้องที่สอน) — mock ตัวเลขรายสัปดาห์
 /// เทียบกับสัปดาห์ก่อนหน้า ให้ครูเห็นแนวโน้มการประหยัดพลังงานของห้องตน
-class _HomeroomUtilityCard extends StatelessWidget {
+/// การ์ด "การใช้น้ำ-ไฟ" ของห้องประจำชั้น — ย้ายมาจากเวอร์ชันโต้ตอบได้ใน
+/// storybook ("Card 8: Homeroom Utility 2-Line Chart") แทนเวอร์ชันเดิมที่
+/// เป็น static เฉยๆ เพราะแตะ/ชี้เมาส์ที่แต่ละวันแล้วเห็นตัวเลขจริงของวันนั้น
+/// ได้เลย (ป้ายค่า "26 kWh"/"0.6 m³" ลอยเหนือจุดกราฟ) ไม่ต้องเดาจากเส้นกราฟ
+/// อย่างเดียว ข้อมูลยังเป็น mock ทั้งหมดเหมือนเดิม
+class _HomeroomUtilityCard extends StatefulWidget {
   const _HomeroomUtilityCard();
+
+  @override
+  State<_HomeroomUtilityCard> createState() => _HomeroomUtilityCardState();
+}
+
+class _HomeroomUtilityCardState extends State<_HomeroomUtilityCard>
+    with SingleTickerProviderStateMixin {
+  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
+  static const _electricByDay = [26.0, 24.0, 30.0, 28.0, 34.0]; // รวม 142
+  static const _waterByDay = [0.6, 0.5, 0.7, 0.6, 0.8]; // รวม 3.2
+
+  late final AnimationController _pulseController;
+  int _selectedDayIdx = 1; // อ. (Tuesday - 24 kWh / 0.5 m³)
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2996,51 +3097,563 @@ class _HomeroomUtilityCard extends StatelessWidget {
             subtitle: 'สัปดาห์นี้',
             icon: Icons.bolt_rounded,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _UtilitySplitMetric(
+                    label: 'ไฟฟ้า',
+                    dotColor: TeacherPalette.orange,
+                    value: '142',
+                    unit: 'kWh',
+                    trendUp: true,
+                    trendLabel: '+8%',
+                    progress: 0.65,
+                    barColor: TeacherPalette.orange,
+                  ),
+                ),
+                Container(
+                  height: 56,
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  color: const Color(0xFFE2E8F0),
+                ),
+                Expanded(
+                  child: _UtilitySplitMetric(
+                    label: 'น้ำ',
+                    dotColor: _kWaterBlue,
+                    value: '18.5',
+                    unit: 'm³',
+                    trendUp: false,
+                    trendLabel: '-4%',
+                    progress: 0.42,
+                    barColor: _kWaterBlue,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _UtilityMiniMetric(
-                  icon: Icons.bolt_rounded,
-                  label: 'ไฟฟ้า',
-                  scopeBadge: 'รายห้อง',
-                  value: '142',
-                  unit: 'kWh',
-                  trendUp: true,
-                  trendLabel: '+8%',
-                  color: TeacherPalette.orange,
+              const Text(
+                'ค่าเฉลี่ยรายวัน',
+                style: TextStyle(
+                  color: TeacherPalette.ink,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _UtilityMiniMetric(
-                  icon: Icons.water_drop_rounded,
-                  label: 'น้ำ',
-                  scopeBadge: 'รายอาคาร',
-                  value: '3.2',
-                  unit: 'm³',
-                  trendUp: false,
-                  trendLabel: '-4%',
-                  color: _kWaterBlue,
-                ),
+              Row(
+                children: const [
+                  _UtilityLegendDot(
+                    color: TeacherPalette.orange,
+                    label: 'ไฟฟ้า',
+                  ),
+                  SizedBox(width: 10),
+                  _UtilityLegendDot(color: _kWaterBlue, label: 'น้ำ'),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'เทียบกับค่าเฉลี่ยสัปดาห์ก่อนหน้า',
-            style: TextStyle(
-              color: TeacherPalette.muted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+          SizedBox(
+            height: 110,
+            child: AnimatedBuilder(
+              animation: _pulseController,
+              builder: (context, child) {
+                return MouseRegion(
+                  onHover: (event) {
+                    final box = context.findRenderObject() as RenderBox?;
+                    if (box != null) {
+                      final localX = box.globalToLocal(event.position).dx;
+                      final ratio = (localX / box.size.width).clamp(0.0, 1.0);
+                      final index = (ratio * (_days.length - 1)).round();
+                      if (index != _selectedDayIdx) {
+                        setState(() => _selectedDayIdx = index);
+                      }
+                    }
+                  },
+                  child: CustomPaint(
+                    painter: _UtilityGradientAreaChartPainter(
+                      electricValues: _electricByDay,
+                      waterValues: _waterByDay,
+                      selectedDayIdx: _selectedDayIdx,
+                      pulsePhase: _pulseController.value,
+                    ),
+                    size: Size.infinite,
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 18),
-          const _UtilityWeeklyChart(),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(_days.length, (idx) {
+              final isSelected = idx == _selectedDayIdx;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedDayIdx = idx),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? TeacherPalette.primary.withValues(alpha: 0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _days[idx],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w700,
+                        color: isSelected
+                            ? TeacherPalette.primary
+                            : TeacherPalette.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
         ],
       ),
     );
   }
+}
+
+class _UtilitySplitMetric extends StatelessWidget {
+  const _UtilitySplitMetric({
+    required this.label,
+    required this.dotColor,
+    required this.value,
+    required this.unit,
+    required this.trendUp,
+    required this.trendLabel,
+    required this.progress,
+    required this.barColor,
+  });
+
+  final String label;
+  final Color dotColor;
+  final String value;
+  final String unit;
+  final bool trendUp;
+  final String trendLabel;
+  final double progress;
+  final Color barColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final trendColor = trendUp
+        ? const Color(0xFFDC2626)
+        : const Color(0xFF059669);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: dotColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: TeacherPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: trendColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    trendUp
+                        ? Icons.arrow_upward_rounded
+                        : Icons.arrow_downward_rounded,
+                    size: 10,
+                    color: trendColor,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    trendLabel,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: trendColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: '$value ',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: TeacherPalette.ink,
+                  height: 1.0,
+                ),
+              ),
+              TextSpan(
+                text: unit,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: TeacherPalette.muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 4,
+            backgroundColor: barColor.withValues(alpha: 0.15),
+            valueColor: AlwaysStoppedAnimation<Color>(barColor),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UtilityLegendDot extends StatelessWidget {
+  const _UtilityLegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            color: TeacherPalette.muted,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// วาดกราฟพื้นที่ไล่สี 2 เส้น (ไฟฟ้า/น้ำ) พร้อมลำแสงวิ่งเรืองแสงและ
+/// tooltip ลอยเหนือจุดที่เลือก — ย้ายมาจาก storybook ปรับชื่อคลาสให้
+/// สื่อความหมายตรงกับที่ใช้งานจริง (ของเดิมชื่อ "MembersGradientArea"
+/// เป็นชื่อที่ตกค้างมาจากการ์ดอื่น ไม่เกี่ยวกับน้ำ-ไฟ)
+class _UtilityGradientAreaChartPainter extends CustomPainter {
+  _UtilityGradientAreaChartPainter({
+    required this.electricValues,
+    required this.waterValues,
+    required this.selectedDayIdx,
+    required this.pulsePhase,
+  });
+
+  final List<double> electricValues;
+  final List<double> waterValues;
+  final int selectedDayIdx;
+  final double pulsePhase;
+
+  static const _electricColor = TeacherPalette.orange;
+  static const _waterColor = _kWaterBlue;
+  static const _electricGlow = Color(0xFFFDBA74);
+  static const _waterGlow = Color(0xFF7DD3FC);
+
+  List<Offset> _buildPoints(
+    List<double> values,
+    double w,
+    double h,
+    double topFraction,
+    double bottomFraction,
+  ) {
+    final maxVal = values.reduce(math.max) * 1.15;
+    final minVal = values.reduce(math.min) * 0.7;
+    final count = values.length;
+    final band = bottomFraction - topFraction;
+    return [
+      for (var i = 0; i < count; i++)
+        Offset(
+          (w / (count - 1)) * i,
+          h * bottomFraction -
+              (h * band) * ((values[i] - minVal) / (maxVal - minVal)),
+        ),
+    ];
+  }
+
+  Path _buildCurve(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (var i = 0; i < points.length - 1; i++) {
+      final p0 = points[i];
+      final p1 = points[i + 1];
+      final controlX = (p0.dx + p1.dx) / 2;
+      path.cubicTo(controlX, p0.dy, controlX, p1.dy, p1.dx, p1.dy);
+    }
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final electricPoints = _buildPoints(electricValues, w, h, 0.06, 0.52);
+    final waterPoints = _buildPoints(waterValues, w, h, 0.58, 0.92);
+    final electricCurve = _buildCurve(electricPoints);
+    final waterCurve = _buildCurve(waterPoints);
+
+    final waterFillPath = Path.from(waterCurve)
+      ..lineTo(w, h * 0.92)
+      ..lineTo(0, h * 0.92)
+      ..close();
+
+    final electricFillPath = Path.from(electricCurve)
+      ..lineTo(w, h * 0.92)
+      ..lineTo(0, h * 0.92)
+      ..close();
+
+    final gradientRect = Rect.fromLTWH(0, 0, w, h);
+
+    canvas.drawPath(
+      waterFillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _waterColor.withValues(alpha: 0.22),
+            _waterColor.withValues(alpha: 0.02),
+          ],
+        ).createShader(Rect.fromLTWH(0, h * 0.50, w, h * 0.45))
+        ..style = PaintingStyle.fill,
+    );
+
+    canvas.drawPath(
+      electricFillPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _electricColor.withValues(alpha: 0.26),
+            _electricColor.withValues(alpha: 0.03),
+          ],
+        ).createShader(gradientRect)
+        ..style = PaintingStyle.fill,
+    );
+
+    const electricStrokeGradient = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [Color(0xFFFFD8A8), Color(0xFFFB923C), Color(0xFFEA580C)],
+      stops: [0.0, 0.5, 1.0],
+    );
+
+    const waterStrokeGradient = LinearGradient(
+      begin: Alignment.centerLeft,
+      end: Alignment.centerRight,
+      colors: [Color(0xFFBAE6FD), Color(0xFF38BDF8), Color(0xFF0284C7)],
+      stops: [0.0, 0.5, 1.0],
+    );
+
+    canvas.drawPath(
+      electricCurve,
+      Paint()
+        ..shader = electricStrokeGradient.createShader(gradientRect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.2
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      waterCurve,
+      Paint()
+        ..shader = waterStrokeGradient.createShader(gradientRect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..strokeCap = StrokeCap.round,
+    );
+
+    _drawGlowBeam(canvas, electricCurve, _electricGlow, pulsePhase, 3.0);
+    _drawGlowBeam(
+      canvas,
+      waterCurve,
+      _waterGlow,
+      (pulsePhase + 0.5) % 1.0,
+      2.4,
+    );
+
+    final idx = selectedDayIdx.clamp(0, electricPoints.length - 1);
+    final electricNode = electricPoints[idx];
+    final waterNode = waterPoints[idx];
+
+    final focusPaint = Paint()
+      ..color = const Color(0xFFE2D9F0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawLine(
+      Offset(electricNode.dx, math.min(electricNode.dy, waterNode.dy) - 14),
+      Offset(electricNode.dx, h),
+      focusPaint,
+    );
+
+    canvas.drawCircle(electricNode, 5.0, Paint()..color = _electricColor);
+    canvas.drawCircle(
+      electricNode,
+      5.0,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+    canvas.drawCircle(waterNode, 4.5, Paint()..color = _waterColor);
+    canvas.drawCircle(
+      waterNode,
+      4.5,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+
+    _drawTooltipPill(
+      canvas,
+      electricNode,
+      '${electricValues[idx].toStringAsFixed(0)} kWh',
+      _electricColor,
+    );
+    _drawTooltipPill(
+      canvas,
+      waterNode,
+      '${waterValues[idx].toStringAsFixed(1)} m³',
+      _waterColor,
+    );
+  }
+
+  void _drawGlowBeam(
+    Canvas canvas,
+    Path path,
+    Color color,
+    double phase,
+    double strokeWidth,
+  ) {
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      final totalLen = metric.length;
+      final headDist = totalLen * phase;
+      final tailLen = totalLen * 0.26;
+      final pulsePath = metric.extractPath(
+        (headDist - tailLen).clamp(0.0, totalLen),
+        headDist.clamp(0.0, totalLen),
+      );
+      canvas.drawPath(
+        pulsePath,
+        Paint()
+          ..color = color.withValues(alpha: 0.95)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth + 2.5
+          ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 3.5),
+      );
+      canvas.drawPath(
+        pulsePath,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth,
+      );
+    }
+  }
+
+  void _drawTooltipPill(Canvas canvas, Offset point, String text, Color bg) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w900,
+          color: Colors.white,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    final pillW = textPainter.width + 16;
+    const pillH = 22.0;
+    final pillOffset = Offset(
+      (point.dx - pillW / 2).clamp(0.0, double.infinity),
+      point.dy - pillH - 8,
+    );
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(pillOffset.dx, pillOffset.dy, pillW, pillH),
+      const Radius.circular(11),
+    );
+
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = const Color(0x1F000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    );
+    canvas.drawRRect(rect, Paint()..color = bg);
+    textPainter.paint(
+      canvas,
+      Offset(
+        pillOffset.dx + (pillW - textPainter.width) / 2,
+        pillOffset.dy + (pillH - textPainter.height) / 2,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _UtilityGradientAreaChartPainter oldDelegate) =>
+      true;
 }
 
 /// การ์ดเซนเซอร์สภาพอากาศ AIoT — เนื้อหา/เลย์เอาต์แบบเดียวกับ
@@ -3165,556 +3778,6 @@ class _StatusPulseDot extends StatelessWidget {
             color: color.withValues(alpha: 0.4),
             blurRadius: 8,
             spreadRadius: 2,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// กราฟแท่งคู่ (ไฟฟ้า/น้ำ) รายวันของห้องประจำชั้น จ.-ศ. — ปรับสเกลแท่งแยก
-/// ต่อชนิดพลังงาน (kWh กับ m³ หน่วยต่างกัน) เทียบกับค่าสูงสุดของตัวเอง
-/// ในสัปดาห์ ไม่เทียบข้ามหน่วยกัน ผลรวมของแต่ละชุดตรงกับตัวเลขสรุปด้านบน
-/// (ไฟฟ้า 142 kWh, น้ำ 3.2 m³) ข้อมูล mock ทั้งหมด พร้อมสลับเป็น API ทีหลัง
-/// เวอร์ชันดัดแปลงของ "Project Scope & Progress Trend Line Chart" (การ์ด 7
-/// ใน teacher_storybook_page.dart) — เอาเทคนิคเส้นวิ่งเรืองแสง (running
-/// glow) + crosshair hover มาใช้ซ้ำ เหลือ 2 เส้นแทน 3 (ไฟฟ้า/น้ำ) แล้ว
-/// เปลี่ยนสีให้เข้ากับ TeacherPalette ของแดชบอร์ดนี้แทนโทนน้ำเงิน/แดง/เขียว
-/// เดิม ป้ายแกน X เปลี่ยนจากวันที่โปรเจกต์เป็นวันในสัปดาห์ (จ.-ศ.)
-class _UtilityWeeklyChart extends StatefulWidget {
-  const _UtilityWeeklyChart();
-
-  @override
-  State<_UtilityWeeklyChart> createState() => _UtilityWeeklyChartState();
-}
-
-class _UtilityWeeklyChartState extends State<_UtilityWeeklyChart>
-    with SingleTickerProviderStateMixin {
-  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
-
-  late final AnimationController _controller;
-  double _hoverXRatio = 0.72;
-  bool _isHovered = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          children: [
-            Text(
-              'ค่าเฉลี่ยรายวัน',
-              style: TextStyle(
-                color: TeacherPalette.ink,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            Spacer(),
-            _UtilityLegendDot(color: TeacherPalette.orange, label: 'ไฟฟ้า'),
-            SizedBox(width: 10),
-            _UtilityLegendDot(color: _kWaterBlue, label: 'น้ำ'),
-          ],
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 96,
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return MouseRegion(
-                onHover: (event) {
-                  final box = context.findRenderObject() as RenderBox?;
-                  if (box != null) {
-                    final localPos = box.globalToLocal(event.position);
-                    setState(() {
-                      _hoverXRatio = (localPos.dx / box.size.width).clamp(
-                        0.0,
-                        1.0,
-                      );
-                      _isHovered = true;
-                    });
-                  }
-                },
-                onExit: (_) {
-                  setState(() {
-                    _isHovered = false;
-                    _hoverXRatio = 0.72;
-                  });
-                },
-                child: CustomPaint(
-                  painter: _UtilityGlowLineChartPainter(
-                    pulsePhase: _controller.value,
-                    hoverXRatio: _hoverXRatio,
-                    isHovered: _isHovered,
-                  ),
-                  size: Size.infinite,
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            for (final day in _days)
-              Expanded(
-                child: Text(
-                  day,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: TeacherPalette.muted,
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _UtilityGlowLineChartPainter extends CustomPainter {
-  _UtilityGlowLineChartPainter({
-    required this.pulsePhase,
-    required this.hoverXRatio,
-    required this.isHovered,
-  });
-
-  final double pulsePhase;
-  final double hoverXRatio;
-  final bool isHovered;
-
-  static const _electricColor = TeacherPalette.orange; // ไฟฟ้า
-  static const _waterColor = _kWaterBlue; // น้ำ
-  static const _electricGlow = Color(0xFFFDBA74);
-  static const _waterGlow = Color(0xFF7DD3FC);
-  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // เส้นไฟฟ้า (จ.-ศ. อิงสัดส่วนจาก 26/24/30/28/34 kWh ที่ใช้ในการ์ดนี้)
-    final electricPath = Path();
-    electricPath.moveTo(0, h * 0.68);
-    electricPath.cubicTo(
-      w * 0.10,
-      h * 0.80,
-      w * 0.18,
-      h * 0.90,
-      w * 0.25,
-      h * 0.72,
-    );
-    electricPath.cubicTo(
-      w * 0.34,
-      h * 0.52,
-      w * 0.42,
-      h * 0.48,
-      w * 0.50,
-      h * 0.55,
-    );
-    electricPath.cubicTo(
-      w * 0.62,
-      h * 0.65,
-      w * 0.78,
-      h * 0.30,
-      w * 1.0,
-      h * 0.10,
-    );
-
-    // เส้นน้ำ (จ.-ศ. อิงสัดส่วนจาก m³) — มีจุดตัดกับเส้นไฟฟ้าช่วง อ.-พ.
-    final waterPath = Path();
-    waterPath.moveTo(0, h * 0.82);
-    waterPath.cubicTo(
-      w * 0.10,
-      h * 0.88,
-      w * 0.18,
-      h * 0.76,
-      w * 0.25,
-      h * 0.70, // ตัดและอยู่เหนือเส้นไฟฟ้าเล็กน้อยตรงช่วง อ.
-    );
-    waterPath.cubicTo(
-      w * 0.34,
-      h * 0.65,
-      w * 0.42,
-      h * 0.82,
-      w * 0.50,
-      h * 0.85,
-    );
-    waterPath.cubicTo(
-      w * 0.62,
-      h * 0.88,
-      w * 0.78,
-      h * 0.65,
-      w * 1.0,
-      h * 0.58,
-    );
-
-    // 1. แรเงาใต้เส้นน้ำ (Water Cyan Gradient Fill)
-    final waterFillPath = Path.from(waterPath)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-
-    final waterFillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          _waterColor.withValues(alpha: 0.22),
-          _waterColor.withValues(alpha: 0.02),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-
-    // 2. แรเงาใต้เส้นไฟฟ้า (Electric Orange Gradient Fill)
-    final electricFillPath = Path.from(electricPath)
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-
-    final electricFillPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          _electricColor.withValues(alpha: 0.22),
-          _electricColor.withValues(alpha: 0.02),
-        ],
-      ).createShader(Rect.fromLTWH(0, 0, w, h));
-
-    // วาดแรเงาสีฟ้าของน้ำไว้ล่างสุด แล้วตามด้วยแรเงาสีส้มของไฟซ้อนทับ
-    canvas.drawPath(waterFillPath, waterFillPaint);
-    canvas.drawPath(electricFillPath, electricFillPaint);
-
-    final electricBasePaint = Paint()
-      ..color = _electricColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final waterBasePaint = Paint()
-      ..color = _waterColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawPath(electricPath, electricBasePaint);
-    canvas.drawPath(waterPath, waterBasePaint);
-
-    // เส้นวิ่งเรืองแสง (running glow) — วิ่งพร้อมกันตาม pulsePhase เดียวกัน
-    // วาดเส้นไฟก่อน แล้วตามด้วยเส้นน้ำ เพื่อให้แรงเงาไฟไปซ่อนอยู่ด้านหลังแรงเหนาน้ำ
-    _drawRunningGlowEffect(canvas, electricPath, _electricGlow, pulsePhase);
-    _drawRunningGlowEffect(canvas, waterPath, _waterGlow, pulsePhase);
-
-    // End node circles
-    final electricEnd = Offset(w, h * 0.10);
-    final waterEnd = Offset(w, h * 0.58);
-    canvas.drawCircle(electricEnd, 4.5, Paint()..color = _electricColor);
-    canvas.drawCircle(
-      electricEnd,
-      4.5,
-      Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-    canvas.drawCircle(waterEnd, 4.5, Paint()..color = _waterColor);
-    canvas.drawCircle(
-      waterEnd,
-      4.5,
-      Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-
-    // Crosshair + tooltip แสดงวันที่ตรงตำแหน่ง hover บนเส้นไฟฟ้า
-    final targetX = hoverXRatio * w;
-    final focusY = _getElectricLineYAtX(targetX, w, h);
-    final pinCenter = Offset(targetX, focusY);
-
-    final crossPaint = Paint()
-      ..color = const Color(0xFFE2D9F0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    canvas.drawLine(Offset(targetX, 0), Offset(targetX, h), crossPaint);
-
-    canvas.drawCircle(pinCenter, 5.0, Paint()..color = _electricColor);
-    canvas.drawCircle(
-      pinCenter,
-      7.5,
-      Paint()..color = _electricColor.withValues(alpha: 0.2),
-    );
-    canvas.drawCircle(
-      pinCenter,
-      5.0,
-      Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8,
-    );
-
-    final dayIndex = (hoverXRatio * _days.length).floor().clamp(
-      0,
-      _days.length - 1,
-    );
-    _drawTooltipBadge(canvas, pinCenter, _days[dayIndex]);
-  }
-
-  void _drawRunningGlowEffect(
-    Canvas canvas,
-    Path path,
-    Color glowColor,
-    double phase,
-  ) {
-    final metrics = path.computeMetrics();
-    for (final metric in metrics) {
-      final totalLen = metric.length;
-      final headDist = totalLen * phase;
-      final tailLen = totalLen * 0.28;
-
-      final pulsePath = metric.extractPath(
-        (headDist - tailLen).clamp(0.0, totalLen),
-        headDist.clamp(0.0, totalLen),
-      );
-
-      final glowPaint = Paint()
-        ..color = glowColor.withValues(alpha: 0.85)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4.5
-        ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 3.0);
-
-      final corePaint = Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5;
-
-      canvas.drawPath(pulsePath, glowPaint);
-      canvas.drawPath(pulsePath, corePaint);
-    }
-  }
-
-  double _getElectricLineYAtX(double x, double w, double h) {
-    if (x <= w * 0.25) {
-      final t = (x / (w * 0.25)).clamp(0.0, 1.0);
-      return h * 0.68 - (h * -0.04) * t;
-    } else if (x <= w * 0.50) {
-      final t = ((x - w * 0.25) / (w * 0.25)).clamp(0.0, 1.0);
-      return h * 0.72 - (h * 0.17) * t;
-    } else {
-      final t = ((x - w * 0.50) / (w * 0.50)).clamp(0.0, 1.0);
-      return h * 0.55 - (h * 0.45) * t;
-    }
-  }
-
-  void _drawTooltipBadge(Canvas canvas, Offset pinCenter, String text) {
-    final tooltipOffset = Offset(pinCenter.dx - 16, pinCenter.dy - 30);
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(tooltipOffset.dx, tooltipOffset.dy, 32, 20),
-      const Radius.circular(7),
-    );
-
-    final borderPaint = Paint()
-      ..color = const Color(0xFFE2D9F0)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-    final fillPaint = Paint()..color = Colors.white;
-
-    canvas.drawRRect(rect, fillPaint);
-    canvas.drawRRect(rect, borderPaint);
-
-    final textPainter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          color: TeacherPalette.ink,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    textPainter.paint(
-      canvas,
-      Offset(
-        tooltipOffset.dx + (32 - textPainter.width) / 2,
-        tooltipOffset.dy + (20 - textPainter.height) / 2,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _UtilityGlowLineChartPainter oldDelegate) =>
-      true;
-}
-
-class _UtilityLegendDot extends StatelessWidget {
-  const _UtilityLegendDot({required this.color, required this.label});
-
-  final Color color;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            color: TeacherPalette.muted,
-            fontSize: 10.5,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _UtilityMiniMetric extends StatelessWidget {
-  const _UtilityMiniMetric({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.trendUp,
-    required this.trendLabel,
-    required this.color,
-    this.scopeBadge,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String unit;
-  final bool trendUp;
-  final String trendLabel;
-  final Color color;
-  final String? scopeBadge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: TeacherPalette.ink,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13.5,
-                ),
-              ),
-              if (scopeBadge != null) ...[
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    scopeBadge!,
-                    style: const TextStyle(
-                      color: TeacherPalette.muted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          RichText(
-            text: TextSpan(
-              text: value,
-              style: const TextStyle(
-                color: TeacherPalette.ink,
-                fontWeight: FontWeight.w900,
-                fontSize: 22,
-                letterSpacing: -0.5,
-              ),
-              children: [
-                TextSpan(
-                  text: ' $unit',
-                  style: const TextStyle(
-                    color: TeacherPalette.muted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                trendUp
-                    ? Icons.trending_up_rounded
-                    : Icons.trending_down_rounded,
-                size: 14,
-                color: trendUp
-                    ? const Color(0xFFDC2626)
-                    : const Color(0xFF059669),
-              ),
-              const SizedBox(width: 3),
-              Text(
-                '$trendLabel จากสัปดาห์ก่อน',
-                style: TextStyle(
-                  color: trendUp
-                      ? const Color(0xFFDC2626)
-                      : const Color(0xFF059669),
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -3948,7 +4011,9 @@ class _OpsTaskTile extends StatelessWidget {
               backgroundColor: task.color,
               foregroundColor: Colors.white,
             ),
-            onPressed: () {},
+            onPressed: () =>
+                showTeacherMockAction(context, 'จัดการ ${task.title}'),
+
             child: Text(task.count),
           ),
         ],
@@ -4532,6 +4597,8 @@ class TeacherMock {
   static const menu = [
     _MenuItem('แดชบอร์ด', Icons.dashboard_rounded),
     _MenuItem('รายวิชา', Icons.menu_book_rounded),
+    _MenuItem('คลังข้อสอบ', Icons.quiz_rounded),
+    _MenuItem('คลังความรู้', Icons.folder_special_rounded),
     _MenuItem('นักเรียน', Icons.groups_2_rounded),
     _MenuItem('ตรวจงาน', Icons.assignment_turned_in_rounded),
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
@@ -4771,6 +4838,714 @@ void _showComingSoon(BuildContext context, String label) {
   );
 }
 
+/// เปิดหน้ารายละเอียดวิชาจากการ์ด `_TeacherClassCard` — `_ClassItem` ไม่มี
+/// ทุกฟิลด์ที่ `TeacherCourseModel` ต้องการ (เช่น จำนวนงานค้างตรวจจริง)
+/// เพราะเป็น mock คนละชุดกัน ค่าที่ไม่มีข้อมูลจริงจึงใส่เป็น 0/ว่างไว้ก่อน
+/// แทนที่จะเดาตัวเลขขึ้นมาเอง
+void _openClassDetail(BuildContext context, _ClassItem item) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TeacherCourseDetailPage(
+        course: TeacherCourseModel(
+          code: item.code,
+          name: item.title,
+          category: item.status,
+          rooms: [item.room],
+          studentCount: item.students,
+          activeAssignments: 0,
+          pendingGradingCount: 0,
+          completionRate: 0,
+          coverGradient: item.gradient,
+          accentColor: item.statusColor,
+          nextPeriodText: item.status,
+        ),
+      ),
+    ),
+  );
+}
+
+/// แสดงรายละเอียดคาบเรียนจากตารางสอนวันนี้ — `_LessonItem` ไม่มีการผูกกับ
+/// วิชา/หน้ารายละเอียดใดโดยตรง จึงโชว์เป็นแผ่นข้อมูลสรุปแทนการเดา
+/// นำทางไปหน้าอื่นที่อาจไม่ตรงกับคาบเรียนจริง
+void _openLessonDetail(BuildContext context, _LessonItem lesson) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (context) => Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: TeacherPalette.border,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: lesson.tint,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(lesson.icon, color: lesson.color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      lesson.title,
+                      style: const TextStyle(
+                        color: TeacherPalette.ink,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${lesson.time} · ${lesson.room}',
+                      style: const TextStyle(
+                        color: TeacherPalette.muted,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (lesson.note.trim().isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: TeacherPalette.sidebar,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                lesson.note,
+                style: const TextStyle(
+                  color: TeacherPalette.ink,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+
+class _TeacherSearchSuggestion {
+  const _TeacherSearchSuggestion(this.label, this.query, this.icon);
+
+  final String label;
+  final String query;
+  final IconData icon;
+}
+
+const _teacherSearchSuggestions = [
+  _TeacherSearchSuggestion('ทั้งหมด', '', Icons.grid_view_rounded),
+  _TeacherSearchSuggestion('AIoT', 'AIoT', Icons.memory_rounded),
+  _TeacherSearchSuggestion('ฟิสิกส์', 'ฟิสิกส์', Icons.science_rounded),
+  _TeacherSearchSuggestion('ชีววิทยา', 'ชีววิทยา', Icons.eco_rounded),
+];
+
+/// ป็อปอัพตัวอย่างแจ้งเตือนแบบกระจกฝ้า (glassmorphic) — สไตล์เดียวกับ
+/// `_openGlassNotificationModal` ฝั่งนักเรียน (student_navigation_prototype.
+/// dart): เบลอพื้นหลัง + การ์ดขาวโปร่งแสง + โชว์ 3 รายการล่าสุด + ปุ่ม
+/// "ดูการแจ้งเตือนทั้งหมด" พาไปหน้าเต็ม `TeacherNotificationsPage` (ของเดิม
+/// ที่มีระบบกรอง/mark-as-read ครบอยู่แล้ว ไม่ได้แตะ) ใช้ข้อมูล mock ชุด
+/// เดียวกับหน้าเต็มผ่าน `mockTeacherNotifications()` กันข้อมูลไม่ตรงกัน
+void _showTeacherNotificationPreview(BuildContext context) {
+  final notifications = mockTeacherNotifications();
+  final preview = notifications.take(3).toList();
+
+  showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black.withValues(alpha: 0.38),
+    builder: (dialogContext) {
+      return Dialog(
+        alignment: Alignment.topRight,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.only(
+          right: 16,
+          left: 16,
+          top: 90,
+          bottom: 24,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(36),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xF7FFFFFF),
+                borderRadius: BorderRadius.circular(36),
+                border: Border.all(color: const Color(0x1F0F172A), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.14),
+                    blurRadius: 34,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 380),
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'การแจ้งเตือน 🔔',
+                              style: TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                            color: const Color(0xFF334155),
+                            tooltip: 'ปิด',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      if (preview.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 20),
+                          child: Center(
+                            child: Text(
+                              'ไม่มีการแจ้งเตือนใหม่',
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        for (final notif in preview)
+                          _GlassNotificationTile(notif: notif),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            Navigator.of(dialogContext).pop();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    const TeacherNotificationsPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.notifications_rounded,
+                            size: 18,
+                          ),
+                          label: const Text('ดูการแจ้งเตือนทั้งหมด'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: TeacherPalette.primary,
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _GlassNotificationTile extends StatelessWidget {
+  const _GlassNotificationTile({required this.notif});
+
+  final NotificationItemModel notif;
+
+  Color get _categoryColor => switch (notif.category) {
+    'emergency' => TeacherPalette.red,
+    'sensor' => TeacherPalette.orange,
+    'grading' => TeacherPalette.primary,
+    'camera' => TeacherPalette.skyDeep,
+    _ => TeacherPalette.muted,
+  };
+
+  IconData get _categoryIcon => switch (notif.category) {
+    'emergency' => Icons.warning_amber_rounded,
+    'sensor' => Icons.sensors_rounded,
+    'grading' => Icons.assignment_turned_in_rounded,
+    'camera' => Icons.videocam_rounded,
+    _ => Icons.notifications_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _categoryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(_categoryIcon, size: 18, color: _categoryColor),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notif.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xFF0F172A),
+                    fontSize: 12.5,
+                    fontWeight: notif.isRead
+                        ? FontWeight.w700
+                        : FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  notif.message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  notif.timestamp,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!notif.isRead)
+            Container(
+              margin: const EdgeInsets.only(top: 4, left: 4),
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: TeacherPalette.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ป็อปอัพค้นหาวิชาที่สอนและคาบเรียนวันนี้ — ทำสไตล์กระจกฝ้า (glassmorphic)
+/// แบบเดียวกับป็อปอัพค้นหาของฝั่งนักเรียน (`_showSearchPopup` ใน
+/// student_course_catalog_page.dart) เพื่อให้หน้าตาเป็นชุดเดียวกันทั้งแอป
+/// แม้ข้อมูลที่ค้นหาจะเป็นคนละชุด (วิชา+ตารางสอนของครู แทนรายวิชาของ
+/// นักเรียน) — ใช้ StatefulBuilder ภายในเพื่อให้ผลลัพธ์/ชิปอัปเดตสดขณะพิมพ์
+/// โดยไม่ต้องผูก state เข้ากับหน้าเดิม
+Future<void> _showTeacherSearchDialog(BuildContext context) async {
+  final searchController = TextEditingController();
+  var query = '';
+
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black.withValues(alpha: 0.35),
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          final q = query.trim().toLowerCase();
+          final classes = TeacherMock.classes
+              .where(
+                (c) =>
+                    q.isEmpty ||
+                    c.title.toLowerCase().contains(q) ||
+                    c.code.toLowerCase().contains(q) ||
+                    c.room.toLowerCase().contains(q),
+              )
+              .toList();
+          final lessons = TeacherMock.lessons
+              .where(
+                (l) =>
+                    q.isEmpty ||
+                    l.title.toLowerCase().contains(q) ||
+                    l.room.toLowerCase().contains(q),
+              )
+              .toList();
+          final hasResults = classes.isNotEmpty || lessons.isNotEmpty;
+
+          return Dialog(
+            alignment: Alignment.topCenter,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            insetPadding: const EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 52,
+              bottom: 24,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.65),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.12),
+                        blurRadius: 32,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 560,
+                      maxHeight: 560,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'ค้นหาวิชาและตารางสอน 🔍',
+                                  style: TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 18.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(),
+                                icon: const Icon(Icons.close_rounded),
+                                color: const Color(0xFF334155),
+                                tooltip: 'ปิด',
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: TextField(
+                                controller: searchController,
+                                autofocus: true,
+                                textInputAction: TextInputAction.search,
+                                onChanged: (value) =>
+                                    setDialogState(() => query = value),
+                                style: const TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: const Color(0xFFF1F5F9),
+                                  focusedBorder: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  border: InputBorder.none,
+                                  hintText:
+                                      'ค้นหาวิชา รหัสวิชา หรือห้องเรียน...',
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  prefixIcon: const Padding(
+                                    padding: EdgeInsets.only(
+                                      left: 14,
+                                      right: 8,
+                                    ),
+                                    child: Icon(
+                                      Icons.search_rounded,
+                                      color: Color(0xFF94A3B8),
+                                      size: 18,
+                                    ),
+                                  ),
+                                  prefixIconConstraints: const BoxConstraints(
+                                    minWidth: 40,
+                                    minHeight: 40,
+                                  ),
+                                  suffixIcon: query.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(
+                                            Icons.clear_rounded,
+                                            size: 18,
+                                            color: Color(0xFF64748B),
+                                          ),
+                                          onPressed: () => setDialogState(() {
+                                            query = '';
+                                            searchController.clear();
+                                          }),
+                                        )
+                                      : null,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _teacherSearchSuggestions.map((s) {
+                              final selected = s.query.isEmpty
+                                  ? query.isEmpty
+                                  : query.toLowerCase() ==
+                                        s.query.toLowerCase();
+                              return InkWell(
+                                onTap: () => setDialogState(() {
+                                  query = s.query;
+                                  searchController.text = s.query;
+                                  searchController.selection =
+                                      TextSelection.collapsed(
+                                        offset: s.query.length,
+                                      );
+                                }),
+                                borderRadius: BorderRadius.circular(999),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? const Color(0xFFEFF6FF)
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: selected
+                                          ? const Color(0xFF93C5FD)
+                                          : const Color(0xFFD7E1EA),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        s.icon,
+                                        size: 14,
+                                        color: selected
+                                            ? const Color(0xFF2563EB)
+                                            : const Color(0xFF475569),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        s.label,
+                                        style: TextStyle(
+                                          color: selected
+                                              ? const Color(0xFF1D4ED8)
+                                              : const Color(0xFF334155),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 12),
+                          Flexible(
+                            child: !hasResults
+                                ? const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 24),
+                                    child: Center(
+                                      child: Text(
+                                        'ไม่พบผลลัพธ์',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (classes.isNotEmpty) ...[
+                                          const _TeacherSearchSectionLabel(
+                                            'รายวิชา',
+                                          ),
+                                          for (final item in classes)
+                                            ListTile(
+                                              contentPadding: EdgeInsets.zero,
+                                              leading: Icon(
+                                                item.icon,
+                                                color: item.statusColor,
+                                              ),
+                                              title: Text(item.title),
+                                              subtitle: Text(
+                                                '${item.code} · ${item.room}',
+                                              ),
+                                              onTap: () {
+                                                Navigator.of(
+                                                  dialogContext,
+                                                ).pop();
+                                                _openClassDetail(context, item);
+                                              },
+                                            ),
+                                        ],
+                                        if (lessons.isNotEmpty) ...[
+                                          const _TeacherSearchSectionLabel(
+                                            'ตารางสอนวันนี้',
+                                          ),
+                                          for (final lesson in lessons)
+                                            ListTile(
+                                              contentPadding: EdgeInsets.zero,
+                                              leading: Icon(
+                                                lesson.icon,
+                                                color: lesson.color,
+                                              ),
+                                              title: Text(lesson.title),
+                                              subtitle: Text(
+                                                '${lesson.time} · ${lesson.room}',
+                                              ),
+                                              onTap: () {
+                                                Navigator.of(
+                                                  dialogContext,
+                                                ).pop();
+                                                _openLessonDetail(
+                                                  context,
+                                                  lesson,
+                                                );
+                                              },
+                                            ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              label: const Text('ปิด'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+
+  searchController.dispose();
+}
+
+class _TeacherSearchSectionLabel extends StatelessWidget {
+  const _TeacherSearchSectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: TeacherPalette.muted,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
 /// เมนูไซด์บาร์/Drawer ฝั่งครู (นอกจาก "แดชบอร์ด" ที่สลับ variant ในหน้า
 /// เดิม) — แต่ละอันพาไปหน้า mock ของตัวเองแล้ว (รายวิชา/นักเรียน/ตรวจงาน/
 /// คะแนน/AIoT) เมนูที่ยังไม่มีหน้าเลยค่อย fallback ไปโชว์ "อยู่ระหว่าง
@@ -4781,6 +5556,16 @@ void _openTeacherMenuItem(BuildContext context, String label) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherCoursesPage()),
+      );
+    case 'คลังข้อสอบ':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherQuestionBankPage()),
+      );
+    case 'คลังความรู้':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherKnowledgeLibraryPage()),
       );
     case 'นักเรียน':
       Navigator.push(

@@ -11,6 +11,10 @@ import 'pages/teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_design_system_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_storybook_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_courses_page.dart';
+import 'pages/teacher_redesign_prototype/teacher_exam_builder_page.dart';
+import 'pages/teacher_redesign_prototype/teacher_grading_page.dart';
+import 'pages/teacher_redesign_prototype/teacher_question_bank_page.dart';
+import 'pages/teacher_redesign_prototype/teacher_knowledge_library_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_gscore_confirm_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_student_support_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
@@ -28,6 +32,9 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.initialize();
+  // ⚠️ ต้องเปลี่ยนเป็น false ก่อนขึ้นระบบจริง — ตอนนี้ true ทำให้แอปข้าม
+  // login/auth จริงไปเข้าโหมด prototype เสมอ (ดูรายละเอียดใน
+  // teacher_redesign_prototype/NOTES.md และ student_redesign_prototype/NOTES.md)
   const isPrototypeRoute = true;
   runApp(const MyApp(isPrototypeMode: isPrototypeRoute));
 }
@@ -42,8 +49,8 @@ class MyApp extends StatelessWidget {
     final initialUri = Uri.base;
 
     return MaterialApp(
+      title: 'USER APP',
       debugShowCheckedModeBanner: false,
-      title: 'AIoT Smart School',
       theme: AppTheme.lightTheme,
       home: isPrototypeMode
           ? _buildPrototypeHome(initialUri)
@@ -209,6 +216,18 @@ class MyApp extends StatelessWidget {
     }
     if (path.contains('course-detail')) {
       return const TeacherCourseDetailPage();
+    }
+    if (path.contains('exam-builder')) {
+      return const TeacherExamBuilderPage();
+    }
+    if (path.contains('teacher-grading')) {
+      return const TeacherGradingPage();
+    }
+    if (path.contains('question-bank')) {
+      return const TeacherQuestionBankPage();
+    }
+    if (path.contains('knowledge-library')) {
+      return const TeacherKnowledgeLibraryPage();
     }
     if (path.contains('gscore-confirm')) {
       return const TeacherGScoreConfirmPage();

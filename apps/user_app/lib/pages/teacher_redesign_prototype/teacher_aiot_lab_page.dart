@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
+import 'teacher_shared_widgets.dart';
 
 enum _DeviceStatus { on, off, pending, failed }
 
@@ -166,50 +167,23 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: TeacherPalette.page,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: TeacherPalette.ink,
-        title: const Text(
-          'AIoT Lab Control',
-          style: TextStyle(
-            color: TeacherPalette.ink,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 900;
-              return ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isDesktop ? 980 : 640),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabModeBanner(),
-                      const SizedBox(height: 16),
-                      _buildSensorSection(isDesktop),
-                      const SizedBox(height: 16),
-                      _buildControlSection(isDesktop),
-                      const SizedBox(height: 16),
-                      _buildHistorySection(),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
+    return TeacherMockPageShell(
+      title: 'AIoT Lab Control',
+      activeMenuLabel: 'Wiring Lab',
+      builder: (context, isDesktop) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabModeBanner(),
+            const SizedBox(height: 16),
+            _buildSensorSection(isDesktop),
+            const SizedBox(height: 16),
+            _buildControlSection(isDesktop),
+            const SizedBox(height: 16),
+            _buildHistorySection(),
+          ],
+        );
+      },
     );
   }
 
