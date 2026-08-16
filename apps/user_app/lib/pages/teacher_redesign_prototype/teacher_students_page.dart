@@ -1,98 +1,31 @@
-// PROTOTYPE ONLY: "นักเรียน" — mock roster with a per-student status so the
-// teacher spots problems at a glance, filterable by room. UI/UX only, mock
-// data, no backend.
-
+// เชื่อมกับ CourseService จริงแล้ว (2026-08-16) — เดิม mock ล้วน
+//
+// รายชื่อนักเรียนตอนนี้โหลดจริงจาก listCourseStudents ของทุกรายวิชาที่ครู
+// สอน — ตัดสถานะ "ส่งงานครบ/งานค้าง/ต้องติดตาม" ทิ้ง เพราะเป็นตัวเลขที่
+// สคีมาจริงไม่มีรองรับ (ต้องคำนวณจากการส่งงานทุกชิ้นซึ่งเป็นงานแยกต่างหาก
+// ไม่ใช่สิ่งที่ควรเดา) เหลือแค่ข้อมูลที่ real ID จริง: ชื่อ/อีเมล/รายวิชาที่
+// ลงทะเบียน/วันที่ลงทะเบียน
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
-enum _StudentStatus { complete, pending, watch }
-
-extension on _StudentStatus {
-  String get label => switch (this) {
-    _StudentStatus.complete => 'ส่งงานครบ',
-    _StudentStatus.pending => 'งานค้าง',
-    _StudentStatus.watch => 'ต้องติดตาม',
-  };
-
-  Color get color => switch (this) {
-    _StudentStatus.complete => TeacherPalette.primary,
-    _StudentStatus.pending => TeacherPalette.orange,
-    _StudentStatus.watch => TeacherPalette.red,
-  };
-}
-
-class _StudentMock {
-  const _StudentMock({
+class _StudentRosterEntry {
+  const _StudentRosterEntry({
+    required this.studentId,
     required this.name,
+    required this.email,
     required this.room,
-    required this.status,
-    required this.note,
+    required this.enrolledAt,
   });
 
+  final String studentId;
   final String name;
+  final String email;
   final String room;
-  final _StudentStatus status;
-  final String note;
+  final DateTime enrolledAt;
 }
-
-const _students = [
-  _StudentMock(
-    name: 'ณัฐวุฒิ ใจดี',
-    room: 'ม.5/1',
-    status: _StudentStatus.complete,
-    note: 'ส่งงานล่าสุดครบทุกชิ้น',
-  ),
-  _StudentMock(
-    name: 'ปวีณา สายทอง',
-    room: 'ม.5/1',
-    status: _StudentStatus.watch,
-    note: 'ขาดส่งงาน 3 ชิ้นติดต่อกัน',
-  ),
-  _StudentMock(
-    name: 'ธนกร วิจิตร',
-    room: 'ม.5/1',
-    status: _StudentStatus.pending,
-    note: 'ค้างใบงาน AIoT บทที่ 4',
-  ),
-  _StudentMock(
-    name: 'มนัสนันท์ ไพศาล',
-    room: 'ม.5/2',
-    status: _StudentStatus.complete,
-    note: 'ส่งงานตรงเวลาทุกครั้ง',
-  ),
-  _StudentMock(
-    name: 'ปิยะพงษ์ เจริญสุข',
-    room: 'ม.5/2',
-    status: _StudentStatus.pending,
-    note: 'ค้างรายงานโครงงานเซนเซอร์',
-  ),
-  _StudentMock(
-    name: 'กมลชนก ศรีสุข',
-    room: 'ม.6/2',
-    status: _StudentStatus.complete,
-    note: 'คะแนนเฉลี่ยดีต่อเนื่อง',
-  ),
-  _StudentMock(
-    name: 'อภิสิทธิ์ บุญมา',
-    room: 'ม.6/2',
-    status: _StudentStatus.watch,
-    note: 'ขาดเรียน 2 ครั้งในสัปดาห์นี้',
-  ),
-  _StudentMock(
-    name: 'ศิริพร แก้วมณี',
-    room: 'ม.4/3',
-    status: _StudentStatus.pending,
-    note: 'ค้างส่งรายงานโครงงาน',
-  ),
-  _StudentMock(
-    name: 'วรเมธ ทองสุข',
-    room: 'ม.4/3',
-    status: _StudentStatus.complete,
-    note: 'ส่งงานตรงเวลาทุกครั้ง',
-  ),
-];
 
 class TeacherStudentsPage extends StatefulWidget {
   const TeacherStudentsPage({super.key, this.initialRoomFilter});
@@ -108,31 +41,103 @@ class TeacherStudentsPage extends StatefulWidget {
 
 class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
   late Set<String> _selectedRooms = {...?widget.initialRoomFilter};
+  bool _loading = true;
+  String? _loadError;
+  List<_StudentRosterEntry> _roster = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final courses = await CourseService.listMyCourses();
+      final roster = <_StudentRosterEntry>[];
+      for (final c in courses) {
+        final room = c.room ?? c.gradeLevel ?? c.subjectName;
+        List<CourseStudent> students;
+        try {
+          students = await CourseService.listCourseStudents(c.id);
+        } catch (_) {
+          students = const [];
+        }
+        for (final s in students) {
+          roster.add(
+            _StudentRosterEntry(
+              studentId: s.studentId,
+              name: '${s.firstName} ${s.lastName}',
+              email: s.email,
+              room: room,
+              enrolledAt: s.enrolledAt,
+            ),
+          );
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        _roster = roster;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดรายชื่อนักเรียนไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
 
   List<String> get _allRooms =>
-      _students.map((s) => s.room).toSet().toList()..sort();
+      _roster.map((s) => s.room).toSet().toList()..sort();
 
-  List<_StudentMock> get _visibleStudents => _selectedRooms.isEmpty
-      ? _students
-      : _students.where((s) => _selectedRooms.contains(s.room)).toList();
+  List<_StudentRosterEntry> get _visibleStudents => _selectedRooms.isEmpty
+      ? _roster
+      : _roster.where((s) => _selectedRooms.contains(s.room)).toList();
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visibleStudents;
-    final total = visible.length;
-    final complete = visible
-        .where((s) => s.status == _StudentStatus.complete)
-        .length;
-    final pending = visible
-        .where((s) => s.status == _StudentStatus.pending)
-        .length;
-    final watch = visible.where((s) => s.status == _StudentStatus.watch).length;
-    final isFiltered = _selectedRooms.isNotEmpty;
-
     return TeacherMockPageShell(
       title: 'นักเรียน',
       activeMenuLabel: 'นักเรียน',
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _loadError!,
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: _load, child: const Text('ลองใหม่')),
+              ],
+            ),
+          );
+        }
+        final visible = _visibleStudents;
+        final total = visible.length;
+        final roomCount = visible.map((s) => s.room).toSet().length;
+        final isFiltered = _selectedRooms.isNotEmpty;
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -212,14 +217,14 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
-                final columns = isDesktop ? 4 : 2;
+                final columns = isDesktop ? 2 : 2;
                 return GridView.count(
                   crossAxisCount: columns,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: isDesktop ? 1.5 : 1.3,
+                  childAspectRatio: isDesktop ? 2.2 : 1.5,
                   children: [
                     TeacherStatCard(
                       label: 'นักเรียนทั้งหมด',
@@ -228,22 +233,10 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
                       color: TeacherPalette.primary,
                     ),
                     TeacherStatCard(
-                      label: 'ส่งงานครบ',
-                      value: '$complete',
-                      icon: Icons.check_circle_rounded,
+                      label: 'จำนวนห้อง/รายวิชา',
+                      value: '$roomCount',
+                      icon: Icons.meeting_room_rounded,
                       color: TeacherPalette.skyDeep,
-                    ),
-                    TeacherStatCard(
-                      label: 'งานค้าง',
-                      value: '$pending',
-                      icon: Icons.pending_actions_rounded,
-                      color: TeacherPalette.orange,
-                    ),
-                    TeacherStatCard(
-                      label: 'ต้องติดตาม',
-                      value: '$watch',
-                      icon: Icons.priority_high_rounded,
-                      color: TeacherPalette.red,
                     ),
                   ],
                 );
@@ -327,7 +320,7 @@ class _RoomChip extends StatelessWidget {
 class _StudentRow extends StatelessWidget {
   const _StudentRow({required this.student});
 
-  final _StudentMock student;
+  final _StudentRosterEntry student;
 
   @override
   Widget build(BuildContext context) {
@@ -342,11 +335,11 @@ class _StudentRow extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 19,
-                backgroundColor: student.status.color.withValues(alpha: 0.14),
+                backgroundColor: TeacherPalette.primary.withValues(alpha: 0.14),
                 child: Text(
-                  student.name.substring(0, 1),
-                  style: TextStyle(
-                    color: student.status.color,
+                  student.name.isNotEmpty ? student.name.substring(0, 1) : '?',
+                  style: const TextStyle(
+                    color: TeacherPalette.primary,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -368,7 +361,7 @@ class _StudentRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${student.room} · ${student.note}',
+                      '${student.room} · ${student.email}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -379,11 +372,6 @@ class _StudentRow extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              TeacherStatusChip(
-                label: student.status.label,
-                color: student.status.color,
               ),
             ],
           ),

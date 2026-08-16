@@ -1,64 +1,19 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
+// เชื่อมกับ ParentBindingService จริงแล้ว (2026-08-16) — เดิม mock ล้วน
 //
 // STK-1a: อนุมัติการผูกบัญชีผู้ปกครอง — Primary Actor คือครูประจำชั้น/
 // School Admin/งานทะเบียน (ไม่ใช่ผู้ปกครอง) ต่อจาก STK-1 ที่ผู้ปกครองยื่นคำ
 // ขอผูกบัญชีไว้ (ดู parent_redesign_prototype/parent_binding_page.dart)
-// เพิ่มเมื่อ 2026-08-16 หลังผู้ใช้ถามว่าใครเป็นคนอนุมัติคำขอผูกบัญชี
-
+//
+// backend จริงบังคับ CoI (ผลประโยชน์ทับซ้อน) ฝั่งเซิร์ฟเวอร์อยู่แล้ว —
+// approve_parent_link จะ throw 'coi_self_approval_blocked' เองถ้าผู้อนุมัติ
+// มีความเสี่ยง ไม่ต้องเดาด้วย client heuristic (ชื่อ-สกุลตรงกัน) แบบเดิม
+// อีกต่อไป — จับ error นั้นแล้วเปิดไดอะล็อกส่งตรวจสอบซ้ำแทน
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSectionCard;
-
-class _BindingRequestMock {
-  _BindingRequestMock({
-    required this.parentName,
-    required this.parentEmail,
-    required this.studentName,
-    required this.studentRoom,
-    required this.requestedAt,
-    this.coiFlag = false,
-  });
-
-  final String parentName;
-  final String parentEmail;
-  final String studentName;
-  final String studentRoom;
-  final String requestedAt;
-  final bool coiFlag;
-  _RequestStatus status = _RequestStatus.pending;
-  String? rejectReason;
-}
-
-enum _RequestStatus { pending, approved, rejected, escalated }
-
-List<_BindingRequestMock> _mockRequests() => [
-  _BindingRequestMock(
-    parentName: 'นายสมพงษ์ ใจดี',
-    parentEmail: 'sompong.j@example.com',
-    studentName: 'ด.ช. ปุณณ์ ใจดี',
-    studentRoom: 'ม.5/2',
-    requestedAt: 'วันนี้ 09:14 น.',
-  ),
-  _BindingRequestMock(
-    parentName: 'นางสาววิภาวรรณ สายวิทย์',
-    parentEmail: 'wipawan.s@example.com',
-    studentName: 'ด.ญ. เพลงพิณ สายวิทย์',
-    studentRoom: 'ม.5/2',
-    requestedAt: 'วันนี้ 08:02 น.',
-    // ผู้อนุมัติ (ครูสมชาย สายวิทย์) เป็นนามสกุลเดียวกับคำขอนี้ — จำลอง
-    // กรณี CoI ที่ผู้อนุมัติอาจเป็นผู้ปกครองของเด็กคนนี้เอง (Exception 1)
-    coiFlag: true,
-  ),
-  _BindingRequestMock(
-    parentName: 'นายอนุชา รุ่งเรือง',
-    parentEmail: 'anucha.r@example.com',
-    studentName: 'ด.ช. กิตติศักดิ์ ขยันยิ่ง',
-    studentRoom: 'ม.4/1',
-    requestedAt: 'เมื่อวาน 16:40 น.',
-  ),
-];
 
 class TeacherParentBindingApprovalPage extends StatefulWidget {
   const TeacherParentBindingApprovalPage({super.key});
@@ -70,10 +25,39 @@ class TeacherParentBindingApprovalPage extends StatefulWidget {
 
 class _TeacherParentBindingApprovalPageState
     extends State<TeacherParentBindingApprovalPage> {
-  late final List<_BindingRequestMock> _requests = _mockRequests();
+  bool _loading = true;
+  String? _loadError;
+  List<ParentLink> _pending = [];
+  final Set<String> _busy = {};
 
-  List<_BindingRequestMock> get _pending =>
-      _requests.where((r) => r.status == _RequestStatus.pending).toList();
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final links = await ParentBindingService.listParentLinks(
+        status: 'pending',
+      );
+      if (!mounted) return;
+      setState(() {
+        _pending = links;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดคำขอผูกบัญชีไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
 
   void _showSnack(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -85,24 +69,15 @@ class _TeacherParentBindingApprovalPageState
     );
   }
 
-  Future<void> _approve(_BindingRequestMock request) async {
-    if (request.coiFlag) {
-      // Exception 1 / BR2: มี CoI ต้อง flag + second review เสมอ ห้าม
-      // อนุมัติเองแบบ flow ปกติแม้ผู้ใช้จะพยายามกดก็ตาม
-      _showSnack(
-        'มีความเสี่ยงผลประโยชน์ทับซ้อน (CoI) — ต้องส่งให้ตรวจสอบซ้ำเท่านั้น ไม่สามารถอนุมัติเองได้',
-        TeacherPalette.red,
-      );
-      return;
-    }
+  Future<void> _approve(ParentLink link) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('ยืนยันการอนุมัติ', style: TextStyle(fontSize: 16)),
         content: Text(
-          'ยืนยันว่า "${request.parentName}" เป็นผู้ปกครองจริงของ '
-          '"${request.studentName}" และต้องการอนุมัติการผูกบัญชีนี้ใช่หรือไม่? '
+          'ยืนยันว่า "${link.parentName}" เป็นผู้ปกครองจริงของ '
+          '"${link.studentName}" และต้องการอนุมัติการผูกบัญชีนี้ใช่หรือไม่? '
           'หลังอนุมัติ ผู้ปกครองจะเห็นข้อมูลของนักเรียนคนนี้ได้ทันที',
           style: const TextStyle(fontSize: 13),
         ),
@@ -122,14 +97,98 @@ class _TeacherParentBindingApprovalPageState
       ),
     );
     if (confirmed != true) return;
-    setState(() => request.status = _RequestStatus.approved);
-    _showSnack(
-      'อนุมัติการผูกบัญชีของ ${request.parentName} แล้ว',
-      const Color(0xFF10B981),
-    );
+    setState(() => _busy.add(link.id));
+    try {
+      await ParentBindingService.approveParentLink(link.id);
+      if (!mounted) return;
+      _showSnack(
+        'อนุมัติการผูกบัญชีของ ${link.parentName} แล้ว',
+        const Color(0xFF10B981),
+      );
+      await _load();
+    } catch (e) {
+      if (e.toString().contains('coi_self_approval_blocked')) {
+        if (mounted) setState(() => _busy.remove(link.id));
+        await _promptEscalate(link);
+        return;
+      }
+      if (!mounted) return;
+      _showSnack('อนุมัติไม่สำเร็จ: $e', TeacherPalette.red);
+    } finally {
+      if (mounted) setState(() => _busy.remove(link.id));
+    }
   }
 
-  Future<void> _reject(_BindingRequestMock request) async {
+  // เซิร์ฟเวอร์บล็อกไว้แล้วว่าผู้อนุมัติมีความเสี่ยงผลประโยชน์ทับซ้อน (CoI) —
+  // ทางเดียวที่ทำต่อได้คือส่งให้ตรวจสอบซ้ำโดยผู้อนุมัติคนอื่น (BR2)
+  Future<void> _promptEscalate(ParentLink link) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'พบความเสี่ยงผลประโยชน์ทับซ้อน',
+          style: TextStyle(fontSize: 16),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ระบบตรวจพบว่าคุณอาจมีความเสี่ยงผลประโยชน์ทับซ้อนกับคำขอนี้ '
+              'ไม่สามารถอนุมัติเองได้ — ต้องส่งให้ผู้อนุมัติคนอื่นตรวจสอบซ้ำ',
+              style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 2,
+              decoration: InputDecoration(
+                hintText: 'ระบุเหตุผล เช่น เป็นผู้ปกครองของนักเรียนคนนี้เอง...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: reasonCtrl.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD97706),
+            ),
+            child: const Text('ส่งตรวจสอบซ้ำ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ParentBindingService.requestParentLinkSecondReview(
+        link.id,
+        reason: reasonCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      _showSnack(
+        'ส่งคำขอของ ${link.parentName} ให้ตรวจสอบซ้ำแล้ว',
+        const Color(0xFFD97706),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('ส่งตรวจสอบซ้ำไม่สำเร็จ: $e', TeacherPalette.red);
+    }
+  }
+
+  Future<void> _reject(ParentLink link) async {
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -173,28 +232,56 @@ class _TeacherParentBindingApprovalPageState
       ),
     );
     if (confirmed != true) return;
-    setState(() {
-      request.status = _RequestStatus.rejected;
-      request.rejectReason = reasonCtrl.text.trim();
-    });
-    _showSnack('ปฏิเสธคำขอของ ${request.parentName} แล้ว', TeacherPalette.red);
-  }
-
-  void _escalate(_BindingRequestMock request) {
-    setState(() => request.status = _RequestStatus.escalated);
-    _showSnack(
-      'ส่งคำขอของ ${request.parentName} ให้ School Admin ตรวจสอบซ้ำแล้ว (SLA 24 ชม.ทำการ)',
-      const Color(0xFFD97706),
-    );
+    setState(() => _busy.add(link.id));
+    try {
+      await ParentBindingService.rejectParentLink(
+        link.id,
+        reason: reasonCtrl.text.trim(),
+      );
+      if (!mounted) return;
+      _showSnack('ปฏิเสธคำขอของ ${link.parentName} แล้ว', TeacherPalette.red);
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('ปฏิเสธคำขอไม่สำเร็จ: $e', TeacherPalette.red);
+    } finally {
+      if (mounted) setState(() => _busy.remove(link.id));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final pending = _pending;
     return TeacherMockPageShell(
       title: 'อนุมัติผูกบัญชีผู้ปกครอง',
       activeMenuLabel: 'อนุมัติผูกบัญชี',
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Padding(
+            padding: EdgeInsets.all(48),
+            child: Center(
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _loadError!,
+                  style: const TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(onPressed: _load, child: const Text('ลองใหม่')),
+              ],
+            ),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -209,7 +296,7 @@ class _TeacherParentBindingApprovalPageState
               child: const Text(
                 'STK-1a: ก่อนอนุมัติ ผู้ปกครองยังเห็นข้อมูลบุตรไม่ได้เลย — '
                 'ถ้าผู้อนุมัติมีผลประโยชน์ทับซ้อน (เป็นผู้ปกครองของเด็กคนนั้นเอง) '
-                'ต้องส่งให้ตรวจสอบซ้ำ ห้ามอนุมัติเอง',
+                'ระบบจะบล็อกอัตโนมัติและต้องส่งให้ตรวจสอบซ้ำ',
                 style: TextStyle(
                   color: Color(0xFF1D4ED8),
                   fontSize: 12,
@@ -219,9 +306,9 @@ class _TeacherParentBindingApprovalPageState
             ),
             const SizedBox(height: 14),
             TeacherSectionCard(
-              title: 'คำขอรออนุมัติ (${pending.length} รายการ)',
+              title: 'คำขอรออนุมัติ (${_pending.length} รายการ)',
               icon: Icons.family_restroom_rounded,
-              child: pending.isEmpty
+              child: _pending.isEmpty
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(
@@ -236,13 +323,13 @@ class _TeacherParentBindingApprovalPageState
                     )
                   : Column(
                       children: [
-                        for (var i = 0; i < pending.length; i++) ...[
+                        for (var i = 0; i < _pending.length; i++) ...[
                           if (i != 0) const Divider(height: 24),
                           _RequestRow(
-                            request: pending[i],
-                            onApprove: () => _approve(pending[i]),
-                            onReject: () => _reject(pending[i]),
-                            onEscalate: () => _escalate(pending[i]),
+                            link: _pending[i],
+                            isBusy: _busy.contains(_pending[i].id),
+                            onApprove: () => _approve(_pending[i]),
+                            onReject: () => _reject(_pending[i]),
                           ),
                         ],
                       ],
@@ -257,16 +344,16 @@ class _TeacherParentBindingApprovalPageState
 
 class _RequestRow extends StatelessWidget {
   const _RequestRow({
-    required this.request,
+    required this.link,
+    required this.isBusy,
     required this.onApprove,
     required this.onReject,
-    required this.onEscalate,
   });
 
-  final _BindingRequestMock request;
+  final ParentLink link;
+  final bool isBusy;
   final VoidCallback onApprove;
   final VoidCallback onReject;
-  final VoidCallback onEscalate;
 
   @override
   Widget build(BuildContext context) {
@@ -296,7 +383,7 @@ class _RequestRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    request.parentName,
+                    link.parentName,
                     style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13.5,
@@ -304,7 +391,7 @@ class _RequestRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    request.parentEmail,
+                    link.parentEmail,
                     style: const TextStyle(
                       color: TeacherPalette.muted,
                       fontSize: 11,
@@ -313,7 +400,7 @@ class _RequestRow extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'ขอผูกกับ ${request.studentName} · ${request.studentRoom}',
+                    'ขอผูกกับ ${link.studentName} (${link.relationship})',
                     style: const TextStyle(
                       color: TeacherPalette.softText,
                       fontSize: 12,
@@ -321,7 +408,7 @@ class _RequestRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    request.requestedAt,
+                    'ยื่นคำขอเมื่อ ${link.requestedAt.toLocal()}',
                     style: const TextStyle(
                       color: TeacherPalette.muted,
                       fontSize: 10.5,
@@ -332,75 +419,38 @@ class _RequestRow extends StatelessWidget {
             ),
           ],
         ),
-        if (request.coiFlag) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFFECACA)),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 15,
-                  color: Color(0xFFDC2626),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'ผู้อนุมัติอาจมีผลประโยชน์ทับซ้อน (นามสกุลตรงกับผู้ยื่นคำขอ) — '
-                    'ต้องส่งตรวจสอบซ้ำ ไม่สามารถอนุมัติเองได้',
-                    style: TextStyle(
-                      color: Color(0xFFB91C1C),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
         const SizedBox(height: 10),
         Row(
           children: [
-            if (request.coiFlag)
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onEscalate,
-                  icon: const Icon(Icons.forward_rounded, size: 16),
-                  label: const Text('ส่งตรวจสอบซ้ำ'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFD97706),
-                    side: const BorderSide(color: Color(0xFFD97706)),
-                  ),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: isBusy ? null : onReject,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: TeacherPalette.red,
+                  side: const BorderSide(color: TeacherPalette.red),
                 ),
-              )
-            else ...[
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onReject,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: TeacherPalette.red,
-                    side: const BorderSide(color: TeacherPalette.red),
-                  ),
-                  child: const Text('ปฏิเสธ'),
-                ),
+                child: const Text('ปฏิเสธ'),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton(
-                  onPressed: onApprove,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: TeacherPalette.primary,
-                  ),
-                  child: const Text('อนุมัติ'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: FilledButton(
+                onPressed: isBusy ? null : onApprove,
+                style: FilledButton.styleFrom(
+                  backgroundColor: TeacherPalette.primary,
                 ),
+                child: isBusy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('อนุมัติ'),
               ),
-            ],
+            ),
           ],
         ),
       ],
