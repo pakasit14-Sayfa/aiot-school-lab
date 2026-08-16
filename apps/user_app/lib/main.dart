@@ -16,6 +16,8 @@ import 'pages/teacher_redesign_prototype/teacher_student_support_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
 import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
 import 'pages/executive_redesign_prototype/executive_home_page.dart';
+import 'pages/parent_redesign_prototype/parent_binding_page.dart';
+import 'pages/parent_redesign_prototype/parent_home_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
@@ -211,6 +213,12 @@ class MyApp extends StatelessWidget {
     }
     if (path.contains('student-support')) {
       return const TeacherStudentSupportPage();
+    }
+    if (path.contains('parent-binding')) {
+      return const ParentBindingPage();
+    }
+    if (path.contains('parent-home') || path.contains('parent-redesign')) {
+      return const ParentHomePage();
     }
     if (path.contains('teacher-courses') || path.contains('courses')) {
       return const TeacherCoursesPage();
