@@ -132,6 +132,11 @@ class _ProfileMobileLayout extends StatelessWidget {
                     subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
                   ),
                   _DividerLine(),
+                  // PLACEHOLDER — ยังไม่มี flow จริง (แค่ snackbar ทั่วไปแบบ
+                  // เดียวกับเมนูอื่นในหน้านี้) ต่างจากเมนูอื่นตรงที่หัวข้อนี้
+                  // พาดพิงสิทธิ์ข้อมูลของผู้เยาว์โดยตรง (CON-3/4/5) ห้าม
+                  // rewrite เข้าหน้าจริงโดยคิดว่า flow นี้ผ่านแล้ว ต้องสร้าง
+                  // หน้าจริงที่แสดงสถานะ/ประวัติความยินยอมก่อน
                   _MenuTile(
                     icon: Icons.lock_outline_rounded,
                     title: 'ความเป็นส่วนตัวและ PDPA',
@@ -253,6 +258,12 @@ class _ProfileDesktopLayout extends StatelessWidget {
                               subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
                             ),
                             _DividerLine(),
+                            // PLACEHOLDER — ยังไม่มี flow จริง (แค่ snackbar
+                            // ทั่วไปแบบเดียวกับเมนูอื่นในหน้านี้) ต่างจากเมนู
+                            // อื่นตรงที่หัวข้อนี้พาดพิงสิทธิ์ข้อมูลของผู้เยาว์
+                            // โดยตรง (CON-3/4/5) ห้าม rewrite เข้าหน้าจริง
+                            // โดยคิดว่า flow นี้ผ่านแล้ว ต้องสร้างหน้าจริงที่
+                            // แสดงสถานะ/ประวัติความยินยอมก่อน
                             _MenuTile(
                               icon: Icons.lock_outline_rounded,
                               title: 'ความเป็นส่วนตัวและ PDPA',

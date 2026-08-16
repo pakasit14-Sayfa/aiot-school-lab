@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'student_redesign_palette.dart';
 
@@ -45,6 +46,50 @@ class _StudentLessonQuizPageState extends State<StudentLessonQuizPage> {
   late final List<_QuizQuestion> _questions = _buildQuestions();
   late final List<String?> _selected = List.filled(_questions.length, null);
   bool _submitted = false;
+  bool _autoSubmitted = false;
+
+  // ASM-3 Main Flow ข้อ 2 / BR1: เริ่มจับเวลาตั้งแต่เปิดแบบทดสอบ
+  // หมดเวลาแล้วต้อง auto-submit คำตอบที่มีอยู่ทันที — ใช้ 60 วิ/ข้อเป็น
+  // ค่าเริ่มต้นเพราะ mock ยังไม่มีฟิลด์เวลาที่ครูตั้งเองจริง
+  Timer? _timer;
+  late Duration _timeLeft = Duration(seconds: _questions.length * 60);
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_timeLeft.inSeconds <= 1) {
+        timer.cancel();
+        if (!_submitted) {
+          setState(() {
+            _timeLeft = Duration.zero;
+            _autoSubmitted = true;
+          });
+          _submit();
+        }
+        return;
+      }
+      setState(() => _timeLeft -= const Duration(seconds: 1));
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String get _timeLeftLabel {
+    final minutes = _timeLeft.inMinutes
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    final seconds = _timeLeft.inSeconds
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
 
   List<_QuizQuestion> _buildQuestions() {
     final topics = widget.topics.isEmpty
@@ -67,6 +112,7 @@ class _StudentLessonQuizPageState extends State<StudentLessonQuizPage> {
       _questions.indexed.where((e) => _selected[e.$1] == e.$2.correct).length;
 
   void _submit() {
+    _timer?.cancel();
     setState(() => _submitted = true);
   }
 
@@ -253,27 +299,52 @@ class _StudentLessonQuizPageState extends State<StudentLessonQuizPage> {
 
   Widget _buildProgressBar() {
     final total = _questions.length;
-    return Row(
+    final lowTime = _timeLeft.inSeconds <= 30;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: total == 0 ? 0 : _answeredCount / total,
-              minHeight: 7,
-              backgroundColor: const Color(0xFFDCE7E2),
-              color: SchoolPalette.mint,
+        Row(
+          children: [
+            Icon(
+              Icons.timer_rounded,
+              size: 15,
+              color: lowTime ? const Color(0xFFDC2626) : SchoolPalette.muted,
             ),
-          ),
+            const SizedBox(width: 4),
+            Text(
+              'เหลือเวลา $_timeLeftLabel',
+              style: TextStyle(
+                color: lowTime ? const Color(0xFFDC2626) : SchoolPalette.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 10),
-        Text(
-          '$_answeredCount/$total',
-          style: const TextStyle(
-            color: SchoolPalette.deepGreen,
-            fontSize: 12,
-            fontWeight: FontWeight.w900,
-          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: total == 0 ? 0 : _answeredCount / total,
+                  minHeight: 7,
+                  backgroundColor: const Color(0xFFDCE7E2),
+                  color: SchoolPalette.mint,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '$_answeredCount/$total',
+              style: const TextStyle(
+                color: SchoolPalette.deepGreen,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -288,6 +359,27 @@ class _StudentLessonQuizPageState extends State<StudentLessonQuizPage> {
       padding: const EdgeInsets.all(20),
       child: Column(
         children: [
+          if (_autoSubmitted) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: const Text(
+                'หมดเวลาทำแบบทดสอบ ระบบส่งคำตอบที่มีอยู่ให้อัตโนมัติ',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFFB91C1C),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Container(
             width: 64,
             height: 64,
