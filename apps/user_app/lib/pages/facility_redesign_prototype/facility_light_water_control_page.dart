@@ -1,26 +1,29 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase/switch จริง
-// ตามสเปก STK-11: "ไม่มีสิทธิ์ควบคุม → ดูได้อย่างเดียว" (Read-only Summary)
+// เชื่อมกับ RealtimeService จริงแล้ว (2026-08-17) — เดิม mock ล้วน
+// STK-11: สั่งงานผ่าน queueDeviceCommand จริง (queue_device_command RPC)
+// ซึ่งเซิร์ฟเวอร์ตรวจสิทธิ์ role + school_id เองอยู่แล้วทุกครั้งที่สั่ง —
+// รายชื่ออุปกรณ์มาจาก RealtimeService.listMyBuildingDevices() จริง (สโคป
+// ตามอาคารที่รับผิดชอบในระดับ SQL ตาม BR4)
 //
-// 2026-08-14: เดิมเมนู "เปิด-ปิดอาคาร" (index 1) เป็น checklist wizard
-// (facility_building_wizard_page.dart) ที่ไม่มียูสเคสทางการรองรับเลย
-// (ไม่มีใน STK-6..11) แถมขัดกับหลักการ "Read-only" ของ role นี้ที่ระบุไว้
-// ตรงๆ ในเอกสาร — ผู้ใช้ให้นิยามใหม่ว่า "เปิด-ปิดอาคาร" หมายถึงการ
-// เปิด-ปิดไฟ (และน้ำ) ตามอาคาร/ชั้น/ห้องที่รับผิดชอบแทน ซึ่งตรงกับ STK-11
-// เป๊ะอยู่แล้ว จึงเอาไฟล์นี้มาแทนที่ index 1 ทั้งหมด (ลบ
-// facility_building_wizard_page.dart ทิ้ง) พร้อมเพิ่มตัวเลือกลำดับชั้น
-// อาคาร → ชั้น → ห้อง (เดิมเป็นลิสต์เรียบไม่มีลำดับชั้น)
-//
-// 2026-08-15: ออกแบบใหม่ทั้งหมดตามคำขอผู้ใช้ (เน้นสวยงามแบบพรีเมียม) —
-// เพิ่ม hero header, การ์ดสรุปสถิติ (ไฟ/น้ำเปิดอยู่กี่จุด), จัดกลุ่มการ์ด
-// ตามชั้นแทนลิสต์เรียบยาวๆ, และปรับการ์ดควบคุมแต่ละจุดให้มีสไตล์ premium
-// (ไอคอนวงกลม, แถบสีข้าง, layout ชัดเจนขึ้น) — โครงสร้าง state/logic เดิม
-// (STK-11 scope lock ที่เพิ่งแก้ก่อนหน้านี้) ไม่เปลี่ยน แก้แค่ชั้น UI
+// ⚠️ ข้อจำกัดจริงที่ต่างจาก mock เดิม 3 จุด:
+// 1. ตาราง devices เก็บแค่ status ออนไลน์/ออฟไลน์ (การเชื่อมต่อ) ไม่มีที่
+//    เก็บ "สถานะเปิด/ปิด" ของรีเลย์เลย และ device_commands ก็เป็นแค่ log คำ
+//    สั่งที่ส่งไป ไม่ใช่สถานะที่ยืนยันแล้ว — สถานะเปิด/ปิดที่แสดงในหน้านี้
+//    จึงเป็นการอัปเดตแบบ optimistic ฝั่ง Flutter เท่านั้น (อิงจากคำสั่ง
+//    ล่าสุดที่กดสำเร็จ) ไม่ใช่สถานะจริงจากบอร์ด รีเฟรชหน้าจะรีเซ็ตกลับเป็น
+//    "ไม่ทราบสถานะ" เสมอ
+// 2. อุปกรณ์ประเภท relay ในสคีมาไม่ได้แยก "ไฟ" กับ "น้ำ" เป็นคนละ type —
+//    แยกด้วยชื่ออุปกรณ์แบบ heuristic แทน (ชื่อมีคำว่า "น้ำ" → ไอคอนน้ำ
+//    นอกนั้นถือเป็นไฟ) แทนที่จะบังคับให้ทุกห้องมีทั้งไฟ+น้ำคู่กันแบบ mock
+//    เดิม (ความจริงคือ 1 รีเลย์ = 1 อุปกรณ์ควบคุมอิสระ)
+// 3. location เป็น string อิสระจากฐานข้อมูลจริง ไม่มีโครงสร้าง 3 ระดับ
+//    "อาคาร · ชั้น · ห้อง" แบบตายตัวเหมือน mock เดิม — ใช้ location ดิบเป็น
+//    ตัวจัดกลุ่มแทน ไม่แยกชั้น/ห้องเป็น dropdown 2 ชั้นซ้อนอีกต่อไป
 //
 // เป็น Widget content ต่อกับ FacilityAppShell เดิม (ไม่มี Scaffold/AppBar
-// เป็นของตัวเอง) ใช้เป็น nav item index 1 ได้โดยตรง — ถ้าจะ Navigator.push
-// จากที่อื่นต้องห่อด้วย Scaffold+AppBar ที่จุดเรียกเอง (ดูตัวอย่างที่
-// facility_building_overview_page.dart._buildQuickLinksRow)
+// เป็นของตัวเอง) ใช้เป็น nav item index 1 ได้โดยตรง
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
+
 import 'facility_shared_widgets.dart';
 
 class FacilityLightWaterControlPage extends StatefulWidget {
@@ -33,107 +36,120 @@ class FacilityLightWaterControlPage extends StatefulWidget {
 
 class _FacilityLightWaterControlPageState
     extends State<FacilityLightWaterControlPage> {
-  bool _hasControlPermission =
-      false; // STK-11: เริ่มต้นแบบไม่มีสิทธิ์ (Read-only)
-
   static const _scopeAll = 'ทั้งหมด';
 
-  // 2026-08-15: เดิมมี 3 อาคารให้เลือก (รวม 'ทั้งหมด') — ขัดกับ STK-11 ที่
-  // กำหนดว่าผู้ดูแลอาคารสั่งงานได้เฉพาะอุปกรณ์ที่ตัวเองมีสิทธิ์ควบคุม/อาคาร
-  // ที่รับผิดชอบเท่านั้น (เหมือนกับ STK-6/7/9/10 ที่ scope = อาคารเดียวกัน)
-  // ตัดอาคาร 1/2 ออก เหลือแต่อาคารที่รับผิดชอบจริง — ไม่มีทางสั่งไฟ/น้ำ
-  // อาคารอื่นได้จากหน้านี้อีกแล้ว
-  static const _assignedBuilding = 'อาคาร 3 (วิทยาศาสตร์)';
+  bool _loading = true;
+  String? _loadError;
+  List<DeviceOption> _relays = [];
+  String _selectedLocation = _scopeAll;
 
-  // อาคาร → ชั้น → รายชื่อห้อง/พื้นที่ (mock โครงสร้างลำดับชั้น — เหลือแค่
-  // อาคารที่รับผิดชอบ)
-  final Map<String, Map<String, List<String>>> _buildingStructure = {
-    _assignedBuilding: {
-      'ชั้น 1': ['ห้องปฏิบัติการ', 'โถงทางเดิน'],
-      'ชั้น 2': ['ห้อง 201', 'ห้อง 202'],
-      'ชั้น 3': ['ห้อง 301', 'ห้อง 302'],
-    },
-  };
+  // อัปเดตแบบ optimistic ฝั่งเครื่อง (ดูคำอธิบายข้อจำกัดข้อ 1 ด้านบน) —
+  // ไม่มีที่มาจาก backend เลย เริ่มต้นว่างเปล่า (= ยังไม่ทราบสถานะ)
+  final Map<String, bool> _optimisticState = {};
+  final Set<String> _sending = {};
 
-  String _selectedFloor = _scopeAll;
-  String _selectedRoom = _scopeAll;
-
-  late final Map<String, bool> _lightState = _generateInitialState(
-    seedOffset: 0,
-  );
-  late final Map<String, bool> _waterState = _generateInitialState(
-    seedOffset: 1,
-  );
-
-  /// สร้าง key ตำแหน่งแบบ "อาคาร · ชั้น · ห้อง" ครบทุกห้องในทุกอาคารไว้ล่วง
-  /// หน้า แล้วค่อยกรองการแสดงผลตาม dropdown ที่เลือกทีหลัง
-  Map<String, bool> _generateInitialState({required int seedOffset}) {
-    final state = <String, bool>{};
-    var i = 0;
-    for (final building in _buildingStructure.entries) {
-      for (final floor in building.value.entries) {
-        for (final room in floor.value) {
-          final key = '${building.key} · ${floor.key} · $room';
-          state[key] = (i + seedOffset) % 3 != 0;
-          i++;
-        }
-      }
-    }
-    return state;
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  List<String> get _floorOptions => [
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final devices = await RealtimeService.listMyBuildingDevices();
+      if (!mounted) return;
+      setState(() {
+        _relays = devices.where((d) => d.type == 'relay').toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดรายชื่ออุปกรณ์ไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  List<String> get _locationOptions => [
     _scopeAll,
-    ...(_buildingStructure[_assignedBuilding]?.keys ?? const <String>[]),
+    ...{
+      for (final d in _relays)
+        if (d.location != null) d.location!,
+    }.toList()..sort(),
   ];
 
-  List<String> get _roomOptions {
-    if (_selectedFloor == _scopeAll) return [_scopeAll];
-    return [
-      _scopeAll,
-      ...(_buildingStructure[_assignedBuilding]?[_selectedFloor] ??
-          const <String>[]),
-    ];
-  }
+  List<DeviceOption> get _filteredRelays => _selectedLocation == _scopeAll
+      ? _relays
+      : _relays.where((d) => d.location == _selectedLocation).toList();
 
-  /// รายการตำแหน่งที่ตรงกับ ชั้น/ห้อง ที่เลือกอยู่ตอนนี้ (อาคารคงที่แล้ว)
-  List<String> get _filteredLocations {
-    return _lightState.keys.where((key) {
-      final parts = key.split(' · ');
-      final building = parts[0];
-      final floor = parts[1];
-      final room = parts[2];
-      if (building != _assignedBuilding) return false;
-      if (_selectedFloor != _scopeAll && floor != _selectedFloor) {
-        return false;
-      }
-      if (_selectedRoom != _scopeAll && room != _selectedRoom) return false;
-      return true;
-    }).toList();
-  }
-
-  /// จัดกลุ่มตำแหน่งที่กรองแล้วตามชั้น เรียงตามลำดับชั้นจริง (ไม่ใช่ตาม
-  /// ลำดับสุ่มของ Map key) — ใช้ render เป็น section แยกแต่ละชั้น
-  Map<String, List<String>> get _locationsByFloor {
-    final grouped = <String, List<String>>{};
-    final filtered = _filteredLocations;
-    for (final floor
-        in _buildingStructure[_assignedBuilding]?.keys ?? const <String>[]) {
-      final locations = filtered
-          .where((key) => key.split(' · ')[1] == floor)
-          .toList();
-      if (locations.isNotEmpty) grouped[floor] = locations;
+  Map<String, List<DeviceOption>> get _relaysByLocation {
+    final grouped = <String, List<DeviceOption>>{};
+    for (final d in _filteredRelays) {
+      final loc = d.location ?? 'ไม่ระบุตำแหน่ง';
+      grouped.putIfAbsent(loc, () => []).add(d);
     }
     return grouped;
   }
 
-  int get _lightsOnCount =>
-      _filteredLocations.where((l) => _lightState[l] == true).length;
-  int get _waterOnCount =>
-      _filteredLocations.where((l) => _waterState[l] == true).length;
+  bool _isWaterDevice(DeviceOption d) => d.name.contains('น้ำ');
+
+  int get _onCount =>
+      _filteredRelays.where((d) => _optimisticState[d.id] == true).length;
+
+  Future<void> _toggle(DeviceOption device, bool value) async {
+    setState(() => _sending.add(device.id));
+    try {
+      await RealtimeService.queueDeviceCommand(
+        deviceId: device.id,
+        command: {'action': value ? 'on' : 'off'},
+      );
+      if (!mounted) return;
+      setState(() => _optimisticState[device.id] = value);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('สั่งงานไม่สำเร็จ: $e')));
+    } finally {
+      if (mounted) setState(() => _sending.remove(device.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(48),
+        child: Center(
+          child: CircularProgressIndicator(color: FacilityTheme.primaryNavy),
+        ),
+      );
+    }
+    if (_loadError != null) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _loadError!,
+              style: const TextStyle(
+                color: FacilityTheme.emergencyRed,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: _load, child: const Text('ลองใหม่')),
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -142,18 +158,17 @@ class _FacilityLightWaterControlPageState
           _buildHeroHeader(),
           const SizedBox(height: 18),
           _buildSummaryStats(),
-          const SizedBox(height: 18),
-          _buildPermissionDemoPanel(),
+          const SizedBox(height: 14),
+          _buildUnknownStateNotice(),
           const SizedBox(height: 14),
           _buildScopeFilterBar(),
           const SizedBox(height: 16),
-          if (!_hasControlPermission) _buildReadOnlyBanner(),
-          if (_filteredLocations.isEmpty)
+          if (_filteredRelays.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: Text(
-                  'ไม่พบตำแหน่งที่ตรงกับตัวเลือกนี้',
+                  'ไม่พบอุปกรณ์ควบคุม (relay) ในขอบเขตที่เลือก',
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -163,23 +178,20 @@ class _FacilityLightWaterControlPageState
               ),
             )
           else
-            for (final entry in _locationsByFloor.entries) ...[
-              _buildFloorSectionHeader(entry.key, entry.value.length),
+            for (final entry in _relaysByLocation.entries) ...[
+              _buildLocationSectionHeader(entry.key, entry.value.length),
               const SizedBox(height: 10),
               FacilityResponsiveGrid(
                 spacing: 14,
                 minItemWidth: 280,
                 children: [
-                  for (final location in entry.value)
+                  for (final device in entry.value)
                     _ControlCard(
-                      location: location,
-                      lightOn: _lightState[location]!,
-                      waterOn: _waterState[location]!,
-                      hasPermission: _hasControlPermission,
-                      onLightChanged: (v) =>
-                          setState(() => _lightState[location] = v),
-                      onWaterChanged: (v) =>
-                          setState(() => _waterState[location] = v),
+                      device: device,
+                      isWater: _isWaterDevice(device),
+                      value: _optimisticState[device.id],
+                      isSending: _sending.contains(device.id),
+                      onChanged: (v) => _toggle(device, v),
                     ),
                 ],
               ),
@@ -190,7 +202,6 @@ class _FacilityLightWaterControlPageState
     );
   }
 
-  /// 🌈 Hero Header — ไล่เฉดสีน้ำเงินเข้มของธีม พร้อมไอคอนหลอดไฟเน้นสีทอง
   Widget _buildHeroHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -224,11 +235,11 @@ class _FacilityLightWaterControlPageState
             ),
           ),
           const SizedBox(width: 14),
-          Expanded(
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'ควบคุมไฟและน้ำ',
                   style: TextStyle(
                     color: Colors.white,
@@ -237,10 +248,10 @@ class _FacilityLightWaterControlPageState
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(
-                  'STK-11 · $_assignedBuilding',
-                  style: const TextStyle(
+                  'STK-11 · อุปกรณ์ในอาคารที่รับผิดชอบ',
+                  style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12.5,
                     fontWeight: FontWeight.w700,
@@ -254,39 +265,25 @@ class _FacilityLightWaterControlPageState
     );
   }
 
-  /// 📊 การ์ดสรุปสถิติ — ไฟ/น้ำเปิดอยู่กี่จุด จากทั้งหมดที่กรองอยู่ตอนนี้
   Widget _buildSummaryStats() {
-    final total = _filteredLocations.length;
+    final total = _filteredRelays.length;
     return FacilityResponsiveGrid(
       spacing: 12,
       minItemWidth: 160,
       children: [
         _buildStatCard(
-          icon: Icons.lightbulb_rounded,
-          label: 'ไฟเปิดอยู่',
-          value: '$_lightsOnCount / $total จุด',
-          color: const Color(0xFFE8A519),
-          bg: const Color(0xFFFFFBEB),
+          icon: Icons.toggle_on_rounded,
+          label: 'สั่งเปิดไว้ (เครื่องนี้)',
+          value: '$_onCount / $total จุด',
+          color: FacilityTheme.safeGreen,
+          bg: const Color(0xFFECFDF5),
         ),
         _buildStatCard(
-          icon: Icons.water_drop_rounded,
-          label: 'น้ำเปิดอยู่',
-          value: '$_waterOnCount / $total จุด',
-          color: const Color(0xFF0284C7),
-          bg: const Color(0xFFF0F9FF),
-        ),
-        _buildStatCard(
-          icon: _hasControlPermission
-              ? Icons.lock_open_rounded
-              : Icons.lock_outline_rounded,
-          label: 'สิทธิ์ปัจจุบัน',
-          value: _hasControlPermission ? 'ควบคุมได้' : 'ดูอย่างเดียว',
-          color: _hasControlPermission
-              ? FacilityTheme.safeGreen
-              : FacilityTheme.softMauve,
-          bg: _hasControlPermission
-              ? const Color(0xFFECFDF5)
-              : FacilityTheme.bgSlate,
+          icon: Icons.settings_remote_rounded,
+          label: 'อุปกรณ์ควบคุมทั้งหมด',
+          value: '$total ตัว',
+          color: FacilityTheme.primaryPurple,
+          bg: FacilityTheme.lightPurpleBg,
         ),
       ],
     );
@@ -354,84 +351,43 @@ class _FacilityLightWaterControlPageState
     );
   }
 
-  /// 🧪 แถบทดสอบสิทธิ์ (Demo เท่านั้น) — ตั้งใจให้ดูเป็น "แผงทดสอบ" แยกจาก
-  /// UI จริง (เส้นประ + สีเรียบ) ไม่ใช่ฟีเจอร์ที่ผู้ใช้จริงจะเห็น เพราะสิทธิ์
-  /// จริงมาจากบัญชีผู้ใช้ ไม่ใช่การกดสลับเอง
-  Widget _buildPermissionDemoPanel() {
-    return DottedBorderContainer(
-      child: Row(
+  /// อธิบายตรงๆ ว่าสถานะเปิด/ปิดที่เห็นเป็นแค่คำสั่งล่าสุดที่กดจากเครื่องนี้
+  /// ไม่ใช่สถานะจริงจากบอร์ด (ดูข้อจำกัดข้อ 1 ที่หัวไฟล์)
+  Widget _buildUnknownStateNotice() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: const Row(
         children: [
-          const Icon(
-            Icons.science_outlined,
-            size: 16,
-            color: FacilityTheme.softMauve,
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
+          Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF1D4ED8)),
+          SizedBox(width: 8),
+          Expanded(
             child: Text(
-              'แผงทดสอบสิทธิ์ (Demo เท่านั้น — ไม่ใช่ของจริง):',
+              'สถานะเปิด/ปิดที่แสดงมาจากคำสั่งล่าสุดที่กดในเครื่องนี้เท่านั้น '
+              'ยังไม่มีการยืนยันสถานะจริงจากอุปกรณ์กลับมา',
               style: TextStyle(
+                color: Color(0xFF1D4ED8),
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
-                color: FacilityTheme.softMauve,
               ),
             ),
-          ),
-          _buildDemoChip(
-            label: 'ดูอย่างเดียว',
-            selected: !_hasControlPermission,
-            color: FacilityTheme.warningOrange,
-            onTap: () => setState(() => _hasControlPermission = false),
-          ),
-          const SizedBox(width: 6),
-          _buildDemoChip(
-            label: 'มีสิทธิ์ควบคุม',
-            selected: _hasControlPermission,
-            color: FacilityTheme.safeGreen,
-            onTap: () => setState(() => _hasControlPermission = true),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDemoChip({
-    required String label,
-    required bool selected,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.14) : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? color : const Color(0xFFE2E8F0)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: selected ? color : FacilityTheme.softMauve,
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 🏢 อาคารคงที่ตามที่รับผิดชอบ (ไม่มีทางเลือกอาคารอื่น) + ตัวเลือก
-  /// ลำดับชั้น: ชั้น → ห้อง ภายในอาคารเดียวกันนี้เท่านั้น
   Widget _buildScopeFilterBar() {
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -444,86 +400,47 @@ class _FacilityLightWaterControlPageState
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.apartment_rounded,
-                size: 15,
-                color: FacilityTheme.primaryPurple,
-              ),
-              SizedBox(width: 7),
-              Text(
-                _assignedBuilding,
+              const Text(
+                'ตำแหน่ง:',
                 style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w900,
-                  color: FacilityTheme.inkIndigo,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: FacilityTheme.softMauve,
+                ),
+              ),
+              const SizedBox(width: 6),
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedLocation,
+                  isDense: true,
+                  icon: const Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: FacilityTheme.primaryPurple,
+                  ),
+                  style: const TextStyle(
+                    color: FacilityTheme.inkIndigo,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedLocation = val);
+                  },
+                  items: _locationOptions.map((o) {
+                    return DropdownMenuItem(value: o, child: Text(o));
+                  }).toList(),
                 ),
               ),
             ],
           ),
         ),
-        _buildScopeDropdown(
-          label: 'ชั้น:',
-          value: _selectedFloor,
-          options: _floorOptions,
-          onChanged: (val) {
-            if (val == null) return;
-            setState(() {
-              _selectedFloor = val;
-              _selectedRoom = _scopeAll;
-            });
-          },
-        ),
-        _buildScopeDropdown(
-          label: 'ห้อง:',
-          value: _selectedRoom,
-          options: _roomOptions,
-          onChanged: _selectedFloor == _scopeAll
-              ? null
-              : (val) {
-                  if (val == null) return;
-                  setState(() => _selectedRoom = val);
-                },
-        ),
       ],
     );
   }
 
-  Widget _buildReadOnlyBanner() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
-      child: const Row(
-        children: [
-          Icon(
-            Icons.lock_outline_rounded,
-            size: 20,
-            color: FacilityTheme.warningOrange,
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'คุณไม่มีสิทธิ์ควบคุมอุปกรณ์นี้ ดูสถานะได้อย่างเดียว (Read-only Summary)',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFB45309),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFloorSectionHeader(String floor, int count) {
+  Widget _buildLocationSectionHeader(String location, int count) {
     return Row(
       children: [
         Container(
@@ -535,12 +452,15 @@ class _FacilityLightWaterControlPageState
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          floor,
-          style: const TextStyle(
-            fontSize: 14.5,
-            fontWeight: FontWeight.w900,
-            color: FacilityTheme.inkIndigo,
+        Expanded(
+          child: Text(
+            location,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w900,
+              color: FacilityTheme.inkIndigo,
+            ),
           ),
         ),
         const SizedBox(width: 8),
@@ -555,69 +475,12 @@ class _FacilityLightWaterControlPageState
       ],
     );
   }
-
-  Widget _buildScopeDropdown({
-    required String label,
-    required String value,
-    required List<String> options,
-    required ValueChanged<String?>? onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: FacilityTheme.softMauve,
-            ),
-          ),
-          const SizedBox(width: 6),
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isDense: true,
-              icon: Icon(
-                Icons.arrow_drop_down_rounded,
-                color: onChanged == null
-                    ? const Color(0xFFCBD5E1)
-                    : FacilityTheme.primaryPurple,
-              ),
-              style: TextStyle(
-                color: onChanged == null
-                    ? const Color(0xFFCBD5E1)
-                    : FacilityTheme.inkIndigo,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w900,
-              ),
-              onChanged: onChanged,
-              items: options.map((o) {
-                return DropdownMenuItem(value: o, child: Text(o));
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-/// กรอบเส้นประบางๆ ใช้แยก "แผงทดสอบ" ออกจาก UI จริงด้วยสายตา
+/// กรอบเส้นประบางๆ — ยังต้องคงไว้ในไฟล์นี้เพราะ
+/// facility_building_overview_page.dart import คลาสนี้จากที่นี่อยู่
+/// (ตัวหน้านี้เองเลิกใช้แล้วหลังตัดแผงทดสอบสิทธิ์ทิ้งไป เพราะสิทธิ์จริง
+/// ถูกเซิร์ฟเวอร์ตรวจสอบเองทุกครั้งที่สั่งงานผ่าน queue_device_command แล้ว)
 class DottedBorderContainer extends StatelessWidget {
   const DottedBorderContainer({super.key, required this.child});
 
@@ -643,27 +506,26 @@ class DottedBorderContainer extends StatelessWidget {
 
 class _ControlCard extends StatelessWidget {
   const _ControlCard({
-    required this.location,
-    required this.lightOn,
-    required this.waterOn,
-    required this.hasPermission,
-    required this.onLightChanged,
-    required this.onWaterChanged,
+    required this.device,
+    required this.isWater,
+    required this.value,
+    required this.isSending,
+    required this.onChanged,
   });
 
-  final String location;
-  final bool lightOn;
-  final bool waterOn;
-  final bool hasPermission;
-  final ValueChanged<bool> onLightChanged;
-  final ValueChanged<bool> onWaterChanged;
+  final DeviceOption device;
+  final bool isWater;
+  final bool? value;
+  final bool isSending;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    // ห้องชื่อเดียว (ตัดส่วน "อาคาร · ชั้น" ออก เหลือแค่ห้อง/พื้นที่ —
-    // อาคาร/ชั้นแสดงเป็น section header อยู่แล้วด้านบน ไม่ต้องซ้ำ)
-    final roomLabel = location.split(' · ').last;
-    final anyOn = lightOn || waterOn;
+    final isOn = value == true;
+    final accentColor = isWater
+        ? const Color(0xFF0284C7)
+        : const Color(0xFFE8A519);
+    final isOffline = device.status != 'online';
 
     return Container(
       decoration: BoxDecoration(
@@ -688,9 +550,7 @@ class _ControlCard extends StatelessWidget {
               bottom: 0,
               child: Container(
                 width: 5,
-                color: anyOn
-                    ? FacilityTheme.safeGreen
-                    : const Color(0xFFCBD5E1),
+                color: isOn ? FacilityTheme.safeGreen : const Color(0xFFCBD5E1),
               ),
             ),
             Padding(
@@ -702,7 +562,7 @@ class _ControlCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          roomLabel,
+                          device.name,
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
@@ -711,139 +571,94 @@ class _ControlCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (!hasPermission)
+                      if (isOffline)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
                             vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: FacilityTheme.bgSlate,
+                            color: const Color(0xFFFEF2F2),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(color: const Color(0xFFFCA5A5)),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.lock_rounded,
-                                size: 12,
-                                color: FacilityTheme.softMauve,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'ดูอย่างเดียว',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: FacilityTheme.softMauve,
-                                ),
-                              ),
-                            ],
+                          child: const Text(
+                            'ออฟไลน์',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: FacilityTheme.emergencyRed,
+                            ),
                           ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _ToggleRow(
-                    icon: Icons.lightbulb_rounded,
-                    label: 'ไฟ',
-                    accentColor: const Color(0xFFE8A519),
-                    value: lightOn,
-                    hasPermission: hasPermission,
-                    onChanged: onLightChanged,
-                  ),
-                  const SizedBox(height: 10),
-                  _ToggleRow(
-                    icon: Icons.water_drop_rounded,
-                    label: 'น้ำ',
-                    accentColor: const Color(0xFF0284C7),
-                    value: waterOn,
-                    hasPermission: hasPermission,
-                    onChanged: onWaterChanged,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isOn
+                          ? accentColor.withValues(alpha: 0.08)
+                          : FacilityTheme.bgSlate,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: isOn
+                                ? accentColor.withValues(alpha: 0.18)
+                                : Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            isWater
+                                ? Icons.water_drop_rounded
+                                : Icons.lightbulb_rounded,
+                            size: 16,
+                            color: isOn ? accentColor : FacilityTheme.softMauve,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            value == null
+                                ? 'ไม่ทราบสถานะ'
+                                : (isOn ? 'เปิดอยู่' : 'ปิดอยู่'),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: FacilityTheme.inkIndigo,
+                            ),
+                          ),
+                        ),
+                        if (isSending)
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Transform.scale(
+                            scale: 0.85,
+                            child: Switch(
+                              value: isOn,
+                              onChanged: isOffline ? null : onChanged,
+                              activeColor: accentColor,
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.icon,
-    required this.label,
-    required this.accentColor,
-    required this.value,
-    required this.hasPermission,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color accentColor;
-  final bool value;
-  final bool hasPermission;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: value
-            ? accentColor.withValues(alpha: 0.08)
-            : FacilityTheme.bgSlate,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: value ? accentColor.withValues(alpha: 0.18) : Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: value ? accentColor : FacilityTheme.softMauve,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: FacilityTheme.inkIndigo,
-              ),
-            ),
-          ),
-          Text(
-            value ? 'เปิดอยู่' : 'ปิดอยู่',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: value ? accentColor : FacilityTheme.softMauve,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Transform.scale(
-            scale: 0.85,
-            child: Switch(
-              value: value,
-              onChanged: hasPermission
-                  ? onChanged
-                  : null, // Disabled when no permission
-              activeColor: accentColor,
-            ),
-          ),
-        ],
       ),
     );
   }
