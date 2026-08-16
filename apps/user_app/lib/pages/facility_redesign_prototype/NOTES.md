@@ -1,5 +1,44 @@
 # Facility (ครูอาคาร / ผู้ดูแลอาคาร) Redesign Prototype
 
+## 💎 [เชื่อมข้อมูลจริง 2026-08-17] 3 หน้าเชื่อมกับ Supabase จริงแล้ว + backend ใหม่
+
+หลังสลับ `RoleRouter` ให้ผู้ดูแลอาคารที่ login จริงเจอหน้านี้แทนหน้าเก่า —
+ตรวจ RPC ทั้งหมดก่อนแล้วพบว่า role นี้**สั่งงานอุปกรณ์ได้จริงอยู่แล้ว**
+(`queue_device_command`) และ**อ่านค่าเซนเซอร์สรุประดับอาคารได้จริง**
+(`sensor_latest` มีสาขาเฉพาะ facility_manager สโคปตามอาคารอยู่แล้ว) แต่
+**ไม่เคยมีทางดึงรายชื่ออุปกรณ์ในอาคารตัวเองเลยสักตัว** — ต้องเพิ่ม backend
+ใหม่ 1 ตัวก่อน (`list_devices_in_my_building`, migration
+`20260817000000_facility_manager_device_list.sql` + pgTAP 6 assertions
+`16_facility_manager_device_list.test.sql` — **ยังไม่เคยรันจริง ไม่มี
+Docker ในเครื่องนี้** ต้องให้ agy ยืนยัน)
+
+**3 หน้าที่เชื่อมจริงแล้ว**:
+1. **`facility_notifications_page.dart`** — `NotificationService` (RPC
+   ทั่วไป ไม่ต้องเพิ่ม backend)
+2. **`facility_device_health_page.dart` (STK-9)** — `RealtimeService.
+   listMyBuildingDevices()` ตัด "แบตเตอรี่"/"lastPing"/ประวัติบำรุงรักษา
+   ปลอมทิ้งทั้งหมด (ไม่มีคอลัมน์/RPC รองรับ)
+3. **`facility_light_water_control_page.dart` (STK-11)** — `RealtimeService.
+   listMyBuildingDevices()` + `queueDeviceCommand()` (ผูก
+   `queue_device_command` จริง) — พบข้อจำกัดจริง 3 จุดที่ต่างจาก mock เดิม:
+   (ก) ไม่มีที่เก็บสถานะเปิด/ปิดจริงของรีเลย์เลย (มีแต่ status
+   ออนไลน์/ออฟไลน์ + log คำสั่ง) เปลี่ยนเป็นแสดงสถานะแบบ optimistic
+   ฝั่งเครื่อง พร้อมข้อความแจ้งตรงๆ ว่ายังไม่ยืนยันจากอุปกรณ์จริง (ข)
+   relay ไม่แยก type ไฟ/น้ำ ใช้ชื่ออุปกรณ์แยกแบบ heuristic แทน (ค)
+   location เป็น string อิสระ ไม่ใช่โครงสร้าง 3 ระดับตายตัว ตัด dropdown
+   ชั้น/ห้องซ้อนทิ้งเหลือ filter ตำแหน่งชั้นเดียว
+
+**ยังเป็น mock อยู่ (ตรวจสอบแล้วว่าไม่มี backend รองรับเลย)**:
+- STK-6/7 (ภาพรวมอาคาร), dashboard หลัก — มี `sensor_latest` จริงรองรับ
+  แล้วแต่ยังไม่ได้ต่อสาย (งานถัดไปถ้าจะทำต่อ)
+- STK-12 (รับเรื่องอุปกรณ์), STK-10 (เหตุการณ์ความปลอดภัย) — ไม่มีระบบ
+  incident/SEC ในฐานข้อมูลเลย (เจอซ้ำเป็นครั้งที่ 3 ในเซสชันนี้ หลัง
+  executive และ parent)
+- ประวัติการสั่งงาน (command history) — ไม่มี RPC ดึงประวัติจาก
+  `device_commands` เลย มีแค่ insert log ไว้เฉยๆ
+
+`flutter analyze`: 482 issues เท่าเดิม 0 error ตลอดทุกไฟล์ที่แก้
+
 ## 💎 [เสร็จแล้ว 2026-08-16] ดีไซน์พรีเมียมครบทั้ง 5 หน้าที่ค้างไว้
 
 รับช่วงต่อจากที่ agy แก้ไว้บางส่วน (แค่ป้องกัน overflow ด้วย
