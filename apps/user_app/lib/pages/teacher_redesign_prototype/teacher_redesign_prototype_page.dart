@@ -594,22 +594,6 @@ class _TeacherSidebar extends StatelessWidget {
                                       currentVariant ==
                                           TeacherPrototypeVariant.a);
 
-                            if (item.label == 'ฟีเจอร์ใหม่') {
-                              return PopupMenuButton<VoidCallback>(
-                                tooltip: 'ฟีเจอร์ใหม่',
-                                onSelected: (action) {
-                                  if (insideDrawer) Navigator.pop(context);
-                                  action();
-                                },
-                                itemBuilder: _newFeaturesMenuItems,
-                                child: _SidebarMenuTile(
-                                  item: item,
-                                  active: isActive,
-                                  compact: compact,
-                                ),
-                              );
-                            }
-
                             return _SidebarMenuTile(
                               item: item,
                               active: isActive,
@@ -1654,21 +1638,6 @@ class _TeacherMobileDrawer extends StatelessWidget {
                       const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final item = TeacherMock.menu[index];
-                    if (item.label == 'ฟีเจอร์ใหม่') {
-                      return PopupMenuButton<VoidCallback>(
-                        tooltip: 'ฟีเจอร์ใหม่',
-                        onSelected: (action) {
-                          Navigator.pop(context);
-                          action();
-                        },
-                        itemBuilder: _newFeaturesMenuItems,
-                        child: _SidebarMenuTile(
-                          item: item,
-                          active: false,
-                          compact: false,
-                        ),
-                      );
-                    }
                     return _SidebarMenuTile(
                       item: item,
                       active: item.label == 'แดชบอร์ด',
@@ -4565,7 +4534,8 @@ class TeacherMock {
     _MenuItem('นักเรียน', Icons.groups_2_rounded),
     _MenuItem('ตรวจงาน', Icons.assignment_turned_in_rounded),
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
-    _MenuItem('ฟีเจอร์ใหม่', Icons.auto_awesome_rounded),
+    _MenuItem('ยืนยัน G-Score', Icons.verified_rounded),
+    _MenuItem('ช่วยเหลือนักเรียน', Icons.support_rounded),
     _MenuItem('Rubric', Icons.fact_check_rounded),
     _MenuItem('Wiring Lab', Icons.cable_rounded),
     _MenuItem('AIoT Dashboard', Icons.sensors_rounded),
@@ -4825,6 +4795,16 @@ void _openTeacherMenuItem(BuildContext context, String label) {
         context,
         MaterialPageRoute(builder: (_) => const TeacherGradesPage()),
       );
+    case 'ยืนยัน G-Score':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherGScoreConfirmPage()),
+      );
+    case 'ช่วยเหลือนักเรียน':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherStudentSupportPage()),
+      );
     case 'Rubric':
       Navigator.push(
         context,
@@ -4848,33 +4828,6 @@ void _openTeacherMenuItem(BuildContext context, String label) {
     default:
       _showComingSoon(context, label);
   }
-}
-
-/// เมนู "ฟีเจอร์ใหม่" ใน sidebar เป็น dropdown แทนที่จะพาไปหน้าตรงๆ แบบ
-/// เมนูอื่น เพราะรวมทางเข้าไปหน้า prototype ใหม่หลายหน้าที่ยังไม่มีที่ทาง
-/// ถาวรของตัวเองใน sidebar (LRN-12 ยืนยัน G-Score, AI-4..8 ช่วยเหลือ
-/// นักเรียน) — ใช้ฟังก์ชันเดียวกันทั้งจาก _TeacherSidebar (จอกว้าง/Drawer
-/// ปกติ) และ _TeacherMobileDrawer (Drawer ของหน้าแดชบอร์ดเอง) กันสอง
-/// ที่ไม่ตรงกัน
-List<PopupMenuEntry<VoidCallback>> _newFeaturesMenuItems(
-  BuildContext context,
-) {
-  return [
-    PopupMenuItem<VoidCallback>(
-      value: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TeacherGScoreConfirmPage()),
-      ),
-      child: const Text('ยืนยันคะแนน G-Score (LRN-12)'),
-    ),
-    PopupMenuItem<VoidCallback>(
-      value: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TeacherStudentSupportPage()),
-      ),
-      child: const Text('นักเรียนที่ต้องการการสนับสนุน (AI-4..8)'),
-    ),
-  ];
 }
 
 class TeacherAppDrawer extends StatelessWidget {
