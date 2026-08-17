@@ -229,3 +229,15 @@ Major ก่อน (อีก 3 จุด Minor ยังไม่แก้ — 
 - เป็นข้อมูลสรุปภาพรวมระดับโรงเรียน ไม่มี PII หรือข้อมูลที่ระบุตัวตนนักเรียนรายคน หลุดรอดออกมา สอดคล้องตามกฎ BR1 และ PDPA 100%
 - `flutter analyze` 478 issues (0 error) ผ่านสะอาดเรียบร้อย
 
+## ⚡💧 [เชื่อมข้อมูลจริง 2026-08-17] สรุปค่าไฟฟ้าและค่าน้ำโดยประมาณ (AIO-5/AIO-6 + มิเตอร์น้ำเพิ่มใหม่)
+
+- **Backend Migrations**:
+  - `20260819000000_water_utility_schema.sql` — เพิ่ม `water_meter` เข้า enum `device_type`, `water_m3` เข้า enum `metric_type`, และคอลัมน์ `water_rate_thb` ใน `school_settings`
+  - `20260819010000_utility_costs.sql` — สร้าง RPC 4 ตัว: `get_school_utility_rates`, `set_school_utility_rates`, `get_energy_usage_summary`, `get_water_usage_summary`
+- **Business Rules & PDPA Compliance**:
+  - กำหนด disclaimer สตรีมคำเตือน AIO-6 BR1 ชัดเจนทุก response: *"ค่าบริการประมาณการเพื่อการบริหารจัดการภายใน ไม่ใช่ใบแจ้งหนี้จริงจากผู้ให้บริการ"*
+  - กรณีโรงเรียนยังไม่มีมิเตอร์น้ำติดตั้ง (`device_count = 0`) ระบบแสดงผล empty state "ยังไม่มีมิเตอร์น้ำติดตั้ง" โดยไม่แสดง 0 บาท เพื่อป้องกันการเข้าใจผิด
+- **pgTAP Test Suite**: เพิ่ม `20_utility_costs.test.sql` ทดสอบการตั้งค่าอัตรา, การกักกันสิทธิ์ (เฉพาะ school_admin), และการคำนวณสรุปยอด (PASS 100%)
+- **Flutter**: สร้าง `UtilityService` และ `utility_model.dart` ใน `shared_core` แล้วเชื่อมต่อเข้า มิติ "พลังงาน & สิ่งแวดล้อม" ใน `executive_dashboard_page.dart` เรียบร้อย
+
+

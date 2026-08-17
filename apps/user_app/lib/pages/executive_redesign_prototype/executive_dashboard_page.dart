@@ -64,6 +64,8 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
   Map<String, int> _userCountsByRole = {};
   List<DeviceOption> _devices = [];
   List<IncidentSummaryItem> _incidentSummaries = [];
+  EnergyUsageSummary? _energySummary;
+  WaterUsageSummary? _waterSummary;
 
   @override
   void initState() {
@@ -81,12 +83,16 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
         UserAdminService.countUsersByRole(),
         LessonService.listSchoolDevices(),
         IncidentService.getIncidentSummary(),
+        UtilityService.getEnergyUsageSummary(period: 'month'),
+        UtilityService.getWaterUsageSummary(period: 'month'),
       ]);
       if (!mounted) return;
       setState(() {
         _userCountsByRole = results[0] as Map<String, int>;
         _devices = results[1] as List<DeviceOption>;
         _incidentSummaries = results[2] as List<IncidentSummaryItem>;
+        _energySummary = results[3] as EnergyUsageSummary?;
+        _waterSummary = results[4] as WaterUsageSummary?;
         _loadingRealStats = false;
       });
     } catch (e) {
@@ -225,11 +231,13 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
             icon: Icons.bolt_rounded,
             title: 'พลังงาน & สิ่งแวดล้อม',
             subtitle:
-                'รวมทุกอาคารในโรงเรียน · ข้อมูล ณ ปัจจุบัน (ไม่แยกตามช่วงเวลา)',
+                'รวมทุกอาคารในโรงเรียน · สรุปค่าไฟฟ้าและค่าน้ำโดยประมาณ (ประจำเดือน)',
             color: ExecutiveTheme.warningOrange,
             hasData:
                 !_demoMissingEnergyData &&
-                (_loadingRealStats || _environmentDevices.isNotEmpty),
+                (_loadingRealStats ||
+                    _environmentDevices.isNotEmpty ||
+                    _energySummary != null),
             emptyMessage:
                 'ยังไม่มีข้อมูล — ยังไม่ได้ติดตั้งเซนเซอร์สิ่งแวดล้อม',
             cards: _loadingRealStats
