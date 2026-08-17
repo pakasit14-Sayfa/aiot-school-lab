@@ -106,3 +106,57 @@ class MyStudentRoom {
     gradeLevel: row['grade_level'] as String?,
   );
 }
+
+class TeacherIncidentReport {
+  const TeacherIncidentReport({
+    required this.id,
+    required this.category,
+    required this.room,
+    required this.status,
+    required this.reporterName,
+    required this.createdAt,
+    this.acknowledgedAt,
+  });
+
+  final String id;
+  final IncidentCategory category;
+  final String? room;
+  final String status;
+  final String reporterName;
+  final DateTime createdAt;
+  final DateTime? acknowledgedAt;
+
+  factory TeacherIncidentReport.fromRow(Map<String, dynamic> row) =>
+      TeacherIncidentReport(
+        id: row['id'] as String,
+        category: incidentCategoryFromDb(row['category'] as String),
+        room: row['room'] as String?,
+        status: row['status'] as String,
+        reporterName: row['reporter_name'] as String? ?? 'นักเรียน',
+        createdAt: DateTime.parse(row['created_at'] as String).toUtc(),
+        acknowledgedAt: row['acknowledged_at'] == null
+            ? null
+            : DateTime.parse(row['acknowledged_at'] as String).toUtc(),
+      );
+}
+
+class IncidentSummaryItem {
+  const IncidentSummaryItem({
+    required this.category,
+    required this.totalCount,
+    this.avgResponseSeconds,
+  });
+
+  final IncidentCategory category;
+  final int totalCount;
+  final double? avgResponseSeconds;
+
+  factory IncidentSummaryItem.fromRow(Map<String, dynamic> row) =>
+      IncidentSummaryItem(
+        category: incidentCategoryFromDb(row['category'] as String),
+        totalCount: (row['total_count'] as num).toInt(),
+        avgResponseSeconds: row['avg_response_seconds'] == null
+            ? null
+            : (row['avg_response_seconds'] as num).toDouble(),
+      );
+}

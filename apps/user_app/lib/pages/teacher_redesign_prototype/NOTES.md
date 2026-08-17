@@ -140,3 +140,11 @@ Variant:
 
 ทั้งสองหน้ายังเป็น mock data ล้วนๆ ไม่มี backend ตามธรรมชาติของ prototype
 folder นี้
+
+## เพิ่มเมื่อ 2026-08-17: เชื่อมต่อ Backend จริงระบบรับแจ้งเหตุฉุกเฉิน SOS (`teacher_incident_inbox_page.dart`)
+
+- เชื่อมต่อ `IncidentService.listTeacherIncidentReports()`, `acknowledgeIncidentReport()`, `addIncidentAction()`, `escalateIncidentReport()`, `closeIncidentReport()` เข้ากับ UI `teacher_incident_inbox_page.dart`
+- ครูเห็นเฉพาะรายการแจ้งเหตุจากห้องเรียนในวิชาที่ตนสอนตามสิทธิ์ `SECURITY DEFINER` RLS
+- แสดงผลสถานะจริง (`new`, `acknowledged`, `in_progress`, `escalated`, `resolved`, `cancelled`) พร้อมปุ่มดำเนินการครบถ้วน
+- อัปเดต `_EmergencyAlertBanner` ใน `teacher_redesign_prototype_page.dart` ให้เรียกข้อมูลเหตุรอดำเนินการจริงผ่าน `IncidentService.listTeacherIncidentReports(status: 'new')`
+

@@ -1575,3 +1575,23 @@ list ที่ agy ทำไว้เดิม** เพราะดีกว่�
 7. เวร, ประกาศ และรายงาน
 
 แนะนำให้เริ่มออกแบบละเอียด 3 หน้าก่อนคือ Dashboard, เปิด–ปิดอาคาร และเหตุ/SOS เพราะเป็นแกนการใช้งานของครูอาคารทั้งหมด
+
+---
+
+## 🔍 รายงานตรวจสอบสถานะ 8 หน้าของผู้ดูแลอาคาร (Facility Manager Audit — 2026-08-17)
+
+จากการตรวจสอบซอร์สโค้ดทั้ง 8 หน้าใน `lib/pages/facility_redesign_prototype/`:
+
+1. **`facility_light_water_control_page.dart` (เปิด-ปิดไฟ/น้ำ STK-11)** — **[เชื่อม REAL BACKEND]**
+   - ดึงรายชื่ออุปกรณ์สวิตช์รีเลย์จริงผ่าน `LessonService.listMyBuildingDevices()` (RPC `list_devices_in_my_building`)
+   - ส่งคำสั่งสลับสถานะเปิด-ปิดจริงผ่าน `RealtimeService.sendRelayCommand()`
+2. **`facility_device_health_page.dart` (สุขภาพอุปกรณ์ STK-9)** — **[เชื่อม REAL BACKEND]**
+   - ดึงข้อมูลสุขภาพและสถานะออนไลน์/ออฟไลน์ของอุปกรณ์ AIoT ในอาคารจริงผ่าน `LessonService.listMyBuildingDevices()`
+3. **`facility_notifications_page.dart` (แจ้งเตือน)** — **[เชื่อม REAL BACKEND]**
+   - ดึงและบันทึกอ่านแจ้งเตือนจริงผ่าน `NotificationService.listMyNotifications()` และ `markAsRead()`
+4. **`facility_dashboard_page.dart` (Dashboard หลัก)** — **[UI MOCK]** (ยังใช้ชุดข้อมูลจำลองการ์ดอุปกรณ์และสถานะอาคาร)
+5. **`facility_building_overview_page.dart` (ภาพรวมอาคาร)** — **[UI MOCK]** (ยังใช้ข้อมูลจำลองมิเตอร์เซนเซอร์สิ่งแวดล้อมและแปลนอาคาร)
+6. **`facility_incident_inbox_page.dart` (กล่องเหตุอุปกรณ์ STK-12)** — **[UI MOCK]** (ยังเป็น mock data)
+7. **`facility_security_events_page.dart` (รายงานความปลอดภัย STK-10)** — **[UI MOCK]** (ยังเป็น mock data)
+8. **`facility_command_history_page.dart` (ประวัติการสั่งการ)** — **[UI MOCK]** (ยังเป็น mock data)
+

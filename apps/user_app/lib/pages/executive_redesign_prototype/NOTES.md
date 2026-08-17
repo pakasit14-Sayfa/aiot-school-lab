@@ -222,5 +222,10 @@ Major ก่อน (อีก 3 จุด Minor ยังไม่แก้ — 
 - `executive_escalation_inbox_page.dart` ทั้งหน้า (EMG-4/SEC-5) — ไม่มี
   backend รองรับเลยเช่นกัน ยังไม่ได้แตะ
 
-`flutter analyze`: 482 issues เท่าเดิม 0 error (เช็คทั้งไฟล์ที่แก้และทั้ง
-โปรเจกต์)
+## 💎 [เชื่อมข้อมูลจริง 2026-08-17] มิติ "ความปลอดภัย" ใน Executive Dashboard เชื่อมกับ Supabase จริงแล้ว
+
+- เชื่อมต่อ `IncidentService.getIncidentSummary()` (RPC `get_incident_summary`) เข้ากับ มิติ "ความปลอดภัย" ใน `executive_dashboard_page.dart`
+- คำนวณสรุปรายงานเหตุการณ์ทั้งหมด, จำนวน SOS, เวลาตอบสนองเฉลี่ยของครูจริง
+- เป็นข้อมูลสรุปภาพรวมระดับโรงเรียน ไม่มี PII หรือข้อมูลที่ระบุตัวตนนักเรียนรายคน หลุดรอดออกมา สอดคล้องตามกฎ BR1 และ PDPA 100%
+- `flutter analyze` 478 issues (0 error) ผ่านสะอาดเรียบร้อย
+

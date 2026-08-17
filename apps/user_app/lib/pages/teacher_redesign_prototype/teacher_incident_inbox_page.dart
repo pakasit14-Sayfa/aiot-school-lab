@@ -1,130 +1,38 @@
-// PROTOTYPE ONLY: "รับแจ้งเหตุฉุกเฉิน" — ฝั่งครู/Admin ตาม
-// emergency-alert-app-proposal-v1 (S4/S4a/S4b/S4c) UI/UX mock เท่านั้น
-// ยังไม่เชื่อม backend จริง — ไม่แตะ emergency_events ของเดิม
-
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
-enum MockIncidentCategory { sos, anomaly }
-
-enum IncidentStatus {
-  newReport,
-  acknowledged,
-  inProgress,
-  escalated,
-  resolved,
-  cancelled,
-}
-
-class IncidentActionLog {
-  IncidentActionLog({
-    required this.actor,
-    required this.note,
-    required this.time,
-  });
-  final String actor;
-  final String note;
-  final DateTime time;
-}
-
-class IncidentReportMock {
-  IncidentReportMock({
-    required this.id,
-    required this.category,
-    required this.room,
-    required this.reporterName,
-    required this.createdAt,
-    this.status = IncidentStatus.newReport,
-    this.acknowledgedBy,
-    this.assignedTo,
-    List<IncidentActionLog>? timeline,
-  }) : timeline = timeline ?? [];
-
-  final String id;
-  final MockIncidentCategory category;
-  final String room;
-  final String reporterName;
-  final DateTime createdAt;
-  IncidentStatus status;
-  String? acknowledgedBy;
-  String? assignedTo;
-  final List<IncidentActionLog> timeline;
-}
-
-final List<IncidentReportMock> mockIncidentReports = [
-  IncidentReportMock(
-    id: 'INC-2026-00214',
-    category: MockIncidentCategory.sos,
-    room: 'ม.5/2',
-    reporterName: 'ณัฐวุฒิ ใจดี',
-    createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
-  ),
-  IncidentReportMock(
-    id: 'INC-2026-00213',
-    category: MockIncidentCategory.anomaly,
-    room: 'ม.4/1',
-    reporterName: 'ปวีณา สายทอง',
-    createdAt: DateTime.now().subtract(const Duration(minutes: 8)),
-  ),
-  IncidentReportMock(
-    id: 'INC-2026-00212',
-    category: MockIncidentCategory.anomaly,
-    room: 'ม.6/2',
-    reporterName: 'ธนกร วิจิตร',
-    createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
-  ),
-  IncidentReportMock(
-    id: 'INC-2026-00201',
-    category: MockIncidentCategory.anomaly,
-    room: 'ม.5/1',
-    reporterName: 'กิตติศักดิ์ มั่นคง',
-    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-    status: IncidentStatus.resolved,
-    acknowledgedBy: 'ครูสมชาย',
-    timeline: [
-      IncidentActionLog(
-        actor: 'ครูสมชาย',
-        note: 'รับเรื่องแล้ว กำลังตรวจสอบ',
-        time: DateTime.now().subtract(const Duration(hours: 3, minutes: -2)),
-      ),
-      IncidentActionLog(
-        actor: 'ครูสมชาย',
-        note: 'ตรวจสอบแล้วเป็นการแจ้งเตือนที่เข้าใจผิด ไม่มีเหตุจริง',
-        time: DateTime.now().subtract(const Duration(hours: 2, minutes: 40)),
-      ),
-    ],
-  ),
-];
-
-Color _categoryColor(MockIncidentCategory c) => c == MockIncidentCategory.sos
+Color _categoryColor(IncidentCategory c) => c == IncidentCategory.sos
     ? const Color(0xFFDC2626)
     : const Color(0xFFD97706);
 
-String _categoryLabel(MockIncidentCategory c) =>
-    c == MockIncidentCategory.sos ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ';
+String _categoryLabel(IncidentCategory c) =>
+    c == IncidentCategory.sos ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ';
 
-String _statusLabel(IncidentStatus s) => switch (s) {
-  IncidentStatus.newReport => 'รอตรวจสอบ',
-  IncidentStatus.acknowledged => 'รับเรื่องแล้ว',
-  IncidentStatus.inProgress => 'กำลังดำเนินการ',
-  IncidentStatus.escalated => 'ยกระดับแล้ว',
-  IncidentStatus.resolved => 'ปิดเหตุแล้ว (เหตุจริง)',
-  IncidentStatus.cancelled => 'ปิดเหตุแล้ว (แจ้งเท็จ)',
+String _statusLabel(String status) => switch (status) {
+  'new' => 'รอตรวจสอบ',
+  'acknowledged' => 'รับเรื่องแล้ว',
+  'in_progress' => 'กำลังดำเนินการ',
+  'escalated' => 'ยกระดับแล้ว',
+  'resolved' => 'ปิดเหตุแล้ว (เหตุจริง)',
+  'cancelled' => 'ปิดเหตุแล้ว (แจ้งเท็จ)',
+  _ => status,
 };
 
-Color _statusColor(IncidentStatus s) => switch (s) {
-  IncidentStatus.newReport => TeacherPalette.muted,
-  IncidentStatus.acknowledged => const Color(0xFF2563EB),
-  IncidentStatus.inProgress => const Color(0xFFD97706),
-  IncidentStatus.escalated => const Color(0xFFDC2626),
-  IncidentStatus.resolved => const Color(0xFF059669),
-  IncidentStatus.cancelled => TeacherPalette.muted,
+Color _statusColor(String status) => switch (status) {
+  'new' => TeacherPalette.muted,
+  'acknowledged' => const Color(0xFF2563EB),
+  'in_progress' => const Color(0xFFD97706),
+  'escalated' => const Color(0xFFDC2626),
+  'resolved' => const Color(0xFF059669),
+  'cancelled' => TeacherPalette.muted,
+  _ => TeacherPalette.muted,
 };
 
 String _timeAgo(DateTime t) {
-  final diff = DateTime.now().difference(t);
+  final diff = DateTime.now().difference(t.toLocal());
   if (diff.inMinutes < 1) return 'เมื่อสักครู่';
   if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
   if (diff.inHours < 24) return '${diff.inHours} ชม.ที่แล้ว';
@@ -132,7 +40,7 @@ String _timeAgo(DateTime t) {
 }
 
 // ==========================================
-// S4: หน้ารับแจ้งเหตุ (Inbox)
+// S4: หน้ารับแจ้งเหตุ (Inbox) — เชื่อมต่อ Backend จริง
 // ==========================================
 
 class TeacherIncidentInboxPage extends StatefulWidget {
@@ -145,60 +53,90 @@ class TeacherIncidentInboxPage extends StatefulWidget {
 
 class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   int _tabIndex = 0;
+  bool _isLoading = true;
+  String? _error;
+  List<TeacherIncidentReport> _reports = [];
 
-  List<IncidentReportMock> get _newReports =>
-      mockIncidentReports
-          .where((i) => i.status == IncidentStatus.newReport)
+  @override
+  void initState() {
+    super.initState();
+    _fetchReports();
+  }
+
+  Future<void> _fetchReports() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final list = await IncidentService.listTeacherIncidentReports();
+      if (mounted) {
+        setState(() {
+          _reports = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<TeacherIncidentReport> get _newReports =>
+      _reports.where((i) => i.status == 'new').toList()..sort(_urgencySort);
+
+  List<TeacherIncidentReport> get _inProgress =>
+      _reports
+          .where((i) => i.status == 'acknowledged' || i.status == 'in_progress')
           .toList()
         ..sort(_urgencySort);
 
-  List<IncidentReportMock> get _inProgress =>
-      mockIncidentReports
-          .where(
-            (i) =>
-                i.status == IncidentStatus.acknowledged ||
-                i.status == IncidentStatus.inProgress,
-          )
-          .toList()
-        ..sort(_urgencySort);
-
-  List<IncidentReportMock> get _closed => mockIncidentReports
+  List<TeacherIncidentReport> get _closed => _reports
       .where(
         (i) =>
-            i.status == IncidentStatus.resolved ||
-            i.status == IncidentStatus.cancelled ||
-            i.status == IncidentStatus.escalated,
+            i.status == 'resolved' ||
+            i.status == 'cancelled' ||
+            i.status == 'escalated',
       )
       .toList();
 
-  // กติกาจัดลำดับ (proposal ข้อ 4.3): SOS มาก่อนเหตุผิดปกติเสมอ
-  // ภายในกลุ่มเดียวกันเรียงเก่าสุดก่อน (FIFO) กันเหตุตกหล่น
-  int _urgencySort(IncidentReportMock a, IncidentReportMock b) {
+  int _urgencySort(TeacherIncidentReport a, TeacherIncidentReport b) {
     if (a.category != b.category) {
-      return a.category == MockIncidentCategory.sos ? -1 : 1;
+      return a.category == IncidentCategory.sos ? -1 : 1;
     }
     return a.createdAt.compareTo(b.createdAt);
   }
 
-  Future<void> _openDetail(IncidentReportMock incident) async {
+  Future<void> _openDetail(TeacherIncidentReport incident) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => TeacherIncidentDetailPage(incident: incident),
       ),
     );
-    if (mounted) setState(() {});
+    if (mounted) _fetchReports();
   }
 
   @override
   Widget build(BuildContext context) {
     final tabs = [_newReports, _inProgress, _closed];
-    final items = tabs[_tabIndex];
+    final items = _tabIndex < tabs.length
+        ? tabs[_tabIndex]
+        : <TeacherIncidentReport>[];
 
     return TeacherMockPageShell(
       title: 'รับแจ้งเหตุฉุกเฉิน',
       activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
       actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'รีเฟรช',
+          onPressed: _fetchReports,
+        ),
         IconButton(
           icon: const Icon(Icons.history_rounded),
           tooltip: 'ประวัติเหตุทั้งหมด',
@@ -221,23 +159,23 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
+                color: const Color(0xFFF0FDF4),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFCA5A5)),
+                border: Border.all(color: const Color(0xFF86EFAC)),
               ),
               child: const Row(
                 children: [
                   Icon(
-                    Icons.info_outline_rounded,
+                    Icons.check_circle_outline_rounded,
                     size: 16,
-                    color: Color(0xFFB91C1C),
+                    color: Color(0xFF15803D),
                   ),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'โหมดทดลอง UI — ยังไม่เชื่อมระบบแจ้งเหตุจริง เหตุที่แจ้งจากแอปนี้แยกจากปุ่มฉุกเฉินทางกายภาพเสมอ',
+                      'ระบบเชื่อมต่อแจ้งเหตุจริงเรียบร้อยแล้ว — แสดงเฉพาะเหตุในวิชา/ห้องที่ครูสอนตามสิทธิ์ RLS',
                       style: TextStyle(
-                        color: Color(0xFFB91C1C),
+                        color: Color(0xFF15803D),
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
@@ -257,7 +195,26 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               ],
             ),
             const SizedBox(height: 16),
-            if (items.isEmpty)
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_error != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFCA5A5)),
+                ),
+                child: Text(
+                  'เกิดข้อผิดพลาดในการโหลดข้อมูล: $_error',
+                  style: const TextStyle(color: Color(0xFFB91C1C)),
+                ),
+              )
+            else if (items.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
@@ -345,7 +302,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 class _IncidentCard extends StatelessWidget {
   const _IncidentCard({required this.incident, required this.onTap});
 
-  final IncidentReportMock incident;
+  final TeacherIncidentReport incident;
   final VoidCallback onTap;
 
   @override
@@ -394,7 +351,7 @@ class _IncidentCard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        incident.category == MockIncidentCategory.sos
+                        incident.category == IncidentCategory.sos
                             ? Icons.emergency_rounded
                             : Icons.warning_amber_rounded,
                         color: accent,
@@ -431,7 +388,7 @@ class _IncidentCard extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'ห้อง ${incident.room} · แจ้งโดย ${incident.reporterName}',
+                            'ห้อง ${incident.room ?? "ไม่ระบุ"} · แจ้งโดย ${incident.reporterName}',
                             style: const TextStyle(
                               color: TeacherPalette.ink,
                               fontSize: 12.5,
@@ -468,7 +425,7 @@ class _IncidentCard extends StatelessWidget {
 class TeacherIncidentDetailPage extends StatefulWidget {
   const TeacherIncidentDetailPage({super.key, required this.incident});
 
-  final IncidentReportMock incident;
+  final TeacherIncidentReport incident;
 
   @override
   State<TeacherIncidentDetailPage> createState() =>
@@ -477,7 +434,7 @@ class TeacherIncidentDetailPage extends StatefulWidget {
 
 class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
   final _noteCtrl = TextEditingController();
-  static const _currentTeacherName = 'ครูวิจิตร (คุณ)';
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -485,20 +442,8 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
     super.dispose();
   }
 
-  void _log(String note) {
-    setState(() {
-      widget.incident.timeline.add(
-        IncidentActionLog(
-          actor: _currentTeacherName,
-          note: note,
-          time: DateTime.now(),
-        ),
-      );
-    });
-  }
-
-  void _acknowledge() {
-    if (widget.incident.status != IncidentStatus.newReport) {
+  Future<void> _acknowledge() async {
+    if (widget.incident.status != 'new') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('มีผู้รับเรื่องนี้แล้ว'),
@@ -507,66 +452,60 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
       );
       return;
     }
-    setState(() {
-      widget.incident.status = IncidentStatus.acknowledged;
-      widget.incident.acknowledgedBy = _currentTeacherName;
-    });
-    _log('รับเรื่องแล้ว');
+    setState(() => _isSubmitting = true);
+    try {
+      await IncidentService.acknowledgeIncidentReport(widget.incident.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('รับเรื่องเรียบร้อยแล้ว'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถรับเรื่องได้: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
-  Future<void> _assign() async {
-    final controller = TextEditingController(
-      text: widget.incident.assignedTo ?? '',
-    );
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'มอบหมายงาน',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: 'ครู/เวรที่รับผิดชอบต่อ',
-            hintText: 'เช่น ครูเวร อาคาร 3',
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: TeacherPalette.primary,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('มอบหมาย'),
-          ),
-        ],
-      ),
-    );
-    if (result == null || result.isEmpty) return;
-    setState(() => widget.incident.assignedTo = result);
-    _log('มอบหมายงานให้ $result');
-  }
-
-  void _saveNote() {
+  Future<void> _saveNote() async {
     final text = _noteCtrl.text.trim();
     if (text.isEmpty) return;
-    setState(() {
-      if (widget.incident.status == IncidentStatus.acknowledged) {
-        widget.incident.status = IncidentStatus.inProgress;
+    setState(() => _isSubmitting = true);
+    try {
+      await IncidentService.addIncidentAction(widget.incident.id, text);
+      _noteCtrl.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('บันทึกความคืบหน้าเรียบร้อยแล้ว'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
       }
-    });
-    _log(text);
-    _noteCtrl.clear();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถบันทึกได้: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _escalate() async {
@@ -607,17 +546,30 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
       ),
     );
     if (confirmed != true) return;
-    setState(() => widget.incident.status = IncidentStatus.escalated);
-    _log('ยกระดับเป็นเหตุฉุกเฉินจริง — สร้าง Emergency Event แล้ว (mock)');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'ยกระดับเหตุแล้ว (mock) — เชื่อม Emergency Event เมื่อพัฒนาจริง',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    setState(() => _isSubmitting = true);
+    try {
+      await IncidentService.escalateIncidentReport(widget.incident.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ยกระดับเป็นเหตุฉุกเฉินเรียบร้อยแล้ว'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถยกระดับได้: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _close() async {
@@ -696,15 +648,35 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
       ),
     );
     if (result != true) return;
-    setState(() {
-      widget.incident.status = isRealIncident
-          ? IncidentStatus.resolved
-          : IncidentStatus.cancelled;
-    });
-    _log(
-      'ปิดเหตุ — ${isRealIncident ? 'เหตุจริง' : 'แจ้งเท็จ/กดพลาด'}: ${noteCtrl.text.trim()}',
-    );
-    if (mounted) Navigator.pop(context);
+    setState(() => _isSubmitting = true);
+    try {
+      final resType = isRealIncident ? 'resolved' : 'cancelled';
+      await IncidentService.closeIncidentReport(
+        widget.incident.id,
+        resolutionType: resType,
+        resolutionNote: noteCtrl.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ปิดเหตุเรียบร้อยแล้ว'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถปิดเหตุได้: $e'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Widget _closeChoiceTile({
@@ -746,11 +718,11 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
   Widget build(BuildContext context) {
     final incident = widget.incident;
     final accent = _categoryColor(incident.category);
-    final isNew = incident.status == IncidentStatus.newReport;
+    final isNew = incident.status == 'new';
     final isTerminal =
-        incident.status == IncidentStatus.resolved ||
-        incident.status == IncidentStatus.cancelled ||
-        incident.status == IncidentStatus.escalated;
+        incident.status == 'resolved' ||
+        incident.status == 'cancelled' ||
+        incident.status == 'escalated';
 
     return TeacherMockPageShell(
       title: 'เหตุ ${incident.id}',
@@ -760,8 +732,6 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Hero: แถบสีบนสุด + ไอคอนวงกลม ให้เข้าชุดกับการ์ดใบงาน/
-            // บทเรียนที่เหลือของแอปฝั่งครู
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -800,11 +770,11 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                               width: 46,
                               height: 46,
                               decoration: BoxDecoration(
-                                color: accent.withValues(alpha: 0.12),
+                                color: accent.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                incident.category == MockIncidentCategory.sos
+                                incident.category == IncidentCategory.sos
                                     ? Icons.emergency_rounded
                                     : Icons.warning_amber_rounded,
                                 color: accent,
@@ -817,274 +787,164 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _categoryLabel(incident.category),
+                                          style: TextStyle(
+                                            color: accent,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ),
+                                      TeacherStatusChip(
+                                        label: _statusLabel(incident.status),
+                                        color: _statusColor(incident.status),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
                                   Text(
-                                    _categoryLabel(incident.category),
-                                    style: TextStyle(
-                                      color: accent,
+                                    'ห้อง ${incident.room ?? "ไม่ระบุ"} · แจ้งโดย ${incident.reporterName}',
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 16.5,
+                                      fontSize: 14,
+                                      color: TeacherPalette.ink,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    incident.id,
+                                    'แจ้งเมื่อ ${_timeAgo(incident.createdAt)} (${incident.createdAt.toLocal().toString().substring(0, 16)})',
                                     style: const TextStyle(
                                       color: TeacherPalette.muted,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            TeacherStatusChip(
-                              label: _statusLabel(incident.status),
-                              color: _statusColor(incident.status),
-                            ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: [
-                            _IncidentMetaTag(
-                              icon: Icons.room_outlined,
-                              label: 'ห้อง ${incident.room}',
-                              color: accent,
-                            ),
-                            _IncidentMetaTag(
-                              icon: Icons.person_outline_rounded,
-                              label: incident.reporterName,
-                              color: accent,
-                            ),
-                            _IncidentMetaTag(
-                              icon: Icons.schedule_rounded,
-                              label: _timeAgo(incident.createdAt),
-                              color: accent,
-                            ),
-                            if (incident.assignedTo != null)
-                              _IncidentMetaTag(
-                                icon: Icons.assignment_ind_outlined,
-                                label: 'มอบหมาย: ${incident.assignedTo}',
-                                color: accent,
+                        if (_isSubmitting)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        if (!isTerminal && !_isSubmitting) ...[
+                          const SizedBox(height: 16),
+                          const Divider(height: 1),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              if (isNew)
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: _acknowledge,
+                                  icon: const Icon(
+                                    Icons.check_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('รับเรื่อง'),
+                                ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  foregroundColor: Colors.white,
+                                ),
+                                onPressed: _escalate,
+                                icon: const Icon(
+                                  Icons.priority_high_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('ยกระดับเป็นเหตุฉุกเฉิน'),
                               ),
-                          ],
-                        ),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF059669),
+                                ),
+                                onPressed: _close,
+                                icon: const Icon(
+                                  Icons.task_alt_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('ปิดเหตุ'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Timeline',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
-                color: TeacherPalette.ink,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (incident.timeline.isEmpty)
+            const SizedBox(height: 18),
+            if (!isTerminal && !_isSubmitting) ...[
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: TeacherPalette.border),
                 ),
-                child: const Center(
-                  child: Text(
-                    'ยังไม่มีการบันทึกการดำเนินการ',
-                    style: TextStyle(
-                      color: TeacherPalette.muted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              )
-            else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: TeacherPalette.border),
-                ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: List.generate(incident.timeline.length, (i) {
-                    final log = incident.timeline[i];
-                    final isLast = i == incident.timeline.length - 1;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Column(
-                            children: [
-                              Container(
-                                width: 11,
-                                height: 11,
-                                decoration: BoxDecoration(
-                                  color: isLast
-                                      ? TeacherPalette.primary
-                                      : TeacherPalette.border,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              if (!isLast)
-                                Container(
-                                  width: 2,
-                                  height: 34,
-                                  color: const Color(0xFFE2E8F0),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  log.note,
-                                  style: TextStyle(
-                                    fontWeight: isLast
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    fontSize: 13,
-                                    color: isLast
-                                        ? TeacherPalette.ink
-                                        : TeacherPalette.muted,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${log.actor} · ${_timeAgo(log.time)}',
-                                  style: const TextStyle(
-                                    color: TeacherPalette.muted,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            if (!isTerminal) ...[
-              const SizedBox(height: 22),
-              // ปุ่มหลัก "รับเรื่อง" เด่นสุดตอนยังเป็นเหตุใหม่ — เข้าชุดกับ
-              // แพทเทิร์นปุ่มหลัก+ปุ่มรองที่ใช้ในการ์ดบทเรียน/ใบงาน
-              if (isNew)
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _acknowledge,
-                    icon: const Icon(
-                      Icons.check_circle_outline_rounded,
-                      size: 20,
-                    ),
-                    label: const Text('รับเรื่องนี้'),
-                    style: FilledButton.styleFrom(
-                      // อำพัน/ส้ม สื่อ "ต้องลงมือทำตอนนี้" — แยกจากแดง
-                      // (SOS/ยกระดับ) และเขียว (ปิดเหตุ) ที่ใช้อยู่แล้ว
-                      backgroundColor: const Color(0xFFD97706),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                )
-              else ...[
-                Row(
                   children: [
-                    Expanded(
-                      child: _IncidentToolButton(
-                        icon: Icons.person_add_alt_1_rounded,
-                        label: 'มอบหมาย',
-                        color: const Color(0xFF2563EB),
-                        onTap: _assign,
+                    const Text(
+                      'บันทึกการดำเนินการ',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: TeacherPalette.ink,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _IncidentToolButton(
-                        icon: Icons.priority_high_rounded,
-                        label: 'ยกระดับเหตุ',
-                        color: const Color(0xFFDC2626),
-                        onTap: _escalate,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _IncidentToolButton(
-                        icon: Icons.task_alt_rounded,
-                        label: 'ปิดเหตุ',
-                        color: const Color(0xFF059669),
-                        onTap: _close,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: TeacherPalette.border),
-                  ),
-                  child: TextField(
-                    controller: _noteCtrl,
-                    decoration: InputDecoration(
-                      hintText: 'บันทึกการดำเนินการ...',
-                      hintStyle: const TextStyle(fontSize: 13),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      suffixIcon: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Material(
-                          color: TeacherPalette.primary,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: _saveNote,
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Icon(
-                                Icons.arrow_upward_rounded,
-                                color: Colors.white,
-                                size: 16,
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _noteCtrl,
+                            decoration: InputDecoration(
+                              hintText: 'พิมพ์ความคืบหน้า...',
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
                               ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TeacherPalette.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                          ),
+                          onPressed: _saveNote,
+                          child: const Text('บันทึก'),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ],
         );
@@ -1093,100 +953,8 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
   }
 }
 
-class _IncidentMetaTag extends StatelessWidget {
-  const _IncidentMetaTag({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: TeacherPalette.muted,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ปุ่มเครื่องมือทรงกลม+label ใต้ไอคอน ใช้แถวเดียวกัน 3 ปุ่ม (มอบหมาย/
-// ยกระดับ/ปิดเหตุ) แทนปุ่มยาวเต็มแถวแบบเดิม ให้กดพลาดยากขึ้นและดูเป็น
-// ชุดเครื่องมือมากกว่าปุ่มฟอร์ม
-class _IncidentToolButton extends StatelessWidget {
-  const _IncidentToolButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 11.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ==========================================
-// S6: หน้าประวัติเหตุ (ครู/Admin) — กรองตามสถานะ/ประเภท
-// ในของจริงต้องกรองตามขอบเขตพื้นที่/เวรผ่าน RLS ด้วย (proposal ข้อ 6)
+// S4b: ประวัติเหตุทั้งหมด
 // ==========================================
 
 class TeacherIncidentHistoryPage extends StatefulWidget {
@@ -1201,6 +969,8 @@ class _TeacherIncidentHistoryPageState
     extends State<TeacherIncidentHistoryPage> {
   String _statusFilter = 'ทั้งหมด';
   String _categoryFilter = 'ทั้งหมด';
+  bool _isLoading = true;
+  List<TeacherIncidentReport> _reports = [];
 
   static const _statusOptions = [
     'ทั้งหมด',
@@ -1210,47 +980,62 @@ class _TeacherIncidentHistoryPageState
   ];
   static const _categoryOptions = ['ทั้งหมด', 'SOS', 'ผิดปกติ'];
 
-  bool _matchesStatus(IncidentReportMock i) {
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await IncidentService.listTeacherIncidentReports();
+      if (mounted) setState(() => _reports = list);
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  bool _matchesStatus(TeacherIncidentReport i) {
     switch (_statusFilter) {
       case 'รอตรวจสอบ':
-        return i.status == IncidentStatus.newReport;
+        return i.status == 'new';
       case 'กำลังดำเนินการ':
-        return i.status == IncidentStatus.acknowledged ||
-            i.status == IncidentStatus.inProgress;
+        return i.status == 'acknowledged' || i.status == 'in_progress';
       case 'ปิดแล้ว':
-        return i.status == IncidentStatus.resolved ||
-            i.status == IncidentStatus.cancelled ||
-            i.status == IncidentStatus.escalated;
+        return i.status == 'resolved' ||
+            i.status == 'cancelled' ||
+            i.status == 'escalated';
       default:
         return true;
     }
   }
 
-  bool _matchesCategory(IncidentReportMock i) {
+  bool _matchesCategory(TeacherIncidentReport i) {
     if (_categoryFilter == 'ทั้งหมด') return true;
     final wantSos = _categoryFilter == 'SOS';
-    return (i.category == MockIncidentCategory.sos) == wantSos;
+    return (i.category == IncidentCategory.sos) == wantSos;
   }
 
   @override
   Widget build(BuildContext context) {
     final items =
-        mockIncidentReports
-            .where((i) => _matchesStatus(i) && _matchesCategory(i))
-            .toList()
+        _reports.where((i) => _matchesStatus(i) && _matchesCategory(i)).toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     return TeacherMockPageShell(
       title: 'ประวัติเหตุทั้งหมด',
       activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
+      actions: [
+        IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch),
+      ],
       builder: (context, isDesktop) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               'สถานะ',
-              style: const TextStyle(
+              style: TextStyle(
                 color: TeacherPalette.muted,
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
@@ -1304,7 +1089,9 @@ class _TeacherIncidentHistoryPageState
               ),
             ),
             const SizedBox(height: 10),
-            if (items.isEmpty)
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (items.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
@@ -1337,7 +1124,7 @@ class _TeacherIncidentHistoryPageState
                               TeacherIncidentDetailPage(incident: incident),
                         ),
                       );
-                      if (mounted) setState(() {});
+                      if (mounted) _fetch();
                     },
                   ),
                 ),

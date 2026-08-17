@@ -63,4 +63,85 @@ class IncidentService {
             as List;
     return IncidentReportDetail.fromRow(rows.first as Map<String, dynamic>);
   }
+
+  static Future<List<TeacherIncidentReport>> listTeacherIncidentReports({
+    String? status,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final params = <String, dynamic>{'p_token': token};
+    if (status != null) params['p_status'] = status;
+    final rows =
+        await supabase.rpc('list_incident_reports', params: params) as List;
+    return rows
+        .map(
+          (row) => TeacherIncidentReport.fromRow(row as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  static Future<void> acknowledgeIncidentReport(String id) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'acknowledge_incident_report',
+      params: {'p_token': token, 'p_id': id},
+    );
+  }
+
+  static Future<void> assignIncidentReport(String id, String assigneeId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'assign_incident_report',
+      params: {'p_token': token, 'p_id': id, 'p_assignee_id': assigneeId},
+    );
+  }
+
+  static Future<void> addIncidentAction(String id, String note) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'add_incident_action',
+      params: {'p_token': token, 'p_id': id, 'p_note': note},
+    );
+  }
+
+  static Future<void> escalateIncidentReport(String id) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'escalate_incident_report',
+      params: {'p_token': token, 'p_id': id},
+    );
+  }
+
+  static Future<void> closeIncidentReport(
+    String id, {
+    required String resolutionType,
+    required String resolutionNote,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'close_incident_report',
+      params: {
+        'p_token': token,
+        'p_id': id,
+        'p_resolution_type': resolutionType,
+        'p_resolution_note': resolutionNote,
+      },
+    );
+  }
+
+  static Future<List<IncidentSummaryItem>> getIncidentSummary() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc('get_incident_summary', params: {'p_token': token})
+            as List;
+    return rows
+        .map((row) => IncidentSummaryItem.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
 }

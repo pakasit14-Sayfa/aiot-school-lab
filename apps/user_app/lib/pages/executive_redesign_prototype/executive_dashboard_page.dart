@@ -63,6 +63,7 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
   String? _realStatsError;
   Map<String, int> _userCountsByRole = {};
   List<DeviceOption> _devices = [];
+  List<IncidentSummaryItem> _incidentSummaries = [];
 
   @override
   void initState() {
@@ -79,11 +80,13 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
       final results = await Future.wait([
         UserAdminService.countUsersByRole(),
         LessonService.listSchoolDevices(),
+        IncidentService.getIncidentSummary(),
       ]);
       if (!mounted) return;
       setState(() {
         _userCountsByRole = results[0] as Map<String, int>;
         _devices = results[1] as List<DeviceOption>;
+        _incidentSummaries = results[2] as List<IncidentSummaryItem>;
         _loadingRealStats = false;
       });
     } catch (e) {
@@ -123,17 +126,6 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
         return 'จากภาคเรียนที่แล้ว';
       default:
         return 'จากเดือนที่แล้ว';
-    }
-  }
-
-  String get _safetyEventsByPeriod {
-    switch (_selectedPeriod) {
-      case '7 วันที่ผ่านมา':
-        return '6 ครั้ง';
-      case 'ภาคเรียนนี้':
-        return '102 ครั้ง';
-      default:
-        return '24 ครั้ง';
     }
   }
 
@@ -271,36 +263,63 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
                   ],
           ),
           const SizedBox(height: 22),
-          _buildDimensionSection(
-            icon: Icons.shield_rounded,
-            title: 'ความปลอดภัย',
-            subtitle:
-                'อ้างอิงจากรายงานเหตุการณ์ความปลอดภัยทั้งโรงเรียน (SEC-7) · $_selectedPeriod',
-            color: ExecutiveTheme.emergencyRed,
-            hasData: true,
-            cards: [
-              _StatCardData(
-                icon: Icons.report_rounded,
-                label: 'เหตุการณ์ทั้งหมด ($_selectedPeriod)',
-                value: _safetyEventsByPeriod,
-                trend: '↘ -8% $_periodTrendSuffix',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-              _StatCardData(
-                icon: Icons.timer_rounded,
-                label: 'เวลาตอบสนองเฉลี่ย',
-                value: '3 นาที 20 วิ',
-                trend: '✓ ตามมาตรฐาน',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-              _StatCardData(
-                icon: Icons.task_alt_rounded,
-                label: 'ปิดเหตุการณ์สำเร็จ',
-                value: '96%',
-                trend: '↗ +1% $_periodTrendSuffix',
-                trendColor: ExecutiveTheme.safeGreen,
-              ),
-            ],
+          Builder(
+            builder: (context) {
+              final totalIncidents = _incidentSummaries.fold(
+                0,
+                (sum, i) => sum + i.totalCount,
+              );
+              final sosIncidents = _incidentSummaries
+                  .where((i) => i.category == IncidentCategory.sos)
+                  .fold(0, (sum, i) => sum + i.totalCount);
+              final validAvgTimes = _incidentSummaries
+                  .where((i) => i.avgResponseSeconds != null)
+                  .map((i) => i.avgResponseSeconds!);
+              final avgSec = validAvgTimes.isEmpty
+                  ? null
+                  : validAvgTimes.reduce((a, b) => a + b) /
+                        validAvgTimes.length;
+              final avgFormatted = avgSec == null
+                  ? 'ยังไม่มีการรับเรื่อง'
+                  : avgSec < 60
+                  ? '${avgSec.round()} วินาที'
+                  : '${(avgSec / 60).floor()} นาที ${(avgSec % 60).round()} วิ';
+
+              return _buildDimensionSection(
+                icon: Icons.shield_rounded,
+                title: 'ความปลอดภัย',
+                subtitle:
+                    'อ้างอิงจากรายงานเหตุการณ์ความปลอดภัยทั้งโรงเรียน (SEC-7) · ข้อมูลจริง',
+                color: ExecutiveTheme.emergencyRed,
+                hasData: !_loadingRealStats,
+                cards: _loadingRealStats
+                    ? const []
+                    : [
+                        _StatCardData(
+                          icon: Icons.report_rounded,
+                          label: 'รายงานเหตุการณ์ทั้งหมด',
+                          value: '$totalIncidents ครั้ง',
+                          trend:
+                              'SOS $sosIncidents ครั้ง · เหตุทั่วไป ${totalIncidents - sosIncidents} ครั้ง',
+                          trendColor: ExecutiveTheme.softMauve,
+                        ),
+                        _StatCardData(
+                          icon: Icons.timer_rounded,
+                          label: 'เวลาตอบสนองเฉลี่ย',
+                          value: avgFormatted,
+                          trend: 'คำนวณจากเวลาที่ครูรับเรื่องจริง',
+                          trendColor: ExecutiveTheme.safeGreen,
+                        ),
+                        _StatCardData(
+                          icon: Icons.category_rounded,
+                          label: 'ประเภทเหตุที่รายงานเข้ามา',
+                          value: '${_incidentSummaries.length} ประเภท',
+                          trend: 'คำนวณสรุปแบบไม่ระบุตัวตน (PDPA)',
+                          trendColor: ExecutiveTheme.safeGreen,
+                        ),
+                      ],
+              );
+            },
           ),
           const SizedBox(height: 22),
           _buildDimensionSection(

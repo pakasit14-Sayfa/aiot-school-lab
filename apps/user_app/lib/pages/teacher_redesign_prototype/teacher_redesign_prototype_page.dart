@@ -2449,86 +2449,91 @@ class _EmergencyAlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pending = mockIncidentReports
-        .where((i) => i.status == IncidentStatus.newReport)
-        .toList();
-    if (pending.isEmpty) return const SizedBox.shrink();
+    return FutureBuilder<List<TeacherIncidentReport>>(
+      future: IncidentService.listTeacherIncidentReports(status: 'new'),
+      builder: (context, snapshot) {
+        final pending = snapshot.data ?? [];
+        if (pending.isEmpty) return const SizedBox.shrink();
 
-    final hasSos = pending.any((i) => i.category == MockIncidentCategory.sos);
-    final color = hasSos ? const Color(0xFFDC2626) : const Color(0xFFD97706);
+        final hasSos = pending.any((i) => i.category == IncidentCategory.sos);
+        final color = hasSos
+            ? const Color(0xFFDC2626)
+            : const Color(0xFFD97706);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TeacherIncidentInboxPage(),
-              ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.07),
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: color.withValues(alpha: 0.3)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TeacherIncidentInboxPage(),
                   ),
-                  child: Icon(
-                    hasSos
-                        ? Icons.emergency_rounded
-                        : Icons.warning_amber_rounded,
-                    color: color,
-                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
                         hasSos
-                            ? 'มีเหตุ SOS ฉุกเฉินรอดำเนินการ!'
-                            : 'มีการแจ้งเหตุรอดำเนินการ',
-                        style: TextStyle(
-                          color: color,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14.5,
-                        ),
+                            ? Icons.emergency_rounded
+                            : Icons.warning_amber_rounded,
+                        color: color,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${pending.length} รายการ · แตะเพื่อดูรายละเอียด',
-                        style: const TextStyle(
-                          color: TeacherPalette.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            hasSos
+                                ? 'มีเหตุ SOS ฉุกเฉินรอดำเนินการ!'
+                                : 'มีการแจ้งเหตุรอดำเนินการ',
+                            style: TextStyle(
+                              color: color,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${pending.length} รายการ · แตะเพื่อดูรายละเอียด',
+                            style: const TextStyle(
+                              color: TeacherPalette.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: color),
+                  ],
                 ),
-                Icon(Icons.chevron_right_rounded, color: color),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
