@@ -3,7 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:model_viewer_plus/model_viewer_plus.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'student_main_nav.dart';
+import '../role_router.dart';
 import 'lesson_view_page.dart';
 
 /// Professional Enterprise Course Detail Page (Clean, Emoji-Free Layout)
@@ -58,7 +58,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     } else {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const StudentMainNav()),
+        MaterialPageRoute(builder: (context) => const RoleRouter()),
       );
     }
   }
@@ -111,15 +111,32 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                       color: const Color(0xFF0284C7).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(Icons.forum_rounded, color: Color(0xFF0284C7), size: 24),
+                    child: const Icon(
+                      Icons.forum_rounded,
+                      color: Color(0xFF0284C7),
+                      size: 24,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('สร้างข้อความสนทนาใหม่', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF0F172A))),
+                      Text(
+                        'สร้างข้อความสนทนาใหม่',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
                       SizedBox(height: 2),
-                      Text('ส่งคำถามหรือข้อสงสัยถึงครูและเพื่อนในคลาส', style: TextStyle(color: Color(0xFF64748B), fontSize: 12.5)),
+                      Text(
+                        'ส่งคำถามหรือข้อสงสัยถึงครูและเพื่อนในคลาส',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 12.5,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -138,7 +155,10 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.8),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF0284C7),
+                      width: 1.8,
+                    ),
                   ),
                 ),
               ),
@@ -154,10 +174,15 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   icon: const Icon(Icons.send_rounded, size: 18),
-                  label: const Text('ส่งข้อความ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  label: const Text(
+                    'ส่งข้อความ',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                 ),
               ),
             ],
@@ -199,7 +224,9 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF0284C7) : Colors.transparent,
+                  color: isSelected
+                      ? const Color(0xFF0284C7)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
@@ -208,15 +235,21 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                     Icon(
                       tab['icon'] as IconData,
                       size: 16,
-                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF94A3B8),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       tab['title'] as String,
                       style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         fontSize: 13,
-                        color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF94A3B8),
                       ),
                     ),
                   ],
@@ -257,112 +290,130 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
     return Stack(
       children: [
         Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        elevation: 0,
-        toolbarHeight: 68,
-        backgroundColor: const Color(0xFF0F172A),
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-          onPressed: _handleBackNavigation,
-        ),
-        title: Row(
-          children: [
-            if (code.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: themeColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  code,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            elevation: 0,
+            toolbarHeight: 68,
+            backgroundColor: const Color(0xFF0F172A),
+            foregroundColor: Colors.white,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 18,
               ),
-              const SizedBox(width: 14),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16.5,
-                      color: Colors.white,
+              onPressed: _handleBackNavigation,
+            ),
+            title: Row(
+              children: [
+                if (code.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: themeColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      code,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Row(
+                  const SizedBox(width: 14),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF10B981),
-                          shape: BoxShape.circle,
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.5,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          'ผู้สอน: $teacher • ห้องเรียน $room',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                        ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'ผู้สอน: $teacher • ห้องเรียน $room',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.home_outlined, color: Colors.white),
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const RoleRouter()),
+                  );
+                },
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _openFloatingChatModal,
+            backgroundColor: const Color(0xFF0284C7),
+            elevation: 4,
+            icon: const Icon(
+              Icons.add_comment_rounded,
+              color: Colors.white,
+              size: 19,
+            ),
+            label: const Text(
+              'โพสต์ข้อความใหม่',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13.5,
               ),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home_outlined, color: Colors.white),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const StudentMainNav()),
-              );
-            },
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
 
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openFloatingChatModal,
-        backgroundColor: const Color(0xFF0284C7),
-        elevation: 4,
-        icon: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 19),
-        label: const Text(
-          'โพสต์ข้อความใหม่',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
-        ),
-      ),
-
-      body: Column(
-        children: [
-          _buildCustomTabHeader(),
-          Expanded(
-            child: _buildActiveTabContent(teacher, themeColor, room),
+          body: Column(
+            children: [
+              _buildCustomTabHeader(),
+              Expanded(
+                child: _buildActiveTabContent(teacher, themeColor, room),
+              ),
+            ],
           ),
-        ],
-      ),
         ),
         if (_currentTabIndex == 0)
           Positioned(
@@ -422,14 +473,23 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
         child: Container(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ตอบกลับความคิดเห็นของ ${post.authorFullName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
+              Text(
+                'ตอบกลับความคิดเห็นของ ${post.authorFullName}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
               const SizedBox(height: 14),
               TextField(
                 controller: replyController,
@@ -438,7 +498,9 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
                   hintText: 'พิมพ์ความเห็นของคุณที่นี่...',
                   fillColor: const Color(0xFFF8FAFC),
                   filled: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -464,9 +526,14 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
                     backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('ส่งความเห็น', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'ส่งความเห็น',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -523,7 +590,9 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: isPin ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                color: isPin
+                    ? const Color(0xFF0284C7)
+                    : const Color(0xFFE2E8F0),
                 width: isPin ? 1.5 : 1.0,
               ),
               boxShadow: [
@@ -542,11 +611,19 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
                       children: [
-                        const Icon(Icons.push_pin_rounded, color: Color(0xFF0284C7), size: 16),
+                        const Icon(
+                          Icons.push_pin_rounded,
+                          color: Color(0xFF0284C7),
+                          size: 16,
+                        ),
                         const SizedBox(width: 6),
                         const Text(
                           'โพสต์ปักหมุดประจำรายวิชา',
-                          style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 12),
+                          style: TextStyle(
+                            color: Color(0xFF0284C7),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -574,12 +651,19 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
                           post.authorId == currentUserId
                               ? '${post.authorFullName} (คุณ)'
                               : post.authorFullName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
                         const SizedBox(height: 1),
                         Text(
                           '${post.createdAt.day}/${post.createdAt.month}/${post.createdAt.year + 543}',
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -588,35 +672,59 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
                 const SizedBox(height: 14),
                 Text(
                   post.body,
-                  style: const TextStyle(fontSize: 14.5, height: 1.6, color: Color(0xFF1E293B)),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    height: 1.6,
+                    color: Color(0xFF1E293B),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     TextButton.icon(
                       onPressed: () => _openReplyModal(post),
-                      icon: const Icon(Icons.reply_rounded, size: 16, color: Color(0xFF0284C7)),
-                      label: Text('ตอบกลับ (${post.replies.length})', style: const TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      icon: const Icon(
+                        Icons.reply_rounded,
+                        size: 16,
+                        color: Color(0xFF0284C7),
+                      ),
+                      label: Text(
+                        'ตอบกลับ (${post.replies.length})',
+                        style: const TextStyle(
+                          color: Color(0xFF0284C7),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 if (post.replies.isNotEmpty) ...[
                   const Divider(height: 20),
-                  ...post.replies.map((r) => Padding(
-                    padding: const EdgeInsets.only(left: 12, top: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.subdirectory_arrow_right_rounded, size: 16, color: Color(0xFF94A3B8)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '${r.authorFullName}: ${r.body}',
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                  ...post.replies.map(
+                    (r) => Padding(
+                      padding: const EdgeInsets.only(left: 12, top: 8),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.subdirectory_arrow_right_rounded,
+                            size: 16,
+                            color: Color(0xFF94A3B8),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${r.authorFullName}: ${r.body}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF334155),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  )),
+                  ),
                 ],
               ],
             ),
@@ -731,7 +839,11 @@ class _LessonsSectionState extends State<_LessonsSection> {
                         color: const Color(0xFF0284C7).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.menu_book_rounded, color: Color(0xFF0284C7), size: 24),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -740,23 +852,41 @@ class _LessonsSectionState extends State<_LessonsSection> {
                         children: [
                           Text(
                             lesson.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Text(
                             lesson.isPublished ? 'เผยแพร่แล้ว' : 'ฉบับร่าง',
-                            style: const TextStyle(color: Color(0xFF0284C7), fontSize: 12, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Color(0xFF0284C7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text('เข้าเรียน', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                      child: const Text(
+                        'เข้าเรียน',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -796,9 +926,7 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
       _errorMessage = null;
     });
     try {
-      final result = await AssignmentService.listAssignments(
-        widget.courseId,
-      );
+      final result = await AssignmentService.listAssignments(widget.courseId);
       if (!mounted) return;
       setState(() => _assignments = result);
     } catch (e) {
@@ -882,9 +1010,17 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
-                        const Icon(Icons.sensors, size: 16, color: Color(0xFF0284C7)),
+                        const Icon(
+                          Icons.sensors,
+                          size: 16,
+                          color: Color(0xFF0284C7),
+                        ),
                         const SizedBox(width: 8),
-                        Expanded(child: Text('${d.metric}${d.label != null ? " • ${d.label}" : ""}')),
+                        Expanded(
+                          child: Text(
+                            '${d.metric}${d.label != null ? " • ${d.label}" : ""}',
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -902,7 +1038,10 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
                       'เวอร์ชัน ${v.version} • ${v.submittedAt.day}/${v.submittedAt.month}/${v.submittedAt.year + 543}',
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ),
@@ -1016,7 +1155,11 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
                         color: const Color(0xFF0284C7).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.assignment_rounded, color: Color(0xFF0284C7), size: 24),
+                      child: const Icon(
+                        Icons.assignment_rounded,
+                        color: Color(0xFF0284C7),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -1025,14 +1168,21 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
                         children: [
                           Text(
                             assignment.title,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Text(
                             assignment.dueAt == null
                                 ? 'ยังไม่กำหนดวันส่ง'
                                 : 'กำหนดส่ง: ${assignment.dueAt!.day}/${assignment.dueAt!.month}/${assignment.dueAt!.year + 543}',
-                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -1155,14 +1305,30 @@ class _FilesSectionState extends State<_FilesSection> {
                   color: const Color(0xFF0284C7).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF0284C7), size: 22),
+                child: const Icon(
+                  Icons.insert_drive_file_rounded,
+                  color: Color(0xFF0284C7),
+                  size: 22,
+                ),
               ),
-              title: Text(f.fileName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
-              subtitle: Text('ขนาด: ${f.formattedSize} • อัปโหลดโดย ${f.uploaderFullName}'),
+              title: Text(
+                f.fileName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                'ขนาด: ${f.formattedSize} • อัปโหลดโดย ${f.uploaderFullName}',
+              ),
               trailing: GestureDetector(
                 onTap: isDownloading ? null : () => _download(f),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0284C7),
                     borderRadius: BorderRadius.circular(10),
@@ -1171,9 +1337,19 @@ class _FilesSectionState extends State<_FilesSection> {
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
-                      : const Text('ดาวน์โหลด', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      : const Text(
+                          'ดาวน์โหลด',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -1209,22 +1385,63 @@ class _TelemetrySection extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('ข้อมูลเซนเซอร์สิ่งแวดล้อมห้อง $room', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A))),
+                    Text(
+                      'ข้อมูลเซนเซอร์สิ่งแวดล้อมห้อง $room',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: const Color(0xFF059669), borderRadius: BorderRadius.circular(12)),
-                      child: const Text('เชื่อมต่อข้อมูลเรียบร้อย', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF059669),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'เชื่อมต่อข้อมูลเรียบร้อย',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildStatTile('ฝุ่น PM2.5', '14 µg/m³', 'คุณภาพอากาศดี', const Color(0xFF059669))),
+                    Expanded(
+                      child: _buildStatTile(
+                        'ฝุ่น PM2.5',
+                        '14 µg/m³',
+                        'คุณภาพอากาศดี',
+                        const Color(0xFF059669),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildStatTile('ก๊าซ CO2', '420 ppm', 'การถ่ายเทอากาศปกติ', const Color(0xFF0284C7))),
+                    Expanded(
+                      child: _buildStatTile(
+                        'ก๊าซ CO2',
+                        '420 ppm',
+                        'การถ่ายเทอากาศปกติ',
+                        const Color(0xFF0284C7),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildStatTile('อุณหภูมิ', '25.8°C', 'อยู่ในเกณฑ์ปกติ', const Color(0xFFD97706))),
+                    Expanded(
+                      child: _buildStatTile(
+                        'อุณหภูมิ',
+                        '25.8°C',
+                        'อยู่ในเกณฑ์ปกติ',
+                        const Color(0xFFD97706),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -1235,7 +1452,12 @@ class _TelemetrySection extends StatelessWidget {
     );
   }
 
-  Widget _buildStatTile(String label, String value, String status, Color color) {
+  Widget _buildStatTile(
+    String label,
+    String value,
+    String status,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1246,11 +1468,28 @@ class _TelemetrySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+          ),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+          Text(
+            status,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
