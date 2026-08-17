@@ -58,10 +58,7 @@ class LessonService {
   static Future<void> publishLesson(String lessonId) async {
     await supabase.rpc(
       'publish_lesson',
-      params: {
-        'p_token': AuthService.sessionToken,
-        'p_lesson_id': lessonId,
-      },
+      params: {'p_token': AuthService.sessionToken, 'p_lesson_id': lessonId},
     );
   }
 
@@ -157,10 +154,7 @@ class LessonService {
   static Future<void> markComplete(String lessonId) async {
     await supabase.rpc(
       'mark_lesson_complete',
-      params: {
-        'p_token': AuthService.sessionToken,
-        'p_lesson_id': lessonId,
-      },
+      params: {'p_token': AuthService.sessionToken, 'p_lesson_id': lessonId},
     );
   }
 }

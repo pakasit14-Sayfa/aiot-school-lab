@@ -81,7 +81,8 @@ class SensorModel {
   SensorLevel get overallLevel {
     final levels = [pm25Level, co2Level, tvocLevel, tempLevel, humidityLevel];
     if (levels.any((l) => l == SensorLevel.danger)) return SensorLevel.danger;
-    if (levels.any((l) => l == SensorLevel.moderate)) return SensorLevel.moderate;
+    if (levels.any((l) => l == SensorLevel.moderate))
+      return SensorLevel.moderate;
     return SensorLevel.good;
   }
 

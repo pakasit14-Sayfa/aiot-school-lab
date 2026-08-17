@@ -10,11 +10,8 @@ import 'form_section3_model.dart';
 export 'form_section3_model.dart';
 
 class FormSection3Widget extends StatefulWidget {
-  const FormSection3Widget({
-    super.key,
-    String? title,
-    this.time,
-  }) : this.title = title ?? 'SCHEDULE';
+  const FormSection3Widget({super.key, String? title, this.time})
+    : this.title = title ?? 'SCHEDULE';
 
   final String title;
   final String? time;
@@ -53,21 +50,18 @@ class _FormSection3WidgetState extends State<FormSection3Widget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(
-            widget!.title,
-            'SCHEDULE',
-          ),
+          valueOrDefault<String>(widget!.title, 'SCHEDULE'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                ),
-                color: FlutterFlowTheme.of(context).secondaryText,
-                letterSpacing: 0.0,
-                fontWeight: FontWeight.bold,
-                fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.bold,
+              fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            ),
+            color: FlutterFlowTheme.of(context).secondaryText,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.bold,
+            fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
         Row(
           mainAxisSize: MainAxisSize.max,

@@ -11,9 +11,7 @@ class ExecutiveDashboard extends StatelessWidget {
     final name = currentUserModel?.name ?? 'ผู้บริหาร';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Executive Dashboard'),
-      ),
+      appBar: AppBar(title: const Text('Executive Dashboard')),
       drawer: AppDrawer(
         items: [
           DrawerItem(

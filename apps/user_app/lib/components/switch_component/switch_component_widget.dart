@@ -15,10 +15,10 @@ class SwitchComponentWidget extends StatefulWidget {
     bool? labelPresent,
     String? variant,
     bool? active,
-  })  : this.label = label ?? 'Push Notifications',
-        this.labelPresent = labelPresent ?? true,
-        this.variant = variant ?? 'Android',
-        this.active = active ?? false;
+  }) : this.label = label ?? 'Push Notifications',
+       this.labelPresent = labelPresent ?? true,
+       this.variant = variant ?? 'Android',
+       this.active = active ?? false;
 
   final String label;
   final bool labelPresent;
@@ -44,12 +44,7 @@ class _SwitchComponentWidgetState extends State<SwitchComponentWidget> {
     _model = createModel(context, () => SwitchComponentModel());
 
     _model.switchValue = valueOrDefault<bool>(
-      valueOrDefault<bool>(
-        widget!.active,
-        false,
-      )
-          ? true
-          : false,
+      valueOrDefault<bool>(widget!.active, false) ? true : false,
       false,
     );
   }
@@ -70,26 +65,16 @@ class _SwitchComponentWidgetState extends State<SwitchComponentWidget> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (valueOrDefault<bool>(
-            () {
-              if (valueOrDefault<String>(
-                    widget!.variant,
-                    'Android',
-                  ) ==
-                  'iOS') {
-                return true;
-              } else if (valueOrDefault<String>(
-                    widget!.variant,
-                    'Android',
-                  ) ==
-                  'iOS 26+') {
-                return false;
-              } else {
-                return true;
-              }
-            }(),
-            true,
-          ))
+          if (valueOrDefault<bool>(() {
+            if (valueOrDefault<String>(widget!.variant, 'Android') == 'iOS') {
+              return true;
+            } else if (valueOrDefault<String>(widget!.variant, 'Android') ==
+                'iOS 26+') {
+              return false;
+            } else {
+              return true;
+            }
+          }(), true))
             Switch(
               value: _model.switchValue!,
               onChanged: (newValue) async {
@@ -99,228 +84,188 @@ class _SwitchComponentWidgetState extends State<SwitchComponentWidget> {
               inactiveTrackColor: FlutterFlowTheme.of(context).alternate,
               inactiveThumbColor: FlutterFlowTheme.of(context).secondaryText,
             ),
-          if (valueOrDefault<bool>(
-            () {
-              if (valueOrDefault<String>(
-                    widget!.variant,
-                    'Android',
-                  ) ==
-                  'iOS') {
-                return false;
-              } else if (valueOrDefault<String>(
-                    widget!.variant,
-                    'Android',
-                  ) ==
-                  'iOS 26+') {
-                return true;
-              } else {
-                return false;
-              }
-            }(),
-            false,
-          ))
+          if (valueOrDefault<bool>(() {
+            if (valueOrDefault<String>(widget!.variant, 'Android') == 'iOS') {
+              return false;
+            } else if (valueOrDefault<String>(widget!.variant, 'Android') ==
+                'iOS 26+') {
+              return true;
+            } else {
+              return false;
+            }
+          }(), false))
             Container(
               width: valueOrDefault<double>(
-                valueOrDefault<String>(
-                          widget!.variant,
-                          'Android',
-                        ) ==
-                        'iOS 26+'
+                valueOrDefault<String>(widget!.variant, 'Android') == 'iOS 26+'
                     ? 64.0
                     : 56.0,
                 56.0,
               ),
               height: valueOrDefault<double>(
-                valueOrDefault<String>(
-                          widget!.variant,
-                          'Android',
-                        ) ==
-                        'iOS 26+'
+                valueOrDefault<String>(widget!.variant, 'Android') == 'iOS 26+'
                     ? 28.0
                     : 32.0,
                 32.0,
               ),
               decoration: BoxDecoration(
                 color: valueOrDefault<Color>(
-                  valueOrDefault<bool>(
-                    widget!.active,
-                    false,
-                  )
+                  valueOrDefault<bool>(widget!.active, false)
                       ? FlutterFlowTheme.of(context).primary
                       : FlutterFlowTheme.of(context).alternate,
                   FlutterFlowTheme.of(context).alternate,
                 ),
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(valueOrDefault<double>(
-                    valueOrDefault<String>(
-                              widget!.variant,
-                              'Android',
-                            ) ==
-                            'iOS 26+'
-                        ? 9999.0
-                        : 16.0,
-                    16.0,
-                  )),
-                  topRight: Radius.circular(valueOrDefault<double>(
-                    valueOrDefault<String>(
-                              widget!.variant,
-                              'Android',
-                            ) ==
-                            'iOS 26+'
-                        ? 9999.0
-                        : 16.0,
-                    16.0,
-                  )),
-                  bottomLeft: Radius.circular(valueOrDefault<double>(
-                    valueOrDefault<String>(
-                              widget!.variant,
-                              'Android',
-                            ) ==
-                            'iOS 26+'
-                        ? 9999.0
-                        : 16.0,
-                    16.0,
-                  )),
-                  bottomRight: Radius.circular(valueOrDefault<double>(
-                    valueOrDefault<String>(
-                              widget!.variant,
-                              'Android',
-                            ) ==
-                            'iOS 26+'
-                        ? 9999.0
-                        : 16.0,
-                    16.0,
-                  )),
+                  topLeft: Radius.circular(
+                    valueOrDefault<double>(
+                      valueOrDefault<String>(widget!.variant, 'Android') ==
+                              'iOS 26+'
+                          ? 9999.0
+                          : 16.0,
+                      16.0,
+                    ),
+                  ),
+                  topRight: Radius.circular(
+                    valueOrDefault<double>(
+                      valueOrDefault<String>(widget!.variant, 'Android') ==
+                              'iOS 26+'
+                          ? 9999.0
+                          : 16.0,
+                      16.0,
+                    ),
+                  ),
+                  bottomLeft: Radius.circular(
+                    valueOrDefault<double>(
+                      valueOrDefault<String>(widget!.variant, 'Android') ==
+                              'iOS 26+'
+                          ? 9999.0
+                          : 16.0,
+                      16.0,
+                    ),
+                  ),
+                  bottomRight: Radius.circular(
+                    valueOrDefault<double>(
+                      valueOrDefault<String>(widget!.variant, 'Android') ==
+                              'iOS 26+'
+                          ? 9999.0
+                          : 16.0,
+                      16.0,
+                    ),
+                  ),
                 ),
                 shape: BoxShape.rectangle,
               ),
               child: Padding(
                 padding: EdgeInsetsDirectional.fromSTEB(
-                    valueOrDefault<double>(
-                      valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
-                              'iOS 26+'
-                          ? 2.0
-                          : 3.0,
-                      3.0,
-                    ),
-                    valueOrDefault<double>(
-                      valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
-                              'iOS 26+'
-                          ? 2.0
-                          : 3.0,
-                      3.0,
-                    ),
-                    valueOrDefault<double>(
-                      valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
-                              'iOS 26+'
-                          ? 2.0
-                          : 3.0,
-                      3.0,
-                    ),
-                    valueOrDefault<double>(
-                      valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
-                              'iOS 26+'
-                          ? 2.0
-                          : 3.0,
-                      3.0,
-                    )),
+                  valueOrDefault<double>(
+                    valueOrDefault<String>(widget!.variant, 'Android') ==
+                            'iOS 26+'
+                        ? 2.0
+                        : 3.0,
+                    3.0,
+                  ),
+                  valueOrDefault<double>(
+                    valueOrDefault<String>(widget!.variant, 'Android') ==
+                            'iOS 26+'
+                        ? 2.0
+                        : 3.0,
+                    3.0,
+                  ),
+                  valueOrDefault<double>(
+                    valueOrDefault<String>(widget!.variant, 'Android') ==
+                            'iOS 26+'
+                        ? 2.0
+                        : 3.0,
+                    3.0,
+                  ),
+                  valueOrDefault<double>(
+                    valueOrDefault<String>(widget!.variant, 'Android') ==
+                            'iOS 26+'
+                        ? 2.0
+                        : 3.0,
+                    3.0,
+                  ),
+                ),
                 child: Container(
                   child: Container(
                     width: valueOrDefault<double>(
-                      valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
+                      valueOrDefault<String>(widget!.variant, 'Android') ==
                               'iOS 26+'
                           ? 39.0
                           : 26.0,
                       26.0,
                     ),
                     height: valueOrDefault<double>(
-                      valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
+                      valueOrDefault<String>(widget!.variant, 'Android') ==
                               'iOS 26+'
                           ? 24.0
                           : 26.0,
                       26.0,
                     ),
                     decoration: BoxDecoration(
-                      color: valueOrDefault<Color>(
-                        () {
-                          if (valueOrDefault<bool>(
-                            widget!.active,
-                            false,
-                          )) {
-                            return FlutterFlowTheme.of(context).onPrimary;
-                          } else if (valueOrDefault<String>(
-                                widget!.variant,
-                                'Android',
-                              ) ==
-                              'iOS 26+') {
-                            return FlutterFlowTheme.of(context)
-                                .secondaryBackground;
-                          } else {
-                            return FlutterFlowTheme.of(context)
-                                .primaryBackground;
-                          }
-                        }(),
-                        FlutterFlowTheme.of(context).primaryBackground,
-                      ),
+                      color: valueOrDefault<Color>(() {
+                        if (valueOrDefault<bool>(widget!.active, false)) {
+                          return FlutterFlowTheme.of(context).onPrimary;
+                        } else if (valueOrDefault<String>(
+                              widget!.variant,
+                              'Android',
+                            ) ==
+                            'iOS 26+') {
+                          return FlutterFlowTheme.of(
+                            context,
+                          ).secondaryBackground;
+                        } else {
+                          return FlutterFlowTheme.of(context).primaryBackground;
+                        }
+                      }(), FlutterFlowTheme.of(context).primaryBackground),
                       borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(valueOrDefault<double>(
-                          valueOrDefault<String>(
-                                    widget!.variant,
-                                    'Android',
-                                  ) ==
-                                  'iOS 26+'
-                              ? 9999.0
-                              : 13.0,
-                          13.0,
-                        )),
-                        topRight: Radius.circular(valueOrDefault<double>(
-                          valueOrDefault<String>(
-                                    widget!.variant,
-                                    'Android',
-                                  ) ==
-                                  'iOS 26+'
-                              ? 9999.0
-                              : 13.0,
-                          13.0,
-                        )),
-                        bottomLeft: Radius.circular(valueOrDefault<double>(
-                          valueOrDefault<String>(
-                                    widget!.variant,
-                                    'Android',
-                                  ) ==
-                                  'iOS 26+'
-                              ? 9999.0
-                              : 13.0,
-                          13.0,
-                        )),
-                        bottomRight: Radius.circular(valueOrDefault<double>(
-                          valueOrDefault<String>(
-                                    widget!.variant,
-                                    'Android',
-                                  ) ==
-                                  'iOS 26+'
-                              ? 9999.0
-                              : 13.0,
-                          13.0,
-                        )),
+                        topLeft: Radius.circular(
+                          valueOrDefault<double>(
+                            valueOrDefault<String>(
+                                      widget!.variant,
+                                      'Android',
+                                    ) ==
+                                    'iOS 26+'
+                                ? 9999.0
+                                : 13.0,
+                            13.0,
+                          ),
+                        ),
+                        topRight: Radius.circular(
+                          valueOrDefault<double>(
+                            valueOrDefault<String>(
+                                      widget!.variant,
+                                      'Android',
+                                    ) ==
+                                    'iOS 26+'
+                                ? 9999.0
+                                : 13.0,
+                            13.0,
+                          ),
+                        ),
+                        bottomLeft: Radius.circular(
+                          valueOrDefault<double>(
+                            valueOrDefault<String>(
+                                      widget!.variant,
+                                      'Android',
+                                    ) ==
+                                    'iOS 26+'
+                                ? 9999.0
+                                : 13.0,
+                            13.0,
+                          ),
+                        ),
+                        bottomRight: Radius.circular(
+                          valueOrDefault<double>(
+                            valueOrDefault<String>(
+                                      widget!.variant,
+                                      'Android',
+                                    ) ==
+                                    'iOS 26+'
+                                ? 9999.0
+                                : 13.0,
+                            13.0,
+                          ),
+                        ),
                       ),
                       shape: BoxShape.rectangle,
                     ),
@@ -328,34 +273,31 @@ class _SwitchComponentWidgetState extends State<SwitchComponentWidget> {
                 ),
               ),
             ),
-          if (valueOrDefault<bool>(
-            widget!.labelPresent,
-            true,
-          ))
+          if (valueOrDefault<bool>(widget!.labelPresent, true))
             Padding(
               padding: EdgeInsetsDirectional.fromSTEB(8.0, 0.0, 0.0, 0.0),
               child: Container(
                 child: Text(
-                  valueOrDefault<String>(
-                    widget!.label,
-                    'Push Notifications',
-                  ),
+                  valueOrDefault<String>(widget!.label, 'Push Notifications'),
                   style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        font: GoogleFonts.plusJakartaSans(
-                          fontWeight: FlutterFlowTheme.of(context)
-                              .bodyMedium
-                              .fontWeight,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        ),
-                        color: FlutterFlowTheme.of(context).primaryText,
-                        letterSpacing: 0.0,
-                        fontWeight:
-                            FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                        fontStyle:
-                            FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                        lineHeight: 1.5,
-                      ),
+                    font: GoogleFonts.plusJakartaSans(
+                      fontWeight: FlutterFlowTheme.of(
+                        context,
+                      ).bodyMedium.fontWeight,
+                      fontStyle: FlutterFlowTheme.of(
+                        context,
+                      ).bodyMedium.fontStyle,
+                    ),
+                    color: FlutterFlowTheme.of(context).primaryText,
+                    letterSpacing: 0.0,
+                    fontWeight: FlutterFlowTheme.of(
+                      context,
+                    ).bodyMedium.fontWeight,
+                    fontStyle: FlutterFlowTheme.of(
+                      context,
+                    ).bodyMedium.fontStyle,
+                    lineHeight: 1.5,
+                  ),
                 ),
               ),
             ),

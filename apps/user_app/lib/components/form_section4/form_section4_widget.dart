@@ -11,10 +11,8 @@ import 'form_section4_model.dart';
 export 'form_section4_model.dart';
 
 class FormSection4Widget extends StatefulWidget {
-  const FormSection4Widget({
-    super.key,
-    String? title,
-  }) : this.title = title ?? 'LOCATION';
+  const FormSection4Widget({super.key, String? title})
+    : this.title = title ?? 'LOCATION';
 
   final String title;
 
@@ -52,47 +50,43 @@ class _FormSection4WidgetState extends State<FormSection4Widget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(
-            widget!.title,
-            'LOCATION',
-          ),
+          valueOrDefault<String>(widget!.title, 'LOCATION'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                ),
-                color: FlutterFlowTheme.of(context).secondaryText,
-                letterSpacing: 0.0,
-                fontWeight: FontWeight.bold,
-                fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.bold,
+              fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            ),
+            color: FlutterFlowTheme.of(context).secondaryText,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.bold,
+            fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
         FlutterFlowDropDown<String>(
           controller: _model.dropdownValueController ??=
               FormFieldController<String>(
-            _model.dropdownValue ??= _model.location,
-          ),
+                _model.dropdownValue ??= _model.location,
+              ),
           options: [
             'Science Lab A',
             'Main Hall 202',
             'Library Room 4',
-            'Study Pod 1'
+            'Study Pod 1',
           ],
           onChanged: (val) => safeSetState(() => _model.dropdownValue = val),
           width: 200.0,
           height: 40.0,
           textStyle: FlutterFlowTheme.of(context).bodyMedium.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight:
-                      FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                  fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                ),
-                letterSpacing: 0.0,
-                fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
-                fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                lineHeight: 1.5,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+              fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+            ),
+            letterSpacing: 0.0,
+            fontWeight: FlutterFlowTheme.of(context).bodyMedium.fontWeight,
+            fontStyle: FlutterFlowTheme.of(context).bodyMedium.fontStyle,
+            lineHeight: 1.5,
+          ),
           hintText: 'Science Lab A',
           icon: Icon(
             Icons.keyboard_arrow_down_rounded,
@@ -111,16 +105,15 @@ class _FormSection4WidgetState extends State<FormSection4Widget> {
           isMultiSelect: false,
           labelText: 'Select Classroom',
           labelTextStyle: FlutterFlowTheme.of(context).labelMedium.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight:
-                      FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                  fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                ),
-                letterSpacing: 0.0,
-                fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
+              fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
+            ),
+            letterSpacing: 0.0,
+            fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
+            fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
       ].divide(SizedBox(height: 8.0)),
     );

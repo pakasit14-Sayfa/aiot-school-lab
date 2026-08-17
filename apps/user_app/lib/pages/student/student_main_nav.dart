@@ -25,10 +25,7 @@ class _StudentMainNavState extends State<StudentMainNav> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -44,7 +41,9 @@ class _StudentMainNavState extends State<StudentMainNav> {
           height: 65,
           elevation: 0,
           backgroundColor: Colors.white,
-          indicatorColor: const Color(0xFF059669).withOpacity(0.15), // Emerald Pill
+          indicatorColor: const Color(
+            0xFF059669,
+          ).withOpacity(0.15), // Emerald Pill
           selectedIndex: _selectedIndex,
           onDestinationSelected: (int index) {
             setState(() {
@@ -54,22 +53,34 @@ class _StudentMainNavState extends State<StudentMainNav> {
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.grid_view_rounded, color: Colors.grey),
-              selectedIcon: Icon(Icons.grid_view_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(
+                Icons.grid_view_rounded,
+                color: Color(0xFF059669),
+              ),
               label: 'หน้าแรก',
             ),
             NavigationDestination(
               icon: Icon(Icons.groups_outlined, color: Colors.grey),
-              selectedIcon: Icon(Icons.groups_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(
+                Icons.groups_rounded,
+                color: Color(0xFF059669),
+              ),
               label: 'รายวิชา (Teams)',
             ),
             NavigationDestination(
               icon: Icon(Icons.assessment_outlined, color: Colors.grey),
-              selectedIcon: Icon(Icons.assessment_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(
+                Icons.assessment_rounded,
+                color: Color(0xFF059669),
+              ),
               label: 'ผลการเรียน',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded, color: Colors.grey),
-              selectedIcon: Icon(Icons.person_rounded, color: Color(0xFF059669)),
+              selectedIcon: Icon(
+                Icons.person_rounded,
+                color: Color(0xFF059669),
+              ),
               label: 'โปรไฟล์',
             ),
           ],

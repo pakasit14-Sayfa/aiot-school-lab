@@ -89,14 +89,16 @@ class AppDrawer extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: items
-                  .map((item) => ListTile(
-                        leading: Icon(item.icon, color: item.color),
-                        title: Text(item.title),
-                        onTap: () {
-                          Navigator.pop(context);
-                          item.onTap(context);
-                        },
-                      ))
+                  .map(
+                    (item) => ListTile(
+                      leading: Icon(item.icon, color: item.color),
+                      title: Text(item.title),
+                      onTap: () {
+                        Navigator.pop(context);
+                        item.onTap(context);
+                      },
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -112,7 +114,10 @@ class AppDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('ออกจากระบบ', style: TextStyle(color: Colors.red)),
+            title: const Text(
+              'ออกจากระบบ',
+              style: TextStyle(color: Colors.red),
+            ),
             onTap: () {
               Navigator.pop(context);
               confirmLogout(context);

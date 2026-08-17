@@ -68,10 +68,7 @@ class _FlutterFlowIconButtonState extends State<FlutterFlowIconButton> {
       iconColor = icon.color;
     } else {
       Icon icon = widget.icon as Icon;
-      effectiveIcon = Icon(
-        icon.icon,
-        size: icon.size,
-      );
+      effectiveIcon = Icon(icon.icon, size: icon.size);
       iconSize = icon.size;
       iconColor = icon.color;
     }
@@ -80,63 +77,57 @@ class _FlutterFlowIconButtonState extends State<FlutterFlowIconButton> {
   @override
   Widget build(BuildContext context) {
     ButtonStyle style = ButtonStyle(
-      shape: MaterialStateProperty.resolveWith<OutlinedBorder>(
-        (states) {
-          if (states.contains(MaterialState.hovered)) {
-            return RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
-              side: BorderSide(
-                color: widget.hoverBorderColor ??
-                    widget.borderColor ??
-                    Colors.transparent,
-                width: widget.borderWidth ?? 0,
-              ),
-            );
-          }
-          if (states.contains(WidgetState.focused) &&
-              widget.focusBorderSide != null) {
-            return RoundedRectangleBorder(
-              borderRadius:
-                  widget.focusBorderRadius ?? BorderRadius.circular(8),
-              side: widget.focusBorderSide!,
-            );
-          }
+      shape: MaterialStateProperty.resolveWith<OutlinedBorder>((states) {
+        if (states.contains(MaterialState.hovered)) {
           return RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
             side: BorderSide(
-              color: widget.borderColor ?? Colors.transparent,
+              color:
+                  widget.hoverBorderColor ??
+                  widget.borderColor ??
+                  Colors.transparent,
               width: widget.borderWidth ?? 0,
             ),
           );
-        },
-      ),
-      iconColor: MaterialStateProperty.resolveWith<Color?>(
-        (states) {
-          if (states.contains(MaterialState.disabled) &&
-              widget.disabledIconColor != null) {
-            return widget.disabledIconColor;
-          }
-          if (states.contains(MaterialState.hovered) &&
-              widget.hoverIconColor != null) {
-            return widget.hoverIconColor;
-          }
-          return iconColor;
-        },
-      ),
-      backgroundColor: MaterialStateProperty.resolveWith<Color?>(
-        (states) {
-          if (states.contains(MaterialState.disabled) &&
-              widget.disabledColor != null) {
-            return widget.disabledColor;
-          }
-          if (states.contains(MaterialState.hovered) &&
-              widget.hoverColor != null) {
-            return widget.hoverColor;
-          }
+        }
+        if (states.contains(WidgetState.focused) &&
+            widget.focusBorderSide != null) {
+          return RoundedRectangleBorder(
+            borderRadius: widget.focusBorderRadius ?? BorderRadius.circular(8),
+            side: widget.focusBorderSide!,
+          );
+        }
+        return RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(widget.borderRadius ?? 0),
+          side: BorderSide(
+            color: widget.borderColor ?? Colors.transparent,
+            width: widget.borderWidth ?? 0,
+          ),
+        );
+      }),
+      iconColor: MaterialStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(MaterialState.disabled) &&
+            widget.disabledIconColor != null) {
+          return widget.disabledIconColor;
+        }
+        if (states.contains(MaterialState.hovered) &&
+            widget.hoverIconColor != null) {
+          return widget.hoverIconColor;
+        }
+        return iconColor;
+      }),
+      backgroundColor: MaterialStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(MaterialState.disabled) &&
+            widget.disabledColor != null) {
+          return widget.disabledColor;
+        }
+        if (states.contains(MaterialState.hovered) &&
+            widget.hoverColor != null) {
+          return widget.hoverColor;
+        }
 
-          return widget.fillColor;
-        },
-      ),
+        return widget.fillColor;
+      }),
       overlayColor: MaterialStateProperty.resolveWith<Color?>((states) {
         if (states.contains(MaterialState.pressed)) {
           return null;

@@ -23,20 +23,14 @@ class AuthHeader extends StatelessWidget {
         CircleAvatar(
           radius: 46,
           backgroundColor: primaryColor.withOpacity(0.12),
-          child: Icon(
-            icon,
-            size: 54,
-            color: primaryColor,
-          ),
+          child: Icon(icon, size: 54, color: primaryColor),
         ),
 
         const SizedBox(height: 20),
 
         Text(
           title,
-          style: theme.textTheme.headlineLarge?.copyWith(
-            fontSize: 28,
-          ),
+          style: theme.textTheme.headlineLarge?.copyWith(fontSize: 28),
           textAlign: TextAlign.center,
         ),
 
@@ -44,9 +38,7 @@ class AuthHeader extends StatelessWidget {
 
         Text(
           subtitle,
-          style: const TextStyle(
-            color: Colors.grey,
-          ),
+          style: const TextStyle(color: Colors.grey),
           textAlign: TextAlign.center,
         ),
       ],

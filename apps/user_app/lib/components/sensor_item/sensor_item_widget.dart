@@ -15,9 +15,9 @@ class SensorItemWidget extends StatefulWidget {
     Color? color,
     String? value,
     String? label,
-  })  : this.color = color ?? const Color(0x00000000),
-        this.value = value ?? '22°C',
-        this.label = label ?? 'Temp';
+  }) : this.color = color ?? const Color(0x00000000),
+       this.value = value ?? '22°C',
+       this.label = label ?? 'Temp';
 
   final Widget? icon;
   final Color color;
@@ -59,39 +59,32 @@ class _SensorItemWidgetState extends State<SensorItemWidget> {
       children: [
         widget!.icon!,
         Text(
-          valueOrDefault<String>(
-            widget!.value,
-            '22°C',
-          ),
+          valueOrDefault<String>(widget!.value, '22°C'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                ),
-                color: FlutterFlowTheme.of(context).primaryText,
-                letterSpacing: 0.0,
-                fontWeight: FontWeight.bold,
-                fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.bold,
+              fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            ),
+            color: FlutterFlowTheme.of(context).primaryText,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.bold,
+            fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
         Text(
-          valueOrDefault<String>(
-            widget!.label,
-            'Temp',
-          ),
+          valueOrDefault<String>(widget!.label, 'Temp'),
           style: FlutterFlowTheme.of(context).labelSmall.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight:
-                      FlutterFlowTheme.of(context).labelSmall.fontWeight,
-                  fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                ),
-                color: FlutterFlowTheme.of(context).secondaryText,
-                letterSpacing: 0.0,
-                fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,
-                fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,
+              fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
+            ),
+            color: FlutterFlowTheme.of(context).secondaryText,
+            letterSpacing: 0.0,
+            fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,
+            fontStyle: FlutterFlowTheme.of(context).labelSmall.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
       ].divide(SizedBox(height: 4.0)),
     );

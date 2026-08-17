@@ -18,11 +18,11 @@ class ShortcutCardWidget extends StatefulWidget {
     String? title,
     String? subtitle,
     this.onTap,
-  })  : this.bgColor = bgColor ?? const Color(0x00000000),
-        this.tapAction = tapAction ?? 'navigate(my_courses)',
-        this.iconColor = iconColor ?? const Color(0x00000000),
-        this.title = title ?? 'My Courses',
-        this.subtitle = subtitle ?? '8 Active';
+  }) : this.bgColor = bgColor ?? const Color(0x00000000),
+       this.tapAction = tapAction ?? 'navigate(my_courses)',
+       this.iconColor = iconColor ?? const Color(0x00000000),
+       this.title = title ?? 'My Courses',
+       this.subtitle = subtitle ?? '8 Active';
 
   final Color bgColor;
   final String tapAction;
@@ -105,48 +105,44 @@ class _ShortcutCardWidgetState extends State<ShortcutCardWidget> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        valueOrDefault<String>(
-                          widget.title,
-                          'My Courses',
-                        ),
+                        valueOrDefault<String>(widget.title, 'My Courses'),
                         style: FlutterFlowTheme.of(context).bodyMedium.override(
-                              font: GoogleFonts.plusJakartaSans(
-                                fontWeight: FontWeight.bold,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
-                              ),
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              letterSpacing: 0.0,
-                              fontWeight: FontWeight.bold,
-                              fontStyle:
-                                  FlutterFlowTheme.of(context).bodyMedium.fontStyle,
-                              lineHeight: 1.5,
-                            ),
+                          font: GoogleFonts.plusJakartaSans(
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FlutterFlowTheme.of(
+                              context,
+                            ).bodyMedium.fontStyle,
+                          ),
+                          color: FlutterFlowTheme.of(context).primaryText,
+                          letterSpacing: 0.0,
+                          fontWeight: FontWeight.bold,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).bodyMedium.fontStyle,
+                          lineHeight: 1.5,
+                        ),
                       ),
                       Text(
-                        valueOrDefault<String>(
-                          widget.subtitle,
-                          '8 Active',
-                        ),
+                        valueOrDefault<String>(widget.subtitle, '8 Active'),
                         style: FlutterFlowTheme.of(context).labelSmall.override(
-                              font: GoogleFonts.plusJakartaSans(
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .fontStyle,
-                              ),
-                              color: FlutterFlowTheme.of(context).secondaryText,
-                              letterSpacing: 0.0,
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelSmall
-                                  .fontWeight,
-                              fontStyle:
-                                  FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                              lineHeight: 1.4,
-                            ),
+                          font: GoogleFonts.plusJakartaSans(
+                            fontWeight: FlutterFlowTheme.of(
+                              context,
+                            ).labelSmall.fontWeight,
+                            fontStyle: FlutterFlowTheme.of(
+                              context,
+                            ).labelSmall.fontStyle,
+                          ),
+                          color: FlutterFlowTheme.of(context).secondaryText,
+                          letterSpacing: 0.0,
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).labelSmall.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).labelSmall.fontStyle,
+                          lineHeight: 1.4,
+                        ),
                       ),
                     ].divide(SizedBox(height: 4.0)),
                   ),

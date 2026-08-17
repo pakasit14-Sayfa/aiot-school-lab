@@ -54,9 +54,9 @@ class _CourseFormPageState extends State<CourseFormPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('โหลดภาคเรียนไม่สำเร็จ: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('โหลดภาคเรียนไม่สำเร็จ: $e')));
     } finally {
       if (mounted) setState(() => isLoadingTerms = false);
     }
@@ -65,9 +65,9 @@ class _CourseFormPageState extends State<CourseFormPage> {
   Future<void> save() async {
     if (!formKey.currentState!.validate()) return;
     if (!isEditing && selectedTermId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณาเลือกภาคเรียน')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรุณาเลือกภาคเรียน')));
       return;
     }
 
@@ -106,9 +106,9 @@ class _CourseFormPageState extends State<CourseFormPage> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('บันทึกไม่สำเร็จ: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('บันทึกไม่สำเร็จ: $e')));
     } finally {
       if (mounted) setState(() => isSaving = false);
     }

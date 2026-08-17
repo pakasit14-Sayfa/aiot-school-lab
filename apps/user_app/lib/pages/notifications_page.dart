@@ -103,7 +103,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _filters.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 8),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final isSelected = _selectedFilterIndex == index;
                     return ChoiceChip(
@@ -117,8 +118,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       selectedColor: const Color.fromARGB(255, 28, 127, 70),
                       backgroundColor: const Color(0xFFF1F5F9),
                       labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF64748B),
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF64748B),
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                         fontSize: 12.5,
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 10),

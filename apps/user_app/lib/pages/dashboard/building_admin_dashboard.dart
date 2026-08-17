@@ -12,13 +12,14 @@ class BuildingAdminDashboard extends StatelessWidget {
     final user = currentUserModel;
     final name = user?.name ?? 'ผู้ดูแลอาคาร';
     final schoolId = user?.schoolId ?? '';
-    final building = user?.building.isNotEmpty == true ? user!.building : 'ยังไม่กำหนดอาคาร';
-    final hasLocation = schoolId.isNotEmpty && user?.building.isNotEmpty == true;
+    final building = user?.building.isNotEmpty == true
+        ? user!.building
+        : 'ยังไม่กำหนดอาคาร';
+    final hasLocation =
+        schoolId.isNotEmpty && user?.building.isNotEmpty == true;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ควบคุมอาคาร'),
-      ),
+      appBar: AppBar(title: const Text('ควบคุมอาคาร')),
       drawer: AppDrawer(
         items: [
           DrawerItem(
@@ -81,9 +82,13 @@ class BuildingAdminDashboard extends StatelessWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('ทุกห้องในอาคาร',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'ทุกห้องในอาคาร',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       ...rooms.entries.map((entry) {
                         final sensor = entry.value;
@@ -91,15 +96,23 @@ class BuildingAdminDashboard extends StatelessWidget {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 10),
                           shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14)),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                           child: ListTile(
-                            leading: Icon(sensor.overallLevel.icon,
-                                color: color),
-                            title: Text('ห้อง ${entry.key}',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            subtitle: Text(sensor.overallLabel,
-                                style: TextStyle(color: color)),
+                            leading: Icon(
+                              sensor.overallLevel.icon,
+                              color: color,
+                            ),
+                            title: Text(
+                              'ห้อง ${entry.key}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              sensor.overallLabel,
+                              style: TextStyle(color: color),
+                            ),
                             trailing: Text(
                               'CO₂ ${sensor.co2.toStringAsFixed(0)} ppm',
                               style: const TextStyle(fontSize: 12),

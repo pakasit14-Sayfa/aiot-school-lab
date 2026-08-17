@@ -25,18 +25,18 @@ class TextFieldWidget extends StatefulWidget {
     String? onSubmit,
     String? variant,
     bool? error,
-  })  : this.label = label ?? 'Activity Name',
-        this.labelPresent = labelPresent ?? true,
-        this.helper = helper ?? '',
-        this.helperPresent = helperPresent ?? false,
-        this.leadingIconPresent = leadingIconPresent ?? true,
-        this.trailingIconPresent = trailingIconPresent ?? false,
-        this.hint = hint ?? 'e.g., Physics Study Group',
-        this.value = value ?? '',
-        this.onChange = onChange ?? '',
-        this.onSubmit = onSubmit ?? '',
-        this.variant = variant ?? 'outlined',
-        this.error = error ?? false;
+  }) : this.label = label ?? 'Activity Name',
+       this.labelPresent = labelPresent ?? true,
+       this.helper = helper ?? '',
+       this.helperPresent = helperPresent ?? false,
+       this.leadingIconPresent = leadingIconPresent ?? true,
+       this.trailingIconPresent = trailingIconPresent ?? false,
+       this.hint = hint ?? 'e.g., Physics Study Group',
+       this.value = value ?? '',
+       this.onChange = onChange ?? '',
+       this.onSubmit = onSubmit ?? '',
+       this.variant = variant ?? 'outlined',
+       this.error = error ?? false;
 
   final String label;
   final bool labelPresent;
@@ -90,50 +90,122 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (valueOrDefault<bool>(
-            widget!.labelPresent,
-            true,
-          ))
+          if (valueOrDefault<bool>(widget!.labelPresent, true))
             Text(
-              valueOrDefault<String>(
-                widget!.label,
-                'Activity Name',
-              ),
+              valueOrDefault<String>(widget!.label, 'Activity Name'),
               style: FlutterFlowTheme.of(context).labelMedium.override(
-                    font: GoogleFonts.plusJakartaSans(
-                      fontWeight:
-                          FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                    ),
-                    color: valueOrDefault<Color>(
-                      valueOrDefault<bool>(
-                        widget!.error,
-                        false,
-                      )
-                          ? FlutterFlowTheme.of(context).error
-                          : FlutterFlowTheme.of(context).primaryText,
-                      FlutterFlowTheme.of(context).primaryText,
-                    ),
-                    letterSpacing: 0.0,
-                    fontWeight:
-                        FlutterFlowTheme.of(context).labelMedium.fontWeight,
-                    fontStyle:
-                        FlutterFlowTheme.of(context).labelMedium.fontStyle,
-                    lineHeight: 1.4,
-                  ),
+                font: GoogleFonts.plusJakartaSans(
+                  fontWeight: FlutterFlowTheme.of(
+                    context,
+                  ).labelMedium.fontWeight,
+                  fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
+                ),
+                color: valueOrDefault<Color>(
+                  valueOrDefault<bool>(widget!.error, false)
+                      ? FlutterFlowTheme.of(context).error
+                      : FlutterFlowTheme.of(context).primaryText,
+                  FlutterFlowTheme.of(context).primaryText,
+                ),
+                letterSpacing: 0.0,
+                fontWeight: FlutterFlowTheme.of(context).labelMedium.fontWeight,
+                fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
+                lineHeight: 1.4,
+              ),
             ),
           Container(
             height: 40.0,
             decoration: BoxDecoration(
-              color: valueOrDefault<Color>(
-                () {
-                  if (valueOrDefault<String>(
+              color: valueOrDefault<Color>(() {
+                if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                    'filled') {
+                  return FlutterFlowTheme.of(context).secondaryBackground;
+                } else if (valueOrDefault<String>(
+                      widget!.variant,
+                      'outlined',
+                    ) ==
+                    'ghost') {
+                  return Colors.transparent;
+                } else {
+                  return Colors.transparent;
+                }
+              }(), Colors.transparent),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(
+                  valueOrDefault<double>(() {
+                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                        'filled') {
+                      return 8.0;
+                    } else if (valueOrDefault<String>(
+                          widget!.variant,
+                          'outlined',
+                        ) ==
+                        'ghost') {
+                      return 8.0;
+                    } else {
+                      return 8.0;
+                    }
+                  }(), 8.0),
+                ),
+                topRight: Radius.circular(
+                  valueOrDefault<double>(() {
+                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                        'filled') {
+                      return 8.0;
+                    } else if (valueOrDefault<String>(
+                          widget!.variant,
+                          'outlined',
+                        ) ==
+                        'ghost') {
+                      return 8.0;
+                    } else {
+                      return 8.0;
+                    }
+                  }(), 8.0),
+                ),
+                bottomLeft: Radius.circular(
+                  valueOrDefault<double>(() {
+                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                        'filled') {
+                      return 8.0;
+                    } else if (valueOrDefault<String>(
+                          widget!.variant,
+                          'outlined',
+                        ) ==
+                        'ghost') {
+                      return 8.0;
+                    } else {
+                      return 8.0;
+                    }
+                  }(), 8.0),
+                ),
+                bottomRight: Radius.circular(
+                  valueOrDefault<double>(() {
+                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                        'filled') {
+                      return 8.0;
+                    } else if (valueOrDefault<String>(
+                          widget!.variant,
+                          'outlined',
+                        ) ==
+                        'ghost') {
+                      return 8.0;
+                    } else {
+                      return 8.0;
+                    }
+                  }(), 8.0),
+                ),
+              ),
+              shape: BoxShape.rectangle,
+              border: Border.all(
+                color: valueOrDefault<Color>(() {
+                  if (valueOrDefault<bool>(widget!.error, false)) {
+                    return FlutterFlowTheme.of(context).error;
+                  } else if (valueOrDefault<String>(
                         widget!.variant,
                         'outlined',
                       ) ==
                       'filled') {
-                    return FlutterFlowTheme.of(context).secondaryBackground;
+                    return Colors.transparent;
                   } else if (valueOrDefault<String>(
                         widget!.variant,
                         'outlined',
@@ -141,238 +213,95 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                       'ghost') {
                     return Colors.transparent;
                   } else {
-                    return Colors.transparent;
+                    return FlutterFlowTheme.of(context).alternate;
                   }
-                }(),
-                Colors.transparent,
-              ),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(valueOrDefault<double>(
-                  () {
-                    if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'filled') {
-                      return 8.0;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'ghost') {
-                      return 8.0;
-                    } else {
-                      return 8.0;
-                    }
-                  }(),
-                  8.0,
-                )),
-                topRight: Radius.circular(valueOrDefault<double>(
-                  () {
-                    if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'filled') {
-                      return 8.0;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'ghost') {
-                      return 8.0;
-                    } else {
-                      return 8.0;
-                    }
-                  }(),
-                  8.0,
-                )),
-                bottomLeft: Radius.circular(valueOrDefault<double>(
-                  () {
-                    if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'filled') {
-                      return 8.0;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'ghost') {
-                      return 8.0;
-                    } else {
-                      return 8.0;
-                    }
-                  }(),
-                  8.0,
-                )),
-                bottomRight: Radius.circular(valueOrDefault<double>(
-                  () {
-                    if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'filled') {
-                      return 8.0;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'ghost') {
-                      return 8.0;
-                    } else {
-                      return 8.0;
-                    }
-                  }(),
-                  8.0,
-                )),
-              ),
-              shape: BoxShape.rectangle,
-              border: Border.all(
-                color: valueOrDefault<Color>(
-                  () {
-                    if (valueOrDefault<bool>(
-                      widget!.error,
-                      false,
-                    )) {
-                      return FlutterFlowTheme.of(context).error;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'filled') {
-                      return Colors.transparent;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'ghost') {
-                      return Colors.transparent;
-                    } else {
-                      return FlutterFlowTheme.of(context).alternate;
-                    }
-                  }(),
-                  FlutterFlowTheme.of(context).alternate,
-                ),
-                width: valueOrDefault<double>(
-                  () {
-                    if (valueOrDefault<bool>(
-                      widget!.error,
-                      false,
-                    )) {
-                      return 1.0;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'filled') {
-                      return 1.0;
-                    } else if (valueOrDefault<String>(
-                          widget!.variant,
-                          'outlined',
-                        ) ==
-                        'ghost') {
-                      return 0.0;
-                    } else {
-                      return 1.0;
-                    }
-                  }(),
-                  1.0,
-                ),
+                }(), FlutterFlowTheme.of(context).alternate),
+                width: valueOrDefault<double>(() {
+                  if (valueOrDefault<bool>(widget!.error, false)) {
+                    return 1.0;
+                  } else if (valueOrDefault<String>(
+                        widget!.variant,
+                        'outlined',
+                      ) ==
+                      'filled') {
+                    return 1.0;
+                  } else if (valueOrDefault<String>(
+                        widget!.variant,
+                        'outlined',
+                      ) ==
+                      'ghost') {
+                    return 0.0;
+                  } else {
+                    return 1.0;
+                  }
+                }(), 1.0),
               ),
             ),
             child: Padding(
               padding: EdgeInsetsDirectional.fromSTEB(
-                  valueOrDefault<double>(
-                    () {
-                      if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'filled') {
-                        return 8.0;
-                      } else if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'ghost') {
-                        return 8.0;
-                      } else {
-                        return 8.0;
-                      }
-                    }(),
-                    8.0,
-                  ),
-                  valueOrDefault<double>(
-                    () {
-                      if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'filled') {
-                        return 8.0;
-                      } else if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'ghost') {
-                        return 8.0;
-                      } else {
-                        return 8.0;
-                      }
-                    }(),
-                    8.0,
-                  ),
-                  valueOrDefault<double>(
-                    () {
-                      if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'filled') {
-                        return 8.0;
-                      } else if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'ghost') {
-                        return 8.0;
-                      } else {
-                        return 8.0;
-                      }
-                    }(),
-                    8.0,
-                  ),
-                  valueOrDefault<double>(
-                    () {
-                      if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'filled') {
-                        return 8.0;
-                      } else if (valueOrDefault<String>(
-                            widget!.variant,
-                            'outlined',
-                          ) ==
-                          'ghost') {
-                        return 8.0;
-                      } else {
-                        return 8.0;
-                      }
-                    }(),
-                    8.0,
-                  )),
+                valueOrDefault<double>(() {
+                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                      'filled') {
+                    return 8.0;
+                  } else if (valueOrDefault<String>(
+                        widget!.variant,
+                        'outlined',
+                      ) ==
+                      'ghost') {
+                    return 8.0;
+                  } else {
+                    return 8.0;
+                  }
+                }(), 8.0),
+                valueOrDefault<double>(() {
+                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                      'filled') {
+                    return 8.0;
+                  } else if (valueOrDefault<String>(
+                        widget!.variant,
+                        'outlined',
+                      ) ==
+                      'ghost') {
+                    return 8.0;
+                  } else {
+                    return 8.0;
+                  }
+                }(), 8.0),
+                valueOrDefault<double>(() {
+                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                      'filled') {
+                    return 8.0;
+                  } else if (valueOrDefault<String>(
+                        widget!.variant,
+                        'outlined',
+                      ) ==
+                      'ghost') {
+                    return 8.0;
+                  } else {
+                    return 8.0;
+                  }
+                }(), 8.0),
+                valueOrDefault<double>(() {
+                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                      'filled') {
+                    return 8.0;
+                  } else if (valueOrDefault<String>(
+                        widget!.variant,
+                        'outlined',
+                      ) ==
+                      'ghost') {
+                    return 8.0;
+                  } else {
+                    return 8.0;
+                  }
+                }(), 8.0),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.max,
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (valueOrDefault<bool>(
-                    widget!.leadingIconPresent,
-                    true,
-                  ))
+                  if (valueOrDefault<bool>(widget!.leadingIconPresent, true))
                     widget!.leadingIcon!,
                   Expanded(
                     flex: 1,
@@ -386,44 +315,40 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                           widget!.hint,
                           'e.g., Physics Study Group',
                         ),
-                        hintStyle: FlutterFlowTheme.of(context)
-                            .bodyMedium
+                        hintStyle: FlutterFlowTheme.of(context).bodyMedium
                             .override(
                               font: GoogleFonts.plusJakartaSans(
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
+                                fontWeight: FlutterFlowTheme.of(
+                                  context,
+                                ).bodyMedium.fontWeight,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).bodyMedium.fontStyle,
                               ),
-                              color: valueOrDefault<Color>(
-                                () {
-                                  if (valueOrDefault<String>(
-                                        widget!.variant,
-                                        'outlined',
-                                      ) ==
-                                      'filled') {
-                                    return FlutterFlowTheme.of(context).accent3;
-                                  } else if (valueOrDefault<String>(
-                                        widget!.variant,
-                                        'outlined',
-                                      ) ==
-                                      'ghost') {
-                                    return FlutterFlowTheme.of(context).accent3;
-                                  } else {
-                                    return FlutterFlowTheme.of(context).accent3;
-                                  }
-                                }(),
-                                FlutterFlowTheme.of(context).accent3,
-                              ),
+                              color: valueOrDefault<Color>(() {
+                                if (valueOrDefault<String>(
+                                      widget!.variant,
+                                      'outlined',
+                                    ) ==
+                                    'filled') {
+                                  return FlutterFlowTheme.of(context).accent3;
+                                } else if (valueOrDefault<String>(
+                                      widget!.variant,
+                                      'outlined',
+                                    ) ==
+                                    'ghost') {
+                                  return FlutterFlowTheme.of(context).accent3;
+                                } else {
+                                  return FlutterFlowTheme.of(context).accent3;
+                                }
+                              }(), FlutterFlowTheme.of(context).accent3),
                               letterSpacing: 0.0,
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
+                              fontWeight: FlutterFlowTheme.of(
+                                context,
+                              ).bodyMedium.fontWeight,
+                              fontStyle: FlutterFlowTheme.of(
+                                context,
+                              ).bodyMedium.fontStyle,
                               lineHeight: 1.5,
                             ),
                         enabledBorder: InputBorder.none,
@@ -432,87 +357,69 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                         focusedErrorBorder: InputBorder.none,
                       ),
                       style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyMedium
-                                  .fontStyle,
-                            ),
-                            color: valueOrDefault<Color>(
-                              () {
-                                if (valueOrDefault<String>(
-                                      widget!.variant,
-                                      'outlined',
-                                    ) ==
-                                    'filled') {
-                                  return FlutterFlowTheme.of(context)
-                                      .primaryText;
-                                } else if (valueOrDefault<String>(
-                                      widget!.variant,
-                                      'outlined',
-                                    ) ==
-                                    'ghost') {
-                                  return FlutterFlowTheme.of(context)
-                                      .primaryText;
-                                } else {
-                                  return FlutterFlowTheme.of(context)
-                                      .primaryText;
-                                }
-                              }(),
-                              FlutterFlowTheme.of(context).primaryText,
-                            ),
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyMedium
-                                .fontStyle,
-                            lineHeight: 1.5,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).bodyMedium.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).bodyMedium.fontStyle,
+                        ),
+                        color: valueOrDefault<Color>(() {
+                          if (valueOrDefault<String>(
+                                widget!.variant,
+                                'outlined',
+                              ) ==
+                              'filled') {
+                            return FlutterFlowTheme.of(context).primaryText;
+                          } else if (valueOrDefault<String>(
+                                widget!.variant,
+                                'outlined',
+                              ) ==
+                              'ghost') {
+                            return FlutterFlowTheme.of(context).primaryText;
+                          } else {
+                            return FlutterFlowTheme.of(context).primaryText;
+                          }
+                        }(), FlutterFlowTheme.of(context).primaryText),
+                        letterSpacing: 0.0,
+                        fontWeight: FlutterFlowTheme.of(
+                          context,
+                        ).bodyMedium.fontWeight,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).bodyMedium.fontStyle,
+                        lineHeight: 1.5,
+                      ),
                       validator: _model.inputTextControllerValidator
                           .asValidator(context),
                     ),
                   ),
-                  if (valueOrDefault<bool>(
-                    widget!.trailingIconPresent,
-                    false,
-                  ))
+                  if (valueOrDefault<bool>(widget!.trailingIconPresent, false))
                     widget!.trailingIcon!,
                 ],
               ),
             ),
           ),
-          if (valueOrDefault<bool>(
-            widget!.helperPresent,
-            false,
-          ))
+          if (valueOrDefault<bool>(widget!.helperPresent, false))
             Text(
               widget!.helper,
               style: FlutterFlowTheme.of(context).bodySmall.override(
-                    font: GoogleFonts.plusJakartaSans(
-                      fontWeight:
-                          FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                      fontStyle:
-                          FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                    ),
-                    color: valueOrDefault<Color>(
-                      valueOrDefault<bool>(
-                        widget!.error,
-                        false,
-                      )
-                          ? FlutterFlowTheme.of(context).error
-                          : FlutterFlowTheme.of(context).secondaryText,
-                      FlutterFlowTheme.of(context).secondaryText,
-                    ),
-                    letterSpacing: 0.0,
-                    fontWeight:
-                        FlutterFlowTheme.of(context).bodySmall.fontWeight,
-                    fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
-                    lineHeight: 1.5,
-                  ),
+                font: GoogleFonts.plusJakartaSans(
+                  fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                  fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                ),
+                color: valueOrDefault<Color>(
+                  valueOrDefault<bool>(widget!.error, false)
+                      ? FlutterFlowTheme.of(context).error
+                      : FlutterFlowTheme.of(context).secondaryText,
+                  FlutterFlowTheme.of(context).secondaryText,
+                ),
+                letterSpacing: 0.0,
+                fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
+                fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
+                lineHeight: 1.5,
+              ),
             ),
         ].divide(SizedBox(height: 6.0)),
       ),

@@ -12,9 +12,7 @@ class SuperAdminDashboard extends StatelessWidget {
     final name = user?.name ?? 'Super Admin';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ผู้ดูแลระบบสูงสุด'),
-      ),
+      appBar: AppBar(title: const Text('ผู้ดูแลระบบสูงสุด')),
       drawer: AppDrawer(
         items: [
           DrawerItem(

@@ -82,8 +82,10 @@ class AssignmentDetail {
 
   factory AssignmentDetail.fromRow(Map<String, dynamic> row) {
     final datasets = (row['sensor_datasets'] as List? ?? [])
-        .map((item) =>
-            AssignmentSensorDataset.fromJson(item as Map<String, dynamic>))
+        .map(
+          (item) =>
+              AssignmentSensorDataset.fromJson(item as Map<String, dynamic>),
+        )
         .toList();
 
     return AssignmentDetail(

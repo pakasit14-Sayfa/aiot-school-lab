@@ -19,12 +19,12 @@ class ActivityItemWidget extends StatefulWidget {
     String? title,
     this.icon,
     String? location,
-  })  : this.tapAction = tapAction ?? '',
-        this.time = time ?? '',
-        this.duration = duration ?? '',
-        this.accentColor = accentColor ?? const Color(0x00000000),
-        this.title = title ?? '',
-        this.location = location ?? '';
+  }) : this.tapAction = tapAction ?? '',
+       this.time = time ?? '',
+       this.duration = duration ?? '',
+       this.accentColor = accentColor ?? const Color(0x00000000),
+       this.title = title ?? '',
+       this.location = location ?? '';
 
   final String tapAction;
   final String time;
@@ -88,21 +88,20 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                       children: [
                         Text(
                           widget!.time,
-                          style: FlutterFlowTheme.of(context)
-                              .labelLarge
+                          style: FlutterFlowTheme.of(context).labelLarge
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
                                   fontWeight: FontWeight.bold,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelLarge
-                                      .fontStyle,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).labelLarge.fontStyle,
                                 ),
                                 color: FlutterFlowTheme.of(context).primaryText,
                                 letterSpacing: 0.0,
                                 fontWeight: FontWeight.bold,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .labelLarge
-                                    .fontStyle,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).labelLarge.fontStyle,
                                 lineHeight: 1.4,
                               ),
                         ),
@@ -116,26 +115,26 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                         ),
                         Text(
                           widget!.duration,
-                          style: FlutterFlowTheme.of(context)
-                              .labelSmall
+                          style: FlutterFlowTheme.of(context).labelSmall
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .labelSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelSmall
-                                      .fontStyle,
+                                  fontWeight: FlutterFlowTheme.of(
+                                    context,
+                                  ).labelSmall.fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).labelSmall.fontStyle,
                                 ),
-                                color:
-                                    FlutterFlowTheme.of(context).secondaryText,
+                                color: FlutterFlowTheme.of(
+                                  context,
+                                ).secondaryText,
                                 letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .fontStyle,
+                                fontWeight: FlutterFlowTheme.of(
+                                  context,
+                                ).labelSmall.fontWeight,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).labelSmall.fontStyle,
                                 lineHeight: 1.4,
                               ),
                         ),
@@ -161,21 +160,20 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                         Text(
                           widget!.title,
                           maxLines: 1,
-                          style: FlutterFlowTheme.of(context)
-                              .titleMedium
+                          style: FlutterFlowTheme.of(context).titleMedium
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
                                   fontWeight: FontWeight.w600,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleMedium
-                                      .fontStyle,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).titleMedium.fontStyle,
                                 ),
                                 color: FlutterFlowTheme.of(context).primaryText,
                                 letterSpacing: 0.0,
                                 fontWeight: FontWeight.w600,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .titleMedium
-                                    .fontStyle,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).titleMedium.fontStyle,
                                 lineHeight: 1.4,
                               ),
                           overflow: TextOverflow.ellipsis,
@@ -189,26 +187,26 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                             Text(
                               widget!.location,
                               maxLines: 1,
-                              style: FlutterFlowTheme.of(context)
-                                  .bodySmall
+                              style: FlutterFlowTheme.of(context).bodySmall
                                   .override(
                                     font: GoogleFonts.plusJakartaSans(
-                                      fontWeight: FlutterFlowTheme.of(context)
-                                          .bodySmall
-                                          .fontWeight,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .bodySmall
-                                          .fontStyle,
+                                      fontWeight: FlutterFlowTheme.of(
+                                        context,
+                                      ).bodySmall.fontWeight,
+                                      fontStyle: FlutterFlowTheme.of(
+                                        context,
+                                      ).bodySmall.fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .secondaryText,
+                                    color: FlutterFlowTheme.of(
+                                      context,
+                                    ).secondaryText,
                                     letterSpacing: 0.0,
-                                    fontWeight: FlutterFlowTheme.of(context)
-                                        .bodySmall
-                                        .fontWeight,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .bodySmall
-                                        .fontStyle,
+                                    fontWeight: FlutterFlowTheme.of(
+                                      context,
+                                    ).bodySmall.fontWeight,
+                                    fontStyle: FlutterFlowTheme.of(
+                                      context,
+                                    ).bodySmall.fontStyle,
                                     lineHeight: 1.5,
                                   ),
                               overflow: TextOverflow.ellipsis,

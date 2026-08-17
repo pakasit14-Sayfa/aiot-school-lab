@@ -9,10 +9,8 @@ import 'form_section2_model.dart';
 export 'form_section2_model.dart';
 
 class FormSection2Widget extends StatefulWidget {
-  const FormSection2Widget({
-    super.key,
-    String? title,
-  }) : this.title = title ?? 'CATEGORY';
+  const FormSection2Widget({super.key, String? title})
+    : this.title = title ?? 'CATEGORY';
 
   final String title;
 
@@ -50,21 +48,18 @@ class _FormSection2WidgetState extends State<FormSection2Widget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(
-            widget!.title,
-            'CATEGORY',
-          ),
+          valueOrDefault<String>(widget!.title, 'CATEGORY'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
-                font: GoogleFonts.plusJakartaSans(
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                ),
-                color: FlutterFlowTheme.of(context).secondaryText,
-                letterSpacing: 0.0,
-                fontWeight: FontWeight.bold,
-                fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
-                lineHeight: 1.4,
-              ),
+            font: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.bold,
+              fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            ),
+            color: FlutterFlowTheme.of(context).secondaryText,
+            letterSpacing: 0.0,
+            fontWeight: FontWeight.bold,
+            fontStyle: FlutterFlowTheme.of(context).labelLarge.fontStyle,
+            lineHeight: 1.4,
+          ),
         ),
         Wrap(
           spacing: 8.0,
@@ -102,25 +97,25 @@ class _FormSection2WidgetState extends State<FormSection2Widget> {
                     Text(
                       'Study Session',
                       style: FlutterFlowTheme.of(context).labelMedium.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            fontSize: 14.0,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontStyle,
-                            lineHeight: 1.4,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).primaryText,
+                        fontSize: 14.0,
+                        letterSpacing: 0.0,
+                        fontWeight: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontWeight,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontStyle,
+                        lineHeight: 1.4,
+                      ),
                     ),
                   ].divide(SizedBox(width: 6.0)),
                 ),
@@ -152,25 +147,25 @@ class _FormSection2WidgetState extends State<FormSection2Widget> {
                     Text(
                       'Project Work',
                       style: FlutterFlowTheme.of(context).labelMedium.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            fontSize: 14.0,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontStyle,
-                            lineHeight: 1.4,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).primaryText,
+                        fontSize: 14.0,
+                        letterSpacing: 0.0,
+                        fontWeight: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontWeight,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontStyle,
+                        lineHeight: 1.4,
+                      ),
                     ),
                   ].divide(SizedBox(width: 6.0)),
                 ),
@@ -202,25 +197,25 @@ class _FormSection2WidgetState extends State<FormSection2Widget> {
                     Text(
                       'Lab Prep',
                       style: FlutterFlowTheme.of(context).labelMedium.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            fontSize: 14.0,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontStyle,
-                            lineHeight: 1.4,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).primaryText,
+                        fontSize: 14.0,
+                        letterSpacing: 0.0,
+                        fontWeight: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontWeight,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontStyle,
+                        lineHeight: 1.4,
+                      ),
                     ),
                   ].divide(SizedBox(width: 6.0)),
                 ),
@@ -252,25 +247,25 @@ class _FormSection2WidgetState extends State<FormSection2Widget> {
                     Text(
                       'Review',
                       style: FlutterFlowTheme.of(context).labelMedium.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .labelMedium
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            fontSize: 14.0,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .labelMedium
-                                .fontStyle,
-                            lineHeight: 1.4,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).labelMedium.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).primaryText,
+                        fontSize: 14.0,
+                        letterSpacing: 0.0,
+                        fontWeight: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontWeight,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).labelMedium.fontStyle,
+                        lineHeight: 1.4,
+                      ),
                     ),
                   ].divide(SizedBox(width: 6.0)),
                 ),

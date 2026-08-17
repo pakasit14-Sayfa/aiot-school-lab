@@ -19,12 +19,12 @@ class CourseCardWidget extends StatefulWidget {
     String? instructor,
     double? progressDecimal,
     double? progress,
-  })  : this.accentBg = accentBg ?? const Color(0x00000000),
-        this.accentColor = accentColor ?? const Color(0x00000000),
-        this.title = title ?? '',
-        this.instructor = instructor ?? '',
-        this.progressDecimal = progressDecimal ?? 0.0,
-        this.progress = progress ?? 0.0;
+  }) : this.accentBg = accentBg ?? const Color(0x00000000),
+       this.accentColor = accentColor ?? const Color(0x00000000),
+       this.title = title ?? '',
+       this.instructor = instructor ?? '',
+       this.progressDecimal = progressDecimal ?? 0.0,
+       this.progress = progress ?? 0.0;
 
   final Color accentBg;
   final Widget? icon;
@@ -104,53 +104,50 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                         Text(
                           widget!.title,
                           maxLines: 1,
-                          style: FlutterFlowTheme.of(context)
-                              .titleSmall
+                          style: FlutterFlowTheme.of(context).titleSmall
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
                                   fontWeight: FontWeight.bold,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .titleSmall
-                                      .fontStyle,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).titleSmall.fontStyle,
                                 ),
                                 color: FlutterFlowTheme.of(context).primaryText,
                                 letterSpacing: 0.0,
                                 fontWeight: FontWeight.bold,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .titleSmall
-                                    .fontStyle,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).titleSmall.fontStyle,
                                 lineHeight: 1.4,
                               ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           widget!.instructor,
-                          style: FlutterFlowTheme.of(context)
-                              .bodySmall
+                          style: FlutterFlowTheme.of(context).bodySmall
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .bodySmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodySmall
-                                      .fontStyle,
+                                  fontWeight: FlutterFlowTheme.of(
+                                    context,
+                                  ).bodySmall.fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).bodySmall.fontStyle,
                                 ),
-                                color:
-                                    FlutterFlowTheme.of(context).secondaryText,
+                                color: FlutterFlowTheme.of(
+                                  context,
+                                ).secondaryText,
                                 letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .bodySmall
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodySmall
-                                    .fontStyle,
+                                fontWeight: FlutterFlowTheme.of(
+                                  context,
+                                ).bodySmall.fontWeight,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).bodySmall.fontStyle,
                                 lineHeight: 1.5,
                               ),
                         ),
-                        Container(
-                          height: 8.0,
-                        ),
+                        Container(height: 8.0),
                         Row(
                           mainAxisSize: MainAxisSize.max,
                           mainAxisAlignment: MainAxisAlignment.start,
@@ -166,8 +163,9 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                                 animation: true,
                                 animateFromLastPercent: true,
                                 progressColor: widget!.accentColor,
-                                backgroundColor:
-                                    FlutterFlowTheme.of(context).alternate,
+                                backgroundColor: FlutterFlowTheme.of(
+                                  context,
+                                ).alternate,
                                 barRadius: Radius.circular(2.0),
                                 padding: EdgeInsets.zero,
                               ),
@@ -177,22 +175,22 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                                 '${widget!.progress.toString()}%',
                                 '%',
                               ),
-                              style: FlutterFlowTheme.of(context)
-                                  .labelSmall
+                              style: FlutterFlowTheme.of(context).labelSmall
                                   .override(
                                     font: GoogleFonts.plusJakartaSans(
                                       fontWeight: FontWeight.bold,
-                                      fontStyle: FlutterFlowTheme.of(context)
-                                          .labelSmall
-                                          .fontStyle,
+                                      fontStyle: FlutterFlowTheme.of(
+                                        context,
+                                      ).labelSmall.fontStyle,
                                     ),
-                                    color: FlutterFlowTheme.of(context)
-                                        .primaryText,
+                                    color: FlutterFlowTheme.of(
+                                      context,
+                                    ).primaryText,
                                     letterSpacing: 0.0,
                                     fontWeight: FontWeight.bold,
-                                    fontStyle: FlutterFlowTheme.of(context)
-                                        .labelSmall
-                                        .fontStyle,
+                                    fontStyle: FlutterFlowTheme.of(
+                                      context,
+                                    ).labelSmall.fontStyle,
                                     lineHeight: 1.4,
                                   ),
                             ),

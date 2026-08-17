@@ -21,7 +21,8 @@ class _AcceptInvitationPageState extends State<AcceptInvitationPage> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   bool isPasswordHidden = true;
   bool isConfirmPasswordHidden = true;
@@ -108,7 +109,8 @@ class _AcceptInvitationPageState extends State<AcceptInvitationPage> {
               const AuthHeader(
                 icon: Icons.mail_outline,
                 title: 'มีรหัสเชิญ?',
-                subtitle: 'กรอกรหัสเชิญที่ได้รับจากแอดมินโรงเรียน '
+                subtitle:
+                    'กรอกรหัสเชิญที่ได้รับจากแอดมินโรงเรียน '
                     'พร้อมตั้งชื่อและรหัสผ่านเพื่อสร้างบัญชี',
               ),
 
@@ -178,8 +180,9 @@ class _AcceptInvitationPageState extends State<AcceptInvitationPage> {
                         : Icons.visibility,
                   ),
                   onPressed: () {
-                    setState(() => isConfirmPasswordHidden =
-                        !isConfirmPasswordHidden);
+                    setState(
+                      () => isConfirmPasswordHidden = !isConfirmPasswordHidden,
+                    );
                   },
                 ),
                 validator: (value) => AppValidators.confirmPassword(

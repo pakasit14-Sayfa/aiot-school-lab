@@ -111,9 +111,7 @@ class CourseService {
     return CourseDetail.fromRow(rows.first as Map<String, dynamic>);
   }
 
-  static Future<List<CourseStudent>> listCourseStudents(
-    String courseId,
-  ) async {
+  static Future<List<CourseStudent>> listCourseStudents(String courseId) async {
     final rows =
         await supabase.rpc(
               'list_course_students',

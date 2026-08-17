@@ -38,13 +38,16 @@ class SensorCard extends StatelessWidget {
                   Icon(icon, color: color, size: 20),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(label,
-                        style:
-                            const TextStyle(fontSize: 13, color: Colors.grey)),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(8),
@@ -52,9 +55,10 @@ class SensorCard extends StatelessWidget {
                     child: Text(
                       level.label,
                       style: TextStyle(
-                          fontSize: 11,
-                          color: color,
-                          fontWeight: FontWeight.bold),
+                        fontSize: 11,
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -74,9 +78,10 @@ class SensorCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(unit,
-                        style:
-                            const TextStyle(fontSize: 13, color: Colors.grey)),
+                    child: Text(
+                      unit,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ),
                 ],
               ),
@@ -179,8 +184,10 @@ class OverallAirQualityCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('สภาพแวดล้อมโดยรวม',
-                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text(
+                    'สภาพแวดล้อมโดยรวม',
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     sensor.overallLabel,
@@ -193,7 +200,10 @@ class OverallAirQualityCard extends StatelessWidget {
                   if (sensor.updatedAt != null)
                     Text(
                       'อัปเดต: ${_formatTime(sensor.updatedAt!)}',
-                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 11,
+                      ),
                     ),
                 ],
               ),
@@ -250,11 +260,15 @@ class SensorNoDataCard extends StatelessWidget {
             children: [
               Icon(Icons.sensors_off, size: 48, color: Colors.grey.shade400),
               const SizedBox(height: 12),
-              const Text('ยังไม่มีข้อมูลจากเซ็นเซอร์',
-                  style: TextStyle(color: Colors.grey)),
+              const Text(
+                'ยังไม่มีข้อมูลจากเซ็นเซอร์',
+                style: TextStyle(color: Colors.grey),
+              ),
               const SizedBox(height: 4),
-              const Text('ตรวจสอบการเชื่อมต่อ EdgeBox',
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const Text(
+                'ตรวจสอบการเชื่อมต่อ EdgeBox',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
             ],
           ),
         ),

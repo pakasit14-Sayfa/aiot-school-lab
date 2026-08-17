@@ -20,7 +20,8 @@ class _ResetPasswordConfirmPageState extends State<ResetPasswordConfirmPage> {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController otpController = TextEditingController();
   final TextEditingController newPasswordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   bool isPasswordHidden = true;
   bool isConfirmPasswordHidden = true;
@@ -82,7 +83,8 @@ class _ResetPasswordConfirmPageState extends State<ResetPasswordConfirmPage> {
               AuthHeader(
                 icon: Icons.mark_email_read,
                 title: 'ยืนยันรหัสจากอีเมล',
-                subtitle: 'กรอกรหัส 6 หลักที่ส่งไปยัง ${widget.email} '
+                subtitle:
+                    'กรอกรหัส 6 หลักที่ส่งไปยัง ${widget.email} '
                     'พร้อมตั้งรหัสผ่านใหม่ (รหัสหมดอายุใน 15 นาที)',
               ),
 
@@ -136,8 +138,9 @@ class _ResetPasswordConfirmPageState extends State<ResetPasswordConfirmPage> {
                         : Icons.visibility,
                   ),
                   onPressed: () {
-                    setState(() => isConfirmPasswordHidden =
-                        !isConfirmPasswordHidden);
+                    setState(
+                      () => isConfirmPasswordHidden = !isConfirmPasswordHidden,
+                    );
                   },
                 ),
                 validator: (value) => AppValidators.confirmNewPassword(
@@ -159,7 +162,9 @@ class _ResetPasswordConfirmPageState extends State<ResetPasswordConfirmPage> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.check),
-                  label: Text(isLoading ? 'กำลังบันทึก...' : 'ยืนยันและตั้งรหัสผ่านใหม่'),
+                  label: Text(
+                    isLoading ? 'กำลังบันทึก...' : 'ยืนยันและตั้งรหัสผ่านใหม่',
+                  ),
                 ),
               ),
             ],

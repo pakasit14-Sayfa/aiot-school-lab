@@ -92,7 +92,9 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       if (!mounted) return;
       if (student == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ไม่พบนักเรียนที่ใช้อีเมลนี้ในโรงเรียน')),
+          const SnackBar(
+            content: Text('ไม่พบนักเรียนที่ใช้อีเมลนี้ในโรงเรียน'),
+          ),
         );
         return;
       }
@@ -163,7 +165,10 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       await load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('อัปโหลดไฟล์แล้ว'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('อัปโหลดไฟล์แล้ว'),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;

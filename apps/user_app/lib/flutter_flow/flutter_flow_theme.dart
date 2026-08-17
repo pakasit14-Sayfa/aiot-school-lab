@@ -18,8 +18,8 @@ abstract class FlutterFlowTheme {
     return darkMode == null
         ? ThemeMode.system
         : darkMode
-            ? ThemeMode.dark
-            : ThemeMode.light;
+        ? ThemeMode.dark
+        : ThemeMode.light;
   }
 
   static void saveThemeMode(ThemeMode mode) => mode == ThemeMode.system
@@ -294,108 +294,108 @@ class ThemeTypography extends Typography {
   String get displayLargeFamily => 'Plus Jakarta Sans';
   bool get displayLargeIsCustom => false;
   TextStyle get displayLarge => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.bold,
-        fontSize: 58.0,
-        height: 1.1,
-      );
+    fontWeight: FontWeight.bold,
+    fontSize: 58.0,
+    height: 1.1,
+  );
   String get displayMediumFamily => 'Plus Jakarta Sans';
   bool get displayMediumIsCustom => false;
   TextStyle get displayMedium => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.bold,
-        fontSize: 46.0,
-        height: 1.2,
-      );
+    fontWeight: FontWeight.bold,
+    fontSize: 46.0,
+    height: 1.2,
+  );
   String get displaySmallFamily => 'Plus Jakarta Sans';
   bool get displaySmallIsCustom => false;
   TextStyle get displaySmall => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.bold,
-        fontSize: 38.0,
-        height: 1.2,
-      );
+    fontWeight: FontWeight.bold,
+    fontSize: 38.0,
+    height: 1.2,
+  );
   String get headlineLargeFamily => 'Plus Jakarta Sans';
   bool get headlineLargeIsCustom => false;
   TextStyle get headlineLarge => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.bold,
-        fontSize: 32.0,
-        height: 1.25,
-      );
+    fontWeight: FontWeight.bold,
+    fontSize: 32.0,
+    height: 1.25,
+  );
   String get headlineMediumFamily => 'Plus Jakarta Sans';
   bool get headlineMediumIsCustom => false;
   TextStyle get headlineMedium => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 28.0,
-        height: 1.3,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 28.0,
+    height: 1.3,
+  );
   String get headlineSmallFamily => 'Plus Jakarta Sans';
   bool get headlineSmallIsCustom => false;
   TextStyle get headlineSmall => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 24.0,
-        height: 1.3,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 24.0,
+    height: 1.3,
+  );
   String get titleLargeFamily => 'Plus Jakarta Sans';
   bool get titleLargeIsCustom => false;
   TextStyle get titleLarge => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 22.0,
-        height: 1.4,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 22.0,
+    height: 1.4,
+  );
   String get titleMediumFamily => 'Plus Jakarta Sans';
   bool get titleMediumIsCustom => false;
   TextStyle get titleMedium => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 17.0,
-        height: 1.4,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 17.0,
+    height: 1.4,
+  );
   String get titleSmallFamily => 'Plus Jakarta Sans';
   bool get titleSmallIsCustom => false;
   TextStyle get titleSmall => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 14.0,
-        height: 1.4,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 14.0,
+    height: 1.4,
+  );
   String get labelLargeFamily => 'Plus Jakarta Sans';
   bool get labelLargeIsCustom => false;
   TextStyle get labelLarge => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 15.0,
-        height: 1.4,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 15.0,
+    height: 1.4,
+  );
   String get labelMediumFamily => 'Plus Jakarta Sans';
   bool get labelMediumIsCustom => false;
   TextStyle get labelMedium => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 13.0,
-        height: 1.4,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 13.0,
+    height: 1.4,
+  );
   String get labelSmallFamily => 'Plus Jakarta Sans';
   bool get labelSmallIsCustom => false;
   TextStyle get labelSmall => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.w600,
-        fontSize: 11.0,
-        height: 1.4,
-      );
+    fontWeight: FontWeight.w600,
+    fontSize: 11.0,
+    height: 1.4,
+  );
   String get bodyLargeFamily => 'Plus Jakarta Sans';
   bool get bodyLargeIsCustom => false;
   TextStyle get bodyLarge => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.normal,
-        fontSize: 17.0,
-        height: 1.5,
-      );
+    fontWeight: FontWeight.normal,
+    fontSize: 17.0,
+    height: 1.5,
+  );
   String get bodyMediumFamily => 'Plus Jakarta Sans';
   bool get bodyMediumIsCustom => false;
   TextStyle get bodyMedium => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.normal,
-        fontSize: 15.0,
-        height: 1.5,
-      );
+    fontWeight: FontWeight.normal,
+    fontSize: 15.0,
+    height: 1.5,
+  );
   String get bodySmallFamily => 'Plus Jakarta Sans';
   bool get bodySmallIsCustom => false;
   TextStyle get bodySmall => GoogleFonts.plusJakartaSans(
-        fontWeight: FontWeight.normal,
-        fontSize: 13.0,
-        height: 1.5,
-      );
+    fontWeight: FontWeight.normal,
+    fontSize: 13.0,
+    height: 1.5,
+  );
 }
 
 class DarkModeTheme extends FlutterFlowTheme {
@@ -498,40 +498,47 @@ class FFShadows {
   const FFShadows(this.theme);
   final FlutterFlowTheme theme;
   BoxShadow get none => const BoxShadow(
-      blurRadius: 0.0,
-      color: const Color(0x00000000),
-      offset: const Offset(0.0, 0.0),
-      spreadRadius: 0.0);
+    blurRadius: 0.0,
+    color: const Color(0x00000000),
+    offset: const Offset(0.0, 0.0),
+    spreadRadius: 0.0,
+  );
   BoxShadow get xs => const BoxShadow(
-      blurRadius: 2.0,
-      color: const Color(0x05000000),
-      offset: const Offset(0.0, 1.0),
-      spreadRadius: 0.0);
+    blurRadius: 2.0,
+    color: const Color(0x05000000),
+    offset: const Offset(0.0, 1.0),
+    spreadRadius: 0.0,
+  );
   BoxShadow get sm => const BoxShadow(
-      blurRadius: 4.0,
-      color: const Color(0x08000000),
-      offset: const Offset(0.0, 2.0),
-      spreadRadius: 0.0);
+    blurRadius: 4.0,
+    color: const Color(0x08000000),
+    offset: const Offset(0.0, 2.0),
+    spreadRadius: 0.0,
+  );
   BoxShadow get md => const BoxShadow(
-      blurRadius: 6.0,
-      color: const Color(0x0A000000),
-      offset: const Offset(0.0, 4.0),
-      spreadRadius: 0.0);
+    blurRadius: 6.0,
+    color: const Color(0x0A000000),
+    offset: const Offset(0.0, 4.0),
+    spreadRadius: 0.0,
+  );
   BoxShadow get lg => const BoxShadow(
-      blurRadius: 12.0,
-      color: const Color(0x0F000000),
-      offset: const Offset(0.0, 8.0),
-      spreadRadius: 0.0);
+    blurRadius: 12.0,
+    color: const Color(0x0F000000),
+    offset: const Offset(0.0, 8.0),
+    spreadRadius: 0.0,
+  );
   BoxShadow get xl => const BoxShadow(
-      blurRadius: 24.0,
-      color: const Color(0x14000000),
-      offset: const Offset(0.0, 12.0),
-      spreadRadius: 0.0);
+    blurRadius: 24.0,
+    color: const Color(0x14000000),
+    offset: const Offset(0.0, 12.0),
+    spreadRadius: 0.0,
+  );
   BoxShadow get xxl => const BoxShadow(
-      blurRadius: 32.0,
-      color: const Color(0x1A000000),
-      offset: const Offset(0.0, 16.0),
-      spreadRadius: 0.0);
+    blurRadius: 32.0,
+    color: const Color(0x1A000000),
+    offset: const Offset(0.0, 16.0),
+    spreadRadius: 0.0,
+  );
 }
 
 extension TextStyleHelper on TextStyle {
@@ -550,9 +557,11 @@ extension TextStyleHelper on TextStyle {
     String? package,
   }) {
     if (useGoogleFonts && fontFamily != null && fontFamily.isNotEmpty) {
-      font = GoogleFonts.getFont(fontFamily,
-          fontWeight: fontWeight ?? this.fontWeight,
-          fontStyle: fontStyle ?? this.fontStyle);
+      font = GoogleFonts.getFont(
+        fontFamily,
+        fontWeight: fontWeight ?? this.fontWeight,
+        fontStyle: fontStyle ?? this.fontStyle,
+      );
     }
 
     return font != null

@@ -22,7 +22,9 @@ class AppNotification {
       title: row['title'] as String,
       body: row['body'] as String?,
       createdAt: DateTime.parse(row['created_at'] as String),
-      readAt: row['read_at'] != null ? DateTime.parse(row['read_at'] as String) : null,
+      readAt: row['read_at'] != null
+          ? DateTime.parse(row['read_at'] as String)
+          : null,
     );
   }
 

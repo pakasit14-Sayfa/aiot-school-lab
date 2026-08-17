@@ -18,12 +18,12 @@ class GradeRowWidget extends StatefulWidget {
     String? date,
     String? score,
     String? grade,
-  })  : this.bgTint = bgTint ?? const Color(0x00000000),
-        this.color = color ?? const Color(0x00000000),
-        this.title = title ?? '',
-        this.date = date ?? '',
-        this.score = score ?? '',
-        this.grade = grade ?? '';
+  }) : this.bgTint = bgTint ?? const Color(0x00000000),
+       this.color = color ?? const Color(0x00000000),
+       this.title = title ?? '',
+       this.date = date ?? '',
+       this.score = score ?? '',
+       this.grade = grade ?? '';
 
   final Color bgTint;
   final Widget? icon;
@@ -101,43 +101,43 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                       widget!.title,
                       maxLines: 1,
                       style: FlutterFlowTheme.of(context).bodyLarge.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w600,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .bodyLarge
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: FontWeight.w600,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .bodyLarge
-                                .fontStyle,
-                            lineHeight: 1.5,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FontWeight.w600,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).bodyLarge.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).primaryText,
+                        letterSpacing: 0.0,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).bodyLarge.fontStyle,
+                        lineHeight: 1.5,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       widget!.date,
                       style: FlutterFlowTheme.of(context).labelSmall.override(
-                            font: GoogleFonts.plusJakartaSans(
-                              fontWeight: FlutterFlowTheme.of(context)
-                                  .labelSmall
-                                  .fontWeight,
-                              fontStyle: FlutterFlowTheme.of(context)
-                                  .labelSmall
-                                  .fontStyle,
-                            ),
-                            color: FlutterFlowTheme.of(context).secondaryText,
-                            letterSpacing: 0.0,
-                            fontWeight: FlutterFlowTheme.of(context)
-                                .labelSmall
-                                .fontWeight,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .labelSmall
-                                .fontStyle,
-                            lineHeight: 1.4,
-                          ),
+                        font: GoogleFonts.plusJakartaSans(
+                          fontWeight: FlutterFlowTheme.of(
+                            context,
+                          ).labelSmall.fontWeight,
+                          fontStyle: FlutterFlowTheme.of(
+                            context,
+                          ).labelSmall.fontStyle,
+                        ),
+                        color: FlutterFlowTheme.of(context).secondaryText,
+                        letterSpacing: 0.0,
+                        fontWeight: FlutterFlowTheme.of(
+                          context,
+                        ).labelSmall.fontWeight,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).labelSmall.fontStyle,
+                        lineHeight: 1.4,
+                      ),
                     ),
                   ].divide(SizedBox(height: 4.0)),
                 ),
@@ -150,37 +150,38 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                   Text(
                     widget!.score,
                     style: FlutterFlowTheme.of(context).titleMedium.override(
-                          font: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.bold,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .titleMedium
-                                .fontStyle,
-                          ),
-                          color: FlutterFlowTheme.of(context).primaryText,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.bold,
-                          fontStyle: FlutterFlowTheme.of(context)
-                              .titleMedium
-                              .fontStyle,
-                          lineHeight: 1.4,
-                        ),
+                      font: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.bold,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).titleMedium.fontStyle,
+                      ),
+                      color: FlutterFlowTheme.of(context).primaryText,
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FlutterFlowTheme.of(
+                        context,
+                      ).titleMedium.fontStyle,
+                      lineHeight: 1.4,
+                    ),
                   ),
                   Text(
                     widget!.grade,
                     style: FlutterFlowTheme.of(context).labelSmall.override(
-                          font: GoogleFonts.plusJakartaSans(
-                            fontWeight: FontWeight.bold,
-                            fontStyle: FlutterFlowTheme.of(context)
-                                .labelSmall
-                                .fontStyle,
-                          ),
-                          color: widget!.color,
-                          letterSpacing: 0.0,
-                          fontWeight: FontWeight.bold,
-                          fontStyle:
-                              FlutterFlowTheme.of(context).labelSmall.fontStyle,
-                          lineHeight: 1.4,
-                        ),
+                      font: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.bold,
+                        fontStyle: FlutterFlowTheme.of(
+                          context,
+                        ).labelSmall.fontStyle,
+                      ),
+                      color: widget!.color,
+                      letterSpacing: 0.0,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FlutterFlowTheme.of(
+                        context,
+                      ).labelSmall.fontStyle,
+                      lineHeight: 1.4,
+                    ),
                   ),
                 ].divide(SizedBox(height: 4.0)),
               ),

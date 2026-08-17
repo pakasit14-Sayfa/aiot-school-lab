@@ -203,15 +203,17 @@ class _LessonFormPageState extends State<LessonFormPage> {
       devices = await LessonService.listSchoolDevices();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('โหลดรายชื่ออุปกรณ์ไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('โหลดรายชื่ออุปกรณ์ไม่สำเร็จ: $e')),
+      );
       return;
     }
     if (devices.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('โรงเรียนยังไม่มีอุปกรณ์เซนเซอร์ลงทะเบียนไว้')),
+        const SnackBar(
+          content: Text('โรงเรียนยังไม่มีอุปกรณ์เซนเซอร์ลงทะเบียนไว้'),
+        ),
       );
       return;
     }
@@ -253,7 +255,9 @@ class _LessonFormPageState extends State<LessonFormPage> {
               ),
               TextField(
                 controller: captionCtrl,
-                decoration: const InputDecoration(labelText: 'คำอธิบาย (ไม่บังคับ)'),
+                decoration: const InputDecoration(
+                  labelText: 'คำอธิบาย (ไม่บังคับ)',
+                ),
               ),
             ],
           ),
@@ -326,7 +330,9 @@ class _LessonFormPageState extends State<LessonFormPage> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Chip(
                       label: Text(
-                        lesson?.isPublished == true ? 'เผยแพร่แล้ว' : 'ฉบับร่าง',
+                        lesson?.isPublished == true
+                            ? 'เผยแพร่แล้ว'
+                            : 'ฉบับร่าง',
                       ),
                       backgroundColor: lesson?.isPublished == true
                           ? Colors.green.shade100

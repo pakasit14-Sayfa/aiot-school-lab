@@ -67,9 +67,7 @@ class _GradesOverviewPageState extends State<GradesOverviewPage> {
             fontSize: 18,
           ),
         ),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: load),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: load)],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -82,7 +80,10 @@ class _GradesOverviewPageState extends State<GradesOverviewPage> {
                   children: [
                     Text(errorMessage!, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    ElevatedButton(onPressed: load, child: const Text('ลองใหม่')),
+                    ElevatedButton(
+                      onPressed: load,
+                      child: const Text('ลองใหม่'),
+                    ),
                   ],
                 ),
               ),
@@ -234,7 +235,9 @@ class _GradesOverviewPageState extends State<GradesOverviewPage> {
                                       child: LinearProgressIndicator(
                                         value: (g.percent / 100).clamp(0, 1),
                                         minHeight: 8,
-                                        backgroundColor: const Color(0xFFE2E8F0),
+                                        backgroundColor: const Color(
+                                          0xFFE2E8F0,
+                                        ),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
                                               color,

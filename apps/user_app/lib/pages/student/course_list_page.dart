@@ -86,10 +86,7 @@ class _CourseListPageState extends State<CourseListPage> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () {},
-          ),
+          IconButton(icon: const Icon(Icons.search_rounded), onPressed: () {}),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: loadCourses,
@@ -222,7 +219,9 @@ class _CourseListPageState extends State<CourseListPage> {
                         ),
                       )
                     else
-                      ...courses.map((course) => _buildDbCourseCard(context, course)),
+                      ...courses.map(
+                        (course) => _buildDbCourseCard(context, course),
+                      ),
                   ],
                 ),
               ),

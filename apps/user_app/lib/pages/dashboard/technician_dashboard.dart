@@ -13,9 +13,7 @@ class TechnicianDashboard extends StatelessWidget {
     final schoolId = user?.schoolId.isNotEmpty == true ? user!.schoolId : '-';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ช่างเทคนิค'),
-      ),
+      appBar: AppBar(title: const Text('ช่างเทคนิค')),
       drawer: AppDrawer(
         items: [
           DrawerItem(

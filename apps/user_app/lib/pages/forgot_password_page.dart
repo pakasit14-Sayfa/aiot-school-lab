@@ -32,7 +32,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งรหัสยืนยัน 6 หลักไปให้แล้ว'),
+          content: Text(
+            'หากอีเมลนี้มีอยู่ในระบบ เราได้ส่งรหัสยืนยัน 6 หลักไปให้แล้ว',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -46,7 +48,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาด: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => isLoading = false);

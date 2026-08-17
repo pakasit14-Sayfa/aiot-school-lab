@@ -12,7 +12,8 @@ class AiotDashboardPage extends StatelessWidget {
     final schoolId = user?.schoolId ?? '';
     final building = user?.building ?? '';
     final room = user?.room ?? '';
-    final hasLocation = schoolId.isNotEmpty && building.isNotEmpty && room.isNotEmpty;
+    final hasLocation =
+        schoolId.isNotEmpty && building.isNotEmpty && room.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('AIoT Dashboard')),

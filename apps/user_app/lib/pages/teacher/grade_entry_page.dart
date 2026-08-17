@@ -104,9 +104,9 @@ class _GradeEntryPageState extends State<GradeEntryPage> {
     final maxScore = num.tryParse(maxScoreController.text.trim());
     if (score == null || maxScore == null || maxScore <= 0) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรุณากรอกคะแนนให้ถูกต้อง')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรุณากรอกคะแนนให้ถูกต้อง')));
       return;
     }
 
@@ -158,9 +158,7 @@ class _GradeEntryPageState extends State<GradeEntryPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ให้คะแนนนักเรียน'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: load),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: load)],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -173,7 +171,10 @@ class _GradeEntryPageState extends State<GradeEntryPage> {
                   children: [
                     Text(errorMessage!, textAlign: TextAlign.center),
                     const SizedBox(height: 12),
-                    ElevatedButton(onPressed: load, child: const Text('ลองใหม่')),
+                    ElevatedButton(
+                      onPressed: load,
+                      child: const Text('ลองใหม่'),
+                    ),
                   ],
                 ),
               ),
@@ -218,7 +219,9 @@ class _GradeEntryPageState extends State<GradeEntryPage> {
                               ],
                               const SizedBox(width: 8),
                               Text(
-                                grade.isConfirmed ? '(ยืนยันแล้ว)' : '(ฉบับร่าง)',
+                                grade.isConfirmed
+                                    ? '(ยืนยันแล้ว)'
+                                    : '(ฉบับร่าง)',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: grade.isConfirmed

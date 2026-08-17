@@ -16,10 +16,10 @@ class SettingsTileWidget extends StatefulWidget {
     Color? iconColor,
     String? title,
     String? subtitle,
-  })  : this.bgColor = bgColor ?? const Color(0x00000000),
-        this.iconColor = iconColor ?? const Color(0x00000000),
-        this.title = title ?? 'Personal Information',
-        this.subtitle = subtitle ?? 'Name, Email, Student ID';
+  }) : this.bgColor = bgColor ?? const Color(0x00000000),
+       this.iconColor = iconColor ?? const Color(0x00000000),
+       this.title = title ?? 'Personal Information',
+       this.subtitle = subtitle ?? 'Name, Email, Student ID';
 
   final Color bgColor;
   final Widget? icon;
@@ -102,21 +102,20 @@ class _SettingsTileWidgetState extends State<SettingsTileWidget> {
                             widget!.title,
                             'Personal Information',
                           ),
-                          style: FlutterFlowTheme.of(context)
-                              .bodyMedium
+                          style: FlutterFlowTheme.of(context).bodyMedium
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
                                   fontWeight: FontWeight.w600,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .fontStyle,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).bodyMedium.fontStyle,
                                 ),
                                 color: FlutterFlowTheme.of(context).primaryText,
                                 letterSpacing: 0.0,
                                 fontWeight: FontWeight.w600,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .bodyMedium
-                                    .fontStyle,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).bodyMedium.fontStyle,
                                 lineHeight: 1.5,
                               ),
                         ),
@@ -126,26 +125,26 @@ class _SettingsTileWidgetState extends State<SettingsTileWidget> {
                             'Name, Email, Student ID',
                           ),
                           maxLines: 1,
-                          style: FlutterFlowTheme.of(context)
-                              .labelSmall
+                          style: FlutterFlowTheme.of(context).labelSmall
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
-                                  fontWeight: FlutterFlowTheme.of(context)
-                                      .labelSmall
-                                      .fontWeight,
-                                  fontStyle: FlutterFlowTheme.of(context)
-                                      .labelSmall
-                                      .fontStyle,
+                                  fontWeight: FlutterFlowTheme.of(
+                                    context,
+                                  ).labelSmall.fontWeight,
+                                  fontStyle: FlutterFlowTheme.of(
+                                    context,
+                                  ).labelSmall.fontStyle,
                                 ),
-                                color:
-                                    FlutterFlowTheme.of(context).secondaryText,
+                                color: FlutterFlowTheme.of(
+                                  context,
+                                ).secondaryText,
                                 letterSpacing: 0.0,
-                                fontWeight: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .fontWeight,
-                                fontStyle: FlutterFlowTheme.of(context)
-                                    .labelSmall
-                                    .fontStyle,
+                                fontWeight: FlutterFlowTheme.of(
+                                  context,
+                                ).labelSmall.fontWeight,
+                                fontStyle: FlutterFlowTheme.of(
+                                  context,
+                                ).labelSmall.fontStyle,
                                 lineHeight: 1.4,
                               ),
                           overflow: TextOverflow.ellipsis,

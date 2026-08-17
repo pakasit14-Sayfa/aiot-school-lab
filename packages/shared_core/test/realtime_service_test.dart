@@ -45,10 +45,9 @@ void main() {
     });
 
     test('falls back to all devices when no location matches', () {
-      final model = RealtimeService.modelForRoom(
-        [row('temperature', 25)],
-        'ห้องที่ไม่มีจริง',
-      );
+      final model = RealtimeService.modelForRoom([
+        row('temperature', 25),
+      ], 'ห้องที่ไม่มีจริง');
       expect(model!.temperature, 25);
     });
 
@@ -80,10 +79,9 @@ void main() {
     });
 
     test('uses device name when location is empty', () {
-      final models = RealtimeService.modelsByDevice(
-        [row('temperature', 28, location: '')],
-        '',
-      );
+      final models = RealtimeService.modelsByDevice([
+        row('temperature', 28, location: ''),
+      ], '');
       expect(models.keys.single, 'เซนเซอร์ d1');
     });
   });

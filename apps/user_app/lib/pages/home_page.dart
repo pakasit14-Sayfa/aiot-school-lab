@@ -24,7 +24,9 @@ class _HomePageState extends State<HomePage> {
   Future<void> loadUnreadCount() async {
     final notifications = await NotificationService.listMyNotifications();
     if (mounted) {
-      setState(() => unreadCount = notifications.where((n) => n.isUnread).length);
+      setState(
+        () => unreadCount = notifications.where((n) => n.isUnread).length,
+      );
     }
   }
 
@@ -96,7 +98,10 @@ class _HomePageState extends State<HomePage> {
         background: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF2E7D32), Color(0xFF1ABC9C)], // สีเขียวเข้มไล่ไปเขียวมิ้นต์
+              colors: [
+                Color(0xFF2E7D32),
+                Color(0xFF1ABC9C),
+              ], // สีเขียวเข้มไล่ไปเขียวมิ้นต์
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -140,10 +145,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 8),
                   const Text(
                     'พร้อมสำหรับการเรียนรู้ในวันนี้หรือยัง?',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.white70,
-                    ),
+                    style: TextStyle(fontSize: 15, color: Colors.white70),
                   ),
                 ],
               ),
@@ -187,9 +189,7 @@ class _HomePageState extends State<HomePage> {
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (context) => const CourseListPage(),
-              ),
+              MaterialPageRoute(builder: (context) => const CourseListPage()),
             );
           },
         ),
@@ -329,7 +329,11 @@ class _HomePageState extends State<HomePage> {
               color: Colors.white.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.tips_and_updates, color: Colors.amber, size: 28),
+            child: const Icon(
+              Icons.tips_and_updates,
+              color: Colors.amber,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 16),
           const Expanded(

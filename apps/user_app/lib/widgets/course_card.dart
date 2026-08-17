@@ -130,10 +130,14 @@ class CourseCard extends StatelessWidget {
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7).withValues(alpha: 0.25),
+                            color: const Color(
+                              0xFFFEF3C7,
+                            ).withValues(alpha: 0.25),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: const Color(0xFFFDE68A).withValues(alpha: 0.4),
+                              color: const Color(
+                                0xFFFDE68A,
+                              ).withValues(alpha: 0.4),
                             ),
                           ),
                           child: Text(
@@ -158,9 +162,7 @@ class CourseCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFF1F2),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: const Color(0xFFFECDD3),
-                          ),
+                          border: Border.all(color: const Color(0xFFFECDD3)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -452,10 +454,7 @@ class CourseCard extends StatelessWidget {
                             ),
                           ),
                           SizedBox(width: 6),
-                          Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 18,
-                          ),
+                          Icon(Icons.arrow_forward_rounded, size: 18),
                         ],
                       ),
                     ),

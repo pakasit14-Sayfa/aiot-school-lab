@@ -160,15 +160,17 @@ class _AssignmentFormPageState extends State<AssignmentFormPage> {
       devices = await LessonService.listSchoolDevices();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('โหลดรายชื่ออุปกรณ์ไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('โหลดรายชื่ออุปกรณ์ไม่สำเร็จ: $e')),
+      );
       return;
     }
     if (devices.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('โรงเรียนยังไม่มีอุปกรณ์เซนเซอร์ลงทะเบียนไว้')),
+        const SnackBar(
+          content: Text('โรงเรียนยังไม่มีอุปกรณ์เซนเซอร์ลงทะเบียนไว้'),
+        ),
       );
       return;
     }
@@ -210,7 +212,9 @@ class _AssignmentFormPageState extends State<AssignmentFormPage> {
               ),
               TextField(
                 controller: labelCtrl,
-                decoration: const InputDecoration(labelText: 'คำอธิบาย (ไม่บังคับ)'),
+                decoration: const InputDecoration(
+                  labelText: 'คำอธิบาย (ไม่บังคับ)',
+                ),
               ),
             ],
           ),
@@ -269,8 +273,9 @@ class _AssignmentFormPageState extends State<AssignmentFormPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) =>
-                        SubmissionReviewPage(assignmentId: widget.assignmentId!),
+                    builder: (_) => SubmissionReviewPage(
+                      assignmentId: widget.assignmentId!,
+                    ),
                   ),
                 );
               },
