@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import 'student_redesign_palette.dart';
 
 /// Where a calendar entry came from — drives its color/icon and whether
 /// the student is allowed to edit/delete it.
 enum _EventSource {
-  /// Set by a teacher/admin for the whole class. In this UI-only prototype
-  /// there's no backend yet, so these are just seeded mock data — but the
-  /// model already distinguishes them so a future "teacher publishes the
-  /// class timetable" feature can slot in without changing this page's
-  /// shape, and students can't edit/delete these entries even now.
+  /// Set by a teacher/admin for the whole class via `class_schedules`
+  /// (`set_class_schedule` RPC). Read-only here — no teacher-side
+  /// schedule-editing UI exists yet.
   classSchedule,
 
   /// Pulled from the student's own assignment due dates — read-only here
   /// too; editing an assignment happens on the ใบงาน tab, not this one.
   assignment,
 
-  /// Added directly by the student. Only these can be edited or removed.
+  /// A `student_personal_tasks` row the student created themselves. Only
+  /// these can be checked off or removed.
   personal,
 }
 
@@ -29,6 +29,7 @@ class _CalendarEvent {
     required this.title,
     required this.subtitle,
     required this.source,
+    this.done = false,
   });
 
   final String id;
@@ -39,6 +40,7 @@ class _CalendarEvent {
   final String title;
   final String subtitle;
   final _EventSource source;
+  final bool done;
 
   int get startMinutesOfDay => startHour * 60 + startMinute;
   int get endMinutesOfDay => startMinutesOfDay + durationMinutes;
@@ -85,121 +87,113 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
   _EventFilter _filter = _EventFilter.all;
   _CalendarEvent? _selectedEvent;
 
-  late final List<_CalendarEvent> _events = _buildSeedEvents();
+  bool _loading = true;
+  List<_CalendarEvent> _events = [];
+  List<ClassScheduleSlot> _scheduleSlots = [];
 
-  /// สร้างตารางเรียนประจำสัปดาห์ (จำลองว่าครู/แอดมินใส่มาให้ ถ้ามี) +
-  /// กำหนดส่งใบงานจากหน้าใบงาน + ตัวอย่างรายการส่วนตัว
-  List<_CalendarEvent> _buildSeedEvents() {
-    final events = <_CalendarEvent>[
-      ..._buildScheduleForMonth(_focusedMonth),
-      ..._buildScheduleForMonth(
-        DateTime(_focusedMonth.year, _focusedMonth.month + 1),
-      ),
-    ];
-    var idCounter = 0;
-
-    events.add(
-      _CalendarEvent(
-        id: 'asg-${idCounter++}',
-        date: _today,
-        startHour: 20,
-        startMinute: 30,
-        durationMinutes: 0,
-        title: 'ใบงานที่ 4: คำนวณค่าฝุ่น PM2.5 จากเซนเซอร์',
-        subtitle: 'กำหนดส่ง 23:59 น. · วิชา AIoT สมาร์ตแล็บ',
-        source: _EventSource.assignment,
-      ),
-    );
-    events.add(
-      _CalendarEvent(
-        id: 'asg-${idCounter++}',
-        date: _today.add(const Duration(days: 3)),
-        startHour: 16,
-        startMinute: 0,
-        durationMinutes: 0,
-        title: 'ใบงานที่ 5: ส่งข้อมูลค่าแสงเข้า Dashboard',
-        subtitle: 'กำหนดส่ง 16:00 น. · วิชา AIoT สมาร์ตแล็บ',
-        source: _EventSource.assignment,
-      ),
-    );
-    events.add(
-      _CalendarEvent(
-        id: 'own-${idCounter++}',
-        date: _today.add(const Duration(days: 1)),
-        startHour: 17,
-        startMinute: 0,
-        durationMinutes: 60,
-        title: 'ติวเตรียมสอบกับเพื่อน',
-        subtitle: 'รายการส่วนตัว',
-        source: _EventSource.personal,
-      ),
-    );
-
-    return events;
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  // แหล่งข้อมูลตารางเรียนประจำสัปดาห์เดียว — ใช้ทั้งตอนขยายเป็นรายการ
-  // เหตุการณ์ต่อวันที่จริง (_buildScheduleForMonth) และตอนแสดงเป็นตาราง
-  // ประจำสัปดาห์ตรงๆ (_buildWeeklyScheduleTable) กันข้อมูลสองชุดขัดกัน
-  static const _weeklySchedule = [
-    (
-      weekday: DateTime.monday,
-      hour: 8,
-      minute: 30,
-      subject: 'วิชา AIoT สมาร์ตแล็บ',
-      teacher: 'ครูสมชาย สายวิทย์',
-      room: 'ห้องแล็บ AIoT',
-    ),
-    (
-      weekday: DateTime.monday,
-      hour: 13,
-      minute: 0,
-      subject: 'วิชาคณิตศาสตร์เพิ่มเติม',
-      teacher: 'ครูวราภรณ์ เลิศคณิต',
-      room: 'ห้อง 512',
-    ),
-    (
-      weekday: DateTime.wednesday,
-      hour: 9,
-      minute: 30,
-      subject: 'วิชาฟิสิกส์ประยุกต์',
-      teacher: 'ครูอนุชา ฟิสิกส์กุล',
-      room: 'ห้องปฏิบัติการฟิสิกส์',
-    ),
-    (
-      weekday: DateTime.thursday,
-      hour: 10,
-      minute: 30,
-      subject: 'วิชาวิทยาศาสตร์กายภาพ',
-      teacher: 'ครูปิยะดา ธรณิน',
-      room: 'ห้อง 305',
-    ),
-    (
-      weekday: DateTime.friday,
-      hour: 8,
-      minute: 30,
-      subject: 'วิชาชีววิทยา',
-      teacher: 'ครูสุนิสา ชีวานนท์',
-      room: 'ห้องปฏิบัติการชีวะ',
-    ),
-  ];
+  /// โหลดตารางเรียนจริง (`list_my_schedule`) + งานส่วนตัวจริง
+  /// (`list_my_personal_tasks`) + กำหนดส่งใบงานจริงของทุกวิชาที่ลงทะเบียน
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final courses = await CourseService.listMyCourses();
+      final schedule = await CalendarService.listMySchedule();
+      final tasks = await CalendarService.listMyPersonalTasks();
+
+      final assignmentEvents = <_CalendarEvent>[];
+      for (final course in courses) {
+        final assignments = await AssignmentService.listAssignments(course.id);
+        for (final a in assignments) {
+          if (!a.isPublished || a.dueAt == null) continue;
+          final due = a.dueAt!.toLocal();
+          assignmentEvents.add(
+            _CalendarEvent(
+              id: 'asg-${a.id}',
+              date: DateTime(due.year, due.month, due.day),
+              startHour: due.hour,
+              startMinute: due.minute,
+              durationMinutes: 0,
+              title: a.title,
+              subtitle:
+                  'กำหนดส่ง ${_fmtHm(due.hour, due.minute)} น. · วิชา ${course.subjectName}',
+              source: _EventSource.assignment,
+            ),
+          );
+        }
+      }
+
+      final personalEvents = tasks.where((t) => t.dueAt != null).map((t) {
+        final due = t.dueAt!.toLocal();
+        return _CalendarEvent(
+          id: t.id,
+          date: DateTime(due.year, due.month, due.day),
+          startHour: due.hour,
+          startMinute: due.minute,
+          durationMinutes: 60,
+          title: t.title,
+          subtitle: (t.note != null && t.note!.trim().isNotEmpty)
+              ? t.note!
+              : 'รายการส่วนตัว',
+          source: _EventSource.personal,
+          done: t.done,
+        );
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _scheduleSlots = schedule;
+        _events = [
+          ..._buildScheduleForMonth(_focusedMonth),
+          ..._buildScheduleForMonth(
+            DateTime(_focusedMonth.year, _focusedMonth.month + 1),
+          ),
+          ...assignmentEvents,
+          ...personalEvents,
+        ];
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  static String _fmtHm(int h, int m) =>
+      '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 
   List<_CalendarEvent> _buildScheduleForMonth(DateTime month) {
     final events = <_CalendarEvent>[];
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
     for (var d = 1; d <= daysInMonth; d++) {
       final date = DateTime(month.year, month.month, d);
-      for (final slot in _weeklySchedule) {
-        if (date.weekday == slot.weekday) {
+      final dayOfWeek = date.weekday - 1; // DateTime.monday=1 → 0=จันทร์
+      for (final slot in _scheduleSlots) {
+        if (slot.dayOfWeek == dayOfWeek) {
+          final startParts = slot.startTime.split(':');
+          final endParts = slot.endTime.split(':');
+          final startHour = int.parse(startParts[0]);
+          final startMinute = int.parse(startParts[1]);
+          final endHour = int.parse(endParts[0]);
+          final endMinute = int.parse(endParts[1]);
+          final duration =
+              (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
           events.add(
             _CalendarEvent(
-              id: 'sch-${month.year}-${month.month}-$d-${slot.hour}${slot.minute}',
+              id: 'sch-${slot.id}-${month.year}-${month.month}-$d',
               date: date,
-              startHour: slot.hour,
-              startMinute: slot.minute,
-              durationMinutes: 60,
-              title: slot.subject,
-              subtitle: '${slot.teacher} · ${slot.room}',
+              startHour: startHour,
+              startMinute: startMinute,
+              durationMinutes: duration,
+              title: slot.subjectName,
+              subtitle: (slot.room != null && slot.room!.trim().isNotEmpty)
+                  ? 'ห้อง ${slot.room}'
+                  : 'ตารางเรียน',
               source: _EventSource.classSchedule,
             ),
           );
@@ -282,28 +276,33 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
     }
   }
 
-  void _addPersonalEvent(String title, int hour, int minute) {
-    setState(() {
-      _events.add(
-        _CalendarEvent(
-          id: 'own-${DateTime.now().microsecondsSinceEpoch}',
-          date: _selectedDay,
-          startHour: hour,
-          startMinute: minute,
-          durationMinutes: 60,
-          title: title,
-          subtitle: 'รายการส่วนตัว',
-          source: _EventSource.personal,
-        ),
-      );
-    });
+  Future<void> _addPersonalEvent(String title, int hour, int minute) async {
+    final dueAt = DateTime(
+      _selectedDay.year,
+      _selectedDay.month,
+      _selectedDay.day,
+      hour,
+      minute,
+    );
+    await CalendarService.createPersonalTask(title: title, dueAt: dueAt);
+    await _load();
   }
 
-  void _removeEvent(_CalendarEvent event) {
+  Future<void> _removeEvent(_CalendarEvent event) async {
+    await CalendarService.deletePersonalTask(event.id);
+    if (!mounted) return;
     setState(() {
-      _events.remove(event);
       if (_selectedEvent?.id == event.id) _selectedEvent = null;
     });
+    await _load();
+  }
+
+  Future<void> _toggleDone(_CalendarEvent event) async {
+    await CalendarService.togglePersonalTask(
+      taskId: event.id,
+      done: !event.done,
+    );
+    await _load();
   }
 
   void _openAddEventSheet() {
@@ -410,7 +409,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       if (titleController.text.trim().isEmpty) return;
                       final hour =
                           int.tryParse(
@@ -422,12 +421,13 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
                             minuteController.text.trim(),
                           )?.clamp(0, 59) ??
                           0;
-                      _addPersonalEvent(
+                      final navigator = Navigator.of(context);
+                      await _addPersonalEvent(
                         titleController.text.trim(),
                         hour,
                         minute,
                       );
-                      Navigator.pop(context);
+                      navigator.pop();
                     },
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('เพิ่มลงปฏิทิน'),
@@ -450,6 +450,12 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -1027,6 +1033,29 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
+                onPressed: () => _toggleDone(event),
+                icon: Icon(
+                  event.done
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  size: 16,
+                ),
+                label: Text(
+                  event.done ? 'ทำเสร็จแล้ว' : 'ทำเครื่องหมายว่าเสร็จ',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF14B8A6),
+                  side: const BorderSide(color: Color(0xFF99F6E4)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
                 onPressed: () => _removeEvent(event),
                 icon: const Icon(Icons.delete_outline_rounded, size: 16),
                 label: const Text('ลบรายการนี้'),
@@ -1196,93 +1225,95 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             ),
           ),
           const SizedBox(height: 14),
-          for (
-            var weekday = DateTime.monday;
-            weekday <= DateTime.friday;
-            weekday++
-          ) ...[
-            Text(
-              weekdayLabels[weekday - 1],
-              style: const TextStyle(
-                color: Color(0xFF7C3AED),
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            for (final slot in _weeklySchedule.where(
-              (s) => s.weekday == weekday,
-            ))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 44,
-                        child: Text(
-                          '${slot.hour.toString().padLeft(2, '0')}:${slot.minute.toString().padLeft(2, '0')}',
-                          style: const TextStyle(
-                            color: Color(0xFF7C3AED),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              slot.subject,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: SchoolPalette.navy,
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              '${slot.teacher} · ${slot.room}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: SchoolPalette.muted,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+          if (_scheduleSlots.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'ยังไม่มีตารางเรียนที่ครูกำหนดไว้',
+                  style: TextStyle(
+                    color: SchoolPalette.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-            const SizedBox(height: 6),
-          ],
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFFDE68A)),
-            ),
-            child: const Text(
-              '🧪 ตอนนี้เป็นตารางตัวอย่าง — ในระบบจริงครู/แอดมินจะเป็นผู้กำหนดให้แต่ละห้อง',
-              style: TextStyle(
-                color: Color(0xFFD97706),
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
+            )
+          else
+            for (var dayOfWeek = 0; dayOfWeek <= 4; dayOfWeek++) ...[
+              if (_scheduleSlots.any((s) => s.dayOfWeek == dayOfWeek)) ...[
+                Text(
+                  weekdayLabels[dayOfWeek],
+                  style: const TextStyle(
+                    color: Color(0xFF7C3AED),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final slot
+                    in (_scheduleSlots
+                        .where((s) => s.dayOfWeek == dayOfWeek)
+                        .toList()
+                      ..sort((a, b) => a.startTime.compareTo(b.startTime))))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 44,
+                            child: Text(
+                              slot.startTime.substring(0, 5),
+                              style: const TextStyle(
+                                color: Color(0xFF7C3AED),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  slot.subjectName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: SchoolPalette.navy,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  (slot.room != null &&
+                                          slot.room!.trim().isNotEmpty)
+                                      ? 'ห้อง ${slot.room}'
+                                      : 'ตารางเรียน',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: SchoolPalette.muted,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+              ],
+            ],
         ],
       ),
     );
@@ -1527,6 +1558,9 @@ class _BoardEventCard extends StatelessWidget {
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
+                  decoration: event.done
+                      ? TextDecoration.lineThrough
+                      : TextDecoration.none,
                 ),
               ),
               if (event.source == _EventSource.classSchedule) ...[
@@ -1582,6 +1616,9 @@ class _EventRow extends StatelessWidget {
                     color: event.color,
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
+                    decoration: event.done
+                        ? TextDecoration.lineThrough
+                        : TextDecoration.none,
                   ),
                 ),
                 const SizedBox(height: 3),

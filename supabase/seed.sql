@@ -204,6 +204,22 @@ begin
       (v_question_id, 'เท็จ', false, 2);
   end if;
 
+  -- 2026-08-18: Seed a real weekly class schedule so the calendar page has
+  -- something to show — created directly (not via set_class_schedule, which
+  -- needs a session token) but matches what that RPC would produce.
+  if not exists (
+    select 1 from class_schedules where course_id = v_course_id and day_of_week = 0
+  ) then
+    insert into class_schedules (course_id, day_of_week, start_time, end_time, room, created_by)
+    values (v_course_id, 0, '08:30', '09:30', 'Lab 3', v_teacher_id);
+  end if;
+  if not exists (
+    select 1 from class_schedules where course_id = v_course_id and day_of_week = 3
+  ) then
+    insert into class_schedules (course_id, day_of_week, start_time, end_time, room, created_by)
+    values (v_course_id, 3, '10:30', '11:30', 'Lab 3', v_teacher_id);
+  end if;
+
   -- 2026-08-17: Seed facility_manager building assignment & sample devices for STK-9/STK-11
   update users set building = 'อาคาร 3 (วิทยาศาสตร์)' where email = 'facility@aiot-school-lab.local';
 
