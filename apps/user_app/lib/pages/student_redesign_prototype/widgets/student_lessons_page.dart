@@ -11,7 +11,10 @@ class _LessonWithCourse {
 }
 
 class StudentLessonsPage extends StatefulWidget {
-  const StudentLessonsPage({super.key});
+  const StudentLessonsPage({super.key, this.showAppBar = true});
+
+  /// false เมื่อฝังเป็นแท็บในเชลล์นำทาง (มี AppBar/title ของตัวเองอยู่แล้ว)
+  final bool showAppBar;
 
   @override
   State<StudentLessonsPage> createState() => _StudentLessonsPageState();
@@ -70,72 +73,81 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0.5,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: SchoolPalette.ink),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'บทเรียนและคอร์สเรียน',
-          style: TextStyle(
-            color: SchoolPalette.ink,
-            fontWeight: FontWeight.w900,
-            fontSize: 18,
+  Widget _buildBody(BuildContext context) {
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: _load,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
           ),
-        ),
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _load,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            child: Center(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final screenWidth = constraints.maxWidth;
-                  final isDesktop = screenWidth >= 1024;
-                  final horizontalPadding = screenWidth < 520 ? 14.0 : 16.0;
+          child: Center(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final screenWidth = constraints.maxWidth;
+                final isDesktop = screenWidth >= 1024;
+                final horizontalPadding = screenWidth < 520 ? 14.0 : 16.0;
 
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop ? 720 : 640,
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isDesktop ? 720 : 640),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                      vertical: 16,
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: horizontalPadding,
-                        vertical: 16,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSummaryHeader(context),
-                          const SizedBox(height: 18),
-                          if (_error != null) ...[
-                            _buildErrorBanner(),
-                            const SizedBox(height: 12),
-                          ],
-                          _buildLessonList(),
-                          const SizedBox(height: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSummaryHeader(context),
+                        const SizedBox(height: 18),
+                        if (_error != null) ...[
+                          _buildErrorBanner(),
+                          const SizedBox(height: 12),
                         ],
-                      ),
+                        _buildLessonList(),
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final body = _buildBody(context);
+
+    return widget.showAppBar
+        ? Scaffold(
+            backgroundColor: Colors.white,
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              scrolledUnderElevation: 0.5,
+              leading: IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: SchoolPalette.ink,
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+              title: const Text(
+                'บทเรียนและคอร์สเรียน',
+                style: TextStyle(
+                  color: SchoolPalette.ink,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+            body: body,
+          )
+        : body;
   }
 
   Widget _buildErrorBanner() {

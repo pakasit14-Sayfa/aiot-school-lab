@@ -5,7 +5,7 @@ import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_variant_school_home.dart';
 import 'student_assignments_page.dart';
-import 'student_course_catalog_page.dart';
+import 'student_lessons_page.dart';
 import 'student_profile_page.dart';
 import 'student_score_page.dart';
 import 'student_calendar_page.dart';
@@ -26,7 +26,6 @@ class _StudentNavigationPrototypeState
   int _currentIndex = 0;
   bool _isSidebarCollapsed = false;
   bool _hasUnreadNotifications = false;
-  final ValueNotifier<int> _courseSearchPopupTick = ValueNotifier<int>(0);
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
 
@@ -57,12 +56,6 @@ class _StudentNavigationPrototypeState
     'ปฏิทิน / ตารางเรียน',
     'ข้อมูลส่วนตัวนักเรียน',
   ];
-
-  @override
-  void dispose() {
-    _courseSearchPopupTick.dispose();
-    super.dispose();
-  }
 
   static IconData _iconForNotification(String type) {
     switch (type) {
@@ -556,10 +549,7 @@ class _StudentNavigationPrototypeState
 
   List<Widget> get _pages => [
     StudentVariantSchoolHome(onViewScore: _openScorePage),
-    StudentCourseCatalogPage(
-      showAppBar: false,
-      searchPopupTick: _courseSearchPopupTick,
-    ),
+    const StudentLessonsPage(showAppBar: false),
     const StudentAssignmentsPage(),
     const StudentCalendarPage(),
     StudentProfilePage(
