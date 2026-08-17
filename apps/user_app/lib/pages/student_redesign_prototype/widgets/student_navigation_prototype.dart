@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../../login_page.dart';
 import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_variant_school_home.dart';
@@ -9,7 +10,6 @@ import 'student_lessons_page.dart';
 import 'student_profile_page.dart';
 import 'student_score_page.dart';
 import 'student_calendar_page.dart';
-import 'student_dashboard_models.dart';
 import 'student_qr_login_page.dart';
 import '../student_safety_page.dart';
 
@@ -26,6 +26,7 @@ class _StudentNavigationPrototypeState
   int _currentIndex = 0;
   bool _isSidebarCollapsed = false;
   bool _hasUnreadNotifications = false;
+  String? _gradeLevel;
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
 
@@ -33,6 +34,7 @@ class _StudentNavigationPrototypeState
   void initState() {
     super.initState();
     _loadUnreadStatus();
+    _loadGradeLevel();
   }
 
   Future<void> _loadUnreadStatus() async {
@@ -45,6 +47,28 @@ class _StudentNavigationPrototypeState
     } catch (_) {
       // ไม่ต้องโชว์ error แค่จุดแดงเล็กๆ ไม่ใช่ข้อมูลหลักของหน้า
     }
+  }
+
+  Future<void> _loadGradeLevel() async {
+    try {
+      final courses = await CourseService.listMyCourses();
+      if (!mounted) return;
+      setState(
+        () => _gradeLevel = courses.isEmpty ? null : courses.first.gradeLevel,
+      );
+    } catch (_) {
+      // ไม่ต้องโชว์ error แค่ป้ายชั้นเรียนใน drawer ไม่ใช่ข้อมูลหลักของหน้า
+    }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    Navigator.pop(context);
+    await AuthService.signOut();
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+      (route) => false,
+    );
   }
 
   // "คะแนน" ไม่ได้อยู่เป็นแท็บหลัก เพราะเกรดออกเทอมละครั้งเท่านั้น
@@ -657,7 +681,7 @@ class _StudentNavigationPrototypeState
   }
 
   Widget _buildMobileDrawer(BuildContext context) {
-    const profile = StudentProfileState.mock;
+    final displayName = currentUserModel?.name ?? '';
     // "ข้อมูลส่วนตัว" ไม่อยู่ในกลุ่มนี้แล้ว — ย้ายไปกลุ่มบัญชี/ตั้งค่า
     // ด้านล่างเส้นคั่นแทน เพราะเป็นเรื่องจัดการบัญชีตัวเอง คนละหมวดกับ
     // เนื้อหาที่จะไปดู (หน้าแรก/บทเรียน/ใบงาน/ปฏิทิน)
@@ -727,7 +751,7 @@ class _StudentNavigationPrototypeState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          profile.name,
+                          displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -736,17 +760,19 @@ class _StudentNavigationPrototypeState
                             fontSize: 15.5,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${profile.gradeLevel} · ${profile.schoolName}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.72),
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
+                        if (_gradeLevel != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'ชั้น $_gradeLevel',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.72),
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -804,17 +830,33 @@ class _StudentNavigationPrototypeState
                   buildTile(
                     icon: Icons.help_outline_rounded,
                     label: 'ช่วยเหลือ',
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
                   ),
                   buildTile(
                     icon: Icons.settings_outlined,
                     label: 'ตั้งค่า',
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
                   ),
                   buildTile(
                     icon: Icons.logout_rounded,
                     label: 'ออกจากระบบ',
-                    onTap: () => Navigator.pop(context),
+                    onTap: () => _signOut(context),
                   ),
                 ],
               ),
