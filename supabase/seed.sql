@@ -90,6 +90,8 @@ declare
   v_assignment_id uuid;
   v_submission_id uuid;
   v_post_id uuid;
+  v_quiz_id uuid;
+  v_question_id uuid;
 begin
   select id into v_super_admin_id from users where email = 'admin@aiot-school-lab.local';
   select id into v_school_id from schools where school_code = 'TEST01';
@@ -174,6 +176,32 @@ begin
 
     insert into course_post_replies (post_id, author_id, body)
     values (v_post_id, v_student_id, 'รับทราบครับ/ค่ะ');
+  end if;
+
+  -- 2026-08-18: Seed a pretest so ASM-3 (student take-quiz flow) has real
+  -- data to work with — created directly (not via create_quiz/publish_quiz
+  -- RPCs, which need a session token) but matches what those RPCs would
+  -- produce: draft insert, questions with correct choices, then published.
+  select id into v_quiz_id from quizzes where course_id = v_course_id and title = 'แบบทดสอบก่อนเรียน บทที่ 1: เซนเซอร์ PM2.5';
+  if v_quiz_id is null then
+    insert into quizzes (course_id, lesson_id, type, title, time_limit_min, status, created_by)
+    values (v_course_id, v_lesson_id, 'pre_test', 'แบบทดสอบก่อนเรียน บทที่ 1: เซนเซอร์ PM2.5', 5, 'published', v_teacher_id)
+    returning id into v_quiz_id;
+
+    insert into quiz_questions (quiz_id, type, question, points, sort_order)
+    values (v_quiz_id, 'multiple_choice', 'PM2.5 หมายถึงฝุ่นละอองขนาดเท่าใด', 1, 1)
+    returning id into v_question_id;
+    insert into quiz_choices (question_id, choice_text, is_correct, sort_order) values
+      (v_question_id, 'เล็กกว่า 2.5 ไมโครเมตร', true, 1),
+      (v_question_id, 'เล็กกว่า 2.5 มิลลิเมตร', false, 2),
+      (v_question_id, 'เล็กกว่า 25 มิลลิเมตร', false, 3);
+
+    insert into quiz_questions (quiz_id, type, question, points, sort_order)
+    values (v_quiz_id, 'true_false', 'เซนเซอร์ PM2.5 ในชุดแล็บใช้หลักการกระเจิงแสง (light scattering)', 1, 2)
+    returning id into v_question_id;
+    insert into quiz_choices (question_id, choice_text, is_correct, sort_order) values
+      (v_question_id, 'จริง', true, 1),
+      (v_question_id, 'เท็จ', false, 2);
   end if;
 
   -- 2026-08-17: Seed facility_manager building assignment & sample devices for STK-9/STK-11
