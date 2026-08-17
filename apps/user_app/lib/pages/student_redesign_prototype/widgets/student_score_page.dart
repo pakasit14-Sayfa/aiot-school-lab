@@ -1,17 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
-import 'student_dashboard_models.dart';
 import 'student_redesign_palette.dart';
 
-/// UI-only prototype for the student "คะแนน" tab.
-/// Deliberately separates academic subject grades ("คะแนนเรียน") from the
-/// behavioral / participation G-Score so the two concepts never blur.
-class StudentScorePage extends StatelessWidget {
+/// เดิมหน้านี้โชว์ G-Score/GPA/แนวโน้มรายเดือน/แบดจ์ทั้งหมด — ตรวจสอบแล้วว่า
+/// ไม่มี backend รองรับเลยสักอย่าง (ไม่มี GScoreService, ไม่มีสเกล GPA,
+/// ไม่มีระบบเก็บ trend, ไม่มีระบบแบดจ์) เหลือแค่คะแนนรายวิชาจริงจาก
+/// GradeService เท่านั้นที่มีข้อมูลจริงรองรับ จึงตัดส่วนที่เหลือออกทั้งหมด
+class StudentScorePage extends StatefulWidget {
   const StudentScorePage({super.key});
 
   @override
+  State<StudentScorePage> createState() => _StudentScorePageState();
+}
+
+class _StudentScorePageState extends State<StudentScorePage> {
+  bool _loading = true;
+  String? _error;
+  List<CourseGrade> _grades = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final grades = await GradeService.listMyGrades();
+      if (!mounted) return;
+      setState(() {
+        _grades = grades;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const profile = StudentProfileState.mock;
+    final confirmed = _grades.where((g) => g.confirmedAt != null).toList();
+    final pending = _grades.where((g) => g.confirmedAt == null).toList();
+    final avgPercent = confirmed.isEmpty
+        ? 0.0
+        : confirmed.map((g) => g.percent).reduce((a, b) => a + b) /
+              confirmed.length;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -33,145 +75,100 @@ class StudentScorePage extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        // Align(topCenter) not Center() — Center() vertically centers the
-        // whole scroll view when content is shorter than the viewport,
-        // making the page look like it "shrinks to the middle" instead of
-        // staying pinned to the top.
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 900;
-              return ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1400),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    isDesktop ? 24 : 18,
-                    16,
-                    isDesktop ? 24 : 18,
-                    24,
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth >= 900;
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(
+                      isDesktop ? 24 : 18,
+                      16,
+                      isDesktop ? 24 : 18,
+                      24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_error != null) ...[
+                          _buildErrorBanner(),
+                          const SizedBox(height: 16),
+                        ],
+                        _SummaryHeroCard(
+                          avgPercent: avgPercent,
+                          gradedCount: confirmed.length,
+                        ),
+                        if (pending.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _PendingGradesCard(grades: pending),
+                        ],
+                        const SizedBox(height: 16),
+                        _SubjectGradesCard(
+                          grades: confirmed,
+                          loading: _loading,
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ScoreSummaryRow(profile: profile, isWide: isDesktop),
-                      const SizedBox(height: 16),
-                      isDesktop
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(flex: 6, child: _SubjectGradesCard()),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  flex: 4,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      _GScoreTrendCard(profile: profile),
-                                      const SizedBox(height: 16),
-                                      _BadgeGridCard(profile: profile),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                _SubjectGradesCard(),
-                                const SizedBox(height: 16),
-                                _GScoreTrendCard(profile: profile),
-                                const SizedBox(height: 16),
-                                _BadgeGridCard(profile: profile),
-                              ],
-                            ),
-                    ],
-                  ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
     );
   }
-}
 
-class _ScoreSummaryRow extends StatelessWidget {
-  const _ScoreSummaryRow({required this.profile, required this.isWide});
-
-  final StudentProfileState profile;
-  final bool isWide;
-
-  @override
-  Widget build(BuildContext context) {
-    final gpaCard = _SummaryHeroCard(
-      title: 'คะแนนเรียน (GPA)',
-      subtitle: 'ค่าเฉลี่ยผลการเรียนสะสมทุกวิชา',
-      value: profile.gpa.toStringAsFixed(2),
-      valueSuffix: '/ 4.00',
-      percent: (profile.gpa / 4.0).clamp(0.0, 1.0),
-      badgeText: profile.gpaLabel,
-      icon: Icons.menu_book_rounded,
-      accent: const Color(0xFF3B82F6),
-    );
-
-    final gscoreCard = _SummaryHeroCard(
-      title: 'G-Score (พฤติกรรม)',
-      subtitle: profile.gscorePendingValue > 0
-          ? 'วัดจากวินัย การมีส่วนร่วม และความรับผิดชอบ · '
-                'รอครูยืนยันอีก ${profile.gscorePendingValue} คะแนน'
-          : 'วัดจากวินัย การมีส่วนร่วม และความรับผิดชอบ',
-      value: '${profile.gscoreValue}',
-      valueSuffix: '/ ${profile.gscoreMax}',
-      percent: profile.gscorePercent,
-      badgeText: profile.gradeLabel,
-      icon: Icons.verified_rounded,
-      accent: SchoolPalette.deepGreen,
-    );
-
-    if (!isWide) {
-      return Column(
-        children: [gscoreCard, const SizedBox(height: 12), gpaCard],
-      );
-    }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: gscoreCard),
-        const SizedBox(width: 14),
-        Expanded(child: gpaCard),
-      ],
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+        ],
+      ),
     );
   }
 }
 
 class _SummaryHeroCard extends StatelessWidget {
-  const _SummaryHeroCard({
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.valueSuffix,
-    required this.percent,
-    required this.badgeText,
-    required this.icon,
-    required this.accent,
-  });
+  const _SummaryHeroCard({required this.avgPercent, required this.gradedCount});
 
-  final String title;
-  final String subtitle;
-  final String value;
-  final String valueSuffix;
-  final double percent;
-  final String badgeText;
-  final IconData icon;
-  final Color accent;
+  final double avgPercent;
+  final int gradedCount;
 
   @override
   Widget build(BuildContext context) {
+    const accent = SchoolPalette.deepGreen;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -199,14 +196,14 @@ class _SummaryHeroCard extends StatelessWidget {
                   width: 78,
                   height: 78,
                   child: CircularProgressIndicator(
-                    value: percent,
+                    value: avgPercent / 100,
                     strokeWidth: 7,
                     backgroundColor: accent.withValues(alpha: 0.12),
-                    valueColor: AlwaysStoppedAnimation(accent),
+                    valueColor: const AlwaysStoppedAnimation(accent),
                     strokeCap: StrokeCap.round,
                   ),
                 ),
-                Icon(icon, color: accent, size: 26),
+                const Icon(Icons.grade_rounded, color: accent, size: 26),
               ],
             ),
           ),
@@ -216,20 +213,20 @@ class _SummaryHeroCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
+                const Text(
+                  'คะแนนเฉลี่ยทุกวิชา',
+                  style: TextStyle(
                     color: SchoolPalette.navy,
                     fontSize: 14.5,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
+                const Text(
+                  'เฉลี่ยจากคะแนนที่ครูยืนยันแล้วทุกวิชา',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: SchoolPalette.muted,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -242,8 +239,8 @@ class _SummaryHeroCard extends StatelessWidget {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
-                      value,
-                      style: TextStyle(
+                      avgPercent.toStringAsFixed(0),
+                      style: const TextStyle(
                         color: accent,
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
@@ -251,9 +248,9 @@ class _SummaryHeroCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      valueSuffix,
-                      style: const TextStyle(
+                    const Text(
+                      '%',
+                      style: TextStyle(
                         color: SchoolPalette.muted,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
@@ -270,10 +267,10 @@ class _SummaryHeroCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        badgeText,
+                        '$gradedCount วิชา',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: accent,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
@@ -291,62 +288,73 @@ class _SummaryHeroCard extends StatelessWidget {
   }
 }
 
-class _SubjectGrade {
-  const _SubjectGrade({
-    required this.subject,
-    required this.teacher,
-    required this.grade,
-    required this.percent,
-    required this.color,
-  });
+class _PendingGradesCard extends StatelessWidget {
+  const _PendingGradesCard({required this.grades});
 
-  final String subject;
-  final String teacher;
-  final String grade;
-  final double percent;
-  final Color color;
+  final List<CourseGrade> grades;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFDE68A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.hourglass_top_rounded,
+                size: 16,
+                color: Color(0xFFD97706),
+              ),
+              SizedBox(width: 6),
+              Text(
+                'รอครูยืนยันคะแนน',
+                style: TextStyle(
+                  color: Color(0xFFB45309),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final g in grades)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                '${g.subjectName} · ${g.score}/${g.maxScore}',
+                style: const TextStyle(
+                  color: Color(0xFF92400E),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
-const _subjectGrades = <_SubjectGrade>[
-  _SubjectGrade(
-    subject: 'AIoT สมาร์ตแล็บ',
-    teacher: 'ครูสมชาย สายวิทย์',
-    grade: '4.0',
-    percent: 1.0,
-    color: SchoolPalette.deepGreen,
-  ),
-  _SubjectGrade(
-    subject: 'คณิตศาสตร์เพิ่มเติม',
-    teacher: 'ครูวิภา จันทร์เพ็ญ',
-    grade: '3.5',
-    percent: 0.875,
-    color: Color(0xFF3B82F6),
-  ),
-  _SubjectGrade(
-    subject: 'ฟิสิกส์ประยุกต์',
-    teacher: 'ครูอนุชา ทองดี',
-    grade: '3.5',
-    percent: 0.875,
-    color: Color(0xFF8B5CF6),
-  ),
-  _SubjectGrade(
-    subject: 'ภาษาอังกฤษเพื่อการสื่อสาร',
-    teacher: 'ครูนภัสสร ทิพย์วงศ์',
-    grade: '4.0',
-    percent: 1.0,
-    color: Color(0xFFF59E0B),
-  ),
-  _SubjectGrade(
-    subject: 'ชีววิทยาและสิ่งแวดล้อม',
-    teacher: 'ครูสมชาย สายวิทย์',
-    grade: '3.75',
-    percent: 0.9375,
-    color: Color(0xFF06B6D4),
-  ),
-];
-
 class _SubjectGradesCard extends StatelessWidget {
-  const _SubjectGradesCard();
+  const _SubjectGradesCard({required this.grades, required this.loading});
+
+  final List<CourseGrade> grades;
+  final bool loading;
+
+  static const _colors = [
+    SchoolPalette.deepGreen,
+    Color(0xFF3B82F6),
+    Color(0xFF8B5CF6),
+    Color(0xFFF59E0B),
+    Color(0xFF06B6D4),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +393,7 @@ class _SubjectGradesCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '${_subjectGrades.length} วิชา',
+                '${grades.length} วิชา',
                 style: const TextStyle(
                   color: SchoolPalette.muted,
                   fontSize: 11.5,
@@ -395,11 +403,28 @@ class _SubjectGradesCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          for (var i = 0; i < _subjectGrades.length; i++) ...[
-            _SubjectGradeRow(grade: _subjectGrades[i]),
-            if (i != _subjectGrades.length - 1)
-              const Divider(height: 20, color: Color(0xFFE8EEF3)),
-          ],
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (grades.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'ยังไม่มีคะแนนที่ยืนยันแล้ว',
+                style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
+              ),
+            )
+          else
+            for (var i = 0; i < grades.length; i++) ...[
+              _SubjectGradeRow(
+                grade: grades[i],
+                color: _colors[i % _colors.length],
+              ),
+              if (i != grades.length - 1)
+                const Divider(height: 20, color: Color(0xFFE8EEF3)),
+            ],
         ],
       ),
     );
@@ -407,26 +432,27 @@ class _SubjectGradesCard extends StatelessWidget {
 }
 
 class _SubjectGradeRow extends StatelessWidget {
-  const _SubjectGradeRow({required this.grade});
+  const _SubjectGradeRow({required this.grade, required this.color});
 
-  final _SubjectGrade grade;
+  final CourseGrade grade;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Container(
-          width: 40,
+          width: 44,
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: grade.color.withValues(alpha: 0.14),
+            color: color.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(13),
           ),
           child: Text(
-            grade.grade,
+            grade.percent.toStringAsFixed(0),
             style: TextStyle(
-              color: grade.color,
+              color: color,
               fontSize: 12.5,
               fontWeight: FontWeight.w900,
             ),
@@ -439,7 +465,7 @@ class _SubjectGradeRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                grade.subject,
+                grade.subjectName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -450,7 +476,7 @@ class _SubjectGradeRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                grade.teacher,
+                '${grade.score}/${grade.maxScore} คะแนน',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -467,8 +493,8 @@ class _SubjectGradeRow extends StatelessWidget {
                   color: const Color(0xFFE8EEF5),
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
-                    widthFactor: grade.percent.clamp(0.0, 1.0),
-                    child: Container(color: grade.color),
+                    widthFactor: (grade.percent / 100).clamp(0.0, 1.0),
+                    child: Container(color: color),
                   ),
                 ),
               ),
@@ -476,225 +502,6 @@ class _SubjectGradeRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _GScoreTrendCard extends StatelessWidget {
-  const _GScoreTrendCard({required this.profile});
-
-  final StudentProfileState profile;
-
-  static const _trend = <double>[0.62, 0.7, 0.68, 0.8, 0.86, 0.92];
-  static const _trendLabels = <String>[
-    'ก.ค.',
-    'ส.ค.',
-    'ก.ย.',
-    'ต.ค.',
-    'พ.ย.',
-    'ธ.ค.',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolPalette.glassBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.trending_up_rounded,
-                size: 16,
-                color: SchoolPalette.deepGreen,
-              ),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'แนวโน้ม G-Score รายเดือน',
-                  style: TextStyle(
-                    color: SchoolPalette.navy,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 96,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (var i = 0; i < _trend.length; i++)
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        right: i == _trend.length - 1 ? 0 : 8,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.bottomCenter,
-                              child: FractionallySizedBox(
-                                heightFactor: _trend[i],
-                                widthFactor: 1,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: i == _trend.length - 1
-                                        ? SchoolPalette.deepGreen
-                                        : SchoolPalette.deepGreen.withValues(
-                                            alpha: 0.28,
-                                          ),
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _trendLabels[i],
-                            style: const TextStyle(
-                              color: SchoolPalette.muted,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BadgeGridCard extends StatelessWidget {
-  const _BadgeGridCard({required this.profile});
-
-  final StudentProfileState profile;
-
-  static const _badges = <(IconData, String, Color)>[
-    (Icons.military_tech_rounded, 'ผู้เชี่ยวชาญ AIoT', Color(0xFFF59E0B)),
-    (Icons.eco_rounded, 'นักอนุรักษ์สิ่งแวดล้อม', SchoolPalette.deepGreen),
-    (Icons.bolt_rounded, 'ส่งงานตรงเวลา 10 ครั้ง', Color(0xFF3B82F6)),
-    (Icons.groups_rounded, 'ผู้นำทีมโครงงาน', Color(0xFF8B5CF6)),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolPalette.glassBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.emoji_events_rounded,
-                size: 16,
-                color: Color(0xFFF59E0B),
-              ),
-              const SizedBox(width: 6),
-              const Expanded(
-                child: Text(
-                  'แบดจ์และความสำเร็จ',
-                  style: TextStyle(
-                    color: SchoolPalette.navy,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                '${profile.badgesCount} รวม',
-                style: const TextStyle(
-                  color: SchoolPalette.muted,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _badges.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.5,
-            ),
-            itemBuilder: (context, index) {
-              final (icon, label, color) = _badges[index];
-              return Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: color.withValues(alpha: 0.28)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, color: color, size: 20),
-                    const SizedBox(height: 6),
-                    Text(
-                      label,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
     );
   }
 }

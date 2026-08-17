@@ -220,3 +220,42 @@ banner จริงของ `StudentHomePageWidget`), การ์ดแจ้�
 Variant B/C/D ยังอยู่ครบ เข้าดูเปรียบเทียบได้ผ่าน
 `/prototype/student-redesign?variant=X` เหมือนเดิม (ไม่ใช่ตัวจริงอีกต่อไป)
 
+## ✅ เชื่อมข้อมูลจริงเข้า 4 หน้าปลายทางจากเมนูด่วน — กลุ่ม A (2026-08-17)
+
+ต่อจากรอบก่อนหน้า (เชื่อมหน้าแรก) — ทำต่อ 4 ใน 7 หน้าปลายทางที่มี backend
+รองรับอยู่แล้วจริง ส่วนอีก 3 หน้า (สอบก่อน-หลังเรียน/ปฏิทิน/แจ้งเหตุ SOS)
+ยังไม่มี backend เลย คงเป็น mock ต่อไปจนกว่าจะออกแบบระบบหลังบ้านใหม่
+
+**`student_lessons_page.dart`**: เขียนใหม่ทั้งไฟล์ — ดึง `LessonService.listLessons`
+ทุกวิชาที่ลงทะเบียนจริง (`CourseService.listMyCourses`) แต่ละบทเรียนกดแล้วพา
+ไปหน้า `LessonViewPage` จริง (ของเดิม `pages/student/lesson_view_page.dart`)
+แทนที่จะเปิด `StudentLessonContentPage` (mock, ลบทิ้งพร้อม
+`StudentLessonQuizPage` ที่ใช้ร่วมกัน — ไม่มีที่ไหนเรียกใช้แล้วหลังแก้จุดนี้)
+ตัดแท็บ "วิดีโอ"/เนื้อหาแบ่งประเภทออก (ไม่มีฟิลด์ content-type จริงในสคีมา)
+และตัดชิป "มีใบงาน" ออก (lesson กับ assignment ไม่มีความสัมพันธ์ผูกกันตรงๆ
+ในสคีมา)
+
+**`student_assignments_page.dart`**: เขียนใหม่ทั้งไฟล์ — ดึง
+`AssignmentService.listAssignments` ทุกวิชา เช็คสถานะส่งจริงผ่าน
+`listMySubmissionVersions` ต่อชิ้นงาน ฟอร์มส่งงานเปลี่ยนจาก UI อัปโหลดไฟล์
+พร้อม progress bar ปลอม (ไม่มี backend รองรับไฟล์แนบเลย — `submit_assignment`
+รับแค่ text `content`) เป็นฟอร์มข้อความจริงเรียก `AssignmentService.submitAssignment`
+ตรงๆ ตัดสถานะ "ตรวจแล้ว A+"/คะแนนต่อชิ้นงานออก (ไม่มีระบบให้คะแนนต่อ
+assignment ในสคีมา คะแนนมีแค่ระดับวิชารวมผ่าน `GradeService` เท่านั้น)
+
+**`student_score_page.dart`**: เขียนใหม่ทั้งไฟล์ — ตัด G-Score/GPA/แนวโน้ม
+รายเดือน/แบดจ์ทั้งหมดออก (ไม่มี backend รองรับเลยสักอย่าง) เหลือแค่คะแนน
+รายวิชาจริงจาก `GradeService.listMyGrades()` พร้อมแยกโซน "รอครูยืนยัน"
+ออกจากคะแนนที่ยืนยันแล้ว (`confirmedAt == null` = รอยืนยัน)
+
+**`student_course_files_page.dart`**: เขียนใหม่ทั้งไฟล์ — ดึงไฟล์จริงต่อวิชา
+ผ่าน `CourseFileService.listFiles`, ดาวน์โหลดจริงผ่าน signed URL
+(`getDownloadUrl` + `url_launcher`) ตัดการจัดกลุ่มตาม "บทเรียน" ออก (ไฟล์จริง
+ไม่มีความสัมพันธ์กับบทเรียนในสคีมา ผูกกับวิชาเท่านั้น) แท็บกรองประเภทไฟล์
+เปลี่ยนจาก field ปลอมเป็นนามสกุลไฟล์จริงแทน
+
+**ยังไม่ได้ทำ (คงเป็น mock ต่อไป)**: `StudentPretestPosttestPage`,
+`StudentCalendarPage`, `StudentSafetyPage` (SOS) — ทั้ง 3 หน้าไม่มี backend
+รองรับเลย ต้องออกแบบระบบใหม่ทั้งหมดก่อนเชื่อมได้ (โดยเฉพาะ SOS ที่เป็นเรื่อง
+ความปลอดภัยเด็ก ต้องคิดดีไซน์รอบคอบ ไม่ใช่แค่ต่อ RPC ธรรมดา)
+

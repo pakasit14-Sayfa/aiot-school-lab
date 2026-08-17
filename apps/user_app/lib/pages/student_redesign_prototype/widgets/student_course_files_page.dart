@@ -1,171 +1,27 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'student_redesign_palette.dart';
 
-/// UI-only mock of a "Files" hub for one course — aggregates every
-/// lesson's attachment in one place. No real file storage is wired up.
-/// [courseFiles] and [CourseFileCard] are shared with the "ไฟล์ทั้งหมด" tab
-/// on `StudentLessonsPage` (always AIoT — that tab lives inside the AIoT
-/// course detail flow), so this exact list stays untouched. The standalone
-/// "คลังความรู้" page below has its own multi-subject list built on top of
-/// it (see [_subjects]) since it's opened generally, not from within one
-/// course, and needs a subject picker.
-const courseFiles = <CourseFile>[
-  CourseFile(
-    chapterLabel: 'เอกสารประจำวิชา',
-    typeLabel: 'PDF',
-    name: 'แผนการสอน_AIoT-501.pdf',
-    sizeValue: 1.8,
-    sizeUnit: 'MB',
-    color: Color(0xFFDC2626),
-  ),
-  CourseFile(
-    chapterLabel: 'บทที่ 13',
-    typeLabel: '3D',
-    name: 'โมเดล 3D_เซนเซอร์ PM2.5.glb',
-    sizeValue: 5.6,
-    sizeUnit: 'MB',
-    color: Color(0xFF2563EB),
-  ),
-  CourseFile(
-    chapterLabel: 'บทที่ 14',
-    typeLabel: 'ZIP',
-    name: 'โค้ดตัวอย่าง_เซนเซอร์แสง.zip',
-    sizeValue: 480,
-    sizeUnit: 'KB',
-    color: Color(0xFFD97706),
-  ),
-  CourseFile(
-    chapterLabel: 'บทที่ 14',
-    typeLabel: 'PDF',
-    name: 'เอกสารประกอบ_Dashboard_Realtime.pdf',
-    sizeValue: 1.4,
-    sizeUnit: 'MB',
-    color: Color(0xFFDC2626),
-  ),
-  CourseFile(
-    chapterLabel: 'บทที่ 12',
-    typeLabel: 'PDF',
-    name: 'คู่มือการตั้งค่า_Microcontroller.pdf',
-    sizeValue: 2.1,
-    sizeUnit: 'MB',
-    color: Color(0xFFDC2626),
-  ),
-  CourseFile(
-    chapterLabel: 'บทที่ 11',
-    typeLabel: 'PDF',
-    name: 'ใบงานเขียนโปรแกรม_IoT_Basics.pdf',
-    sizeValue: 640,
-    sizeUnit: 'KB',
-    color: Color(0xFFDC2626),
-  ),
-  CourseFile(
-    chapterLabel: 'บทที่ 10',
-    typeLabel: 'PDF',
-    name: 'สไลด์บรรยาย_สถาปัตยกรรมสมาร์ตสคูล.pdf',
-    sizeValue: 3.2,
-    sizeUnit: 'MB',
-    color: Color(0xFFDC2626),
-  ),
-];
-
-class _SubjectFileGroup {
-  const _SubjectFileGroup({
-    required this.subjectName,
-    required this.subjectCode,
+class _CourseFileGroup {
+  const _CourseFileGroup({
+    required this.courseName,
     required this.icon,
     required this.color,
     required this.files,
   });
 
-  final String subjectName;
-  final String subjectCode;
+  final String courseName;
   final IconData icon;
   final Color color;
   final List<CourseFile> files;
 }
 
-final _subjects = <_SubjectFileGroup>[
-  _SubjectFileGroup(
-    subjectName: 'AIoT สมาร์ตแล็บ',
-    subjectCode: 'AIOT-501',
-    icon: Icons.memory_rounded,
-    color: const Color(0xFF0D9488),
-    files: courseFiles,
-  ),
-  const _SubjectFileGroup(
-    subjectName: 'ฟิสิกส์ประยุกต์',
-    subjectCode: 'PHYS-302',
-    icon: Icons.bolt_rounded,
-    color: Color(0xFF0284C7),
-    files: [
-      CourseFile(
-        chapterLabel: 'เอกสารประจำวิชา',
-        typeLabel: 'PDF',
-        name: 'แผนการสอน_PHYS-302.pdf',
-        sizeValue: 1.2,
-        sizeUnit: 'MB',
-        color: Color(0xFFDC2626),
-      ),
-      CourseFile(
-        chapterLabel: 'บทที่ 5',
-        typeLabel: 'PDF',
-        name: 'สไลด์_การหักเหของแสง.pdf',
-        sizeValue: 2.4,
-        sizeUnit: 'MB',
-        color: Color(0xFFDC2626),
-      ),
-      CourseFile(
-        chapterLabel: 'บทที่ 6',
-        typeLabel: '3D',
-        name: 'โมเดล 3D_แรงและการเคลื่อนที่.glb',
-        sizeValue: 4.1,
-        sizeUnit: 'MB',
-        color: Color(0xFF2563EB),
-      ),
-    ],
-  ),
-  const _SubjectFileGroup(
-    subjectName: 'คณิตศาสตร์เพิ่มเติม',
-    subjectCode: 'MATH-401',
-    icon: Icons.calculate_rounded,
-    color: Color(0xFF7C3AED),
-    files: [
-      CourseFile(
-        chapterLabel: 'เอกสารประจำวิชา',
-        typeLabel: 'PDF',
-        name: 'แผนการสอน_MATH-401.pdf',
-        sizeValue: 900,
-        sizeUnit: 'KB',
-        color: Color(0xFFDC2626),
-      ),
-      CourseFile(
-        chapterLabel: 'บทที่ 3',
-        typeLabel: 'PDF',
-        name: 'ใบงาน_ความน่าจะเป็นและการจัดหมู่.pdf',
-        sizeValue: 1.1,
-        sizeUnit: 'MB',
-        color: Color(0xFFDC2626),
-      ),
-    ],
-  ),
-  const _SubjectFileGroup(
-    subjectName: 'ชีววิทยา',
-    subjectCode: 'BIO-105',
-    icon: Icons.eco_rounded,
-    color: Color(0xFF16A34A),
-    files: [
-      CourseFile(
-        chapterLabel: 'บทที่ 2',
-        typeLabel: 'PDF',
-        name: 'สรุป_การสังเคราะห์แสงของพืช.pdf',
-        sizeValue: 1.6,
-        sizeUnit: 'MB',
-        color: Color(0xFFDC2626),
-      ),
-    ],
-  ),
-];
+String _typeLabelFor(String fileName) {
+  final dot = fileName.lastIndexOf('.');
+  if (dot == -1 || dot == fileName.length - 1) return 'FILE';
+  return fileName.substring(dot + 1).toUpperCase();
+}
 
 class StudentCourseFilesPage extends StatefulWidget {
   const StudentCourseFilesPage({super.key});
@@ -175,17 +31,63 @@ class StudentCourseFilesPage extends StatefulWidget {
 }
 
 class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
+  static const _icons = [
+    Icons.memory_rounded,
+    Icons.bolt_rounded,
+    Icons.calculate_rounded,
+    Icons.eco_rounded,
+    Icons.science_rounded,
+    Icons.menu_book_rounded,
+  ];
+  static const _colors = [
+    Color(0xFF0D9488),
+    Color(0xFF0284C7),
+    Color(0xFF7C3AED),
+    Color(0xFF16A34A),
+    Color(0xFFD97706),
+    Color(0xFFDC2626),
+  ];
+
+  bool _loading = true;
+  String? _error;
+  List<_CourseFileGroup> _groups = const [];
   final _searchController = TextEditingController();
   String _query = '';
   String _selectedType = 'ทั้งหมด';
-  int _selectedSubjectIndex = 0;
+  int _selectedGroupIndex = 0;
 
-  _SubjectFileGroup get _selectedSubject => _subjects[_selectedSubjectIndex];
+  _CourseFileGroup? get _selectedGroup => _groups.isEmpty
+      ? null
+      : _groups[_selectedGroupIndex.clamp(0, _groups.length - 1)];
 
-  List<String> get _fileTypes => [
-    'ทั้งหมด',
-    ...{for (final f in _selectedSubject.files) f.typeLabel},
-  ];
+  List<String> get _fileTypes {
+    final group = _selectedGroup;
+    if (group == null) return const ['ทั้งหมด'];
+    return [
+      'ทั้งหมด',
+      ...{for (final f in group.files) _typeLabelFor(f.fileName)},
+    ];
+  }
+
+  List<CourseFile> get _filteredFiles {
+    final group = _selectedGroup;
+    if (group == null) return const [];
+    return group.files.where((f) {
+      final matchesQuery =
+          _query.isEmpty ||
+          f.fileName.toLowerCase().contains(_query.toLowerCase());
+      final matchesType =
+          _selectedType == 'ทั้งหมด' ||
+          _typeLabelFor(f.fileName) == _selectedType;
+      return matchesQuery && matchesType;
+    }).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   void dispose() {
@@ -193,39 +95,54 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
     super.dispose();
   }
 
-  void _selectSubject(int index) {
-    if (index == _selectedSubjectIndex) return;
+  Future<void> _load() async {
     setState(() {
-      _selectedSubjectIndex = index;
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final courses = (await CourseService.listMyCourses())
+          .where((c) => c.isActive)
+          .toList();
+      final fileLists = await Future.wait(
+        courses.map((c) => CourseFileService.listFiles(c.id)),
+      );
+      final groups = <_CourseFileGroup>[];
+      for (var i = 0; i < courses.length; i++) {
+        groups.add(
+          _CourseFileGroup(
+            courseName: courses[i].subjectName,
+            icon: _icons[i % _icons.length],
+            color: _colors[i % _colors.length],
+            files: fileLists[i],
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _groups = groups;
+        _selectedGroupIndex = 0;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  void _selectGroup(int index) {
+    if (index == _selectedGroupIndex) return;
+    setState(() {
+      _selectedGroupIndex = index;
       _selectedType = 'ทั้งหมด';
     });
   }
 
-  List<CourseFile> get _filteredFiles {
-    return _selectedSubject.files.where((f) {
-      final matchesQuery =
-          _query.isEmpty ||
-          f.name.toLowerCase().contains(_query.toLowerCase()) ||
-          f.chapterLabel.toLowerCase().contains(_query.toLowerCase());
-      final matchesType =
-          _selectedType == 'ทั้งหมด' || f.typeLabel == _selectedType;
-      return matchesQuery && matchesType;
-    }).toList();
-  }
-
-  /// จัดกลุ่มตามบทเรียน คงลำดับตามที่ไฟล์ปรากฏครั้งแรกใน [courseFiles]
-  /// แทนการเรียง A-Z เพื่อให้เอกสารประจำวิชา/บทหลังๆ ยังโผล่บนสุดตามเดิม
-  Map<String, List<CourseFile>> get _groupedFiles {
-    final grouped = <String, List<CourseFile>>{};
-    for (final file in _filteredFiles) {
-      grouped.putIfAbsent(file.chapterLabel, () => []).add(file);
-    }
-    return grouped;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final grouped = _groupedFiles;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -246,71 +163,125 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
         ),
       ),
       body: SafeArea(
-        // Align(topCenter) instead of Center() — Center() vertically
-        // centers the whole scroll view when content is shorter than the
-        // viewport (e.g. after filtering down to few files), making the
-        // page look like it "shrinks to the middle" instead of staying
-        // pinned to the top like every other page.
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 1024;
-              return ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isDesktop ? 1000 : 720),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: constraints.maxWidth < 520 ? 14 : 16,
-                    vertical: 16,
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth >= 1024;
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isDesktop ? 1000 : 720),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: constraints.maxWidth < 520 ? 14 : 16,
+                      vertical: 16,
+                    ),
+                    child: _loading
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 60),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : _buildBody(),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'เลือกรายวิชา',
-                        style: TextStyle(
-                          color: SchoolPalette.navy,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      _buildSubjectSelector(),
-                      const SizedBox(height: 18),
-                      Text(
-                        '${_selectedSubject.files.length} ไฟล์ · รวมทุกบทเรียนของ'
-                        '${_selectedSubject.subjectName}',
-                        style: const TextStyle(
-                          color: SchoolPalette.muted,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildSearchField(),
-                      const SizedBox(height: 10),
-                      _buildTypeFilterRow(),
-                      const SizedBox(height: 16),
-                      if (grouped.isEmpty)
-                        _buildEmptyState()
-                      else
-                        for (final entry in grouped.entries) ...[
-                          _buildChapterHeader(entry.key),
-                          const SizedBox(height: 10),
-                          for (final file in entry.value) ...[
-                            CourseFileCard(file: file),
-                            const SizedBox(height: 12),
-                          ],
-                          const SizedBox(height: 6),
-                        ],
-                    ],
-                  ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_error != null) {
+      return _buildErrorBanner();
+    }
+    if (_groups.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: Text(
+            'ยังไม่มีรายวิชาที่ลงทะเบียน',
+            style: TextStyle(color: SchoolPalette.muted, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
+    final group = _selectedGroup!;
+    final files = _filteredFiles;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'เลือกรายวิชา',
+          style: TextStyle(
+            color: SchoolPalette.navy,
+            fontSize: 13,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _buildSubjectSelector(),
+        const SizedBox(height: 18),
+        Text(
+          '${group.files.length} ไฟล์ · ${group.courseName}',
+          style: const TextStyle(
+            color: SchoolPalette.muted,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildSearchField(),
+        const SizedBox(height: 10),
+        _buildTypeFilterRow(),
+        const SizedBox(height: 16),
+        if (files.isEmpty)
+          _buildEmptyState()
+        else
+          for (final file in files) ...[
+            CourseFileCard(file: file),
+            const SizedBox(height: 12),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+        ],
       ),
     );
   }
@@ -321,28 +292,28 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: _subjects.length,
+        itemCount: _groups.length,
         separatorBuilder: (context, index) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final subject = _subjects[index];
-          final selected = index == _selectedSubjectIndex;
+          final group = _groups[index];
+          final selected = index == _selectedGroupIndex;
           return GestureDetector(
-            onTap: () => _selectSubject(index),
+            onTap: () => _selectGroup(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               width: 132,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: selected ? subject.color : Colors.white,
+                color: selected ? group.color : Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
-                  color: selected ? subject.color : SchoolPalette.glassBorder,
+                  color: selected ? group.color : SchoolPalette.glassBorder,
                   width: 1.4,
                 ),
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color: subject.color.withValues(alpha: 0.3),
+                          color: group.color.withValues(alpha: 0.3),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -354,13 +325,13 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    subject.icon,
+                    group.icon,
                     size: 20,
-                    color: selected ? Colors.white : subject.color,
+                    color: selected ? Colors.white : group.color,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    subject.subjectName,
+                    group.courseName,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -385,7 +356,7 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
       style: const TextStyle(color: SchoolPalette.navy, fontSize: 13.5),
       onChanged: (value) => setState(() => _query = value),
       decoration: InputDecoration(
-        hintText: 'ค้นหาชื่อไฟล์หรือบทเรียน...',
+        hintText: 'ค้นหาชื่อไฟล์...',
         hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
         prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8)),
         suffixIcon: _query.isEmpty
@@ -458,23 +429,6 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
     );
   }
 
-  Widget _buildChapterHeader(String label) {
-    return Row(
-      children: [
-        const Icon(Icons.folder_rounded, size: 16, color: SchoolPalette.muted),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: SchoolPalette.navy,
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
@@ -485,29 +439,16 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: SchoolPalette.glassBorder),
       ),
-      child: Column(
+      child: const Column(
         children: [
-          const Icon(
-            Icons.search_off_rounded,
-            size: 34,
-            color: SchoolPalette.muted,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'ไม่พบไฟล์ที่ค้นหา',
+          Icon(Icons.search_off_rounded, size: 34, color: SchoolPalette.muted),
+          SizedBox(height: 10),
+          Text(
+            'ยังไม่มีไฟล์ในวิชานี้',
             style: TextStyle(
               color: SchoolPalette.navy,
               fontSize: 13.5,
               fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'ลองค้นหาด้วยคำอื่น หรือเปลี่ยนตัวกรองประเภทไฟล์',
-            style: TextStyle(
-              color: SchoolPalette.muted,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -516,34 +457,8 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
   }
 }
 
-class CourseFile {
-  const CourseFile({
-    required this.chapterLabel,
-    required this.typeLabel,
-    required this.name,
-    required this.sizeValue,
-    required this.sizeUnit,
-    required this.color,
-  });
-
-  final String chapterLabel;
-  final String typeLabel;
-  final String name;
-  final double sizeValue;
-  final String sizeUnit;
-  final Color color;
-
-  String get sizeLabel => '${_formatNumber(sizeValue)} $sizeUnit';
-
-  static String _formatNumber(double value) {
-    return value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(1);
-  }
-}
-
 /// Folded-corner document glyph with a colored file-type tag overlapping
-/// the bottom edge — mirrors the reference "dog-ear" file icon style.
+/// the bottom edge.
 class _FileTypeIcon extends StatelessWidget {
   const _FileTypeIcon({required this.typeLabel, required this.color});
 
@@ -654,39 +569,33 @@ class CourseFileCard extends StatefulWidget {
   State<CourseFileCard> createState() => _CourseFileCardState();
 }
 
-enum _DownloadState { idle, downloading, completed }
-
 class _CourseFileCardState extends State<CourseFileCard> {
-  _DownloadState _state = _DownloadState.idle;
-  double _progress = 0;
-  Timer? _timer;
+  bool _opening = false;
+  String? _error;
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _startDownload() {
-    if (_state == _DownloadState.downloading) return;
+  Future<void> _openFile() async {
     setState(() {
-      _state = _DownloadState.downloading;
-      _progress = 0;
+      _opening = true;
+      _error = null;
     });
-    _timer = Timer.periodic(const Duration(milliseconds: 120), (timer) {
-      setState(() {
-        _progress = (_progress + 0.08).clamp(0.0, 1.0);
-        if (_progress >= 1.0) {
-          _state = _DownloadState.completed;
-          timer.cancel();
-        }
-      });
-    });
+    try {
+      final url = await CourseFileService.getDownloadUrl(widget.file.id);
+      final uri = Uri.parse(url);
+      final launched = await launchUrl(uri, webOnlyWindowName: '_blank');
+      if (!launched) throw Exception('เปิดลิงก์ไม่สำเร็จ');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'ดาวน์โหลดไม่สำเร็จ: $e');
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final file = widget.file;
+    final typeLabel = _typeLabelFor(file.fileName);
+    const accent = SchoolPalette.deepGreen;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.94),
@@ -703,86 +612,56 @@ class _CourseFileCardState extends State<CourseFileCard> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          onTap: _state == _DownloadState.idle ? _startDownload : null,
+          onTap: _opening ? null : _openFile,
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _FileTypeIcon(typeLabel: file.typeLabel, color: file.color),
+                _FileTypeIcon(typeLabel: typeLabel, color: accent),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              file.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: SchoolPalette.navy,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (_state == _DownloadState.downloading)
-                            Text(
-                              '${(_progress * 100).round()}%',
-                              style: const TextStyle(
-                                color: SchoolPalette.muted,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            )
-                          else if (_state == _DownloadState.completed)
-                            const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 15,
-                                  color: SchoolPalette.deepGreen,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'เสร็จสิ้น',
-                                  style: TextStyle(
-                                    color: SchoolPalette.deepGreen,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
+                      Text(
+                        file.fileName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.navy,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      if (_state != _DownloadState.idle) ...[
-                        const SizedBox(height: 10),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: _progress,
-                            minHeight: 6,
-                            backgroundColor: const Color(0xFFEDF1EF),
-                            color: _state == _DownloadState.completed
-                                ? SchoolPalette.deepGreen
-                                : const Color(0xFFD97706),
+                      const SizedBox(height: 4),
+                      Text(
+                        'อัปโหลดโดย ${file.uploaderFullName}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _error!,
+                          style: const TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 6),
-                      ] else
-                        const SizedBox(height: 6),
+                      ],
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Expanded(
                             child: Text(
-                              _state == _DownloadState.idle
-                                  ? file.sizeLabel
-                                  : '${CourseFile._formatNumber(file.sizeValue * (_state == _DownloadState.completed ? 1 : _progress))} ${file.sizeUnit} of ${file.sizeLabel}',
+                              file.formattedSize,
                               style: const TextStyle(
                                 color: SchoolPalette.muted,
                                 fontSize: 11,
@@ -790,31 +669,36 @@ class _CourseFileCardState extends State<CourseFileCard> {
                               ),
                             ),
                           ),
-                          if (_state == _DownloadState.idle)
-                            FilledButton.icon(
-                              onPressed: _startDownload,
-                              icon: const Icon(
-                                Icons.download_rounded,
-                                size: 14,
+                          FilledButton.icon(
+                            onPressed: _opening ? null : _openFile,
+                            icon: _opening
+                                ? const SizedBox(
+                                    width: 12,
+                                    height: 12,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.download_rounded, size: 14),
+                            label: const Text('ดาวน์โหลด'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: accent,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
                               ),
-                              label: const Text('ดาวน์โหลด'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: SchoolPalette.deepGreen,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                textStyle: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
                               ),
                             ),
+                          ),
                         ],
                       ),
                     ],

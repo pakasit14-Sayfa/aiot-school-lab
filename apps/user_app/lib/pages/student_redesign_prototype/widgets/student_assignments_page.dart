@@ -1,7 +1,20 @@
-import 'dart:async';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import 'student_redesign_palette.dart';
+
+class _AssignmentWithCourse {
+  const _AssignmentWithCourse({
+    required this.assignment,
+    required this.courseName,
+    required this.submitted,
+    required this.submittedAt,
+  });
+
+  final AssignmentSummary assignment;
+  final String courseName;
+  final bool submitted;
+  final DateTime? submittedAt;
+}
 
 class StudentAssignmentsPage extends StatefulWidget {
   const StudentAssignmentsPage({super.key});
@@ -12,112 +25,98 @@ class StudentAssignmentsPage extends StatefulWidget {
 
 class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
   int _selectedFilterIndex = 0;
+  bool _loading = true;
+  String? _error;
+  List<_AssignmentWithCourse> _items = const [];
 
-  final List<String> _filters = [
-    'ทั้งหมด (6)',
-    'ด่วนต้องส่ง (2)',
-    'กำลังทำ (2)',
-    'ตรวจแล้ว (2)',
-  ];
+  final List<String> _filters = ['ทั้งหมด', 'ยังไม่ส่ง', 'ส่งแล้ว'];
 
-  static const _assignments = <AssignmentCardItem>[
-    AssignmentCardItem(
-      subject: 'วิชา AIoT สมาร์ตแล็บ',
-      subjectCode: 'AIOT-501',
-      subjectIcon: Icons.memory_rounded,
-      title: 'ใบงานที่ 4: การคำนวณและประมวลผลค่าฝุ่น PM2.5 จากเซนเซอร์',
-      dueDateText: 'กำหนดส่ง วันนี้ 23:59 น.',
-      statusLabel: 'ด่วนที่สุด',
-      statusColor: Color(0xFFDC2626),
-      statusBg: Color(0xFFFEF2F2),
-      gscorePoints: '+30',
-      filterGroup: 1,
-    ),
-    AssignmentCardItem(
-      subject: 'วิชา ฟิสิกส์ประยุกต์',
-      subjectCode: 'PHYS-302',
-      subjectIcon: Icons.bolt_rounded,
-      title: 'รายงานการทดลองที่ 2: การหักเหของแสงผ่านปริซึมแก้ว',
-      dueDateText: 'กำหนดส่ง พรุ่งนี้ 16:00 น.',
-      statusLabel: 'ค้างส่ง',
-      statusColor: Color(0xFFD97706),
-      statusBg: Color(0xFFFFFBEB),
-      gscorePoints: '+25',
-      filterGroup: 1,
-    ),
-    AssignmentCardItem(
-      subject: 'วิชา คณิตศาสตร์เพิ่มเติม',
-      subjectCode: 'MATH-401',
-      subjectIcon: Icons.calculate_rounded,
-      title: 'แบบฝึกหัดเรื่อง: ความน่าจะเป็นและการจัดหมู่สถิติ',
-      dueDateText: 'กำหนดส่ง 5 ส.ค. 2569',
-      statusLabel: 'ร่างไว้ 50%',
-      statusColor: Color(0xFF2563EB),
-      statusBg: Color(0xFFEFF6FF),
-      gscorePoints: '+20',
-      filterGroup: 2,
-    ),
-    AssignmentCardItem(
-      subject: 'วิชา ชีววิทยา',
-      subjectCode: 'BIO-108',
-      subjectIcon: Icons.eco_rounded,
-      title: 'ใบงานสรุปวงจรชีวิตของแมลง',
-      dueDateText: 'ส่งแล้ว วันนี้ 09:20 น.',
-      statusLabel: 'ส่งแล้ว รอตรวจ',
-      statusColor: Color(0xFF0284C7),
-      statusBg: Color(0xFFEFF8FF),
-      gscorePoints: '+18',
-      filterGroup: 2,
-      isCompleted: true,
-    ),
-    AssignmentCardItem(
-      subject: 'วิชา วิทยาศาสตร์กายภาพ',
-      subjectCode: 'SCI-204',
-      subjectIcon: Icons.science_rounded,
-      title: 'สรุปการวิเคราะห์สภาวะโลกร้อนและก๊าซเรือนกระจก',
-      dueDateText: 'ส่งแล้ว 28 ก.ค. 2569',
-      statusLabel: 'ตรวจแล้ว A+',
-      statusColor: SchoolPalette.deepGreen,
-      statusBg: SchoolPalette.softGreenBg,
-      gscorePoints: '+30',
-      score: '100/100',
-      filterGroup: 3,
-      isCompleted: true,
-    ),
-    AssignmentCardItem(
-      subject: 'วิชา ชีววิทยา',
-      subjectCode: 'BIO-105',
-      subjectIcon: Icons.nature_people_rounded,
-      title: 'ใบงานบันทึกการสังเกตการณ์การสังเคราะห์แสงของพืช',
-      dueDateText: 'ส่งแล้ว 25 ก.ค. 2569',
-      statusLabel: 'ตรวจแล้ว A',
-      statusColor: SchoolPalette.deepGreen,
-      statusBg: SchoolPalette.softGreenBg,
-      gscorePoints: '+28',
-      score: '95/100',
-      filterGroup: 3,
-      isCompleted: true,
-    ),
-  ];
+  List<_AssignmentWithCourse> get _visible {
+    if (_selectedFilterIndex == 1) {
+      return _items.where((i) => !i.submitted).toList();
+    }
+    if (_selectedFilterIndex == 2) {
+      return _items.where((i) => i.submitted).toList();
+    }
+    return _items;
+  }
 
-  List<AssignmentCardItem> get _visibleAssignments {
-    if (_selectedFilterIndex == 0) return _assignments;
-    return _assignments
-        .where((item) => item.filterGroup == _selectedFilterIndex)
-        .toList();
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final courses = (await CourseService.listMyCourses())
+          .where((c) => c.isActive)
+          .toList();
+      final assignmentLists = await Future.wait(
+        courses.map((c) => AssignmentService.listAssignments(c.id)),
+      );
+
+      final published = <(AssignmentSummary, CourseSummary)>[];
+      for (var i = 0; i < courses.length; i++) {
+        for (final a in assignmentLists[i].where((a) => a.isPublished)) {
+          published.add((a, courses[i]));
+        }
+      }
+
+      final submissionChecks = await Future.wait(
+        published.map(
+          (e) => AssignmentService.listMySubmissionVersions(e.$1.id),
+        ),
+      );
+
+      final items = <_AssignmentWithCourse>[];
+      for (var i = 0; i < published.length; i++) {
+        final (assignment, course) = published[i];
+        final versions = submissionChecks[i];
+        items.add(
+          _AssignmentWithCourse(
+            assignment: assignment,
+            courseName: course.subjectName,
+            submitted: versions.isNotEmpty,
+            submittedAt: versions.isEmpty ? null : versions.last.submittedAt,
+          ),
+        );
+      }
+      items.sort((a, b) {
+        final aDue = a.assignment.dueAt ?? DateTime(2100);
+        final bDue = b.assignment.dueAt ?? DateTime(2100);
+        return aDue.compareTo(bDue);
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final dueCount = _items.where((i) => !i.submitted).length;
+    final submittedCount = _items.where((i) => i.submitted).length;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0.5,
-        // เพจนี้ถูกใช้ทั้งเป็นแท็บหลัก (ไม่มีอะไรให้ pop) และถูก push
-        // มาจากที่อื่น (การ์ดงานค้าง, quick action ฯลฯ) — โชว์ปุ่มย้อนกลับ
-        // เฉพาะตอนที่ pop ได้จริงเท่านั้น ไม่งั้นจะมีปุ่มย้อนกลับค้างอยู่บนแท็บ
         automaticallyImplyLeading: false,
         leading: Navigator.canPop(context)
             ? IconButton(
@@ -138,39 +137,51 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Center(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final screenWidth = constraints.maxWidth;
-                final isDesktop = screenWidth >= 1024;
-                final horizontalPadding = screenWidth < 520 ? 14.0 : 16.0;
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            child: Center(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final screenWidth = constraints.maxWidth;
+                  final isDesktop = screenWidth >= 1024;
+                  final horizontalPadding = screenWidth < 520 ? 14.0 : 16.0;
 
-                return ConstrainedBox(
-                  // เดิม 1000px บนจอกว้าง ทำให้ช่องว่างขวามือของการ์ด
-                  // (แถวล่างที่มี Spacer คั่นกลาง) ห่างเกินไป — ลดลงให้
-                  // เท่ากับหน้าบทเรียนเพื่อความสม่ำเสมอ
-                  constraints: BoxConstraints(maxWidth: isDesktop ? 720 : 640),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 16,
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktop ? 720 : 640,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSummaryHeader(context),
-                        const SizedBox(height: 18),
-                        _buildFilterPills(),
-                        const SizedBox(height: 16),
-                        _buildAssignmentList(),
-                        const SizedBox(height: 24),
-                      ],
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 16,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSummaryHeader(
+                            context,
+                            dueCount,
+                            submittedCount,
+                          ),
+                          const SizedBox(height: 18),
+                          if (_error != null) ...[
+                            _buildErrorBanner(),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildFilterPills(),
+                          const SizedBox(height: 16),
+                          _buildAssignmentList(),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -178,7 +189,44 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
     );
   }
 
-  Widget _buildSummaryHeader(BuildContext context) {
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryHeader(
+    BuildContext context,
+    int dueCount,
+    int submittedCount,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -213,22 +261,22 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
                 ),
               ),
               const SizedBox(width: 14),
-              Expanded(
+              const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
-                      'สรุปงานประจำสัปดาห์',
+                    Text(
+                      'สรุปงานของฉัน',
                       style: TextStyle(
                         color: SchoolPalette.navy,
                         fontSize: 16.5,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
-                      'ตรวจสอบกำหนดส่งงานเพื่อไม่ให้พลาดคะแนน G-Score',
+                      'ตรวจสอบกำหนดส่งงานจากทุกวิชาที่ลงทะเบียน',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -247,22 +295,15 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
             builder: (context, constraints) {
               final tiles = [
                 _SummaryStatTile(
-                  value: '2',
-                  label: 'ด่วนต้องส่ง',
+                  value: '$dueCount',
+                  label: 'ยังไม่ส่ง',
                   color: const Color(0xFFDC2626),
                   bgTint: const Color(0xFFFEF2F2),
                   icon: Icons.priority_high_rounded,
                 ),
                 _SummaryStatTile(
-                  value: '1',
-                  label: 'กำลังทำ',
-                  color: const Color(0xFF2563EB),
-                  bgTint: const Color(0xFFEFF6FF),
-                  icon: Icons.edit_note_rounded,
-                ),
-                _SummaryStatTile(
-                  value: '2',
-                  label: 'ตรวจแล้ว',
+                  value: '$submittedCount',
+                  label: 'ส่งแล้ว',
                   color: SchoolPalette.deepGreen,
                   bgTint: SchoolPalette.softGreenBg,
                   icon: Icons.check_circle_outline_rounded,
@@ -333,7 +374,14 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
   }
 
   Widget _buildAssignmentList() {
-    final items = _visibleAssignments;
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final items = _visible;
 
     if (items.isEmpty) {
       return Container(
@@ -367,7 +415,10 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
 
     return Column(
       children: items.map((item) {
-        return Padding(padding: const EdgeInsets.only(bottom: 12), child: item);
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: AssignmentCard(item: item, onSubmitted: _load),
+        );
       }).toList(),
     );
   }
@@ -431,237 +482,73 @@ class _SummaryStatTile extends StatelessWidget {
   }
 }
 
-/// One mock attached file — tracks its own fake upload progress so the row
-/// can show "0 KB of 120 KB · กำลังอัปโหลด..." with a bar, then flip to a
-/// green "เสร็จสมบูรณ์" check once done, matching the reference dialog.
-class _MockAttachedFile {
-  _MockAttachedFile({required this.name, required this.totalKb});
+/// ส่งงานจริง — ระบบนี้รับแค่ข้อความ (submit_assignment RPC มี content เป็น
+/// text เท่านั้น ไม่มีระบบแนบไฟล์ผูกกับใบงานเลย) จึงตัด UI อัปโหลดไฟล์เดิม
+/// ที่จำลอง progress bar ปลอมออกทั้งหมด แทนที่ด้วยฟอร์มข้อความจริง
+class _AssignmentSubmitSheet extends StatefulWidget {
+  const _AssignmentSubmitSheet({required this.item, required this.onSubmitted});
 
-  final String name;
-  final int totalKb;
-  double progress = 0;
-
-  bool get isUploading => progress < 1.0;
-  int get uploadedKb => (totalKb * progress).round();
-}
-
-/// One row in the attached-files list — dog-eared PDF icon + name/status +
-/// either an upload progress bar or a completed check / delete trash icon,
-/// matching the "Upload Files" reference's file-row layout.
-class _AttachedFileRow extends StatelessWidget {
-  const _AttachedFileRow({required this.file, required this.onRemove});
-
-  final _MockAttachedFile file;
-  final VoidCallback onRemove;
+  final _AssignmentWithCourse item;
+  final VoidCallback onSubmitted;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 34,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                  ),
-                  Positioned(
-                    left: -2,
-                    bottom: -3,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFDC2626),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'PDF',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 7,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      file.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: SchoolPalette.navy,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          '${file.uploadedKb} KB of ${file.totalKb} KB · ',
-                          style: const TextStyle(
-                            color: SchoolPalette.muted,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (file.isUploading) ...[
-                          const SizedBox(
-                            width: 9,
-                            height: 9,
-                            child: CircularProgressIndicator(strokeWidth: 1.6),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'กำลังอัปโหลด...',
-                            style: TextStyle(
-                              color: Color(0xFFD97706),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ] else ...[
-                          const Icon(
-                            Icons.check_circle_rounded,
-                            size: 12,
-                            color: SchoolPalette.deepGreen,
-                          ),
-                          const SizedBox(width: 3),
-                          const Text(
-                            'เสร็จสมบูรณ์',
-                            style: TextStyle(
-                              color: SchoolPalette.deepGreen,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              if (!file.isUploading)
-                IconButton(
-                  onPressed: onRemove,
-                  icon: const Icon(
-                    Icons.delete_outline_rounded,
-                    color: SchoolPalette.muted,
-                    size: 20,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-            ],
-          ),
-          if (file.isUploading) ...[
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: file.progress,
-                minHeight: 4,
-                backgroundColor: const Color(0xFFE2E8F0),
-                color: const Color(0xFF2563EB),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+  State<_AssignmentSubmitSheet> createState() => _AssignmentSubmitSheetState();
 }
 
-/// Full-fidelity redesign of the submit sheet matching the "Upload Files"
-/// reference: icon+title+subtitle header with a close button, a dashed
-/// dropzone with a "Browse File" button, file rows with simulated upload
-/// progress that flips to a completed check, an "OR" divider, and a
-/// (non-functional, UI-only) "Import from URL Link" field.
-class _AssignmentSubmitterSheet extends StatefulWidget {
-  const _AssignmentSubmitterSheet({
-    required this.subject,
-    required this.subjectCode,
-    required this.title,
-    required this.dueDateText,
-    required this.gscorePoints,
-  });
-
-  final String subject;
-  final String subjectCode;
-  final String title;
-  final String dueDateText;
-  final String gscorePoints;
+class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
+  final _controller = TextEditingController();
+  bool _submitting = false;
+  String? _detailError;
+  AssignmentDetail? _detail;
 
   @override
-  State<_AssignmentSubmitterSheet> createState() =>
-      _AssignmentSubmitterSheetState();
-}
-
-class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
-  final List<_MockAttachedFile> _files = [];
-  final List<Timer> _timers = [];
-
-  void _addFile(String name, int totalKb) {
-    final file = _MockAttachedFile(name: name, totalKb: totalKb);
-    setState(() => _files.add(file));
-    // ยังไม่มีปลายทางเซิร์ฟเวอร์จริงให้อัปโหลดไปจริงๆ (UI-only prototype)
-    // เลยจำลองแถบความคืบหน้าไว้ให้ดูมีอนิเมชันเหมือนกำลังส่งไฟล์
-    final timer = Timer.periodic(const Duration(milliseconds: 220), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      setState(() => file.progress = (file.progress + 0.22).clamp(0.0, 1.0));
-      if (file.progress >= 1.0) timer.cancel();
-    });
-    _timers.add(timer);
+  void initState() {
+    super.initState();
+    _loadDetail();
   }
 
-  // เปิดตัวเลือกไฟล์จริงของเครื่อง (ไม่ใช่ชื่อไฟล์จำลองอีกต่อไป) — ยังคง
-  // ไม่มีการอัปโหลดขึ้นเซิร์ฟเวอร์จริง แค่เลือกไฟล์จากเครื่องได้จริง
-  Future<void> _pickFiles() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'mp4'],
-    );
-    if (result == null || !mounted) return;
-    for (final pickedFile in result.files) {
-      final sizeKb = (pickedFile.size / 1024).ceil();
-      _addFile(pickedFile.name, sizeKb <= 0 ? 1 : sizeKb);
+  Future<void> _loadDetail() async {
+    try {
+      final detail = await AssignmentService.getAssignment(
+        widget.item.assignment.id,
+      );
+      if (!mounted) return;
+      setState(() => _detail = detail);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _detailError = 'โหลดรายละเอียดไม่สำเร็จ: $e');
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_controller.text.trim().isEmpty) return;
+    setState(() => _submitting = true);
+    try {
+      await AssignmentService.submitAssignment(
+        assignmentId: widget.item.assignment.id,
+        content: _controller.text.trim(),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+      widget.onSubmitted();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ส่งงานเรียบร้อยแล้ว'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ส่งงานไม่สำเร็จ: $e')));
     }
   }
 
   @override
   void dispose() {
-    for (final timer in _timers) {
-      timer.cancel();
-    }
+    _controller.dispose();
     super.dispose();
   }
 
@@ -697,7 +584,7 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
                 child: const Icon(
-                  Icons.cloud_upload_outlined,
+                  Icons.send_rounded,
                   color: SchoolPalette.deepGreen,
                   size: 20,
                 ),
@@ -708,7 +595,7 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'อัปโหลดไฟล์งาน',
+                      'ส่งงาน',
                       style: TextStyle(
                         color: SchoolPalette.navy,
                         fontSize: 16,
@@ -717,7 +604,7 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      widget.title,
+                      widget.item.assignment.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -741,154 +628,33 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
           const SizedBox(height: 10),
           Container(height: 1, color: SchoolPalette.glassBorder),
           const SizedBox(height: 14),
-          Text(
-            '${widget.subject} (${widget.subjectCode}) · ${widget.dueDateText}'
-            ' · ⭐ ${widget.gscorePoints} G-Score',
-            style: const TextStyle(
-              color: SchoolPalette.muted,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 16),
-          // กรอบเส้นประ — วาดเองด้วย CustomPaint เพราะ Flutter ไม่มี
-          // dashed border สำเร็จรูป ให้ตรงกับตัวอย่างที่ส่งมา
-          InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: _pickFiles,
-            child: CustomPaint(
-              painter: _DashedBorderPainter(
-                color: const Color(0xFFCBD5E1),
-                radius: 16,
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 26),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.cloud_upload_outlined,
-                      color: SchoolPalette.muted,
-                      size: 30,
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'เลือกไฟล์หรือลากมาวางที่นี่',
-                      style: TextStyle(
-                        color: SchoolPalette.navy,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'รองรับ JPEG, PNG, PDF และ MP4 ไม่เกิน 50MB',
-                      style: TextStyle(
-                        color: SchoolPalette.muted,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    OutlinedButton(
-                      onPressed: _pickFiles,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: SchoolPalette.navy,
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Text('เลือกไฟล์'),
-                    ),
-                  ],
-                ),
+          if (_detailError != null)
+            Text(
+              _detailError!,
+              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+            )
+          else if (_detail?.instructions != null)
+            Text(
+              _detail!.instructions!,
+              style: const TextStyle(
+                color: SchoolPalette.muted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
               ),
             ),
-          ),
-          if (_files.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Column(
-              children: [
-                for (var i = 0; i < _files.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _AttachedFileRow(
-                      file: _files[i],
-                      onRemove: () => setState(() => _files.removeAt(i)),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  'หรือ',
-                  style: TextStyle(
-                    color: SchoolPalette.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _controller,
+            maxLines: 6,
+            decoration: InputDecoration(
+              hintText: 'พิมพ์คำตอบ/สิ่งที่ต้องการส่งที่นี่...',
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
               ),
-              const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Text(
-                'นำเข้าจากลิงก์ไฟล์',
-                style: TextStyle(
-                  color: SchoolPalette.navy,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.info_outline_rounded,
-                size: 13,
-                color: SchoolPalette.muted.withValues(alpha: 0.7),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.link_rounded,
-                  size: 16,
-                  color: SchoolPalette.muted.withValues(alpha: 0.7),
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'วางลิงก์ไฟล์ที่นี่',
-                    style: TextStyle(
-                      color: SchoolPalette.muted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -911,21 +677,17 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          // LRN-11: ยังไม่ได้คะแนนจริง แค่เข้าคิวรอครูยืนยัน
-                          // (LRN-12) — ห้ามบอกว่า "รับ" ไปแล้วทันที
-                          'ส่งใบงานเรียบร้อยแล้ว! ได้ ${widget.gscorePoints} '
-                          'G-Score เข้าคิวรอครูยืนยัน',
-                        ),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.send_rounded, size: 18),
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded, size: 18),
                   label: const Text('ยืนยันการส่งงาน'),
                   style: FilledButton.styleFrom(
                     backgroundColor: SchoolPalette.deepGreen,
@@ -944,94 +706,77 @@ class _AssignmentSubmitterSheetState extends State<_AssignmentSubmitterSheet> {
   }
 }
 
-/// Hand-rolled dashed rounded-rect border — Flutter has no built-in dashed
-/// border, and this keeps the dropzone visually matching the reference
-/// without pulling in an external package for one shape.
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4;
-    final rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(radius),
-    );
-    final path = Path()..addRRect(rrect);
-    const dashWidth = 6.0;
-    const gapWidth = 4.0;
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final next = distance + dashWidth;
-        canvas.drawPath(
-          metric.extractPath(distance, next.clamp(0, metric.length)),
-          paint,
-        );
-        distance = next + gapWidth;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) => false;
-}
-
-class AssignmentCardItem extends StatelessWidget {
-  const AssignmentCardItem({
+class AssignmentCard extends StatelessWidget {
+  const AssignmentCard({
     super.key,
-    required this.subject,
-    required this.subjectCode,
-    required this.subjectIcon,
-    required this.title,
-    required this.dueDateText,
-    required this.statusLabel,
-    required this.statusColor,
-    required this.statusBg,
-    required this.gscorePoints,
-    required this.filterGroup,
-    this.score,
-    this.isCompleted = false,
+    required this.item,
+    required this.onSubmitted,
   });
 
-  final String subject;
-  final String subjectCode;
-  final IconData subjectIcon;
-  final String title;
-  final String dueDateText;
-  final String statusLabel;
-  final Color statusColor;
-  final Color statusBg;
-  final String gscorePoints;
-  final int filterGroup;
-  final String? score;
-  final bool isCompleted;
+  final _AssignmentWithCourse item;
+  final VoidCallback onSubmitted;
 
-  void _showAssignmentSubmitterModal(BuildContext context) {
+  ({String label, Color color, Color bg, IconData icon}) get _status {
+    if (item.submitted) {
+      return (
+        label: 'ส่งแล้ว',
+        color: SchoolPalette.deepGreen,
+        bg: SchoolPalette.softGreenBg,
+        icon: Icons.check_circle_rounded,
+      );
+    }
+    final dueAt = item.assignment.dueAt;
+    if (dueAt != null && dueAt.isBefore(DateTime.now())) {
+      return (
+        label: 'เลยกำหนดส่งแล้ว',
+        color: const Color(0xFFDC2626),
+        bg: const Color(0xFFFEF2F2),
+        icon: Icons.assignment_late_rounded,
+      );
+    }
+    if (dueAt != null && dueAt.difference(DateTime.now()).inHours <= 24) {
+      return (
+        label: 'ด่วนที่สุด',
+        color: const Color(0xFFDC2626),
+        bg: const Color(0xFFFEF2F2),
+        icon: Icons.priority_high_rounded,
+      );
+    }
+    return (
+      label: 'ยังไม่ส่ง',
+      color: const Color(0xFFD97706),
+      bg: const Color(0xFFFFFBEB),
+      icon: Icons.assignment_late_rounded,
+    );
+  }
+
+  String get _dueDateLabel {
+    if (item.submitted) {
+      final at = item.submittedAt;
+      return at == null
+          ? 'ส่งแล้ว'
+          : 'ส่งแล้ว ${at.day}/${at.month}/${at.year}';
+    }
+    final dueAt = item.assignment.dueAt;
+    if (dueAt == null) return 'ไม่มีกำหนดส่ง';
+    return 'กำหนดส่ง ${dueAt.day}/${dueAt.month}/${dueAt.year} '
+        '${dueAt.hour.toString().padLeft(2, '0')}:${dueAt.minute.toString().padLeft(2, '0')} น.';
+  }
+
+  void _openSubmit(BuildContext context) {
+    if (item.submitted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _AssignmentSubmitterSheet(
-        subject: subject,
-        subjectCode: subjectCode,
-        title: title,
-        dueDateText: dueDateText,
-        gscorePoints: gscorePoints,
-      ),
+      builder: (_) =>
+          _AssignmentSubmitSheet(item: item, onSubmitted: onSubmitted),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // ดีไซน์เดียวกับการ์ดบทเรียน (มุมโค้ง 24, ขอบเขียวจาง, เงา 2 ชั้น)
-    // ให้ทั้งสองหน้าดูเป็นชุดเดียวกัน
+    final status = _status;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.95),
@@ -1053,14 +798,12 @@ class AssignmentCardItem extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
         child: InkWell(
-          onTap: () => _showAssignmentSubmitterModal(context),
+          onTap: () => _openSubmit(context),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // แถวป้ายบนสุด: สถานะ + วิชา — สไตล์ tag-row ของการ์ด
-                // งาน (To do / High / Website ฯลฯ) แทนกล่องไอคอนซ้ายเดิม
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -1072,18 +815,18 @@ class AssignmentCardItem extends StatelessWidget {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: statusBg,
+                        color: status.bg,
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(_statusBadgeIcon, size: 12, color: statusColor),
+                          Icon(status.icon, size: 12, color: status.color),
                           const SizedBox(width: 4),
                           Text(
-                            statusLabel,
+                            status.label,
                             style: TextStyle(
-                              color: statusColor,
+                              color: status.color,
                               fontSize: 10.5,
                               fontWeight: FontWeight.w900,
                             ),
@@ -1100,31 +843,20 @@ class AssignmentCardItem extends StatelessWidget {
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            subjectIcon,
-                            size: 12,
-                            color: SchoolPalette.navy,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$subjectCode · $subject',
-                            style: const TextStyle(
-                              color: SchoolPalette.navy,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        item.courseName,
+                        style: const TextStyle(
+                          color: SchoolPalette.navy,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  title,
+                  item.assignment.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1134,34 +866,6 @@ class AssignmentCardItem extends StatelessWidget {
                     height: 1.3,
                   ),
                 ),
-                // กำหนดส่งไปอยู่แถวล่างสุด (ไอคอนปฏิทิน) แล้ว — โชว์
-                // บรรทัดย่อยตรงนี้เฉพาะตอนมีคะแนนเท่านั้น กันไม่ให้
-                // dueDateText ซ้ำกันสองที่ในการ์ดเดียว
-                if (score != null) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.subdirectory_arrow_right_rounded,
-                        size: 14,
-                        color: SchoolPalette.muted,
-                      ),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          'คะแนน $score',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: SchoolPalette.muted,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
                 const SizedBox(height: 12),
                 Container(height: 1, color: SchoolPalette.glassBorder),
                 const SizedBox(height: 12),
@@ -1170,29 +874,19 @@ class AssignmentCardItem extends StatelessWidget {
                     Expanded(
                       child: Row(
                         children: [
-                          Text(
-                            '⭐$gscorePoints',
-                            style: const TextStyle(
-                              color: Color(0xFFD97706),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              height: 1,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
                           Icon(
                             Icons.calendar_today_rounded,
                             size: 13,
-                            color: statusColor,
+                            color: status.color,
                           ),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(
-                              dueDateText,
+                              _dueDateLabel,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: statusColor,
+                                color: status.color,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
                                 height: 1,
@@ -1203,10 +897,7 @@ class AssignmentCardItem extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // ป้าย CTA ชัดเจนแทนวงแหวน % เฉยๆ — ผู้ทดสอบจริงมองไม่
-                    // ออกว่าการ์ดนี้กดแล้วทำอะไรได้ ต้องบอกตรงๆ ว่า "ส่งงาน"
-                    // /"ดูคะแนน" พร้อมลูกศร ไม่ใช่ปล่อยให้เดาเอง
-                    _buildActionPill(),
+                    if (!item.submitted) _buildActionPill(status.color),
                   ],
                 ),
               ],
@@ -1217,61 +908,36 @@ class AssignmentCardItem extends StatelessWidget {
     );
   }
 
-  /// เดียวกับสถานะที่ใช้ตัดสินใจปุ่ม CTA — ให้ป้ายบนสุดของการ์ดกับปุ่ม
-  /// ล่างสุดสื่อความหมายตรงกัน แทนที่จะใช้ไอคอนเอกสารเดิมทุกสถานะเหมือนกัน
-  /// จนแยกไม่ออกว่าส่งไปแล้วหรือยังไม่ได้ส่ง
-  IconData get _statusBadgeIcon {
-    if (score != null) return Icons.grading_rounded;
-    if (isCompleted) return Icons.check_circle_rounded;
-    return Icons.assignment_late_rounded;
-  }
-
-  Widget _buildActionPill() {
-    final String label;
-    final IconData icon;
-    if (score != null) {
-      label = 'ดูคะแนน';
-      icon = Icons.grading_rounded;
-    } else if (isCompleted) {
-      label = 'ดูสถานะงาน';
-      icon = Icons.check_circle_rounded;
-    } else {
-      label = 'ส่งงาน';
-      icon = Icons.upload_file_rounded;
-    }
+  Widget _buildActionPill(Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: statusColor,
+        color: color,
         borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withValues(alpha: 0.35),
+            color: color.withValues(alpha: 0.35),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: Colors.white),
-          const SizedBox(width: 5),
+          Icon(Icons.upload_file_rounded, size: 15, color: Colors.white),
+          SizedBox(width: 5),
           Text(
-            label,
-            style: const TextStyle(
+            'ส่งงาน',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 12.5,
               fontWeight: FontWeight.w900,
               height: 1,
             ),
           ),
-          const SizedBox(width: 4),
-          const Icon(
-            Icons.arrow_forward_rounded,
-            size: 14,
-            color: Colors.white,
-          ),
+          SizedBox(width: 4),
+          Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
         ],
       ),
     );
