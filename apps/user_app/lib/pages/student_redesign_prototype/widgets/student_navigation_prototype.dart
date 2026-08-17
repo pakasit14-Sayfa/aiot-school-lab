@@ -1051,9 +1051,7 @@ class _StudentNavigationPrototypeState
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const StudentSafetyPage(),
-                ),
+                MaterialPageRoute(builder: (_) => const StudentSafetyPage()),
               );
             },
           ),

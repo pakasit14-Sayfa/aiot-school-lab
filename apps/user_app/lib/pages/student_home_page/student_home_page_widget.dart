@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_core/shared_core.dart';
 import '../student_redesign_prototype/widgets/widgets.dart';
 
 /// Student Home Dashboard — Official Production Page.
@@ -16,27 +15,14 @@ class StudentHomePageWidget extends StatefulWidget {
 
 class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
   final scaffoldKey = GlobalKey<ScaffoldState>();
+  int _refreshTick = 0;
 
+  // 2026-08-17: เดิม fetch ข้อมูลจริงมาแล้วทิ้ง (ไม่มี setState ใดๆ) —
+  // StudentVariantSchoolHome โหลดข้อมูลของตัวเองใน initState แล้วตอนนี้
+  // ดังนั้น pull-to-refresh แค่เปลี่ยน key เพื่อบังคับสร้าง widget ใหม่
+  // (initState รันใหม่ = โหลดข้อมูลจริงใหม่จริงๆ)
   Future<void> _handleRefresh() async {
-    final user = currentUserModel;
-    final schoolId = user?.schoolId ?? '';
-    final building = user?.building ?? '';
-    final room = user?.room ?? '';
-
-    try {
-      await Future.wait([
-        CourseService.listMyCourses(),
-        if (schoolId.isNotEmpty)
-          RealtimeService.getSensorOnce(
-            schoolId: schoolId,
-            building: building,
-            floor: '1',
-            room: room,
-          ),
-      ]);
-    } catch (_) {
-      // Graceful fallback for offline mode
-    }
+    setState(() => _refreshTick++);
   }
 
   @override
@@ -81,7 +67,7 @@ class _StudentHomePageWidgetState extends State<StudentHomePageWidget> {
               child: RefreshIndicator(
                 onRefresh: _handleRefresh,
                 color: SchoolPalette.green,
-                child: const StudentVariantSchoolHome(),
+                child: StudentVariantSchoolHome(key: ValueKey(_refreshTick)),
               ),
             ),
           ],

@@ -1,13 +1,50 @@
 import 'package:flutter/material.dart';
-import '../../student/course_list_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_lessons_page.dart';
 
 class AcademyContinueLearningCard extends StatelessWidget {
-  const AcademyContinueLearningCard({super.key});
+  const AcademyContinueLearningCard({
+    super.key,
+    this.courseLabel,
+    this.lessonTitle,
+    this.progress = 0,
+    this.publishedLessonCount = 0,
+    this.totalLessonCount = 0,
+  });
+
+  /// null courseLabel/lessonTitle = student has no courses/lessons yet.
+  final String? courseLabel;
+  final String? lessonTitle;
+  final double progress;
+  final int publishedLessonCount;
+  final int totalLessonCount;
 
   @override
   Widget build(BuildContext context) {
+    if (courseLabel == null || lessonTitle == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'เรียนต่อจากครั้งล่าสุด',
+            style: TextStyle(
+              color: SchoolPalette.ink,
+              fontSize: 17.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const SoftCard(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'ยังไม่มีบทเรียนที่เปิดสอนในวิชาที่คุณลงทะเบียน',
+              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -78,22 +115,22 @@ class AcademyContinueLearningCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'วิชา AIoT สมาร์ตแล็บ • ม.5/1',
+                        Text(
+                          courseLabel!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: SchoolPalette.muted,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 3),
-                        const Text(
-                          'บทเรียนที่ 4: การวิเคราะห์ข้อมูล PM2.5',
+                        Text(
+                          lessonTitle!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: SchoolPalette.ink,
                             fontSize: 14.5,
                             fontWeight: FontWeight.w900,
@@ -110,9 +147,9 @@ class AcademyContinueLearningCard extends StatelessWidget {
               // Bottom Row: Percentage + Thick Progress Bar + Step Count
               Row(
                 children: [
-                  const Text(
-                    '65%',
-                    style: TextStyle(
+                  Text(
+                    '${(progress * 100).round()}%',
+                    style: const TextStyle(
                       color: Color.fromARGB(255, 28, 127, 70),
                       fontWeight: FontWeight.w900,
                       fontSize: 14,
@@ -121,16 +158,16 @@ class AcademyContinueLearningCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: PatternedProgressBar(
-                      progress: 0.65,
+                      progress: progress,
                       height: 10,
                       backgroundColor: const Color(0xFFF1F5F9),
                       fillColor: const Color.fromARGB(255, 28, 127, 70),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    '4/6',
-                    style: TextStyle(
+                  Text(
+                    '$publishedLessonCount/$totalLessonCount',
+                    style: const TextStyle(
                       color: Color.fromARGB(255, 28, 127, 70),
                       fontWeight: FontWeight.w900,
                       fontSize: 13.5,

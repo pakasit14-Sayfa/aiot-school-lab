@@ -17,6 +17,9 @@ class _SchoolEncouragementCardState extends State<SchoolEncouragementCard> {
   Timer? _timer;
   int _currentPage = 0;
 
+  // 2026-08-17: ตัด 2 สไลด์เดิมออก (สถิติ "ประหยัดไฟ 14.8% ลด 3.2kg CO2" และ
+  // "อุณหภูมิ 25°C ประหยัดไฟสูงสุด") — เป็นตัวเลขที่เขียนตายตัวไม่มีข้อมูล
+  // จริงรองรับเลย เหลือแค่คำคมทั่วไปที่ไม่ได้อ้างว่าเป็นข้อมูลจริง
   final List<Map<String, dynamic>> _slides = [
     {
       'badge': 'คติพจน์ประจำวัน 🌟',
@@ -26,24 +29,6 @@ class _SchoolEncouragementCardState extends State<SchoolEncouragementCard> {
       'accentColor': SchoolPalette.lime,
       'title': 'เรียนทีละนิด\nทำสม่ำเสมอ\nผลลัพธ์จะชัดขึ้น',
       'subtitle': null,
-    },
-    {
-      'badge': 'ประหยัดพลังงาน ม.5/2 ⚡',
-      'icon': Icons.bolt_rounded,
-      'bgIcon': Icons.eco_rounded,
-      'bgColor': const Color(0xFF9A3412),
-      'accentColor': const Color(0xFFFDE047),
-      'title': 'ห้อง ม.5/2 วันนี้\nประหยัดไฟ 14.8%\nลด 3.2 kg CO₂',
-      'subtitle': 'ช่วยกันปิดไฟและแอร์เมื่อเลิกใช้งาน 💡',
-    },
-    {
-      'badge': 'เกร็ดความรู้ AIoT 🍃',
-      'icon': Icons.lightbulb_rounded,
-      'bgIcon': Icons.sensors_rounded,
-      'bgColor': const Color(0xFF075985),
-      'accentColor': const Color(0xFF38BDF8),
-      'title': 'อุณหภูมิ 25°C\nประหยัดไฟสูงสุด\nสมองตื่นตัวพร้อมเรียน',
-      'subtitle': 'สภาพแวดล้อมดี ช่วยเพิ่มสมาธิ 🎯',
     },
   ];
 

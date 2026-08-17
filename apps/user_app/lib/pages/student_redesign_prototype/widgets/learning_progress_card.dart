@@ -2,7 +2,20 @@ import 'package:flutter/material.dart';
 import 'student_redesign_palette.dart';
 
 class LearningProgressCard extends StatefulWidget {
-  const LearningProgressCard({super.key});
+  const LearningProgressCard({
+    super.key,
+    required this.progress,
+    required this.lessonCount,
+    required this.submittedCount,
+    required this.totalAssignments,
+  });
+
+  /// 0.0-1.0, ratio of submitted/total assignments across all courses —
+  /// ไม่รวม "เข้าเรียน" เพราะไม่มี attendance service ในระบบเลย
+  final double progress;
+  final int lessonCount;
+  final int submittedCount;
+  final int totalAssignments;
 
   @override
   State<LearningProgressCard> createState() => _LearningProgressCardState();
@@ -24,9 +37,13 @@ class _LearningProgressCardState extends State<LearningProgressCard>
       duration: const Duration(milliseconds: 1600),
     );
 
-    _progressAnimation = Tween<double>(begin: 0.0, end: 0.72).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
+    _progressAnimation = Tween<double>(begin: 0.0, end: widget.progress)
+        .animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     _breathAnimation = Tween<double>(begin: 0.98, end: 1.02).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
@@ -172,8 +189,8 @@ class _LearningProgressCardState extends State<LearningProgressCard>
                     const SizedBox(height: 2),
                     Text(
                       isCompact
-                          ? 'คำนวณจากบทเรียน งาน และการเข้าเรียน'
-                          : 'คำนวณจากบทเรียน งาน และการเข้าเรียนของภาคเรียนนี้',
+                          ? 'คำนวณจากงานที่ส่งแล้ว'
+                          : 'คำนวณจากสัดส่วนงานที่ส่งแล้วของภาคเรียนนี้',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -186,23 +203,18 @@ class _LearningProgressCardState extends State<LearningProgressCard>
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: const [
+                        children: [
                           MiniStatBadge(
                             icon: Icons.menu_book_rounded,
-                            label: '12/20 บทเรียน',
-                            color: Color(0xFF0284C7),
+                            label: '${widget.lessonCount} บทเรียน',
+                            color: const Color(0xFF0284C7),
                           ),
-                          SizedBox(width: 10),
+                          const SizedBox(width: 10),
                           MiniStatBadge(
                             icon: Icons.assignment_turned_in_rounded,
-                            label: 'ส่งครบ 8/8',
-                            color: Color(0xFF059669),
-                          ),
-                          SizedBox(width: 10),
-                          MiniStatBadge(
-                            icon: Icons.fact_check_rounded,
-                            label: 'เข้าเรียน 7/10',
-                            color: Color(0xFFEA580C),
+                            label:
+                                'ส่งแล้ว ${widget.submittedCount}/${widget.totalAssignments}',
+                            color: const Color(0xFF059669),
                           ),
                         ],
                       ),

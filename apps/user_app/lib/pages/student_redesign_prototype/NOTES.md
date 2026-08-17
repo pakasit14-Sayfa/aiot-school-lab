@@ -180,3 +180,43 @@ Dashboard และ Notifications — ฝั่งครูยังไม่ม
 `student_variant_school_home.dart` (`course_card.dart`) และ
 `academy_continue_learning_card.dart` (`course_list_page.dart`)
 
+## ✅ เชื่อมข้อมูลจริงเข้าหน้าแรกนักเรียน — Variant A (2026-08-17)
+
+พบว่า `pages/student_home_page/student_home_page_widget.dart` มีคอมเมนต์ระบุไว้
+ตั้งแต่แรกว่าเป็น "Official Production Page" เลือก Variant A เป็นตัวจริง แต่ไม่เคย
+ถูกเชื่อมเข้า `role_router.dart` เลย (`RoleRouter` เดิมส่งนักเรียนไป
+`StudentMainNav` ครอบ Variant D แทน ทำให้แถบล่างซ้อนกัน 2 อัน) — แก้ให้
+`role_router.dart` ส่งนักเรียนไป `StudentHomePageWidget()` ตรงๆ แล้วเชื่อมข้อมูล
+จริงเข้า `StudentVariantSchoolHome` ครบทุกส่วนของหน้าแรก:
+
+**ต่อจริงแล้ว**: กระดิ่งแจ้งเตือน+การ์ดประกาศ (`NotificationService`), วงคืบหน้า+
+เมนูด่วน+การ์ด "เรียนต่อ"+การ์ด "งานใกล้ครบกำหนด" (`CourseService`/
+`LessonService`/`AssignmentService`), การ์ดคะแนน (`GradeService`), การ์ดเซนเซอร์
+AIoT (`RealtimeService` — fallback ทั้งโรงเรียนเมื่อไม่มี room match ตรงกับ
+สถานการณ์ชุดฝึกจริงพอดี ตามที่เจ้าของโปรเจกต์ยืนยัน)
+
+**ตัดออกเพราะไม่มี backend รองรับเลย**: banner "PROTOTYPE SANDBOX" (ขัดกับ
+banner จริงของ `StudentHomePageWidget`), การ์ดแจ้งเตือนความปลอดภัย
+(`_activeSafetyAlerts` mock + ปุ่ม "รับทราบ" ที่ setState local อย่างเดียว —
+เหมือน STK-12 ที่ไม่มี backend ทุก role ที่ตรวจมาในเซสชันนี้), การ์ด "การใช้
+น้ำ-ไฟห้องเรียนฉัน" (`StudentHomeroomUtilityCard`, ผู้เขียนเดิมคอมเมนต์ไว้เองว่า
+"ข้อมูลเป็น mock"), ตัวเลข G-Score/GPA/แบดจ์ (ไม่มี `GScoreService`/RPC ใดๆ
+เลยทั้งฝั่งครูและนักเรียน — แทนที่การ์ดนี้ด้วยคะแนนเฉลี่ยจริงจาก `GradeService`
+แทน), แถบ "เข้าเรียน" badge (ไม่มี attendance service ในระบบเลย), 2 สไลด์ปลอม
+ใน `SchoolEncouragementCard` (ตัวเลข "ประหยัดไฟ 14.8% ลด 3.2kg CO₂" กับ
+"25°C ประหยัดไฟสูงสุด" — เก็บไว้แค่สไลด์คติพจน์ทั่วไปที่ไม่ได้อ้างเป็นข้อมูลจริง)
+
+**ยังไม่ได้ทำ (out of scope รอบนี้)**: 7 หน้าปลายทางที่เมนูด่วนพาไป
+(`StudentLessonsPage`/`StudentAssignmentsPage`/`StudentScorePage`/
+`StudentPretestPosttestPage`/`StudentCourseFilesPage`/`StudentCalendarPage`/
+`StudentSafetyPage`) ยังเป็น mock 100% เหมือนเดิม — เป็นงานแยกต่างหาก
+เทียบเท่ากับเมนู mock ที่เหลือของครู (คลังข้อสอบ/คลังความรู้/G-Score confirm ฯลฯ)
+
+**เก็บกวาดพ่วง**: ลบโค้ดตาย `_Academy*`/`_ModeChip`/`_LabPatternPainter`
+(~1,600 บรรทัด ไม่เคยถูกเรียกใช้จริง) ออกจาก
+`student_redesign_prototype_page.dart`, ลบ import ที่ไม่ได้ใช้ทั้ง 2 จุดที่
+ระบุไว้ข้างบนแล้ว
+
+Variant B/C/D ยังอยู่ครบ เข้าดูเปรียบเทียบได้ผ่าน
+`/prototype/student-redesign?variant=X` เหมือนเดิม (ไม่ใช่ตัวจริงอีกต่อไป)
+

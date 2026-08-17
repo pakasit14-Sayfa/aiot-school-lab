@@ -2,8 +2,50 @@ import 'package:flutter/material.dart';
 import 'student_redesign_palette.dart';
 import 'student_assignments_page.dart';
 
+class UpcomingTask {
+  const UpcomingTask({
+    required this.title,
+    required this.courseLabel,
+    required this.dueAt,
+  });
+
+  final String title;
+  final String courseLabel;
+  final DateTime dueAt;
+}
+
 class AcademyTasksDueCard extends StatelessWidget {
-  const AcademyTasksDueCard({super.key});
+  const AcademyTasksDueCard({super.key, required this.tasks});
+
+  /// Top upcoming (by dueAt) published assignments across all courses —
+  /// caller already limits this to a small number (e.g. 3).
+  final List<UpcomingTask> tasks;
+
+  static ({Color color, Color bg}) _urgencyFor(DateTime dueAt) {
+    final hoursLeft = dueAt.difference(DateTime.now()).inHours;
+    if (hoursLeft <= 24) {
+      return (color: const Color(0xFFE11D48), bg: const Color(0xFFFFE4E6));
+    }
+    if (hoursLeft <= 72) {
+      return (color: const Color(0xFFEA580C), bg: const Color(0xFFFFEDD5));
+    }
+    return (color: const Color(0xFF0284C7), bg: const Color(0xFFE0F2FE));
+  }
+
+  static String _formatDue(DateTime dueAt) {
+    final now = DateTime.now();
+    final diff = dueAt.difference(now);
+    final sameDay =
+        dueAt.year == now.year &&
+        dueAt.month == now.month &&
+        dueAt.day == now.day;
+    final timeLabel =
+        '${dueAt.hour.toString().padLeft(2, '0')}:${dueAt.minute.toString().padLeft(2, '0')} น.';
+    if (diff.isNegative) return 'เลยกำหนดส่งแล้ว';
+    if (sameDay) return 'ส่งวันนี้ $timeLabel';
+    if (diff.inDays <= 1) return 'ส่งพรุ่งนี้ $timeLabel';
+    return 'กำหนดส่งอีก ${diff.inDays} วัน';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,52 +79,50 @@ class AcademyTasksDueCard extends StatelessWidget {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Text(
-                    'ดูทั้งหมด (3)',
-                    style: TextStyle(
+                    'ดูทั้งหมด (${tasks.length})',
+                    style: const TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 12.5,
                     ),
                   ),
-                  SizedBox(width: 2),
-                  Icon(Icons.chevron_right_rounded, size: 16),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.chevron_right_rounded, size: 16),
                 ],
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        const TaskItemTile(
-          title: 'ใบงานทดลอง AIoT เซนเซอร์วัดแสง',
-          subject: 'วิชา AIoT สมาร์ตแล็บ (ม.5/1)',
-          dueDate: 'ส่งวันนี้ 16:30 น. (เหลือ 3 ชม.)',
-          urgencyColor: Color(0xFFE11D48),
-          urgencyBg: Color(0xFFFFE4E6),
-          subjectIcon: Icons.memory_rounded,
-          navigateToCourses: true,
-        ),
-        const SizedBox(height: 10),
-        const TaskItemTile(
-          title: 'สรุปผลกิจกรรมการวัดค่า PM2.5 ในห้องเรียน',
-          subject: 'วิชา วิทยาศาสตร์กายภาพ',
-          dueDate: 'ส่งวันนี้ ภายใน 23:59 น.',
-          urgencyColor: Color(0xFFEA580C),
-          urgencyBg: Color(0xFFFFEDD5),
-          subjectIcon: Icons.science_rounded,
-          navigateToCourses: true,
-        ),
-        const SizedBox(height: 10),
-        const TaskItemTile(
-          title: 'แบบฝึกหัดทบทวนบทที่ 3 การวิเคราะห์ข้อมูล',
-          subject: 'วิชา คณิตศาสตร์เพิ่มเติม',
-          dueDate: 'กำหนดส่ง พรุ่งนี้ 12:00 น.',
-          urgencyColor: Color(0xFF0284C7),
-          urgencyBg: Color(0xFFE0F2FE),
-          subjectIcon: Icons.calculate_rounded,
-          navigateToCourses: true,
-        ),
+        if (tasks.isEmpty)
+          const SoftCard(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'ไม่มีงานใกล้ครบกำหนดตอนนี้',
+              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
+            ),
+          )
+        else
+          for (var i = 0; i < tasks.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                final task = tasks[i];
+                final urgency = _urgencyFor(task.dueAt);
+                return TaskItemTile(
+                  title: task.title,
+                  subject: task.courseLabel,
+                  dueDate: _formatDue(task.dueAt),
+                  urgencyColor: urgency.color,
+                  urgencyBg: urgency.bg,
+                  subjectIcon: Icons.assignment_rounded,
+                  navigateToCourses: true,
+                );
+              },
+            ),
+          ],
         const SizedBox(height: 4),
       ],
     );

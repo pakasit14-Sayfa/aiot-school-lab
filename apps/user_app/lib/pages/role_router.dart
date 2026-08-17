@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../pages/login_page.dart';
-import 'student_redesign_prototype/student_redesign_prototype_page.dart';
+import 'student_home_page/student_home_page_widget.dart';
 import 'teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
 import 'facility_redesign_prototype/facility_storybook_page.dart';
 import 'dashboard/school_admin_dashboard.dart';
@@ -28,16 +28,16 @@ class RoleRouter extends StatelessWidget {
 
     switch (user.role) {
       case UserRole.student:
-        // 2026-08-17: เดิมใช้ StudentMainNav ครอบ (nav 4 แท็บของตัวเอง) แล้ว
-        // ให้แท็บแรกเป็น StudentRedesignPrototypePage ซึ่งแต่ละ variant มี
-        // Scaffold+bottom nav ของตัวเองอยู่แล้ว ผลคือซ้อนกัน 2 แถบ ผู้ใช้
-        // ยืนยันให้ตัดแถบเก่าของ StudentMainNav ออก ใช้หน้าพรีเมียม (variant D)
-        // เป็นหน้าแรกทั้งหมดแทนไปเลย — ข้อควรรู้: เมนู "รายวิชา"/"ผลการเรียน"
-        // เดิมที่ StudentMainNav เชื่อม backend จริงไว้แล้ว (CourseService/
-        // GradeService) ยังไม่ได้ต่อเข้ากับเมนูของหน้าพรีเมียม ต้องทำเพิ่ม
-        return const StudentRedesignPrototypePage(
-          initialVariant: StudentPrototypeVariant.d,
-        );
+        // 2026-08-17: เดิมใช้ StudentMainNav ครอบ StudentRedesignPrototypePage
+        // (variant D) เป็นหน้าแรก แต่พบว่า student_home_page_widget.dart
+        // (StudentHomePageWidget) มีคอมเมนต์ระบุไว้แต่แรกว่าเป็น "Official
+        // Production Page" ที่เลือก variant A (StudentVariantSchoolHome) เป็น
+        // ตัวจริงแล้ว และเริ่มต่อ CourseService/RealtimeService ไว้บางส่วน
+        // (แต่ผลลัพธ์ถูกทิ้ง ไม่ได้เอาไปแสดงจริง) แต่ไม่เคยถูกเชื่อมเข้า
+        // RoleRouter เลย ผู้ใช้ยืนยันให้ใช้ตัวนี้เป็นหน้าแรกนักเรียนแทน
+        // variant D — ดู student_redesign_prototype/NOTES.md สำหรับ
+        // รายละเอียดจุดที่ยังเป็น mock/ตัดออกระหว่างเชื่อมข้อมูลจริง
+        return const StudentHomePageWidget();
       case UserRole.teacher:
         return const TeacherRedesignPrototypePage();
       case UserRole.facilityManager:

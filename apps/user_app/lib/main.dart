@@ -97,6 +97,14 @@ class MyApp extends StatelessWidget {
         '/prototype/teacher-courses/detail': (context) =>
             const TeacherCourseDetailPage(),
         '/prototype/courses': (context) => const TeacherCoursesPage(),
+        '/prototype/student-catalog': (context) =>
+            const StudentCourseCatalogPage(),
+        '/prototype/student-catalog-carousel': (context) =>
+            const StudentCourseCatalogCarouselPage(),
+        '/prototype/student-catalog-minimal': (context) =>
+            const StudentCourseCatalogMinimalPage(),
+        '/prototype/student-catalog-streaming': (context) =>
+            const StudentCourseCatalogStreamingPage(),
       },
       onGenerateRoute: (settings) {
         final name = settings.name;

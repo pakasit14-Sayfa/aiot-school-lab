@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../aiot_dashboard_page.dart';
 import 'student_redesign_palette.dart';
 
@@ -6,6 +7,24 @@ class AiotWeatherSensorsCard extends StatelessWidget {
   const AiotWeatherSensorsCard({super.key, this.height});
 
   final double? height;
+
+  static ({String subtitle, String level}) _pm25Status(double v) {
+    if (v <= 25) return (subtitle: 'สภาพอากาศดีมาก', level: 'ปกติ');
+    if (v <= 50) return (subtitle: 'สภาพอากาศปานกลาง', level: 'ปกติ');
+    return (subtitle: 'ฝุ่นสูง ควรระวัง', level: 'ไม่ปลอดภัย');
+  }
+
+  static ({String subtitle, String level}) _tempStatus(double v) {
+    if (v >= 20 && v <= 30) return (subtitle: 'อุณหภูมิกำลังดี', level: 'ปกติ');
+    return (subtitle: 'อุณหภูมิสูง/ต่ำกว่าปกติ', level: 'ไม่ปลอดภัย');
+  }
+
+  static ({String subtitle, String level}) _humidityStatus(double v) {
+    if (v >= 40 && v <= 70) {
+      return (subtitle: 'สภาพแวดล้อมเหมาะสม', level: 'ปกติ');
+    }
+    return (subtitle: 'ความชื้นสูง/ต่ำกว่าปกติ', level: 'ไม่ปลอดภัย');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,40 +66,62 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            const AiotSensorItemTile(
-              icon: Icons.air_rounded,
-              title: 'ฝุ่น PM2.5 (ห้องเรียนปลอดภัย)',
-              value: '18',
-              unit: 'µg/m³',
-              subtitle: 'สภาพอากาศดีมาก',
-              level: 'ปกติ',
-              showDivider: true,
-            ),
-            const AiotSensorItemTile(
-              icon: Icons.thermostat_rounded,
-              title: 'อุณหภูมิห้องเรียน',
-              value: '28.5',
-              unit: '°C',
-              subtitle: 'อบอุ่นกำลังดี',
-              level: 'ปกติ',
-              showDivider: true,
-            ),
-            const AiotSensorItemTile(
-              icon: Icons.water_drop_rounded,
-              title: 'ความชื้นสัมพัทธ์',
-              value: '62',
-              unit: '%RH',
-              subtitle: 'สภาพแวดล้อมเหมาะสม',
-              level: 'ปกติ',
-              showDivider: true,
-            ),
-            const AiotSensorItemTile(
-              icon: Icons.wb_sunny_rounded,
-              title: 'ดัชนีรังสี UV',
-              value: 'UV 6',
-              subtitle: 'เฝ้าระวังแสงแดดจัด',
-              level: 'ไม่ปลอดภัย',
-              showDivider: false,
+            StreamBuilder<SensorModel?>(
+              stream: RealtimeService.sensorStream(
+                schoolId: currentUserModel?.schoolId ?? '',
+                building: '',
+                floor: '',
+                room: '',
+              ),
+              builder: (context, snapshot) {
+                final sensor = snapshot.data;
+                if (sensor == null || sensor.updatedAt == null) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'ยังไม่มีข้อมูลเซนเซอร์จากอุปกรณ์ในโรงเรียน',
+                      style: TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  );
+                }
+                final pm25 = _pm25Status(sensor.pm25);
+                final temp = _tempStatus(sensor.temperature);
+                final humidity = _humidityStatus(sensor.humidity);
+                return Column(
+                  children: [
+                    AiotSensorItemTile(
+                      icon: Icons.air_rounded,
+                      title: 'ฝุ่น PM2.5 (เซนเซอร์ในโรงเรียน)',
+                      value: sensor.pm25.toStringAsFixed(0),
+                      unit: 'µg/m³',
+                      subtitle: pm25.subtitle,
+                      level: pm25.level,
+                      showDivider: true,
+                    ),
+                    AiotSensorItemTile(
+                      icon: Icons.thermostat_rounded,
+                      title: 'อุณหภูมิ (เซนเซอร์ในโรงเรียน)',
+                      value: sensor.temperature.toStringAsFixed(1),
+                      unit: '°C',
+                      subtitle: temp.subtitle,
+                      level: temp.level,
+                      showDivider: true,
+                    ),
+                    AiotSensorItemTile(
+                      icon: Icons.water_drop_rounded,
+                      title: 'ความชื้นสัมพัทธ์',
+                      value: sensor.humidity.toStringAsFixed(0),
+                      unit: '%RH',
+                      subtitle: humidity.subtitle,
+                      level: humidity.level,
+                      showDivider: false,
+                    ),
+                  ],
+                );
+              },
             ),
             if (height != null) const Spacer() else const SizedBox(height: 22),
             SizedBox(

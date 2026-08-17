@@ -10,7 +10,14 @@ import 'student_pretest_posttest_page.dart';
 import '../student_safety_page.dart';
 
 class AcademyQuickActions extends StatelessWidget {
-  const AcademyQuickActions({super.key});
+  const AcademyQuickActions({
+    super.key,
+    required this.lessonCount,
+    required this.dueAssignmentCount,
+  });
+
+  final int lessonCount;
+  final int dueAssignmentCount;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +74,7 @@ class AcademyQuickActions extends StatelessWidget {
               AcademyActionTile(
                 icon: Icons.menu_book_rounded,
                 title: 'บทเรียน',
-                subtitle: 'เรียนต่อ 5 บท',
+                subtitle: '$lessonCount บทเรียนทั้งหมด',
                 color: const Color(0xFF0284C7),
                 bgTint: const Color(0xFFF0F9FF),
                 onTap: () {
@@ -82,8 +89,12 @@ class AcademyQuickActions extends StatelessWidget {
               AcademyActionTile(
                 icon: Icons.assignment_rounded,
                 title: 'ใบงาน',
-                subtitle: '2 งานด่วน',
-                badgeCount: '2',
+                subtitle: dueAssignmentCount > 0
+                    ? '$dueAssignmentCount งานใกล้ครบกำหนด'
+                    : 'ไม่มีงานใกล้ครบกำหนด',
+                badgeCount: dueAssignmentCount > 0
+                    ? '$dueAssignmentCount'
+                    : null,
                 color: const Color(0xFFEA580C),
                 bgTint: const Color(0xFFFFF7ED),
                 onTap: () {

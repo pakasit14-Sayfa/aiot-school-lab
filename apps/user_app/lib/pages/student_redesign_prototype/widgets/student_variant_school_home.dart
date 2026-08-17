@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../notifications_page.dart';
-import '../../../widgets/course_card.dart';
 import 'student_redesign_palette.dart';
 import 'aiot_weather_sensors_card.dart';
 import 'school_encouragement_card.dart';
@@ -9,7 +8,6 @@ import 'academy_quick_actions.dart';
 import 'academy_continue_learning_card.dart';
 import 'academy_tasks_due_card.dart';
 import 'learning_progress_card.dart';
-import 'student_course_catalog_page.dart';
 
 class StudentVariantSchoolHome extends StatefulWidget {
   const StudentVariantSchoolHome({super.key, this.onViewScore});
@@ -25,164 +23,144 @@ class StudentVariantSchoolHome extends StatefulWidget {
 }
 
 class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
-  final List<Map<String, String>> _activeSafetyAlerts = [
-    {
-      'id': 'ALT-101',
-      'title': 'แจ้งเตือนฝันตกสะสมและน้ำขังผิวถนน ⚠️',
-      'content':
-          'หลีกเลี่ยงการสัญจรบริเวณด้านหลังอาคาร 4 และใกล้สระน้ำ เนื่องจากกระเบื้องลื่นและอาจเกิดการลื่นล้มได้ง่าย',
-      'area': 'หลังอาคาร 4',
-    },
-    {
-      'id': 'ALT-102',
-      'title': 'ประกาศซ้อมหนีไฟและฝึกซ้อมความปลอดภัย 🔥',
-      'content':
-          'ขอให้นักเรียนทุกคนศึกษาจุดรวมพลของอาคารเรียนตนเอง คาบเรียนที่ 7 จะมีการจำลองซ้อมสัญญาณอพยพหนีไฟ',
-      'area': 'ทุกอาคารเรียน',
-    },
-  ];
+  bool _loading = true;
+  String? _error;
 
-  Widget _buildSafetyAlertBanner() {
-    if (_activeSafetyAlerts.isEmpty) {
-      return const SizedBox.shrink();
-    }
+  int _lessonCount = 0;
+  int _submittedCount = 0;
+  int _totalAssignments = 0;
+  String? _continueCourseLabel;
+  String? _continueLessonTitle;
+  double _continueProgress = 0;
+  int _continuePublished = 0;
+  int _continueTotal = 0;
+  List<UpcomingTask> _upcomingTasks = const [];
+  double _avgGradePercent = 0;
+  int _gradedCourseCount = 0;
+  AppNotification? _latestNotification;
 
-    final alert = _activeSafetyAlerts.first;
+  @override
+  void initState() {
+    super.initState();
+    _loadRealData();
+  }
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0C0F172A),
-            blurRadius: 16,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              color: const Color(0xFFFEF3C7),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Color(0xFFD97706),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'ประกาศความปลอดภัยด่วน 🚨',
-                      style: TextStyle(
-                        color: Color(0xFFB45309),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD97706),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'พื้นที่: ${alert['area']}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    alert['title']!,
-                    style: const TextStyle(
-                      color: Color(0xFF1E293B),
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    alert['content']!,
-                    style: const TextStyle(
-                      color: Color(0xFF475569),
-                      fontSize: 12.0,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Align แทน Row(mainAxisAlignment: end) — Row เดี่ยวแบบ
-                  // นี้เจอ BoxConstraints ความกว้างไม่จำกัดในบาง layout
-                  // (เช่น sidebar เดสก์ท็อป) ทำให้ทั้งหน้าพังแบบเงียบ ๆ ใน
-                  // release build (ไม่มี assert เตือนเหมือน debug)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD97706),
-                        foregroundColor: Colors.white,
-                        elevation: 2,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _activeSafetyAlerts.removeAt(0);
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'รับทราบประกาศความปลอดภัยเรียบร้อยแล้ว',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'รับทราบประกาศ',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+  Future<void> _loadRealData() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        CourseService.listMyCourses(),
+        GradeService.listMyGrades(),
+        NotificationService.listMyNotifications(),
+      ]);
+      final courses = (results[0] as List<CourseSummary>)
+          .where((c) => c.isActive)
+          .toList();
+      final grades = results[1] as List<CourseGrade>;
+      final notifications = results[2] as List<AppNotification>;
+
+      final lessonLists = await Future.wait(
+        courses.map((c) => LessonService.listLessons(c.id)),
+      );
+      final assignmentLists = await Future.wait(
+        courses.map((c) => AssignmentService.listAssignments(c.id)),
+      );
+
+      var lessonCount = 0;
+      String? continueCourseLabel;
+      String? continueLessonTitle;
+      var continuePublished = 0;
+      var continueTotal = 0;
+      DateTime? latestPublishedAt;
+      for (var i = 0; i < courses.length; i++) {
+        final course = courses[i];
+        final lessons = lessonLists[i];
+        final published = lessons.where((l) => l.isPublished).toList();
+        lessonCount += published.length;
+        for (final lesson in published) {
+          final publishedAt = lesson.publishedAt;
+          if (publishedAt != null &&
+              (latestPublishedAt == null ||
+                  publishedAt.isAfter(latestPublishedAt))) {
+            latestPublishedAt = publishedAt;
+            continueCourseLabel = course.gradeLevel != null
+                ? '${course.subjectName} • ${course.gradeLevel}'
+                : course.subjectName;
+            continueLessonTitle = lesson.title;
+            continuePublished = published.length;
+            continueTotal = lessons.length;
+          }
+        }
+      }
+      final continueProgress = continueTotal == 0
+          ? 0.0
+          : continuePublished / continueTotal;
+
+      final publishedAssignments = <(AssignmentSummary, CourseSummary)>[];
+      for (var i = 0; i < courses.length; i++) {
+        for (final a in assignmentLists[i].where((a) => a.isPublished)) {
+          publishedAssignments.add((a, courses[i]));
+        }
+      }
+
+      final submissionChecks = await Future.wait(
+        publishedAssignments.map(
+          (e) => AssignmentService.listMySubmissionVersions(e.$1.id),
         ),
-      ),
-    );
+      );
+
+      var submittedCount = 0;
+      final upcoming = <UpcomingTask>[];
+      for (var i = 0; i < publishedAssignments.length; i++) {
+        final submitted = submissionChecks[i].isNotEmpty;
+        if (submitted) submittedCount++;
+        final (assignment, course) = publishedAssignments[i];
+        final dueAt = assignment.dueAt;
+        if (!submitted && dueAt != null) {
+          upcoming.add(
+            UpcomingTask(
+              title: assignment.title,
+              courseLabel: course.subjectName,
+              dueAt: dueAt,
+            ),
+          );
+        }
+      }
+      upcoming.sort((a, b) => a.dueAt.compareTo(b.dueAt));
+
+      final avgPercent = grades.isEmpty
+          ? 0.0
+          : grades.map((g) => g.percent).reduce((a, b) => a + b) /
+                grades.length;
+
+      if (!mounted) return;
+      setState(() {
+        _lessonCount = lessonCount;
+        _submittedCount = submittedCount;
+        _totalAssignments = publishedAssignments.length;
+        _continueCourseLabel = continueCourseLabel;
+        _continueLessonTitle = continueLessonTitle;
+        _continueProgress = continueProgress;
+        _continuePublished = continuePublished;
+        _continueTotal = continueTotal;
+        _upcomingTasks = upcoming.take(3).toList();
+        _avgGradePercent = avgPercent;
+        _gradedCourseCount = grades.length;
+        _latestNotification = notifications.isEmpty
+            ? null
+            : notifications.first;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -208,23 +186,31 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildPrototypeBanner(context),
-                    const SizedBox(height: 12),
-                    _buildSafetyAlertBanner(),
                     _buildHeroHeader(context),
-                    const SizedBox(height: 16),
-                    const StudentHomeroomUtilityCard(),
                     SizedBox(height: afterSummaryGap),
+                    if (_error != null) ...[
+                      _buildErrorBanner(context),
+                      SizedBox(height: sectionGap),
+                    ],
                     _buildTopSectionGrid(
                       context,
                       onViewScore: widget.onViewScore,
                     ),
                     SizedBox(height: sectionGap),
-                    const AcademyQuickActions(),
+                    AcademyQuickActions(
+                      lessonCount: _lessonCount,
+                      dueAssignmentCount: _upcomingTasks.length,
+                    ),
                     SizedBox(height: sectionGap),
-                    const AcademyContinueLearningCard(),
+                    AcademyContinueLearningCard(
+                      courseLabel: _continueCourseLabel,
+                      lessonTitle: _continueLessonTitle,
+                      progress: _continueProgress,
+                      publishedLessonCount: _continuePublished,
+                      totalLessonCount: _continueTotal,
+                    ),
                     SizedBox(height: sectionGap),
-                    const AcademyTasksDueCard(),
+                    AcademyTasksDueCard(tasks: _upcomingTasks),
                     SizedBox(height: sectionGap),
                     _buildAnnouncementsCard(context),
                     const SizedBox(height: 24),
@@ -238,32 +224,36 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
     );
   }
 
-  Widget _buildPrototypeBanner(BuildContext context) {
+  Widget _buildErrorBanner(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFDBA74), width: 1.0),
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
       ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Icon(Icons.science_rounded, size: 15, color: Color(0xFFEA580C)),
-          SizedBox(width: 6),
-          Flexible(
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(
-              '🧪 โต๊ะลองงาน (PROTOTYPE SANDBOX) · Variant A',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Color(0xFFC2410C),
-                fontSize: 11.5,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.3,
+              _error!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
             ),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _loadRealData,
+            child: const Text('ลองใหม่'),
           ),
         ],
       ),
@@ -362,7 +352,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      'สายฟ้า!',
+                      '${currentUserModel?.name ?? 'นักเรียน'}!',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -396,7 +386,14 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                     maxWidth: isCompact ? 304 : 360,
                     minWidth: isCompact ? 288 : 328,
                   ),
-                  child: const LearningProgressCard(),
+                  child: LearningProgressCard(
+                    progress: _totalAssignments == 0
+                        ? 0
+                        : _submittedCount / _totalAssignments,
+                    lessonCount: _lessonCount,
+                    submittedCount: _submittedCount,
+                    totalAssignments: _totalAssignments,
+                  ),
                 ),
               ),
             ],
@@ -421,7 +418,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
             children: [
               const AiotWeatherSensorsCard(),
               const SizedBox(height: 16),
-              AcademyLearningScoreCard(onTap: onViewScore),
+              AcademyLearningScoreCard(
+                onTap: onViewScore,
+                avgPercent: _avgGradePercent,
+                gradedCourseCount: _gradedCourseCount,
+              ),
               const SizedBox(height: 16),
               const SchoolEncouragementCard(),
             ],
@@ -448,7 +449,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                 children: [
                   SizedBox(
                     height: scoreCardHeight,
-                    child: AcademyLearningScoreCard(onTap: onViewScore),
+                    child: AcademyLearningScoreCard(
+                      onTap: onViewScore,
+                      avgPercent: _avgGradePercent,
+                      gradedCourseCount: _gradedCourseCount,
+                    ),
                   ),
                   SizedBox(height: columnGap),
                   SizedBox(
@@ -466,7 +471,16 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
     );
   }
 
+  static String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'เมื่อสักครู่';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
+    if (diff.inHours < 24) return '${diff.inHours} ชั่วโมงที่แล้ว';
+    return '${diff.inDays} วันที่แล้ว';
+  }
+
   Widget _buildAnnouncementsCard(BuildContext context) {
+    final notification = _latestNotification;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -512,451 +526,116 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
           ],
         ),
         const SizedBox(height: 10),
-        InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NotificationsPage()),
-            );
-          },
-          child: SoftCard(
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7C3AED),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x337C3AED),
-                        blurRadius: 6,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+        if (notification == null)
+          const SoftCard(
+            padding: EdgeInsets.all(16),
+            child: Text(
+              'ยังไม่มีประกาศ',
+              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
+            ),
+          )
+        else
+          InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsPage()),
+              );
+            },
+            child: SoftCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x337C3AED),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.campaign_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.campaign_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'แจ้งเตือนย้ายห้องเรียนชั่วคราว',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: SchoolPalette.ink,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13.5,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                notification.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: SchoolPalette.ink,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13.5,
+                                ),
                               ),
                             ),
-                          ),
+                            Text(
+                              _timeAgo(notification.createdAt),
+                              style: const TextStyle(
+                                color: SchoolPalette.muted,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (notification.body != null) ...[
+                          const SizedBox(height: 4),
                           Text(
-                            '10 นาทีที่แล้ว',
-                            style: TextStyle(
+                            notification.body!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
                               color: SchoolPalette.muted,
-                              fontSize: 11,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'เนื่องจากมีการซ่อมบำรุงเซนเซอร์ AIoT ในห้องแล็บ 2 วันนี้ ให้เปลี่ยนไปใช้ห้องแล็บ 1 อาคารวิทยาศาสตร์แทนครับ',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: SchoolPalette.muted,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// การ์ด "การใช้น้ำ-ไฟ" ของห้องเรียนประจำของนักเรียน — พอร์ตมาจาก
-/// storybook ("Card 8: Homeroom Utility 2-Line Chart") แต่รวมเส้นไฟฟ้า
-/// (ส้ม) กับน้ำ (ฟ้า) เป็นเส้นเดียวแสดง "ระดับคะแนน" แทนตัวเลขดิบ เพราะ
-/// นักเรียนควรเห็นแค่ระดับ ไม่ต้องเห็นตัวเลข kWh/m³ แยกแบบที่ครูเห็น
-/// (คนละการ์ดกับ AiotBuildingResourceChartCard ด้านบนที่โชว์คะแนนรวม
-/// ทั้งอาคาร ใบนี้คือคะแนนเฉพาะห้องเรียนของนักเรียนเอง) ข้อมูลเป็น mock
-class StudentHomeroomUtilityCard extends StatefulWidget {
-  const StudentHomeroomUtilityCard({super.key});
-
-  @override
-  State<StudentHomeroomUtilityCard> createState() =>
-      _StudentHomeroomUtilityCardState();
-}
-
-class _StudentHomeroomUtilityCardState
-    extends State<StudentHomeroomUtilityCard> {
-  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
-  // คะแนนรวมไฟฟ้า+น้ำต่อวันของห้องเรียน (mock) — ไล่ตามทิศทางเดียวกับ
-  // ตัวเลขดิบฝั่งครู (ไฟ 26/24/30/28/34 kWh, น้ำ 0.6/0.5/0.7/0.6/0.8 m³)
-  // คือใช้เยอะขึ้นช่วงกลาง-ปลายสัปดาห์ ยิ่งใช้เยอะ คะแนนยิ่งต่ำ
-  static const _scoreByDay = [72.0, 82.0, 58.0, 65.0, 45.0];
-
-  int _selectedDayIdx = 4; // ศ. (ค่าล่าสุด)
-
-  static Color _levelColor(double score) {
-    if (score >= 75) return const Color(0xFF16A34A);
-    if (score >= 50) return const Color(0xFFD97706);
-    return const Color(0xFFDC2626);
-  }
-
-  static String _levelLabel(double score) {
-    if (score >= 75) return 'ประหยัดดีเยี่ยม 🏆';
-    if (score >= 50) return 'ปานกลาง ⚠️';
-    return 'ควรปรับปรุง 🔴';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedScore = _scoreByDay[_selectedDayIdx];
-    final levelColor = _levelColor(selectedScore);
-
-    final barData = LineChartBarData(
-      spots: [
-        for (var i = 0; i < _scoreByDay.length; i++)
-          FlSpot(i.toDouble(), _scoreByDay[i]),
-      ],
-      isCurved: true,
-      gradient: const LinearGradient(
-        colors: [Color(0xFFF97316), Color(0xFF0EA5E9)],
-      ),
-      barWidth: 4,
-      isStrokeCapRound: true,
-      dotData: const FlDotData(show: true),
-      belowBarData: BarAreaData(
-        show: true,
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFFEDD5).withValues(alpha: 0.4),
-            const Color(0xFFE0F2FE).withValues(alpha: 0.1),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-    );
-
-    return SoftCard(
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFFF7ED), Color(0xFFF0F9FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.bolt_rounded,
-                      size: 16,
-                      color: Color(0xFFF97316),
-                    ),
-                    SizedBox(width: 2),
-                    Icon(
-                      Icons.water_drop_rounded,
-                      size: 15,
-                      color: Color(0xFF0EA5E9),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'การใช้น้ำ-ไฟของห้องเรียนฉัน',
-                      style: TextStyle(
-                        color: SchoolPalette.ink,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    SizedBox(height: 1),
-                    Text(
-                      'รวมเป็นคะแนนเดียว (ยิ่งสูง ยิ่งประหยัดดี)',
-                      style: TextStyle(
-                        color: SchoolPalette.muted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${selectedScore.toStringAsFixed(0)} คะแนน',
-                    style: TextStyle(
-                      color: levelColor,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    'ระดับ: ${_levelLabel(selectedScore)}',
-                    style: TextStyle(
-                      color: levelColor,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
+                      ],
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 120,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  getDrawingHorizontalLine: (value) =>
-                      FlLine(color: const Color(0xFFE2E8F0), strokeWidth: 1),
-                ),
-                titlesData: FlTitlesData(
-                  show: true,
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 95,
-                      getTitlesWidget: (value, meta) {
-                        final valInt = value.toInt();
-                        if (valInt == 100) {
-                          return const Text(
-                            '100 (ประหยัดมาก)',
-                            style: TextStyle(
-                              color: Color(0xFF16A34A),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 9.5,
-                            ),
-                          );
-                        } else if (valInt == 75) {
-                          return const Text(
-                            '75 (ประหยัดดี)',
-                            style: TextStyle(
-                              color: SchoolPalette.muted,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 9.5,
-                            ),
-                          );
-                        } else if (valInt == 50) {
-                          return const Text(
-                            '50 (ปานกลาง)',
-                            style: TextStyle(
-                              color: SchoolPalette.muted,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 9.5,
-                            ),
-                          );
-                        } else if (valInt == 25) {
-                          return const Text(
-                            '25 (ใช้ไฟเยอะ)',
-                            style: TextStyle(
-                              color: Color(0xFFEA580C),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 9.5,
-                            ),
-                          );
-                        } else if (valInt == 0) {
-                          return const Text(
-                            '0 (ใช้เยอะมาก)',
-                            style: TextStyle(
-                              color: Color(0xFFE11D48),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 9.5,
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                  bottomTitles: const AxisTitles(
-                    // ซ่อนป้ายวันของกราฟเอง ใช้แถวปุ่มแตะได้ด้านล่างแทน
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                minX: 0,
-                maxX: 4,
-                minY: 0,
-                maxY: 100,
-                lineBarsData: [barData],
-                lineTouchData: LineTouchData(
-                  enabled: true,
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipColor: (spot) => _levelColor(spot.y),
-                    tooltipRoundedRadius: 10,
-                    fitInsideVertically: true,
-                    fitInsideHorizontally: true,
-                    getTooltipItems: (spots) => spots.map((spot) {
-                      final idx = spot.x.toInt();
-                      return LineTooltipItem(
-                        '${_days[idx]} • ${spot.y.toStringAsFixed(0)} คะแนน',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  touchCallback: (event, response) {
-                    final spot = response?.lineBarSpots?.firstOrNull;
-                    if (spot == null) return;
-                    final idx = spot.x.toInt();
-                    if (idx != _selectedDayIdx) {
-                      setState(() => _selectedDayIdx = idx);
-                    }
-                  },
-                  getTouchedSpotIndicator: (bar, indexes) => indexes
-                      .map(
-                        (index) => TouchedSpotIndicatorData(
-                          FlLine(
-                            color: _levelColor(bar.spots[index].y),
-                            strokeWidth: 1.5,
-                            dashArray: [4, 4],
-                          ),
-                          FlDotData(
-                            getDotPainter: (spot, percent, bar, index) =>
-                                FlDotCirclePainter(
-                                  radius: 5,
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                  strokeColor: _levelColor(spot.y),
-                                ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-                showingTooltipIndicators: [
-                  ShowingTooltipIndicators([
-                    LineBarSpot(barData, 0, barData.spots[_selectedDayIdx]),
-                  ]),
-                ],
-              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: List.generate(_days.length, (idx) {
-              final isSelected = idx == _selectedDayIdx;
-              final dayColor = _levelColor(_scoreByDay[idx]);
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedDayIdx = idx),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? dayColor.withValues(alpha: 0.12)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _days[idx],
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: isSelected
-                            ? FontWeight.w900
-                            : FontWeight.w700,
-                        color: isSelected ? dayColor : SchoolPalette.muted,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFEFF4F8)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.tips_and_updates_rounded,
-                color: Color(0xFF16A34A),
-                size: 13,
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text(
-                  'คิดจากปริมาณน้ำและไฟที่ห้องใช้จริง ยิ่งใช้น้อย คะแนนยิ่งสูงขึ้น! 💡',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.green[800],
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
 
 class AcademyLearningScoreCard extends StatelessWidget {
-  const AcademyLearningScoreCard({super.key, this.onTap});
+  const AcademyLearningScoreCard({
+    super.key,
+    this.onTap,
+    required this.avgPercent,
+    required this.gradedCourseCount,
+  });
 
-  /// Opens the full "คะแนน" page with subject grades, trend, and badges.
+  /// Opens the full "คะแนน" page — still mock/out of scope this pass.
   final VoidCallback? onTap;
+
+  /// Real average from GradeService.listMyGrades(). G-Score/GPA/badges have
+  /// no backend anywhere in the system (checked shared_core services) so
+  /// this card shows the one real grade metric available instead.
+  final double avgPercent;
+  final int gradedCourseCount;
 
   @override
   Widget build(BuildContext context) {
@@ -985,7 +664,7 @@ class AcademyLearningScoreCard extends StatelessWidget {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'คะแนนและผลการเรียน G-Score (ภาคเรียนที่ 1/2569)',
+                  'คะแนนและผลการเรียน',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -1005,80 +684,37 @@ class AcademyLearningScoreCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 520;
-              const tiles = [
-                LearningScoreTile(
-                  icon: Icons.military_tech_rounded,
-                  label: 'คะแนน G-Score รวม',
-                  value: '92 / 100',
-                  status: 'ระดับดีเยี่ยม',
-                  color: Color(0xFF0284C7),
-                  bgTint: Color(0xFFE0F2FE),
+          if (gradedCourseCount == 0)
+            const Text(
+              'ยังไม่มีคะแนนที่ยืนยันแล้ว',
+              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: LearningScoreTile(
+                    icon: Icons.military_tech_rounded,
+                    label: 'คะแนนเฉลี่ยทุกวิชา',
+                    value: '${avgPercent.toStringAsFixed(0)}%',
+                    status: avgPercent >= 80 ? 'ระดับดีเยี่ยม' : 'ระดับปกติ',
+                    color: const Color(0xFF0284C7),
+                    bgTint: const Color(0xFFE0F2FE),
+                  ),
                 ),
-                LearningScoreTile(
-                  icon: Icons.grade_rounded,
-                  label: 'เกรดเฉลี่ยสะสม',
-                  value: 'GPA 3.85',
-                  status: 'เกียรตินิยม',
-                  color: Color(0xFFEA580C),
-                  bgTint: Color(0xFFFFEDD5),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LearningScoreTile(
+                    icon: Icons.grade_rounded,
+                    label: 'รายวิชาที่มีคะแนน',
+                    value: '$gradedCourseCount วิชา',
+                    status: 'ยืนยันแล้ว',
+                    color: const Color(0xFF059669),
+                    bgTint: const Color(0xFFD1FAE5),
+                  ),
                 ),
-                LearningScoreTile(
-                  icon: Icons.assignment_turned_in_rounded,
-                  label: 'ภาระงานที่ส่งแล้ว',
-                  value: '18 / 20 งาน',
-                  status: 'ส่งครบ 100%',
-                  color: Color(0xFF059669),
-                  bgTint: Color(0xFFD1FAE5),
-                ),
-                LearningScoreTile(
-                  icon: Icons.emoji_events_rounded,
-                  label: 'เหรียญ & แบดจ์',
-                  value: '15 แบดจ์',
-                  status: 'ผู้เชี่ยวชาญ AIoT',
-                  color: Color(0xFFD97706),
-                  bgTint: Color(0xFFFEF3C7),
-                ),
-              ];
-
-              if (isNarrow) {
-                return Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: tiles[0]),
-                        const SizedBox(width: 8),
-                        Expanded(child: tiles[1]),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: tiles[2]),
-                        const SizedBox(width: 8),
-                        Expanded(child: tiles[3]),
-                      ],
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                children: tiles
-                    .map(
-                      (tile) => Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: tile,
-                        ),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
-          ),
+              ],
+            ),
         ],
       ),
     );
