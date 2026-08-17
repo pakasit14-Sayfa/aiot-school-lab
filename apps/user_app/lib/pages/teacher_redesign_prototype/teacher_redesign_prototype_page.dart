@@ -2454,7 +2454,7 @@ class _EmergencyAlertBanner extends StatelessWidget {
         .toList();
     if (pending.isEmpty) return const SizedBox.shrink();
 
-    final hasSos = pending.any((i) => i.category == IncidentCategory.sos);
+    final hasSos = pending.any((i) => i.category == MockIncidentCategory.sos);
     final color = hasSos ? const Color(0xFFDC2626) : const Color(0xFFD97706);
 
     return Padding(

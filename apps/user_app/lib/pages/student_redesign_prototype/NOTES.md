@@ -363,3 +363,46 @@ mock "ภาพรวมพัฒนาการ" (กราฟก่อน-ห�
 `set_class_schedule`/`remove_class_schedule` มีพร้อมแล้วรอต่อทีหลัง) — seed
 ตารางเรียนจริง 2 คาบ/สัปดาห์ (จันทร์+พฤหัส) ไว้ในวิชาจริงที่ seed.sql
 
+## ✅ Slice 3/3 — แจ้งเหตุฉุกเฉินผ่านแอป (SOS/incident report) จริงแล้ว (2026-08-18)
+
+อ้างอิงดราฟต์ที่รออนุมัติในวอลต์: `MVP-Planning/emergency-alert-app-proposal-v1.md`
+(Approach A สำหรับขอบเขตครู) — แยก entity เด็ดขาดจาก `emergency_events` (ปุ่ม
+กายภาพเดิม) นักเรียนไม่มีสิทธิ์เปิดสัญญาณฉุกเฉินโดยตรงเด็ดขาด ต้องให้ครู/แอดมิน
+"ยกระดับ" (escalate) เท่านั้น ตารางใหม่ `incident_reports`/`incident_actions` +
+RPC ใหม่ทั้งหมดใน `supabase/migrations/20260818020000_incident_reports.sql`
+(นักเรียน: get-my-room/create/list-mine/get-one · ครู/แอดมิน: list-inbox/
+acknowledge/assign/add-action/escalate/close · ผู้บริหาร/ผู้ดูแลอาคาร:
+get-summary แบบไม่ระบุตัวตน) pgTAP `19_incident_reports.test.sql` 13/13 ผ่าน —
+ครอบคลุมนักเรียนเห็นเฉพาะของตัวเอง, ครูนอกขอบเขตห้องถูกกรองตั้งแต่ query
+(ไม่ใช่แค่ซ่อนปุ่ม แม้แต่เรียก id ตรงๆ ก็ได้ `not_found`), ครูสองคนรับเรื่องพร้อม
+กัน — มีแค่คนแรกเท่านั้นที่สำเร็จ (optimistic lock), escalate สร้างแถวจริงใน
+`emergency_events`, escalated เป็นสถานะปลายทางปิดต่อไม่ได้, summary aggregate
+นับถูกต้อง
+
+**`student_safety_page.dart`**: ยังคงโครง UI เดิมทั้งหมด (ปุ่ม SOS วงกลมใหญ่ +
+ปุ่มแจ้งเหตุผิดปกติ, หน้าสรุปยืนยัน + ปุ่มกดค้าง 3 วินาทีป้องกันกดพลาด — จุดนี้
+คงไว้เป็นพิเศษเพราะเป็น UI ด้านความปลอดภัย ไม่ทำให้ง่ายขึ้นจนเสี่ยงกดพลาด) แต่
+เปลี่ยนแหล่งข้อมูลทั้งหมดเป็นของจริง — ห้องประจำตัวจริงจาก
+`get_my_student_room` (นักเรียนแก้ไขได้ก่อนส่งเหมือนเดิม), ส่งเหตุจริงผ่าน
+`create_incident_report`, ประวัติของฉันจริงจาก `list_my_incident_reports` +
+รายละเอียด/timeline จริงจาก `get_incident_report` (สร้าง timeline จาก 3
+timestamp จริงที่มี: แจ้งเหตุ/รับเรื่อง/ปิดเหตุ ไม่ใช่ log บันทึกละเอียดทุกครั้งที่
+ครูพิมพ์ note เพราะนักเรียนไม่ได้ต้องเห็นระดับนั้น) ตัดแบนเนอร์ "โหมดทดลอง UI"
+ออก และ **ตัดฟีเจอร์ "ประกาศด่วนด้านความปลอดภัย" (mock alerts) ออกทั้งหมด**
+เพราะไม่มี backend รองรับเลย (ไม่ใช่ scope ของ incident_reports และไม่มี UC
+ไหนพูดถึงการประกาศกว้างแบบนี้) — จำลองสถานะครูรับเรื่อง/ปิดเหตุแบบ
+`Future.delayed` ปลอมของเดิมก็เอาออกด้วย เพราะตอนนี้เป็นของจริงที่ต้องรอครู
+กดจริงๆ (ใช้ pull-to-refresh ดูสถานะล่าสุดแทน)
+
+**ค้นพบระหว่างทาง**: มีหน้ามือครู "รับแจ้งเหตุ" (S4/S4a/S4b/S4c) เป็น UI mock
+สมบูรณ์อยู่แล้วที่ `teacher_redesign_prototype/teacher_incident_inbox_page.dart`
+(1375 บรรทัด, มี inbox/รายละเอียด/ประวัติครบ) — แผนเดิมเข้าใจผิดว่าไม่มี UI
+ฝั่งครูให้ต่อเลย ที่จริงมี แค่ยังไม่ได้เชื่อม บังเอิญ enum `IncidentCategory`
+ในไฟล์นั้นชนชื่อกับของจริงใน `shared_core` เลยเปลี่ยนชื่อเป็น
+`MockIncidentCategory` ให้คอมไพล์ผ่าน (ไม่ได้แตะ logic อื่นในนั้นเลย) —
+**ยังไม่ได้เชื่อม backend จริงให้หน้านี้** RPC ฝั่งครู (`list_incident_reports`/
+`acknowledge_incident_report`/`assign_incident_report`/`add_incident_action`/
+`escalate_incident_report`/`close_incident_report`) มีพร้อมใช้แล้วรอต่อ —
+เป็นงานที่ควรถามเจ้าของโปรเจกต์ก่อนว่าจะทำต่อเป็น slice ถัดไปหรือไม่ เพราะนอก
+scope ที่อนุมัติไว้ตอนแรก
+

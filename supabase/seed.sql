@@ -131,6 +131,13 @@ begin
     insert into course_students (course_id, student_id, enrolled_by) values (v_course_id, v_student_id, v_teacher_id);
   end if;
 
+  -- 2026-08-18: student_profiles ให้มีห้องประจำตัวจริง — ใช้เป็นค่าเริ่มต้น
+  -- ของหน้าแจ้งเหตุฉุกเฉิน (SOS) และเป็นขอบเขตห้องสำหรับ list_incident_reports
+  if not exists (select 1 from student_profiles where student_id = v_student_id and academic_year_id = v_academic_year_id) then
+    insert into student_profiles (student_id, academic_year_id, grade_level, room, created_by)
+    values (v_student_id, v_academic_year_id, 'ม.4', 'ม.4/1', v_teacher_id);
+  end if;
+
   select id into v_lesson_id from lessons where course_id = v_course_id and title = 'บทที่ 1: รู้จักเซนเซอร์ PM2.5';
   if v_lesson_id is null then
     insert into lessons (course_id, title, content, status, published_at, created_by, updated_at)

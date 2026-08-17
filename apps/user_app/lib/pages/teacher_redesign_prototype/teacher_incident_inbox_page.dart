@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
-enum IncidentCategory { sos, anomaly }
+enum MockIncidentCategory { sos, anomaly }
 
 enum IncidentStatus {
   newReport,
@@ -43,7 +43,7 @@ class IncidentReportMock {
   }) : timeline = timeline ?? [];
 
   final String id;
-  final IncidentCategory category;
+  final MockIncidentCategory category;
   final String room;
   final String reporterName;
   final DateTime createdAt;
@@ -56,28 +56,28 @@ class IncidentReportMock {
 final List<IncidentReportMock> mockIncidentReports = [
   IncidentReportMock(
     id: 'INC-2026-00214',
-    category: IncidentCategory.sos,
+    category: MockIncidentCategory.sos,
     room: 'ม.5/2',
     reporterName: 'ณัฐวุฒิ ใจดี',
     createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
   ),
   IncidentReportMock(
     id: 'INC-2026-00213',
-    category: IncidentCategory.anomaly,
+    category: MockIncidentCategory.anomaly,
     room: 'ม.4/1',
     reporterName: 'ปวีณา สายทอง',
     createdAt: DateTime.now().subtract(const Duration(minutes: 8)),
   ),
   IncidentReportMock(
     id: 'INC-2026-00212',
-    category: IncidentCategory.anomaly,
+    category: MockIncidentCategory.anomaly,
     room: 'ม.6/2',
     reporterName: 'ธนกร วิจิตร',
     createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
   ),
   IncidentReportMock(
     id: 'INC-2026-00201',
-    category: IncidentCategory.anomaly,
+    category: MockIncidentCategory.anomaly,
     room: 'ม.5/1',
     reporterName: 'กิตติศักดิ์ มั่นคง',
     createdAt: DateTime.now().subtract(const Duration(hours: 3)),
@@ -98,12 +98,12 @@ final List<IncidentReportMock> mockIncidentReports = [
   ),
 ];
 
-Color _categoryColor(IncidentCategory c) => c == IncidentCategory.sos
+Color _categoryColor(MockIncidentCategory c) => c == MockIncidentCategory.sos
     ? const Color(0xFFDC2626)
     : const Color(0xFFD97706);
 
-String _categoryLabel(IncidentCategory c) =>
-    c == IncidentCategory.sos ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ';
+String _categoryLabel(MockIncidentCategory c) =>
+    c == MockIncidentCategory.sos ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ';
 
 String _statusLabel(IncidentStatus s) => switch (s) {
   IncidentStatus.newReport => 'รอตรวจสอบ',
@@ -175,7 +175,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   // ภายในกลุ่มเดียวกันเรียงเก่าสุดก่อน (FIFO) กันเหตุตกหล่น
   int _urgencySort(IncidentReportMock a, IncidentReportMock b) {
     if (a.category != b.category) {
-      return a.category == IncidentCategory.sos ? -1 : 1;
+      return a.category == MockIncidentCategory.sos ? -1 : 1;
     }
     return a.createdAt.compareTo(b.createdAt);
   }
@@ -394,7 +394,7 @@ class _IncidentCard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        incident.category == IncidentCategory.sos
+                        incident.category == MockIncidentCategory.sos
                             ? Icons.emergency_rounded
                             : Icons.warning_amber_rounded,
                         color: accent,
@@ -804,7 +804,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                incident.category == IncidentCategory.sos
+                                incident.category == MockIncidentCategory.sos
                                     ? Icons.emergency_rounded
                                     : Icons.warning_amber_rounded,
                                 color: accent,
@@ -1229,7 +1229,7 @@ class _TeacherIncidentHistoryPageState
   bool _matchesCategory(IncidentReportMock i) {
     if (_categoryFilter == 'ทั้งหมด') return true;
     final wantSos = _categoryFilter == 'SOS';
-    return (i.category == IncidentCategory.sos) == wantSos;
+    return (i.category == MockIncidentCategory.sos) == wantSos;
   }
 
   @override
