@@ -9,14 +9,22 @@ import 'facility_shared_widgets.dart';
 import 'facility_ux_states.dart';
 
 class FacilityStorybookPage extends StatefulWidget {
-  const FacilityStorybookPage({super.key});
+  const FacilityStorybookPage({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   State<FacilityStorybookPage> createState() => _FacilityStorybookPageState();
 }
 
 class _FacilityStorybookPageState extends State<FacilityStorybookPage> {
-  int _activeRouteIndex = 0;
+  late int _activeRouteIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _activeRouteIndex = widget.initialIndex;
+  }
 
   // STK-12 BR6: เปิดแล้วต้องรอครู/ผู้บริหารยืนยันปิดเท่านั้น ผู้ดูแลอาคาร
   // เปิดเองปิดเองไม่ได้ — ค้างเป็น non-null จนกว่าจะมี flow ฝั่งครูมายืนยัน
