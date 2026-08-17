@@ -82,6 +82,10 @@ class MyApp extends StatelessWidget {
             const FacilityUXShowcasePage(),
         '/prototype/facility-redesign': (context) =>
             const FacilityStorybookPage(),
+        '/prototype/facility-light-water': (context) =>
+            const FacilityStorybookPage(initialIndex: 1),
+        '/prototype/facility-device-health': (context) =>
+            const FacilityStorybookPage(initialIndex: 4),
         '/prototype/facility': (context) => const FacilityStorybookPage(),
         '/prototype/executive': (context) => const ExecutiveHomePage(),
         '/prototype/executive-inbox': (context) =>

@@ -32,6 +32,13 @@ class RoleRouter extends StatelessWidget {
       case UserRole.teacher:
         return const TeacherRedesignPrototypePage();
       case UserRole.facilityManager:
+        final frag = Uri.base.fragment;
+        if (frag.contains('light-water') || frag.contains('stk11')) {
+          return const FacilityStorybookPage(initialIndex: 1);
+        }
+        if (frag.contains('device-health') || frag.contains('stk9')) {
+          return const FacilityStorybookPage(initialIndex: 4);
+        }
         return const FacilityStorybookPage();
       case UserRole.schoolAdmin:
         return const SchoolAdminDashboard();
