@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_variant_school_home.dart';
@@ -24,9 +25,28 @@ class _StudentNavigationPrototypeState
     extends State<StudentNavigationPrototype> {
   int _currentIndex = 0;
   bool _isSidebarCollapsed = false;
+  bool _hasUnreadNotifications = false;
   final ValueNotifier<int> _courseSearchPopupTick = ValueNotifier<int>(0);
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUnreadStatus();
+  }
+
+  Future<void> _loadUnreadStatus() async {
+    try {
+      final notifications = await NotificationService.listMyNotifications();
+      if (!mounted) return;
+      setState(
+        () => _hasUnreadNotifications = notifications.any((n) => n.isUnread),
+      );
+    } catch (_) {
+      // ไม่ต้องโชว์ error แค่จุดแดงเล็กๆ ไม่ใช่ข้อมูลหลักของหน้า
+    }
+  }
 
   // "คะแนน" ไม่ได้อยู่เป็นแท็บหลัก เพราะเกรดออกเทอมละครั้งเท่านั้น
   // เข้าถึงผ่านปุ่มในหน้าโปรไฟล์แทน (ดู _openScorePage)
@@ -42,6 +62,26 @@ class _StudentNavigationPrototypeState
   void dispose() {
     _courseSearchPopupTick.dispose();
     super.dispose();
+  }
+
+  static IconData _iconForNotification(String type) {
+    switch (type) {
+      case 'incident':
+      case 'device_alert':
+        return Icons.warning_amber_rounded;
+      case 'device_command':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.campaign_rounded;
+    }
+  }
+
+  static String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'เมื่อสักครู่';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
+    if (diff.inHours < 24) return '${diff.inHours} ชม.';
+    return '${diff.inDays} วัน';
   }
 
   void _openInPlaceSearchDialog() {
@@ -135,28 +175,45 @@ class _StudentNavigationPrototypeState
                           ],
                         ),
                         const SizedBox(height: 16),
-                        _buildGlassNotificationTile(
-                          icon: Icons.assignment_rounded,
-                          iconBg: const Color(0xFF0284C7),
-                          title: 'การบ้านบทเรียนที่ 4 ครบกำหนดส่งพรุ่งนี้',
-                          subtitle: 'วิชา AIoT สมาร์ตแล็บ • ม.5/1',
-                          time: '10 น.',
-                        ),
-                        const SizedBox(height: 10),
-                        _buildGlassNotificationTile(
-                          icon: Icons.emoji_events_rounded,
-                          iconBg: const Color(0xFFD97706),
-                          title: 'บันทึกคะแนนสอบกลางภาควิชา AIoT สำเร็จ',
-                          subtitle: 'ได้คะแนน 92/100 (ระดับดีเยี่ยม)',
-                          time: '2 ชม.',
-                        ),
-                        const SizedBox(height: 10),
-                        _buildGlassNotificationTile(
-                          icon: Icons.campaign_rounded,
-                          iconBg: const Color(0xFF2F8F5B),
-                          title: 'แจ้งกำหนดการสอบประเมินสมรรถนะดิจิทัล',
-                          subtitle: 'โรงเรียนวิทยาศาสตร์ประจำภูมิภาค',
-                          time: '1 วัน',
+                        FutureBuilder<List<AppNotification>>(
+                          future: NotificationService.listMyNotifications(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 20),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            final items = snapshot.data!.take(3).toList();
+                            if (items.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Text(
+                                  'ยังไม่มีการแจ้งเตือน',
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              );
+                            }
+                            return Column(
+                              children: [
+                                for (var i = 0; i < items.length; i++) ...[
+                                  if (i > 0) const SizedBox(height: 10),
+                                  _buildGlassNotificationTile(
+                                    icon: _iconForNotification(items[i].type),
+                                    iconBg: const Color(0xFF2F8F5B),
+                                    title: items[i].title,
+                                    subtitle: items[i].body ?? '',
+                                    time: _timeAgo(items[i].createdAt),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         SizedBox(
@@ -570,19 +627,20 @@ class _StudentNavigationPrototypeState
                   ),
                   // White ring makes the dot read clearly as "attached to
                   // the bell" instead of a stray mark floating beside it.
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE11D48),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                  if (_hasUnreadNotifications)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE11D48),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(width: 6),
@@ -591,7 +649,6 @@ class _StudentNavigationPrototypeState
           body: SafeArea(
             child: Column(
               children: [
-                _buildPrototypeBanner(context),
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
@@ -811,7 +868,6 @@ class _StudentNavigationPrototypeState
               child: Column(
                 children: [
                   _buildDesktopTopBar(context),
-                  _buildPrototypeBanner(context),
                   Expanded(
                     child: IndexedStack(index: _currentIndex, children: _pages),
                   ),
@@ -853,7 +909,7 @@ class _StudentNavigationPrototypeState
           const SizedBox(width: 10),
           _buildDesktopAction(
             icon: Icons.notifications_none_rounded,
-            badge: true,
+            badge: _hasUnreadNotifications,
             onTap: _openGlassNotificationModal,
           ),
           const SizedBox(width: 10),
@@ -1170,39 +1226,6 @@ class _StudentNavigationPrototypeState
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildPrototypeBanner(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
-      decoration: const BoxDecoration(
-        color: Color(0xFFFFF7ED),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFFDBA74), width: 1.0),
-        ),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.science_rounded, size: 14, color: Color(0xFFEA580C)),
-          SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              '🧪 โต๊ะลองงาน (PROTOTYPE SANDBOX) · สลับหน้าด้วย Bottom Nav & Drawer (3 ขีด)',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Color(0xFFC2410C),
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

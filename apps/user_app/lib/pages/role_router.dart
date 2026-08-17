@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../pages/login_page.dart';
-import 'student_home_page/student_home_page_widget.dart';
+import 'student_redesign_prototype/widgets/student_navigation_prototype.dart';
 import 'teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
 import 'facility_redesign_prototype/facility_storybook_page.dart';
 import 'dashboard/school_admin_dashboard.dart';
@@ -28,16 +28,16 @@ class RoleRouter extends StatelessWidget {
 
     switch (user.role) {
       case UserRole.student:
-        // 2026-08-17: เดิมใช้ StudentMainNav ครอบ StudentRedesignPrototypePage
-        // (variant D) เป็นหน้าแรก แต่พบว่า student_home_page_widget.dart
-        // (StudentHomePageWidget) มีคอมเมนต์ระบุไว้แต่แรกว่าเป็น "Official
-        // Production Page" ที่เลือก variant A (StudentVariantSchoolHome) เป็น
-        // ตัวจริงแล้ว และเริ่มต่อ CourseService/RealtimeService ไว้บางส่วน
-        // (แต่ผลลัพธ์ถูกทิ้ง ไม่ได้เอาไปแสดงจริง) แต่ไม่เคยถูกเชื่อมเข้า
-        // RoleRouter เลย ผู้ใช้ยืนยันให้ใช้ตัวนี้เป็นหน้าแรกนักเรียนแทน
-        // variant D — ดู student_redesign_prototype/NOTES.md สำหรับ
-        // รายละเอียดจุดที่ยังเป็น mock/ตัดออกระหว่างเชื่อมข้อมูลจริง
-        return const StudentHomePageWidget();
+        // 2026-08-17: เดิมชี้ไป StudentHomePageWidget (แค่ห่อ banner รอบ
+        // StudentVariantSchoolHome เฉยๆ ไม่มี nav shell เลย) แต่พบว่า
+        // StudentNavigationPrototype มีไซด์บาร์/ดรอว์เออร์+ค้นหา+แจ้งเตือน
+        // ครบกว่า และ 2/5 แท็บ (หน้าแรก, ใบงาน) เรียกใช้
+        // StudentVariantSchoolHome/StudentAssignmentsPage ตัวเดียวกับที่
+        // เชื่อมข้อมูลจริงไปแล้วโดยตรง (ไม่ใช่สำเนาซ้ำ) ผู้ใช้ยืนยันให้ใช้
+        // เชลล์นี้เป็นตัวจริงแทน — อีก 3 แท็บ (บทเรียน/ปฏิทิน/โปรไฟล์) กับ
+        // ปุ่ม "ความปลอดภัยห้องเรียน" ยังเป็น mock รอเชื่อมต่อไป ดู
+        // student_redesign_prototype/NOTES.md
+        return const StudentNavigationPrototype();
       case UserRole.teacher:
         return const TeacherRedesignPrototypePage();
       case UserRole.facilityManager:
