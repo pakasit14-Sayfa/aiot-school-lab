@@ -574,20 +574,39 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
             onPressed: () async {
               final titleText = titleController.text.trim();
               if (titleText.isEmpty) return;
-              Navigator.pop(context);
 
-              var createdId = 'les-${DateTime.now().millisecondsSinceEpoch}';
+              String createdId;
               try {
                 final courses = await CourseService.listMyCourses();
-                if (courses.isNotEmpty) {
-                  createdId = await LessonService.createLesson(
-                    courseId: courses.first.id,
-                    title: titleText,
+                if (courses.isEmpty) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อน'),
+                      backgroundColor: Color(0xFFEF4444),
+                    ),
                   );
+                  return;
                 }
+
+                createdId = await LessonService.createLesson(
+                  courseId: courses.first.id,
+                  title: titleText,
+                );
               } catch (e) {
                 debugPrint('Error creating lesson via LessonService: $e');
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('สร้างบทเรียนไม่สำเร็จ: $e'),
+                    backgroundColor: const Color(0xFFEF4444),
+                  ),
+                );
+                return;
               }
+
+              if (!context.mounted) return;
+              Navigator.pop(context);
 
               final newLesson = LessonModel(
                 id: createdId,
@@ -618,7 +637,6 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                 _lessons.insert(0, newLesson);
               });
 
-              if (!mounted) return;
               Navigator.push(
                 context,
                 MaterialPageRoute(

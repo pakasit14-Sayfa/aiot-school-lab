@@ -13,95 +13,9 @@ import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSectionCard;
 
-class _PendingGScoreEntry {
-  _PendingGScoreEntry({
-    required this.studentName,
-    required this.courseName,
-    required this.activityTitle,
-    required this.points,
-    required this.dateLabel,
-  });
 
-  final String studentName;
-  final String courseName;
-  final String activityTitle;
-  final int points;
-  final String dateLabel;
-  bool confirmed = false;
-}
-
-List<_PendingGScoreEntry> _mockPendingEntries() => [
-  _PendingGScoreEntry(
-    studentName: 'ด.ช. ธนกร ใจดี',
-    courseName: 'ม.5/2 AIoT สมาร์ตแล็บ',
-    activityTitle: 'ส่งใบงาน: วิเคราะห์ข้อมูล PM2.5 จากเซนเซอร์จริง',
-    points: 30,
-    dateLabel: 'วันนี้ 10:12 น.',
-  ),
-  _PendingGScoreEntry(
-    studentName: 'ด.ญ. พิมพ์ชนก แสงทอง',
-    courseName: 'ม.5/2 AIoT สมาร์ตแล็บ',
-    activityTitle: 'เรียนจบบทเรียน: การอ่านค่าเซนเซอร์วัดแสงแบบเรียลไทม์',
-    points: 15,
-    dateLabel: 'วันนี้ 09:40 น.',
-  ),
-  _PendingGScoreEntry(
-    studentName: 'ด.ช. ปารมี ศรีสุข',
-    courseName: 'ม.4/1 ฟิสิกส์ประยุกต์',
-    activityTitle: 'ส่งใบงาน: พลังงานและการประหยัดไฟฟ้าในห้องเรียน',
-    points: 25,
-    dateLabel: 'เมื่อวาน 16:05 น.',
-  ),
-  _PendingGScoreEntry(
-    studentName: 'ด.ญ. กัญญาพัชร รุ่งเรือง',
-    courseName: 'ม.5/2 AIoT สมาร์ตแล็บ',
-    activityTitle: 'เรียนจบบทเรียน: พื้นฐานเซนเซอร์และไมโครคอนโทรลเลอร์',
-    points: 15,
-    dateLabel: 'เมื่อวาน 14:22 น.',
-  ),
-];
-
-class TeacherGScoreConfirmPage extends StatefulWidget {
+class TeacherGScoreConfirmPage extends StatelessWidget {
   const TeacherGScoreConfirmPage({super.key});
-
-  @override
-  State<TeacherGScoreConfirmPage> createState() =>
-      _TeacherGScoreConfirmPageState();
-}
-
-class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
-  late final List<_PendingGScoreEntry> _entries = _mockPendingEntries();
-
-  List<_PendingGScoreEntry> get _pending =>
-      _entries.where((e) => !e.confirmed).toList();
-
-  void _showConfirmedSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _confirmOne(_PendingGScoreEntry entry) {
-    setState(() => entry.confirmed = true);
-    _showConfirmedSnackBar(
-      'ยืนยันคะแนน +${entry.points} G-Score ให้ ${entry.studentName} แล้ว',
-    );
-  }
-
-  void _confirmAll() {
-    if (_pending.isEmpty) return;
-    final count = _pending.length;
-    setState(() {
-      for (final e in _pending) {
-        e.confirmed = true;
-      }
-    });
-    _showConfirmedSnackBar('ยืนยันคะแนน G-Score ทั้งหมด $count รายการแล้ว');
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,13 +23,12 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
       title: 'ยืนยันคะแนน G-Score',
       activeMenuLabel: 'ยืนยัน G-Score',
       builder: (context, isDesktop) {
-        final pending = _pending;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(14),
@@ -126,15 +39,15 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
                   Icon(
                     Icons.warning_amber_rounded,
                     color: Color(0xFFD97706),
-                    size: 18,
+                    size: 20,
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'หมายเหตุ: ฟีเจอร์สะสมแต้ม G-Score (Gamification) ยังไม่มีระบบ Backend รองรับในฐานข้อมูลระบบ ตัวเลขที่แสดงเป็นเพียงพรีวิว UI สอดคล้องตามข้อกำหนดระบบ',
+                      'หมายเหตุ: ฟีเจอร์สะสมแต้ม G-Score (Gamification) ยังไม่มีตารางหรือ RPC รองรับในระบบฐานข้อมูล Supabase',
                       style: TextStyle(
                         color: Color(0xFFB45309),
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -142,143 +55,47 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 24),
             TeacherSectionCard(
-              title: 'รอยืนยัน (${pending.length} รายการ)',
-              icon: Icons.pending_actions_rounded,
-              trailing: pending.isEmpty
-                  ? null
-                  : TextButton.icon(
-                      onPressed: _confirmAll,
-                      icon: const Icon(Icons.done_all_rounded, size: 16),
-                      label: const Text('ยืนยันทั้งหมด'),
-                    ),
-              child: pending.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: Text(
-                          'ไม่มีรายการรอยืนยันแล้ว',
-                          style: TextStyle(
-                            color: TeacherPalette.muted,
-                            fontWeight: FontWeight.w700,
-                          ),
+              title: 'รายการรออนุมัติคะแนน G-Score',
+              icon: Icons.stars_rounded,
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.stars_outlined,
+                        size: 56,
+                        color: Colors.amber.shade300,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'ยังไม่มีข้อมูลรายการรออนุมัติ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: TeacherPalette.ink,
                         ),
                       ),
-                    )
-                  : Column(
-                      children: [
-                        for (var i = 0; i < pending.length; i++) ...[
-                          if (i != 0) const Divider(height: 20),
-                          _PendingRow(
-                            entry: pending[i],
-                            onConfirm: () => _confirmOne(pending[i]),
-                          ),
-                        ],
-                      ],
-                    ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'ระบบ Gamification (G-Score) อยู่ระหว่างรอการพัฒนาตารางและ RPC ในฐานข้อมูล',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: TeacherPalette.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         );
       },
-    );
-  }
-}
-
-class _PendingRow extends StatelessWidget {
-  const _PendingRow({required this.entry, required this.onConfirm});
-
-  final _PendingGScoreEntry entry;
-  final VoidCallback onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(
-            Icons.star_rounded,
-            color: Color(0xFFD97706),
-            size: 18,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.studentName,
-                style: const TextStyle(
-                  color: TeacherPalette.ink,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                entry.activityTitle,
-                style: const TextStyle(
-                  color: TeacherPalette.softText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${entry.courseName} · ${entry.dateLabel}',
-                style: const TextStyle(
-                  color: TeacherPalette.muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '+${entry.points}',
-              style: const TextStyle(
-                color: Color(0xFFD97706),
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            ElevatedButton(
-              onPressed: onConfirm,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TeacherPalette.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text(
-                'ยืนยัน',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

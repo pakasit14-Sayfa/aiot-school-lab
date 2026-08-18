@@ -1147,17 +1147,34 @@ class _NewCourseModalSheetState extends State<_NewCourseModalSheet> {
 
     try {
       final terms = await CourseService.listTerms();
-      if (terms.isNotEmpty) {
-        await CourseService.createCourse(
-          termId: terms.first.id,
-          subjectName: _nameController.text.trim(),
-          gradeLevel: _selectedCategory,
-          room: _selectedRooms.join(','),
-          description: _nextPeriodController.text.trim(),
+      if (terms.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ไม่พบภาคเรียนในระบบ กรุณาติดต่อผู้ดูแลระบบ'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
         );
+        return;
       }
+
+      await CourseService.createCourse(
+        termId: terms.first.id,
+        subjectName: _nameController.text.trim(),
+        gradeLevel: _selectedCategory,
+        room: _selectedRooms.join(','),
+        description: _nextPeriodController.text.trim(),
+      );
     } catch (e) {
       debugPrint('Error creating course in Supabase: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('สร้างรายวิชาไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
     }
 
     final chosenGradient = _coverGradients[_selectedColorIndex];

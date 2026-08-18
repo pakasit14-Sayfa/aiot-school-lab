@@ -230,6 +230,15 @@ begin
   -- 2026-08-17: Seed facility_manager building assignment & sample devices for STK-9/STK-11
   update users set building = 'อาคาร 3 (วิทยาศาสตร์)' where email = 'facility@aiot-school-lab.local';
 
+  if not exists (select 1 from devices where name = 'ไฟแสงสว่าง โถงทางเดิน ชั้น 1') then
+    insert into devices (school_id, type, name, location, status, registered_by) values
+      (v_school_id, 'relay', 'ไฟแสงสว่าง โถงทางเดิน ชั้น 1', 'อาคาร 3 (วิทยาศาสตร์) · ชั้น 1', 'online', v_super_admin_id),
+      (v_school_id, 'relay', 'ระบบปั๊มน้ำ รดน้ำสวนหน้าอาคาร', 'อาคาร 3 (วิทยาศาสตร์) · สวนหน้าอาคาร', 'online', v_super_admin_id),
+      (v_school_id, 'relay', 'ไฟส่องสว่าง ดาดฟ้า', 'อาคาร 3 (วิทยาศาสตร์) · ดาดฟ้า', 'offline', v_super_admin_id),
+      (v_school_id, 'camera', 'กล้อง CCTV ทางเข้าหลัก', 'อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก', 'online', v_super_admin_id),
+      (v_school_id, 'pm25_sensor', 'เซนเซอร์ PM2.5 โถงกลาง', 'อาคาร 3 (วิทยาศาสตร์) · โถงกลาง', 'online', v_super_admin_id);
+  end if;
+
   -- 2026-08-18: Seed approved parent_links connection for parent@aiot-school-lab.local linked to student@aiot-school-lab.local
   if not exists (
     select 1 from parent_links pl

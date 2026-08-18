@@ -821,7 +821,8 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
   }
 
   Future<void> _handleSave({required bool publish}) async {
-    if (_titleController.text.trim().isEmpty) {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('กรุณากรอกชื่อใบงาน'),
@@ -831,44 +832,66 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       return;
     }
 
-    var assignedId =
-        widget.assignment?.id ??
-        'assign-${DateTime.now().millisecondsSinceEpoch}';
+    String assignedId;
+    String realCourseName = 'ม.5/2 การออกแบบเทคโนโลยี';
+
     try {
       final courses = await CourseService.listMyCourses();
-      if (courses.isNotEmpty) {
-        final courseId = courses.first.id;
-        final typeEnum = _type == 'โครงงาน AIoT'
-            ? 'project'
-            : (_type == 'ใบงานทดลอง' ? 'experiment' : 'homework');
-        if (widget.assignment == null) {
-          assignedId = await AssignmentService.createAssignment(
-            courseId: courseId,
-            type: typeEnum,
-            title: _titleController.text.trim(),
-            instructions: _instructionsController.text.trim(),
-          );
-        } else {
-          await AssignmentService.updateAssignment(
-            assignmentId: widget.assignment!.id,
-            title: _titleController.text.trim(),
-            instructions: _instructionsController.text.trim(),
-          );
-        }
-        if (publish) {
-          await AssignmentService.publishAssignment(assignedId);
-        }
+      if (courses.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
+
+      final course = courses.first;
+      realCourseName = course.subjectName;
+
+      final typeEnum = _type == 'โครงงาน AIoT'
+          ? 'project'
+          : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework');
+
+      if (widget.assignment == null) {
+        assignedId = await AssignmentService.createAssignment(
+          courseId: course.id,
+          type: typeEnum,
+          title: title,
+          instructions: _instructionsController.text.trim(),
+        );
+      } else {
+        assignedId = widget.assignment!.id;
+        await AssignmentService.updateAssignment(
+          assignmentId: assignedId,
+          title: title,
+          instructions: _instructionsController.text.trim(),
+        );
+      }
+
+      if (publish) {
+        await AssignmentService.publishAssignment(assignedId);
       }
     } catch (e) {
       debugPrint('Error saving assignment to Supabase: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('บันทึกใบงานไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
     }
 
     final newAssignment = AssignmentModel(
       id: assignedId,
-      title: _titleController.text.trim(),
+      title: title,
       instructions: _instructionsController.text.trim(),
       type: _type,
-      courseName: 'ม.5/2 การออกแบบเทคโนโลยี',
+      courseName: realCourseName,
       dueDate: _dueDateController.text.trim(),
       isGroupWork: _isGroupWork,
       rubricTitle: _selectedRubric,
