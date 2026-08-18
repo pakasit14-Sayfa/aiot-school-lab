@@ -1,6 +1,5 @@
-// PROTOTYPE ONLY: Teacher profile page — UI mock, no real data/backend.
-
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
@@ -263,22 +262,26 @@ class _IdentityCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'ครูสมชาย สายวิทย์',
+              Text(
+                AuthService.sessionToken != null
+                    ? (currentUserModel?.email ?? 'ครูผู้สอน (เข้าสู่ระบบแล้ว)')
+                    : 'ครูสมชาย สายวิทย์',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   color: TeacherPalette.ink,
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'ครู • โรงเรียนสาธิต AIoT',
+              Text(
+                AuthService.sessionToken != null
+                    ? 'ครู • บัญชีผู้ใช้ยืนยันแล้ว'
+                    : 'ครู • โรงเรียนสาธิต AIoT',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   color: TeacherPalette.muted,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -293,10 +296,10 @@ class _IdentityCard extends StatelessWidget {
     );
 
     final details = <Widget>[
-      const _DetailRow(
+      _DetailRow(
         icon: Icons.badge_outlined,
         label: 'Teacher ID',
-        value: 'T-AIOT-014',
+        value: currentUserModel?.uid ?? 'T-AIOT-014',
       ),
       const _DetailRow(
         icon: Icons.school_outlined,

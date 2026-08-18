@@ -6,6 +6,7 @@
 // เดี่ยว/กลุ่ม เข้าด้วยกันเป็นขั้นตอนเดียวตั้งแต่ต้น เพิ่มเมื่อ 2026-08-16
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart'
@@ -470,7 +471,24 @@ class _TeacherPblActivityEditorPageState
           _reviewRow('รูปแบบงาน', _isGroupWork ? 'งานกลุ่ม' : 'งานเดี่ยว'),
           _buildNavRow(
             canNext: true,
-            onNext: () {
+            onNext: () async {
+              try {
+                final courses = await CourseService.listMyCourses();
+                if (courses.isNotEmpty) {
+                  final courseId = courses.first.id;
+                  final pblId = await AssignmentService.createAssignment(
+                    courseId: courseId,
+                    type: 'project',
+                    title: 'PBL: ${_selectedTopic ?? "โครงงาน AIoT"}',
+                    instructions: _problemCtrl.text.trim(),
+                  );
+                  await AssignmentService.publishAssignment(pblId);
+                }
+              } catch (e) {
+                debugPrint('Error publishing PBL assignment: $e');
+              }
+
+              if (!mounted) return;
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(

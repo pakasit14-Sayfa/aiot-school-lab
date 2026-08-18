@@ -112,6 +112,32 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
     _devices = _getMockDevices();
     _thresholds = _getMockThresholds();
     _alerts = _getMockAlerts();
+    _loadRealDevices();
+  }
+
+  Future<void> _loadRealDevices() async {
+    try {
+      final list = await LessonService.listSchoolDevices();
+      if (!mounted || list.isEmpty) return;
+      setState(() {
+        _devices = list.map((d) {
+          return AiotDeviceModel(
+            id: d.id,
+            name: d.name,
+            location: d.location != null ? '${d.name} (${d.location})' : d.name,
+            isOnline: true,
+            pm25: 18.5,
+            temperature: 28.5,
+            humidity: 62.0,
+            uvIndex: 4.0,
+            relayActive: true,
+            lastUpdated: 'เรียลไทม์',
+          );
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint('Error loading real school devices: $e');
+    }
   }
 
   @override

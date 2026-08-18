@@ -12,6 +12,7 @@
 // 10. Complete States (Loading, Empty, Auto-save status, Published edit warning)
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 
@@ -446,13 +447,57 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _statusFilter = 'ทั้งหมด'; // 'ทั้งหมด', 'Draft', 'Published'
+  late List<LessonModel> _lessons;
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _isLoading = false);
-    });
+    _lessons = List.from(mockLessonsList);
+    _loadRealLessons();
+  }
+
+  Future<void> _loadRealLessons() async {
+    try {
+      final courses = await CourseService.listMyCourses();
+      if (courses.isNotEmpty) {
+        final courseId = courses.first.id;
+        final summaries = await LessonService.listLessons(courseId);
+        if (mounted && summaries.isNotEmpty) {
+          setState(() {
+            _lessons = summaries.map((s) {
+              return LessonModel(
+                id: s.id,
+                courseCode: widget.courseCode,
+                courseName: widget.courseName,
+                title: s.title,
+                status: s.status == 'published'
+                    ? LessonStatus.published
+                    : LessonStatus.draft,
+                lastEdited: 'อัปเดตล่าสุด',
+                materialsCount: 0,
+                sensorChartsCount: 0,
+                blocks: [
+                  ContentBlockModel(
+                    id: 'b1',
+                    type: ContentBlockType.heading,
+                    text: s.title,
+                  ),
+                ],
+                materials: [],
+                sensorLinks: [],
+              );
+            }).toList();
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading real lessons: $e');
+    }
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _openCreateLessonDialog() {
@@ -526,13 +571,26 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            onPressed: () {
+            onPressed: () async {
               final titleText = titleController.text.trim();
               if (titleText.isEmpty) return;
               Navigator.pop(context);
 
+              var createdId = 'les-${DateTime.now().millisecondsSinceEpoch}';
+              try {
+                final courses = await CourseService.listMyCourses();
+                if (courses.isNotEmpty) {
+                  createdId = await LessonService.createLesson(
+                    courseId: courses.first.id,
+                    title: titleText,
+                  );
+                }
+              } catch (e) {
+                debugPrint('Error creating lesson via LessonService: $e');
+              }
+
               final newLesson = LessonModel(
-                id: 'les-${DateTime.now().millisecondsSinceEpoch}',
+                id: createdId,
                 courseCode: widget.courseCode,
                 courseName: widget.courseName,
                 title: titleText,
@@ -557,9 +615,10 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
               );
 
               setState(() {
-                mockLessonsList.insert(0, newLesson);
+                _lessons.insert(0, newLesson);
               });
 
+              if (!mounted) return;
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -583,7 +642,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
       return const _LessonListLoadingView();
     }
 
-    final filtered = mockLessonsList.where((les) {
+    final filtered = _lessons.where((les) {
       final matchesSearch = les.title.toLowerCase().contains(
         _searchQuery.toLowerCase(),
       );

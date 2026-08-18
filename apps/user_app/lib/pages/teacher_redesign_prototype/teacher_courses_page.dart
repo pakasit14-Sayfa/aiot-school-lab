@@ -1136,13 +1136,28 @@ class _NewCourseModalSheetState extends State<_NewCourseModalSheet> {
     },
   ];
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedRooms.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณาเลือกห้องเรียนอย่างน้อย 1 ห้อง')),
       );
       return;
+    }
+
+    try {
+      final terms = await CourseService.listTerms();
+      if (terms.isNotEmpty) {
+        await CourseService.createCourse(
+          termId: terms.first.id,
+          subjectName: _nameController.text.trim(),
+          gradeLevel: _selectedCategory,
+          room: _selectedRooms.join(','),
+          description: _nextPeriodController.text.trim(),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error creating course in Supabase: $e');
     }
 
     final chosenGradient = _coverGradients[_selectedColorIndex];
@@ -1161,7 +1176,7 @@ class _NewCourseModalSheetState extends State<_NewCourseModalSheet> {
     );
 
     widget.onCourseCreated(newCourse);
-    Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   @override

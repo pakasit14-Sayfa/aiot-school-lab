@@ -4,6 +4,7 @@
 // toggle group work, attach Rubrics, bind AIoT sensor data streams, and publish assignments.
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
@@ -65,6 +66,42 @@ class _TeacherAssignmentEditorPageState
   void initState() {
     super.initState();
     _assignments = _getMockAssignments();
+    _loadRealAssignments();
+  }
+
+  Future<void> _loadRealAssignments() async {
+    try {
+      final courses = await CourseService.listMyCourses();
+      if (courses.isNotEmpty) {
+        final courseId = courses.first.id;
+        final list = await AssignmentService.listAssignments(courseId);
+        if (mounted && list.isNotEmpty) {
+          setState(() {
+            _assignments = list.map((a) {
+              return AssignmentModel(
+                id: a.id,
+                title: a.title,
+                instructions: '',
+                type: a.type == 'project' ? 'โครงงาน AIoT' : (a.type == 'experiment' ? 'ใบงานทดลอง' : 'การบ้าน'),
+                courseName: courses.first.subjectName,
+                dueDate: a.dueAt != null
+                    ? a.dueAt!.toLocal().toString().substring(0, 16)
+                    : 'ไม่มีกำหนดส่ง',
+                isGroupWork: a.type == 'project',
+                rubricTitle: 'เกณฑ์มาตรฐาน',
+                attachedSensorMetrics: [],
+                status: a.status == 'published' ? 'เผยแพร่แล้ว' : 'ร่าง',
+                submittedCount: 0,
+                totalStudents: 30,
+                updatedAt: 'อัปเดตล่าสุด',
+              );
+            }).toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading assignments from RPC: $e');
+    }
   }
 
   List<AssignmentModel> _getMockAssignments() {
@@ -783,7 +820,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     super.dispose();
   }
 
-  void _handleSave({required bool publish}) {
+  Future<void> _handleSave({required bool publish}) async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -794,10 +831,40 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       return;
     }
 
+    var assignedId =
+        widget.assignment?.id ??
+        'assign-${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final courses = await CourseService.listMyCourses();
+      if (courses.isNotEmpty) {
+        final courseId = courses.first.id;
+        final typeEnum = _type == 'โครงงาน AIoT'
+            ? 'project'
+            : (_type == 'ใบงานทดลอง' ? 'experiment' : 'homework');
+        if (widget.assignment == null) {
+          assignedId = await AssignmentService.createAssignment(
+            courseId: courseId,
+            type: typeEnum,
+            title: _titleController.text.trim(),
+            instructions: _instructionsController.text.trim(),
+          );
+        } else {
+          await AssignmentService.updateAssignment(
+            assignmentId: widget.assignment!.id,
+            title: _titleController.text.trim(),
+            instructions: _instructionsController.text.trim(),
+          );
+        }
+        if (publish) {
+          await AssignmentService.publishAssignment(assignedId);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving assignment to Supabase: $e');
+    }
+
     final newAssignment = AssignmentModel(
-      id:
-          widget.assignment?.id ??
-          'assign-${DateTime.now().millisecondsSinceEpoch}',
+      id: assignedId,
       title: _titleController.text.trim(),
       instructions: _instructionsController.text.trim(),
       type: _type,
@@ -813,7 +880,9 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     );
 
     widget.onSave(newAssignment);
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+    }
   }
 
   @override

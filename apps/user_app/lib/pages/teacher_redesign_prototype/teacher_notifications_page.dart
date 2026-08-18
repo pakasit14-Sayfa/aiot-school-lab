@@ -3,6 +3,7 @@
 // Consolidates sensor alerts, emergency triggers, camera security events, and grading tasks into a unified notifications inbox with deep linking.
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_aiot_dashboard_page.dart' show TeacherAiotDashboardPage;
 import 'teacher_emergency_events_page.dart' show TeacherEmergencyEventsPage;
@@ -97,10 +98,38 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
   void initState() {
     super.initState();
     _notifications = mockTeacherNotifications();
+    _loadRealNotifications();
+  }
+
+  Future<void> _loadRealNotifications() async {
+    try {
+      final list = await NotificationService.listMyNotifications();
+      if (!mounted || list.isEmpty) return;
+      setState(() {
+        _notifications = list.map((n) {
+          return NotificationItemModel(
+            id: n.id,
+            title: n.title,
+            message: n.body ?? '',
+            category: n.type == 'emergency'
+                ? 'emergency'
+                : (n.type == 'sensor' ? 'sensor' : 'grading'),
+            timestamp: '${n.createdAt.toLocal().toString().substring(11, 16)} น.',
+            isRead: n.readAt != null,
+            targetRoute: n.type == 'emergency'
+                ? 'emergency'
+                : (n.type == 'sensor' ? 'aiot' : 'grading'),
+          );
+        }).toList();
+      });
+    } catch (_) {}
   }
 
   void _handleNotificationTap(NotificationItemModel notif) {
     setState(() => notif.isRead = true);
+    try {
+      NotificationService.markNotificationRead(notif.id);
+    } catch (_) {}
 
     if (notif.targetRoute == 'emergency') {
       Navigator.push(

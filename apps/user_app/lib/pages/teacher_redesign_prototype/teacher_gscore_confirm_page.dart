@@ -117,18 +117,29 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: const Color(0xFFFEF3C7),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                border: Border.all(color: const Color(0xFFF59E0B)),
               ),
-              child: const Text(
-                'LRN-12: คะแนน G-Score ที่ระบบสะสมไว้จะยังไม่แสดงให้นักเรียนเห็น '
-                'จนกว่าครูจะยืนยันที่นี่ — เห็นเฉพาะนักเรียนในรายวิชาที่คุณสอน',
-                style: TextStyle(
-                  color: Color(0xFF1D4ED8),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Color(0xFFD97706),
+                    size: 18,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'หมายเหตุ: ฟีเจอร์สะสมแต้ม G-Score (Gamification) ยังไม่มีระบบ Backend รองรับในฐานข้อมูลระบบ ตัวเลขที่แสดงเป็นเพียงพรีวิว UI สอดคล้องตามข้อกำหนดระบบ',
+                      style: TextStyle(
+                        color: Color(0xFFB45309),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),

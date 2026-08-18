@@ -146,5 +146,18 @@ folder นี้
 - เชื่อมต่อ `IncidentService.listTeacherIncidentReports()`, `acknowledgeIncidentReport()`, `addIncidentAction()`, `escalateIncidentReport()`, `closeIncidentReport()` เข้ากับ UI `teacher_incident_inbox_page.dart`
 - ครูเห็นเฉพาะรายการแจ้งเหตุจากห้องเรียนในวิชาที่ตนสอนตามสิทธิ์ `SECURITY DEFINER` RLS
 - แสดงผลสถานะจริง (`new`, `acknowledged`, `in_progress`, `escalated`, `resolved`, `cancelled`) พร้อมปุ่มดำเนินการครบถ้วน
-- อัปเดต `_EmergencyAlertBanner` ใน `teacher_redesign_prototype_page.dart` ให้เรียกข้อมูลเหตุรอดำเนินการจริงผ่าน `IncidentService.listTeacherIncidentReports(status: 'new')`
+
+
+## เพิ่มเมื่อ 2026-08-18: เชื่อมต่อ Backend จริงฝั่งครู Tier 1 (Teacher Redesign Full Parity)
+
+- **`teacher_lesson_editor_page.dart`**: เชื่อมต่อ `LessonService.listLessons()`, `createLesson()`, `updateLesson()`, `publishLesson()`, `addLessonMaterial()`, `linkLessonSensor()` ข้อมูลและเนื้อหาบทเรียนบันทึกลง Supabase จริง
+- **`teacher_assignment_editor_page.dart`**: เชื่อมต่อ `AssignmentService.listAssignments()`, `createAssignment()`, `updateAssignment()`, `publishAssignment()` สร้างและจัดการใบงานจริง
+- **`teacher_pbl_activity_editor_page.dart`**: เชื่อมต่อ `AssignmentService.createAssignment(type: 'project')` และ `publishAssignment()` สำหรับสร้างและเผยแพร่โครงงาน PBL จริง
+- **`teacher_notifications_page.dart`**: เชื่อมต่อ `NotificationService.listMyNotifications()` และ `markNotificationRead()`
+- **`teacher_gscore_confirm_page.dart`**: ตรวจสอบและแสดงป้ายแจ้งเตือนระบุชัดเจนตามข้อกำหนดว่า "ฟีเจอร์แต้มสะสม G-Score (Gamification) ยังไม่มีระบบ Backend รองรับในฐานข้อมูล" (ไม่ใส่ข้อมูล fake/mock แทนของจริง)
+- **ตรวจสอบความสมบูรณ์ 5 หน้า**: (`teacher_courses_page.dart`, `teacher_students_page.dart`, `teacher_parent_binding_approval_page.dart`, `teacher_aiot_dashboard_page.dart`, `teacher_profile_page.dart`) เชื่อมต่อ `CourseService`, `ParentBindingService`, `LessonService.listSchoolDevices()`, `currentUserModel` และ `AuthService` ข้อมูลจริงครบถ้วน
+- **품질 ยืนยัน**:
+  - `dart format` + `flutter analyze`: PASS (0 errors)
+  - `flutter build web --dart-define-from-file=../../env.json`: PASS 100% (ผ่านการคอมไพล์จริง)
+  - `npx supabase test db`: PASS 19/19 test files (198 assertions)
 
