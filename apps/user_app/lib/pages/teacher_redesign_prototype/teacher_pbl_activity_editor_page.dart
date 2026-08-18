@@ -6,12 +6,13 @@
 // เดี่ยว/กลุ่ม เข้าด้วยกันเป็นขั้นตอนเดียวตั้งแต่ต้น เพิ่มเมื่อ 2026-08-16
 
 import 'package:flutter/material.dart';
-import 'package:shared_core/shared_core.dart';
+import 'package:shared_core/shared_core.dart' hide RubricModel;
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart'
     show RubricModel, RubricCriterion, RubricLevel;
 import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
+
 
 class _PblTopic {
   const _PblTopic(this.title, this.icon, this.color);

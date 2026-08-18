@@ -95,4 +95,63 @@ class QuizService {
             as List;
     return (rows.first as Map<String, dynamic>)['auto_score'] as num;
   }
+
+  static Future<String> createQuiz({
+    required String courseId,
+    required String type, // 'pretest' or 'posttest'
+    required String title,
+    String? lessonId,
+    int? timeLimitMin,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    final rows =
+        await supabase.rpc(
+              'create_quiz',
+              params: {
+                'p_token': token,
+                'p_course_id': courseId,
+                'p_type': type,
+                'p_title': title,
+                'p_lesson_id': lessonId,
+                'p_time_limit_min': timeLimitMin,
+              },
+            )
+            as List;
+    return (rows.first as Map<String, dynamic>)['quiz_id'] as String;
+  }
+
+  static Future<String> addQuizQuestion({
+    required String quizId,
+    required String type, // 'multiple_choice', 'true_false', 'short_answer'
+    required String question,
+    num points = 1,
+    List<Map<String, dynamic>>? choices,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    final rows =
+        await supabase.rpc(
+              'add_quiz_question',
+              params: {
+                'p_token': token,
+                'p_quiz_id': quizId,
+                'p_type': type,
+                'p_question': question,
+                'p_points': points,
+                'p_choices': choices,
+              },
+            )
+            as List;
+    return (rows.first as Map<String, dynamic>)['question_id'] as String;
+  }
+
+  static Future<void> publishQuiz(String quizId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'publish_quiz',
+      params: {'p_token': token, 'p_quiz_id': quizId},
+    );
+  }
 }

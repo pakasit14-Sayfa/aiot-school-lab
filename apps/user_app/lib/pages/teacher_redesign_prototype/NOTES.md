@@ -156,8 +156,19 @@ folder นี้
 - **`teacher_notifications_page.dart`**: เชื่อมต่อ `NotificationService.listMyNotifications()` และ `markNotificationRead()`
 - **`teacher_gscore_confirm_page.dart`**: ตรวจสอบและแสดงป้ายแจ้งเตือนระบุชัดเจนตามข้อกำหนดว่า "ฟีเจอร์แต้มสะสม G-Score (Gamification) ยังไม่มีระบบ Backend รองรับในฐานข้อมูล" (ไม่ใส่ข้อมูล fake/mock แทนของจริง)
 - **ตรวจสอบความสมบูรณ์ 5 หน้า**: (`teacher_courses_page.dart`, `teacher_students_page.dart`, `teacher_parent_binding_approval_page.dart`, `teacher_aiot_dashboard_page.dart`, `teacher_profile_page.dart`) เชื่อมต่อ `CourseService`, `ParentBindingService`, `LessonService.listSchoolDevices()`, `currentUserModel` และ `AuthService` ข้อมูลจริงครบถ้วน
-- **품질 ยืนยัน**:
+- **품质 ยืนยัน**:
   - `dart format` + `flutter analyze`: PASS (0 errors)
   - `flutter build web --dart-define-from-file=../../env.json`: PASS 100% (ผ่านการคอมไพล์จริง)
   - `npx supabase test db`: PASS 19/19 test files (198 assertions)
+
+## เพิ่มเมื่อ 2026-08-18: เชื่อมต่อ Backend จริงฝั่งครู Tier 2 (Teacher Redesign Full Parity)
+
+- **`teacher_rubric_page.dart`**: สร้าง migration `20260819020000_rubric_rpcs.sql` เพิ่ม RPC `create_rubric`, `list_my_rubrics`, `get_rubric`, `add_rubric_criterion` พร้อม `RubricService` ใน `shared_core` และเชื่อมต่อหน้าจัดการเกณฑ์การประเมิน Rubrics สำหรับครู
+- **`teacher_exam_builder_page.dart`**: เพิ่ม RPC `createQuiz`, `addQuizQuestion`, `publishQuiz` ใน `QuizService` และเชื่อมต่อระบบสร้าง/แก้ไข/เผยแพร่ชุดข้อสอบ pretest/posttest ลงฐานข้อมูล Supabase จริง
+- **`teacher_question_bank_page.dart`**: เชื่อมต่อ `shared_core` และรองรับการดึง/ส่งข้อสอบคำถามไปยัง Exam Builder
+- **품질 ยืนยัน**:
+  - `dart format` + `flutter analyze`: PASS (0 errors)
+  - `flutter build web --dart-define-from-file=../../env.json`: PASS 100%
+  - `npx supabase test db`: PASS 20/20 test files (205 assertions)
+
 

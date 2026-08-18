@@ -582,7 +582,9 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อน'),
+                      content: Text(
+                        'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อน',
+                      ),
                       backgroundColor: Color(0xFFEF4444),
                     ),
                   );

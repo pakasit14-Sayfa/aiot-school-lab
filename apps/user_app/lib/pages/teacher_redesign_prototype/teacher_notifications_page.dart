@@ -114,7 +114,8 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
             category: n.type == 'emergency'
                 ? 'emergency'
                 : (n.type == 'sensor' ? 'sensor' : 'grading'),
-            timestamp: '${n.createdAt.toLocal().toString().substring(11, 16)} น.',
+            timestamp:
+                '${n.createdAt.toLocal().toString().substring(11, 16)} น.',
             isRead: n.readAt != null,
             targetRoute: n.type == 'emergency'
                 ? 'emergency'

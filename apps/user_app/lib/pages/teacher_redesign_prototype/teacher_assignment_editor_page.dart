@@ -841,7 +841,9 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน'),
+            content: Text(
+              'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน',
+            ),
             backgroundColor: Color(0xFFEF4444),
           ),
         );

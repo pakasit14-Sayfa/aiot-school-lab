@@ -13,7 +13,6 @@ import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSectionCard;
 
-
 class TeacherGScoreConfirmPage extends StatelessWidget {
   const TeacherGScoreConfirmPage({super.key});
 

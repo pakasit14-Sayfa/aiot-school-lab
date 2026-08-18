@@ -4,6 +4,7 @@
 // Handles locked state (when rubric is used in student grading) with clear warning banners.
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
@@ -73,12 +74,79 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
   String _searchQuery = '';
   String _filterScope = 'ทั้งหมด'; // 'ทั้งหมด', 'ใช้ร่วมข้ามวิชา', 'ล็อกแล้ว'
 
-  late List<RubricModel> _rubrics;
+  List<RubricModel> _rubrics = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _rubrics = _getMockRubrics();
+    _loadRubrics();
+  }
+
+  Future<void> _loadRubrics() async {
+    setState(() => _isLoading = true);
+    try {
+      final backendRubrics = await RubricService.listMyRubrics();
+      final loadedList = <RubricModel>[];
+      for (final r in backendRubrics) {
+        RubricModel? detail;
+        try {
+          final d = await RubricService.getRubric(r.id);
+          detail = RubricModel(
+            id: d.id,
+            title: d.title,
+            description: d.description ?? '',
+            scope: 'เกณฑ์การประเมินโรงเรียน',
+            isLocked: r.usedCount > 0,
+            usedCount: r.usedCount,
+            updatedAt: 'ล่าสุด',
+            criteria: d.criteria
+                .map(
+                  (c) => RubricCriterion(
+                    id: c.id,
+                    title: c.name,
+                    maxPoints: c.maxScore.toDouble(),
+                    levels: (c.levels as List<dynamic>? ?? []).map((l) {
+                      final map = l as Map<String, dynamic>;
+                      return RubricLevel(
+                        name: map['name'] as String? ?? '',
+                        score: (map['score'] as num?)?.toDouble() ?? 0.0,
+                        description: map['description'] as String? ?? '',
+                      );
+                    }).toList(),
+                  ),
+                )
+                .toList(),
+          );
+        } catch (_) {
+          detail = RubricModel(
+            id: r.id,
+            title: r.title,
+            description: r.description ?? '',
+            scope: 'เกณฑ์การประเมินโรงเรียน',
+            isLocked: r.usedCount > 0,
+            usedCount: r.usedCount,
+            updatedAt: 'ล่าสุด',
+            criteria: [],
+          );
+        }
+        loadedList.add(detail);
+      }
+
+      if (mounted) {
+        setState(() {
+          _rubrics = loadedList.isEmpty ? _getMockRubrics() : loadedList;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _rubrics = _getMockRubrics();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   List<RubricModel> _getMockRubrics() {
@@ -318,7 +386,21 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return TeacherMockPageShell(
+        title: 'Rubric (เกณฑ์การประเมิน)',
+        activeMenuLabel: 'Rubric',
+        builder: (_, __) => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
     final filtered = _rubrics.where((r) {
+
+
       final matchQuery =
           r.title.contains(_searchQuery) ||
           r.description.contains(_searchQuery) ||
@@ -960,8 +1042,9 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
     });
   }
 
-  void _handleSave() {
-    if (_titleController.text.trim().isEmpty) {
+  Future<void> _handleSave() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('กรุณากรอกชื่อ Rubric'),
@@ -971,21 +1054,57 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
       return;
     }
 
-    final newRubric = RubricModel(
-      id:
-          widget.rubric?.id ??
-          'rubric-${DateTime.now().millisecondsSinceEpoch}',
-      title: _titleController.text.trim(),
-      description: _descController.text.trim(),
-      scope: _scope,
-      criteria: _criteria,
-      isLocked: _isLocked,
-      usedCount: widget.rubric?.usedCount ?? 0,
-      updatedAt: 'วันนี้',
-    );
+    try {
+      final payloadCriteria = _criteria
+          .map(
+            (c) => {
+              'name': c.title,
+              'description': '',
+              'max_score': c.maxPoints,
+              'levels': c.levels
+                  .map(
+                    (l) => {
+                      'name': l.name,
+                      'score': l.score,
+                      'description': l.description,
+                    },
+                  )
+                  .toList(),
+            },
+          )
+          .toList();
 
-    widget.onSave(newRubric);
-    Navigator.pop(context);
+      final rubricId = await RubricService.createRubric(
+        title: title,
+        description: _descController.text.trim(),
+        criteria: payloadCriteria,
+      );
+
+      final newRubric = RubricModel(
+        id: rubricId,
+        title: title,
+        description: _descController.text.trim(),
+        scope: _scope,
+        criteria: _criteria,
+        isLocked: _isLocked,
+        usedCount: widget.rubric?.usedCount ?? 0,
+        updatedAt: 'วันนี้',
+      );
+
+      widget.onSave(newRubric);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('สร้าง Rubric ไม่สำเร็จ: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
   }
 
   @override

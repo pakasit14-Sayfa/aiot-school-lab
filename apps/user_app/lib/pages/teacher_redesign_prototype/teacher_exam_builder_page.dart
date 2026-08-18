@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import 'teacher_redesign_prototype_page.dart';
 import 'teacher_shared_widgets.dart';
 import 'teacher_question_bank_page.dart';
@@ -330,7 +331,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     );
   }
 
-  void _saveExam(bool isPublished) {
+  Future<void> _saveExam(bool isPublished) async {
     final title = _examTitleCtrl.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -358,11 +359,86 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         return;
       }
     }
-    final statusText = isPublished
-        ? 'เผยแพร่ข้อสอบสำเร็จ'
-        : 'บันทึกร่างข้อสอบสำเร็จ';
-    showTeacherMockAction(context, '$statusText ($title)');
-    Navigator.pop(context);
+
+    try {
+      final courses = await CourseService.listMyCourses();
+      if (courses.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนออกข้อสอบ',
+              ),
+              backgroundColor: Color(0xFFEF4444),
+            ),
+          );
+        }
+        return;
+      }
+      final targetCourseId = courses.first.id;
+      final quizKindStr = _selectedKind == _ExamKind.preTest
+          ? 'pretest'
+          : 'posttest';
+
+      final quizId = await QuizService.createQuiz(
+        courseId: targetCourseId,
+        type: quizKindStr,
+        title: title,
+        timeLimitMin: _timeLimitMinutes,
+      );
+
+      for (final q in _questions) {
+        final qTypeStr = q.type == _QuestionType.multipleChoice
+            ? 'multiple_choice'
+            : 'short_answer';
+        final choicesPayload = q.type == _QuestionType.multipleChoice
+            ? q.options
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => {
+                      'text': entry.value,
+                      'is_correct': entry.key == q.correctIndex,
+                    },
+                  )
+                  .toList()
+            : null;
+
+        await QuizService.addQuizQuestion(
+          quizId: quizId,
+          type: qTypeStr,
+          question: q.questionText,
+          points: q.score,
+          choices: choicesPayload,
+        );
+      }
+
+      if (isPublished) {
+        await QuizService.publishQuiz(quizId);
+      }
+
+      final statusText = isPublished
+          ? 'เผยแพร่ข้อสอบสำเร็จ'
+          : 'บันทึกร่างข้อสอบสำเร็จ';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$statusText ($title)'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('บันทึกข้อสอบไม่สำเร็จ: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
   }
 
   @override
