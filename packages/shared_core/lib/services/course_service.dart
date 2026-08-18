@@ -154,4 +154,19 @@ class CourseService {
       },
     );
   }
+
+  static Future<List<StudentLookup>> searchSchoolStudents({
+    String query = '',
+  }) async {
+    final rows =
+        await supabase.rpc(
+              'search_school_students',
+              params: {'p_token': AuthService.sessionToken, 'p_query': query},
+            )
+            as List;
+
+    return rows
+        .map((row) => StudentLookup.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
 }

@@ -19,6 +19,7 @@ import 'teacher_students_page.dart';
 /// Data model for a course in the teacher prototype
 class TeacherCourseModel {
   const TeacherCourseModel({
+    this.id,
     required this.code,
     required this.name,
     required this.category,
@@ -34,6 +35,7 @@ class TeacherCourseModel {
     this.hasAccess = true,
   });
 
+  final String? id;
   final String code;
   final String name;
   final String category;
@@ -195,6 +197,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
         }
         mapped.add(
           TeacherCourseModel(
+            id: c.id,
             code: c.id.length > 8 ? c.id.substring(0, 8) : c.id,
             name: c.subjectName,
             category: c.gradeLevel ?? '-',
@@ -2132,26 +2135,8 @@ class TeacherCourseDetailPage extends StatefulWidget {
       _TeacherCourseDetailPageState();
 }
 
-// CLS-4: รายชื่อนักเรียนของโรงเรียนที่เลือกเพิ่มเข้ารายวิชานี้ได้ — คนที่ทำ
-// เครื่องหมาย "อยู่ในวิชานี้แล้ว" ไว้ล่วงหน้าจำลอง Exception Flow
-// "นักเรียนอยู่ในรายวิชานี้แล้ว → ข้าม ไม่เพิ่มซ้ำ"
-const _schoolRosterMock = [
-  'นายกิตติศักดิ์ ขยันยิ่ง (ม.5/2)',
-  'นางสาวชลดา สายธาร (ม.5/2)',
-  'นายธนากร เกียรติศักดิ์ (ม.5/2)',
-  'นางสาวปาริชาติ ใจงาม (ม.5/1)',
-  'นายวรากร สุขสันต์ (ม.5/1)',
-  'นางสาวศิริพร รุ่งโรจน์ (ม.4/3)',
-];
-
 class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
   String _activeTab = 'บทเรียน';
-
-  // เดโม: จำลองว่า 2 คนแรกอยู่ในวิชานี้อยู่แล้วก่อนเปิดหน้า
-  final Set<String> _enrolledFromRoster = {
-    'นายกิตติศักดิ์ ขยันยิ่ง (ม.5/2)',
-    'นางสาวชลดา สายธาร (ม.5/2)',
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -2550,129 +2535,12 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
   // CLS-4: ค้นหา/เลือกนักเรียนจากรายชื่อโรงเรียนเพื่อเพิ่มเข้ารายวิชานี้ —
   // ข้ามคนที่อยู่ในวิชาแล้ว (Exception Flow 1) ไม่เพิ่มซ้ำ
   void _openAddStudentModal(BuildContext context, TeacherCourseModel course) {
-    final selected = <String>{};
-    String query = '';
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setModalState) {
-          final results = _schoolRosterMock
-              .where((name) => name.toLowerCase().contains(query.toLowerCase()))
-              .toList();
-          return DraggableScrollableSheet(
-            initialChildSize: 0.75,
-            maxChildSize: 0.9,
-            minChildSize: 0.5,
-            builder: (ctx, scrollController) => Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'เพิ่มนักเรียนเข้าวิชา ${course.code}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'ค้นหา/เลือกได้จากรายชื่อนักเรียนของโรงเรียนเดียวกันเท่านั้น',
-                    style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    onChanged: (v) => setModalState(() => query = v),
-                    decoration: InputDecoration(
-                      hintText: 'ค้นหาชื่อนักเรียน...',
-                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: ListView.separated(
-                      controller: scrollController,
-                      itemCount: results.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final name = results[index];
-                        final alreadyIn = _enrolledFromRoster.contains(name);
-                        final isSelected = selected.contains(name);
-                        return CheckboxListTile(
-                          value: alreadyIn ? true : isSelected,
-                          onChanged: alreadyIn
-                              ? null
-                              : (v) => setModalState(() {
-                                  if (v == true) {
-                                    selected.add(name);
-                                  } else {
-                                    selected.remove(name);
-                                  }
-                                }),
-                          title: Text(
-                            name,
-                            style: const TextStyle(fontSize: 13.5),
-                          ),
-                          subtitle: alreadyIn
-                              ? const Text(
-                                  'อยู่ในวิชานี้แล้ว',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: TeacherPalette.muted,
-                                  ),
-                                )
-                              : null,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: selected.isEmpty
-                          ? null
-                          : () {
-                              setState(() {
-                                _enrolledFromRoster.addAll(selected);
-                              });
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'เพิ่มนักเรียน ${selected.length} คนเข้าวิชา ${course.code} แล้ว',
-                                  ),
-                                  backgroundColor: const Color(0xFF10B981),
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: TeacherPalette.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        selected.isEmpty
-                            ? 'เลือกนักเรียนก่อน'
-                            : 'เพิ่ม ${selected.length} คนเข้าวิชา',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (modalContext) =>
+          _AddStudentModalSheet(course: course, onEnrolledSuccess: () {}),
     );
   }
 
@@ -3320,6 +3188,249 @@ class __StudentGroupManagementWidgetState
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AddStudentModalSheet extends StatefulWidget {
+  const _AddStudentModalSheet({
+    required this.course,
+    required this.onEnrolledSuccess,
+  });
+
+  final TeacherCourseModel course;
+  final VoidCallback onEnrolledSuccess;
+
+  @override
+  State<_AddStudentModalSheet> createState() => _AddStudentModalSheetState();
+}
+
+class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  String _searchQuery = '';
+
+  List<StudentLookup> _students = [];
+  Set<String> _alreadyEnrolledStudentIds = {};
+  final Set<String> _selectedStudentIds = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    final courseId = widget.course.id ?? widget.course.code;
+    try {
+      final enrolled = await CourseService.listCourseStudents(courseId);
+      final enrolledIds = enrolled.map((s) => s.studentId).toSet();
+
+      final students = await CourseService.searchSchoolStudents(
+        query: _searchQuery,
+      );
+
+      if (mounted) {
+        setState(() {
+          _alreadyEnrolledStudentIds = enrolledIds;
+          _students = students;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _students = [];
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _performSearch(String q) async {
+    _searchQuery = q;
+    try {
+      final students = await CourseService.searchSchoolStudents(query: q);
+      if (mounted) {
+        setState(() {
+          _students = students;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _submitEnrollment() async {
+    if (_selectedStudentIds.isEmpty || _isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+
+    final courseId = widget.course.id ?? widget.course.code;
+    int successCount = 0;
+    int failCount = 0;
+
+    for (final studentId in _selectedStudentIds) {
+      try {
+        await CourseService.enrollStudent(
+          courseId: courseId,
+          studentId: studentId,
+        );
+        successCount++;
+      } catch (e) {
+        failCount++;
+      }
+    }
+
+    if (!mounted) return;
+
+    Navigator.pop(context);
+
+    if (failCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'เพิ่มนักเรียน $successCount คนเข้าวิชา ${widget.course.code} เรียบร้อยแล้ว',
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'เพิ่มสำเร็จ $successCount คน, ไม่สำเร็จ $failCount คน',
+          ),
+          backgroundColor: const Color(0xFFD97706),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+
+    widget.onEnrolledSuccess();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.9,
+      minChildSize: 0.5,
+      builder: (ctx, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'เพิ่มนักเรียนเข้าวิชา ${widget.course.code}',
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'ค้นหา/เลือกได้จากรายชื่อนักเรียนของโรงเรียนเดียวกันเท่านั้น',
+              style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              onChanged: (v) => _performSearch(v),
+              decoration: InputDecoration(
+                hintText: 'ค้นหาชื่อหรืออีเมลนักเรียน...',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _students.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'ไม่พบรายชื่อนักเรียน',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: TeacherPalette.muted,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scrollController,
+                      itemCount: _students.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final s = _students[index];
+                        final alreadyIn = _alreadyEnrolledStudentIds.contains(
+                          s.studentId,
+                        );
+                        final isSelected = _selectedStudentIds.contains(
+                          s.studentId,
+                        );
+                        return CheckboxListTile(
+                          value: alreadyIn ? true : isSelected,
+                          onChanged: alreadyIn || _isSubmitting
+                              ? null
+                              : (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      _selectedStudentIds.add(s.studentId);
+                                    } else {
+                                      _selectedStudentIds.remove(s.studentId);
+                                    }
+                                  });
+                                },
+                          title: Text(
+                            s.fullName,
+                            style: const TextStyle(fontSize: 13.5),
+                          ),
+                          subtitle: Text(
+                            alreadyIn ? 'อยู่ในวิชานี้แล้ว' : s.email,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: alreadyIn
+                                  ? TeacherPalette.muted
+                                  : TeacherPalette.softText,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: _selectedStudentIds.isEmpty || _isSubmitting
+                    ? null
+                    : _submitEnrollment,
+                style: FilledButton.styleFrom(
+                  backgroundColor: TeacherPalette.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        _selectedStudentIds.isEmpty
+                            ? 'เลือกนักเรียนก่อน'
+                            : 'เพิ่ม ${_selectedStudentIds.length} คนเข้าวิชา',
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
