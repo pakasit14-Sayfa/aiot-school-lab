@@ -6,7 +6,7 @@ import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_variant_school_home.dart';
 import 'student_assignments_page.dart';
-import 'student_lessons_page.dart';
+import 'student_courses_page.dart';
 import 'student_profile_page.dart';
 import 'student_score_page.dart';
 import 'student_calendar_page.dart';
@@ -573,7 +573,7 @@ class _StudentNavigationPrototypeState
 
   List<Widget> get _pages => [
     StudentVariantSchoolHome(onViewScore: _openScorePage),
-    const StudentLessonsPage(showAppBar: false),
+    const StudentCoursesPage(showAppBar: false),
     const StudentAssignmentsPage(),
     const StudentCalendarPage(),
     StudentProfilePage(
@@ -1010,7 +1010,7 @@ class _StudentNavigationPrototypeState
     // ด้านล่าง) ส่วนนี้เหลือแค่เมนูหลักที่ใช้งานบ่อย
     final navItems = <_NavItem>[
       _NavItem(icon: Icons.home_rounded, label: 'หน้าแรก'),
-      _NavItem(icon: Icons.menu_book_rounded, label: 'บทเรียน'),
+      _NavItem(icon: Icons.menu_book_rounded, label: 'รายวิชา'),
       _NavItem(icon: Icons.assignment_rounded, label: 'ใบงาน'),
       _NavItem(icon: Icons.calendar_month_rounded, label: 'ปฏิทิน'),
     ];
@@ -1296,7 +1296,7 @@ class _StudentNavigationPrototypeState
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book_outlined),
             activeIcon: Icon(Icons.menu_book_rounded),
-            label: 'บทเรียน',
+            label: 'รายวิชา',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.assignment_outlined),

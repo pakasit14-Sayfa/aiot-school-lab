@@ -1,39 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'student_redesign_palette.dart';
-import '../../student/lesson_view_page.dart';
+import 'student_lessons_page.dart';
 
-class _LessonWithCourse {
-  const _LessonWithCourse({required this.lesson, required this.courseName});
-
-  final LessonSummary lesson;
-  final String courseName;
-}
-
-class StudentLessonsPage extends StatefulWidget {
-  const StudentLessonsPage({
-    super.key,
-    this.showAppBar = true,
-    this.courseId,
-    this.courseName,
-  });
+/// รายวิชาที่นักเรียนลงทะเบียน — จุดเริ่มก่อนเข้าไปดูบทเรียนของแต่ละวิชา
+/// (เดิมแท็บนี้พาไปหน้าบทเรียนรวมทุกวิชาโดยตรง เปลี่ยนให้เลือกวิชาก่อน
+/// เพราะบทเรียนรวมกันเป็น list เดียวจะรกเมื่อมีหลายวิชา)
+class StudentCoursesPage extends StatefulWidget {
+  const StudentCoursesPage({super.key, this.showAppBar = true});
 
   /// false เมื่อฝังเป็นแท็บในเชลล์นำทาง (มี AppBar/title ของตัวเองอยู่แล้ว)
   final bool showAppBar;
 
-  /// ถ้าระบุ จะโหลดบทเรียนเฉพาะวิชานี้วิชาเดียว (มาจากหน้ารายวิชา) ถ้าไม่
-  /// ระบุ จะโหลดบทเรียนรวมทุกวิชาที่ลงทะเบียนเหมือนเดิม
-  final String? courseId;
-  final String? courseName;
-
   @override
-  State<StudentLessonsPage> createState() => _StudentLessonsPageState();
+  State<StudentCoursesPage> createState() => _StudentCoursesPageState();
 }
 
-class _StudentLessonsPageState extends State<StudentLessonsPage> {
+class _StudentCoursesPageState extends State<StudentCoursesPage> {
   bool _loading = true;
   String? _error;
-  List<_LessonWithCourse> _lessons = const [];
+  List<CourseSummary> _courses = const [];
 
   @override
   void initState() {
@@ -47,43 +33,12 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
       _error = null;
     });
     try {
-      final items = <_LessonWithCourse>[];
-      if (widget.courseId != null) {
-        final lessons = await LessonService.listLessons(widget.courseId!);
-        for (final lesson in lessons.where((l) => l.isPublished)) {
-          items.add(
-            _LessonWithCourse(
-              lesson: lesson,
-              courseName: widget.courseName ?? '',
-            ),
-          );
-        }
-      } else {
-        final courses = (await CourseService.listMyCourses())
-            .where((c) => c.isActive)
-            .toList();
-        final lessonLists = await Future.wait(
-          courses.map((c) => LessonService.listLessons(c.id)),
-        );
-        for (var i = 0; i < courses.length; i++) {
-          for (final lesson in lessonLists[i].where((l) => l.isPublished)) {
-            items.add(
-              _LessonWithCourse(
-                lesson: lesson,
-                courseName: courses[i].subjectName,
-              ),
-            );
-          }
-        }
-      }
-      items.sort((a, b) {
-        final aDate = a.lesson.publishedAt ?? DateTime(2000);
-        final bDate = b.lesson.publishedAt ?? DateTime(2000);
-        return bDate.compareTo(aDate);
-      });
+      final courses = (await CourseService.listMyCourses())
+          .where((c) => c.isActive)
+          .toList();
       if (!mounted) return;
       setState(() {
-        _lessons = items;
+        _courses = courses;
         _loading = false;
       });
     } catch (e) {
@@ -120,13 +75,13 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSummaryHeader(context),
+                        _buildSummaryHeader(),
                         const SizedBox(height: 18),
                         if (_error != null) ...[
                           _buildErrorBanner(),
                           const SizedBox(height: 12),
                         ],
-                        _buildLessonList(),
+                        _buildCourseList(),
                         const SizedBox(height: 24),
                       ],
                     ),
@@ -158,9 +113,9 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
-              title: Text(
-                widget.courseName ?? 'บทเรียนและคอร์สเรียน',
-                style: const TextStyle(
+              title: const Text(
+                'รายวิชาของฉัน',
+                style: TextStyle(
                   color: SchoolPalette.ink,
                   fontWeight: FontWeight.w900,
                   fontSize: 18,
@@ -205,7 +160,7 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
     );
   }
 
-  Widget _buildSummaryHeader(BuildContext context) {
+  Widget _buildSummaryHeader() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -231,7 +186,7 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
               ],
             ),
             child: const Icon(
-              Icons.menu_book_rounded,
+              Icons.auto_stories_rounded,
               color: Colors.white,
               size: 22,
             ),
@@ -242,11 +197,9 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  widget.courseId != null
-                      ? 'บทเรียนวิชานี้'
-                      : 'บทเรียนทั้งหมดของคุณ',
-                  style: const TextStyle(
+                const Text(
+                  'วิชาที่ลงทะเบียนไว้',
+                  style: TextStyle(
                     color: SchoolPalette.navy,
                     fontSize: 15.5,
                     fontWeight: FontWeight.w800,
@@ -254,9 +207,7 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _loading
-                      ? 'กำลังโหลด...'
-                      : '${_lessons.length} บทเรียนที่เปิดสอน',
+                  _loading ? 'กำลังโหลด...' : '${_courses.length} รายวิชา',
                   style: const TextStyle(
                     color: SchoolPalette.muted,
                     fontSize: 11.5,
@@ -271,7 +222,7 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
     );
   }
 
-  Widget _buildLessonList() {
+  Widget _buildCourseList() {
     if (_loading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 40),
@@ -279,7 +230,7 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
       );
     }
 
-    if (_lessons.isEmpty) {
+    if (_courses.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 40),
         alignment: Alignment.center,
@@ -291,13 +242,13 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
         child: Column(
           children: [
             Icon(
-              Icons.menu_book_outlined,
+              Icons.auto_stories_outlined,
               size: 36,
               color: SchoolPalette.muted.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 8),
             const Text(
-              'ยังไม่มีบทเรียนที่เปิดสอน',
+              'ยังไม่ได้ลงทะเบียนวิชาใดเลย',
               style: TextStyle(
                 color: SchoolPalette.muted,
                 fontSize: 13,
@@ -311,34 +262,30 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
 
     return Column(
       children: [
-        for (var i = 0; i < _lessons.length; i++)
+        for (var i = 0; i < _courses.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
-            child: LessonCard(item: _lessons[i]),
+            child: _CourseCard(course: _courses[i]),
           ),
       ],
     );
   }
 }
 
-class LessonCard extends StatelessWidget {
-  const LessonCard({super.key, required this.item});
+class _CourseCard extends StatelessWidget {
+  const _CourseCard({required this.course});
 
-  final _LessonWithCourse item;
-
-  static String _publishedLabel(DateTime? publishedAt) {
-    if (publishedAt == null) return '';
-    final now = DateTime.now();
-    final diff = now.difference(publishedAt);
-    if (diff.inDays < 1) return 'เผยแพร่วันนี้';
-    if (diff.inDays < 7) return 'เผยแพร่ ${diff.inDays} วันที่แล้ว';
-    return 'เผยแพร่ ${publishedAt.day}/${publishedAt.month}/${publishedAt.year}';
-  }
+  final CourseSummary course;
 
   @override
   Widget build(BuildContext context) {
     const accentColor = SchoolPalette.deepGreen;
     final pastelBg = Color.lerp(Colors.white, accentColor, 0.08)!;
+    final subtitle = [
+      if (course.gradeLevel != null && course.gradeLevel!.isNotEmpty)
+        'ชั้น ${course.gradeLevel}',
+      if (course.room != null && course.room!.isNotEmpty) 'ห้อง ${course.room}',
+    ].join(' · ');
 
     return Container(
       decoration: BoxDecoration(
@@ -353,7 +300,10 @@ class LessonCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => LessonViewPage(lessonId: item.lesson.id),
+                builder: (_) => StudentLessonsPage(
+                  courseId: course.id,
+                  courseName: course.subjectName,
+                ),
               ),
             );
           },
@@ -382,7 +332,7 @@ class LessonCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.lesson.title,
+                        course.subjectName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -392,26 +342,19 @@ class LessonCard extends StatelessWidget {
                           height: 1.3,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.courseName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: SchoolPalette.muted,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: SchoolPalette.muted,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _publishedLabel(item.lesson.publishedAt),
-                        style: const TextStyle(
-                          color: SchoolPalette.muted,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
