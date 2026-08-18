@@ -1,6 +1,7 @@
 -- =====================================================================
 -- ASM-7/8: ระบบเกณฑ์การประเมิน (Rubrics)
 -- สร้าง RPC สำหรับจัดการ Rubrics และ Criteria ฝั่งครู
+-- Permission Matrix: SA=– AD=R TE=CRUD EX=– ST=– PA=– FM=– TC=–
 -- =====================================================================
 
 create or replace function create_rubric(
@@ -22,7 +23,7 @@ declare
 begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
-  if v_actor.role <> 'teacher' and v_actor.role <> 'school_admin' and v_actor.role <> 'super_admin' then
+  if v_actor.role not in ('school_admin', 'teacher') then
     raise exception 'forbidden';
   end if;
 
@@ -73,6 +74,10 @@ begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
 
+  if v_actor.role not in ('school_admin', 'teacher') then
+    raise exception 'forbidden';
+  end if;
+
   return query
   select
     r.id as rubric_id,
@@ -104,6 +109,10 @@ declare
 begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
+
+  if v_actor.role not in ('school_admin', 'teacher') then
+    raise exception 'forbidden';
+  end if;
 
   select * into v_rubric from rubrics r_check where r_check.id = p_rubric_id;
   if not found then raise exception 'rubric_not_found'; end if;
@@ -159,7 +168,8 @@ declare
 begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
-  if v_actor.role <> 'teacher' and v_actor.role <> 'school_admin' and v_actor.role <> 'super_admin' then
+
+  if v_actor.role not in ('school_admin', 'teacher') then
     raise exception 'forbidden';
   end if;
 

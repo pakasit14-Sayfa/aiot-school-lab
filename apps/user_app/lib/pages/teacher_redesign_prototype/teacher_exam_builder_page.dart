@@ -377,8 +377,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
       }
       final targetCourseId = courses.first.id;
       final quizKindStr = _selectedKind == _ExamKind.preTest
-          ? 'pretest'
-          : 'posttest';
+          ? 'pre_test'
+          : (_selectedKind == _ExamKind.postTest ? 'post_test' : 'general');
 
       final quizId = await QuizService.createQuiz(
         courseId: targetCourseId,

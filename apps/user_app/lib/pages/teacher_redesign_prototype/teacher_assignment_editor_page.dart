@@ -82,7 +82,9 @@ class _TeacherAssignmentEditorPageState
                 id: a.id,
                 title: a.title,
                 instructions: '',
-                type: a.type == 'project' ? 'โครงงาน AIoT' : (a.type == 'experiment' ? 'ใบงานทดลอง' : 'การบ้าน'),
+                type: a.type == 'project'
+                    ? 'โครงงาน AIoT'
+                    : (a.type == 'experiment' ? 'ใบงานทดลอง' : 'การบ้าน'),
                 courseName: courses.first.subjectName,
                 dueDate: a.dueAt != null
                     ? a.dueAt!.toLocal().toString().substring(0, 16)

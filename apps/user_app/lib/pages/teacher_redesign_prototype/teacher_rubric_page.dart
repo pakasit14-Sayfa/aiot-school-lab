@@ -106,7 +106,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
                     id: c.id,
                     title: c.name,
                     maxPoints: c.maxScore.toDouble(),
-                    levels: (c.levels as List<dynamic>? ?? []).map((l) {
+                    levels: (c.levels ?? []).map((l) {
                       final map = l as Map<String, dynamic>;
                       return RubricLevel(
                         name: map['name'] as String? ?? '',
@@ -135,186 +135,24 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
 
       if (mounted) {
         setState(() {
-          _rubrics = loadedList.isEmpty ? _getMockRubrics() : loadedList;
+          _rubrics = loadedList;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _rubrics = _getMockRubrics();
+          _rubrics = [];
           _isLoading = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('โหลด Rubric ไม่สำเร็จ: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
       }
     }
-  }
-
-  List<RubricModel> _getMockRubrics() {
-    return [
-      RubricModel(
-        id: 'rubric-1',
-        title: 'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-        description:
-            'ใช้ประเมินชิ้นงาน STEM และอุปกรณ์ AIoT ประจำภาคเรียน ครอบคลุมการออกแบบ วงจร และการนำเสนอ',
-        scope: 'ใช้ร่วมข้ามวิชา',
-        isLocked: true,
-        usedCount: 24,
-        updatedAt: '10 ส.ค. 2026',
-        criteria: [
-          RubricCriterion(
-            id: 'c1',
-            title: 'ความคิดสร้างสรรค์และการประยุกต์ใช้ AIoT',
-            maxPoints: 10,
-            levels: [
-              RubricLevel(
-                name: 'ดีมาก (10)',
-                score: 10,
-                description:
-                    'ประยุกต์ใช้เซนเซอร์หลากหลาย ทำงานอัตโนมัติสมบูรณ์แบบ',
-              ),
-              RubricLevel(
-                name: 'ดี (8)',
-                score: 8,
-                description:
-                    'ใช้อุปกรณ์ได้ถูกต้องตามโจทย์ มีความคิดสร้างสรรค์ดี',
-              ),
-              RubricLevel(
-                name: 'พอใช้ (6)',
-                score: 6,
-                description: 'ทำงานได้ตามฟังก์ชันพื้นฐาน ยังขาดความแปลกใหม่',
-              ),
-              RubricLevel(
-                name: 'ต้องปรับปรุง (4)',
-                score: 4,
-                description: 'เซนเซอร์ส่งค่าไม่สมบูรณ์ หรือทำงานติดขัด',
-              ),
-            ],
-          ),
-          RubricCriterion(
-            id: 'c2',
-            title: 'ความถูกต้องของวงจรและการต่อสายสัญญาณ',
-            maxPoints: 10,
-            levels: [
-              RubricLevel(
-                name: 'ดีมาก (10)',
-                score: 10,
-                description: 'จัดสายเรียบร้อย ปลอดภัย ตามหลักวิศวกรรมไฟฟ้า',
-              ),
-              RubricLevel(
-                name: 'ดี (8)',
-                score: 8,
-                description: 'ต่อวงจรถูกต้องทั้งหมด วางสายค่อนข้างเป็นระเบียบ',
-              ),
-              RubricLevel(
-                name: 'พอใช้ (6)',
-                score: 6,
-                description: 'วงจรทำงานได้แต่สายสัญญาณหลวมหรือพันกัน',
-              ),
-              RubricLevel(
-                name: 'ต้องปรับปรุง (4)',
-                score: 4,
-                description: 'ต่อวงจรผิดพลาด เสี่ยงต่อช็อตหรืออุปกรณ์เสียหาย',
-              ),
-            ],
-          ),
-          RubricCriterion(
-            id: 'c3',
-            title: 'รูปเล่มรายงานและการนำเสนอคลิปวิดีโอ',
-            maxPoints: 10,
-            levels: [
-              RubricLevel(
-                name: 'ดีมาก (10)',
-                score: 10,
-                description:
-                    'เนื้อหาครบถ้วน ภาพประกอบชัดเจน อธิบายสไลด์เข้าใจง่าย',
-              ),
-              RubricLevel(
-                name: 'ดี (8)',
-                score: 8,
-                description: 'รายงานครบตามโครงสร้าง นำเสนอชัดเจน',
-              ),
-              RubricLevel(
-                name: 'พอใช้ (6)',
-                score: 6,
-                description: 'ขาดหัวข้อบางส่วน นำเสนอติดขัดบ้าง',
-              ),
-              RubricLevel(
-                name: 'ต้องปรับปรุง (4)',
-                score: 4,
-                description: 'รูปเล่มไม่สมบูรณ์ หรือไม่มีคลิปนำเสนอ',
-              ),
-            ],
-          ),
-        ],
-      ),
-      RubricModel(
-        id: 'rubric-2',
-        title: 'เกณฑ์ตรวจใบงานทดลองเซนเซอร์ (ม.5/2)',
-        description:
-            'เกณฑ์ประเมินการบันทึกผลการทดลองตารางค่า PM2.5 อุณหภูมิ และความชื้น',
-        scope: 'ม.5/2 การออกแบบเทคโนโลยี',
-        isLocked: false,
-        usedCount: 0,
-        updatedAt: '12 ส.ค. 2026',
-        criteria: [
-          RubricCriterion(
-            id: 'c1',
-            title: 'ความแม่นยำในการบันทึกค่าเซนเซอร์',
-            maxPoints: 5,
-            levels: [
-              RubricLevel(
-                name: 'ดีมาก (5)',
-                score: 5,
-                description: 'บันทึกค่าครบถ้วนตามช่วงเวลา มีหน่วยถูกต้อง',
-              ),
-              RubricLevel(
-                name: 'ดี (4)',
-                score: 4,
-                description: 'บันทึกค่าถูกต้อง แต่ลืมลงหน่วยบางจุด',
-              ),
-              RubricLevel(
-                name: 'พอใช้ (3)',
-                score: 3,
-                description: 'ข้อมูลขาดหายไปบางช่วงเวลา',
-              ),
-              RubricLevel(
-                name: 'ต้องปรับปรุง (1)',
-                score: 1,
-                description: 'ตัวเลขไม่ตรงกับความเป็นจริง',
-              ),
-            ],
-          ),
-          RubricCriterion(
-            id: 'c2',
-            title: 'การวิเคราะห์ผลและสรุปความสัมพันธ์',
-            maxPoints: 5,
-            levels: [
-              RubricLevel(
-                name: 'ดีมาก (5)',
-                score: 5,
-                description:
-                    'อธิบายความสัมพันธ์ระหว่างค่าฝุ่นกับอุณหภูมิได้ถูกต้อง',
-              ),
-              RubricLevel(
-                name: 'ดี (4)',
-                score: 4,
-                description: 'สรุปผลได้สอดคล้องกับข้อมูลทดลอง',
-              ),
-              RubricLevel(
-                name: 'พอใช้ (3)',
-                score: 3,
-                description: 'สรุปผลแบบกว้างๆ ขาดการอ้างอิงตัวเลข',
-              ),
-              RubricLevel(
-                name: 'ต้องปรับปรุง (1)',
-                score: 1,
-                description: 'ไม่มีส่วนสรุปผลการทดลอง',
-              ),
-            ],
-          ),
-        ],
-      ),
-    ];
   }
 
   void _openCreateEditForm({RubricModel? existingRubric}) {
@@ -399,8 +237,6 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
       );
     }
     final filtered = _rubrics.where((r) {
-
-
       final matchQuery =
           r.title.contains(_searchQuery) ||
           r.description.contains(_searchQuery) ||

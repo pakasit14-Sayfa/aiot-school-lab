@@ -13,7 +13,6 @@ import 'teacher_rubric_page.dart'
     show RubricModel, RubricCriterion, RubricLevel;
 import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
 
-
 class _PblTopic {
   const _PblTopic(this.title, this.icon, this.color);
   final String title;

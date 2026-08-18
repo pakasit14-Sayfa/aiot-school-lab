@@ -209,10 +209,69 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
   final Set<int> _selectedIndividual = {};
   final Set<int> _selectedSetIds = {};
 
+  bool _isLoading = true;
+  List<BankQuestionSet> _questionSets = [];
+  List<BankQuestion> _questionBank = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadQuestionBank();
+  }
+
+  Future<void> _loadQuestionBank() async {
+    setState(() => _isLoading = true);
+    try {
+      final courses = await CourseService.listMyCourses();
+      final loadedSets = <BankQuestionSet>[];
+      final loadedQuestions = <BankQuestion>[];
+
+      for (final course in courses) {
+        final quizzes = await QuizService.listCourseQuizzes(course.id);
+        for (final q in quizzes) {
+          final kindLabel = q.type == 'pre_test'
+              ? 'ก่อนเรียน'
+              : (q.type == 'post_test' ? 'หลังเรียน' : 'เก็บคะแนน');
+          loadedSets.add(
+            BankQuestionSet(
+              name: q.title,
+              kind: kindLabel,
+              subject: course.subjectName,
+              description: 'ชุดข้อสอบ $kindLabel - ${course.subjectName}',
+              questionIndexes: [],
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _questionSets = loadedSets;
+          _questionBank = loadedQuestions;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _questionSets = [];
+          _questionBank = [];
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('โหลดคลังคำถามไม่สำเร็จ: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
   List<int> get _filteredIndexes {
     final indexes = <int>[];
-    for (int i = 0; i < mockQuestionBank.length; i++) {
-      final q = mockQuestionBank[i];
+    for (int i = 0; i < _questionBank.length; i++) {
+      final q = _questionBank[i];
       if (_subjectFilter != null && q.subject != _subjectFilter) continue;
       if (_typeFilter != null && q.type != _typeFilter) continue;
       if (_search.trim().isNotEmpty &&
@@ -229,11 +288,11 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
   List<int> get _filteredSetIndexes {
     final query = _setSearch.trim().toLowerCase();
     if (query.isEmpty) {
-      return List.generate(mockQuestionSets.length, (i) => i);
+      return List.generate(_questionSets.length, (i) => i);
     }
     final indexes = <int>[];
-    for (int i = 0; i < mockQuestionSets.length; i++) {
-      final s = mockQuestionSets[i];
+    for (int i = 0; i < _questionSets.length; i++) {
+      final s = _questionSets[i];
       if (s.name.toLowerCase().contains(query) ||
           s.description.toLowerCase().contains(query) ||
           s.subject.toLowerCase().contains(query) ||
@@ -250,13 +309,18 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
   Set<int> get _allSelectedIndexes {
     final result = <int>{..._selectedIndividual};
     for (final setId in _selectedSetIds) {
-      result.addAll(mockQuestionSets[setId].questionIndexes);
+      if (setId < _questionSets.length) {
+        result.addAll(_questionSets[setId].questionIndexes);
+      }
     }
     return result;
   }
 
   void _confirmSelection() {
-    final chosen = _allSelectedIndexes.map((i) => mockQuestionBank[i]).toList();
+    final chosen = _allSelectedIndexes
+        .where((i) => i < _questionBank.length)
+        .map((i) => _questionBank[i])
+        .toList();
     Navigator.pop(context, chosen);
   }
 
@@ -276,13 +340,17 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
     if (visibleSetIndexes.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
         alignment: Alignment.center,
-        child: const Text(
-          'ไม่พบชุดข้อสอบที่ตรงกับเงื่อนไข',
-          style: TextStyle(
+        child: Text(
+          _questionSets.isEmpty
+              ? 'ยังไม่มีชุดข้อสอบในคลังคำถาม\n(สามารถสร้างชุดข้อสอบใหม่ได้ในเมนู "ออกแบบทดสอบ / Exam Builder")'
+              : 'ไม่พบชุดข้อสอบที่ตรงกับเงื่อนไข',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
             color: TeacherPalette.muted,
             fontWeight: FontWeight.w700,
+            fontSize: 13.5,
           ),
         ),
       );
@@ -294,7 +362,8 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
       itemCount: visibleSetIndexes.length,
       itemBuilder: (context, listIdx) {
         final setId = visibleSetIndexes[listIdx];
-        final set = mockQuestionSets[setId];
+        final set = _questionSets[setId];
+
         final selected = _selectedSetIds.contains(setId);
         final accent = _setKindAccent(set.kind);
         return Padding(
@@ -439,6 +508,15 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
         title: 'คลังข้อสอบ',
         activeMenuLabel: 'คลังข้อสอบ',
         builder: (context, isDesktop) {
+          if (_isLoading) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(40),
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+
           return Column(
             children: [
               Padding(

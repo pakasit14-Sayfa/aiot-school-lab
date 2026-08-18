@@ -3,7 +3,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(9);
 
 insert into packages (id, name, license_type)
 values ('77100000-0000-0000-0000-000000000001', 'Rubric test package', 'perpetual');
@@ -49,22 +49,35 @@ prepare test_empty_title as
   select create_rubric('rub-teacher-token', '');
 select throws_ok('test_empty_title', 'title_required', 'Empty title throws exception');
 
--- Test 4: list_my_rubrics
+-- Test 4: list_my_rubrics by teacher
 prepare test_list_rubrics as
   select count(*) from list_my_rubrics('rub-teacher-token');
-select results_eq('test_list_rubrics', array[1::bigint], 'list_my_rubrics returns 1 rubric');
+select results_eq('test_list_rubrics', array[1::bigint], 'list_my_rubrics returns 1 rubric for teacher');
 
--- Test 5: get_rubric
+-- Test 5: list_my_rubrics by student must be forbidden
+prepare test_student_list_rubrics as
+  select * from list_my_rubrics('rub-student-token');
+select throws_ok('test_student_list_rubrics', 'forbidden', 'Student cannot list rubrics');
+
+-- Test 6: get_rubric by teacher
 select is(
   (select title from get_rubric(
     'rub-teacher-token',
     (select id from rubrics where school_id = '77200000-0000-0000-0000-000000000001' limit 1)
   )),
   'เกณฑ์ประเมินโครงงาน AIoT',
-  'get_rubric returns correct rubric title'
+  'get_rubric returns correct rubric title for teacher'
 );
 
--- Test 6: add_rubric_criterion
+-- Test 7: get_rubric by student must be forbidden
+prepare test_student_get_rubric as
+  select * from get_rubric(
+    'rub-student-token',
+    (select id from rubrics where school_id = '77200000-0000-0000-0000-000000000001' limit 1)
+  );
+select throws_ok('test_student_get_rubric', 'forbidden', 'Student cannot get rubric');
+
+-- Test 8: add_rubric_criterion
 prepare test_add_criterion as
   select add_rubric_criterion(
     'rub-teacher-token',
@@ -75,7 +88,7 @@ prepare test_add_criterion as
   );
 select lives_ok('test_add_criterion', 'add_rubric_criterion adds new criterion');
 
--- Test 7: verify criteria count is now 3
+-- Test 9: verify criteria count is now 3
 select is(
   (select (jsonb_array_length(criteria)) from get_rubric(
     'rub-teacher-token',
