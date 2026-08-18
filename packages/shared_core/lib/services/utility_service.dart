@@ -1,6 +1,6 @@
 import '../models/utility_model.dart';
 import 'auth_service.dart';
-import 'supabase_service.dart';
+import 'supabase_config.dart';
 
 class UtilityService {
   static Future<SchoolUtilityRates?> getSchoolUtilityRates() async {
