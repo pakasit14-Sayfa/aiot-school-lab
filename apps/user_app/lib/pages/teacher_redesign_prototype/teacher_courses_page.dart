@@ -2137,6 +2137,26 @@ class TeacherCourseDetailPage extends StatefulWidget {
 
 class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
   String _activeTab = 'บทเรียน';
+  int? _dynamicStudentCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshStudentCount();
+  }
+
+  Future<void> _refreshStudentCount() async {
+    final courseId = widget.course?.id ?? widget.course?.code;
+    if (courseId == null) return;
+    try {
+      final list = await CourseService.listCourseStudents(courseId);
+      if (mounted) {
+        setState(() {
+          _dynamicStudentCount = list.length;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2271,13 +2291,18 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                       letterSpacing: -0.4,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'ห้องเรียน: ${c.rooms.join(', ')} • นักเรียนรวม ${c.studentCount} คน • ${c.nextPeriodText}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 13,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final studentCount =
+                          _dynamicStudentCount ?? c.studentCount;
+                      return Text(
+                        'ห้องเรียน: ${c.rooms.join(', ')} • นักเรียนรวม $studentCount คน • ${c.nextPeriodText}',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 13,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 18),
 
@@ -2539,8 +2564,12 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (modalContext) =>
-          _AddStudentModalSheet(course: course, onEnrolledSuccess: () {}),
+      builder: (modalContext) => _AddStudentModalSheet(
+        course: course,
+        onEnrolledSuccess: () {
+          _refreshStudentCount();
+        },
+      ),
     );
   }
 
