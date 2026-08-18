@@ -232,26 +232,15 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _NewCourseModalSheet(
-        onCourseCreated: (newCourse) {
-          setState(() {
-            mockTeacherCourses.insert(0, newCourse);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
+      builder: (modalContext) => _NewCourseModalSheet(
+        onCourseCreated: (newCourse) async {
+          final messenger = ScaffoldMessenger.of(context);
+          await _loadRealCourses();
+          if (!mounted) return;
+          messenger.showSnackBar(
             SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.info_outline_rounded, color: Colors.white),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'เพิ่ม ${newCourse.name} ในรายการแล้ว (ยังไม่บันทึกลง'
-                      'เซิร์ฟเวอร์ — ฟีเจอร์สร้างรายวิชาจริงอยู่ระหว่างพัฒนา)',
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: const Color(0xFFD97706),
+              content: Text('เพิ่ม ${newCourse.name} เรียบร้อยแล้ว'),
+              backgroundColor: const Color(0xFF10B981),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
