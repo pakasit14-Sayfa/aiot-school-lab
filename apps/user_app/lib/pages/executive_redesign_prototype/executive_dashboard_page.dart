@@ -237,12 +237,55 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
                 !_demoMissingEnergyData &&
                 (_loadingRealStats ||
                     _environmentDevices.isNotEmpty ||
-                    _energySummary != null),
+                    _energySummary != null ||
+                    _waterSummary != null),
             emptyMessage:
-                'ยังไม่มีข้อมูล — ยังไม่ได้ติดตั้งเซนเซอร์สิ่งแวดล้อม',
+                'ยังไม่มีข้อมูล — ยังไม่ได้ติดตั้งเซนเซอร์สิ่งแวดล้อมหรือมิเตอร์',
+            disclaimerText:
+                _energySummary?.disclaimer ?? _waterSummary?.disclaimer,
             cards: _loadingRealStats
                 ? const []
                 : [
+                    _StatCardData(
+                      icon: Icons.electric_bolt_rounded,
+                      label: 'ประมาณการค่าไฟฟ้า (ประจำเดือน)',
+                      value:
+                          _energySummary != null &&
+                              _energySummary!.deviceCount > 0
+                          ? '฿${_energySummary!.estimatedCostThb.toStringAsFixed(2)}'
+                          : 'ยังไม่มีมิเตอร์ไฟฟ้าติดตั้ง',
+                      trend:
+                          _energySummary != null &&
+                              _energySummary!.deviceCount > 0
+                          ? '${_energySummary!.totalKwh.toStringAsFixed(1)} kWh (${_energySummary!.electricityRateThb.toStringAsFixed(2)} ฿/kWh${_energySummary!.isRateDefault ? ' · อัตราเริ่มต้น' : ''})'
+                          : 'นับจากอุปกรณ์ energy_meter',
+                      trendColor:
+                          _energySummary != null &&
+                              _energySummary!.isRateDefault
+                          ? ExecutiveTheme.warningOrange
+                          : ExecutiveTheme.safeGreen,
+                    ),
+                    _StatCardData(
+                      icon: Icons.water_drop_rounded,
+                      label: 'ประมาณการค่าน้ำประปา (ประจำเดือน)',
+                      value:
+                          _waterSummary != null &&
+                              _waterSummary!.deviceCount > 0
+                          ? '฿${_waterSummary!.estimatedCostThb.toStringAsFixed(2)}'
+                          : 'ยังไม่มีมิเตอร์น้ำติดตั้ง',
+                      trend:
+                          _waterSummary != null &&
+                              _waterSummary!.deviceCount > 0
+                          ? '${_waterSummary!.totalM3.toStringAsFixed(1)} m³ (${_waterSummary!.waterRateThb.toStringAsFixed(2)} ฿/m³${_waterSummary!.isRateDefault ? ' · อัตราเริ่มต้น' : ''})'
+                          : 'ยังไม่มีอุปกรณ์ water_meter ในระบบ',
+                      trendColor:
+                          _waterSummary != null &&
+                              _waterSummary!.deviceCount > 0
+                          ? (_waterSummary!.isRateDefault
+                                ? ExecutiveTheme.warningOrange
+                                : ExecutiveTheme.safeGreen)
+                          : ExecutiveTheme.softMauve,
+                    ),
                     _StatCardData(
                       icon: Icons.sensors_rounded,
                       label: 'เซนเซอร์สิ่งแวดล้อมทั้งหมด',
@@ -250,15 +293,6 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
                       trend:
                           '${_environmentDevices.where((d) => d.status == 'online').length} ตัวออนไลน์',
                       trendColor: ExecutiveTheme.softMauve,
-                    ),
-                    _StatCardData(
-                      icon: Icons.eco_rounded,
-                      label: 'เซนเซอร์ออนไลน์',
-                      value: _environmentDevices.isEmpty
-                          ? '-'
-                          : '${(_environmentDevices.where((d) => d.status == 'online').length / _environmentDevices.length * 100).round()}%',
-                      trend: 'ข้อมูลสด ณ ตอนนี้',
-                      trendColor: ExecutiveTheme.safeGreen,
                     ),
                     _StatCardData(
                       icon: Icons.apartment_rounded,
@@ -727,6 +761,7 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
     required bool hasData,
     required List<_StatCardData> cards,
     String? emptyMessage,
+    String? disclaimerText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,12 +835,47 @@ class _ExecutiveDashboardContentState extends State<ExecutiveDashboardContent> {
               ],
             ),
           )
-        else
+        else ...[
           ExecutiveResponsiveGrid(
             spacing: 12,
             minItemWidth: 220,
             children: [for (final c in cards) _buildStatCard(c)],
           ),
+          if (disclaimerText != null && disclaimerText.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: ExecutiveTheme.warningOrange.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: ExecutiveTheme.warningOrange.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 15,
+                    color: ExecutiveTheme.warningOrange,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      disclaimerText,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: ExecutiveTheme.inkIndigo,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
       ],
     );
   }

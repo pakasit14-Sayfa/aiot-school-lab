@@ -23,6 +23,13 @@ begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
 
+  if v_actor.role not in (
+    'school_admin', 'teacher', 'executive', 'student',
+    'facility_manager', 'technician'
+  ) then
+    raise exception 'forbidden';
+  end if;
+
   select ss.electricity_rate_thb, ss.water_rate_thb
   into v_elec, v_water
   from school_settings ss
@@ -104,6 +111,13 @@ begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
 
+  if v_actor.role not in (
+    'school_admin', 'teacher', 'executive', 'student',
+    'facility_manager', 'technician'
+  ) then
+    raise exception 'forbidden';
+  end if;
+
   if p_period = 'today' then
     v_start_ts := date_trunc('day', now());
   elsif p_period = 'week' then
@@ -118,7 +132,7 @@ begin
   left join sensor_readings sr on sr.device_id = d.id
     and sr.metric = 'energy_kwh'
     and sr.ts >= v_start_ts
-  where (v_actor.role = 'super_admin' or d.school_id = v_actor.school_id)
+  where d.school_id = v_actor.school_id
     and d.type = 'energy_meter';
 
   select ss.electricity_rate_thb
@@ -176,6 +190,13 @@ begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
 
+  if v_actor.role not in (
+    'school_admin', 'teacher', 'executive', 'student',
+    'facility_manager', 'technician'
+  ) then
+    raise exception 'forbidden';
+  end if;
+
   if p_period = 'today' then
     v_start_ts := date_trunc('day', now());
   elsif p_period = 'week' then
@@ -190,7 +211,7 @@ begin
   left join sensor_readings sr on sr.device_id = d.id
     and sr.metric = 'water_m3'
     and sr.ts >= v_start_ts
-  where (v_actor.role = 'super_admin' or d.school_id = v_actor.school_id)
+  where d.school_id = v_actor.school_id
     and d.type = 'water_meter';
 
   select ss.water_rate_thb

@@ -240,4 +240,16 @@ Major ก่อน (อีก 3 จุด Minor ยังไม่แก้ — 
 - **pgTAP Test Suite**: เพิ่ม `20_utility_costs.test.sql` ทดสอบการตั้งค่าอัตรา, การกักกันสิทธิ์ (เฉพาะ school_admin), และการคำนวณสรุปยอด (PASS 100%)
 - **Flutter**: สร้าง `UtilityService` และ `utility_model.dart` ใน `shared_core` แล้วเชื่อมต่อเข้า มิติ "พลังงาน & สิ่งแวดล้อม" ใน `executive_dashboard_page.dart` เรียบร้อย
 
+## 🛠️ [Fix 2026-08-18] แก้ไขบั๊กช่องโหว่สิทธิ์ RPC และการแสดงผล UI ค่าไฟ/ค่าน้ำ
+
+- **บั๊กที่ 1 (ช่องโหว่สิทธิ์ RPC)**:
+  - เพิ่ม role guard ใน RPCs `get_school_utility_rates`, `get_energy_usage_summary`, `get_water_usage_summary` ป้องกันบทบาท `parent` เข้าถึงข้อมูลสถิติพลังงานและอัตราค่าน้ำ/ค่าไฟตาม permission matrix AIO-1..6 (ตอบกลับเป็น `forbidden`)
+  - บล็อกสิทธิ์ `super_admin` สำหรับ RPC สรุปพลังงาน AIO ตามทางเลือก A1 จากผู้ใช้ (ตรงตามตาราง Permission Matrix)
+  - เพิ่ม pgTAP assertions ใน `20_utility_costs.test.sql` ทดสอบการปฏิเสธสิทธิ์ `parent` และ `super_admin` (`PASS 100%`)
+- **บั๊กที่ 2 (การแสดงผล UI บน Executive Dashboard)**:
+  - เพิ่มการ์ดจริงแสดงตัวเลขประมาณการค่าไฟฟ้า (`฿estimatedCostThb` + kWh/อัตรา) และประมาณการค่าน้ำประปา (`฿estimatedCostThb` + m³/อัตรา) ใน `executive_dashboard_page.dart`
+  - รองรับกรณีไม่มีมิเตอร์น้ำติดตั้ง (`deviceCount == 0`): แสดงข้อความ **"ยังไม่มีมิเตอร์น้ำติดตั้ง"** บนการ์ดอย่างชัดเจน (ไม่แสดง 0 บาท)
+  - แสดงป้ายเตือนอัตราเริ่มต้น (`isRateDefault == true`) และแสดงกล่องคำเตือน AIO-6 BR1 Disclaimer *"ค่าบริการประมาณการเพื่อการบริหารจัดการภายใน ไม่ใช่ใบแจ้งหนี้จริงจากผู้ให้บริการ"* ใต้ตารางการ์ดอย่างเด่นชัด
+
+
 
