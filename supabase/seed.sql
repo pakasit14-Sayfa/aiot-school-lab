@@ -239,6 +239,16 @@ begin
       (v_school_id, 'pm25_sensor', 'เซนเซอร์ PM2.5 โถงกลาง', 'อาคาร 3 (วิทยาศาสตร์) · โถงกลาง', 'online', v_super_admin_id);
   end if;
 
+  -- 2026-08-18: Seed classroom AIoT teaching kit devices bound to course_id
+  if not exists (select 1 from devices where name = 'ไฟชุดฝึก LED') then
+    insert into devices (school_id, type, name, location, status, registered_by, course_id) values
+      (v_school_id, 'relay', 'ไฟชุดฝึก LED', 'Lab 3 · ชุดฝึกที่ 1', 'online', v_teacher_id, v_course_id),
+      (v_school_id, 'relay', 'ปั๊มน้ำจำลอง', 'Lab 3 · ชุดฝึกที่ 1', 'online', v_teacher_id, v_course_id),
+      (v_school_id, 'relay', 'รีเลย์ควบคุม', 'Lab 3 · ชุดฝึกที่ 1', 'online', v_teacher_id, v_course_id),
+      (v_school_id, 'pm25_sensor', 'เซนเซอร์ PM2.5 ชุดฝึก', 'Lab 3 · ชุดฝึกที่ 1', 'online', v_teacher_id, v_course_id);
+  end if;
+
+
   -- 2026-08-18: Seed approved parent_links connection for parent@aiot-school-lab.local linked to student@aiot-school-lab.local
   if not exists (
     select 1 from parent_links pl

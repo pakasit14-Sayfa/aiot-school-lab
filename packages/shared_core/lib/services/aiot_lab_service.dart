@@ -1,0 +1,62 @@
+import '../models/aiot_lab_model.dart';
+import 'auth_service.dart';
+import 'supabase_config.dart';
+
+class AiotLabService {
+  static Future<List<AiotLabDeviceItem>> listTeachingKitDevices() async {
+    final rows =
+        await supabase.rpc(
+              'list_teaching_kit_devices',
+              params: {'p_token': AuthService.sessionToken},
+            )
+            as List;
+
+    return rows
+        .map((row) => AiotLabDeviceItem.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<String> queueTeachingKitCommand({
+    required String deviceId,
+    required Map<String, dynamic> command,
+  }) async {
+    final res = await supabase.rpc(
+      'queue_teaching_kit_command',
+      params: {
+        'p_token': AuthService.sessionToken,
+        'p_device_id': deviceId,
+        'p_command': command,
+      },
+    );
+
+    return res as String;
+  }
+
+  static Future<List<AiotCommandHistoryItem>> listTeachingKitCommandHistory({
+    int limit = 20,
+  }) async {
+    final rows =
+        await supabase.rpc(
+              'list_teaching_kit_command_history',
+              params: {'p_token': AuthService.sessionToken, 'p_limit': limit},
+            )
+            as List;
+
+    return rows
+        .map(
+          (row) => AiotCommandHistoryItem.fromRow(row as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getLatestSensorReadings() async {
+    final rows =
+        await supabase.rpc(
+              'sensor_latest',
+              params: {'p_token': AuthService.sessionToken},
+            )
+            as List;
+
+    return rows.map((r) => r as Map<String, dynamic>).toList();
+  }
+}

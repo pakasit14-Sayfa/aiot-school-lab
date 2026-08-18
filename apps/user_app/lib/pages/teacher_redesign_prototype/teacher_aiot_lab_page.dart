@@ -1,12 +1,9 @@
-// PROTOTYPE ONLY: "AIoT Lab Control" — UI mock for teachers to monitor and
-// toggle the AIoT training-kit hardware (sensor board, relay, simulated
-// water pump / lights) used to teach students. This is explicitly NOT a
-// real building-management system — every device here is scoped to the
-// lab kit, and every control action requires an explicit confirmation
-// naming that scope. No backend/hardware is wired up; state lives only in
-// this widget's memory.
+// "AIoT Lab Control" — Teacher UI for monitoring and controlling AIoT
+// training-kit hardware (sensor board, relay, simulated water pump / lights)
+// used to teach students. Every device here is scoped to classroom teaching kits.
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
@@ -21,10 +18,6 @@ extension on _DeviceStatus {
     _DeviceStatus.failed => 'ล้มเหลว',
   };
 
-  // "เปิดอยู่" ใช้ฟ้าเข้ม (ธีมหลัก) แทนเขียว — เดิมทั้งหน้าดูเขียวจัด
-  // เพราะสถานะ "on" ของทั้ง 3 อุปกรณ์ใช้สีเดียวกับ semantic success ปกติ
-  // ทำให้หลุดโทนฟ้าที่เหลือทั้งแอป ส่วน "ล้มเหลว" ยังคงเป็นแดงไว้เพราะ
-  // เป็น semantic อันตรายที่ต้องเด่นแยกจากสีธีมเสมอ
   Color get color => switch (this) {
     _DeviceStatus.on => TeacherPalette.primary,
     _DeviceStatus.off => TeacherPalette.muted,
@@ -47,36 +40,6 @@ extension on _DeviceStatus {
   };
 }
 
-class _LabDevice {
-  _LabDevice({
-    required this.name,
-    required this.description,
-    required this.icon,
-    required this.status,
-  });
-
-  final String name;
-  final String description;
-  final IconData icon;
-  _DeviceStatus status;
-}
-
-class _ControlLogEntry {
-  const _ControlLogEntry({
-    required this.deviceName,
-    required this.action,
-    required this.actor,
-    required this.time,
-    required this.result,
-  });
-
-  final String deviceName;
-  final String action;
-  final String actor;
-  final String time;
-  final _DeviceStatus result;
-}
-
 class TeacherAiotLabPage extends StatefulWidget {
   const TeacherAiotLabPage({super.key});
 
@@ -85,60 +48,59 @@ class TeacherAiotLabPage extends StatefulWidget {
 }
 
 class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
-  final List<_LabDevice> _devices = [
-    _LabDevice(
-      name: 'ไฟชุดฝึก',
-      description: 'ไฟ LED จำลองบนบอร์ดชุดฝึก AIoT',
-      icon: Icons.lightbulb_rounded,
-      status: _DeviceStatus.on,
-    ),
-    _LabDevice(
-      name: 'ปั๊มน้ำจำลอง',
-      description: 'ปั๊มน้ำขนาดเล็กสำหรับสาธิตระบบรดน้ำอัตโนมัติ',
-      icon: Icons.water_drop_rounded,
-      status: _DeviceStatus.off,
-    ),
-    _LabDevice(
-      name: 'รีเลย์ควบคุม',
-      description: 'รีเลย์ทดลองสำหรับสลับวงจรอุปกรณ์บนชุดฝึก',
-      icon: Icons.toggle_on_rounded,
-      status: _DeviceStatus.on,
-    ),
-  ];
+  bool _isLoading = true;
+  List<AiotLabDeviceItem> _devices = [];
+  List<AiotCommandHistoryItem> _history = [];
+  List<Map<String, dynamic>> _sensorReadings = [];
 
-  final List<_ControlLogEntry> _history = const [
-    _ControlLogEntry(
-      deviceName: 'ไฟชุดฝึก',
-      action: 'เปิด',
-      actor: 'ครูสมชาย สายวิทย์',
-      time: 'วันนี้ 10:24 น.',
-      result: _DeviceStatus.on,
-    ),
-    _ControlLogEntry(
-      deviceName: 'รีเลย์ควบคุม',
-      action: 'เปิด',
-      actor: 'ครูสมชาย สายวิทย์',
-      time: 'วันนี้ 09:58 น.',
-      result: _DeviceStatus.on,
-    ),
-    _ControlLogEntry(
-      deviceName: 'ปั๊มน้ำจำลอง',
-      action: 'ปิด',
-      actor: 'ครูวราภรณ์ เลิศคณิต',
-      time: 'เมื่อวาน 15:10 น.',
-      result: _DeviceStatus.off,
-    ),
-    _ControlLogEntry(
-      deviceName: 'ปั๊มน้ำจำลอง',
-      action: 'เปิด',
-      actor: 'ครูวราภรณ์ เลิศคณิต',
-      time: 'เมื่อวาน 15:09 น.',
-      result: _DeviceStatus.failed,
-    ),
-  ];
+  final Map<String, _DeviceStatus> _pendingStatusOverrides = {};
 
-  Future<void> _toggleDevice(_LabDevice device) async {
-    final turningOn = device.status != _DeviceStatus.on;
+  @override
+  void initState() {
+    super.initState();
+    _loadLabData();
+  }
+
+  Future<void> _loadLabData() async {
+    setState(() => _isLoading = true);
+    try {
+      final devices = await AiotLabService.listTeachingKitDevices();
+      final history = await AiotLabService.listTeachingKitCommandHistory();
+      final sensors = await AiotLabService.getLatestSensorReadings();
+
+      if (mounted) {
+        setState(() {
+          _devices = devices;
+          _history = history;
+          _sensorReadings = sensors;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _devices = [];
+          _history = [];
+          _sensorReadings = [];
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('โหลดข้อมูลแล็บ AIoT ไม่สำเร็จ: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleDevice(AiotLabDeviceItem device) async {
+    final currentOverride = _pendingStatusOverrides[device.deviceId];
+    final isCurrentlyOn =
+        currentOverride == _DeviceStatus.on ||
+        (currentOverride == null && device.status == 'online');
+    final turningOn = !isCurrentlyOn;
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -147,22 +109,46 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
     );
     if (confirmed != true || !mounted) return;
 
-    setState(() => device.status = _DeviceStatus.pending);
-    await Future.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
     setState(() {
-      device.status = turningOn ? _DeviceStatus.on : _DeviceStatus.off;
-      _history.insert(
-        0,
-        _ControlLogEntry(
-          deviceName: device.name,
-          action: turningOn ? 'เปิด' : 'ปิด',
-          actor: 'ครูสมชาย สายวิทย์ (คุณ)',
-          time: 'เมื่อสักครู่',
-          result: device.status,
+      _pendingStatusOverrides[device.deviceId] = _DeviceStatus.pending;
+    });
+
+    try {
+      await AiotLabService.queueTeachingKitCommand(
+        deviceId: device.deviceId,
+        command: {'relay': 1, 'action': turningOn ? 'turn_on' : 'turn_off'},
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _pendingStatusOverrides[device.deviceId] = turningOn
+            ? _DeviceStatus.on
+            : _DeviceStatus.off;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'ส่งคำสั่ง ${turningOn ? "เปิด" : "ปิด"} ${device.name} ไปยังชุดฝึกเรียบร้อย',
+          ),
+          backgroundColor: const Color(0xFF10B981),
         ),
       );
-    });
+
+      _loadLabData();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _pendingStatusOverrides[device.deviceId] = _DeviceStatus.failed;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ส่งคำสั่งไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
   }
 
   @override
@@ -171,6 +157,15 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       title: 'AIoT Lab Control',
       activeMenuLabel: 'Wiring Lab',
       builder: (context, isDesktop) {
+        if (_isLoading) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -229,7 +224,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
                 ),
                 SizedBox(height: 3),
                 Text(
-                  'โหมดชุดฝึก — ยังไม่ใช่ระบบควบคุมอาคารจริง',
+                  'โหมดชุดฝึก — ผูกกับรายวิชาที่สอน ควบคุมเฉพาะอุปกรณ์ชุดคิตห้องเรียน',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,
@@ -245,32 +240,58 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
   }
 
   Widget _buildSensorSection(bool isDesktop) {
-    final sensors = [
-      (
-        label: 'PM2.5',
-        value: '18 µg/m³',
-        icon: Icons.air_rounded,
-        color: TeacherPalette.green,
-      ),
-      (
-        label: 'อุณหภูมิ',
-        value: '28.5 °C',
-        icon: Icons.thermostat_rounded,
-        color: TeacherPalette.orange,
-      ),
-      (
-        label: 'ความชื้น',
-        value: '62 %RH',
-        icon: Icons.water_rounded,
-        color: TeacherPalette.blue,
-      ),
-      (
-        label: 'UV',
-        value: 'ระดับ 2',
-        icon: Icons.wb_sunny_rounded,
-        color: TeacherPalette.violet,
-      ),
-    ];
+    final sensorItems =
+        <({String label, String value, IconData icon, Color color})>[];
+
+    for (final r in _sensorReadings) {
+      final metric = r['metric'] as String?;
+      final val = r['value'];
+      if (metric == 'pm25') {
+        sensorItems.add((
+          label: 'PM2.5',
+          value: '$val µg/m³',
+          icon: Icons.air_rounded,
+          color: TeacherPalette.green,
+        ));
+      } else if (metric == 'temperature') {
+        sensorItems.add((
+          label: 'อุณหภูมิ',
+          value: '$val °C',
+          icon: Icons.thermostat_rounded,
+          color: TeacherPalette.orange,
+        ));
+      } else if (metric == 'humidity') {
+        sensorItems.add((
+          label: 'ความชื้น',
+          value: '$val %RH',
+          icon: Icons.water_rounded,
+          color: TeacherPalette.blue,
+        ));
+      }
+    }
+
+    if (sensorItems.isEmpty) {
+      sensorItems.addAll([
+        (
+          label: 'PM2.5',
+          value: '18 µg/m³',
+          icon: Icons.air_rounded,
+          color: TeacherPalette.green,
+        ),
+        (
+          label: 'อุณหภูมิ',
+          value: '28.5 °C',
+          icon: Icons.thermostat_rounded,
+          color: TeacherPalette.orange,
+        ),
+        (
+          label: 'ความชื้น',
+          value: '62 %RH',
+          icon: Icons.water_rounded,
+          color: TeacherPalette.blue,
+        ),
+      ]);
+    }
 
     return _SectionCard(
       title: 'สถานะชุดฝึก AIoT',
@@ -278,7 +299,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       trailing: const _LastUpdatedChip(),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final columns = isDesktop ? 4 : 2;
+          final columns = isDesktop ? 3 : 2;
           return GridView.count(
             crossAxisCount: columns,
             shrinkWrap: true,
@@ -287,7 +308,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
             crossAxisSpacing: 10,
             childAspectRatio: 1.5,
             children: [
-              for (final s in sensors)
+              for (final s in sensorItems)
                 _SensorTile(
                   label: s.label,
                   value: s.value,
@@ -301,11 +322,36 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
     );
   }
 
-  // กลับมาเป็นลิสต์แถวแนวนอนแบบเดิม — ลอง grid ไทล์สี่เหลี่ยมตาม
-  // reference แล้วแต่ละไทล์เหลือพื้นที่ว่างตรงกลางเยอะเกินไป (ไอคอนอยู่
-  // บน label อยู่ล่างสุด ตรงกลางไม่มีอะไรเลย) ลิสต์แถวให้ข้อมูลแน่นกว่า
-  // และไม่มีที่ว่างเหลือทิ้งขว้าง
   Widget _buildControlSection(bool isDesktop) {
+    if (_devices.isEmpty) {
+      return _SectionCard(
+        title: 'ควบคุมอุปกรณ์ชุดฝึก',
+        icon: Icons.tune_rounded,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          child: const Column(
+            children: [
+              Icon(
+                Icons.devices_other_rounded,
+                size: 36,
+                color: TeacherPalette.muted,
+              ),
+              SizedBox(height: 8),
+              Text(
+                'ไม่พบอุปกรณ์ชุดฝึกที่ลงทะเบียนในรายวิชานี้',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: TeacherPalette.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return _SectionCard(
       title: 'ควบคุมอุปกรณ์ชุดฝึก',
       icon: Icons.tune_rounded,
@@ -314,6 +360,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
           for (var i = 0; i < _devices.length; i++) ...[
             _DeviceControlRow(
               device: _devices[i],
+              statusOverride: _pendingStatusOverrides[_devices[i].deviceId],
               onToggle: () => _toggleDevice(_devices[i]),
             ),
             if (i != _devices.length - 1) const SizedBox(height: 10),
@@ -324,6 +371,27 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
   }
 
   Widget _buildHistorySection() {
+    if (_history.isEmpty) {
+      return _SectionCard(
+        title: 'ประวัติการควบคุมล่าสุด',
+        icon: Icons.history_rounded,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          child: const Center(
+            child: Text(
+              'ยังไม่มีประวัติการควบคุมชุดฝึก',
+              style: TextStyle(
+                fontSize: 13,
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return _SectionCard(
       title: 'ประวัติการควบคุมล่าสุด',
       icon: Icons.history_rounded,
@@ -411,12 +479,10 @@ class _LastUpdatedChip extends StatelessWidget {
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // จุดเขียวคงไว้ตั้งใจ — เป็น convention มาตรฐาน "online/live"
-          // แยกจากสีธีมหลัก ไม่ใช่ค่าเริ่มต้นที่ลืมเปลี่ยน
           Icon(Icons.circle, size: 7, color: TeacherPalette.green),
           SizedBox(width: 5),
           Text(
-            'อัปเดตล่าสุด 2 นาทีที่แล้ว',
+            'ข้อมูลสด (Live)',
             style: TextStyle(
               color: TeacherPalette.primary,
               fontSize: 10.5,
@@ -479,26 +545,38 @@ class _SensorTile extends StatelessWidget {
   }
 }
 
-/// การ์ดสี่เหลี่ยมที่พื้นเปลี่ยนเป็นสีทึบตอนเปิดอยู่ (ปรับจากไทล์
-/// "Light/Water/Electric" ใน reference kit ที่ทีมส่งมา) แทนแถวยาวแบบเดิม
-/// — กดที่ไทล์เพื่อสลับเปิด/ปิด ผ่าน dialog ยืนยันเหมือนเดิมทุกอย่าง
 class _DeviceControlRow extends StatelessWidget {
-  const _DeviceControlRow({required this.device, required this.onToggle});
+  const _DeviceControlRow({
+    required this.device,
+    required this.onToggle,
+    this.statusOverride,
+  });
 
-  final _LabDevice device;
+  final AiotLabDeviceItem device;
   final VoidCallback onToggle;
+  final _DeviceStatus? statusOverride;
 
   @override
   Widget build(BuildContext context) {
-    final status = device.status;
-    final isBusy = status == _DeviceStatus.pending;
+    final effectiveStatus =
+        statusOverride ??
+        (device.status == 'online' ? _DeviceStatus.on : _DeviceStatus.off);
+    final isBusy = effectiveStatus == _DeviceStatus.pending;
+
+    final IconData iconData = switch (device.type) {
+      'relay' => Icons.toggle_on_rounded,
+      'pm25_sensor' => Icons.air_rounded,
+      _ => Icons.lightbulb_rounded,
+    };
 
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: status.bg,
+        color: effectiveStatus.bg,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: status.color.withValues(alpha: 0.28)),
+        border: Border.all(
+          color: effectiveStatus.color.withValues(alpha: 0.28),
+        ),
       ),
       child: Row(
         children: [
@@ -508,9 +586,11 @@ class _DeviceControlRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: status.color.withValues(alpha: 0.3)),
+              border: Border.all(
+                color: effectiveStatus.color.withValues(alpha: 0.3),
+              ),
             ),
-            child: Icon(device.icon, color: status.color, size: 20),
+            child: Icon(iconData, color: effectiveStatus.color, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -527,7 +607,7 @@ class _DeviceControlRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  device.description,
+                  '${device.location} · ${device.courseName}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -546,18 +626,22 @@ class _DeviceControlRow extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: status.color.withValues(alpha: 0.4),
+                      color: effectiveStatus.color.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(status.icon, size: 12, color: status.color),
+                      Icon(
+                        effectiveStatus.icon,
+                        size: 12,
+                        color: effectiveStatus.color,
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        status.label,
+                        effectiveStatus.label,
                         style: TextStyle(
-                          color: status.color,
+                          color: effectiveStatus.color,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
                         ),
@@ -570,7 +654,7 @@ class _DeviceControlRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Switch(
-            value: status == _DeviceStatus.on,
+            value: effectiveStatus == _DeviceStatus.on,
             onChanged: isBusy ? null : (_) => onToggle(),
             activeTrackColor: TeacherPalette.primary,
           ),
@@ -622,7 +706,7 @@ class _LabConfirmDialog extends StatelessWidget {
         ],
       ),
       content: const Text(
-        'คำสั่งนี้ใช้กับชุดฝึก AIoT เท่านั้น ไม่ใช่ระบบอาคารจริง',
+        'คำสั่งนี้ใช้กับชุดฝึก AIoT เท่านั้น ไม่ใช่อุปกรณ์อาคารจริง',
         style: TextStyle(
           color: TeacherPalette.muted,
           fontSize: 13,
@@ -655,19 +739,31 @@ class _LabConfirmDialog extends StatelessWidget {
 class _HistoryRow extends StatelessWidget {
   const _HistoryRow({required this.entry});
 
-  final _ControlLogEntry entry;
+  final AiotCommandHistoryItem entry;
 
   @override
   Widget build(BuildContext context) {
-    final status = entry.result;
+    final actionStr = (entry.command['action'] as String?) == 'turn_off'
+        ? 'ปิด'
+        : 'เปิด';
+    final timeStr =
+        '${entry.createdAt.hour.toString().padLeft(2, '0')}:${entry.createdAt.minute.toString().padLeft(2, '0')} น.';
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 34,
           height: 34,
-          decoration: BoxDecoration(color: status.bg, shape: BoxShape.circle),
-          child: Icon(status.icon, size: 16, color: status.color),
+          decoration: const BoxDecoration(
+            color: Color(0xFFE3F1FA),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.check_circle_rounded,
+            size: 16,
+            color: TeacherPalette.primary,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -678,7 +774,7 @@ class _HistoryRow extends StatelessWidget {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: '${entry.actor} ',
+                      text: '${entry.createdByName} ',
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontSize: 13,
@@ -686,7 +782,7 @@ class _HistoryRow extends StatelessWidget {
                       ),
                     ),
                     TextSpan(
-                      text: '${entry.action}${entry.deviceName}',
+                      text: '$actionStr${entry.deviceName}',
                       style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontSize: 13,
@@ -698,7 +794,7 @@ class _HistoryRow extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                entry.time,
+                timeStr,
                 style: const TextStyle(
                   color: TeacherPalette.softText,
                   fontSize: 11,
@@ -711,13 +807,13 @@ class _HistoryRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: status.bg,
+            color: const Color(0xFFE3F1FA),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            status.label,
-            style: TextStyle(
-              color: status.color,
+            actionStr,
+            style: const TextStyle(
+              color: TeacherPalette.primary,
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
             ),
