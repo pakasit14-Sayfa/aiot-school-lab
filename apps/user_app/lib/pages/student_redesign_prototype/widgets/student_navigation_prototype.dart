@@ -6,7 +6,7 @@ import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'student_variant_school_home.dart';
 import 'student_assignments_page.dart';
-import 'student_courses_page.dart';
+import 'student_course_catalog_page.dart';
 import 'student_profile_page.dart';
 import 'student_score_page.dart';
 import 'student_calendar_page.dart';
@@ -573,7 +573,7 @@ class _StudentNavigationPrototypeState
 
   List<Widget> get _pages => [
     StudentVariantSchoolHome(onViewScore: _openScorePage),
-    const StudentCoursesPage(showAppBar: false),
+    const StudentCourseCatalogPage(showAppBar: false),
     const StudentAssignmentsPage(),
     const StudentCalendarPage(),
     StudentProfilePage(

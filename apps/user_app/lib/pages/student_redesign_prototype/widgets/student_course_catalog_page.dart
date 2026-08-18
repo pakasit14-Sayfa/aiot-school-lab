@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import 'student_redesign_palette.dart';
 import 'student_lessons_page.dart';
 import 'student_assignments_page.dart';
@@ -20,6 +21,44 @@ class StudentCourseCatalogPage extends StatefulWidget {
       _StudentCourseCatalogPageState();
 }
 
+/// ข้อมูลจริงต่อวิชาที่แสดงบนการ์ด — คำนวณจาก CourseService/LessonService/
+/// AssignmentService จริง ไม่มีฟิลด์ไหนเป็นค่าปลอม ฟิลด์ที่นักเรียนเรียกดู
+/// ไม่ได้จริง (เช่น จำนวนเพื่อนร่วมชั้น — RPC list_course_students ปฏิเสธ
+/// role นักเรียนโดยตรง) ถูกตัดออกจากการ์ดไปเลย ไม่ใส่เลขปลอมแทน
+class _CourseCardData {
+  const _CourseCardData({
+    required this.course,
+    required this.teacherNames,
+    required this.lessonCount,
+    required this.nextLessonTitle,
+    required this.submittedCount,
+    required this.totalAssignments,
+    required this.gradient,
+  });
+
+  final CourseSummary course;
+  final String? teacherNames;
+  final int lessonCount;
+  final String? nextLessonTitle;
+  final int submittedCount;
+  final int totalAssignments;
+  final List<Color> gradient;
+
+  double get progress =>
+      totalAssignments == 0 ? 0.0 : submittedCount / totalAssignments;
+
+  bool matchesQuery(String query) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return true;
+    final haystack = <String>[
+      course.subjectName,
+      if (teacherNames != null) teacherNames!,
+      if (nextLessonTitle != null) nextLessonTitle!,
+    ].join(' ').toLowerCase();
+    return haystack.contains(normalized);
+  }
+}
+
 class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
@@ -27,26 +66,91 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
   int _lastSearchPopupTick = 0;
   bool _isSearchPopupOpen = false;
 
-  final List<_SearchSuggestion> _searchSuggestions = const [
-    _SearchSuggestion(label: 'ทั้งหมด', query: ''),
-    _SearchSuggestion(label: 'AIoT', query: 'AIoT'),
-    _SearchSuggestion(label: 'วิทย์', query: 'วิทย์'),
-    _SearchSuggestion(label: 'งานค้าง', query: 'งานค้าง'),
-    _SearchSuggestion(label: 'ครูสมชาย', query: 'ครูสมชาย'),
+  bool _loading = true;
+  String? _error;
+  List<_CourseCardData> _cards = const [];
+
+  static const _gradients = [
+    [Color(0xFF0F3E33), Color(0xFF134E4A)],
+    [Color(0xFF134E4A), Color(0xFF165042)],
+    [Color(0xFF0E4D40), Color(0xFF1B6B57)],
+    [Color(0xFF064E3B), Color(0xFF047857)],
   ];
 
   @override
   void initState() {
     super.initState();
     widget.searchPopupTick?.addListener(_handleExternalSearchRequest);
+    _load();
   }
 
-  @override
-  void didUpdateWidget(covariant StudentCourseCatalogPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.searchPopupTick != widget.searchPopupTick) {
-      oldWidget.searchPopupTick?.removeListener(_handleExternalSearchRequest);
-      widget.searchPopupTick?.addListener(_handleExternalSearchRequest);
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final courses = (await CourseService.listMyCourses())
+          .where((c) => c.isActive)
+          .toList();
+
+      final details = await Future.wait(
+        courses.map((c) => CourseService.getCourse(c.id)),
+      );
+      final lessonLists = await Future.wait(
+        courses.map((c) => LessonService.listLessons(c.id)),
+      );
+      final assignmentLists = await Future.wait(
+        courses.map((c) => AssignmentService.listAssignments(c.id)),
+      );
+
+      final cards = <_CourseCardData>[];
+      for (var i = 0; i < courses.length; i++) {
+        final published = lessonLists[i].where((l) => l.isPublished).toList();
+        published.sort((a, b) {
+          final aDate = a.publishedAt ?? DateTime(2000);
+          final bDate = b.publishedAt ?? DateTime(2000);
+          return bDate.compareTo(aDate);
+        });
+
+        final publishedAssignments = assignmentLists[i]
+            .where((a) => a.isPublished)
+            .toList();
+        final submissionChecks = await Future.wait(
+          publishedAssignments.map(
+            (a) => AssignmentService.listMySubmissionVersions(a.id),
+          ),
+        );
+        final submittedCount = submissionChecks
+            .where((s) => s.isNotEmpty)
+            .length;
+
+        cards.add(
+          _CourseCardData(
+            course: courses[i],
+            teacherNames: details[i].teacherNames,
+            lessonCount: published.length,
+            nextLessonTitle: published.isNotEmpty
+                ? published.first.title
+                : null,
+            submittedCount: submittedCount,
+            totalAssignments: publishedAssignments.length,
+            gradient: _gradients[i % _gradients.length],
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _cards = cards;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _loading = false;
+      });
     }
   }
 
@@ -134,8 +238,6 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
                         const SizedBox(height: 10),
                         _buildSearchField(),
                         const SizedBox(height: 12),
-                        _buildSearchSuggestionChips(),
-                        const SizedBox(height: 12),
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
@@ -169,16 +271,6 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
     super.dispose();
   }
 
-  void _setSearchQuery(String value) {
-    setState(() {
-      _searchQuery = value;
-      _searchController.text = value;
-      _searchController.selection = TextSelection.collapsed(
-        offset: value.length,
-      );
-    });
-  }
-
   void _clearSearch() {
     setState(() {
       _searchQuery = '';
@@ -206,34 +298,45 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
             )
           : null,
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Center(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final screenWidth = constraints.maxWidth;
-                final isDesktop = screenWidth >= 1024;
-                final horizontalPadding = screenWidth < 520 ? 12.0 : 16.0;
+        child: RefreshIndicator(
+          onRefresh: _load,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            child: Center(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final screenWidth = constraints.maxWidth;
+                  final isDesktop = screenWidth >= 1024;
+                  final horizontalPadding = screenWidth < 520 ? 12.0 : 16.0;
 
-                return ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: isDesktop ? 1080 : 760),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                      vertical: 16,
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktop ? 1080 : 760,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSearchableSectionHeader(context),
-                        const SizedBox(height: 18),
-                        _buildCourseGrid(screenWidth),
-                        const SizedBox(height: 24),
-                      ],
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontalPadding,
+                        vertical: 16,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildSearchableSectionHeader(context),
+                          const SizedBox(height: 18),
+                          if (_error != null) ...[
+                            _buildErrorBanner(),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildCourseGrid(screenWidth),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -241,73 +344,104 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
     );
   }
 
-  Widget _buildSearchableSectionHeader(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 18,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.school_rounded,
-                          color: Color(0xFF059669),
-                          size: 22,
-                        ),
-                        SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            'ห้องเรียนของฉัน',
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Color(0xFF0F172A),
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFECFDF5),
-                      borderRadius: BorderRadius.all(Radius.circular(20)),
-                      border: Border.fromBorderSide(
-                        BorderSide(color: Color(0xFFA7F3D0)),
-                      ),
-                    ),
-                    child: const Text(
-                      'ปีการศึกษา 2569 · 5 วิชา',
-                      style: TextStyle(
-                        color: Color(0xFF059669),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _error!,
+              style: const TextStyle(
+                color: Color(0xFFB91C1C),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+          TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchableSectionHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.school_rounded,
+                      color: Color(0xFF059669),
+                      size: 22,
+                    ),
+                    SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'ห้องเรียนของฉัน',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                  border: Border.fromBorderSide(
+                    BorderSide(color: Color(0xFFA7F3D0)),
+                  ),
+                ),
+                child: Text(
+                  _loading ? 'กำลังโหลด...' : '${_cards.length} วิชา',
+                  style: const TextStyle(
+                    color: Color(0xFF059669),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          _buildSearchField(),
+        ],
+      ),
     );
   }
 
@@ -324,7 +458,6 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         child: TextField(
           controller: _searchController,
           focusNode: _searchFocusNode,
-          autofocus: true,
           textInputAction: TextInputAction.search,
           onChanged: (value) => setState(() => _searchQuery = value),
           onSubmitted: (_) => FocusScope.of(context).unfocus(),
@@ -341,7 +474,7 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
             border: InputBorder.none,
             errorBorder: InputBorder.none,
             disabledBorder: InputBorder.none,
-            hintText: 'Search for actions, people, instruments...',
+            hintText: 'ค้นหาชื่อวิชาหรือชื่อครูผู้สอน...',
             hintStyle: const TextStyle(
               color: Color(0xFF94A3B8),
               fontSize: 13.5,
@@ -366,9 +499,7 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
                       size: 18,
                       color: Color(0xFF64748B),
                     ),
-                    onPressed: () {
-                      _clearSearch();
-                    },
+                    onPressed: _clearSearch,
                   )
                 : null,
             contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -378,200 +509,50 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
     );
   }
 
-  Widget _buildSearchSuggestionChips() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _searchSuggestions.map((suggestion) {
-        final selected = suggestion.query.isEmpty
-            ? _searchQuery.isEmpty
-            : _searchQuery.toLowerCase() == suggestion.query.toLowerCase();
+  Widget _buildCourseGrid(double screenWidth) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
 
-        return InkWell(
-          onTap: () => _setSearchQuery(suggestion.query),
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFFEFF6FF) : Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: selected
-                    ? const Color(0xFF93C5FD)
-                    : const Color(0xFFD7E1EA),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  suggestion.icon,
-                  size: 14,
-                  color: selected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF475569),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  suggestion.label,
-                  style: TextStyle(
-                    color: selected
-                        ? const Color(0xFF1D4ED8)
-                        : const Color(0xFF334155),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    final filteredCards = _cards
+        .where((c) => c.matchesQuery(_searchQuery))
+        .toList();
+
+    if (filteredCards.isEmpty) {
+      return _EmptyCourseState(hasAnyCourse: _cards.isNotEmpty);
+    }
+
+    if (screenWidth >= 768) {
+      return Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        children: filteredCards.map((card) {
+          return SizedBox(
+            width: (screenWidth >= 1024 ? 1080 : 760) / 2 - 24,
+            child: _CourseClassroomCard(data: card),
+          );
+        }).toList(),
+      );
+    }
+
+    return Column(
+      children: filteredCards.map((card) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: _CourseClassroomCard(data: card),
         );
       }).toList(),
     );
   }
-
-  Widget _buildCourseGrid(double screenWidth) {
-    final courses = [
-      const CourseClassroomCardItem(
-        code: 'AIOT-501',
-        title: 'วิชา AIoT สมาร์ตแล็บเพื่อการเรียนรู้',
-        teacher: 'ครูสมชาย สายวิทย์',
-        studentsCount: '32 คน',
-        themeColor: Color(0xFF0F3E33),
-        headerGradient: [Color(0xFF0F3E33), Color(0xFF134E4A)],
-        icon: Icons.memory_rounded,
-        progress: 0.60,
-        progressText: '60% (12/20 บทเรียน)',
-        progressFraction: '12/20',
-        urgentBadge: '🔴 2 งานค้างส่ง',
-        badgeBg: Color(0xFFFFE4E6),
-        badgeText: Color(0xFFE11D48),
-        nextLesson: 'บทที่ 13 การวัดค่าฝุ่น PM2.5',
-      ),
-      const CourseClassroomCardItem(
-        code: 'PHYS-302',
-        title: 'วิชา ฟิสิกส์ประยุกต์และการทดลอง',
-        teacher: 'ครูวิภาดา วิทยาศาสตร์',
-        studentsCount: '30 คน',
-        themeColor: Color(0xFF134E4A),
-        headerGradient: [Color(0xFF134E4A), Color(0xFF165042)],
-        icon: Icons.bolt_rounded,
-        progress: 0.85,
-        progressText: '85% (17/20 บทเรียน)',
-        progressFraction: '17/20',
-        urgentBadge: '🟢 งานส่งครบแล้ว',
-        badgeBg: Color(0xFFECFDF5),
-        badgeText: Color(0xFF059669),
-        nextLesson: 'บทที่ 18 คลื่นและแสงประยุกต์',
-      ),
-      const CourseClassroomCardItem(
-        code: 'MATH-401',
-        title: 'วิชา คณิตศาสตร์เพิ่มเติม (สถิติและพีชคณิต)',
-        teacher: 'ครูอนันต์ คำนวณ',
-        studentsCount: '35 คน',
-        themeColor: Color(0xFF0E4D40),
-        headerGradient: [Color(0xFF0E4D40), Color(0xFF1B6B57)],
-        icon: Icons.calculate_rounded,
-        progress: 0.40,
-        progressText: '40% (8/20 บทเรียน)',
-        progressFraction: '8/20',
-        urgentBadge: '🔵 1 งานกำลังทำ',
-        badgeBg: Color(0xFFE0F2FE),
-        badgeText: Color(0xFF0284C7),
-        nextLesson: 'บทที่ 9 การวิเคราะห์ความน่าจะเป็น',
-      ),
-      const CourseClassroomCardItem(
-        code: 'SCI-204',
-        title: 'วิชา วิทยาศาสตร์กายภาพและสิ่งแวดล้อม',
-        teacher: 'ครูพรทิพย์ อนุรักษ์',
-        studentsCount: '31 คน',
-        themeColor: Color(0xFF064E3B),
-        headerGradient: [Color(0xFF064E3B), Color(0xFF047857)],
-        icon: Icons.science_rounded,
-        progress: 0.90,
-        progressText: '90% (18/20 บทเรียน)',
-        progressFraction: '18/20',
-        urgentBadge: '🔴 1 งานค้างส่ง',
-        badgeBg: Color(0xFFFFE4E6),
-        badgeText: Color(0xFFE11D48),
-        nextLesson: 'บทที่ 19 สภาพภูมิอากาศเมือง',
-      ),
-      const CourseClassroomCardItem(
-        code: 'BIO-105',
-        title: 'วิชา ชีววิทยาและการสังเคราะห์แสง',
-        teacher: 'ครูนภา ชีวิน',
-        studentsCount: '28 คน',
-        themeColor: Color(0xFF0F3E33),
-        headerGradient: [Color(0xFF0F3E33), Color(0xFF165042)],
-        icon: Icons.nature_people_rounded,
-        progress: 0.75,
-        progressText: '75% (15/20 บทเรียน)',
-        progressFraction: '15/20',
-        urgentBadge: '⭐ ตรวจแล้ว (A+)',
-        badgeBg: Color(0xFFFEF3C7),
-        badgeText: Color(0xFFD97706),
-        nextLesson: 'บทที่ 16 โครงสร้างเซลล์พืช',
-      ),
-    ];
-
-    final filteredCourses = courses
-        .where((course) => course.matchesQuery(_searchQuery))
-        .toList();
-
-    if (screenWidth >= 768) {
-      if (filteredCourses.isEmpty) {
-        return const _EmptyCourseState();
-      }
-      return Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        children: filteredCourses.map((card) {
-          return SizedBox(
-            width: (screenWidth >= 1024 ? 1080 : 760) / 2 - 24,
-            child: card,
-          );
-        }).toList(),
-      );
-    } else {
-      if (filteredCourses.isEmpty) {
-        return const _EmptyCourseState();
-      }
-      return Column(
-        children: filteredCourses.map((card) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: card,
-          );
-        }).toList(),
-      );
-    }
-  }
-}
-
-class _SearchSuggestion {
-  const _SearchSuggestion({required this.label, required this.query});
-
-  final String label;
-  final String query;
-
-  IconData get icon {
-    switch (label) {
-      case 'AIoT':
-        return Icons.memory_rounded;
-      case 'วิทย์':
-        return Icons.science_rounded;
-      case 'งานค้าง':
-        return Icons.assignment_rounded;
-      case 'ครูสมชาย':
-        return Icons.person_search_rounded;
-      default:
-        return Icons.grid_view_rounded;
-    }
-  }
 }
 
 class _EmptyCourseState extends StatelessWidget {
-  const _EmptyCourseState();
+  const _EmptyCourseState({required this.hasAnyCourse});
+
+  final bool hasAnyCourse;
 
   @override
   Widget build(BuildContext context) {
@@ -583,90 +564,69 @@ class _EmptyCourseState extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off_rounded, color: Color(0xFF94A3B8), size: 34),
-          SizedBox(height: 10),
+          Icon(
+            hasAnyCourse ? Icons.search_off_rounded : Icons.school_outlined,
+            color: const Color(0xFF94A3B8),
+            size: 34,
+          ),
+          const SizedBox(height: 10),
           Text(
-            'ไม่พบรายวิชาที่ตรงกับคำค้น',
-            style: TextStyle(
+            hasAnyCourse
+                ? 'ไม่พบรายวิชาที่ตรงกับคำค้น'
+                : 'ยังไม่ได้ลงทะเบียนวิชาใดเลย',
+            style: const TextStyle(
               color: Color(0xFF0F172A),
               fontSize: 15,
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            'ลองค้นหาด้วยรหัสวิชา ชื่อวิชา หรือชื่อครูผู้สอน',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
+          if (hasAnyCourse) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'ลองค้นหาด้วยชื่อวิชาหรือชื่อครูผู้สอน',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-class CourseClassroomCardItem extends StatelessWidget {
-  const CourseClassroomCardItem({
-    super.key,
-    required this.code,
-    required this.title,
-    required this.teacher,
-    required this.studentsCount,
-    required this.themeColor,
-    required this.headerGradient,
-    required this.icon,
-    required this.progress,
-    required this.progressText,
-    required this.progressFraction,
-    required this.urgentBadge,
-    required this.badgeBg,
-    required this.badgeText,
-    required this.nextLesson,
-  });
+class _CourseClassroomCard extends StatelessWidget {
+  const _CourseClassroomCard({required this.data});
 
-  final String code;
-  final String title;
-  final String teacher;
-  final String studentsCount;
-  final Color themeColor;
-  final List<Color> headerGradient;
-  final IconData icon;
-  final double progress;
-  final String progressText;
-  final String progressFraction;
-  final String urgentBadge;
-  final Color badgeBg;
-  final Color badgeText;
-  final String nextLesson;
-
-  bool matchesQuery(String query) {
-    final normalized = query.trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return true;
-    }
-
-    final haystack = <String>[
-      code,
-      title,
-      teacher,
-      studentsCount,
-      progressText,
-      urgentBadge,
-      nextLesson,
-    ].join(' ').toLowerCase();
-
-    return haystack.contains(normalized);
-  }
+  final _CourseCardData data;
 
   @override
   Widget build(BuildContext context) {
+    final course = data.course;
+    final pendingCount = data.totalAssignments - data.submittedCount;
+    final String badgeLabel;
+    final Color badgeBg;
+    final Color badgeText;
+    if (data.totalAssignments == 0) {
+      badgeLabel = 'ยังไม่มีใบงาน';
+      badgeBg = const Color(0xFFF1F5F9);
+      badgeText = const Color(0xFF64748B);
+    } else if (pendingCount > 0) {
+      badgeLabel = '🔴 $pendingCount งานค้างส่ง';
+      badgeBg = const Color(0xFFFFE4E6);
+      badgeText = const Color(0xFFE11D48);
+    } else {
+      badgeLabel = '🟢 งานส่งครบแล้ว';
+      badgeBg = const Color(0xFFECFDF5);
+      badgeText = const Color(0xFF059669);
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -683,12 +643,7 @@ class CourseClassroomCardItem extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StudentLessonsPage()),
-            );
-          },
+          onTap: () => _openLessons(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -696,7 +651,7 @@ class CourseClassroomCardItem extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: headerGradient,
+                    colors: data.gradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -713,26 +668,10 @@ class CourseClassroomCardItem extends StatelessWidget {
                             color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(icon, color: Colors.white, size: 22),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Colors.white30),
-                          ),
-                          child: Text(
-                            code,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w900,
-                            ),
+                          child: const Icon(
+                            Icons.menu_book_rounded,
+                            color: Colors.white,
+                            size: 22,
                           ),
                         ),
                         const Spacer(),
@@ -746,7 +685,7 @@ class CourseClassroomCardItem extends StatelessWidget {
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            urgentBadge,
+                            badgeLabel,
                             style: TextStyle(
                               color: badgeText,
                               fontSize: 10.5,
@@ -758,7 +697,7 @@ class CourseClassroomCardItem extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      title,
+                      course.subjectName,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -768,29 +707,32 @@ class CourseClassroomCardItem extends StatelessWidget {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.person_outline_rounded,
-                          color: Colors.white70,
-                          size: 13,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            '$teacher · $studentsCount',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
+                    if (data.teacherNames != null &&
+                        data.teacherNames!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_outline_rounded,
+                            color: Colors.white70,
+                            size: 13,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              data.teacherNames!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -799,57 +741,59 @@ class CourseClassroomCardItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'ความคืบหน้าการเรียน',
-                      style: TextStyle(
-                        color: SchoolPalette.muted,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
+                    if (data.totalAssignments > 0) ...[
+                      const Text(
+                        'ใบงานที่ส่งแล้ว',
+                        style: TextStyle(
+                          color: SchoolPalette.muted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: const Color(0xFFEDF1F5)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            '${(progress * 100).round()}%',
-                            style: const TextStyle(
-                              color: Color(0xFF0F3E33),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 13,
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFEDF1F5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              '${(data.progress * 100).round()}%',
+                              style: const TextStyle(
+                                color: Color(0xFF0F3E33),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: PatternedProgressBar(
-                              progress: progress,
-                              height: 9,
-                              backgroundColor: const Color(0xFFE2E8F0),
-                              fillColor: const Color(0xFF10B981),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: PatternedProgressBar(
+                                progress: data.progress,
+                                height: 9,
+                                backgroundColor: const Color(0xFFE2E8F0),
+                                fillColor: const Color(0xFF10B981),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            progressFraction,
-                            style: const TextStyle(
-                              color: Color(0xFF0F3E33),
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
+                            const SizedBox(width: 10),
+                            Text(
+                              '${data.submittedCount}/${data.totalAssignments}',
+                              style: const TextStyle(
+                                color: Color(0xFF0F3E33),
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
+                    ],
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -878,7 +822,8 @@ class CourseClassroomCardItem extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              nextLesson,
+                              data.nextLessonTitle ??
+                                  'ยังไม่มีบทเรียนที่เผยแพร่',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -888,24 +833,25 @@ class CourseClassroomCardItem extends StatelessWidget {
                               ),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF059669),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'เรียนต่อ',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.bold,
+                          if (data.lessonCount > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF059669),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${data.lessonCount} บท',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                     ),
@@ -922,7 +868,7 @@ class CourseClassroomCardItem extends StatelessWidget {
                             );
                           },
                           icon: const Icon(Icons.assignment_outlined, size: 15),
-                          label: const Text('ดูการบ้าน'),
+                          label: const Text('ดูใบงาน'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: SchoolPalette.ink,
                             padding: const EdgeInsets.symmetric(
@@ -937,14 +883,7 @@ class CourseClassroomCardItem extends StatelessWidget {
                         ),
                         const Spacer(),
                         ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const StudentLessonsPage(),
-                              ),
-                            );
-                          },
+                          onPressed: () => _openLessons(context),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF059669),
                             foregroundColor: Colors.white,
@@ -980,6 +919,18 @@ class CourseClassroomCardItem extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _openLessons(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentLessonsPage(
+          courseId: data.course.id,
+          courseName: data.course.subjectName,
         ),
       ),
     );
