@@ -443,3 +443,22 @@ scope ที่อนุมัติไว้ตอนแรก
 ตรวจสอบแล้ว: `flutter analyze` 0 error (baseline เดิมไม่เพิ่ม),
 `flutter build web --dart-define-from-file=../../env.json` คอมไพล์ผ่านจริง
 
+## ✅ เปลี่ยนไปใช้แบบที่ 2 "Minimalist iOS Clean" แทนแบบที่ 1 (2026-08-18)
+
+หลังทำแบบที่ 1 (gradient card) เชื่อมข้อมูลจริงเสร็จ เจ้าของโปรเจกต์ขอดูดีไซน์
+ทางเลือกอีก 3 แบบก่อนตัดสินใจ (agy รันแอปจริงแล้วถ่ายภาพหน้าจอ 4 แบบให้ดู) —
+เลือกแบบที่ 2 "Minimalist iOS Clean" (list เรียบๆ การ์ดสีขาว ไอคอนสีต่อวิชา)
+
+**สิ่งที่ทำ**: `student_course_catalog_minimal_page.dart` แปลงเป็นเชื่อมข้อมูล
+จริงแบบเดียวกับที่ทำกับแบบที่ 1 ทุกประการ (`CourseService`/`LessonService`/
+`AssignmentService` ชุดเดียวกัน, ตัดฟิลด์ "รหัสวิชา"/"จำนวนนักเรียน" ออกด้วย
+เหตุผลเดียวกัน) เพิ่มเติมคือ**ตัด filter chip หมวดหมู่วิชา (เทคโนโลยี/วิทย์/
+คณิต) ออกด้วย** เพราะไม่มีสคีมาหมวดหมู่วิชาจริงในระบบ (courses มีแค่
+`subject_name` ไม่มี category) เหลือแค่ค้นหาด้วยข้อความ — สลับแท็บ "รายวิชา"
+ในเชลล์นำทางให้ชี้ไป `StudentCourseCatalogMinimalPage` แทน
+`StudentCourseCatalogPage` (แบบที่ 1 ยังอยู่ในโค้ดเผื่อกลับไปใช้ทีหลัง แค่ไม่
+ได้ผูกกับเมนูแล้ว)
+
+ตรวจสอบแล้ว: `flutter analyze` 0 error, `flutter build web
+--dart-define-from-file=../../env.json` คอมไพล์ผ่านจริง
+
