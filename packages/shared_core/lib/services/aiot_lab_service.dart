@@ -59,4 +59,28 @@ class AiotLabService {
 
     return rows.map((r) => r as Map<String, dynamic>).toList();
   }
+
+  static Future<List<SensorDataPoint>> getSensorHistory({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  }) async {
+    final rows =
+        await supabase.rpc(
+              'sensor_history',
+              params: {
+                'p_token': AuthService.sessionToken,
+                'p_device_id': deviceId,
+                'p_metric': metric,
+                'p_from': from.toUtc().toIso8601String(),
+                if (to != null) 'p_to': to.toUtc().toIso8601String(),
+              },
+            )
+            as List;
+
+    return rows
+        .map((r) => SensorDataPoint.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
 }

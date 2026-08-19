@@ -335,37 +335,11 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: TextField(
+                child: TeacherSearchInput(
+                  hintText: 'ค้นหาชุดข้อสอบ...',
+                  value: _setSearch,
                   onChanged: (v) => setState(() => _setSearch = v),
-                  decoration: InputDecoration(
-                    hintText: 'ค้นหาชุดข้อสอบ...',
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: TeacherPalette.muted,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: const BorderSide(
-                        color: TeacherPalette.border,
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: const BorderSide(
-                        color: TeacherPalette.border,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(999),
-                      borderSide: const BorderSide(
-                        color: TeacherPalette.primary,
-                        width: 1.6,
-                      ),
-                    ),
-                  ),
+                  onClear: () => setState(() => _setSearch = ''),
                 ),
               ),
               _buildSetsList(),

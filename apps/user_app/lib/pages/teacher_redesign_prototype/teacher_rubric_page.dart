@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
-import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
+import 'teacher_shared_widgets.dart' show TeacherMockPageShell, TeacherSearchInput;
 
 /// Model สำหรับระดับคะแนนในแต่ละเกณฑ์ (Rubric Level)
 class RubricLevel {
@@ -299,27 +299,13 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: TextField(
+                          child: TeacherSearchInput(
+                            hintText:
+                                'ค้นหาชื่อ Rubric, คำอธิบาย หรือขอบเขตวิชา...',
+                            value: _searchQuery,
                             onChanged: (val) =>
                                 setState(() => _searchQuery = val),
-                            decoration: InputDecoration(
-                              hintText:
-                                  'ค้นหาชื่อ Rubric, คำอธิบาย หรือขอบเขตวิชา...',
-                              prefixIcon: const Icon(
-                                Icons.search_rounded,
-                                color: TeacherPalette.muted,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 12,
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
+                            onClear: () => setState(() => _searchQuery = ''),
                           ),
                         ),
                       ],

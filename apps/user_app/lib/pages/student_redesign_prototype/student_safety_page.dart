@@ -60,28 +60,46 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
   // จากการแตะเดียวโดยไม่ได้ตั้งใจ
   Future<void> _openConfirmSheet(IncidentCategory category) async {
     if (_hasOpenIncident) return;
-    final room = await showModalBottomSheet<String?>(
+    final result = await showModalBottomSheet<_IncidentConfirmResult?>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _IncidentConfirmSheet(category: category, room: _room),
     );
-    if (room != null && mounted) {
-      await _submitIncident(category, room);
+    if (result != null && mounted) {
+      await _submitIncident(
+        category,
+        result.room,
+        result.reason,
+        result.severity,
+      );
     }
   }
 
-  Future<void> _submitIncident(IncidentCategory category, String room) async {
+  Future<void> _submitIncident(
+    IncidentCategory category,
+    String room,
+    String reason,
+    String severity,
+  ) async {
     await IncidentService.createIncidentReport(
       category: category,
       room: room.trim().isEmpty ? null : room.trim(),
+      reason: reason.trim().isEmpty ? null : reason.trim(),
+      severity: severity,
     );
     await _load();
     if (!mounted) return;
-    _showSubmittedSheet(room);
+    _showSubmittedSheet(room, reason, severity);
   }
 
-  void _showSubmittedSheet(String room) {
+  void _showSubmittedSheet(String room, String reason, String severity) {
+    final sevText = switch (severity) {
+      'high' => '🔴 เหตุใหญ่ / ฉุกเฉินด่วน',
+      'medium' => '🟠 เหตุปานกลาง',
+      _ => '🟢 เหตุเล็ก / ทั่วไป',
+    };
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -120,7 +138,7 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'แจ้งครูในขอบเขตห้อง $room แล้ว',
+                'แจ้งครูประจำห้อง $room ($sevText) แล้ว',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: SchoolPalette.muted,
@@ -128,10 +146,32 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 8),
+              if (reason.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'เหตุผลที่ระบุ: "${reason.trim()}"',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: SchoolPalette.ink,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
               const Text(
-                'มีเพียงครูเท่านั้นที่ปิดเหตุได้ หลังจากตรวจสอบและบันทึกผลแล้ว '
-                '— ติดตามสถานะได้จากประวัติของฉันด้านล่าง',
+                'ครูได้รับข้อมูลเหตุผลและความรุนแรงเพื่อประเมินสถานการณ์ล่วงหน้าแล้ว '
+                'ติดตามสถานะได้จากประวัติด้านล่าง',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: SchoolPalette.muted,
@@ -139,7 +179,7 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
@@ -245,13 +285,19 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    _categoryLabel(detail.category),
-                    style: const TextStyle(
-                      color: SchoolPalette.ink,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        _categoryLabel(detail.category),
+                        style: const TextStyle(
+                          color: SchoolPalette.ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildSeverityBadge(detail.severity),
+                    ],
                   ),
                   Text(
                     detail.room ?? 'ไม่ระบุห้อง',
@@ -266,6 +312,40 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
             _buildStatusPill(detail.status),
           ],
         ),
+        if (detail.reason != null && detail.reason!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'เหตุผลที่แจ้งให้ครูทราบ:',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: SchoolPalette.muted,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  detail.reason!,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: SchoolPalette.ink,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         const Text(
           'ความคืบหน้า',
@@ -391,7 +471,30 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
         style: TextStyle(
           color: color,
           fontSize: 11,
-          fontWeight: FontWeight.w900,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeverityBadge(String? severity) {
+    final (label, color) = switch (severity) {
+      'high' => ('🔴 เหตุใหญ่', const Color(0xFFDC2626)),
+      'medium' => ('🟠 เหตุปานกลาง', const Color(0xFFD97706)),
+      _ => ('🟢 เหตุเล็ก', const Color(0xFF16A34A)),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );
@@ -615,6 +718,7 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFFFBEB),
                     foregroundColor: const Color(0xFFB45309),
+                    minimumSize: Size.zero,
                     elevation: 0,
                     side: const BorderSide(
                       color: Color(0xFFFDE68A),
@@ -713,13 +817,19 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    _categoryLabel(incident.category),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      color: SchoolPalette.ink,
-                                      fontSize: 13.5,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _categoryLabel(incident.category),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          color: SchoolPalette.ink,
+                                          fontSize: 13.5,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      _buildSeverityBadge(incident.severity),
+                                    ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -730,6 +840,20 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  if (incident.reason != null &&
+                                      incident.reason!.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      'เหตุผล: ${incident.reason}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: SchoolPalette.ink,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -756,6 +880,18 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
 /// S2: หน้าสรุปข้อมูลก่อนส่ง + ปุ่มกดค้าง 3 วินาทีเพื่อยืนยัน
 /// (emergency-alert-app-proposal-v1 ข้อ 4.2) — ปล่อยนิ้วก่อนครบ = ยกเลิก
 /// อัตโนมัติ ไม่มีอะไรถูกส่ง ต่างจากปุ่มแตะครั้งเดียวที่กดพลาดง่าย
+class _IncidentConfirmResult {
+  const _IncidentConfirmResult({
+    required this.room,
+    required this.reason,
+    required this.severity,
+  });
+
+  final String room;
+  final String reason;
+  final String severity;
+}
+
 class _IncidentConfirmSheet extends StatefulWidget {
   const _IncidentConfirmSheet({required this.category, required this.room});
 
@@ -773,16 +909,46 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
   double _progress = 0;
   bool _holding = false;
   late final TextEditingController _roomController;
+  late final TextEditingController _reasonController;
+
+  late String _severity;
+
+  final List<String> _quickReasons = const [
+    '🩺 เจ็บป่วย / ไม่สบายด่วน',
+    '🛠️ อุปกรณ์ชำรุด / เป็นอันตราย',
+    '⚠️ ทะเลาะวิวาท / มีปากเสียง',
+    '🚨 ฉุกเฉินร้ายแรง / บุกรุก',
+  ];
 
   bool get _isSOS => widget.category == IncidentCategory.sos;
+
+  bool get _canSubmit => _reasonController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _roomController = TextEditingController(text: widget.room ?? '');
+    _reasonController = TextEditingController();
+    _reasonController.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _severity = _isSOS ? 'high' : 'low';
   }
 
   void _startHold() {
+    if (!_canSubmit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '⚠️ กรุณาเลือกชิปเหตุผลด้านบน หรือพิมพ์ระบุสิ่งที่พบเห็นก่อนกดปุ่มยืนยัน',
+          ),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
     _holdTimer?.cancel();
     setState(() {
       _holding = true;
@@ -794,7 +960,14 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
         if (_progress >= 1) {
           _progress = 1;
           t.cancel();
-          Navigator.pop(context, _roomController.text);
+          Navigator.pop(
+            context,
+            _IncidentConfirmResult(
+              room: _roomController.text,
+              reason: _reasonController.text,
+              severity: _severity,
+            ),
+          );
         }
       });
     });
@@ -813,6 +986,7 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
   void dispose() {
     _holdTimer?.cancel();
     _roomController.dispose();
+    _reasonController.dispose();
     super.dispose();
   }
 
@@ -833,144 +1007,307 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 44,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(10),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-            ),
-            const SizedBox(height: 18),
-            const Text(
-              'ยืนยันการแจ้งเหตุ',
-              style: TextStyle(
-                color: SchoolPalette.ink,
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
+              const SizedBox(height: 18),
+              const Text(
+                'ระบุเหตุผลและยืนยันการแจ้งเหตุ',
+                style: TextStyle(
+                  color: SchoolPalette.ink,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: accent.withValues(alpha: 0.2)),
+              const SizedBox(height: 4),
+              const Text(
+                'ครูจะได้รับแจ้งเหตุผลและความรุนแรงเพื่อเตรียมรับมือล่วงหน้า',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SchoolPalette.muted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _summaryRow(
-                    'ประเภทเหตุ',
-                    _isSOS ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ',
-                    accent,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 68,
-                        child: Text(
-                          'ห้อง',
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: accent.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _summaryRow(
+                      'ประเภทเหตุ',
+                      _isSOS ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ',
+                      accent,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'ระดับความรุนแรง (เพื่อให้ครูประเมินเหตุผลก่อน)',
+                      style: TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _buildSeverityChip('low', '🟢 เหตุเล็ก'),
+                        const SizedBox(width: 8),
+                        _buildSeverityChip('medium', '🟠 เหตุปานกลาง'),
+                        const SizedBox(width: 8),
+                        _buildSeverityChip('high', '🔴 เหตุใหญ่ / ด่วน'),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        const Text(
+                          'เหตุผล / สิ่งที่พบเห็น (บังคับกรอก)',
                           style: TextStyle(
                             color: SchoolPalette.muted,
-                            fontSize: 12,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '*',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: _quickReasons.map((r) {
+                        final isSelected = _reasonController.text == r;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _reasonController.text = r;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? accent.withValues(alpha: 0.15)
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isSelected
+                                    ? accent
+                                    : const Color(0xFFCBD5E1),
+                              ),
+                            ),
+                            child: Text(
+                              r,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: isSelected ? accent : SchoolPalette.ink,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _reasonController,
+                      style: const TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
                       ),
-                      Expanded(
-                        child: TextField(
-                          controller: _roomController,
-                          style: const TextStyle(
-                            color: SchoolPalette.ink,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'หรือพิมพ์ระบุเหตุผลรายละเอียดเพิ่มเติม...',
+                        errorText: !_canSubmit ? 'กรุณาเลือกหรือระบุเหตุผล' : null,
+                        border: const OutlineInputBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(10)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 68,
+                          child: Text(
+                            'ห้อง',
+                            style: TextStyle(
+                              color: SchoolPalette.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            hintText: 'ระบุห้อง เช่น ม.5/2',
-                            border: UnderlineInputBorder(),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _roomController,
+                            style: const TextStyle(
+                              color: SchoolPalette.ink,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              hintText: 'ระบุห้อง เช่น ม.5/2',
+                              border: UnderlineInputBorder(),
+                            ),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _summaryRow('เวลา', 'วันนี้ $timeStr', SchoolPalette.ink),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                !_canSubmit
+                    ? '⚠️ กรุณาเลือกหรือพิมพ์ระบุเหตุผลด้านบนก่อนกดส่ง'
+                    : _holding
+                        ? 'กำลังยืนยัน... ห้ามปล่อยนิ้ว'
+                        : 'กดปุ่มด้านล่างค้างไว้ 3 วินาทีเพื่อยืนยันการส่ง',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: !_canSubmit
+                      ? const Color(0xFFDC2626)
+                      : _holding
+                          ? accent
+                          : SchoolPalette.muted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTapDown: (_) => _startHold(),
+                onTapUp: (_) => _cancelHold(),
+                onTapCancel: _cancelHold,
+                child: SizedBox(
+                  width: 110,
+                  height: 110,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 110,
+                        height: 110,
+                        child: CircularProgressIndicator(
+                          value: _canSubmit ? _progress : 0,
+                          strokeWidth: 6,
+                          backgroundColor: _canSubmit
+                              ? accent.withValues(alpha: 0.12)
+                              : Colors.grey[200]!,
+                          valueColor: AlwaysStoppedAnimation(
+                            _canSubmit ? accent : Colors.grey[400]!,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 86,
+                        height: 86,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _canSubmit ? accent : const Color(0xFFCBD5E1),
+                        ),
+                        child: Icon(
+                          _isSOS
+                              ? Icons.emergency_rounded
+                              : Icons.warning_amber_rounded,
+                          color: _canSubmit ? Colors.white : const Color(0xFF64748B),
+                          size: 34,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  _summaryRow('เวลา', 'วันนี้ $timeStr', SchoolPalette.ink),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              _holding
-                  ? 'กำลังยืนยัน... ห้ามปล่อยนิ้ว'
-                  : 'กดปุ่มด้านล่างค้างไว้ 3 วินาทีเพื่อยืนยันการส่ง',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _holding ? accent : SchoolPalette.muted,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTapDown: (_) => _startHold(),
-              onTapUp: (_) => _cancelHold(),
-              onTapCancel: _cancelHold,
-              child: SizedBox(
-                width: 120,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 120,
-                      height: 120,
-                      child: CircularProgressIndicator(
-                        value: _progress,
-                        strokeWidth: 6,
-                        backgroundColor: accent.withValues(alpha: 0.12),
-                        valueColor: AlwaysStoppedAnimation(accent),
-                      ),
-                    ),
-                    Container(
-                      width: 92,
-                      height: 92,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: accent,
-                      ),
-                      child: Icon(
-                        _isSOS
-                            ? Icons.emergency_rounded
-                            : Icons.warning_amber_rounded,
-                        color: Colors.white,
-                        size: 34,
-                      ),
-                    ),
-                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 24),
-            TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: const Text(
-                'ยกเลิก',
-                style: TextStyle(
-                  color: SchoolPalette.muted,
-                  fontWeight: FontWeight.w800,
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context, null),
+                child: const Text(
+                  'ยกเลิก',
+                  style: TextStyle(
+                    color: SchoolPalette.muted,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeverityChip(String value, String label) {
+    final isSelected = _severity == value;
+    final color = switch (value) {
+      'high' => const Color(0xFFDC2626),
+      'medium' => const Color(0xFFD97706),
+      _ => const Color(0xFF16A34A),
+    };
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _severity = value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withValues(alpha: 0.15)
+                : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? color : const Color(0xFFE2E8F0),
+              width: isSelected ? 1.5 : 1,
             ),
-          ],
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+              color: isSelected ? color : SchoolPalette.ink,
+            ),
+          ),
         ),
       ),
     );

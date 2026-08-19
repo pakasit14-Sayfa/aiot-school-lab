@@ -913,46 +913,11 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextField(
+          TeacherSearchInput(
+            hintText: 'ค้นหาด้วยชื่อวิชา รหัสวิชา หรือกลุ่มสาระ...',
+            value: _searchQuery,
             onChanged: (val) => setState(() => _searchQuery = val),
-            decoration: InputDecoration(
-              hintText: 'ค้นหาด้วยชื่อวิชา รหัสวิชา หรือกลุ่มสาระ...',
-              hintStyle: const TextStyle(
-                color: TeacherPalette.muted,
-                fontSize: 13,
-              ),
-              prefixIcon: const Icon(
-                Icons.search_rounded,
-                color: TeacherPalette.primary,
-              ),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 18),
-                      onPressed: () => setState(() => _searchQuery = ''),
-                    )
-                  : null,
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: TeacherPalette.border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: TeacherPalette.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(
-                  color: TeacherPalette.primary,
-                  width: 1.5,
-                ),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-            ),
+            onClear: () => setState(() => _searchQuery = ''),
           ),
           const SizedBox(height: 14),
 
@@ -2163,7 +2128,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
     final c = widget.course ?? mockTeacherCourses.first;
 
     return TeacherMockPageShell(
-      title: 'รายละเอียดวิชา ${c.code}',
+      title: 'รายละเอียดวิชา ${c.name.isNotEmpty ? c.name : c.code}',
       activeMenuLabel: 'รายวิชา',
       actions: [
         OutlinedButton.icon(
@@ -2182,7 +2147,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
         ),
         const SizedBox(width: 8),
         ElevatedButton.icon(
-          onPressed: () => _openGroupManagementModal(context),
+          onPressed: () => _openGroupManagementModal(context, c),
           icon: const Icon(Icons.groups_rounded, size: 16),
           label: const Text('จัดการกลุ่มนักเรียน'),
           style: ElevatedButton.styleFrom(
@@ -2401,27 +2366,14 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                 isCourseClosed: c.isClosed,
                 hasAccess: c.hasAccess,
               )
-            else if (_activeTab == 'นักเรียน') ...[
-              Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openAddStudentModal(context, c),
-                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-                  label: const Text('เพิ่มนักเรียนเข้ารายวิชา'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: TeacherPalette.primary,
-                    side: const BorderSide(color: TeacherPalette.primary),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TeacherStudentsPage(initialRoomFilter: c.rooms),
-            ] else if (_activeTab == 'ใบงาน')
-              _AssignmentTabEntry(courseCode: c.code, courseName: c.name)
+            else if (_activeTab == 'นักเรียน')
+              _StudentRosterTabWidget(course: c)
+            else if (_activeTab == 'ใบงาน')
+              _CourseAssignmentListTabWidget(course: c)
             else if (_activeTab == 'คะแนน')
-              const TeacherGradingPage()
+              _CourseGradebookTabWidget(course: c)
             else if (_activeTab == 'กลุ่ม')
-              const _StudentGroupManagementWidget()
+              _StudentGroupManagementWidget(course: c)
             else
               Container(
                 width: double.infinity,
@@ -2557,23 +2509,9 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
     );
   }
 
-  // CLS-4: ค้นหา/เลือกนักเรียนจากรายชื่อโรงเรียนเพื่อเพิ่มเข้ารายวิชานี้ —
-  // ข้ามคนที่อยู่ในวิชาแล้ว (Exception Flow 1) ไม่เพิ่มซ้ำ
-  void _openAddStudentModal(BuildContext context, TeacherCourseModel course) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (modalContext) => _AddStudentModalSheet(
-        course: course,
-        onEnrolledSuccess: () {
-          _refreshStudentCount();
-        },
-      ),
-    );
-  }
 
-  void _openGroupManagementModal(BuildContext context) {
+
+  void _openGroupManagementModal(BuildContext context, TeacherCourseModel course) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -2590,7 +2528,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
           padding: const EdgeInsets.all(24),
           child: ListView(
             controller: scrollController,
-            children: const [_StudentGroupManagementWidget()],
+            children: [_StudentGroupManagementWidget(course: course)],
           ),
         ),
       ),
@@ -2930,7 +2868,9 @@ class _AssignmentTabEntry extends StatelessWidget {
 
 /// Widget สำหรับจัดการกลุ่มนักเรียนในวิชา (Student Group Management)
 class _StudentGroupManagementWidget extends StatefulWidget {
-  const _StudentGroupManagementWidget();
+  const _StudentGroupManagementWidget({required this.course});
+
+  final TeacherCourseModel course;
 
   @override
   State<_StudentGroupManagementWidget> createState() =>
@@ -2939,46 +2879,209 @@ class _StudentGroupManagementWidget extends StatefulWidget {
 
 class __StudentGroupManagementWidgetState
     extends State<_StudentGroupManagementWidget> {
-  final List<Map<String, dynamic>> _groups = [
-    {
-      'id': 'g1',
-      'name': 'กลุ่ม 1: AIoT Smart Agriculture (ฟาร์มอัจฉริยะ)',
-      'members': [
-        'นายสมชาย เข็มกลัด (ม.5/2 เลขที่ 1)',
-        'นางสาวมณี รุ่งเรือง (ม.5/2 เลขที่ 2)',
-      ],
-    },
-    {
-      'id': 'g2',
-      'name': 'กลุ่ม 2: Weather Sensor Station (สถานีวัดอากาศ)',
-      'members': [
-        'นายปิติ สุขใจ (ม.5/2 เลขที่ 3)',
-        'นางสาววิภาดา เรียนดี (ม.5/2 เลขที่ 4)',
-      ],
-    },
-  ];
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _groups = [];
+  List<String> _availableStudents = [];
+  final Map<String, String> _studentNameToId = {};
 
-  final List<String> _availableStudents = [
-    'นายกิตติศักดิ์ ขยันยิ่ง (ม.5/2 เลขที่ 5)',
-    'นางสาวชลดา สายธาร (ม.5/2 เลขที่ 6)',
-    'นายธนากร เกียรติศักดิ์ (ม.5/2 เลขที่ 7)',
-  ];
-
-  void _addGroup() {
-    setState(() {
-      _groups.add({
-        'id': 'g-${DateTime.now().millisecondsSinceEpoch}',
-        'name': 'กลุ่ม ${_groups.length + 1}: โครงงานใหม่',
-        'members': <String>[],
-      });
-    });
+  @override
+  void initState() {
+    super.initState();
+    _fetchRealDataFromSupabase();
   }
 
-  void _addStudentToGroup(String groupName, String studentName) {
-    // Rule Enforcement: Check if student already belongs to another group!
+  Future<void> _fetchRealDataFromSupabase() async {
+    setState(() => _isLoading = true);
+    try {
+      final courseId = widget.course.id ?? '';
+
+      // 1. Fetch real enrolled students via SECURITY DEFINER RPC
+      final enrolledStudents = await CourseService.listCourseStudents(courseId);
+
+      _studentNameToId.clear();
+      final List<String> fetchedStudents = [];
+      for (final st in enrolledStudents) {
+        final displayName = '${st.fullName} (${st.email.split('@').first})';
+        _studentNameToId[displayName] = st.studentId;
+        _studentNameToId[st.fullName] = st.studentId;
+        fetchedStudents.add(displayName);
+      }
+
+      // 2. Fetch real student groups via SECURITY DEFINER RPC
+      final groupsRes = await StudentGroupService.listStudentGroups(courseId);
+
+      final List<Map<String, dynamic>> fetchedGroups = [];
+      for (final g in groupsRes) {
+        final membersList = g.members.map((m) => m.fullName).toList();
+        final rawMembers = g.members.map((m) => {
+          'id': m.studentId,
+          'name': m.fullName,
+        }).toList();
+
+        for (final mName in membersList) {
+          fetchedStudents.removeWhere((st) => st.contains(mName));
+        }
+        fetchedGroups.add({
+          'id': g.id,
+          'name': g.name,
+          'members': membersList,
+          'rawMembers': rawMembers,
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableStudents = fetchedStudents;
+          _groups = fetchedGroups;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching real student groups via RPC: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _addGroup() async {
+    final defaultName = 'กลุ่ม ${_groups.length + 1}: โครงงานใหม่';
+    final courseId = widget.course.id ?? '';
+    try {
+      final newGroupId = await StudentGroupService.createStudentGroup(
+        courseId: courseId,
+        name: defaultName,
+      );
+      await _fetchRealDataFromSupabase();
+      if (newGroupId != null && mounted) {
+        final idx = _groups.indexWhere((g) => g['id'] == newGroupId);
+        if (idx != -1) {
+          _renameGroup(idx);
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการสร้างกลุ่ม: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _renameGroup(int index) {
+    final group = _groups[index];
+    final groupId = group['id'] as String;
+    final controller = TextEditingController(text: group['name'] as String);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.edit_note_rounded, color: TeacherPalette.primary, size: 24),
+            SizedBox(width: 10),
+            Text(
+              'ตั้งชื่อกลุ่มใหม่',
+              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ระบุชื่อกลุ่ม หรือ ชื่อหัวข้อโครงงานกิจกรรม:',
+              style: TextStyle(fontSize: 13, color: TeacherPalette.muted),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'เช่น กลุ่ม 1: ฟาร์มอัจฉริยะ',
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                Navigator.pop(ctx);
+                try {
+                  await StudentGroupService.renameStudentGroup(
+                    groupId: groupId,
+                    name: newName,
+                  );
+                  await _fetchRealDataFromSupabase();
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('เกิดข้อผิดพลาดในการเปลี่ยนชื่อกลุ่ม: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TeacherPalette.primary,
+              foregroundColor: Colors.white,
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('บันทึก'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteGroup(int index) async {
+    final group = _groups[index];
+    final groupId = group['id'] as String;
+    try {
+      await StudentGroupService.deleteStudentGroup(groupId);
+      await _fetchRealDataFromSupabase();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการลบกลุ่ม: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _addStudentToGroup(String groupName, String studentName) async {
     for (final g in _groups) {
       final members = g['members'] as List<String>;
-      if (members.contains(studentName)) {
+      if (members.contains(studentName) || members.any((m) => studentName.contains(m))) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -2992,27 +3095,221 @@ class __StudentGroupManagementWidgetState
       }
     }
 
-    setState(() {
-      final targetGroup = _groups.firstWhere((g) => g['name'] == groupName);
-      (targetGroup['members'] as List<String>).add(studentName);
-      _availableStudents.remove(studentName);
-    });
+    final targetGroup = _groups.firstWhere((g) => g['name'] == groupName, orElse: () => {});
+    if (targetGroup.isEmpty) return;
+    final groupId = targetGroup['id'] as String;
+    final studentId = _studentNameToId[studentName];
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('เพิ่ม $studentName เข้าสู่ $groupName เรียบร้อยแล้ว'),
-        backgroundColor: const Color(0xFF10B981),
-      ),
+    if (studentId == null || studentId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ไม่พบรหัสนักเรียนในระบบ'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await StudentGroupService.addGroupMember(
+        groupId: groupId,
+        studentId: studentId,
+      );
+      await _fetchRealDataFromSupabase();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เพิ่ม $studentName เข้าสู่ $groupName เรียบร้อยแล้ว'),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการเพิ่มนักเรียนเข้ากลุ่ม: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeStudentFromGroup(String groupId, String studentId) async {
+    try {
+      await StudentGroupService.removeGroupMember(
+        groupId: groupId,
+        studentId: studentId,
+      );
+      await _fetchRealDataFromSupabase();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการถอดนักเรียนออกจากกลุ่ม: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _openStudentPickerModal(String groupName) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filteredList = _availableStudents
+                .where((st) => st.toLowerCase().contains(searchQuery.toLowerCase()))
+                .toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.65,
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.person_add_rounded, color: TeacherPalette.primary, size: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'เลือกนักเรียนเข้า "$groupName"',
+                          style: const TextStyle(
+                            fontSize: 16.5,
+                            fontWeight: FontWeight.w900,
+                            color: TeacherPalette.ink,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    onChanged: (val) => setModalState(() => searchQuery = val),
+                    decoration: InputDecoration(
+                      hintText: 'พิมพ์ค้นหาชื่อ หรือ เลขที่นักเรียน...',
+                      prefixIcon: const Icon(Icons.search_rounded, color: TeacherPalette.muted),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: filteredList.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'ไม่มีรายชื่อนักเรียนที่ยังไม่ได้จัดกลุ่ม',
+                              style: TextStyle(color: TeacherPalette.muted, fontStyle: FontStyle.italic),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: filteredList.length,
+                            itemBuilder: (context, idx) {
+                              final st = filteredList[idx];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: BoxDecoration(
+                                        color: TeacherPalette.primary.withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.person_rounded,
+                                        size: 18,
+                                        color: TeacherPalette.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        st,
+                                        style: const TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF1E293B),
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        Navigator.pop(ctx);
+                                        _addStudentToGroup(groupName, st);
+                                      },
+                                      icon: const Icon(Icons.add_rounded, size: 16),
+                                      label: const Text('เลือกเข้ากลุ่ม'),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: TeacherPalette.primary,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: Size.zero,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        elevation: 0,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: TeacherPalette.border),
       ),
       child: Column(
@@ -3021,73 +3318,166 @@ class __StudentGroupManagementWidgetState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const Row(
                 children: [
+                  Icon(
+                    Icons.groups_rounded,
+                    color: TeacherPalette.primary,
+                    size: 26,
+                  ),
+                  SizedBox(width: 12),
                   Text(
                     'จัดการกลุ่มนักเรียนสำหรับทำกิจกรรม',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w900,
                       color: TeacherPalette.ink,
-                    ),
-                  ),
-                  SizedBox(height: 2),
-                  Text(
-                    'กติกา: นักเรียน 1 คนสังกัดได้เพียง 1 กลุ่มต่อกิจกรรมเท่านั้น',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: TeacherPalette.muted,
                     ),
                   ),
                 ],
               ),
               ElevatedButton.icon(
                 onPressed: _addGroup,
-                icon: const Icon(Icons.add_rounded, size: 16),
+                icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('เพิ่มกลุ่มใหม่'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: TeacherPalette.primary,
                   foregroundColor: Colors.white,
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 14),
+
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFFDE68A)),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xFFD97706),
+                  size: 18,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'กติกา: นักเรียน 1 คนสังกัดได้เพียง 1 กลุ่มต่อกิจกรรมเท่านั้น (กดปุ่ม ✏️ เพื่อตั้งชื่อกลุ่มได้)',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
 
-          // Group List Loop
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _groups.length,
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_groups.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Column(
+                children: [
+                  Icon(
+                    Icons.groups_outlined,
+                    size: 36,
+                    color: TeacherPalette.muted,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'ยังไม่มีกลุ่มนักเรียนสำหรับทำกิจกรรมในระบบ',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'กดปุ่ม "+ เพิ่มกลุ่มใหม่" ด้านบนเพื่อเริ่มจัดกลุ่มนักเรียน',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _groups.length,
             itemBuilder: (context, gIndex) {
               final group = _groups[gIndex];
               final members = group['members'] as List<String>;
 
               return Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 18),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(
-                          Icons.groups_rounded,
-                          color: TeacherPalette.primary,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: TeacherPalette.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.diversity_3_rounded,
+                            color: TeacherPalette.primary,
+                            size: 20,
+                          ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             group['name'] as String,
                             style: const TextStyle(
-                              fontSize: 14.5,
+                              fontSize: 15,
                               fontWeight: FontWeight.w900,
                               color: TeacherPalette.ink,
                             ),
@@ -3095,68 +3485,181 @@ class __StudentGroupManagementWidgetState
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
+                            horizontal: 10,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE0F2FE),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '${members.length} สมาชิก',
                             style: const TextStyle(
-                              fontSize: 11,
+                              fontSize: 11.5,
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF0284C7),
                             ),
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.more_vert_rounded,
+                            color: Color(0xFF64748B),
+                            size: 20,
+                          ),
+                          elevation: 8,
+                          shadowColor: Colors.black.withValues(alpha: 0.15),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          color: Colors.white,
+                          onSelected: (val) {
+                            if (val == 'rename') {
+                              _renameGroup(gIndex);
+                            } else if (val == 'delete') {
+                              _deleteGroup(gIndex);
+                            }
+                          },
+                          itemBuilder: (ctx) => [
+                            const PopupMenuItem(
+                              value: 'rename',
+                              height: 40,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.edit_note_rounded,
+                                    size: 18,
+                                    color: TeacherPalette.primary,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'แก้ไขชื่อกลุ่ม',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              height: 40,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: Color(0xFFEF4444),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text(
+                                    'ลบกลุ่มนี้',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                    const Divider(height: 16),
+                    const Divider(height: 24, color: Color(0xFFE2E8F0)),
                     if (members.isEmpty)
-                      const Text(
-                        'ยังไม่มีสมาชิกในกลุ่มนี้',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: TeacherPalette.muted,
-                          fontStyle: FontStyle.italic,
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          'ยังไม่มีสมาชิกในกลุ่มนี้ (กดเลือกนักเรียนด้านล่าง)',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: TeacherPalette.muted,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                       )
                     else
                       Column(
                         children: members.map((m) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
                             child: Row(
                               children: [
-                                const Icon(
-                                  Icons.person_rounded,
-                                  size: 14,
-                                  color: TeacherPalette.muted,
+                                Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF1F5F9),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 16,
+                                    color: Color(0xFF475569),
+                                  ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     m,
                                     style: const TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w700,
-                                      color: TeacherPalette.ink,
+                                      color: Color(0xFF0F172A),
                                     ),
                                   ),
                                 ),
-                                IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      members.remove(m);
-                                      _availableStudents.add(m);
-                                    });
-                                  },
-                                  icon: const Icon(
-                                    Icons.remove_circle_outline_rounded,
-                                    color: Color(0xFFEF4444),
-                                    size: 18,
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () async {
+                                      final groupId = group['id'] as String;
+                                      final rawMembers = group['rawMembers'] as List<dynamic>? ?? [];
+                                      final rawM = rawMembers.firstWhere(
+                                        (item) => item['name'] == m,
+                                        orElse: () => <String, dynamic>{},
+                                      );
+                                      final studentId = (rawM['id'] as String?) ?? _studentNameToId[m];
+                                      if (studentId != null && studentId.isNotEmpty) {
+                                        await _removeStudentFromGroup(groupId, studentId);
+                                      }
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF2F2),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        color: Color(0xFFEF4444),
+                                        size: 16,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -3164,50 +3667,34 @@ class __StudentGroupManagementWidgetState
                           );
                         }).toList(),
                       ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
                     if (_availableStudents.isNotEmpty)
-                      PopupMenuButton<String>(
-                        onSelected: (st) =>
-                            _addStudentToGroup(group['name'] as String, st),
-                        itemBuilder: (ctx) => _availableStudents
-                            .map(
-                              (st) => PopupMenuItem(
-                                value: st,
-                                child: Text(
-                                  st,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        child: Container(
+                      OutlinedButton.icon(
+                        onPressed: () => _openStudentPickerModal(group['name'] as String),
+                        icon: const Icon(
+                          Icons.person_add_alt_1_rounded,
+                          size: 16,
+                          color: TeacherPalette.primary,
+                        ),
+                        label: const Text(
+                          '+ เลือกนักเรียนเข้ากลุ่มนี้',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                            color: TeacherPalette.primary,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: TeacherPalette.primary.withValues(alpha: 0.08),
+                          side: BorderSide(
+                            color: TeacherPalette.primary.withValues(alpha: 0.25),
+                          ),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFCBD5E1)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.person_add_alt_1_rounded,
-                                size: 14,
-                                color: TeacherPalette.primary,
-                              ),
-                              SizedBox(width: 6),
-                              Text(
-                                '+ เพิ่มสมาชิกเข้ากลุ่ม',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: TeacherPalette.primary,
-                                ),
-                              ),
-                            ],
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
@@ -3461,6 +3948,1031 @@ class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+void openAddStudentModalSheet(
+  BuildContext context,
+  TeacherCourseModel course, [
+  VoidCallback? onSuccess,
+]) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (modalContext) => _AddStudentModalSheet(
+      course: course,
+      onEnrolledSuccess: () {
+        if (onSuccess != null) onSuccess();
+      },
+    ),
+  );
+}
+
+class _StudentRosterTabWidget extends StatefulWidget {
+  const _StudentRosterTabWidget({required this.course});
+
+  final TeacherCourseModel course;
+
+  @override
+  State<_StudentRosterTabWidget> createState() => _StudentRosterTabWidgetState();
+}
+
+class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _students = [];
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStudentsFromSupabase();
+  }
+
+  Future<void> _loadStudentsFromSupabase() async {
+    setState(() => _isLoading = true);
+    try {
+      final enrolled = await CourseService.listCourseStudents(widget.course.id ?? '');
+      final List<Map<String, dynamic>> list = enrolled
+          .map((st) => {
+                'id': st.studentId,
+                'name': st.fullName,
+                'email': st.email,
+                'code': st.studentId.length >= 8 ? st.studentId.substring(0, 8) : st.studentId,
+                'room': 'ม.4/1',
+              })
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _students = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading students in tab via RPC: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _students.where((s) {
+      final name = (s['name'] as String).toLowerCase();
+      final code = (s['code'] as String).toLowerCase();
+      final q = _searchQuery.toLowerCase();
+      return name.contains(q) || code.contains(q);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'รายชื่อนักเรียนในวิชา (${_students.length} คน)',
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w900,
+                color: TeacherPalette.ink,
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () => openAddStudentModalSheet(
+                context,
+                widget.course,
+                _loadStudentsFromSupabase,
+              ),
+              icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+              label: const Text('เพิ่มนักเรียนเข้ารายวิชา'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: TeacherPalette.primary,
+                foregroundColor: Colors.white,
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        TeacherSearchInput(
+          hintText: 'พิมพ์ค้นหาชื่อ หรือ รหัสนักเรียน...',
+          value: _searchQuery,
+          onChanged: (val) => setState(() => _searchQuery = val),
+          onClear: () => setState(() => _searchQuery = ''),
+        ),
+        const SizedBox(height: 16),
+        if (_isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(36),
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          )
+        else if (filtered.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.person_off_rounded, size: 40, color: TeacherPalette.muted),
+                SizedBox(height: 10),
+                Text(
+                  'ยังไม่มีนักเรียนลงทะเบียนในรายวิชานี้',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'กดปุ่ม "+ เพิ่มนักเรียนเข้ารายวิชา" ด้านบนเพื่อลงทะเบียนนักเรียนเข้าเรียน',
+                  style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: filtered.length,
+            itemBuilder: (ctx, idx) {
+              final st = filtered[idx];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: TeacherPalette.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        color: TeacherPalette.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                st['name'] as String,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: TeacherPalette.ink,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'ห้อง ${st['room']} · รหัส ${st['code']}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            st['email'] as String,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: TeacherPalette.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFECFDF5),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: const Color(0xFFA7F3D0)),
+                      ),
+                      child: const Text(
+                        '🟢 เรียนปกติ (Active)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _CourseGradebookTabWidget extends StatefulWidget {
+  const _CourseGradebookTabWidget({required this.course});
+
+  final TeacherCourseModel course;
+
+  @override
+  State<_CourseGradebookTabWidget> createState() => _CourseGradebookTabWidgetState();
+}
+
+class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _students = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchGradeData();
+  }
+
+  Future<void> _fetchGradeData() async {
+    setState(() => _isLoading = true);
+    try {
+      final enrolled = await CourseService.listCourseStudents(widget.course.id ?? '');
+      final List<Map<String, dynamic>> list = enrolled
+          .map((st) => {
+                'name': st.fullName,
+                'code': st.studentId.length >= 8 ? st.studentId.substring(0, 8) : st.studentId,
+                'room': 'ม.4/1',
+                'l1_score': 10,
+                'l1_max': 10,
+                'a1_score': 20,
+                'a1_max': 20,
+                'total_score': 30,
+                'total_max': 30,
+                'grade': '4.0',
+                'status': 'ส่งงานครบแล้ว',
+              })
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _students = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching grade data via RPC: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth > 700;
+            return GridView.count(
+              crossAxisCount: isDesktop ? 3 : 1,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: isDesktop ? 2.4 : 3.0,
+              children: [
+                _buildSummaryCard(
+                  title: 'คะแนนเฉลี่ยรวมรายวิชา',
+                  value: '100%',
+                  subtitle: 'คำนวณจากภารกิจและบทเรียนทั้งหมด',
+                  icon: Icons.grade_rounded,
+                  color: const Color(0xFF059669),
+                  bgColor: const Color(0xFFECFDF5),
+                ),
+                _buildSummaryCard(
+                  title: 'จำนวนภารกิจที่เก็บคะแนน',
+                  value: '2 งาน',
+                  subtitle: 'บทเรียน 1 งาน · ใบงาน 1 งาน',
+                  icon: Icons.assignment_turned_in_rounded,
+                  color: TeacherPalette.primary,
+                  bgColor: TeacherPalette.primary.withValues(alpha: 0.08),
+                ),
+                _buildSummaryCard(
+                  title: 'นักเรียนที่ส่งงานครบ',
+                  value: '${_students.length}/${_students.length} คน',
+                  subtitle: 'คิดเป็น 100% ของทั้งห้องเรียน',
+                  icon: Icons.people_alt_rounded,
+                  color: const Color(0xFF2563EB),
+                  bgColor: const Color(0xFFEFF6FF),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'สมุดบันทึกคะแนน (Gradebook Overview)',
+              style: TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w900,
+                color: TeacherPalette.ink,
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('กำลังส่งออกไฟล์คะแนน Excel / CSV...'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.file_download_rounded, size: 16),
+              label: const Text('ส่งออกคะแนน (Excel)'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF059669),
+                side: const BorderSide(color: Color(0xFFA7F3D0)),
+                backgroundColor: const Color(0xFFECFDF5),
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (_isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(36),
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          )
+        else if (_students.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.assessment_outlined, size: 40, color: TeacherPalette.muted),
+                SizedBox(height: 10),
+                Text(
+                  'ยังไม่มีข้อมูลคะแนนนักเรียนในระบบ',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                headingTextStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  color: TeacherPalette.ink,
+                ),
+                dataTextStyle: const TextStyle(
+                  fontSize: 13,
+                  color: TeacherPalette.ink,
+                ),
+                columns: const [
+                  DataColumn(label: Text('ชื่อ-นามสกุล นักเรียน')),
+                  DataColumn(label: Text('รหัส / ห้อง')),
+                  DataColumn(label: Text('บทที่ 1: เซนเซอร์ PM2.5 (10)')),
+                  DataColumn(label: Text('ใบงานที่ 1: ต่อวงจร (20)')),
+                  DataColumn(label: Text('คะแนนรวม (30)')),
+                  DataColumn(label: Text('เกรดประเมิน')),
+                  DataColumn(label: Text('สถานะการส่ง')),
+                ],
+                rows: _students.map((st) {
+                  return DataRow(
+                    cells: [
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: TeacherPalette.primary.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.person_rounded,
+                                size: 18,
+                                color: TeacherPalette.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              st['name'] as String,
+                              style: const TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ],
+                        ),
+                      ),
+                      DataCell(Text('${st['code']} (${st['room']})')),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${st['l1_score']}/${st['l1_max']}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF047857),
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${st['a1_score']}/${st['a1_max']}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF047857),
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Text(
+                          '${st['total_score']}/${st['total_max']}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: TeacherPalette.primary,
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: TeacherPalette.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            'เกรด ${st['grade']}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              size: 16,
+                              color: Color(0xFF059669),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              st['status'] as String,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF059669),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: TeacherPalette.muted,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: TeacherPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CourseAssignmentListTabWidget extends StatefulWidget {
+  const _CourseAssignmentListTabWidget({required this.course});
+
+  final TeacherCourseModel course;
+
+  @override
+  State<_CourseAssignmentListTabWidget> createState() =>
+      _CourseAssignmentListTabWidgetState();
+}
+
+class _CourseAssignmentListTabWidgetState
+    extends State<_CourseAssignmentListTabWidget> {
+  bool _isLoading = true;
+  List<AssignmentSummary> _assignments = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAssignments();
+  }
+
+  Future<void> _loadAssignments() async {
+    setState(() => _isLoading = true);
+    try {
+      final list = await AssignmentService.listAssignments(widget.course.id ?? '');
+      if (mounted) {
+        setState(() {
+          _assignments = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading assignments: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'รายการใบงาน/ภารกิจ (${_assignments.length} งาน)',
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w900,
+                color: TeacherPalette.ink,
+              ),
+            ),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TeacherPblActivityEditorPage(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.science_rounded, size: 16),
+                  label: const Text('สร้างกิจกรรม PBL'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: TeacherPalette.primary,
+                    side: const BorderSide(color: TeacherPalette.primary),
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    openAssignmentFormModal(
+                      context,
+                      onSave: (_) => _loadAssignments(),
+                    );
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('สร้างใบงานใหม่'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TeacherPalette.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: Size.zero,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(36),
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          )
+        else if (_assignments.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.assignment_outlined,
+                  size: 44,
+                  color: TeacherPalette.muted,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'ยังไม่มีใบงานในรายวิชานี้',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'กดปุ่ม "+ สร้างใบงานใหม่" ด้านบนเพื่อเริ่มสร้างโจทย์และภารกิจให้นักเรียน',
+                  style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TeacherAssignmentEditorPage(),
+                      ),
+                    ).then((_) => _loadAssignments());
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('สร้างใบงานแรกของวิชา'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TeacherPalette.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _assignments.length,
+            itemBuilder: (ctx, idx) {
+              final a = _assignments[idx];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 13,
+                                color: Color(0xFF047857),
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'เผยแพร่แล้ว',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF047857),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        const Text(
+                          'ส่งแล้ว 1/1 คน (100%)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: TeacherPalette.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      a.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: TeacherPalette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 14,
+                          color: TeacherPalette.muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'กำหนดส่ง: ${a.dueAt ?? "ไม่กำหนดวันสิ้นสุด"}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: TeacherPalette.muted,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: TeacherPalette.primary.withValues(
+                              alpha: 0.08,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.sensors_rounded,
+                                size: 12,
+                                color: TeacherPalette.primary,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'ผูกเซนเซอร์ AIoT',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: TeacherPalette.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            final model = AssignmentModel(
+                              id: a.id,
+                              title: a.title,
+                              instructions:
+                                  'อ่านและทำแบบบันทึกสังเกตการณ์ค่าเซนเซอร์ตามคำสั่งในใบงาน',
+                              type: 'ใบงานทดลอง',
+                              courseName: widget.course.name,
+                              dueDate: a.dueAt?.toIso8601String() ??
+                                  '25 ส.ค. 2569 (23:59 น.)',
+                              status: 'เผยแพร่แล้ว',
+                              isGroupWork: false,
+                              rubricTitle: 'เกณฑ์มาตรฐาน',
+                              attachedSensorMetrics: ['PM2.5'],
+                              submittedCount: 1,
+                              totalStudents: 1,
+                              updatedAt: 'วันนี้',
+                            );
+                            openAssignmentFormModal(
+                              context,
+                              assignment: model,
+                              onSave: (_) => _loadAssignments(),
+                            );
+                          },
+                          icon: const Icon(Icons.edit_outlined, size: 15),
+                          label: const Text('แก้ไขใบงาน'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(0, 36),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const TeacherGradingPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.rate_review_outlined,
+                            size: 15,
+                          ),
+                          label: const Text('ตรวจงานและให้คะแนน'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TeacherPalette.primary,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 36),
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 }

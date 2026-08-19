@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:shared_core/shared_core.dart';
@@ -23,6 +24,8 @@ class _LoginPageState extends State<LoginPage>
 
   bool isPasswordHidden = true;
   bool isLoading = false;
+  String? errorMessage;
+  Timer? _errorTimer;
 
   late AnimationController _floatingController;
 
@@ -33,12 +36,25 @@ class _LoginPageState extends State<LoginPage>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
+    emailController.addListener(_clearErrorOnType);
+    passwordController.addListener(_clearErrorOnType);
+  }
+
+  void _clearErrorOnType() {
+    if (errorMessage != null) {
+      _errorTimer?.cancel();
+      setState(() => errorMessage = null);
+    }
   }
 
   void login() async {
     if (!formKey.currentState!.validate()) return;
 
-    setState(() => isLoading = true);
+    _errorTimer?.cancel();
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
 
     try {
       final result = await AuthService.signIn(
@@ -78,19 +94,86 @@ class _LoginPageState extends State<LoginPage>
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาด: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _errorTimer?.cancel();
+      setState(() {
+        errorMessage = _formatAuthErrorMessage(e);
+      });
+      _errorTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted && errorMessage != null) {
+          setState(() => errorMessage = null);
+        }
+      });
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
   }
 
+  String _formatAuthErrorMessage(Object error) {
+    final msg = error.toString().toLowerCase();
+    if (msg.contains('429') ||
+        msg.contains('rate_limited') ||
+        msg.contains('too many requests')) {
+      return 'คุณพยายามเข้าสู่ระบบถี่เกินไป กรุณารอ 1-2 นาทีแล้วลองใหม่อีกครั้ง';
+    }
+    if (msg.contains('invalid login credentials') ||
+        msg.contains('invalid_credentials') ||
+        msg.contains('wrong password')) {
+      return 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง';
+    }
+    if (msg.contains('network') || msg.contains('socket') || msg.contains('timeout')) {
+      return 'ไม่สามารถเชื่อมต่อเครือข่ายได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+    }
+    return 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง';
+  }
+
+  Widget _buildInlineErrorBanner() {
+    if (errorMessage == null) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              errorMessage!,
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () => setState(() => errorMessage = null),
+            child: const Icon(
+              Icons.close_rounded,
+              color: Color(0xFF991B1B),
+              size: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    _errorTimer?.cancel();
     emailController.dispose();
     passwordController.dispose();
     _floatingController.dispose();
@@ -240,7 +323,8 @@ class _LoginPageState extends State<LoginPage>
                                   color: Colors.grey,
                                 ),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 16),
+                              _buildInlineErrorBanner(),
 
                               CustomTextField(
                                 controller: emailController,

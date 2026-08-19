@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'student_lesson_view_page.dart';
 import 'student_redesign_palette.dart';
-import '../../student/lesson_view_page.dart';
 
 class _LessonWithCourse {
   const _LessonWithCourse({required this.lesson, required this.courseName});
@@ -353,7 +353,7 @@ class LessonCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => LessonViewPage(lessonId: item.lesson.id),
+                builder: (_) => StudentLessonViewPage(lessonId: item.lesson.id),
               ),
             );
           },

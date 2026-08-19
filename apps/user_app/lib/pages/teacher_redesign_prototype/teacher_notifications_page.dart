@@ -137,6 +137,12 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
         context,
         MaterialPageRoute(builder: (_) => const TeacherEmergencyEventsPage()),
       );
+    } else if (notif.targetRoute == 'incident_report' ||
+        notif.targetRoute == 'incident') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherIncidentInboxPage()),
+      );
     } else if (notif.targetRoute == 'aiot') {
       Navigator.push(
         context,

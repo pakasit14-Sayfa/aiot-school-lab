@@ -149,6 +149,39 @@ begin
     returning id into v_lesson_id;
   end if;
 
+  -- 2026-08-18: Seed lesson materials and AIoT sensor link with sample readings
+  if not exists (select 1 from lesson_materials where lesson_id = v_lesson_id) then
+    insert into lesson_materials (lesson_id, type, title, url, sort_order) values
+      (v_lesson_id, 'file', 'คู่มือการใช้งานเซนเซอร์ PM2.5 (PDF)', 'https://example.com/materials/pm25_manual.pdf', 1),
+      (v_lesson_id, 'link', 'สไลด์บรรยายบทเรียน PM2.5', 'https://example.com/slides/pm25_intro', 2);
+  end if;
+
+  if not exists (select 1 from lesson_sensor_links where lesson_id = v_lesson_id) then
+    declare
+      v_pm25_dev_id uuid;
+    begin
+      select id into v_pm25_dev_id from devices where school_id = v_school_id and name = 'เซนเซอร์ PM2.5 โถงกลาง' limit 1;
+      if v_pm25_dev_id is null then
+        select id into v_pm25_dev_id from devices where school_id = v_school_id and name = 'เซนเซอร์ PM2.5 ชุดฝึก' limit 1;
+      end if;
+
+      if v_pm25_dev_id is not null then
+        insert into lesson_sensor_links (lesson_id, device_id, metric, time_start, time_end, caption)
+        values (v_lesson_id, v_pm25_dev_id, 'pm25', now() - interval '24 hours', now(), 'ข้อมูลการวัดค่าฝุ่น PM2.5 ย้อนหลัง 24 ชั่วโมง');
+
+        if not exists (select 1 from sensor_readings where device_id = v_pm25_dev_id) then
+          insert into sensor_readings (device_id, metric, ts, value) values
+            (v_pm25_dev_id, 'pm25', now() - interval '20 hours', 15.2),
+            (v_pm25_dev_id, 'pm25', now() - interval '16 hours', 18.7),
+            (v_pm25_dev_id, 'pm25', now() - interval '12 hours', 22.4),
+            (v_pm25_dev_id, 'pm25', now() - interval '8 hours', 31.0),
+            (v_pm25_dev_id, 'pm25', now() - interval '4 hours', 25.6),
+            (v_pm25_dev_id, 'pm25', now() - interval '1 hour', 19.3);
+        end if;
+      end if;
+    end;
+  end if;
+
   select id into v_assignment_id from assignments where course_id = v_course_id and title = 'สำรวจคุณภาพอากาศในห้องเรียน';
   if v_assignment_id is null then
     insert into assignments (course_id, type, title, instructions, due_at, status, created_by)

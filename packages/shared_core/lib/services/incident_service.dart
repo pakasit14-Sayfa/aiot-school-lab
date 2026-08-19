@@ -20,6 +20,8 @@ class IncidentService {
   static Future<String> createIncidentReport({
     required IncidentCategory category,
     String? room,
+    String? reason,
+    String? severity,
   }) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
@@ -30,6 +32,8 @@ class IncidentService {
                 'p_token': token,
                 'p_category': incidentCategoryToDb(category),
                 'p_room': room,
+                'p_reason': reason,
+                'p_severity': severity,
               },
             )
             as List;

@@ -65,3 +65,17 @@ class AiotCommandHistoryItem {
   final DateTime createdAt;
   final DateTime? deliveredAt;
 }
+
+class SensorDataPoint {
+  const SensorDataPoint({required this.ts, required this.value});
+
+  factory SensorDataPoint.fromRow(Map<String, dynamic> row) {
+    return SensorDataPoint(
+      ts: DateTime.parse(row['ts'] as String).toLocal(),
+      value: (row['value'] as num).toDouble(),
+    );
+  }
+
+  final DateTime ts;
+  final double value;
+}

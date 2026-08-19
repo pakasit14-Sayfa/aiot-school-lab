@@ -11,10 +11,12 @@
 // 9. Lesson Analytics Page (Summary cards, student progress table with Filters)
 // 10. Complete States (Loading, Empty, Auto-save status, Published edit warning)
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
+import 'teacher_shared_widgets.dart' show TeacherSearchInput;
 
 // ==========================================
 // DATA MODELS
@@ -502,27 +504,43 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
 
   void _openCreateLessonDialog() {
     final titleController = TextEditingController();
+    final displayCourseName = widget.courseName.trim().isNotEmpty
+        ? widget.courseName.trim()
+        : (widget.courseCode.trim().isNotEmpty
+              ? widget.courseCode.trim()
+              : 'รายวิชานี้');
+
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: TeacherPalette.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.add_to_photos_rounded,
                 color: TeacherPalette.primary,
+                size: 22,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             const Text(
               'สร้างบทเรียนใหม่',
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 19,
+                color: TeacherPalette.ink,
+              ),
             ),
           ],
         ),
@@ -531,10 +549,14 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'ระบุชื่อบทเรียนสำหรับวิชา ${widget.courseCode} ระบบจะสร้างร่าง (Draft) แล้วพาไปหน้าแก้ไขบทเรียนทันที',
-              style: const TextStyle(fontSize: 13, color: TeacherPalette.muted),
+              'ระบุชื่อบทเรียนสำหรับวิชา "$displayCourseName"\nระบบจะสร้างร่าง (Draft) แล้วพาไปหน้าแก้ไขบทเรียนทันที',
+              style: const TextStyle(
+                fontSize: 13,
+                color: TeacherPalette.muted,
+                height: 1.4,
+              ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             TextField(
               controller: titleController,
               autofocus: true,
@@ -545,107 +567,145 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                 fillColor: const Color(0xFFF8FAFC),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: TeacherPalette.primary,
+                    width: 1.5,
+                  ),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
                 ),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'ยกเลิก',
-              style: TextStyle(color: TeacherPalette.muted),
-            ),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-            label: const Text(
-              'สร้างและแก้ไข',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: TeacherPalette.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
+                child: const Text(
+                  'ยกเลิก',
+                  style: TextStyle(
+                    color: TeacherPalette.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-            onPressed: () async {
-              final titleText = titleController.text.trim();
-              if (titleText.isEmpty) return;
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                label: const Text(
+                  'สร้างและแก้ไข',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  backgroundColor: TeacherPalette.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 11,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () async {
+                  final titleText = titleController.text.trim();
+                  if (titleText.isEmpty) return;
 
-              String createdId;
-              try {
-                final courses = await CourseService.listMyCourses();
-                if (courses.isEmpty) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อน',
+                  String createdId;
+                  try {
+                    final courses = await CourseService.listMyCourses();
+                    if (courses.isEmpty) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อน',
+                          ),
+                          backgroundColor: Color(0xFFEF4444),
+                        ),
+                      );
+                      return;
+                    }
+
+                    createdId = await LessonService.createLesson(
+                      courseId: courses.first.id,
+                      title: titleText,
+                    );
+                  } catch (e) {
+                    debugPrint('Error creating lesson via LessonService: $e');
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('สร้างบทเรียนไม่สำเร็จ: $e'),
+                        backgroundColor: const Color(0xFFEF4444),
                       ),
-                      backgroundColor: Color(0xFFEF4444),
+                    );
+                    return;
+                  }
+
+                  if (!context.mounted) return;
+                  Navigator.pop(context);
+
+                  final newLesson = LessonModel(
+                    id: createdId,
+                    courseCode: widget.courseCode,
+                    courseName: widget.courseName,
+                    title: titleText,
+                    status: LessonStatus.draft,
+                    lastEdited: 'เมื่อสักครู่',
+                    materialsCount: 0,
+                    sensorChartsCount: 0,
+                    blocks: [
+                      ContentBlockModel(
+                        id: 'b-init',
+                        type: ContentBlockType.heading,
+                        text: titleText,
+                      ),
+                      ContentBlockModel(
+                        id: 'b-text',
+                        type: ContentBlockType.text,
+                        text: 'เริ่มเขียนเนื้อหาบทเรียนที่นี่...',
+                      ),
+                    ],
+                    materials: [],
+                    sensorLinks: [],
+                  );
+
+                  setState(() {
+                    _lessons.insert(0, newLesson);
+                  });
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          TeacherLessonEditorPage(lesson: newLesson),
                     ),
                   );
-                  return;
-                }
-
-                createdId = await LessonService.createLesson(
-                  courseId: courses.first.id,
-                  title: titleText,
-                );
-              } catch (e) {
-                debugPrint('Error creating lesson via LessonService: $e');
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('สร้างบทเรียนไม่สำเร็จ: $e'),
-                    backgroundColor: const Color(0xFFEF4444),
-                  ),
-                );
-                return;
-              }
-
-              if (!context.mounted) return;
-              Navigator.pop(context);
-
-              final newLesson = LessonModel(
-                id: createdId,
-                courseCode: widget.courseCode,
-                courseName: widget.courseName,
-                title: titleText,
-                status: LessonStatus.draft,
-                lastEdited: 'เมื่อสักครู่',
-                materialsCount: 0,
-                sensorChartsCount: 0,
-                blocks: [
-                  ContentBlockModel(
-                    id: 'b-init',
-                    type: ContentBlockType.heading,
-                    text: titleText,
-                  ),
-                  ContentBlockModel(
-                    id: 'b-text',
-                    type: ContentBlockType.text,
-                    text: 'เริ่มเขียนเนื้อหาบทเรียนที่นี่...',
-                  ),
-                ],
-                materials: [],
-                sensorLinks: [],
-              );
-
-              setState(() {
-                _lessons.insert(0, newLesson);
-              });
-
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TeacherLessonEditorPage(lesson: newLesson),
-                ),
-              );
-            },
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -750,25 +810,11 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: TeacherSearchInput(
+                      hintText: 'ค้นหาชื่อบทเรียน...',
+                      value: _searchQuery,
                       onChanged: (val) => setState(() => _searchQuery = val),
-                      decoration: InputDecoration(
-                        hintText: 'ค้นหาชื่อบทเรียน...',
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: TeacherPalette.primary,
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                      ),
+                      onClear: () => setState(() => _searchQuery = ''),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1348,19 +1394,15 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
       _saveStatusText = 'กำลังบันทึก...';
     });
 
-    // จำลองการบันทึกล้มเหลวเป็นครั้งคราว (เช่น เน็ตหลุด) — ข้อมูลที่
-    // พิมพ์ยังอยู่ใน controller ไม่หาย ต้องมีปุ่มลองบันทึกใหม่
-    final willFail = thisAttempt % 4 == 0;
-
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(const Duration(milliseconds: 400), () async {
       if (!mounted || thisAttempt != _saveAttempt) return;
-      if (willFail) {
-        setState(() {
-          _isAutoSaving = false;
-          _saveFailed = true;
-          _saveStatusText = 'บันทึกไม่สำเร็จ';
-        });
-      } else {
+      try {
+        await LessonService.updateLesson(
+          lessonId: widget.lesson.id,
+          title: _titleController.text,
+          content: _serializeBlocksToContent(_blocks),
+        );
+        if (!mounted || thisAttempt != _saveAttempt) return;
         setState(() {
           _isAutoSaving = false;
           _saveFailed = false;
@@ -1368,8 +1410,45 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
           widget.lesson.title = _titleController.text;
           widget.lesson.blocks = _blocks;
         });
+      } catch (e) {
+        if (!mounted || thisAttempt != _saveAttempt) return;
+        setState(() {
+          _isAutoSaving = false;
+          _saveFailed = true;
+          _saveStatusText = 'บันทึกไม่สำเร็จ: $e';
+        });
       }
     });
+  }
+
+  /// Flattens the block editor into the flat `content.body` text shape that
+  /// [LessonService.getLesson] / the student view already read, while also
+  /// keeping the full block list under `content.blocks` for a future richer
+  /// student-side renderer — real content either way, nothing synthesized.
+  Map<String, dynamic> _serializeBlocksToContent(
+    List<ContentBlockModel> blocks,
+  ) {
+    final bodyText = blocks
+        .where((b) => b.text.trim().isNotEmpty)
+        .map((b) => b.text.trim())
+        .join('\n\n');
+    return {
+      'body': bodyText,
+      'blocks': blocks
+          .map(
+            (b) => {
+              'id': b.id,
+              'type': b.type.name,
+              'text': b.text,
+              'mediaUrl': b.mediaUrl,
+              'caption': b.caption,
+              'sensorDeviceId': b.sensorDeviceId,
+              'sensorMetric': b.sensorMetric,
+              'timeRange': b.timeRange,
+            },
+          )
+          .toList(),
+    };
   }
 
   void _addBlock(ContentBlockType type) {
@@ -1409,193 +1488,499 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     _triggerAutoSave();
   }
 
-  // SPEC 5: Add Material Dialog
+  // SPEC 5: Modern Upload Files Dialog (matching reference screenshot)
+  //
+  // NOTE: attaching a real uploaded file (device bytes -> Supabase Storage
+  // -> stable URL) needs its own Storage bucket + signed-URL Edge Function,
+  // the same pattern CourseFileService already uses for course files — that
+  // backend doesn't exist yet for lesson materials. Rather than fake a
+  // successful upload with an unusable local path/filename as the "url",
+  // file picking here is display-only for now; only the URL-link path
+  // below actually persists via LessonService.addLessonMaterial.
   void _openAddMaterialDialog() {
-    final titleController = TextEditingController(text: 'สื่อการสอนเพิ่มเติม');
-    final urlController = TextEditingController(
-      text: 'https://storage.googleapis.com/materials/doc1.pdf',
-    );
-    String selectedType = 'ไฟล์';
+    final urlController = TextEditingController();
+    final List<_UploadedFileItem> filesList = [];
     var isUploading = false;
-    var uploadFailed = false;
-    var uploadAttempt = 0;
+
+    Future<void> pickFiles(StateSetter setModalState) async {
+      try {
+        final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+        if (result != null && result.files.isNotEmpty) {
+          for (final f in result.files) {
+            final ext = f.extension?.toLowerCase() ?? '';
+            String fileCategory = 'PDF';
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
+              fileCategory = 'IMG';
+            } else if (['mp4', 'mov', 'avi', 'webm'].contains(ext)) {
+              fileCategory = 'VID';
+            } else if (['doc', 'docx', 'txt', 'rtf'].contains(ext)) {
+              fileCategory = 'DOC';
+            }
+
+            // f.path is unavailable on web (throws on access) and even on
+            // native platforms a local device path isn't a URL anyone else
+            // can open — do not use it as the material url.
+            final item = _UploadedFileItem(
+              name: f.name,
+              sizeBytes: f.size,
+              typeCategory: fileCategory,
+              url: '',
+              progress: 1.0,
+              isCompleted: true,
+            );
+            filesList.add(item);
+          }
+          setModalState(() {});
+        }
+      } catch (e) {
+        debugPrint('Error picking files: $e');
+      }
+    }
 
     showDialog<void>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setModalState) => Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
           ),
-          title: const Row(
-            children: [
-              Icon(Icons.upload_file_rounded, color: TeacherPalette.primary),
-              SizedBox(width: 10),
-              Text(
-                'แนบสื่อการสอนใหม่',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'ประเภทสื่อ:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: ['รูปภาพ', 'วิดีโอ', 'ไฟล์', 'ลิงก์'].map((t) {
-                  final isSel = selectedType == t;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(
-                      label: Text(t),
-                      selected: isSel,
-                      selectedColor: TeacherPalette.primary,
-                      labelStyle: TextStyle(
-                        color: isSel ? Colors.white : TeacherPalette.ink,
-                        fontSize: 11,
-                      ),
-                      onSelected: (_) => setModalState(() => selectedType = t),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: titleController,
-                decoration: InputDecoration(
-                  labelText: 'ชื่อสื่อการสอน *',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: urlController,
-                decoration: InputDecoration(
-                  labelText: 'URL หรือตำแหน่งไฟล์ *',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-              if (uploadFailed) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(
+          backgroundColor: Colors.white,
+          elevation: 12,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Header Row
+                  Row(
                     children: [
-                      Icon(
-                        Icons.error_outline_rounded,
-                        size: 16,
-                        color: Color(0xFFB91C1C),
-                      ),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFB91C1C),
-                          ),
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
+                        child: const Icon(
+                          Icons.cloud_upload_outlined,
+                          color: Color(0xFF475569),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Upload files',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Select and upload the files of your choice',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        color: const Color(0xFF64748B),
+                        tooltip: 'ปิด',
                       ),
                     ],
                   ),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isUploading ? null : () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton.icon(
-              icon: isUploading
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                  const SizedBox(height: 20),
+
+                  // 2. Dashed Dropzone Area
+                  _DashedBorderContainer(
+                    borderRadius: 16,
+                    color: const Color(0xFFCBD5E1),
+                    child: InkWell(
+                      onTap: () => pickFiles(setModalState),
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 24,
+                          horizontal: 16,
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.cloud_upload_outlined,
+                                color: TeacherPalette.primary,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Choose a file or drag & drop it here.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'JPEG, PNG, PDF, and MP4 formats, up to 50 MB.',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            OutlinedButton.icon(
+                              onPressed: () => pickFiles(setModalState),
+                              icon: const Icon(
+                                Icons.folder_open_rounded,
+                                size: 16,
+                              ),
+                              label: const Text('Browse File'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF334155),
+                                side: const BorderSide(
+                                  color: Color(0xFFCBD5E1),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    )
-                  : const Icon(Icons.check_rounded, size: 16),
-              label: Text(
-                isUploading
-                    ? 'กำลังอัปโหลด...'
-                    : (uploadFailed
-                          ? 'ลองอัปโหลดใหม่'
-                          : 'บันทึกและแทรกในบทเรียน'),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TeacherPalette.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: isUploading
-                  ? null
-                  : () {
-                      uploadAttempt++;
-                      final thisAttempt = uploadAttempt;
-                      setModalState(() {
-                        isUploading = true;
-                        uploadFailed = false;
-                      });
-                      // จำลองอัปโหลดผ่าน Signed Upload URL — ล้มเหลว
-                      // เป็นครั้งคราว ต้องคงข้อมูลที่กรอกไว้แล้วให้ลองใหม่ได้
-                      final willFail =
-                          thisAttempt == 1 && selectedType == 'ไฟล์';
-                      Future.delayed(const Duration(milliseconds: 900), () {
-                        if (thisAttempt != uploadAttempt) return;
-                        if (willFail) {
-                          setModalState(() {
-                            isUploading = false;
-                            uploadFailed = true;
-                          });
-                          return;
-                        }
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                        final newMat = LessonMaterialModel(
-                          id: 'm-${DateTime.now().millisecondsSinceEpoch}',
-                          title: titleController.text.trim(),
-                          type: selectedType,
-                          url: urlController.text.trim(),
-                        );
-                        setState(() {
-                          widget.lesson.materials.add(newMat);
-                          _blocks.add(
-                            ContentBlockModel(
-                              id: 'b-mat-${DateTime.now().millisecondsSinceEpoch}',
-                              type: selectedType == 'รูปภาพ'
-                                  ? ContentBlockType.image
-                                  : ContentBlockType.fileDownload,
-                              text: 'สื่อแนบ: ${newMat.title}',
-                              mediaUrl: newMat.url,
+                    ),
+                  ),
+
+                  // 3. Uploaded Files Status Cards List
+                  if (filesList.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: filesList.length,
+                        separatorBuilder: (ctx, i) => const SizedBox(height: 8),
+                        itemBuilder: (ctx, idx) {
+                          final f = filesList[idx];
+                          final sizeKb = (f.sizeBytes / 1024).toStringAsFixed(
+                            0,
+                          );
+                          final colorBadge = switch (f.typeCategory) {
+                            'PDF' => const Color(0xFFEF4444),
+                            'IMG' => const Color(0xFF0284C7),
+                            'VID' => const Color(0xFF8B5CF6),
+                            _ => const Color(0xFF10B981),
+                          };
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                // File Badge Icon
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: colorBadge.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      f.typeCategory,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        color: colorBadge,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        f.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            '$sizeKb KB of $sizeKb KB',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Color(0xFF64748B),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          const Icon(
+                                            Icons.check_circle_rounded,
+                                            size: 13,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                          const SizedBox(width: 3),
+                                          const Text(
+                                            'Completed',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF10B981),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    size: 18,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                  onPressed: () {
+                                    setModalState(() {
+                                      filesList.removeAt(idx);
+                                    });
+                                  },
+                                  tooltip: 'ลบไฟล์',
+                                ),
+                              ],
                             ),
                           );
-                        });
-                        _triggerAutoSave();
-                      });
-                    },
+                        },
+                      ),
+                    ),
+                  ],
+
+                  // 4. OR Divider
+                  const SizedBox(height: 18),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'OR',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 5. Import from URL Link Section
+                  const Row(
+                    children: [
+                      Text(
+                        'Import from URL Link',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: urlController,
+                    decoration: InputDecoration(
+                      hintText: 'Paste file URL',
+                      hintStyle: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.link_rounded,
+                        size: 18,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ),
+                  ),
+
+                  // 6. Action Button at Bottom
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton.icon(
+                      onPressed: isUploading
+                          ? null
+                          : () async {
+                              final rawUrl = urlController.text.trim();
+
+                              if (rawUrl.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      filesList.isNotEmpty
+                                          ? 'ยังไม่รองรับการอัปโหลดไฟล์จากเครื่องโดยตรง กรุณาใช้ลิงก์ URL แทนก่อน'
+                                          : 'กรุณาใส่ลิงก์ URL ของสื่อการสอน',
+                                    ),
+                                    backgroundColor: const Color(0xFFF59E0B),
+                                  ),
+                                );
+                                return;
+                              }
+
+                              setModalState(() => isUploading = true);
+                              try {
+                                await LessonService.addLessonMaterial(
+                                  lessonId: widget.lesson.id,
+                                  type: 'link',
+                                  title: 'สื่อการสอนจากลิงก์ URL',
+                                  url: rawUrl,
+                                );
+                                if (!context.mounted) return;
+                                Navigator.pop(dialogCtx);
+
+                                setState(() {
+                                  final mat = LessonMaterialModel(
+                                    id: 'm-${DateTime.now().millisecondsSinceEpoch}',
+                                    title: 'สื่อการสอนจากลิงก์ URL',
+                                    type: 'ลิงก์',
+                                    url: rawUrl,
+                                  );
+                                  widget.lesson.materials.add(mat);
+                                  _blocks.add(
+                                    ContentBlockModel(
+                                      id: 'b-mat-${DateTime.now().millisecondsSinceEpoch}',
+                                      type: ContentBlockType.fileDownload,
+                                      text: 'สื่อแนบ: ${mat.title}',
+                                      mediaUrl: mat.url,
+                                    ),
+                                  );
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'แนบสื่อการสอนและแทรกในบทเรียนเรียบร้อยแล้ว',
+                                    ),
+                                    backgroundColor: Color(0xFF10B981),
+                                  ),
+                                );
+                                _triggerAutoSave();
+                              } catch (e) {
+                                setModalState(() => isUploading = false);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('แนบสื่อการสอนไม่สำเร็จ: $e'),
+                                    backgroundColor: const Color(0xFFEF4444),
+                                  ),
+                                );
+                              }
+                            },
+                      icon: isUploading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.check_rounded, size: 18),
+                      label: Text(
+                        isUploading
+                            ? 'กำลังบันทึก...'
+                            : (filesList.isNotEmpty
+                                  ? 'บันทึกสื่อการสอน (${filesList.length} ไฟล์)'
+                                  : 'บันทึกและแทรกในบทเรียน'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TeacherPalette.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1871,43 +2256,104 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 1,
-        foregroundColor: TeacherPalette.ink,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          tooltip: 'กลับไปบทเรียน',
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _titleController,
-                readOnly: widget.isCourseClosed,
-                onChanged: (_) => _triggerAutoSave(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: TeacherPalette.ink,
-                ),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'ชื่อบทเรียน *',
+        elevation: 0.5,
+        scrolledUnderElevation: 1,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
+        titleSpacing: 0,
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 18,
+                    color: TeacherPalette.ink,
+                  ),
                 ),
               ),
             ),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: TeacherPalette.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.menu_book_rounded,
+                size: 18,
+                color: TeacherPalette.primary,
+              ),
+            ),
             const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _titleController,
+                    readOnly: widget.isCourseClosed,
+                    onChanged: (_) => _triggerAutoSave(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: TeacherPalette.ink,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      filled: false,
+                      fillColor: Colors.transparent,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      hintText: 'ชื่อบทเรียน *',
+                      hintStyle: TextStyle(
+                        color: TeacherPalette.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'เครื่องมือแก้ไขเนื้อหาบทเรียน (Lesson Studio)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
             InkWell(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(20),
               onTap: _saveFailed ? _triggerAutoSave : null,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
+                  horizontal: 12,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: saveColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  color: saveColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: saveColor.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1921,13 +2367,13 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                       size: 14,
                       color: saveColor,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Text(
                       _saveFailed
                           ? '$_saveStatusText · ลองใหม่'
                           : _saveStatusText,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         color: saveColor,
                       ),
@@ -1936,43 +2382,75 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                 ),
               ),
             ),
+            const SizedBox(width: 10),
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.visibility_outlined,
-              color: Color(0xFF2563EB),
-            ),
-            tooltip: 'ดูตัวอย่างแบบนักเรียน',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      TeacherLessonPreviewPage(lesson: widget.lesson),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: OutlinedButton.icon(
+              icon: const Icon(
+                Icons.visibility_outlined,
+                size: 16,
+                color: Color(0xFF2563EB),
+              ),
+              label: const Text(
+                'ดูตัวอย่าง',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2563EB),
                 ),
-              );
-            },
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 38),
+                side: const BorderSide(color: Color(0xFF93C5FD)),
+                backgroundColor: const Color(0xFFEFF6FF),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 0,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        TeacherLessonPreviewPage(lesson: widget.lesson),
+                  ),
+                );
+              },
+            ),
           ),
+          const SizedBox(width: 8),
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 16),
             child: ElevatedButton.icon(
               icon: const Icon(Icons.publish_rounded, size: 16),
               label: Text(
                 widget.lesson.status == LessonStatus.published
                     ? 'อัปเดตบทเรียน'
                     : 'เผยแพร่',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               style: ElevatedButton.styleFrom(
-                // ปุ่มนี้อยู่ใน AppBar actions (Row) ไม่ใช่เต็มความกว้าง —
-                // ต้อง override minimumSize ของธีมเหมือนจุดอื่นในไฟล์นี้
-                minimumSize: const Size(0, 40),
+                minimumSize: const Size(0, 38),
                 backgroundColor: TeacherPalette.primary,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 0,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
+                elevation: 0,
               ),
               onPressed: widget.isCourseClosed
                   ? null
@@ -1981,10 +2459,24 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                         context: context,
                         builder: (_) => TeacherPublishChecklistDialog(
                           lesson: widget.lesson,
-                          onConfirmedPublish: () {
-                            setState(() {
-                              widget.lesson.status = LessonStatus.published;
-                            });
+                          onConfirmedPublish: () async {
+                            try {
+                              await LessonService.publishLesson(
+                                widget.lesson.id,
+                              );
+                              if (!mounted) return;
+                              setState(() {
+                                widget.lesson.status = LessonStatus.published;
+                              });
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('เผยแพร่ไม่สำเร็จ: $e'),
+                                  backgroundColor: const Color(0xFFEF4444),
+                                ),
+                              );
+                            }
                           },
                         ),
                       );
@@ -3114,4 +3606,98 @@ class _TeacherLessonAnalyticsPageState
       ),
     );
   }
+}
+
+class _UploadedFileItem {
+  _UploadedFileItem({
+    required this.name,
+    required this.sizeBytes,
+    required this.typeCategory,
+    required this.url,
+    this.progress = 1.0,
+    this.isCompleted = true,
+  });
+
+  String name;
+  int sizeBytes;
+  String typeCategory;
+  String url;
+  double progress;
+  bool isCompleted;
+}
+
+class _DashedBorderContainer extends StatelessWidget {
+  const _DashedBorderContainer({
+    required this.child,
+    this.color = const Color(0xFFCBD5E1),
+    this.strokeWidth = 1.5,
+    this.dashWidth = 6.0,
+    this.dashSpace = 4.0,
+    this.borderRadius = 16.0,
+  });
+
+  final Widget child;
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _DashedRectPainter(
+        color: color,
+        strokeWidth: strokeWidth,
+        dashWidth: dashWidth,
+        dashSpace: dashSpace,
+        borderRadius: borderRadius,
+      ),
+      child: child,
+    );
+  }
+}
+
+class _DashedRectPainter extends CustomPainter {
+  _DashedRectPainter({
+    required this.color,
+    required this.strokeWidth,
+    required this.dashWidth,
+    required this.dashSpace,
+    required this.borderRadius,
+  });
+
+  final Color color;
+  final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
+  final double borderRadius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final RRect rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(borderRadius),
+    );
+
+    final Path path = Path()..addRRect(rrect);
+    for (final metric in path.computeMetrics()) {
+      double distance = 0.0;
+      while (distance < metric.length) {
+        final double len = (distance + dashWidth < metric.length)
+            ? dashWidth
+            : metric.length - distance;
+        canvas.drawPath(metric.extractPath(distance, distance + len), paint);
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedRectPainter oldDelegate) => false;
 }

@@ -20,6 +20,8 @@ class MyIncidentReport {
     required this.createdAt,
     required this.acknowledgedAt,
     required this.closedAt,
+    this.reason,
+    this.severity,
   });
 
   final String id;
@@ -29,6 +31,8 @@ class MyIncidentReport {
   final DateTime createdAt;
   final DateTime? acknowledgedAt;
   final DateTime? closedAt;
+  final String? reason;
+  final String? severity;
 
   /// จริง ๆ ยังไม่จบเรื่อง ("escalated" คือกำลังเป็นเหตุฉุกเฉินจริงอยู่ ยังไม่
   /// นับว่าจบ) — จบจริงเมื่อ resolved/cancelled เท่านั้น
@@ -51,6 +55,8 @@ class MyIncidentReport {
         closedAt: row['closed_at'] == null
             ? null
             : DateTime.parse(row['closed_at'] as String).toUtc(),
+        reason: row['reason'] as String?,
+        severity: row['severity'] as String?,
       );
 }
 
@@ -65,6 +71,8 @@ class IncidentReportDetail {
     required this.createdAt,
     required this.acknowledgedAt,
     required this.closedAt,
+    this.reason,
+    this.severity,
   });
 
   final String id;
@@ -76,6 +84,8 @@ class IncidentReportDetail {
   final DateTime createdAt;
   final DateTime? acknowledgedAt;
   final DateTime? closedAt;
+  final String? reason;
+  final String? severity;
 
   factory IncidentReportDetail.fromRow(Map<String, dynamic> row) =>
       IncidentReportDetail(
@@ -92,6 +102,8 @@ class IncidentReportDetail {
         closedAt: row['closed_at'] == null
             ? null
             : DateTime.parse(row['closed_at'] as String).toUtc(),
+        reason: row['reason'] as String?,
+        severity: row['severity'] as String?,
       );
 }
 
@@ -116,6 +128,8 @@ class TeacherIncidentReport {
     required this.reporterName,
     required this.createdAt,
     this.acknowledgedAt,
+    this.reason,
+    this.severity,
   });
 
   final String id;
@@ -125,6 +139,8 @@ class TeacherIncidentReport {
   final String reporterName;
   final DateTime createdAt;
   final DateTime? acknowledgedAt;
+  final String? reason;
+  final String? severity;
 
   factory TeacherIncidentReport.fromRow(Map<String, dynamic> row) =>
       TeacherIncidentReport(
@@ -137,6 +153,8 @@ class TeacherIncidentReport {
         acknowledgedAt: row['acknowledged_at'] == null
             ? null
             : DateTime.parse(row['acknowledged_at'] as String).toUtc(),
+        reason: row['reason'] as String?,
+        severity: row['severity'] as String?,
       );
 }
 

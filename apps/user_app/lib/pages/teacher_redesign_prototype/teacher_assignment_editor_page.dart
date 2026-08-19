@@ -9,7 +9,7 @@ import 'package:shared_core/shared_core.dart';
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart' show TeacherRubricPage;
-import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
+import 'teacher_shared_widgets.dart' show TeacherMockPageShell, TeacherSearchInput;
 
 /// Model สำหรับใบงาน (Assignment)
 class AssignmentModel {
@@ -52,6 +52,22 @@ class TeacherAssignmentEditorPage extends StatefulWidget {
   @override
   State<TeacherAssignmentEditorPage> createState() =>
       _TeacherAssignmentEditorPageState();
+}
+
+void openAssignmentFormModal(
+  BuildContext context, {
+  AssignmentModel? assignment,
+  ValueChanged<AssignmentModel>? onSave,
+}) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) => _AssignmentFormSheet(
+      assignment: assignment,
+      onSave: onSave ?? (_) {},
+    ),
+  );
 }
 
 class _TeacherAssignmentEditorPageState
@@ -160,33 +176,29 @@ class _TeacherAssignmentEditorPageState
   }
 
   void _openCreateEditForm({AssignmentModel? existingAssignment}) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => _AssignmentFormSheet(
-        assignment: existingAssignment,
-        onSave: (savedItem) {
-          setState(() {
-            final idx = _assignments.indexWhere((a) => a.id == savedItem.id);
-            if (idx >= 0) {
-              _assignments[idx] = savedItem;
-            } else {
-              _assignments.insert(0, savedItem);
-            }
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${savedItem.isPublished ? "เผยแพร่" : "บันทึกร่าง"} ใบงาน "${savedItem.title}" เรียบร้อยแล้ว',
-              ),
-              backgroundColor: savedItem.isPublished
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFF0EA5E9),
+    openAssignmentFormModal(
+      context,
+      assignment: existingAssignment,
+      onSave: (savedItem) {
+        setState(() {
+          final idx = _assignments.indexWhere((a) => a.id == savedItem.id);
+          if (idx >= 0) {
+            _assignments[idx] = savedItem;
+          } else {
+            _assignments.insert(0, savedItem);
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${savedItem.isPublished ? "เผยแพร่" : "บันทึกร่าง"} ใบงาน "${savedItem.title}" เรียบร้อยแล้ว',
             ),
-          );
-        },
-      ),
+            backgroundColor: savedItem.isPublished
+                ? const Color(0xFF10B981)
+                : const Color(0xFF0EA5E9),
+          ),
+        );
+      },
     );
   }
 
@@ -253,26 +265,11 @@ class _TeacherAssignmentEditorPageState
                 ),
                 child: Column(
                   children: [
-                    TextField(
+                    TeacherSearchInput(
+                      hintText: 'ค้นหาชื่อใบงาน, คำสั่ง หรือเซนเซอร์ที่ผูกไว้...',
+                      value: _searchQuery,
                       onChanged: (val) => setState(() => _searchQuery = val),
-                      decoration: InputDecoration(
-                        hintText:
-                            'ค้นหาชื่อใบงาน, คำสั่ง หรือเซนเซอร์ที่ผูกไว้...',
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: TeacherPalette.muted,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
+                      onClear: () => setState(() => _searchQuery = ''),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -1016,20 +1013,14 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'ใบงานทดลอง',
-                                child: Text('ใบงานทดลอง'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'การบ้าน',
-                                child: Text('การบ้าน'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'โครงงาน AIoT',
-                                child: Text('โครงงาน AIoT'),
-                              ),
-                            ],
+                            items: {'ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT', _type}
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t),
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1150,19 +1141,20 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value:
-                              'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-                          child: Text(
-                            'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'เกณฑ์ตรวจใบงานทดลองเซนเซอร์ (ม.5/2)',
-                          child: Text('เกณฑ์ตรวจใบงานทดลองเซนเซอร์ (ม.5/2)'),
-                        ),
-                      ],
+                      items: {
+                        'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
+                        'เกณฑ์ตรวจใบงานทดลองเซนเซอร์ (ม.5/2)',
+                        'เกณฑ์มาตรฐาน',
+                        'ไม่มี Rubric (ประเมินคะแนนดิบ)',
+                        _selectedRubric,
+                      }
+                          .map(
+                            (r) => DropdownMenuItem(
+                              value: r,
+                              child: Text(r),
+                            ),
+                          )
+                          .toList(),
                     ),
 
                     const SizedBox(height: 20),

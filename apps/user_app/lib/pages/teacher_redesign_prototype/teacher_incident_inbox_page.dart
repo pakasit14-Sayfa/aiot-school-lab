@@ -31,12 +31,46 @@ Color _statusColor(String status) => switch (status) {
   _ => TeacherPalette.muted,
 };
 
+Widget _buildSeverityBadge(String? severity) {
+  final (label, color) = switch (severity) {
+    'high' => ('🔴 เหตุใหญ่', const Color(0xFFDC2626)),
+    'medium' => ('🟠 เหตุปานกลาง', const Color(0xFFD97706)),
+    _ => ('🟢 เหตุเล็ก', const Color(0xFF059669)),
+  };
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withValues(alpha: 0.3)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w900,
+      ),
+    ),
+  );
+}
+
 String _timeAgo(DateTime t) {
   final diff = DateTime.now().difference(t.toLocal());
   if (diff.inMinutes < 1) return 'เมื่อสักครู่';
   if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
   if (diff.inHours < 24) return '${diff.inHours} ชม.ที่แล้ว';
   return '${diff.inDays} วันที่แล้ว';
+}
+
+String _formatDateTime(DateTime dt) {
+  final local = dt.toLocal();
+  final y = local.year;
+  final m = local.month.toString().padLeft(2, '0');
+  final d = local.day.toString().padLeft(2, '0');
+  final hh = local.hour.toString().padLeft(2, '0');
+  final mm = local.minute.toString().padLeft(2, '0');
+  return '$y-$m-$d $hh:$mm น.';
 }
 
 // ==========================================
@@ -308,24 +342,25 @@ class _IncidentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = _categoryColor(incident.category);
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: TeacherPalette.border),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x060F172A),
-                blurRadius: 10,
-                offset: Offset(0, 4),
-              ),
-            ],
+        border: Border.all(color: TeacherPalette.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -365,17 +400,27 @@ class _IncidentCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
-                                child: Text(
-                                  _categoryLabel(incident.category),
-                                  style: TextStyle(
-                                    color: accent,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 14,
-                                  ),
+                                child: Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: [
+                                    Text(
+                                      _categoryLabel(incident.category),
+                                      style: TextStyle(
+                                        color: accent,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    _buildSeverityBadge(incident.severity),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: 6),
                               Text(
                                 _timeAgo(incident.createdAt),
                                 style: const TextStyle(
@@ -395,6 +440,20 @@ class _IncidentCard extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
+                          if (incident.reason != null &&
+                              incident.reason!.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'เหตุผล: ${incident.reason}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: TeacherPalette.ink,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 8),
                           TeacherStatusChip(
                             label: _statusLabel(incident.status),
@@ -538,6 +597,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFDC2626),
+              minimumSize: Size.zero,
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('ยกระดับเหตุ'),
@@ -634,6 +694,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
+                minimumSize: Size.zero,
                 backgroundColor: TeacherPalette.primary,
                 foregroundColor: Colors.white,
               ),
@@ -724,8 +785,13 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
         incident.status == 'cancelled' ||
         incident.status == 'escalated';
 
+    final roomLabel =
+        incident.room != null && incident.room!.isNotEmpty
+            ? ' — ห้อง ${incident.room}'
+            : '';
+
     return TeacherMockPageShell(
-      title: 'เหตุ ${incident.id}',
+      title: 'รายละเอียดการแจ้งเหตุ$roomLabel',
       activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
       builder: (context, isDesktop) {
         return Column(
@@ -788,17 +854,27 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
-                                        child: Text(
-                                          _categoryLabel(incident.category),
-                                          style: TextStyle(
-                                            color: accent,
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 16,
-                                          ),
+                                        child: Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 8,
+                                          runSpacing: 4,
+                                          children: [
+                                            Text(
+                                              _categoryLabel(incident.category),
+                                              style: TextStyle(
+                                                color: accent,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            _buildSeverityBadge(incident.severity),
+                                          ],
                                         ),
                                       ),
+                                      const SizedBox(width: 8),
                                       TeacherStatusChip(
                                         label: _statusLabel(incident.status),
                                         color: _statusColor(incident.status),
@@ -816,13 +892,61 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'แจ้งเมื่อ ${_timeAgo(incident.createdAt)} (${incident.createdAt.toLocal().toString().substring(0, 16)})',
+                                    'แจ้งเมื่อ ${_timeAgo(incident.createdAt)} (${_formatDateTime(incident.createdAt)})',
                                     style: const TextStyle(
                                       color: TeacherPalette.muted,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  if (incident.reason != null &&
+                                      incident.reason!.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF2F2),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0xFFFCA5A5),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.info_outline_rounded,
+                                                size: 15,
+                                                color: Color(0xFFDC2626),
+                                              ),
+                                              SizedBox(width: 6),
+                                              Text(
+                                                'เหตุผล / สิ่งที่พบเห็น (แจ้งจากนักเรียน):',
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Color(0xFF991B1B),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            incident.reason!,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w900,
+                                              color: TeacherPalette.ink,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -846,6 +970,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF2563EB),
                                     foregroundColor: Colors.white,
+                                    minimumSize: Size.zero,
                                   ),
                                   onPressed: _acknowledge,
                                   icon: const Icon(
@@ -858,6 +983,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFDC2626),
                                   foregroundColor: Colors.white,
+                                  minimumSize: Size.zero,
                                 ),
                                 onPressed: _escalate,
                                 icon: const Icon(
@@ -936,6 +1062,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                               horizontal: 16,
                               vertical: 14,
                             ),
+                            minimumSize: Size.zero,
                           ),
                           onPressed: _saveNote,
                           child: const Text('บันทึก'),

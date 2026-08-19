@@ -7,6 +7,89 @@ import 'package:flutter/material.dart';
 import 'teacher_redesign_prototype_page.dart'
     show TeacherPalette, TeacherAppDrawer, TeacherPersistentSidebar;
 
+/// ช่องค้นหาสไตล์ดีไซน์จากหน้าแรก (Dashboard Search Box)
+/// ใช้ร่วมกันทั้งระบบเพื่อความเป็นเอกภาพของ UX/UI
+class TeacherSearchInput extends StatelessWidget {
+  const TeacherSearchInput({
+    required this.hintText,
+    required this.onChanged,
+    this.controller,
+    this.value = '',
+    this.onClear,
+    super.key,
+  });
+
+  final String hintText;
+  final ValueChanged<String> onChanged;
+  final TextEditingController? controller;
+  final String value;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
+        ),
+        child: TextField(
+          controller: controller,
+          onChanged: onChanged,
+          style: const TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: const Color(0xFFF1F5F9),
+            focusedBorder: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            border: InputBorder.none,
+            hintText: hintText,
+            hintStyle: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+            ),
+            prefixIcon: const Padding(
+              padding: EdgeInsets.only(left: 14, right: 8),
+              child: Icon(
+                Icons.search_rounded,
+                color: Color(0xFF94A3B8),
+                size: 18,
+              ),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 40,
+              minHeight: 40,
+            ),
+            suffixIcon: value.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(
+                      Icons.clear_rounded,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
+                    onPressed: onClear,
+                  )
+                : null,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class TeacherSectionCard extends StatelessWidget {
   const TeacherSectionCard({
     required this.title,
@@ -250,10 +333,20 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
           ),
         );
 
+        final canPop = Navigator.canPop(context);
+
         final titleRow = Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
           child: Row(
             children: [
+              if (canPop) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  tooltip: 'ย้อนกลับ',
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 4),
+              ],
               Expanded(
                 child: Text(
                   widget.title,
@@ -301,18 +394,24 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
 
         return Scaffold(
           backgroundColor: TeacherPalette.page,
-          drawer: TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
+          drawer: canPop ? null : TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
             foregroundColor: TeacherPalette.ink,
-            leading: Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu_rounded),
-                tooltip: 'เมนูนำทาง',
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
+            leading: canPop
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    tooltip: 'ย้อนกลับ',
+                    onPressed: () => Navigator.pop(context),
+                  )
+                : Builder(
+                    builder: (context) => IconButton(
+                      icon: const Icon(Icons.menu_rounded),
+                      tooltip: 'เมนูนำทาง',
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                    ),
+                  ),
             title: Text(
               widget.title,
               style: const TextStyle(
