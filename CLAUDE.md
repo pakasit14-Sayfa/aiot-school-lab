@@ -54,6 +54,28 @@ Test accounts (seeded, password `Test1234!` for all): `teacher@aiot-school-lab.l
 `student@aiot-school-lab.local`, `parent@aiot-school-lab.local`,
 `admin@aiot-school-lab.local`, `facility@aiot-school-lab.local`.
 
+## If you received this codebase as a zip file
+
+This repo is normally shared as a full folder copy (zip), not a GitLab
+invite. If that's how you got this:
+
+1. **Check `.git/` is present**: run `git status` in the project root. If it
+   shows a branch and commit history, git tracking survived the transfer —
+   keep using it normally.
+2. **Work on your own branch**, don't commit straight to whatever branch you
+   received: `git checkout -b <your-name>-work`.
+3. **Commit as you go**, even though there's nowhere to push:
+   `git add -A && git commit -m "..."`. This is what makes it possible for
+   the original owner to merge your changes back cleanly later, instead of
+   diffing two folder snapshots by hand.
+4. **When sending work back**, zip the whole project folder again — make
+   sure `.git/` is included (don't use a "skip hidden files" zip option, and
+   don't add `.git` to an exclude list). Losing `.git/` loses all commit
+   history you made in step 3, and the owner is back to a blind file diff.
+5. The owner will merge your branch back with
+   `git remote add <you> <path-to-your-copy> && git fetch <you> && git merge <you>/<your-branch>`
+   — so a clean, real commit history from you is what makes that painless.
+
 ## Keeping this current
 
 - `docs/handoff/HANDOFF.md` — update the "Current status" / "Known issues"
