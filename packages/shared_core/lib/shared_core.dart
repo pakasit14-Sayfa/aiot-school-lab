@@ -1,5 +1,3 @@
-library shared_core;
-
 export 'models/user_model.dart';
 export 'models/sensor_model.dart';
 export 'models/invitation_model.dart';

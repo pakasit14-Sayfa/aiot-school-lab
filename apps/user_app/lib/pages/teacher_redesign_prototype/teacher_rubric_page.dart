@@ -228,7 +228,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
       return TeacherMockPageShell(
         title: 'Rubric (เกณฑ์การประเมิน)',
         activeMenuLabel: 'Rubric',
-        builder: (_, __) => const Center(
+        builder: (_, _) => const Center(
           child: Padding(
             padding: EdgeInsets.all(32),
             child: CircularProgressIndicator(),

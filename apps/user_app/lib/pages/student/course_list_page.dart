@@ -58,7 +58,7 @@ class _CourseListPageState extends State<CourseListPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.groups_rounded, color: Colors.white),
@@ -132,7 +132,7 @@ class _CourseListPageState extends State<CourseListPage> {
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF4F46E5).withOpacity(0.25),
+                            color: const Color(0xFF4F46E5).withValues(alpha: 0.25),
                             blurRadius: 16,
                             offset: const Offset(0, 6),
                           ),
@@ -150,7 +150,7 @@ class _CourseListPageState extends State<CourseListPage> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: const Text(

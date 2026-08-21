@@ -22,7 +22,7 @@ class AuthHeader extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 46,
-          backgroundColor: primaryColor.withOpacity(0.12),
+          backgroundColor: primaryColor.withValues(alpha: 0.12),
           child: Icon(icon, size: 54, color: primaryColor),
         ),
 

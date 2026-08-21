@@ -31,7 +31,7 @@ class _StudentMainNavState extends State<StudentMainNav> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withValues(alpha: 0.06),
               blurRadius: 16,
               offset: const Offset(0, -4),
             ),
@@ -43,7 +43,7 @@ class _StudentMainNavState extends State<StudentMainNav> {
           backgroundColor: Colors.white,
           indicatorColor: const Color(
             0xFF059669,
-          ).withOpacity(0.15), // Emerald Pill
+          ).withValues(alpha: 0.15), // Emerald Pill
           selectedIndex: _selectedIndex,
           onDestinationSelected: (int index) {
             setState(() {

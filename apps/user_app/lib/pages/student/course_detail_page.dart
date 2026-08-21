@@ -108,7 +108,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0284C7).withOpacity(0.12),
+                      color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
@@ -597,7 +597,7 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
+                  color: Colors.black.withValues(alpha: 0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -836,7 +836,7 @@ class _LessonsSectionState extends State<_LessonsSection> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withOpacity(0.1),
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -1152,7 +1152,7 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7).withOpacity(0.1),
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
@@ -1302,7 +1302,7 @@ class _FilesSectionState extends State<_FilesSection> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withOpacity(0.1),
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -1355,142 +1355,6 @@ class _FilesSectionState extends State<_FilesSection> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// Clean Telemetry Section
-class _TelemetrySection extends StatelessWidget {
-  final String room;
-  const _TelemetrySection({required this.room});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'ข้อมูลเซนเซอร์สิ่งแวดล้อมห้อง $room',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF059669),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'เชื่อมต่อข้อมูลเรียบร้อย',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatTile(
-                        'ฝุ่น PM2.5',
-                        '14 µg/m³',
-                        'คุณภาพอากาศดี',
-                        const Color(0xFF059669),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatTile(
-                        'ก๊าซ CO2',
-                        '420 ppm',
-                        'การถ่ายเทอากาศปกติ',
-                        const Color(0xFF0284C7),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildStatTile(
-                        'อุณหภูมิ',
-                        '25.8°C',
-                        'อยู่ในเกณฑ์ปกติ',
-                        const Color(0xFFD97706),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatTile(
-    String label,
-    String value,
-    String status,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 17,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            status,
-            style: TextStyle(
-              color: color,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1565,7 +1429,7 @@ class _Mascot3DState extends State<_Mascot3D> {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0284C7).withOpacity(0.18),
+              color: const Color(0xFF0284C7).withValues(alpha: 0.18),
               blurRadius: 16,
               offset: const Offset(0, 10),
             ),

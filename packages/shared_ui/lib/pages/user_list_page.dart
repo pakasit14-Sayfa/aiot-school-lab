@@ -204,8 +204,8 @@ class _UserListPageState extends State<UserListPage> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: isAdmin
-            ? Colors.purple.withOpacity(0.12)
-            : Colors.green.withOpacity(0.12),
+            ? Colors.purple.withValues(alpha: 0.12)
+            : Colors.green.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -375,7 +375,7 @@ class _UserListPageState extends State<UserListPage> {
                                       CircleAvatar(
                                         radius: 28,
                                         backgroundColor:
-                                            primaryColor.withOpacity(0.12),
+                                            primaryColor.withValues(alpha: 0.12),
                                         child: Text(
                                           user.name.isNotEmpty
                                               ? user.name[0].toUpperCase()

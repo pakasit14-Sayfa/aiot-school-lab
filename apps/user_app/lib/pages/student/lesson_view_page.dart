@@ -134,10 +134,10 @@ class _LessonViewPageState extends State<LessonViewPage> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF059669).withOpacity(0.1),
+                        color: const Color(0xFF059669).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: const Color(0xFF059669).withOpacity(0.3),
+                          color: const Color(0xFF059669).withValues(alpha: 0.3),
                         ),
                       ),
                       child: const Row(
@@ -175,7 +175,7 @@ class _LessonViewPageState extends State<LessonViewPage> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withOpacity(0.1),
+                              color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
@@ -246,7 +246,7 @@ class _LessonViewPageState extends State<LessonViewPage> {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withOpacity(0.1),
+                            color: const Color(0xFF0284C7).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(

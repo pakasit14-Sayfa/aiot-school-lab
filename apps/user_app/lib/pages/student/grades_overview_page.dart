@@ -109,7 +109,7 @@ class _GradesOverviewPageState extends State<GradesOverviewPage> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF059669).withOpacity(0.2),
+                            color: const Color(0xFF059669).withValues(alpha: 0.2),
                             blurRadius: 16,
                             offset: const Offset(0, 6),
                           ),
@@ -208,7 +208,7 @@ class _GradesOverviewPageState extends State<GradesOverviewPage> {
                             border: Border.all(color: const Color(0xFFF1F5F9)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
+                                color: Colors.black.withValues(alpha: 0.03),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
