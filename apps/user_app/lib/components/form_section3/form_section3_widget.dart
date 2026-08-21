@@ -1,17 +1,14 @@
 import '/components/text_field/text_field_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'form_section3_model.dart';
 export 'form_section3_model.dart';
 
 class FormSection3Widget extends StatefulWidget {
   const FormSection3Widget({super.key, String? title, this.time})
-    : this.title = title ?? 'SCHEDULE';
+    : title = title ?? 'SCHEDULE';
 
   final String title;
   final String? time;
@@ -50,7 +47,7 @@ class _FormSection3WidgetState extends State<FormSection3Widget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(widget!.title, 'SCHEDULE'),
+          valueOrDefault<String>(widget.title, 'SCHEDULE'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
             font: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.bold,
@@ -112,7 +109,7 @@ class _FormSection3WidgetState extends State<FormSection3Widget> {
                   leadingIconPresent: true,
                   trailingIconPresent: false,
                   hint: 'Type here...',
-                  value: widget!.time,
+                  value: widget.time,
                   onChange: '',
                   onSubmit: '',
                   variant: 'outlined',

@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'grade_row_model.dart';
 export 'grade_row_model.dart';
 
@@ -18,12 +15,12 @@ class GradeRowWidget extends StatefulWidget {
     String? date,
     String? score,
     String? grade,
-  }) : this.bgTint = bgTint ?? const Color(0x00000000),
-       this.color = color ?? const Color(0x00000000),
-       this.title = title ?? '',
-       this.date = date ?? '',
-       this.score = score ?? '',
-       this.grade = grade ?? '';
+  }) : bgTint = bgTint ?? const Color(0x00000000),
+       color = color ?? const Color(0x00000000),
+       title = title ?? '',
+       date = date ?? '',
+       score = score ?? '',
+       grade = grade ?? '';
 
   final Color bgTint;
   final Widget? icon;
@@ -83,12 +80,12 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                 width: 48.0,
                 height: 48.0,
                 decoration: BoxDecoration(
-                  color: widget!.bgTint,
+                  color: widget.bgTint,
                   borderRadius: BorderRadius.circular(12.0),
                   shape: BoxShape.rectangle,
                 ),
                 alignment: AlignmentDirectional(0.0, 0.0),
-                child: widget!.icon!,
+                child: widget.icon!,
               ),
               Expanded(
                 flex: 1,
@@ -98,7 +95,7 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      widget!.title,
+                      widget.title,
                       maxLines: 1,
                       style: FlutterFlowTheme.of(context).bodyLarge.override(
                         font: GoogleFonts.plusJakartaSans(
@@ -118,7 +115,7 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      widget!.date,
+                      widget.date,
                       style: FlutterFlowTheme.of(context).labelSmall.override(
                         font: GoogleFonts.plusJakartaSans(
                           fontWeight: FlutterFlowTheme.of(
@@ -148,7 +145,7 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    widget!.score,
+                    widget.score,
                     style: FlutterFlowTheme.of(context).titleMedium.override(
                       font: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.bold,
@@ -166,7 +163,7 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                     ),
                   ),
                   Text(
-                    widget!.grade,
+                    widget.grade,
                     style: FlutterFlowTheme.of(context).labelSmall.override(
                       font: GoogleFonts.plusJakartaSans(
                         fontWeight: FontWeight.bold,
@@ -174,7 +171,7 @@ class _GradeRowWidgetState extends State<GradeRowWidget> {
                           context,
                         ).labelSmall.fontStyle,
                       ),
-                      color: widget!.color,
+                      color: widget.color,
                       letterSpacing: 0.0,
                       fontWeight: FontWeight.bold,
                       fontStyle: FlutterFlowTheme.of(

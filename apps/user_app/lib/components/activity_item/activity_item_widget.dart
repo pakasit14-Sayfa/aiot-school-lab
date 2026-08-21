@@ -1,11 +1,8 @@
 import '/flutter_flow/flutter_flow_icon_button.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'activity_item_model.dart';
 export 'activity_item_model.dart';
 
@@ -19,12 +16,12 @@ class ActivityItemWidget extends StatefulWidget {
     String? title,
     this.icon,
     String? location,
-  }) : this.tapAction = tapAction ?? '',
-       this.time = time ?? '',
-       this.duration = duration ?? '',
-       this.accentColor = accentColor ?? const Color(0x00000000),
-       this.title = title ?? '',
-       this.location = location ?? '';
+  }) : tapAction = tapAction ?? '',
+       time = time ?? '',
+       duration = duration ?? '',
+       accentColor = accentColor ?? const Color(0x00000000),
+       title = title ?? '',
+       location = location ?? '';
 
   final String tapAction;
   final String time;
@@ -79,7 +76,7 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
+                  SizedBox(
                     width: 60.0,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -87,7 +84,7 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
-                          widget!.time,
+                          widget.time,
                           style: FlutterFlowTheme.of(context).labelLarge
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
@@ -114,7 +111,7 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                           ),
                         ),
                         Text(
-                          widget!.duration,
+                          widget.duration,
                           style: FlutterFlowTheme.of(context).labelSmall
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
@@ -145,7 +142,7 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                     width: 2.0,
                     height: 60.0,
                     decoration: BoxDecoration(
-                      color: widget!.accentColor,
+                      color: widget.accentColor,
                       borderRadius: BorderRadius.circular(9999.0),
                       shape: BoxShape.rectangle,
                     ),
@@ -158,7 +155,7 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget!.title,
+                          widget.title,
                           maxLines: 1,
                           style: FlutterFlowTheme.of(context).titleMedium
                               .override(
@@ -183,9 +180,9 @@ class _ActivityItemWidgetState extends State<ActivityItemWidget> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            widget!.icon!,
+                            widget.icon!,
                             Text(
-                              widget!.location,
+                              widget.location,
                               maxLines: 1,
                               style: FlutterFlowTheme.of(context).bodySmall
                                   .override(

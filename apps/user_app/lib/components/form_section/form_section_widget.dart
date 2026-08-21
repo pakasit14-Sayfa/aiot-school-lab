@@ -1,11 +1,8 @@
 import '/components/text_field/text_field_widget.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'form_section_model.dart';
 export 'form_section_model.dart';
 
@@ -53,7 +50,7 @@ class _FormSectionWidgetState extends State<FormSectionWidget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(widget!.title, 'ACTIVITY DETAILS'),
+          valueOrDefault<String>(widget.title, 'ACTIVITY DETAILS'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
             font: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.bold,
@@ -87,7 +84,7 @@ class _FormSectionWidgetState extends State<FormSectionWidget> {
                 leadingIconPresent: true,
                 trailingIconPresent: false,
                 hint: 'e.g., Physics Study Group',
-                value: widget!.title,
+                value: widget.title,
                 onChange: '',
                 onSubmit: '',
                 variant: 'outlined',
@@ -100,7 +97,7 @@ class _FormSectionWidgetState extends State<FormSectionWidget> {
               child: TextFieldWidget(
                 label: 'Description',
                 labelPresent: true,
-                helper: widget!.error,
+                helper: widget.error,
                 helperPresent: true,
                 leadingIcon: Icon(
                   Icons.description_rounded,

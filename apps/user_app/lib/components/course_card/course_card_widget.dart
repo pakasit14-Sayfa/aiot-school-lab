@@ -1,11 +1,8 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
-import 'package:provider/provider.dart';
 import 'course_card_model.dart';
 export 'course_card_model.dart';
 
@@ -19,12 +16,12 @@ class CourseCardWidget extends StatefulWidget {
     String? instructor,
     double? progressDecimal,
     double? progress,
-  }) : this.accentBg = accentBg ?? const Color(0x00000000),
-       this.accentColor = accentColor ?? const Color(0x00000000),
-       this.title = title ?? '',
-       this.instructor = instructor ?? '',
-       this.progressDecimal = progressDecimal ?? 0.0,
-       this.progress = progress ?? 0.0;
+  }) : accentBg = accentBg ?? const Color(0x00000000),
+       accentColor = accentColor ?? const Color(0x00000000),
+       title = title ?? '',
+       instructor = instructor ?? '',
+       progressDecimal = progressDecimal ?? 0.0,
+       progress = progress ?? 0.0;
 
   final Color accentBg;
   final Widget? icon;
@@ -87,12 +84,12 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                     width: 56.0,
                     height: 56.0,
                     decoration: BoxDecoration(
-                      color: widget!.accentBg,
+                      color: widget.accentBg,
                       borderRadius: BorderRadius.circular(16.0),
                       shape: BoxShape.rectangle,
                     ),
                     alignment: AlignmentDirectional(0.0, 0.0),
-                    child: widget!.icon!,
+                    child: widget.icon!,
                   ),
                   Expanded(
                     flex: 1,
@@ -102,7 +99,7 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget!.title,
+                          widget.title,
                           maxLines: 1,
                           style: FlutterFlowTheme.of(context).titleSmall
                               .override(
@@ -123,7 +120,7 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          widget!.instructor,
+                          widget.instructor,
                           style: FlutterFlowTheme.of(context).bodySmall
                               .override(
                                 font: GoogleFonts.plusJakartaSans(
@@ -157,12 +154,12 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                               flex: 1,
                               child: LinearPercentIndicator(
                                 percent: valueOrDefault<double>(
-                                  widget!.progressDecimal,
+                                  widget.progressDecimal,
                                   0.0,
                                 ),
                                 animation: true,
                                 animateFromLastPercent: true,
-                                progressColor: widget!.accentColor,
+                                progressColor: widget.accentColor,
                                 backgroundColor: FlutterFlowTheme.of(
                                   context,
                                 ).alternate,
@@ -172,7 +169,7 @@ class _CourseCardWidgetState extends State<CourseCardWidget> {
                             ),
                             Text(
                               valueOrDefault<String>(
-                                '${widget!.progress.toString()}%',
+                                '${widget.progress.toString()}%',
                                 '%',
                               ),
                               style: FlutterFlowTheme.of(context).labelSmall

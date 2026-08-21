@@ -229,8 +229,9 @@ class _TeacherStorybookPageState extends State<TeacherStorybookPage> {
                           color: TeacherPalette.ink,
                         ),
                         onChanged: (val) {
-                          if (val != null)
+                          if (val != null) {
                             setState(() => _selectedGalleriesDropdown = val);
+                          }
                         },
                         items: _galleryDropdownOptions.map((opt) {
                           return DropdownMenuItem<String>(
@@ -1232,18 +1233,24 @@ class _TeacherStorybookPageState extends State<TeacherStorybookPage> {
         onTap: () => setState(() {
           _selectedComponent = componentName;
           _selectedStory = storyName;
-          if (componentName.startsWith('1.'))
+          if (componentName.startsWith('1.')) {
             _selectedGalleriesDropdown = _galleryDropdownOptions[1];
-          if (componentName.startsWith('2.'))
+          }
+          if (componentName.startsWith('2.')) {
             _selectedGalleriesDropdown = _galleryDropdownOptions[2];
-          if (componentName.startsWith('3.'))
+          }
+          if (componentName.startsWith('3.')) {
             _selectedGalleriesDropdown = _galleryDropdownOptions[3];
-          if (componentName.startsWith('4.'))
+          }
+          if (componentName.startsWith('4.')) {
             _selectedGalleriesDropdown = _galleryDropdownOptions[4];
-          if (componentName.startsWith('5.'))
+          }
+          if (componentName.startsWith('5.')) {
             _selectedGalleriesDropdown = _galleryDropdownOptions[5];
-          if (componentName == 'System Overview')
+          }
+          if (componentName == 'System Overview') {
             _selectedGalleriesDropdown = _galleryDropdownOptions[0];
+          }
           if (storyName == 'Master 13x4 Matrix') {
             _selectedComponent = '3. Master Button Matrix (13x4)';
             _selectedGalleriesDropdown = _galleryDropdownOptions[3];

@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'shortcut_card_model.dart';
 export 'shortcut_card_model.dart';
 
@@ -18,11 +15,11 @@ class ShortcutCardWidget extends StatefulWidget {
     String? title,
     String? subtitle,
     this.onTap,
-  }) : this.bgColor = bgColor ?? const Color(0x00000000),
-       this.tapAction = tapAction ?? 'navigate(my_courses)',
-       this.iconColor = iconColor ?? const Color(0x00000000),
-       this.title = title ?? 'My Courses',
-       this.subtitle = subtitle ?? '8 Active';
+  }) : bgColor = bgColor ?? const Color(0x00000000),
+       tapAction = tapAction ?? 'navigate(my_courses)',
+       iconColor = iconColor ?? const Color(0x00000000),
+       title = title ?? 'My Courses',
+       subtitle = subtitle ?? '8 Active';
 
   final Color bgColor;
   final String tapAction;

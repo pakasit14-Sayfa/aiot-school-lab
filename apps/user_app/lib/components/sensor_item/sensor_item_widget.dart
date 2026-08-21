@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'sensor_item_model.dart';
 export 'sensor_item_model.dart';
 
@@ -15,9 +12,9 @@ class SensorItemWidget extends StatefulWidget {
     Color? color,
     String? value,
     String? label,
-  }) : this.color = color ?? const Color(0x00000000),
-       this.value = value ?? '22°C',
-       this.label = label ?? 'Temp';
+  }) : color = color ?? const Color(0x00000000),
+       value = value ?? '22°C',
+       label = label ?? 'Temp';
 
   final Widget? icon;
   final Color color;
@@ -57,9 +54,9 @@ class _SensorItemWidgetState extends State<SensorItemWidget> {
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        widget!.icon!,
+        widget.icon!,
         Text(
-          valueOrDefault<String>(widget!.value, '22°C'),
+          valueOrDefault<String>(widget.value, '22°C'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
             font: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.bold,
@@ -73,7 +70,7 @@ class _SensorItemWidgetState extends State<SensorItemWidget> {
           ),
         ),
         Text(
-          valueOrDefault<String>(widget!.label, 'Temp'),
+          valueOrDefault<String>(widget.label, 'Temp'),
           style: FlutterFlowTheme.of(context).labelSmall.override(
             font: GoogleFonts.plusJakartaSans(
               fontWeight: FlutterFlowTheme.of(context).labelSmall.fontWeight,

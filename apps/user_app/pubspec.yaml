@@ -52,6 +52,7 @@ dependencies:
   model_viewer_plus: ^1.9.3
   mobile_scanner: ^6.0.2
   qr_flutter: ^4.1.0
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:

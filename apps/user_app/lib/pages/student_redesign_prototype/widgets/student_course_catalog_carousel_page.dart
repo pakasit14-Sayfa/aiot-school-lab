@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'student_redesign_palette.dart';
 import 'student_lessons_page.dart';
 import 'student_assignments_page.dart';
 

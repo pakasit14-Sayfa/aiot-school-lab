@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'text_field_model.dart';
 export 'text_field_model.dart';
 
@@ -25,18 +22,18 @@ class TextFieldWidget extends StatefulWidget {
     String? onSubmit,
     String? variant,
     bool? error,
-  }) : this.label = label ?? 'Activity Name',
-       this.labelPresent = labelPresent ?? true,
-       this.helper = helper ?? '',
-       this.helperPresent = helperPresent ?? false,
-       this.leadingIconPresent = leadingIconPresent ?? true,
-       this.trailingIconPresent = trailingIconPresent ?? false,
-       this.hint = hint ?? 'e.g., Physics Study Group',
-       this.value = value ?? '',
-       this.onChange = onChange ?? '',
-       this.onSubmit = onSubmit ?? '',
-       this.variant = variant ?? 'outlined',
-       this.error = error ?? false;
+  }) : label = label ?? 'Activity Name',
+       labelPresent = labelPresent ?? true,
+       helper = helper ?? '',
+       helperPresent = helperPresent ?? false,
+       leadingIconPresent = leadingIconPresent ?? true,
+       trailingIconPresent = trailingIconPresent ?? false,
+       hint = hint ?? 'e.g., Physics Study Group',
+       value = value ?? '',
+       onChange = onChange ?? '',
+       onSubmit = onSubmit ?? '',
+       variant = variant ?? 'outlined',
+       error = error ?? false;
 
   final String label;
   final bool labelPresent;
@@ -71,7 +68,7 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
     super.initState();
     _model = createModel(context, () => TextFieldModel());
 
-    _model.inputTextController ??= TextEditingController(text: widget!.value);
+    _model.inputTextController ??= TextEditingController(text: widget.value);
     _model.inputFocusNode ??= FocusNode();
   }
 
@@ -90,9 +87,9 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (valueOrDefault<bool>(widget!.labelPresent, true))
+          if (valueOrDefault<bool>(widget.labelPresent, true))
             Text(
-              valueOrDefault<String>(widget!.label, 'Activity Name'),
+              valueOrDefault<String>(widget.label, 'Activity Name'),
               style: FlutterFlowTheme.of(context).labelMedium.override(
                 font: GoogleFonts.plusJakartaSans(
                   fontWeight: FlutterFlowTheme.of(
@@ -101,7 +98,7 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                   fontStyle: FlutterFlowTheme.of(context).labelMedium.fontStyle,
                 ),
                 color: valueOrDefault<Color>(
-                  valueOrDefault<bool>(widget!.error, false)
+                  valueOrDefault<bool>(widget.error, false)
                       ? FlutterFlowTheme.of(context).error
                       : FlutterFlowTheme.of(context).primaryText,
                   FlutterFlowTheme.of(context).primaryText,
@@ -116,11 +113,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
             height: 40.0,
             decoration: BoxDecoration(
               color: valueOrDefault<Color>(() {
-                if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                if (valueOrDefault<String>(widget.variant, 'outlined') ==
                     'filled') {
                   return FlutterFlowTheme.of(context).secondaryBackground;
                 } else if (valueOrDefault<String>(
-                      widget!.variant,
+                      widget.variant,
                       'outlined',
                     ) ==
                     'ghost') {
@@ -132,11 +129,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(
                   valueOrDefault<double>(() {
-                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                    if (valueOrDefault<String>(widget.variant, 'outlined') ==
                         'filled') {
                       return 8.0;
                     } else if (valueOrDefault<String>(
-                          widget!.variant,
+                          widget.variant,
                           'outlined',
                         ) ==
                         'ghost') {
@@ -148,11 +145,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                 ),
                 topRight: Radius.circular(
                   valueOrDefault<double>(() {
-                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                    if (valueOrDefault<String>(widget.variant, 'outlined') ==
                         'filled') {
                       return 8.0;
                     } else if (valueOrDefault<String>(
-                          widget!.variant,
+                          widget.variant,
                           'outlined',
                         ) ==
                         'ghost') {
@@ -164,11 +161,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                 ),
                 bottomLeft: Radius.circular(
                   valueOrDefault<double>(() {
-                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                    if (valueOrDefault<String>(widget.variant, 'outlined') ==
                         'filled') {
                       return 8.0;
                     } else if (valueOrDefault<String>(
-                          widget!.variant,
+                          widget.variant,
                           'outlined',
                         ) ==
                         'ghost') {
@@ -180,11 +177,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                 ),
                 bottomRight: Radius.circular(
                   valueOrDefault<double>(() {
-                    if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                    if (valueOrDefault<String>(widget.variant, 'outlined') ==
                         'filled') {
                       return 8.0;
                     } else if (valueOrDefault<String>(
-                          widget!.variant,
+                          widget.variant,
                           'outlined',
                         ) ==
                         'ghost') {
@@ -198,16 +195,16 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
               shape: BoxShape.rectangle,
               border: Border.all(
                 color: valueOrDefault<Color>(() {
-                  if (valueOrDefault<bool>(widget!.error, false)) {
+                  if (valueOrDefault<bool>(widget.error, false)) {
                     return FlutterFlowTheme.of(context).error;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'filled') {
                     return Colors.transparent;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'ghost') {
@@ -217,16 +214,16 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                   }
                 }(), FlutterFlowTheme.of(context).alternate),
                 width: valueOrDefault<double>(() {
-                  if (valueOrDefault<bool>(widget!.error, false)) {
+                  if (valueOrDefault<bool>(widget.error, false)) {
                     return 1.0;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'filled') {
                     return 1.0;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'ghost') {
@@ -240,11 +237,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
             child: Padding(
               padding: EdgeInsetsDirectional.fromSTEB(
                 valueOrDefault<double>(() {
-                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                  if (valueOrDefault<String>(widget.variant, 'outlined') ==
                       'filled') {
                     return 8.0;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'ghost') {
@@ -254,11 +251,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                   }
                 }(), 8.0),
                 valueOrDefault<double>(() {
-                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                  if (valueOrDefault<String>(widget.variant, 'outlined') ==
                       'filled') {
                     return 8.0;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'ghost') {
@@ -268,11 +265,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                   }
                 }(), 8.0),
                 valueOrDefault<double>(() {
-                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                  if (valueOrDefault<String>(widget.variant, 'outlined') ==
                       'filled') {
                     return 8.0;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'ghost') {
@@ -282,11 +279,11 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                   }
                 }(), 8.0),
                 valueOrDefault<double>(() {
-                  if (valueOrDefault<String>(widget!.variant, 'outlined') ==
+                  if (valueOrDefault<String>(widget.variant, 'outlined') ==
                       'filled') {
                     return 8.0;
                   } else if (valueOrDefault<String>(
-                        widget!.variant,
+                        widget.variant,
                         'outlined',
                       ) ==
                       'ghost') {
@@ -301,8 +298,8 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (valueOrDefault<bool>(widget!.leadingIconPresent, true))
-                    widget!.leadingIcon!,
+                  if (valueOrDefault<bool>(widget.leadingIconPresent, true))
+                    widget.leadingIcon!,
                   Expanded(
                     flex: 1,
                     child: TextFormField(
@@ -312,7 +309,7 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                       decoration: InputDecoration(
                         isDense: true,
                         hintText: valueOrDefault<String>(
-                          widget!.hint,
+                          widget.hint,
                           'e.g., Physics Study Group',
                         ),
                         hintStyle: FlutterFlowTheme.of(context).bodyMedium
@@ -327,13 +324,13 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                               ),
                               color: valueOrDefault<Color>(() {
                                 if (valueOrDefault<String>(
-                                      widget!.variant,
+                                      widget.variant,
                                       'outlined',
                                     ) ==
                                     'filled') {
                                   return FlutterFlowTheme.of(context).accent3;
                                 } else if (valueOrDefault<String>(
-                                      widget!.variant,
+                                      widget.variant,
                                       'outlined',
                                     ) ==
                                     'ghost') {
@@ -367,13 +364,13 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                         ),
                         color: valueOrDefault<Color>(() {
                           if (valueOrDefault<String>(
-                                widget!.variant,
+                                widget.variant,
                                 'outlined',
                               ) ==
                               'filled') {
                             return FlutterFlowTheme.of(context).primaryText;
                           } else if (valueOrDefault<String>(
-                                widget!.variant,
+                                widget.variant,
                                 'outlined',
                               ) ==
                               'ghost') {
@@ -395,22 +392,22 @@ class _TextFieldWidgetState extends State<TextFieldWidget> {
                           .asValidator(context),
                     ),
                   ),
-                  if (valueOrDefault<bool>(widget!.trailingIconPresent, false))
-                    widget!.trailingIcon!,
+                  if (valueOrDefault<bool>(widget.trailingIconPresent, false))
+                    widget.trailingIcon!,
                 ],
               ),
             ),
           ),
-          if (valueOrDefault<bool>(widget!.helperPresent, false))
+          if (valueOrDefault<bool>(widget.helperPresent, false))
             Text(
-              widget!.helper,
+              widget.helper,
               style: FlutterFlowTheme.of(context).bodySmall.override(
                 font: GoogleFonts.plusJakartaSans(
                   fontWeight: FlutterFlowTheme.of(context).bodySmall.fontWeight,
                   fontStyle: FlutterFlowTheme.of(context).bodySmall.fontStyle,
                 ),
                 color: valueOrDefault<Color>(
-                  valueOrDefault<bool>(widget!.error, false)
+                  valueOrDefault<bool>(widget.error, false)
                       ? FlutterFlowTheme.of(context).error
                       : FlutterFlowTheme.of(context).secondaryText,
                   FlutterFlowTheme.of(context).secondaryText,

@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'settings_tile_model.dart';
 export 'settings_tile_model.dart';
 
@@ -16,10 +13,10 @@ class SettingsTileWidget extends StatefulWidget {
     Color? iconColor,
     String? title,
     String? subtitle,
-  }) : this.bgColor = bgColor ?? const Color(0x00000000),
-       this.iconColor = iconColor ?? const Color(0x00000000),
-       this.title = title ?? 'Personal Information',
-       this.subtitle = subtitle ?? 'Name, Email, Student ID';
+  }) : bgColor = bgColor ?? const Color(0x00000000),
+       iconColor = iconColor ?? const Color(0x00000000),
+       title = title ?? 'Personal Information',
+       subtitle = subtitle ?? 'Name, Email, Student ID';
 
   final Color bgColor;
   final Widget? icon;
@@ -81,14 +78,14 @@ class _SettingsTileWidgetState extends State<SettingsTileWidget> {
                     height: 40.0,
                     decoration: BoxDecoration(
                       color: valueOrDefault<Color>(
-                        widget!.bgColor,
+                        widget.bgColor,
                         Color(0x00000000),
                       ),
                       borderRadius: BorderRadius.circular(12.0),
                       shape: BoxShape.rectangle,
                     ),
                     alignment: AlignmentDirectional(0.0, 0.0),
-                    child: widget!.icon!,
+                    child: widget.icon!,
                   ),
                   Expanded(
                     flex: 1,
@@ -99,7 +96,7 @@ class _SettingsTileWidgetState extends State<SettingsTileWidget> {
                       children: [
                         Text(
                           valueOrDefault<String>(
-                            widget!.title,
+                            widget.title,
                             'Personal Information',
                           ),
                           style: FlutterFlowTheme.of(context).bodyMedium
@@ -121,7 +118,7 @@ class _SettingsTileWidgetState extends State<SettingsTileWidget> {
                         ),
                         Text(
                           valueOrDefault<String>(
-                            widget!.subtitle,
+                            widget.subtitle,
                             'Name, Email, Student ID',
                           ),
                           maxLines: 1,

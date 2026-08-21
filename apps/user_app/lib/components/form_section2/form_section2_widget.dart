@@ -1,16 +1,13 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'form_section2_model.dart';
 export 'form_section2_model.dart';
 
 class FormSection2Widget extends StatefulWidget {
   const FormSection2Widget({super.key, String? title})
-    : this.title = title ?? 'CATEGORY';
+    : title = title ?? 'CATEGORY';
 
   final String title;
 
@@ -48,7 +45,7 @@ class _FormSection2WidgetState extends State<FormSection2Widget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(widget!.title, 'CATEGORY'),
+          valueOrDefault<String>(widget.title, 'CATEGORY'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
             font: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.bold,

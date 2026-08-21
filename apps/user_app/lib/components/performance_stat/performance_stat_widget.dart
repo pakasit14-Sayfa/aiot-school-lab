@@ -1,10 +1,7 @@
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'performance_stat_model.dart';
 export 'performance_stat_model.dart';
 
@@ -15,10 +12,10 @@ class PerformanceStatWidget extends StatefulWidget {
     String? value,
     String? up,
     String? trend,
-  }) : this.label = label ?? 'Credits',
-       this.value = value ?? '124',
-       this.up = up ?? 'true',
-       this.trend = trend ?? '+12';
+  }) : label = label ?? 'Credits',
+       value = value ?? '124',
+       up = up ?? 'true',
+       trend = trend ?? '+12';
 
   final String label;
   final String value;
@@ -72,7 +69,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                valueOrDefault<String>(widget!.label, 'Credits'),
+                valueOrDefault<String>(widget.label, 'Credits'),
                 style: FlutterFlowTheme.of(context).labelSmall.override(
                   font: GoogleFonts.plusJakartaSans(
                     fontWeight: FlutterFlowTheme.of(
@@ -92,7 +89,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                 ),
               ),
               Text(
-                valueOrDefault<String>(widget!.value, '124'),
+                valueOrDefault<String>(widget.value, '124'),
                 style: FlutterFlowTheme.of(context).titleLarge.override(
                   font: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.bold,
@@ -112,14 +109,14 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
+                  SizedBox(
                     width: 14.0,
                     height: 14.0,
                     child: Stack(
                       alignment: AlignmentDirectional(0.0, 0.0),
                       children: [
                         if (valueOrDefault<bool>(
-                          valueOrDefault<String>(widget!.up, 'true') == 'false'
+                          valueOrDefault<String>(widget.up, 'true') == 'false'
                               ? true
                               : false,
                           false,
@@ -127,7 +124,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                           Icon(
                             Icons.trending_down_rounded,
                             color: valueOrDefault<Color>(
-                              valueOrDefault<String>(widget!.up, 'true') ==
+                              valueOrDefault<String>(widget.up, 'true') ==
                                       'false'
                                   ? FlutterFlowTheme.of(context).error
                                   : FlutterFlowTheme.of(context).success,
@@ -136,7 +133,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                             size: 14.0,
                           ),
                         if (valueOrDefault<bool>(
-                          valueOrDefault<String>(widget!.up, 'true') == 'false'
+                          valueOrDefault<String>(widget.up, 'true') == 'false'
                               ? false
                               : true,
                           true,
@@ -144,7 +141,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                           Icon(
                             Icons.trending_up_rounded,
                             color: valueOrDefault<Color>(
-                              valueOrDefault<String>(widget!.up, 'true') ==
+                              valueOrDefault<String>(widget.up, 'true') ==
                                       'false'
                                   ? FlutterFlowTheme.of(context).error
                                   : FlutterFlowTheme.of(context).success,
@@ -156,7 +153,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                     ),
                   ),
                   Text(
-                    valueOrDefault<String>(widget!.trend, '+12'),
+                    valueOrDefault<String>(widget.trend, '+12'),
                     style: FlutterFlowTheme.of(context).labelSmall.override(
                       font: GoogleFonts.plusJakartaSans(
                         fontWeight: FlutterFlowTheme.of(
@@ -167,7 +164,7 @@ class _PerformanceStatWidgetState extends State<PerformanceStatWidget> {
                         ).labelSmall.fontStyle,
                       ),
                       color: valueOrDefault<Color>(
-                        valueOrDefault<String>(widget!.up, 'true') == 'false'
+                        valueOrDefault<String>(widget.up, 'true') == 'false'
                             ? FlutterFlowTheme.of(context).error
                             : FlutterFlowTheme.of(context).success,
                         FlutterFlowTheme.of(context).success,

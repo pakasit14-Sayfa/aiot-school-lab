@@ -1,18 +1,15 @@
 import '/flutter_flow/flutter_flow_drop_down.dart';
 import '/flutter_flow/flutter_flow_theme.dart';
 import '/flutter_flow/flutter_flow_util.dart';
-import '/flutter_flow/flutter_flow_widgets.dart';
 import '/flutter_flow/form_field_controller.dart';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'form_section4_model.dart';
 export 'form_section4_model.dart';
 
 class FormSection4Widget extends StatefulWidget {
   const FormSection4Widget({super.key, String? title})
-    : this.title = title ?? 'LOCATION';
+    : title = title ?? 'LOCATION';
 
   final String title;
 
@@ -50,7 +47,7 @@ class _FormSection4WidgetState extends State<FormSection4Widget> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          valueOrDefault<String>(widget!.title, 'LOCATION'),
+          valueOrDefault<String>(widget.title, 'LOCATION'),
           style: FlutterFlowTheme.of(context).labelLarge.override(
             font: GoogleFonts.plusJakartaSans(
               fontWeight: FontWeight.bold,
