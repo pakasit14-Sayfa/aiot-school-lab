@@ -44,3 +44,7 @@ export 'services/emergency_service.dart';
 export 'services/aiot_lab_service.dart';
 export 'services/student_group_service.dart';
 export 'services/g_score_service.dart';
+export 'models/terminal_pairing_model.dart';
+export 'services/terminal_pairing_service.dart';
+export 'models/student_support_model.dart';
+export 'services/student_support_service.dart';

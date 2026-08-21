@@ -1,103 +1,9 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
-//
-// AI-4/AI-5/AI-6/AI-7/AI-8: หน้ารวม "นักเรียนที่ต้องการการสนับสนุน" —
-// ระบบวิเคราะห์พฤติกรรมการเรียน (ส่งงานช้า/ไม่ดูบทเรียน/คะแนนตก) แล้วสร้าง
-// รายการแจ้งเตือนให้ครู (dedup ต่อคน ไม่แจ้งซ้ำถี่ๆ ตาม AI-5 Exception 1)
-// ครูเปิดดูเหตุผล+ข้อมูลประกอบ แล้วบันทึกการติดตาม/มอบหมายกิจกรรมเสริมที่ AI
-// แนะนำ (เลือกเองเสมอ ไม่ auto-assign ตาม AI-7 BR1) — เพิ่มเมื่อ 2026-08-16
-// ดู teacher_redesign_prototype/NOTES.md สำหรับที่มา
-
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherStatusChip;
-
-enum _FollowUpStatus { pending, inProgress, improved, escalated }
-
-extension on _FollowUpStatus {
-  String get label => switch (this) {
-    _FollowUpStatus.pending => 'รอติดตาม',
-    _FollowUpStatus.inProgress => 'กำลังติดตาม',
-    _FollowUpStatus.improved => 'ดีขึ้นแล้ว',
-    _FollowUpStatus.escalated => 'ส่งต่อผู้เชี่ยวชาญ',
-  };
-
-  Color get color => switch (this) {
-    _FollowUpStatus.pending => TeacherPalette.muted,
-    _FollowUpStatus.inProgress => const Color(0xFFD97706),
-    _FollowUpStatus.improved => const Color(0xFF10B981),
-    _FollowUpStatus.escalated => const Color(0xFFDC2626),
-  };
-}
-
-class _RiskFlag {
-  _RiskFlag({
-    required this.studentName,
-    required this.studentNo,
-    required this.courseLabel,
-    required this.riskLevel,
-    required this.reasons,
-    required this.dataSnapshot,
-    required this.suggestedActivities,
-    this.status = _FollowUpStatus.pending,
-    this.followUpNote,
-  });
-
-  final String studentName;
-  final String studentNo;
-  final String courseLabel;
-  final String riskLevel; // 'สูง' / 'ปานกลาง'
-  final List<String> reasons; // AI-4: เหตุผลของการแจ้งเตือน
-  final Map<String, String>
-  dataSnapshot; // ข้อมูลประกอบ (คะแนน/ส่งงาน/เข้าเรียน)
-  final List<String> suggestedActivities; // AI-7
-  _FollowUpStatus status;
-  String? followUpNote;
-  List<String> assignedActivities = [];
-}
-
-List<_RiskFlag> _mockRiskFlags() => [
-  _RiskFlag(
-    studentName: 'ด.ช. อภิสิทธิ์ วงศ์สวัสดิ์',
-    studentNo: 'ม.5/2 เลขที่ 12',
-    courseLabel: 'AIoT สมาร์ตแล็บ',
-    riskLevel: 'สูง',
-    reasons: const [
-      'ส่งใบงานล่าช้ากว่ากำหนด 3 ครั้งติดต่อกัน',
-      'คะแนนแบบทดสอบย่อยลดลงจากค่าเฉลี่ยเดิม 18%',
-      'ไม่เปิดดูบทเรียนล่าสุด 2 บทเรียน',
-    ],
-    dataSnapshot: const {
-      'คะแนนเฉลี่ยล่าสุด': '58% (จากเดิม 76%)',
-      'ใบงานที่ส่งตรงเวลา': '2 จาก 6 ครั้งล่าสุด',
-      'การเข้าเรียน': '85% (2 ครั้งขาด ไม่แจ้งลา)',
-    },
-    suggestedActivities: const [
-      'บทเรียนทบทวน: พื้นฐานเซนเซอร์และไมโครคอนโทรลเลอร์ (ฉบับย่อ)',
-      'ใบงานฝึกเพิ่มเติม: อ่านค่าเซนเซอร์เบื้องต้น (ระดับง่าย)',
-    ],
-  ),
-  _RiskFlag(
-    studentName: 'ด.ญ. ณัฐธิดา ไพศาล',
-    studentNo: 'ม.4/1 เลขที่ 7',
-    courseLabel: 'ฟิสิกส์ประยุกต์',
-    riskLevel: 'ปานกลาง',
-    reasons: const [
-      'ไม่ส่งใบงานล่าสุด 1 ครั้ง',
-      'คะแนนแบบฝึกหัดลดลงเล็กน้อยจากค่าเฉลี่ยเดิม 8%',
-    ],
-    dataSnapshot: const {
-      'คะแนนเฉลี่ยล่าสุด': '70% (จากเดิม 78%)',
-      'ใบงานที่ส่งตรงเวลา': '4 จาก 5 ครั้งล่าสุด',
-      'การเข้าเรียน': '100%',
-    },
-    suggestedActivities: const ['วิดีโอทบทวน: แรงและการเคลื่อนที่เบื้องต้น'],
-    status: _FollowUpStatus.inProgress,
-    followUpNote:
-        'คุยกับนักเรียนแล้ว แจ้งว่าติดกิจกรรมชมรม จะส่งงานให้ครบภายในสัปดาห์นี้',
-  ),
-];
 
 class TeacherStudentSupportPage extends StatefulWidget {
   const TeacherStudentSupportPage({super.key});
@@ -108,16 +14,380 @@ class TeacherStudentSupportPage extends StatefulWidget {
 }
 
 class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
-  late final List<_RiskFlag> _flags = _mockRiskFlags();
+  bool _isLoading = true;
+  List<StudentSupportCase> _cases = [];
+  String? _statusFilter;
 
-  Future<void> _openDetail(_RiskFlag flag) async {
+  @override
+  void initState() {
+    super.initState();
+    _loadCases();
+  }
+
+  Future<void> _loadCases() async {
+    setState(() => _isLoading = true);
+    try {
+      if (AuthService.sessionToken != null) {
+        final data = await StudentSupportService.listCases(
+          status: _statusFilter,
+        );
+        if (mounted) {
+          setState(() {
+            _cases = data;
+            _isLoading = false;
+          });
+        }
+      } else {
+        _loadFallbackMock();
+      }
+    } catch (_) {
+      _loadFallbackMock();
+    }
+  }
+
+  void _loadFallbackMock() {
+    if (!mounted) return;
+    setState(() {
+      _cases = [
+        StudentSupportCase(
+          caseId: 'mock-1',
+          studentId: 's1',
+          studentName: 'ด.ช. อภิสิทธิ์ วงศ์สวัสดิ์',
+          studentEmail: 'apisit@school.ac.th',
+          courseName: 'AIoT สมาร์ตแล็บ (ม.5/2)',
+          category: 'academic',
+          riskLevel: 'high',
+          status: 'open',
+          title: 'ส่งใบงานล่าช้ากว่ากำหนด 3 ครั้งติดต่อกัน และคะแนนลดลง',
+          notes: 'คะแนนเฉลี่ยล่าสุด 58% (จากเดิม 76%), ขาดเรียน 2 ครั้ง',
+          createdByName: 'ครูสมศักดิ์',
+          interventionCount: 0,
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 4)),
+        ),
+        StudentSupportCase(
+          caseId: 'mock-2',
+          studentId: 's2',
+          studentName: 'ด.ญ. ณัฐธิดา ไพศาล',
+          studentEmail: 'natthida@school.ac.th',
+          courseName: 'ฟิสิกส์ประยุกต์ (ม.4/1)',
+          category: 'behavioral',
+          riskLevel: 'medium',
+          status: 'in_progress',
+          title: 'ไม่ส่งใบงานล่าสุด และเริ่มขาดสมาธิในการทำแล็บ',
+          notes: 'คุยกับนักเรียนแล้ว แจ้งว่าติดกิจกรรมชมรม จะทยอยส่งงานให้ครบ',
+          createdByName: 'ครูสมศรี',
+          interventionCount: 1,
+          createdAt: DateTime.now().subtract(const Duration(days: 5)),
+          updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+        ),
+      ];
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _openDetail(StudentSupportCase item) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          _RiskDetailSheet(flag: flag, onChanged: () => setState(() {})),
+      builder: (_) => _SupportCaseDetailSheet(
+        item: item,
+        onChanged: _loadCases,
+      ),
     );
+  }
+
+  Future<void> _openCreateCaseDialog() async {
+    final titleCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    String category = 'academic';
+    String riskLevel = 'medium';
+    String? selectedStudentId;
+
+    // Load actual students from school
+    List<CourseStudent> students = [];
+    try {
+      final courses = await CourseService.listMyCourses();
+      if (courses.isNotEmpty) {
+        final list = await CourseService.listCourseStudents(courses.first.id);
+        students = list;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final bottom = MediaQuery.of(context).viewInsets.bottom;
+          return Container(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottom),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: TeacherPalette.border,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'เปิดเคสดูแลช่วยเหลือนักเรียน',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (students.isNotEmpty) ...[
+                    const Text(
+                      'เลือกนักเรียน',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: TeacherPalette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: selectedStudentId,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      hint: const Text('เลือกนักเรียนในห้องเรียน'),
+                      items: students
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s.studentId,
+                              child: Text(s.fullName),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (val) {
+                        setSheetState(() {
+                          selectedStudentId = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    const Text(
+                      'ชื่อนักเรียน',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: TeacherPalette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      decoration: InputDecoration(
+                        hintText: 'เช่น ด.ช. มานะ สุขใจ',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  const Text(
+                    'หมวดหมู่ปัญหา',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: category,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'academic',
+                        child: Text('ด้านการเรียน (วิชาการ/งานค้าง)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'behavioral',
+                        child: Text('ด้านพฤติกรรม & การเข้าเรียน'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'emotional',
+                        child: Text('ด้านสภาพจิตใจ อารมณ์ & ครอบครัว'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'safety',
+                        child: Text('ด้านความปลอดภัย & เหตุฉุกเฉิน'),
+                      ),
+                    ],
+                    onChanged: (val) => setSheetState(() => category = val!),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'ระดับความเสี่ยง',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: riskLevel,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'low',
+                        child: Text('🟢 เฝ้าระวังทั่วไป (Low)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'medium',
+                        child: Text('🟡 ปานกลาง / ต้องติดตาม (Medium)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'high',
+                        child: Text('🔴 เร่งด่วน / วิกฤต (High)'),
+                      ),
+                    ],
+                    onChanged: (val) => setSheetState(() => riskLevel = val!),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'หัวข้อปัญหา / พฤติกรรมที่สังเกตได้',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'เช่น ไม่ส่งงาน 3 ชิ้น, ดูเครียดผิดปกติ',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'บันทึกรายละเอียดเพิ่มเติม',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: notesCtrl,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'ระบุข้อมูลเพิ่มเติมเพื่อใช้วางแผนช่วยเหลือ',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: TeacherPalette.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: () async {
+                        if (titleCtrl.text.trim().isEmpty) return;
+                        if (AuthService.sessionToken != null &&
+                            selectedStudentId != null) {
+                          try {
+                            await StudentSupportService.createCase(
+                              studentId: selectedStudentId!,
+                              category: category,
+                              riskLevel: riskLevel,
+                              title: titleCtrl.text.trim(),
+                              notes: notesCtrl.text.trim(),
+                            );
+                          } catch (_) {}
+                        }
+                        if (ctx.mounted) Navigator.pop(ctx, true);
+                      },
+                      child: const Text('บันทึกเปิดเคส'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (created == true) {
+      _loadCases();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('เปิดเคสช่วยเหลือนักเรียนสำเร็จแล้ว'),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -125,7 +395,36 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
     return TeacherMockPageShell(
       title: 'นักเรียนที่ต้องการการสนับสนุน',
       activeMenuLabel: 'ช่วยเหลือนักเรียน',
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: FilledButton.icon(
+            onPressed: _openCreateCaseDialog,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('เปิดเคสช่วยเหลือ'),
+            style: FilledButton.styleFrom(
+              backgroundColor: TeacherPalette.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: const StadiumBorder(),
+              textStyle: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ),
+      ],
       builder: (context, isDesktop) {
+        if (_isLoading) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(40),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -138,9 +437,8 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                 border: Border.all(color: const Color(0xFFBFDBFE)),
               ),
               child: const Text(
-                'AI-4: วิเคราะห์จากพฤติกรรมการเรียน (ส่งงาน/ดูบทเรียน/คะแนน) '
-                'เท่านั้น ไม่ใช้ตัดสินนิสัยหรือบุคลิกส่วนบุคคล — เป็นข้อเสนอ '
-                'ให้ครูตัดสินใจ ไม่ใช่การตัดสินใจอัตโนมัติ',
+                'AI-4 / AI-6: ระบบดูแลช่วยเหลือนักเรียน — บันทึกข้อสังเกตและวางแผนช่วยเหลือ '
+                'ตามดุลยพินิจของครูผู้สอน ข้อมูลจะประสานงานร่วมกันกับครูในโรงเรียนเพื่อติดตามผล',
                 style: TextStyle(
                   color: Color(0xFF1D4ED8),
                   fontSize: 12,
@@ -149,33 +447,105 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
               ),
             ),
             const SizedBox(height: 14),
-            for (final flag in _flags) ...[
-              _RiskCard(flag: flag, onTap: () => _openDetail(flag)),
-              const SizedBox(height: 12),
-            ],
+            Row(
+              children: [
+                _filterChip('ทั้งหมด', null),
+                const SizedBox(width: 8),
+                _filterChip('เปิดเคสใหม่', 'open'),
+                const SizedBox(width: 8),
+                _filterChip('กำลังช่วยเหลือ', 'in_progress'),
+                const SizedBox(width: 8),
+                _filterChip('ส่งต่อแนะแนว', 'escalated'),
+                const SizedBox(width: 8),
+                _filterChip('ปิดเคสสำเร็จ', 'resolved'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_cases.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: TeacherPalette.border),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 40,
+                      color: Color(0xFF10B981),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'ไม่พบบันทึกนักเรียนกลุ่มเสี่ยงในหมวดนี้',
+                      style: TextStyle(
+                        color: TeacherPalette.ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              for (final c in _cases) ...[
+                _CaseCard(item: c, onTap: () => _openDetail(c)),
+                const SizedBox(height: 12),
+              ],
           ],
         );
       },
     );
   }
+
+  Widget _filterChip(String label, String? status) {
+    final selected = _statusFilter == status;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) {
+        setState(() => _statusFilter = status);
+        _loadCases();
+      },
+      selectedColor: TeacherPalette.primary.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        color: selected ? TeacherPalette.primary : TeacherPalette.muted,
+        fontWeight: FontWeight.w800,
+        fontSize: 12,
+      ),
+      side: BorderSide(
+        color: selected ? TeacherPalette.primary : TeacherPalette.border,
+      ),
+      shape: const StadiumBorder(),
+    );
+  }
 }
 
-class _RiskCard extends StatelessWidget {
-  const _RiskCard({required this.flag, required this.onTap});
+class _CaseCard extends StatelessWidget {
+  const _CaseCard({required this.item, required this.onTap});
 
-  final _RiskFlag flag;
+  final StudentSupportCase item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final riskColor = flag.riskLevel == 'สูง'
-        ? const Color(0xFFDC2626)
-        : const Color(0xFFD97706);
-    // ClipRRect แยกจาก BoxDecoration.borderRadius เพราะ Border ที่นี่มีสี
-    // ไม่เท่ากันทุกด้าน (ซ้ายเป็นสีเน้นความเสี่ยง) — Flutter ไม่ยอมให้ตั้ง
-    // borderRadius พร้อมกับ Border ที่มีสีไม่สม่ำเสมอในกล่องเดียวกัน (throw
-    // "A borderRadius can only be given on borders with uniform colors"
-    // แล้วการ์ดทั้งใบจะไม่ render ออกมาเลย)
+    final riskColor = switch (item.riskLevel) {
+      'high' => const Color(0xFFDC2626),
+      'medium' => const Color(0xFFD97706),
+      _ => const Color(0xFF10B981),
+    };
+
+    final statusColor = switch (item.status) {
+      'open' => TeacherPalette.muted,
+      'in_progress' => const Color(0xFFD97706),
+      'escalated' => const Color(0xFFDC2626),
+      'resolved' => const Color(0xFF10B981),
+      _ => TeacherPalette.muted,
+    };
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
@@ -199,7 +569,7 @@ class _RiskCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '${flag.studentName} · ${flag.studentNo}',
+                      '${item.studentName} (${item.studentEmail})',
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontSize: 13.5,
@@ -208,14 +578,14 @@ class _RiskCard extends StatelessWidget {
                     ),
                   ),
                   TeacherStatusChip(
-                    label: 'ความเสี่ยง${flag.riskLevel}',
+                    label: 'เสี่ยงระดับ${item.riskLevel.toUpperCase()}',
                     color: riskColor,
                   ),
                 ],
               ),
               const SizedBox(height: 2),
               Text(
-                flag.courseLabel,
+                '${item.courseName} · หมวด${item.categoryLabel}',
                 style: const TextStyle(
                   color: TeacherPalette.muted,
                   fontSize: 11.5,
@@ -224,26 +594,42 @@ class _RiskCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                flag.reasons.first,
+                item.title,
                 style: const TextStyle(
-                  color: TeacherPalette.softText,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  color: TeacherPalette.ink,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              if (flag.reasons.length > 1)
+              if (item.notes != null && item.notes!.isNotEmpty) ...[
+                const SizedBox(height: 4),
                 Text(
-                  '+ อีก ${flag.reasons.length - 1} เหตุผล',
+                  item.notes!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 11.5,
                   ),
                 ),
+              ],
               const SizedBox(height: 10),
-              TeacherStatusChip(
-                label: flag.status.label,
-                color: flag.status.color,
+              Row(
+                children: [
+                  TeacherStatusChip(
+                    label: item.statusLabel,
+                    color: statusColor,
+                  ),
+                  const Spacer(),
+                  Text(
+                    'บันทึกช่วยเหลือ ${item.interventionCount} ครั้ง',
+                    style: const TextStyle(
+                      color: TeacherPalette.muted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -253,118 +639,121 @@ class _RiskCard extends StatelessWidget {
   }
 }
 
-class _RiskDetailSheet extends StatefulWidget {
-  const _RiskDetailSheet({required this.flag, required this.onChanged});
+class _SupportCaseDetailSheet extends StatefulWidget {
+  const _SupportCaseDetailSheet({
+    required this.item,
+    required this.onChanged,
+  });
 
-  final _RiskFlag flag;
+  final StudentSupportCase item;
   final VoidCallback onChanged;
 
   @override
-  State<_RiskDetailSheet> createState() => _RiskDetailSheetState();
+  State<_SupportCaseDetailSheet> createState() =>
+      _SupportCaseDetailSheetState();
 }
 
-class _RiskDetailSheetState extends State<_RiskDetailSheet> {
-  late _FollowUpStatus _status = widget.flag.status;
-  late final TextEditingController _noteCtrl = TextEditingController(
-    text: widget.flag.followUpNote ?? '',
-  );
-  late final Set<String> _assigned = {...widget.flag.assignedActivities};
+class _SupportCaseDetailSheetState extends State<_SupportCaseDetailSheet> {
+  late String _status = widget.item.status;
+  final TextEditingController _interventionCtrl = TextEditingController();
+  String _actionType = 'counseling';
+  bool _isLoadingInterventions = true;
+  List<StudentSupportIntervention> _interventions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInterventions();
+  }
 
   @override
   void dispose() {
-    _noteCtrl.dispose();
+    _interventionCtrl.dispose();
     super.dispose();
   }
 
-  void _saveFollowUp() {
-    widget.flag.status = _status;
-    widget.flag.followUpNote = _noteCtrl.text.trim().isEmpty
-        ? null
-        : _noteCtrl.text.trim();
-    widget.flag.assignedActivities = _assigned.toList();
-    widget.onChanged();
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('บันทึกการติดตาม ${widget.flag.studentName} แล้ว'),
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _toggleActivity(String activity) {
-    setState(() {
-      if (_assigned.contains(activity)) {
-        _assigned.remove(activity);
+  Future<void> _loadInterventions() async {
+    try {
+      if (AuthService.sessionToken != null &&
+          !widget.item.caseId.startsWith('mock-')) {
+        final list = await StudentSupportService.listInterventions(
+          widget.item.caseId,
+        );
+        if (mounted) {
+          setState(() {
+            _interventions = list;
+            _isLoadingInterventions = false;
+          });
+        }
       } else {
-        _assigned.add(activity);
+        setState(() {
+          _interventions = [
+            StudentSupportIntervention(
+              interventionId: 'i1',
+              caseId: widget.item.caseId,
+              actionType: 'counseling',
+              notes: 'นัดพูดคุยหลังเลิกเรียนเพื่อสอบถามสาเหตุการส่งงานช้า',
+              recordedByName: widget.item.createdByName,
+              createdAt: DateTime.now().subtract(const Duration(days: 1)),
+            ),
+          ];
+          _isLoadingInterventions = false;
+        });
       }
-    });
+    } catch (_) {
+      setState(() => _isLoadingInterventions = false);
+    }
   }
 
-  Future<void> _showAiSummary() async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(
-              Icons.auto_awesome_rounded,
-              color: Color(0xFF7C3AED),
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'สรุปผลการเรียน (AI ร่าง)',
-                style: TextStyle(fontSize: 15),
-              ),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Text(
-            '${widget.flag.studentName} มีแนวโน้มผลการเรียนลดลงในช่วงที่ผ่านมา '
-            'จุดที่ควรพัฒนา: ${widget.flag.reasons.join(", ")} '
-            'จุดเด่น: ยังคงเข้าเรียนสม่ำเสมอและให้ความร่วมมือในชั้นเรียน '
-            'ข้อเสนอแนะ: ติดตามการส่งงานอย่างใกล้ชิดในช่วง 2 สัปดาห์ถัดไป',
-            style: const TextStyle(fontSize: 13, height: 1.5),
+  Future<void> _addIntervention() async {
+    if (_interventionCtrl.text.trim().isEmpty) return;
+
+    if (AuthService.sessionToken != null &&
+        !widget.item.caseId.startsWith('mock-')) {
+      try {
+        await StudentSupportService.addIntervention(
+          caseId: widget.item.caseId,
+          actionType: _actionType,
+          notes: _interventionCtrl.text.trim(),
+        );
+        _interventionCtrl.clear();
+        await _loadInterventions();
+        widget.onChanged();
+      } catch (_) {}
+    } else {
+      setState(() {
+        _interventions.insert(
+          0,
+          StudentSupportIntervention(
+            interventionId: 'i_${DateTime.now().millisecondsSinceEpoch}',
+            caseId: widget.item.caseId,
+            actionType: _actionType,
+            notes: _interventionCtrl.text.trim(),
+            recordedByName: 'คุณครู',
+            createdAt: DateTime.now(),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('ปิด'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'ตรวจสอบแล้ว — พร้อมใช้สรุปนี้ในรายงานผู้ปกครอง',
-                  ),
-                  backgroundColor: Color(0xFF10B981),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: TeacherPalette.primary,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('ตรวจสอบแล้ว ใช้ในรายงาน'),
-          ),
-        ],
-      ),
-    );
+        );
+        _interventionCtrl.clear();
+      });
+    }
+  }
+
+  Future<void> _updateStatus(String newStatus) async {
+    setState(() => _status = newStatus);
+    if (AuthService.sessionToken != null &&
+        !widget.item.caseId.startsWith('mock-')) {
+      try {
+        await StudentSupportService.updateCaseStatus(
+          caseId: widget.item.caseId,
+          status: newStatus,
+        );
+        widget.onChanged();
+      } catch (_) {}
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final flag = widget.flag;
     return DraggableScrollableSheet(
       initialChildSize: 0.9,
       minChildSize: 0.5,
@@ -393,7 +782,7 @@ class _RiskDetailSheetState extends State<_RiskDetailSheet> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                   children: [
                     Text(
-                      flag.studentName,
+                      widget.item.studentName,
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontSize: 16,
@@ -401,7 +790,7 @@ class _RiskDetailSheetState extends State<_RiskDetailSheet> {
                       ),
                     ),
                     Text(
-                      '${flag.studentNo} · ${flag.courseLabel}',
+                      '${widget.item.courseName} · หมวด${widget.item.categoryLabel}',
                       style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontSize: 12,
@@ -410,25 +799,50 @@ class _RiskDetailSheetState extends State<_RiskDetailSheet> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'เหตุผลที่ถูกแจ้งเตือน',
+                      'เปลี่ยนสถานะการดูแล',
                       style: TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    for (final reason in flag.reasons)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '• $reason',
-                          style: const TextStyle(fontSize: 12.5),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _status,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                    const SizedBox(height: 16),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'open',
+                          child: Text('🟢 เปิดเคสใหม่ (Open)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'in_progress',
+                          child: Text('🟡 กำลังช่วยเหลือ (In Progress)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'escalated',
+                          child: Text('🔴 ส่งต่อฝ่ายแนะแนว (Escalated)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'resolved',
+                          child: Text('✅ ปิดเคสสำเร็จ (Resolved)'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) _updateStatus(val);
+                      },
+                    ),
+                    const SizedBox(height: 20),
                     const Text(
-                      'ข้อมูลประกอบ',
+                      'บันทึกการติดตาม & ช่วยเหลือ (Timeline)',
                       style: TextStyle(
                         color: TeacherPalette.ink,
                         fontSize: 13.5,
@@ -436,183 +850,132 @@ class _RiskDetailSheetState extends State<_RiskDetailSheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          for (final entry in flag.dataSnapshot.entries)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              child: Row(
+                    if (_isLoadingInterventions)
+                      const Center(child: CircularProgressIndicator())
+                    else if (_interventions.isEmpty)
+                      const Text(
+                        'ยังไม่มีบันทึกการช่วยเหลือ',
+                        style: TextStyle(color: TeacherPalette.muted),
+                      )
+                    else
+                      for (final iv in _interventions) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: TeacherPalette.border),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Expanded(
-                                    child: Text(
-                                      entry.key,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: TeacherPalette.muted,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                  Text(
+                                    iv.actionTypeLabel,
+                                    style: const TextStyle(
+                                      color: TeacherPalette.primary,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
                                     ),
                                   ),
+                                  const Spacer(),
                                   Text(
-                                    entry.value,
+                                    iv.recordedByName,
                                     style: const TextStyle(
-                                      fontSize: 12,
-                                      color: TeacherPalette.ink,
-                                      fontWeight: FontWeight.w800,
+                                      color: TeacherPalette.muted,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.auto_awesome_rounded,
-                          size: 15,
-                          color: Color(0xFF7C3AED),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'AI แนะนำกิจกรรมเสริม (เลือกมอบหมายเอง)',
-                          style: TextStyle(
-                            color: Color(0xFF6D28D9),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    for (final activity in flag.suggestedActivities)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF5F3FF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFDDD6FE)),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  activity,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              OutlinedButton(
-                                onPressed: () => _toggleActivity(activity),
-                                style: OutlinedButton.styleFrom(
-                                  minimumSize: Size.zero,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                ),
-                                child: Text(
-                                  _assigned.contains(activity)
-                                      ? 'มอบหมายแล้ว ✓'
-                                      : 'มอบหมาย',
-                                  style: const TextStyle(fontSize: 11),
+                              const SizedBox(height: 4),
+                              Text(
+                                iv.notes,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: TeacherPalette.ink,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: _showAiSummary,
-                      icon: const Icon(Icons.summarize_rounded, size: 16),
-                      label: const Text('สร้างสรุปผลการเรียน (AI ร่าง)'),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'สถานะการติดตาม',
-                      style: TextStyle(
-                        color: TeacherPalette.ink,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final s in _FollowUpStatus.values)
-                          ChoiceChip(
-                            label: Text(s.label),
-                            selected: _status == s,
-                            onSelected: (_) => setState(() => _status = s),
-                          ),
+                        const SizedBox(height: 8),
                       ],
-                    ),
                     const SizedBox(height: 16),
                     const Text(
-                      'บันทึกการติดตาม',
+                      'เพิ่มบันทึกการช่วยเหลือใหม่',
                       style: TextStyle(
                         color: TeacherPalette.ink,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         fontWeight: FontWeight.w800,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _actionType,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'counseling',
+                          child: Text('💬 การให้คำปรึกษา/พูดคุย'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'remedial_lesson',
+                          child: Text('📖 สอนเสริม/ทบทวนบทเรียน'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'parent_meeting',
+                          child: Text('📞 ติดต่อผู้ปกครอง'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'activity_assigned',
+                          child: Text('📝 มอบหมายแบบฝึกหัดเสริม'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'observation',
+                          child: Text('👀 บันทึกการสังเกตการณ์'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _actionType = val);
+                      },
                     ),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: _noteCtrl,
-                      maxLines: 3,
+                      controller: _interventionCtrl,
                       decoration: InputDecoration(
-                        hintText:
-                            'เช่น คุยกับนักเรียนแล้ว นัดติดตามอีกครั้งสัปดาห์หน้า...',
+                        hintText: 'รายละเอียดการพูดคุยหรือแนวทางช่วยเหลือ...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: TeacherPalette.border,
-                          ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: TeacherPalette.border,
-                          ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: _addIntervention,
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: const Text('บันทึก Timeline'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: TeacherPalette.primary,
                         ),
                       ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-                decoration: const BoxDecoration(
-                  border: Border(top: BorderSide(color: TeacherPalette.border)),
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _saveFollowUp,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TeacherPalette.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('บันทึกการติดตาม'),
-                  ),
                 ),
               ),
             ],

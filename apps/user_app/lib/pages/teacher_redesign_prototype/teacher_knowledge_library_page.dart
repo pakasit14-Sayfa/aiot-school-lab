@@ -1,10 +1,8 @@
-// PROTOTYPE ONLY: "คลังความรู้" ฝั่งครู — ที่รวมไฟล์/สื่อการสอนของครู
-// แยกตามวิชา ครูอัปโหลด/ลบ/แก้ไขชื่อไฟล์ได้เอง (คนละอันกับ "คลังข้อสอบ"
-// ที่เก็บคำถามข้อสอบ) ไฟล์ที่อัปโหลดยังเก็บแค่ในหน่วยความจำของหน้านี้
-// เท่านั้น ยังไม่เชื่อมระบบเก็บไฟล์จริง/ยังไม่ทำให้นักเรียนเห็นฝั่งตรงข้าม
+import 'package:url_launcher/url_launcher.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
@@ -13,30 +11,26 @@ class TeacherLibraryFile {
     required this.id,
     required this.name,
     required this.typeLabel,
-    required this.sizeValue,
-    required this.sizeUnit,
+    required this.sizeLabel,
     required this.color,
     required this.category,
+    this.uploaderName,
+    this.createdAt,
   });
 
   final String id;
   String name;
   final String typeLabel;
-  final double sizeValue;
-  final String sizeUnit;
+  final String sizeLabel;
   final Color color;
   String category;
-
-  String get sizeLabel {
-    final formatted = sizeValue == sizeValue.roundToDouble()
-        ? sizeValue.toStringAsFixed(0)
-        : sizeValue.toStringAsFixed(1);
-    return '$formatted $sizeUnit';
-  }
+  final String? uploaderName;
+  final DateTime? createdAt;
 }
 
 class TeacherLibrarySubject {
   TeacherLibrarySubject({
+    required this.id,
     required this.code,
     required this.name,
     required this.icon,
@@ -44,6 +38,7 @@ class TeacherLibrarySubject {
     required this.files,
   });
 
+  final String id;
   final String code;
   final String name;
   final IconData icon;
@@ -73,87 +68,6 @@ Color _colorForExtension(String ext) {
   }
 }
 
-List<TeacherLibrarySubject> _mockLibrarySubjects() => [
-  TeacherLibrarySubject(
-    code: 'AIOT-501',
-    name: 'AIoT สมาร์ตแล็บ',
-    icon: Icons.memory_rounded,
-    color: TeacherPalette.primary,
-    files: [
-      TeacherLibraryFile(
-        id: 'f1',
-        name: 'แผนการสอน_AIoT-501.pdf',
-        typeLabel: 'PDF',
-        sizeValue: 1.8,
-        sizeUnit: 'MB',
-        color: _colorForExtension('PDF'),
-        category: 'เอกสารประจำวิชา',
-      ),
-      TeacherLibraryFile(
-        id: 'f2',
-        name: 'โมเดล 3D_เซนเซอร์ PM2.5.glb',
-        typeLabel: '3D',
-        sizeValue: 5.6,
-        sizeUnit: 'MB',
-        color: _colorForExtension('GLB'),
-        category: 'บทที่ 13',
-      ),
-      TeacherLibraryFile(
-        id: 'f3',
-        name: 'สไลด์บรรยาย_สถาปัตยกรรมสมาร์ตสคูล.pptx',
-        typeLabel: 'PPT',
-        sizeValue: 3.2,
-        sizeUnit: 'MB',
-        color: _colorForExtension('PPTX'),
-        category: 'บทที่ 10',
-      ),
-    ],
-  ),
-  TeacherLibrarySubject(
-    code: 'PHYS-302',
-    name: 'ฟิสิกส์ประยุกต์',
-    icon: Icons.bolt_rounded,
-    color: TeacherPalette.skyDeep,
-    files: [
-      TeacherLibraryFile(
-        id: 'f4',
-        name: 'แผนการสอน_PHYS-302.pdf',
-        typeLabel: 'PDF',
-        sizeValue: 1.2,
-        sizeUnit: 'MB',
-        color: _colorForExtension('PDF'),
-        category: 'เอกสารประจำวิชา',
-      ),
-      TeacherLibraryFile(
-        id: 'f5',
-        name: 'สไลด์_การหักเหของแสง.pdf',
-        typeLabel: 'PDF',
-        sizeValue: 2.4,
-        sizeUnit: 'MB',
-        color: _colorForExtension('PDF'),
-        category: 'บทที่ 5',
-      ),
-    ],
-  ),
-  TeacherLibrarySubject(
-    code: 'MATH-401',
-    name: 'คณิตศาสตร์เพิ่มเติม',
-    icon: Icons.calculate_rounded,
-    color: TeacherPalette.orange,
-    files: [
-      TeacherLibraryFile(
-        id: 'f6',
-        name: 'ใบงาน_ความน่าจะเป็นและการจัดหมู่.pdf',
-        typeLabel: 'PDF',
-        sizeValue: 1.1,
-        sizeUnit: 'MB',
-        color: _colorForExtension('PDF'),
-        category: 'บทที่ 3',
-      ),
-    ],
-  ),
-];
-
 class TeacherKnowledgeLibraryPage extends StatefulWidget {
   const TeacherKnowledgeLibraryPage({super.key});
 
@@ -164,13 +78,154 @@ class TeacherKnowledgeLibraryPage extends StatefulWidget {
 
 class _TeacherKnowledgeLibraryPageState
     extends State<TeacherKnowledgeLibraryPage> {
-  late final List<TeacherLibrarySubject> _subjects = _mockLibrarySubjects();
+  bool _isLoading = true;
+  List<TeacherLibrarySubject> _subjects = [];
   int _selectedIndex = 0;
-  int _nextId = 100;
 
-  TeacherLibrarySubject get _selectedSubject => _subjects[_selectedIndex];
+  TeacherLibrarySubject? get _selectedSubject =>
+      _subjects.isNotEmpty && _selectedIndex < _subjects.length
+          ? _subjects[_selectedIndex]
+          : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLibraryData();
+  }
+
+  Future<void> _loadLibraryData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      if (AuthService.sessionToken != null) {
+        final courses = await CourseService.listMyCourses();
+        if (courses.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _subjects = [];
+              _isLoading = false;
+            });
+          }
+          return;
+        }
+
+        final subjectList = <TeacherLibrarySubject>[];
+        final paletteColors = [
+          TeacherPalette.primary,
+          TeacherPalette.skyDeep,
+          TeacherPalette.orange,
+          TeacherPalette.violet,
+        ];
+        final paletteIcons = [
+          Icons.memory_rounded,
+          Icons.bolt_rounded,
+          Icons.calculate_rounded,
+          Icons.biotech_rounded,
+        ];
+
+        for (var i = 0; i < courses.length; i++) {
+          final c = courses[i];
+          List<CourseFile> files = [];
+          try {
+            files = await CourseFileService.listFiles(c.id);
+          } catch (_) {}
+
+          final mappedFiles = files.map((f) {
+            final ext = f.fileName.contains('.')
+                ? f.fileName.split('.').last.toUpperCase()
+                : 'FILE';
+            return TeacherLibraryFile(
+              id: f.id,
+              name: f.fileName,
+              typeLabel: ext,
+              sizeLabel: f.formattedSize,
+              color: _colorForExtension(ext),
+              category: 'เอกสารประกอบการเรียน',
+              uploaderName: f.uploaderFullName,
+              createdAt: f.createdAt,
+            );
+          }).toList();
+
+          subjectList.add(
+            TeacherLibrarySubject(
+              id: c.id,
+              code: c.subjectName.split(' ').first,
+              name: c.subjectName,
+              icon: paletteIcons[i % paletteIcons.length],
+              color: paletteColors[i % paletteColors.length],
+              files: mappedFiles,
+            ),
+          );
+        }
+
+        if (mounted) {
+          setState(() {
+            _subjects = subjectList;
+            _isLoading = false;
+          });
+        }
+      } else {
+        _loadFallbackMock();
+      }
+    } catch (_) {
+      _loadFallbackMock();
+    }
+  }
+
+  void _loadFallbackMock() {
+    if (!mounted) return;
+    setState(() {
+      _subjects = [
+        TeacherLibrarySubject(
+          id: 'mock-1',
+          code: 'AIOT-501',
+          name: 'AIoT สมาร์ตแล็บ',
+          icon: Icons.memory_rounded,
+          color: TeacherPalette.primary,
+          files: [
+            TeacherLibraryFile(
+              id: 'f1',
+              name: 'แผนการสอน_AIoT-501.pdf',
+              typeLabel: 'PDF',
+              sizeLabel: '1.8 MB',
+              color: _colorForExtension('PDF'),
+              category: 'เอกสารประจำวิชา',
+            ),
+            TeacherLibraryFile(
+              id: 'f2',
+              name: 'โมเดล 3D_เซนเซอร์ PM2.5.glb',
+              typeLabel: '3D',
+              sizeLabel: '5.6 MB',
+              color: _colorForExtension('GLB'),
+              category: 'บทที่ 13',
+            ),
+          ],
+        ),
+        TeacherLibrarySubject(
+          id: 'mock-2',
+          code: 'PHYS-302',
+          name: 'ฟิสิกส์ประยุกต์',
+          icon: Icons.bolt_rounded,
+          color: TeacherPalette.skyDeep,
+          files: [
+            TeacherLibraryFile(
+              id: 'f4',
+              name: 'แผนการสอน_PHYS-302.pdf',
+              typeLabel: 'PDF',
+              sizeLabel: '1.2 MB',
+              color: _colorForExtension('PDF'),
+              category: 'เอกสารประจำวิชา',
+            ),
+          ],
+        ),
+      ];
+      _isLoading = false;
+    });
+  }
 
   Future<void> _openUploadSheet() async {
+    if (_subjects.isEmpty) return;
+
     final result = await showModalBottomSheet<_UploadResult>(
       context: context,
       isScrollControlled: true,
@@ -180,91 +235,138 @@ class _TeacherKnowledgeLibraryPageState
         initialSubjectIndex: _selectedIndex,
       ),
     );
+
     if (result == null || !mounted) return;
-    setState(() {
-      _subjects[result.subjectIndex].files.insert(
-        0,
-        TeacherLibraryFile(
-          id: 'f${_nextId++}',
-          name: result.fileName,
-          typeLabel: result.typeLabel,
-          sizeValue: result.sizeValue,
-          sizeUnit: result.sizeUnit,
-          color: _colorForExtension(result.typeLabel),
-          category: result.category.trim().isEmpty
-              ? 'ไม่ระบุหมวด'
-              : result.category.trim(),
+
+    final targetSubject = _subjects[result.subjectIndex];
+
+    if (AuthService.sessionToken != null && !targetSubject.id.startsWith('mock-')) {
+      // Real upload to Supabase Storage
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('กำลังอัปโหลด "${result.fileName}"...'),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        if (result.bytes != null) {
+          await CourseFileService.uploadFile(
+            courseId: targetSubject.id,
+            fileName: result.fileName,
+            bytes: result.bytes!,
+          );
+        }
+
+        await _loadLibraryData();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('อัปโหลด "${result.fileName}" สำเร็จแล้ว!'),
+              backgroundColor: const Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('อัปโหลดไฟล์ไม่สำเร็จ: $e'),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } else {
+      // Mock mode upload
+      setState(() {
+        targetSubject.files.insert(
+          0,
+          TeacherLibraryFile(
+            id: 'f_${DateTime.now().millisecondsSinceEpoch}',
+            name: result.fileName,
+            typeLabel: result.typeLabel,
+            sizeLabel: '${result.sizeValue.toStringAsFixed(1)} ${result.sizeUnit}',
+            color: _colorForExtension(result.typeLabel),
+            category: result.category.trim().isEmpty
+                ? 'ไม่ระบุหมวด'
+                : result.category.trim(),
+          ),
+        );
+        _selectedIndex = result.subjectIndex;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('อัปโหลด "${result.fileName}" สำเร็จ (ตัวอย่าง)'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
         ),
       );
-      _selectedIndex = result.subjectIndex;
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('อัปโหลด "${result.fileName}" สำเร็จ'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    }
   }
 
-  void _deleteFile(TeacherLibraryFile file) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('ลบไฟล์นี้?'),
-        content: Text('"${file.name}" จะถูกลบออกจากคลังความรู้ถาวร'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('ยกเลิก'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: TeacherPalette.red),
-            child: const Text('ลบ'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() => _selectedSubject.files.remove(file));
-  }
-
-  Future<void> _renameFile(TeacherLibraryFile file) async {
-    final controller = TextEditingController(text: file.name);
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('แก้ไขชื่อไฟล์'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            style: FilledButton.styleFrom(
-              backgroundColor: TeacherPalette.primary,
+  Future<void> _downloadFile(TeacherLibraryFile file) async {
+    if (AuthService.sessionToken != null && !file.id.startsWith('f')) {
+      try {
+        final url = await CourseFileService.getDownloadUrl(file.id);
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('เปิดลิงก์ดาวน์โหลด: "${file.name}"'),
+                backgroundColor: const Color(0xFF10B981),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('ไม่สามารถดาวน์โหลดไฟล์ได้: $e'),
+              backgroundColor: const Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
             ),
-            child: const Text('บันทึก'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (newName == null || newName.isEmpty || !mounted) return;
-    setState(() => file.name = newName);
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('กำลังเปิดไฟล์: "${file.name}"'),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final files = _selectedSubject.files;
+    if (_isLoading) {
+      return TeacherMockPageShell(
+        title: 'คลังความรู้',
+        activeMenuLabel: 'คลังความรู้',
+        builder: (context, isDesktop) => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    final currentSubject = _selectedSubject;
+    final files = currentSubject?.files ?? [];
 
     return TeacherMockPageShell(
       title: 'คลังความรู้',
@@ -273,7 +375,7 @@ class _TeacherKnowledgeLibraryPageState
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: FilledButton.icon(
-            onPressed: _openUploadSheet,
+            onPressed: _subjects.isEmpty ? null : _openUploadSheet,
             icon: const Icon(Icons.upload_file_rounded, size: 17),
             label: const Text('อัปโหลดไฟล์ใหม่'),
             style: FilledButton.styleFrom(
@@ -290,6 +392,37 @@ class _TeacherKnowledgeLibraryPageState
         ),
       ],
       builder: (context, isDesktop) {
+        if (_subjects.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: const Column(
+              children: [
+                Icon(
+                  Icons.school_outlined,
+                  size: 40,
+                  color: TeacherPalette.muted,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'ยังไม่มีรายวิชาที่สอนในระบบ',
+                  style: TextStyle(
+                    color: TeacherPalette.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -321,7 +454,7 @@ class _TeacherKnowledgeLibraryPageState
             ),
             const SizedBox(height: 16),
             Text(
-              '${files.length} ไฟล์ · ${_selectedSubject.name}',
+              '${files.length} ไฟล์ · ${currentSubject?.name ?? ""}',
               style: const TextStyle(
                 color: TeacherPalette.muted,
                 fontWeight: FontWeight.w700,
@@ -372,8 +505,7 @@ class _TeacherKnowledgeLibraryPageState
               for (final file in files) ...[
                 _LibraryFileCard(
                   file: file,
-                  onDelete: () => _deleteFile(file),
-                  onRename: () => _renameFile(file),
+                  onDownload: () => _downloadFile(file),
                 ),
                 const SizedBox(height: 10),
               ],
@@ -458,13 +590,11 @@ class _SubjectChip extends StatelessWidget {
 class _LibraryFileCard extends StatelessWidget {
   const _LibraryFileCard({
     required this.file,
-    required this.onDelete,
-    required this.onRename,
+    required this.onDownload,
   });
 
   final TeacherLibraryFile file;
-  final VoidCallback onDelete;
-  final VoidCallback onRename;
+  final VoidCallback onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -528,16 +658,10 @@ class _LibraryFileCard extends StatelessWidget {
               ),
             ),
             IconButton(
-              onPressed: onRename,
-              icon: const Icon(Icons.edit_outlined, size: 18),
-              color: TeacherPalette.muted,
-              tooltip: 'แก้ไขชื่อไฟล์',
-            ),
-            IconButton(
-              onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline_rounded, size: 18),
-              color: TeacherPalette.red,
-              tooltip: 'ลบไฟล์',
+              onPressed: onDownload,
+              icon: const Icon(Icons.download_rounded, size: 20),
+              color: TeacherPalette.primary,
+              tooltip: 'ดาวน์โหลดไฟล์',
             ),
           ],
         ),
@@ -554,6 +678,7 @@ class _UploadResult {
     required this.sizeValue,
     required this.sizeUnit,
     required this.category,
+    this.bytes,
   });
 
   final int subjectIndex;
@@ -562,6 +687,7 @@ class _UploadResult {
   final double sizeValue;
   final String sizeUnit;
   final String category;
+  final Uint8List? bytes;
 }
 
 class _UploadFileSheet extends StatefulWidget {
@@ -589,7 +715,7 @@ class _UploadFileSheetState extends State<_UploadFileSheet> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(withData: !kIsWeb);
+    final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) return;
     setState(() => _pickedFile = result.files.first);
   }
@@ -609,6 +735,7 @@ class _UploadFileSheetState extends State<_UploadFileSheet> {
         sizeValue: useKb ? file.size / 1024 : sizeMb,
         sizeUnit: useKb ? 'KB' : 'MB',
         category: _categoryCtrl.text,
+        bytes: file.bytes,
       ),
     );
   }

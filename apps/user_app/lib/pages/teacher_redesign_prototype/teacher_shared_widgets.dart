@@ -348,13 +348,42 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                 const SizedBox(width: 4),
               ],
               Expanded(
-                child: Text(
-                  widget.title,
-                  style: const TextStyle(
-                    color: TeacherPalette.ink,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 18,
-                  ),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: const TextStyle(
+                        color: TeacherPalette.ink,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: TeacherPalette.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: TeacherPalette.primary.withValues(alpha: 0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.school_rounded, size: 12, color: TeacherPalette.primary),
+                          SizedBox(width: 4),
+                          Text(
+                            'ครูผู้สอน',
+                            style: TextStyle(
+                              color: TeacherPalette.primary,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (widget.actions != null) ...widget.actions!,

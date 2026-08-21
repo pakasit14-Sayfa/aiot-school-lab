@@ -82,10 +82,44 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
       title: 'ยืนยันคะแนน G-Score',
       activeMenuLabel: 'ยืนยัน G-Score',
       builder: (context, isDesktop) {
-        return TeacherSectionCard(
-          title: 'รายการรออนุมัติคะแนน G-Score',
-          icon: Icons.stars_rounded,
-          child: _buildBody(),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.stars_rounded, size: 18, color: Color(0xFFD97706)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'G-Score: แต้มสะสม Gamification สำหรับนักเรียน โดยระบบจะคำนวณแต้มรออนุมัติเมื่อนักเรียนเรียนจบบทเรียน (+10) หรือส่งงานตรงเวลา (+15) '
+                      'และจะแสดงผลในโปรไฟล์ของนักเรียนเมื่อครูกดยืนยันแล้วเท่านั้น (ตามหลักการ ครูยืนยันขั้นสุดท้ายเสมอ)',
+                      style: TextStyle(
+                        color: Color(0xFF92400E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TeacherSectionCard(
+              title: 'รายการรออนุมัติคะแนน G-Score',
+              icon: Icons.stars_rounded,
+              child: _buildBody(),
+            ),
+          ],
         );
       },
     );

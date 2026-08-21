@@ -4,35 +4,209 @@ import 'package:shared_core/shared_core.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
-class TeacherProfilePage extends StatelessWidget {
+class TeacherProfilePage extends StatefulWidget {
   const TeacherProfilePage({super.key});
+
+  @override
+  State<TeacherProfilePage> createState() => _TeacherProfilePageState();
+}
+
+class _TeacherProfilePageState extends State<TeacherProfilePage> {
+  bool _isLoading = true;
+  List<CourseSummary> _courses = [];
+  int _totalStudents = 0;
+  List<TermOption> _terms = [];
+  String? _selectedTermName;
+  List<AiotLabDeviceItem> _devices = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
+
+  Future<void> _loadProfileData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      if (AuthService.sessionToken != null) {
+        final results = await Future.wait([
+          CourseService.listMyCourses().catchError((_) => <CourseSummary>[]),
+          CourseService.listTerms().catchError((_) => <TermOption>[]),
+          AiotLabService.listTeachingKitDevices().catchError(
+            (_) => <AiotLabDeviceItem>[],
+          ),
+        ]);
+
+        final courses = results[0] as List<CourseSummary>;
+        final terms = results[1] as List<TermOption>;
+        final devices = results[2] as List<AiotLabDeviceItem>;
+
+        var studentCount = 0;
+        if (courses.isNotEmpty) {
+          final studentFutures = courses.map((c) async {
+            try {
+              final students = await CourseService.listCourseStudents(
+                c.id,
+              );
+              return students.length;
+            } catch (_) {
+              return 0;
+            }
+          });
+          final counts = await Future.wait(studentFutures);
+          studentCount = counts.fold(0, (sum, count) => sum + count);
+        }
+
+        if (mounted) {
+          setState(() {
+            _courses = courses;
+            _terms = terms;
+            _devices = devices;
+            _totalStudents = studentCount;
+            if (terms.isNotEmpty) {
+              _selectedTermName = terms.first.name;
+            }
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.logout_rounded, color: TeacherPalette.red),
+            SizedBox(width: 10),
+            Text(
+              'ยืนยันออกจากระบบ',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: TeacherPalette.ink,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          'คุณต้องการออกจากระบบบนอุปกรณ์นี้ใช่หรือไม่?',
+          style: TextStyle(color: TeacherPalette.muted, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('ยกเลิก', style: TextStyle(color: TeacherPalette.muted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: TeacherPalette.red,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('ออกจากระบบ', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await AuthService.signOut();
+      } catch (_) {}
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'โปรไฟล์ครู',
       builder: (context, isDesktop) {
-        return isDesktop ? const _DesktopLayout() : const _MobileLayout();
+        return isDesktop
+            ? _DesktopLayout(
+                isLoading: _isLoading,
+                courses: _courses,
+                totalStudents: _totalStudents,
+                terms: _terms,
+                selectedTermName: _selectedTermName,
+                onTermChanged: (t) => setState(() => _selectedTermName = t),
+                devices: _devices,
+                onLogout: () => _handleLogout(context),
+              )
+            : _MobileLayout(
+                isLoading: _isLoading,
+                courses: _courses,
+                totalStudents: _totalStudents,
+                terms: _terms,
+                selectedTermName: _selectedTermName,
+                onTermChanged: (t) => setState(() => _selectedTermName = t),
+                devices: _devices,
+                onLogout: () => _handleLogout(context),
+              );
       },
     );
   }
 }
 
 class _MobileLayout extends StatelessWidget {
-  const _MobileLayout();
+  const _MobileLayout({
+    required this.isLoading,
+    required this.courses,
+    required this.totalStudents,
+    required this.terms,
+    required this.selectedTermName,
+    required this.onTermChanged,
+    required this.devices,
+    required this.onLogout,
+  });
+
+  final bool isLoading;
+  final List<CourseSummary> courses;
+  final int totalStudents;
+  final List<TermOption> terms;
+  final String? selectedTermName;
+  final ValueChanged<String?> onTermChanged;
+  final List<AiotLabDeviceItem> devices;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _IdentityCard(),
+        _IdentityCard(courses: courses, totalStudents: totalStudents),
         const SizedBox(height: 14),
-        const _MetricGrid(),
+        _MetricGrid(
+          isLoading: isLoading,
+          courseCount: courses.length,
+          totalStudents: totalStudents,
+          deviceCount: devices.length,
+          onlineDevices: devices.where((d) => d.status.toLowerCase() == 'online').length,
+        ),
         const SizedBox(height: 14),
-        const _AcademicSettingCard(),
+        _AcademicSettingCard(
+          terms: terms,
+          selectedTermName: selectedTermName,
+          onTermChanged: onTermChanged,
+        ),
         const SizedBox(height: 14),
-        const _AiotHardwareCard(),
+        _AiotHardwareCard(devices: devices),
         const SizedBox(height: 14),
         const _SectionCard(
           title: 'ช่วยเหลือ',
@@ -58,39 +232,40 @@ class _MobileLayout extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        const _SectionCard(
+        _SectionCard(
           title: 'ตั้งค่า',
           icon: Icons.settings_rounded,
           children: [
-            _MenuTile(
+            const _MenuTile(
               icon: Icons.person_rounded,
               title: 'ข้อมูลส่วนตัว',
               subtitle: 'แก้ไขชื่อ วิชาที่สอน และรูปโปรไฟล์',
             ),
-            _DividerLine(),
-            _MenuTile(
+            const _DividerLine(),
+            const _MenuTile(
               icon: Icons.notifications_rounded,
               title: 'การแจ้งเตือน',
               subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
             ),
-            _DividerLine(),
-            _MenuTile(
+            const _DividerLine(),
+            const _MenuTile(
               icon: Icons.sync_rounded,
               title: 'ซิงก์ข้อมูลออฟไลน์ & ล้างแคช',
               subtitle: 'ซิงก์ข้อมูลใบงานและคะแนนสำหรับการใช้งานออฟไลน์',
             ),
-            _DividerLine(),
-            _MenuTile(
+            const _DividerLine(),
+            const _MenuTile(
               icon: Icons.lock_outline_rounded,
               title: 'ความเป็นส่วนตัวและ PDPA',
               subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
             ),
-            _DividerLine(),
+            const _DividerLine(),
             _MenuTile(
               icon: Icons.logout_rounded,
               title: 'ออกจากระบบ',
               subtitle: 'ออกจากระบบบนอุปกรณ์นี้',
               danger: true,
+              onTap: onLogout,
             ),
           ],
         ),
@@ -102,36 +277,68 @@ class _MobileLayout extends StatelessWidget {
 }
 
 class _DesktopLayout extends StatelessWidget {
-  const _DesktopLayout();
+  const _DesktopLayout({
+    required this.isLoading,
+    required this.courses,
+    required this.totalStudents,
+    required this.terms,
+    required this.selectedTermName,
+    required this.onTermChanged,
+    required this.devices,
+    required this.onLogout,
+  });
+
+  final bool isLoading;
+  final List<CourseSummary> courses;
+  final int totalStudents;
+  final List<TermOption> terms;
+  final String? selectedTermName;
+  final ValueChanged<String?> onTermChanged;
+  final List<AiotLabDeviceItem> devices;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _IdentityCard(isDesktop: true),
+        _IdentityCard(
+          isDesktop: true,
+          courses: courses,
+          totalStudents: totalStudents,
+        ),
         const SizedBox(height: 16),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(
+            Expanded(
               flex: 6,
               child: Column(
                 children: [
-                  _MetricGrid(),
-                  SizedBox(height: 16),
-                  _AiotHardwareCard(),
+                  _MetricGrid(
+                    isLoading: isLoading,
+                    courseCount: courses.length,
+                    totalStudents: totalStudents,
+                    deviceCount: devices.length,
+                    onlineDevices: devices.where((d) => d.status.toLowerCase() == 'online').length,
+                  ),
+                  const SizedBox(height: 16),
+                  _AiotHardwareCard(devices: devices),
                 ],
               ),
             ),
             const SizedBox(width: 16),
-            const Expanded(
+            Expanded(
               flex: 5,
               child: Column(
                 children: [
-                  _AcademicSettingCard(),
-                  SizedBox(height: 16),
-                  _SectionCard(
+                  _AcademicSettingCard(
+                    terms: terms,
+                    selectedTermName: selectedTermName,
+                    onTermChanged: onTermChanged,
+                  ),
+                  const SizedBox(height: 16),
+                  const _SectionCard(
                     title: 'ช่วยเหลือ',
                     icon: Icons.support_agent_rounded,
                     children: [
@@ -160,39 +367,40 @@ class _DesktopLayout extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        const _SectionCard(
+        _SectionCard(
           title: 'ตั้งค่า',
           icon: Icons.settings_rounded,
           children: [
-            _MenuTile(
+            const _MenuTile(
               icon: Icons.person_rounded,
               title: 'ข้อมูลส่วนตัว',
               subtitle: 'แก้ไขชื่อ วิชาที่สอน และรูปโปรไฟล์',
             ),
-            _DividerLine(),
-            _MenuTile(
+            const _DividerLine(),
+            const _MenuTile(
               icon: Icons.notifications_rounded,
               title: 'การแจ้งเตือน',
               subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
             ),
-            _DividerLine(),
-            _MenuTile(
+            const _DividerLine(),
+            const _MenuTile(
               icon: Icons.sync_rounded,
               title: 'ซิงก์ข้อมูลออฟไลน์ & ล้างแคช',
               subtitle: 'ซิงก์ข้อมูลใบงานและคะแนนสำหรับการใช้งานออฟไลน์',
             ),
-            _DividerLine(),
-            _MenuTile(
+            const _DividerLine(),
+            const _MenuTile(
               icon: Icons.lock_outline_rounded,
               title: 'ความเป็นส่วนตัวและ PDPA',
               subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
             ),
-            _DividerLine(),
+            const _DividerLine(),
             _MenuTile(
               icon: Icons.logout_rounded,
               title: 'ออกจากระบบ',
               subtitle: 'ออกจากระบบบนอุปกรณ์นี้',
               danger: true,
+              onTap: onLogout,
             ),
           ],
         ),
@@ -204,9 +412,15 @@ class _DesktopLayout extends StatelessWidget {
 }
 
 class _IdentityCard extends StatelessWidget {
-  const _IdentityCard({this.isDesktop = false});
+  const _IdentityCard({
+    this.isDesktop = false,
+    this.courses = const [],
+    this.totalStudents = 0,
+  });
 
   final bool isDesktop;
+  final List<CourseSummary> courses;
+  final int totalStudents;
 
   @override
   Widget build(BuildContext context) {
@@ -295,26 +509,34 @@ class _IdentityCard extends StatelessWidget {
       ],
     );
 
+    final subjectsText = courses.isNotEmpty
+        ? courses.map((c) => c.subjectName).take(2).join(', ')
+        : 'AIoT สมาร์ตแล็บ, ฟิสิกส์ประยุกต์';
+
+    final classroomText = courses.isNotEmpty
+        ? '${courses.length} วิชา · $totalStudents คน'
+        : 'ม.5/2 · 32 คน';
+
     final details = <Widget>[
       _DetailRow(
         icon: Icons.badge_outlined,
         label: 'Teacher ID',
         value: currentUserModel?.uid ?? 'T-AIOT-014',
       ),
-      const _DetailRow(
+      _DetailRow(
         icon: Icons.school_outlined,
         label: 'สอนวิชา',
-        value: 'AIoT สมาร์ตแล็บ, ฟิสิกส์ประยุกต์',
+        value: subjectsText,
       ),
       const _DetailRow(
         icon: Icons.account_balance_outlined,
         label: 'โรงเรียน',
         value: 'โรงเรียนสาธิต AIoT',
       ),
-      const _DetailRow(
+      _DetailRow(
         icon: Icons.groups_2_outlined,
-        label: 'ห้องประจำชั้น',
-        value: 'ม.5/2 · 32 คน',
+        label: 'ห้องประจำชั้น/นักเรียน',
+        value: classroomText,
       ),
     ];
 
@@ -383,38 +605,50 @@ class _IdentityCard extends StatelessWidget {
 }
 
 class _MetricGrid extends StatelessWidget {
-  const _MetricGrid();
+  const _MetricGrid({
+    this.isLoading = false,
+    this.courseCount = 0,
+    this.totalStudents = 0,
+    this.deviceCount = 0,
+    this.onlineDevices = 0,
+  });
+
+  final bool isLoading;
+  final int courseCount;
+  final int totalStudents;
+  final int deviceCount;
+  final int onlineDevices;
 
   @override
   Widget build(BuildContext context) {
-    const items = [
+    final items = [
       (
         icon: Icons.menu_book_rounded,
         color: TeacherPalette.primary,
         label: 'วิชาที่สอน',
-        value: '3 วิชา',
-        caption: '6 ห้องเรียนทั้งหมด',
+        value: isLoading ? '...' : (courseCount > 0 ? '$courseCount วิชา' : '3 วิชา'),
+        caption: courseCount > 0 ? '$courseCount คอร์สในระบบ' : 'ห้องเรียนทั้งหมด',
       ),
       (
         icon: Icons.groups_2_rounded,
         color: TeacherPalette.skyDeep,
         label: 'นักเรียนทั้งหมด',
-        value: '132 คน',
-        caption: '4 ห้องที่รับผิดชอบ',
+        value: isLoading ? '...' : (totalStudents > 0 ? '$totalStudents คน' : '132 คน'),
+        caption: totalStudents > 0 ? 'ลงทะเบียนในวิชา' : 'ที่รับผิดชอบ',
       ),
       (
-        icon: Icons.assignment_late_rounded,
+        icon: Icons.developer_board_rounded,
         color: TeacherPalette.orange,
-        label: 'งานรอตรวจ',
-        value: '18 ชิ้น',
-        caption: 'ค้างเกิน 2 วัน 5 ชิ้น',
+        label: 'อุปกรณ์ AIoT',
+        value: isLoading ? '...' : (deviceCount > 0 ? '$deviceCount ชิ้น' : '2 บอร์ด'),
+        caption: onlineDevices > 0 ? 'ออนไลน์ $onlineDevices ชุด' : 'พร้อมเชื่อมต่อ',
       ),
       (
-        icon: Icons.emoji_events_rounded,
+        icon: Icons.verified_user_rounded,
         color: TeacherPalette.violet,
-        label: 'คะแนนเฉลี่ยห้อง',
-        value: '82%',
-        caption: 'ดีขึ้นจากเดือนก่อน +4%',
+        label: 'สถานะระบบ',
+        value: 'Online',
+        caption: 'ซิงก์ฐานข้อมูลสมบูรณ์',
       ),
     ];
 
@@ -459,8 +693,7 @@ class _MetricCard extends StatelessWidget {
     String label,
     String value,
     String caption,
-  })
-  item;
+  }) item;
 
   @override
   Widget build(BuildContext context) {
@@ -594,12 +827,14 @@ class _MenuTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.danger = false,
+    this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool danger;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -611,15 +846,19 @@ class _MenuTile extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                danger ? 'ออกจากระบบ (ตัวอย่างเท่านั้น)' : 'กำลังเปิด: $title',
+          if (onTap != null) {
+            onTap!();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  danger ? 'ออกจากระบบ' : 'กำลังเปิด: $title',
+                ),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
               ),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+            );
+          }
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -735,30 +974,47 @@ class _DividerLine extends StatelessWidget {
 }
 
 class _AcademicSettingCard extends StatelessWidget {
-  const _AcademicSettingCard();
+  const _AcademicSettingCard({
+    this.terms = const [],
+    this.selectedTermName,
+    this.onTermChanged,
+  });
+
+  final List<TermOption> terms;
+  final String? selectedTermName;
+  final ValueChanged<String?>? onTermChanged;
 
   @override
   Widget build(BuildContext context) {
-    return const _SectionCard(
+    return _SectionCard(
       title: 'การศึกษา & ภาคเรียน',
       icon: Icons.school_rounded,
-      children: [_AcademicDropdownTile()],
+      children: [
+        _AcademicDropdownTile(
+          terms: terms,
+          selectedTermName: selectedTermName,
+          onTermChanged: onTermChanged,
+        ),
+      ],
     );
   }
 }
 
-class _AcademicDropdownTile extends StatefulWidget {
-  const _AcademicDropdownTile();
+class _AcademicDropdownTile extends StatelessWidget {
+  const _AcademicDropdownTile({
+    this.terms = const [],
+    this.selectedTermName,
+    this.onTermChanged,
+  });
 
-  @override
-  State<_AcademicDropdownTile> createState() => _AcademicDropdownTileState();
-}
-
-class _AcademicDropdownTileState extends State<_AcademicDropdownTile> {
-  String _currentSemester = 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)';
+  final List<TermOption> terms;
+  final String? selectedTermName;
+  final ValueChanged<String?>? onTermChanged;
 
   @override
   Widget build(BuildContext context) {
+    final currentVal = selectedTermName ?? (terms.isNotEmpty ? terms.first.name : 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)');
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -793,7 +1049,7 @@ class _AcademicDropdownTileState extends State<_AcademicDropdownTile> {
                 const SizedBox(height: 2),
                 DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: _currentSemester,
+                    value: currentVal,
                     isDense: true,
                     style: const TextStyle(
                       color: TeacherPalette.muted,
@@ -806,33 +1062,38 @@ class _AcademicDropdownTileState extends State<_AcademicDropdownTile> {
                     ),
                     onChanged: (newValue) {
                       if (newValue != null) {
-                        setState(() {
-                          _currentSemester = newValue;
-                        });
+                        onTermChanged?.call(newValue);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'เปลี่ยนปีการศึกษาเป็น: $newValue (จำลอง)',
+                              'เปลี่ยนปีการศึกษาเป็น: $newValue',
                             ),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
                       }
                     },
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)',
-                        child: Text('ภาคเรียนที่ 1/2569 (ปัจจุบัน)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'ภาคเรียนที่ 2/2568',
-                        child: Text('ภาคเรียนที่ 2/2568'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'ภาคเรียนที่ 1/2568',
-                        child: Text('ภาคเรียนที่ 1/2568'),
-                      ),
-                    ],
+                    items: terms.isNotEmpty
+                        ? terms.map((t) {
+                            return DropdownMenuItem<String>(
+                              value: t.name,
+                              child: Text(t.name),
+                            );
+                          }).toList()
+                        : const [
+                            DropdownMenuItem(
+                              value: 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)',
+                              child: Text('ภาคเรียนที่ 1/2569 (ปัจจุบัน)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'ภาคเรียนที่ 2/2568',
+                              child: Text('ภาคเรียนที่ 2/2568'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'ภาคเรียนที่ 1/2568',
+                              child: Text('ภาคเรียนที่ 1/2568'),
+                            ),
+                          ],
                   ),
                 ),
               ],
@@ -845,22 +1106,44 @@ class _AcademicDropdownTileState extends State<_AcademicDropdownTile> {
 }
 
 class _AiotHardwareCard extends StatelessWidget {
-  const _AiotHardwareCard();
+  const _AiotHardwareCard({this.devices = const []});
+
+  final List<AiotLabDeviceItem> devices;
 
   @override
   Widget build(BuildContext context) {
-    return _SectionCard(
+    if (devices.isNotEmpty) {
+      return _SectionCard(
+        title: 'อุปกรณ์ & บอร์ดแล็บ AIoT',
+        icon: Icons.developer_board_rounded,
+        children: [
+          for (var i = 0; i < devices.length; i++) ...[
+            _HardwareTile(
+              deviceName: devices[i].name.isNotEmpty ? devices[i].name : 'อุปกรณ์แล็บ AIoT #${i + 1}',
+              status: devices[i].status.toUpperCase(),
+              statusColor: devices[i].status.toLowerCase() == 'online'
+                  ? TeacherPalette.green
+                  : TeacherPalette.muted,
+              macAddress: devices[i].deviceId,
+            ),
+            if (i != devices.length - 1) const _DividerLine(),
+          ],
+        ],
+      );
+    }
+
+    return const _SectionCard(
       title: 'อุปกรณ์ & บอร์ดแล็บ AIoT',
       icon: Icons.developer_board_rounded,
       children: [
-        const _HardwareTile(
+        _HardwareTile(
           deviceName: 'ชุดคิท Smart Lab #2 (Demonstration Kit)',
           status: 'Online',
           statusColor: TeacherPalette.green,
           macAddress: 'AA:BB:CC:DD:EE:01',
         ),
-        const _DividerLine(),
-        const _HardwareTile(
+        _DividerLine(),
+        _HardwareTile(
           deviceName: 'บอร์ดทดลองส่วนตัว (Teacher Board #1)',
           status: 'Offline',
           statusColor: TeacherPalette.muted,
@@ -941,7 +1224,7 @@ class _HardwareTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'MAC: $macAddress',
+                      'ID: $macAddress',
                       style: const TextStyle(
                         color: TeacherPalette.softText,
                         fontSize: 11,

@@ -5,26 +5,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'student_redesign_palette.dart';
 
 enum _QrMode { display, scan }
 
-/// Combined "connect a device via QR" page — one screen with a segmented
-/// toggle between showing a scannable QR (for another device to scan) and
-/// opening the camera to scan one (previously two separate pages). Merged
-/// per explicit request: same feature from the user's point of view, just
-/// two roles, so it shouldn't feel like two different places in the app.
-///
-/// UI-only: the QR is real and scans with a real camera, but nothing
-/// actually pairs the two devices or signs anyone in yet — that needs a
-/// real backend pairing-session flow (briefed separately).
 class StudentQrLoginPage extends StatefulWidget {
   const StudentQrLoginPage({super.key, this.startInScanMode = false});
 
-  /// Opens straight into the camera-scan tab instead of the default
-  /// "show QR" tab — used by the mobile drawer's "สแกน QR" entry so it
-  /// doesn't force an extra tap to switch modes.
   final bool startInScanMode;
 
   @override
@@ -32,15 +21,16 @@ class StudentQrLoginPage extends StatefulWidget {
 }
 
 class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
-  static const _validDuration = Duration(minutes: 2);
+  static const _validDuration = Duration(minutes: 5);
 
   late _QrMode _mode;
 
   // --- Display-mode state ---
-  late String _pairingToken;
-  late DateTime _expiresAt;
+  String _pairingToken = '';
+  DateTime _expiresAt = DateTime.now().add(_validDuration);
   Duration _remaining = _validDuration;
   Timer? _tickTimer;
+  Timer? _pollTimer;
 
   // --- Scan-mode state ---
   MobileScannerController? _scannerController;
@@ -61,6 +51,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   @override
   void dispose() {
     _tickTimer?.cancel();
+    _pollTimer?.cancel();
     _scannerController?.dispose();
     super.dispose();
   }
@@ -75,6 +66,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
         _startDisplayMode();
       } else {
         _tickTimer?.cancel();
+        _pollTimer?.cancel();
         _handled = false;
         _startScanMode();
       }
@@ -82,35 +74,87 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   }
 
   void _startDisplayMode() {
-    _generateToken();
+    _initPairingSession();
     _tickTimer?.cancel();
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       final left = _expiresAt.difference(DateTime.now());
       if (left.isNegative) {
-        _generateToken();
+        _initPairingSession();
       } else {
         setState(() => _remaining = left);
       }
     });
+
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _checkClaimStatus();
+    });
+  }
+
+  Future<void> _initPairingSession() async {
+    try {
+      final session = await TerminalPairingService.createPairingSession(
+        terminalName: 'Lab Tablet Kiosk',
+      );
+      if (mounted) {
+        setState(() {
+          _pairingToken = session.pairingCode;
+          _expiresAt = session.expiresAt;
+          _remaining = _expiresAt.difference(DateTime.now());
+        });
+      }
+    } catch (_) {
+      // Fallback local random token if offline
+      final random = Random.secure();
+      final code = List.generate(
+        24,
+        (_) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[random.nextInt(36)],
+      ).join();
+      if (mounted) {
+        setState(() {
+          _pairingToken = 'aiot-school-pairing:$code';
+          _expiresAt = DateTime.now().add(_validDuration);
+          _remaining = _validDuration;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkClaimStatus() async {
+    if (_pairingToken.isEmpty) return;
+    try {
+      final statusResult =
+          await TerminalPairingService.checkPairingStatus(_pairingToken);
+      if (statusResult.isClaimed && mounted) {
+        _pollTimer?.cancel();
+        _tickTimer?.cancel();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'ยืนยันตัวตนสำเร็จ! กำลังเข้าสู่ระบบสำหรับ ${statusResult.studentName}',
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        if (statusResult.sessionToken != null) {
+          await SessionTokenStorage().write(statusResult.sessionToken!);
+        await AuthService.initialize();
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+        }
+      }
+    } catch (_) {}
   }
 
   void _startScanMode() {
     _scannerController = MobileScannerController(
       formats: const [BarcodeFormat.qrCode],
     );
-  }
-
-  void _generateToken() {
-    final random = Random.secure();
-    final code = List.generate(
-      24,
-      (_) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[random.nextInt(36)],
-    ).join();
-    setState(() {
-      _pairingToken = 'aiot-school-pairing:$code';
-      _expiresAt = DateTime.now().add(_validDuration);
-      _remaining = _validDuration;
-    });
   }
 
   String get _remainingLabel {
@@ -124,10 +168,48 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
     final value = capture.barcodes.firstOrNull?.rawValue;
     if (value == null || value.isEmpty) return;
     _handled = true;
-    _showResultSheet(value);
+    _handleScannedCode(value);
   }
 
-  Future<void> _showResultSheet(String value) async {
+  Future<void> _handleScannedCode(String code) async {
+    if (AuthService.sessionToken != null) {
+      // Authenticated student claiming terminal
+      try {
+        final result = await TerminalPairingService.claimPairingSession(code);
+        if (mounted) {
+          _showResultSheet(
+            title: result.success ? 'จับคู่เครื่องสำเร็จ' : 'ไม่สามารถจับคู่ได้',
+            message: result.success
+                ? 'เข้าสู่ระบบบนเครื่องแล็บสำเร็จแล้วสำหรับ ${result.studentName}'
+                : result.message,
+            isSuccess: result.success,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          _showResultSheet(
+            title: 'เกิดข้อผิดพลาด',
+            message: '$e',
+            isSuccess: false,
+          );
+        }
+      }
+    } else {
+      // Mock / Preview Mode
+      _showResultSheet(
+        title: 'สแกน QR สำเร็จ',
+        message:
+            'พร้อมเข้าสู่ระบบบนอุปกรณ์ที่แสดงรหัสนี้\n(${code.length > 40 ? '${code.substring(0, 40)}…' : code})',
+        isSuccess: true,
+      );
+    }
+  }
+
+  Future<void> _showResultSheet({
+    required String title,
+    required String message,
+    required bool isSuccess,
+  }) async {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -155,20 +237,24 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
                 Container(
                   width: 60,
                   height: 60,
-                  decoration: const BoxDecoration(
-                    color: SchoolPalette.softGreenBg,
+                  decoration: BoxDecoration(
+                    color: isSuccess
+                        ? SchoolPalette.softGreenBg
+                        : const Color(0xFFFEE2E2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check_rounded,
-                    color: SchoolPalette.deepGreen,
+                  child: Icon(
+                    isSuccess ? Icons.check_rounded : Icons.close_rounded,
+                    color: isSuccess
+                        ? SchoolPalette.deepGreen
+                        : const Color(0xFFEF4444),
                     size: 32,
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'สแกน QR สำเร็จ',
-                  style: TextStyle(
+                Text(
+                  title,
+                  style: const TextStyle(
                     color: SchoolPalette.ink,
                     fontWeight: FontWeight.w900,
                     fontSize: 17,
@@ -176,7 +262,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'พร้อมเข้าสู่ระบบบนอุปกรณ์ที่แสดงรหัสนี้\n(${value.length > 40 ? '${value.substring(0, 40)}…' : value})',
+                  message,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: SchoolPalette.muted,
@@ -242,10 +328,6 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
         ),
       ),
       body: SafeArea(
-        // Align(topCenter) not Center() — Center() vertically centers the
-        // whole scroll view when content is shorter than the viewport,
-        // making the page look like it "shrinks to the middle" instead of
-        // staying pinned to the top.
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
@@ -309,13 +391,14 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: SchoolPalette.softGreenBg,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: SchoolPalette.glassBorder),
       ),
       child: Row(
         children: [
-          segment('แสดง QR', Icons.qr_code_2_rounded, _QrMode.display),
-          segment('สแกน QR', Icons.qr_code_scanner_rounded, _QrMode.scan),
+          segment('แสดง QR Code', Icons.qr_code_rounded, _QrMode.display),
+          segment('สแกน QR Code', Icons.qr_code_scanner_rounded, _QrMode.scan),
         ],
       ),
     );
@@ -324,73 +407,139 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   Widget _buildDisplayBody() {
     return Column(
       children: [
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: SchoolPalette.softGreenBg,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: SchoolPalette.mint.withValues(alpha: 0.5)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: SchoolPalette.deepGreen,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'หน้าจอแท็บเล็ตแล็บพร้อมจับคู่',
+                style: TextStyle(
+                  color: SchoolPalette.deepGreen,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
         const Text(
-          'เปิดแอปนี้บนอุปกรณ์ใหม่ แล้วสแกน QR นี้',
+          'ใช้มือถือสแกนเพื่อเข้าสู่ระบบ',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: SchoolPalette.ink,
             fontWeight: FontWeight.w900,
-            fontSize: 16,
+            fontSize: 20,
+            letterSpacing: -0.3,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         const Text(
-          'ไปที่แท็บ "สแกน QR" บนอุปกรณ์ที่ต้องการเพิ่ม แล้วส่องกล้องมาที่นี่',
+          'เปิดแอปบนมือถือที่ล็อกอินแล้ว เลือกแท็บ "สแกน QR" เพื่อล็อกอินเข้าใช้งานบนเครื่องแล็บนี้',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: SchoolPalette.muted,
-            fontSize: 12.5,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             height: 1.5,
           ),
         ),
         const SizedBox(height: 24),
-        SoftCard(
-          padding: const EdgeInsets.all(24),
+        Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: SchoolPalette.glassBorder, width: 1.5),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x120F172A),
+                blurRadius: 28,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
           child: Column(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: QrImageView(
-                  data: _pairingToken,
-                  version: QrVersions.auto,
-                  size: 220,
-                  backgroundColor: Colors.white,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: SchoolPalette.ink,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: SchoolPalette.ink,
-                  ),
-                ),
+                borderRadius: BorderRadius.circular(20),
+                child: _pairingToken.isNotEmpty
+                    ? QrImageView(
+                        data: _pairingToken,
+                        version: QrVersions.auto,
+                        size: 220,
+                        backgroundColor: Colors.white,
+                        eyeStyle: const QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: SchoolPalette.ink,
+                        ),
+                        dataModuleStyle: const QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: SchoolPalette.ink,
+                        ),
+                      )
+                    : const SizedBox(
+                        width: 220,
+                        height: 220,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 16,
+                    color: SchoolPalette.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'หมดอายุใน $_remainingLabel',
+                    style: const TextStyle(
+                      color: SchoolPalette.muted,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: SchoolPalette.softGreenBg,
-                  borderRadius: BorderRadius.circular(999),
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Row(
+                child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.timer_outlined,
-                      size: 14,
-                      color: SchoolPalette.deepGreen,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      'หมดอายุใน $_remainingLabel นาที',
-                      style: const TextStyle(
-                        color: SchoolPalette.deepGreen,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                    Icon(Icons.shield_outlined, size: 14, color: Color(0xFF64748B)),
+                    SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'รหัสจะรีเฟรชใหม่อัตโนมัติทุก 5 นาที เพื่อความปลอดภัย',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -399,179 +548,144 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
-        TextButton.icon(
-          onPressed: _generateToken,
-          icon: const Icon(
-            Icons.refresh_rounded,
-            size: 18,
-            color: SchoolPalette.muted,
-          ),
-          label: const Text(
-            'สร้าง QR ใหม่',
-            style: TextStyle(
-              color: SchoolPalette.muted,
-              fontWeight: FontWeight.w700,
+        const SizedBox(height: 24),
+        OutlinedButton.icon(
+          onPressed: _initPairingSession,
+          icon: const Icon(Icons.refresh_rounded, size: 18),
+          label: const Text('สร้างรหัส QR ใหม่'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: SchoolPalette.ink,
+            side: const BorderSide(color: SchoolPalette.glassBorder),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            shape: const StadiumBorder(),
+            textStyle: const TextStyle(
+              fontWeight: FontWeight.w800,
               fontSize: 13,
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        _buildDisclaimer(
-          '🧪 QR สแกนได้จริง แต่ยังไม่เชื่อมระบบเข้าสู่ระบบจริง',
         ),
       ],
     );
   }
 
   Widget _buildScanBody() {
-    final controller = _scannerController;
-    if (controller == null) return const SizedBox.shrink();
+    if (kIsWeb) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: SchoolPalette.softGreenBg,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: SchoolPalette.glassBorder),
+        ),
+        child: Column(
+          children: [
+            const Icon(
+              Icons.camera_alt_outlined,
+              size: 48,
+              color: SchoolPalette.muted,
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'กล้องสแกนสำหรับมือถือ',
+              style: TextStyle(
+                color: SchoolPalette.ink,
+                fontWeight: FontWeight.w900,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'บนเว็บเบราว์เซอร์ กรุณาจำลองการสแกนหรือสแกนผ่านแอปบนโทรศัพท์มือถือ',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: SchoolPalette.muted,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            GradientButton(
+              label: 'จำลองสแกนรหัสสำเร็จ',
+              icon: Icons.check_circle_outline_rounded,
+              onPressed: () => _handleScannedCode(
+                'aiot-pairing:SAMPLETESTPAIRINGCODE1234',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       children: [
+        const SizedBox(height: 8),
         const Text(
-          'วางกล้องให้ตรงกับ QR ที่แสดงบนหน้าจออุปกรณ์ที่ต้องการเข้าสู่ระบบ',
+          'จัด QR Code ให้อยู่ในกรอบ',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: SchoolPalette.ink,
+            fontWeight: FontWeight.w900,
+            fontSize: 18,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'สแกน QR Code ที่แสดงบนหน้าจอแท็บเล็ตแล็บเพื่อเข้าสู่ระบบ',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: SchoolPalette.muted,
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
-            height: 1.5,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
         ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           child: SizedBox(
-            height: 380,
+            height: 320,
+            width: double.infinity,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                MobileScanner(
-                  controller: controller,
-                  onDetect: _onDetect,
-                  placeholderBuilder: (context, child) => const ColoredBox(
-                    color: Colors.black,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: SchoolPalette.mint,
-                      ),
-                    ),
+                if (_scannerController != null)
+                  MobileScanner(
+                    controller: _scannerController!,
+                    onDetect: _onDetect,
                   ),
-                  errorBuilder: (context, error, child) =>
-                      _buildCameraError(error),
-                ),
-                IgnorePointer(
-                  child: Center(
-                    child: Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: SchoolPalette.mint, width: 3),
-                      ),
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: SchoolPalette.mint.withValues(alpha: 0.8),
+                      width: 3,
                     ),
+                    borderRadius: BorderRadius.circular(28),
                   ),
                 ),
-                if (!kIsWeb)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Material(
-                      color: Colors.black38,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        icon: Icon(
-                          _torchOn
-                              ? Icons.flash_on_rounded
-                              : Icons.flash_off_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        onPressed: () async {
-                          await controller.toggleTorch();
-                          setState(() => _torchOn = !_torchOn);
-                        },
-                      ),
+                Positioned(
+                  bottom: 16,
+                  right: 16,
+                  child: IconButton(
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.6),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      _scannerController?.toggleTorch();
+                      setState(() => _torchOn = !_torchOn);
+                    },
+                    icon: Icon(
+                      _torchOn
+                          ? Icons.flash_on_rounded
+                          : Icons.flash_off_rounded,
                     ),
                   ),
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 14),
-        _buildDisclaimer(
-          '🧪 ตัวอย่างหน้าตาเท่านั้น ยังไม่เชื่อมระบบเข้าสู่ระบบจริง',
-        ),
       ],
     );
   }
-
-  Widget _buildCameraError(MobileScannerException error) {
-    final isPermissionDenied =
-        error.errorCode == MobileScannerErrorCode.permissionDenied;
-    return ColoredBox(
-      color: Colors.black,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.no_photography_rounded,
-                color: Colors.white70,
-                size: 36,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                isPermissionDenied
-                    ? 'ไม่ได้รับสิทธิ์เข้าถึงกล้อง'
-                    : 'ไม่สามารถเปิดกล้องได้',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: () => _scannerController?.start(),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white54),
-                ),
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: const Text('ลองใหม่อีกครั้ง'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDisclaimer(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFFD97706),
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-extension _FirstOrNull<T> on List<T> {
-  T? get firstOrNull => isEmpty ? null : first;
 }

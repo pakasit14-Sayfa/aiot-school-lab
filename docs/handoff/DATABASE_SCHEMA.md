@@ -1,6 +1,6 @@
 # Database Schema (live dump from local Supabase, regenerated 2026-08-21)
 
-Total tables: 66
+Total tables: 69
 
 All tables have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
 
@@ -976,6 +976,44 @@ Foreign keys:
 - `created_by` → `users.id`
 - `student_id` → `users.id`
 
+## student_support_cases
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| school_id | uuid | NO |  |
+| student_id | uuid | NO |  |
+| course_id | uuid | YES |  |
+| category | text | NO | 'academic'::text |
+| risk_level | text | NO | 'medium'::text |
+| status | text | NO | 'open'::text |
+| title | text | NO |  |
+| notes | text | YES |  |
+| created_by | uuid | NO |  |
+| created_at | timestamp with time zone | NO | now() |
+| updated_at | timestamp with time zone | NO | now() |
+
+Foreign keys:
+- `course_id` → `courses.id`
+- `created_by` → `users.id`
+- `school_id` → `schools.id`
+- `student_id` → `users.id`
+
+## student_support_interventions
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| case_id | uuid | NO |  |
+| action_type | text | NO |  |
+| notes | text | NO |  |
+| recorded_by | uuid | NO |  |
+| created_at | timestamp with time zone | NO | now() |
+
+Foreign keys:
+- `case_id` → `student_support_cases.id`
+- `recorded_by` → `users.id`
+
 ## submission_attachments
 
 | column | type | nullable | default |
@@ -1023,6 +1061,22 @@ Foreign keys:
 - `assignment_id` → `assignments.id`
 - `group_id` → `student_groups.id`
 - `student_id` → `users.id`
+
+## terminal_pairing_sessions
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| pairing_code | text | NO |  |
+| terminal_name | text | YES |  |
+| status | text | NO | 'pending'::text |
+| session_token | text | YES |  |
+| claimed_by_user_id | uuid | YES |  |
+| created_at | timestamp with time zone | NO | now() |
+| expires_at | timestamp with time zone | NO |  |
+
+Foreign keys:
+- `claimed_by_user_id` → `users.id`
 
 ## terms
 
@@ -1130,7 +1184,7 @@ Foreign keys:
 
 # RPC Functions (public schema, callable via supabase.rpc)
 
-Total: 148
+Total: 156
 
 Almost every one takes `p_token text` as its first arg — the custom session token (see auth pattern in main handoff doc), validated internally via `get_session_actor(p_token)`. This is NOT Supabase Auth; there is no `auth.uid()`.
 
@@ -1144,6 +1198,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `add_lesson_material` | p_token text, p_lesson_id uuid, p_type material_type, p_title text, p_url text, p_sort_order inte... | TABLE(material_id uuid) |
 | `add_quiz_question` | p_token text, p_quiz_id uuid, p_type question_type, p_question text, p_points numeric, p_choices ... | TABLE(question_id uuid) |
 | `add_rubric_criterion` | p_token text, p_rubric_id uuid, p_name text, p_description text, p_max_score numeric, p_levels js... | TABLE(criterion_id uuid) |
+| `add_student_support_intervention` | p_token text, p_case_id uuid, p_action_type text, p_notes text | TABLE(intervention_id uuid) |
 | `approve_parent_link` | p_token text, p_parent_link_id uuid | void |
 | `assert_course_upload_access` | p_token text, p_course_id uuid | void |
 | `assert_lesson_upload_access` | p_token text, p_lesson_id uuid | void |
@@ -1153,6 +1208,8 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `auth_sign_out_all` | p_token text | integer |
 | `auth_validate_session` | p_token text | TABLE(user_id uuid, email character varying, first_name character varying, la... |
 | `auth_verify_login_otp` | p_otp_token text, p_otp_code text | TABLE(session_token text, user_id uuid, email character varying, first_name c... |
+| `check_terminal_pairing_status` | p_pairing_code text | TABLE(status text, session_token text, student_name text) |
+| `claim_terminal_pairing_session` | p_token text, p_pairing_code text | TABLE(success boolean, student_name text, message text) |
 | `close_emergency_event` | p_token text, p_event_id uuid, p_review_note text | void |
 | `close_incident_report` | p_token text, p_id uuid, p_resolution_type incident_resolution_type, p_resolution_note text | void |
 | `confirm_g_score` | p_token text, p_entry_id uuid | void |
@@ -1173,6 +1230,8 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `create_rubric` | p_token text, p_title text, p_description text, p_criteria jsonb | TABLE(rubric_id uuid) |
 | `create_staff_invitation` | p_token text, p_email text, p_role role_type, p_school_id uuid | TABLE(invitation_token text, expires_at timestamp with time zone) |
 | `create_student_group` | p_token text, p_course_id uuid, p_name text | uuid |
+| `create_student_support_case` | p_token text, p_student_id uuid, p_course_id uuid, p_category text, p_risk_level text, p_title te... | TABLE(case_id uuid) |
+| `create_terminal_pairing_session` | p_terminal_name text | TABLE(pairing_code text, expires_at timestamp with time zone) |
 | `delete_personal_task` | p_token text, p_task_id uuid | void |
 | `delete_student_group` | p_token text, p_group_id uuid | void |
 | `enroll_student` | p_token text, p_course_id uuid, p_student_id uuid | void |
@@ -1231,6 +1290,8 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `list_school_invitations` | p_token text, p_school_id uuid | TABLE(id uuid, email character varying, initial_role role_type, status invita... |
 | `list_school_users` | p_token text | TABLE(user_id uuid, first_name character varying, last_name character varying... |
 | `list_student_groups` | p_token text, p_course_id uuid | TABLE(id uuid, course_id uuid, name character varying, created_at timestamp w... |
+| `list_student_support_cases` | p_token text, p_course_id uuid, p_status text | TABLE(case_id uuid, student_id uuid, student_name text, student_email text, c... |
+| `list_student_support_interventions` | p_token text, p_case_id uuid | TABLE(intervention_id uuid, case_id uuid, action_type text, notes text, recor... |
 | `list_submissions` | p_token text, p_assignment_id uuid | TABLE(submission_id uuid, student_id uuid, student_first_name character varyi... |
 | `list_teaching_kit_command_history` | p_token text, p_limit integer | TABLE(command_id uuid, device_id uuid, device_name character varying, command... |
 | `list_teaching_kit_devices` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location char... |
@@ -1280,6 +1341,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `update_grade` | p_token text, p_grade_id uuid, p_score numeric, p_max_score numeric | void |
 | `update_lesson` | p_token text, p_lesson_id uuid, p_title text, p_content jsonb | void |
 | `update_lesson_progress` | p_token text, p_lesson_id uuid, p_progress_pct numeric | void |
+| `update_student_support_case_status` | p_token text, p_case_id uuid, p_status text, p_note text | void |
 | `update_user_profile` | p_token text, p_target_user_id uuid, p_first_name text, p_last_name text | void |
 | `update_user_role` | p_token text, p_target_user_id uuid, p_new_role role_type | void |
 | `verify_gateway_request` | p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_path text... | boolean |
