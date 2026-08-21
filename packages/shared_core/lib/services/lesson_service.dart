@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/lesson_model.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
@@ -80,6 +82,62 @@ class LessonService {
         'p_sort_order': sortOrder,
       },
     );
+  }
+
+  /// Uploads real bytes to the private `lesson-materials` Storage bucket
+  /// via a signed-upload URL minted by the lesson-material-upload Edge
+  /// Function, then registers it as a lesson material. [type] must be
+  /// one of the material_type enum values ('image', 'video', 'file') —
+  /// not 'link' which is reserved for the URL-paste path.
+  static Future<void> uploadMaterialFile({
+    required String lessonId,
+    required String fileName,
+    required Uint8List bytes,
+    required String type,
+    int sortOrder = 0,
+  }) async {
+    final uploadUrlResponse = await supabase.functions.invoke(
+      'lesson-material-upload',
+      body: {
+        'token': AuthService.sessionToken,
+        'lesson_id': lessonId,
+        'file_name': fileName,
+      },
+    );
+    final uploadData = uploadUrlResponse.data as Map<String, dynamic>?;
+    final storagePath = uploadData?['storage_path'] as String?;
+    final signedToken = uploadData?['token'] as String?;
+    if (storagePath == null || signedToken == null) {
+      throw Exception('upload_url_unavailable');
+    }
+
+    await supabase.storage
+        .from('lesson-materials')
+        .uploadBinaryToSignedUrl(storagePath, signedToken, bytes);
+
+    await addLessonMaterial(
+      lessonId: lessonId,
+      type: type,
+      title: fileName,
+      url: storagePath,
+      sortOrder: sortOrder,
+    );
+  }
+
+  /// Resolves an uploaded material (type != 'link') to a short-lived
+  /// signed download URL. External link materials should be launched
+  /// directly using their stored url instead of calling this.
+  static Future<String> getMaterialDownloadUrl(String materialId) async {
+    final response = await supabase.functions.invoke(
+      'lesson-material-download',
+      body: {'token': AuthService.sessionToken, 'material_id': materialId},
+    );
+    final data = response.data as Map<String, dynamic>?;
+    final signedUrl = data?['signed_url'] as String?;
+    if (signedUrl == null) {
+      throw Exception('download_url_unavailable');
+    }
+    return signedUrl;
   }
 
   static Future<void> linkLessonSensor({

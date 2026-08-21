@@ -144,8 +144,15 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
     }
   }
 
-  Future<void> _openUrl(String url) async {
+  Future<void> _openMaterial(LessonMaterial mat) async {
     try {
+      // Uploaded files (image/video/file) store a Storage path, not a
+      // directly-reachable URL — resolve a short-lived signed URL first.
+      // Only 'link' materials are already a real external URL.
+      final url = mat.type == 'link'
+          ? mat.url
+          : await LessonService.getMaterialDownloadUrl(mat.id);
+
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -156,7 +163,7 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('ไม่สามารถเปิดลิงก์ $url ได้'),
+          content: Text('ไม่สามารถเปิดไฟล์ได้: $e'),
           backgroundColor: const Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
@@ -436,7 +443,7 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
                           ),
                         ),
                         OutlinedButton.icon(
-                          onPressed: () => _openUrl(mat.url),
+                          onPressed: () => _openMaterial(mat),
                           icon: const Icon(Icons.open_in_new_rounded, size: 14),
                           label: const Text('เปิดอ่าน'),
                           style: OutlinedButton.styleFrom(

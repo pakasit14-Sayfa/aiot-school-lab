@@ -11,6 +11,8 @@
 // 9. Lesson Analytics Page (Summary cards, student progress table with Filters)
 // 10. Complete States (Loading, Empty, Auto-save status, Published edit warning)
 
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
@@ -1425,11 +1427,21 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
   /// [LessonService.getLesson] / the student view already read, while also
   /// keeping the full block list under `content.blocks` for a future richer
   /// student-side renderer — real content either way, nothing synthesized.
+  ///
+  /// Excludes heading blocks (already shown separately as the lesson
+  /// title on the student view — including them here just duplicates it)
+  /// and auto-generated "สื่อแนบ:" material-attachment blocks (the
+  /// material itself already shows in its own dedicated section).
   Map<String, dynamic> _serializeBlocksToContent(
     List<ContentBlockModel> blocks,
   ) {
     final bodyText = blocks
-        .where((b) => b.text.trim().isNotEmpty)
+        .where(
+          (b) =>
+              b.text.trim().isNotEmpty &&
+              b.type != ContentBlockType.heading &&
+              !b.text.trimLeft().startsWith('สื่อแนบ:'),
+        )
         .map((b) => b.text.trim())
         .join('\n\n');
     return {
@@ -1490,13 +1502,11 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
 
   // SPEC 5: Modern Upload Files Dialog (matching reference screenshot)
   //
-  // NOTE: attaching a real uploaded file (device bytes -> Supabase Storage
-  // -> stable URL) needs its own Storage bucket + signed-URL Edge Function,
-  // the same pattern CourseFileService already uses for course files — that
-  // backend doesn't exist yet for lesson materials. Rather than fake a
-  // successful upload with an unusable local path/filename as the "url",
-  // file picking here is display-only for now; only the URL-link path
-  // below actually persists via LessonService.addLessonMaterial.
+  // Real uploads go to the private `lesson-materials` Storage bucket via a
+  // signed URL minted by the lesson-material-upload Edge Function (same
+  // pattern as CourseFileService for course files) — see
+  // LessonService.uploadMaterialFile. Bytes are picked here and actually
+  // uploaded when the save button is pressed.
   void _openAddMaterialDialog() {
     final urlController = TextEditingController();
     final List<_UploadedFileItem> filesList = [];
@@ -1504,9 +1514,13 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
 
     Future<void> pickFiles(StateSetter setModalState) async {
       try {
-        final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+        final result = await FilePicker.platform.pickFiles(
+          allowMultiple: true,
+          withData: true,
+        );
         if (result != null && result.files.isNotEmpty) {
           for (final f in result.files) {
+            if (f.bytes == null) continue;
             final ext = f.extension?.toLowerCase() ?? '';
             String fileCategory = 'PDF';
             if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) {
@@ -1517,14 +1531,12 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
               fileCategory = 'DOC';
             }
 
-            // f.path is unavailable on web (throws on access) and even on
-            // native platforms a local device path isn't a URL anyone else
-            // can open — do not use it as the material url.
             final item = _UploadedFileItem(
               name: f.name,
               sizeBytes: f.size,
               typeCategory: fileCategory,
               url: '',
+              bytes: f.bytes,
               progress: 1.0,
               isCompleted: true,
             );
@@ -1884,53 +1896,77 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                           : () async {
                               final rawUrl = urlController.text.trim();
 
-                              if (rawUrl.isEmpty) {
+                              if (rawUrl.isEmpty && filesList.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
+                                  const SnackBar(
                                     content: Text(
-                                      filesList.isNotEmpty
-                                          ? 'ยังไม่รองรับการอัปโหลดไฟล์จากเครื่องโดยตรง กรุณาใช้ลิงก์ URL แทนก่อน'
-                                          : 'กรุณาใส่ลิงก์ URL ของสื่อการสอน',
+                                      'กรุณาเลือกไฟล์หรือใส่ลิงก์ URL ของสื่อการสอน',
                                     ),
-                                    backgroundColor: const Color(0xFFF59E0B),
+                                    backgroundColor: Color(0xFFF59E0B),
                                   ),
                                 );
                                 return;
                               }
 
                               setModalState(() => isUploading = true);
+                              final newMaterials = <LessonMaterialModel>[];
                               try {
-                                await LessonService.addLessonMaterial(
-                                  lessonId: widget.lesson.id,
-                                  type: 'link',
-                                  title: 'สื่อการสอนจากลิงก์ URL',
-                                  url: rawUrl,
-                                );
+                                for (final item in filesList) {
+                                  final bytes = item.bytes;
+                                  if (bytes == null) continue;
+                                  final matType = switch (item.typeCategory) {
+                                    'IMG' => 'image',
+                                    'VID' => 'video',
+                                    _ => 'file',
+                                  };
+                                  await LessonService.uploadMaterialFile(
+                                    lessonId: widget.lesson.id,
+                                    fileName: item.name,
+                                    bytes: bytes,
+                                    type: matType,
+                                  );
+                                  newMaterials.add(
+                                    LessonMaterialModel(
+                                      id: 'm-${DateTime.now().millisecondsSinceEpoch}-${item.name}',
+                                      title: item.name,
+                                      type: item.typeCategory == 'IMG'
+                                          ? 'รูปภาพ'
+                                          : (item.typeCategory == 'VID'
+                                                ? 'วิดีโอ'
+                                                : 'ไฟล์'),
+                                      url: '',
+                                    ),
+                                  );
+                                }
+
+                                if (rawUrl.isNotEmpty) {
+                                  await LessonService.addLessonMaterial(
+                                    lessonId: widget.lesson.id,
+                                    type: 'link',
+                                    title: 'สื่อการสอนจากลิงก์ URL',
+                                    url: rawUrl,
+                                  );
+                                  newMaterials.add(
+                                    LessonMaterialModel(
+                                      id: 'm-${DateTime.now().millisecondsSinceEpoch}',
+                                      title: 'สื่อการสอนจากลิงก์ URL',
+                                      type: 'ลิงก์',
+                                      url: rawUrl,
+                                    ),
+                                  );
+                                }
+
                                 if (!context.mounted) return;
                                 Navigator.pop(dialogCtx);
 
                                 setState(() {
-                                  final mat = LessonMaterialModel(
-                                    id: 'm-${DateTime.now().millisecondsSinceEpoch}',
-                                    title: 'สื่อการสอนจากลิงก์ URL',
-                                    type: 'ลิงก์',
-                                    url: rawUrl,
-                                  );
-                                  widget.lesson.materials.add(mat);
-                                  _blocks.add(
-                                    ContentBlockModel(
-                                      id: 'b-mat-${DateTime.now().millisecondsSinceEpoch}',
-                                      type: ContentBlockType.fileDownload,
-                                      text: 'สื่อแนบ: ${mat.title}',
-                                      mediaUrl: mat.url,
-                                    ),
-                                  );
+                                  for (final mat in newMaterials) {
+                                    widget.lesson.materials.add(mat);
+                                  }
                                 });
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text(
-                                      'แนบสื่อการสอนและแทรกในบทเรียนเรียบร้อยแล้ว',
-                                    ),
+                                    content: Text('แนบสื่อการสอนเรียบร้อยแล้ว'),
                                     backgroundColor: Color(0xFF10B981),
                                   ),
                                 );
@@ -3614,6 +3650,7 @@ class _UploadedFileItem {
     required this.sizeBytes,
     required this.typeCategory,
     required this.url,
+    this.bytes,
     this.progress = 1.0,
     this.isCompleted = true,
   });
@@ -3622,6 +3659,7 @@ class _UploadedFileItem {
   int sizeBytes;
   String typeCategory;
   String url;
+  Uint8List? bytes;
   double progress;
   bool isCompleted;
 }
