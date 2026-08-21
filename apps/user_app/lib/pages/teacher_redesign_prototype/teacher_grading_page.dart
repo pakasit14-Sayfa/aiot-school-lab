@@ -27,6 +27,7 @@ class _GradingItemMock {
     required this.bucket,
     this.isPublished = true,
     this.assignmentId,
+    this.courseId,
   });
 
   final String title;
@@ -38,6 +39,7 @@ class _GradingItemMock {
   final _GradingBucket bucket;
   // null = สร้างผ่านฟอร์ม "สร้างใบงาน" ในเครื่อง ยังไม่บันทึกลงเซิร์ฟเวอร์
   final String? assignmentId;
+  final String? courseId;
 
   /// ชั้นเรียนที่ตัดมาจากห้อง เช่น "ม.5/1" -> "ม.5" ใช้กรองแบบหยาบก่อน
   /// ค่อยกรองละเอียดเป็นห้องอีกที
@@ -134,6 +136,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
               bucket: bucket,
               isPublished: isPublished,
               assignmentId: a.id,
+              courseId: c.id,
             ),
           );
         }
@@ -1090,14 +1093,14 @@ class _GradingCard extends StatelessWidget {
                     }
                     // ASM-7: เปิดหน้ารายชื่อนักเรียนที่ส่งงาน → ให้คะแนน
                     // ทีละคนตาม Rubric จริง แทนที่จะเป็นแค่ mock action ลอยๆ
-                    // TODO(follow-up): ตัวหน้า TeacherSubmissionRosterPage
-                    // เองยังเป็น mock ทั้งหมด (Rubric/AI-suggestion ไม่มี
-                    // backend รองรับ) — ตอนนี้แค่ item ตัวนี้อ้างอิง
-                    // assignmentId จริงแล้ว ยังไม่ได้ส่งต่อเข้าไปในหน้าถัดไป
+                    // เชื่อมกับ AssignmentService/GradeService/RubricService
+                    // จริงแล้ว (2026-08-21)
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => TeacherSubmissionRosterPage(
+                          assignmentId: item.assignmentId!,
+                          courseId: item.courseId!,
                           worksheetTitle: item.title,
                           courseLabel: '${item.course} · ${item.room}',
                         ),

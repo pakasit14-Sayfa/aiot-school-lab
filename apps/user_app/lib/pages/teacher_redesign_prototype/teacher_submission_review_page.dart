@@ -1,12 +1,22 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
-//
 // ASM-7: ครูตรวจงานนักเรียนตาม Rubric — เปิดจากปุ่ม "ตรวจงาน"/"ดูผล" ใน
-// teacher_grading_page.dart (ก่อนหน้านี้ปุ่มนั้นเป็นแค่ showTeacherMockAction
-// ลอย ๆ ไม่มีหน้าเปิดงานนักเรียนแล้วให้คะแนนทีละเกณฑ์จริง) เพิ่มเมื่อ
-// 2026-08-16 — ดู student_redesign_prototype/NOTES.md ไม่เกี่ยว ดู
-// teacher_redesign_prototype/NOTES.md สำหรับที่มา
-
+// teacher_grading_page.dart. เชื่อมกับ AssignmentService/GradeService/
+// RubricService จริงแล้ว (2026-08-21) — เดิม mock ล้วน
+//
+// หมายเหตุสำคัญ: assignments.rubric_id มีในฐานข้อมูลแต่ไม่มี RPC ไหนตั้งค่า
+// นี้เลย (create_assignment/update_assignment ไม่รับ rubric_id) เกณฑ์การ
+// ประเมินเลยยัง "ผูกอัตโนมัติ" กับใบงานไม่ได้จริง — หน้านี้จึงให้ครูเลือก
+// Rubric เองจากรายการที่มี (ผ่าน RubricService.listMyRubrics) แทน ถ้าจะทำ
+// ให้ผูกอัตโนมัติในอนาคต ต้องเพิ่ม p_rubric_id ใน create_assignment/
+// update_assignment ก่อน (migration ใหม่ ไม่ใช่แก้ของเดิม)
+//
+// คุณสมบัติ AI ช่วยตรวจ (AI-1/AI-2/AI-9/AI-10 ในโค้ด mock เดิม) ไม่มี backend
+// รองรับเลย ตัดออกทั้งหมดจากหน้านี้ — ไม่ควรโชว์ AI suggestion ปลอมให้ครูเห็น
+//
+// ช่อง "ฉันเป็นผู้ปกครองของนักเรียนคนนี้ด้วย (CoI)" ในของเดิมก็ตัดออก เพราะ
+// create_grade ตรวจจับ CoI เองจาก parent_links ฝั่งเซิร์ฟเวอร์เสมอ (Decision
+// Log: coi_flag ต้องไม่ให้ client ตั้งเอง) ไม่ต้องมีช่องให้ครูติ๊กเลย
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart' hide RubricModel;
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart'
@@ -14,166 +24,42 @@ import 'teacher_rubric_page.dart'
 import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherStatusChip;
 
-RubricModel _mockAssignmentRubric() => RubricModel(
-  id: 'rubric-review-mock',
-  title: 'เกณฑ์ประเมินใบงาน/โครงงาน',
-  description: 'ใช้ประเมินใบงานทั่วไปที่ไม่ได้ผูก Rubric เฉพาะกิจกรรม',
-  scope: 'ใช้ร่วมข้ามวิชา',
-  isLocked: true,
-  usedCount: 0,
-  updatedAt: '-',
-  criteria: [
-    RubricCriterion(
-      id: 'c1',
-      title: 'ความถูกต้องของเนื้อหา/ข้อมูล',
-      maxPoints: 10,
-      levels: [
-        RubricLevel(
-          name: 'ดีมาก (10)',
-          score: 10,
-          description: 'ถูกต้องครบถ้วน มีการอ้างอิงข้อมูลจริงชัดเจน',
-        ),
-        RubricLevel(
-          name: 'ดี (8)',
-          score: 8,
-          description: 'ถูกต้องเป็นส่วนใหญ่ มีจุดคลาดเคลื่อนเล็กน้อย',
-        ),
-        RubricLevel(
-          name: 'พอใช้ (6)',
-          score: 6,
-          description: 'มีเนื้อหาถูกต้องบางส่วน ยังขาดรายละเอียด',
-        ),
-        RubricLevel(
-          name: 'ต้องปรับปรุง (4)',
-          score: 4,
-          description: 'เนื้อหาคลาดเคลื่อนมาก หรือไม่ตรงโจทย์',
-        ),
-      ],
-    ),
-    RubricCriterion(
-      id: 'c2',
-      title: 'การนำเสนอและความเรียบร้อย',
-      maxPoints: 10,
-      levels: [
-        RubricLevel(
-          name: 'ดีมาก (10)',
-          score: 10,
-          description: 'จัดรูปแบบเป็นระบบ อ่านง่าย มีภาพประกอบเหมาะสม',
-        ),
-        RubricLevel(
-          name: 'ดี (8)',
-          score: 8,
-          description: 'จัดรูปแบบเรียบร้อย อ่านเข้าใจได้',
-        ),
-        RubricLevel(
-          name: 'พอใช้ (6)',
-          score: 6,
-          description: 'จัดรูปแบบพอใช้ได้ มีจุดสับสนบ้าง',
-        ),
-        RubricLevel(
-          name: 'ต้องปรับปรุง (4)',
-          score: 4,
-          description: 'จัดรูปแบบไม่เป็นระบบ อ่านยาก',
-        ),
-      ],
-    ),
-  ],
-);
-
-class _SubmissionMock {
-  _SubmissionMock({
+class _RosterEntry {
+  _RosterEntry({
+    required this.studentId,
     required this.studentName,
-    required this.studentNo,
-    this.score,
-    this.feedback,
-    this.aiSuggestedLevelIndex,
-    this.aiSuggestedFeedback,
-    this.aiAnomalyNote,
-    this.aiUnavailableReason,
+    required this.submissionId,
   });
 
+  final String studentId;
   final String studentName;
-  final String studentNo;
-  double? score;
-  String? feedback;
-
-  // AI-1/AI-2: ดัชนีระดับ (index ใน RubricCriterion.levels) ที่ AI เสนอต่อ
-  // เกณฑ์แต่ละข้อ (key = criterion id) + ร่างข้อเสนอแนะที่ AI เขียนไว้ —
-  // เป็นแค่ "ข้อเสนอ" เสมอ ไม่มีผลจนกว่าครูจะยืนยัน (AI-1 BR1)
-  final Map<String, int>? aiSuggestedLevelIndex;
-  final String? aiSuggestedFeedback;
-
-  // AI-9: ธงเตือนคะแนนผิดปกติ (คำเตือนเฉยๆ ไม่บล็อก — BR1)
-  final String? aiAnomalyNote;
-
-  // AI-1 Exception 1: บางชนิดงาน (เช่นไฟล์วิดีโอ) AI วิเคราะห์ไม่ได้เลย
-  final String? aiUnavailableReason;
-
-  // AI-10: ร่องรอยเมื่อครูแก้ไขคะแนนจากที่ AI เสนอ
-  String? aiDeviationReason;
-  bool coiFlagged = false;
+  final String submissionId;
+  String? gradeId;
+  num? score;
+  num? maxScore;
+  bool confirmed = false;
 
   bool get isGraded => score != null;
-  bool get hasAiSuggestion => aiSuggestedLevelIndex != null;
 }
 
-List<_SubmissionMock> _mockSubmissions() => [
-  _SubmissionMock(
-    studentName: 'ด.ช. ธนกร ใจดี',
-    studentNo: 'เลขที่ 1',
-    aiSuggestedLevelIndex: const {'c1': 0, 'c2': 1},
-    aiSuggestedFeedback:
-        'อธิบายข้อมูลเซนเซอร์ได้ถูกต้องและครบถ้วนมาก ลองเพิ่มภาพประกอบ'
-        'ให้จัดวางเป็นระบบขึ้นอีกนิดจะดียิ่งขึ้น',
-  ),
-  _SubmissionMock(
-    studentName: 'ด.ญ. พิมพ์ชนก แสงทอง',
-    studentNo: 'เลขที่ 2',
-    aiSuggestedLevelIndex: const {'c1': 0, 'c2': 0},
-    aiSuggestedFeedback: 'ทำได้ดีมากทั้งเนื้อหาและการนำเสนอ',
-    aiAnomalyNote:
-        'คะแนนที่เสนอ (20/20) สูงกว่าค่าเฉลี่ยของห้องนี้มาก ควรตรวจสอบเพิ่มเติมก่อนยืนยัน',
-  ),
-  _SubmissionMock(
-    studentName: 'ด.ช. ปารมี ศรีสุข',
-    studentNo: 'เลขที่ 3',
-    score: 18,
-    feedback: 'ทำได้ดีมาก อธิบายข้อมูลเซนเซอร์ได้ชัดเจน',
-  ),
-  _SubmissionMock(
-    studentName: 'ด.ญ. กัญญาพัชร รุ่งเรือง',
-    studentNo: 'เลขที่ 4',
-    aiUnavailableReason: 'ส่งงานเป็นไฟล์วิดีโอ — AI วิเคราะห์รูปแบบนี้ไม่ได้',
-  ),
-  _SubmissionMock(
-    studentName: 'ด.ช. กิตติศักดิ์ ขยันยิ่ง',
-    studentNo: 'เลขที่ 5',
-    score: 14,
-    feedback: 'เนื้อหาถูกต้อง แต่การนำเสนอควรจัดรูปแบบให้เป็นระบบกว่านี้',
-  ),
-];
-
 class _ScoringResult {
-  _ScoringResult({
-    required this.score,
-    required this.feedback,
-    required this.coiFlagged,
-    this.aiDeviationReason,
-  });
+  _ScoringResult({required this.score, required this.feedback});
 
   final double score;
   final String feedback;
-  final bool coiFlagged;
-  final String? aiDeviationReason;
 }
 
 class TeacherSubmissionRosterPage extends StatefulWidget {
   const TeacherSubmissionRosterPage({
     super.key,
+    required this.assignmentId,
+    required this.courseId,
     required this.worksheetTitle,
     required this.courseLabel,
   });
 
+  final String assignmentId;
+  final String courseId;
   final String worksheetTitle;
   final String courseLabel;
 
@@ -184,25 +70,171 @@ class TeacherSubmissionRosterPage extends StatefulWidget {
 
 class _TeacherSubmissionRosterPageState
     extends State<TeacherSubmissionRosterPage> {
-  late final List<_SubmissionMock> _submissions = _mockSubmissions();
-  late final RubricModel _rubric = _mockAssignmentRubric();
+  bool _loading = true;
+  String? _loadError;
+  List<_RosterEntry> _roster = [];
 
-  int get _gradedCount => _submissions.where((s) => s.isGraded).length;
+  List<dynamic> _rubricSummaries = []; // shared_core RubricModel, unnamed on purpose (hidden import)
+  RubricModel? _selectedRubric;
+  bool _loadingRubric = false;
 
-  Future<void> _openScoring(_SubmissionMock submission) async {
+  int get _gradedCount => _roster.where((s) => s.isGraded).length;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final results = await Future.wait([
+        AssignmentService.listSubmissions(widget.assignmentId),
+        RubricService.listMyRubrics(),
+      ]);
+      final submissions = (results[0] as List<SubmissionRoster>)
+          .where((s) => s.status != 'not_submitted')
+          .toList();
+
+      // ตั้งใจไม่ดึง GradeService.listCourseGrades มา cross-reference สถานะ
+      // "ตรวจแล้ว" ให้ตอนโหลดหน้า — grades ผูกกับ student_id+course_id
+      // เท่านั้น ไม่มี assignment_id เลย (ไม่มีคอลัมน์นี้ในตาราง grades) ถ้า
+      // วิชานี้มีหลายใบงาน จะแยกไม่ออกว่าคะแนนที่เจอเป็นของใบงานไหน เอามาโชว์
+      // ตรงนี้เสี่ยงโชว์คะแนนใบงานอื่นทับใบงานนี้ผิดๆ — ปลอดภัยกว่าที่จะให้
+      // ครูเห็นสถานะ "ตรวจแล้ว" เฉพาะที่ให้คะแนนจริงในเซสชันนี้เท่านั้น
+      // (ตามด้วยการ์ดในหน้า "คะแนนของฉัน"/"ผลการเรียน" อื่นแทน) ถ้าจะทำให้
+      // ถูกต้องสมบูรณ์ ต้องเพิ่มคอลัมน์ assignment_id ในตาราง grades ก่อน
+      final roster = submissions.map((s) {
+        return _RosterEntry(
+          studentId: s.studentId,
+          studentName: '${s.studentFirstName} ${s.studentLastName}',
+          submissionId: s.submissionId,
+        );
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _roster = roster;
+        _rubricSummaries = results[1] as List;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดรายชื่อนักเรียนไม่สำเร็จ: $e';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _pickRubric(String rubricId) async {
+    setState(() => _loadingRubric = true);
+    try {
+      final d = await RubricService.getRubric(rubricId);
+      final rubric = RubricModel(
+        id: d.id,
+        title: d.title,
+        description: d.description ?? '',
+        scope: 'เกณฑ์การประเมินโรงเรียน',
+        isLocked: false,
+        usedCount: 0,
+        updatedAt: '-',
+        criteria: d.criteria
+            .map(
+              (c) => RubricCriterion(
+                id: c.id,
+                title: c.name,
+                maxPoints: c.maxScore.toDouble(),
+                levels: (c.levels ?? []).map((l) {
+                  final map = l as Map<String, dynamic>;
+                  return RubricLevel(
+                    name: map['name'] as String? ?? '',
+                    score: (map['score'] as num?)?.toDouble() ?? 0.0,
+                    description: map['description'] as String? ?? '',
+                  );
+                }).toList(),
+              ),
+            )
+            .toList(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _selectedRubric = rubric;
+        _loadingRubric = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingRubric = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('โหลดเกณฑ์ไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _openScoring(_RosterEntry entry) async {
+    final rubric = _selectedRubric;
+    if (rubric == null) return;
     final result = await showModalBottomSheet<_ScoringResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ScoringSheet(rubric: _rubric, submission: submission),
+      builder: (_) => _ScoringSheet(rubric: rubric, studentName: entry.studentName),
     );
     if (result == null || !mounted) return;
-    setState(() {
-      submission.score = result.score;
-      submission.feedback = result.feedback;
-      submission.coiFlagged = result.coiFlagged;
-      submission.aiDeviationReason = result.aiDeviationReason;
-    });
+
+    try {
+      String gradeId;
+      if (entry.gradeId == null) {
+        gradeId = await GradeService.createGrade(
+          studentId: entry.studentId,
+          courseId: widget.courseId,
+          score: result.score,
+          maxScore: rubric.totalMaxPoints,
+        );
+      } else {
+        gradeId = entry.gradeId!;
+        await GradeService.updateGrade(
+          gradeId: gradeId,
+          score: result.score,
+          maxScore: rubric.totalMaxPoints,
+        );
+      }
+      if (result.feedback.isNotEmpty) {
+        await AssignmentService.giveFeedback(
+          submissionId: entry.submissionId,
+          body: result.feedback,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        entry.gradeId = gradeId;
+        entry.score = result.score;
+        entry.maxScore = rubric.totalMaxPoints;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('บันทึกคะแนนไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _confirmGrade(_RosterEntry entry) async {
+    if (entry.gradeId == null) return;
+    try {
+      await GradeService.confirmGrade(entry.gradeId!);
+      if (!mounted) return;
+      setState(() => entry.confirmed = true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ยืนยันคะแนนไม่สำเร็จ: $e')));
+    }
   }
 
   @override
@@ -211,6 +243,22 @@ class _TeacherSubmissionRosterPageState
       title: 'ตรวจงาน: ${widget.worksheetTitle}',
       activeMenuLabel: 'ตรวจงาน',
       builder: (context, isDesktop) {
+        if (_loading) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(_loadError!),
+            ),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -224,7 +272,8 @@ class _TeacherSubmissionRosterPageState
             ),
             const SizedBox(height: 4),
             Text(
-              'ตรวจแล้ว $_gradedCount / ${_submissions.length} คน · เกณฑ์: ${_rubric.title}',
+              'ตรวจแล้ว $_gradedCount / ${_roster.length} คน'
+              '${_selectedRubric != null ? ' · เกณฑ์: ${_selectedRubric!.title}' : ''}',
               style: const TextStyle(
                 color: TeacherPalette.ink,
                 fontSize: 13.5,
@@ -232,27 +281,41 @@ class _TeacherSubmissionRosterPageState
               ),
             ),
             const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: TeacherPalette.border),
-              ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < _submissions.length; i++) ...[
-                    if (i != 0) const Divider(height: 22),
-                    _RosterRow(
-                      submission: _submissions[i],
-                      maxScore: _rubric.totalMaxPoints,
-                      onTap: () => _openScoring(_submissions[i]),
-                    ),
-                  ],
-                ],
-              ),
+            _RubricPicker(
+              rubrics: _rubricSummaries,
+              selectedId: _selectedRubric?.id,
+              loading: _loadingRubric,
+              onSelect: _pickRubric,
             ),
+            const SizedBox(height: 16),
+            if (_roster.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text('ยังไม่มีนักเรียนส่งงานนี้'),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: TeacherPalette.border),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < _roster.length; i++) ...[
+                      if (i != 0) const Divider(height: 22),
+                      _RosterRow(
+                        entry: _roster[i],
+                        canScore: _selectedRubric != null,
+                        onScore: () => _openScoring(_roster[i]),
+                        onConfirm: () => _confirmGrade(_roster[i]),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
           ],
         );
       },
@@ -260,214 +323,225 @@ class _TeacherSubmissionRosterPageState
   }
 }
 
-class _RosterRow extends StatelessWidget {
-  const _RosterRow({
-    required this.submission,
-    required this.maxScore,
-    required this.onTap,
+class _RubricPicker extends StatelessWidget {
+  const _RubricPicker({
+    required this.rubrics,
+    required this.selectedId,
+    required this.loading,
+    required this.onSelect,
   });
 
-  final _SubmissionMock submission;
-  final double maxScore;
-  final VoidCallback onTap;
+  final List<dynamic> rubrics;
+  final String? selectedId;
+  final bool loading;
+  final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: submission.isGraded
-                    ? const Color(0xFFECFDF5)
-                    : const Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                submission.isGraded
-                    ? Icons.check_circle_rounded
-                    : Icons.person_outline_rounded,
-                size: 18,
-                color: submission.isGraded
-                    ? const Color(0xFF10B981)
-                    : TeacherPalette.muted,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    submission.studentName,
-                    style: const TextStyle(
-                      color: TeacherPalette.ink,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    submission.studentNo,
-                    style: const TextStyle(
-                      color: TeacherPalette.muted,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (!submission.isGraded && submission.hasAiSuggestion) ...[
-                    const SizedBox(height: 3),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_awesome_rounded,
-                          size: 12,
-                          color: Color(0xFF7C3AED),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          submission.aiAnomalyNote != null
-                              ? 'AI เสนอคะแนนแล้ว · ควรตรวจสอบเพิ่มเติม'
-                              : 'AI เสนอคะแนนแล้ว รอครูตรวจสอบ',
-                          style: TextStyle(
-                            color: submission.aiAnomalyNote != null
-                                ? const Color(0xFFD97706)
-                                : const Color(0xFF7C3AED),
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (!submission.isGraded &&
-                      submission.aiUnavailableReason != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      submission.aiUnavailableReason!,
-                      style: const TextStyle(
-                        color: TeacherPalette.muted,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w600,
-                        fontStyle: FontStyle.italic,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: TeacherPalette.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.rule_folder_outlined,
+            size: 18,
+            color: TeacherPalette.muted,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: rubrics.isEmpty
+                ? const Text(
+                    'ยังไม่มีเกณฑ์การประเมิน (Rubric) ในระบบ — สร้างที่หน้า Rubric ก่อน',
+                    style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+                  )
+                : DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedId,
+                      hint: const Text(
+                        'เลือกเกณฑ์การประเมิน (Rubric) ก่อนให้คะแนน',
+                        style: TextStyle(fontSize: 12.5),
                       ),
+                      items: [
+                        for (final r in rubrics)
+                          DropdownMenuItem<String>(
+                            value: r.id as String,
+                            child: Text(
+                              r.title as String,
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                      ],
+                      onChanged: loading
+                          ? null
+                          : (v) {
+                              if (v != null) onSelect(v);
+                            },
                     ),
-                  ],
-                ],
+                  ),
+          ),
+          if (loading)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RosterRow extends StatelessWidget {
+  const _RosterRow({
+    required this.entry,
+    required this.canScore,
+    required this.onScore,
+    required this.onConfirm,
+  });
+
+  final _RosterEntry entry;
+  final bool canScore;
+  final VoidCallback onScore;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: entry.isGraded
+                  ? const Color(0xFFECFDF5)
+                  : const Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              entry.isGraded
+                  ? Icons.check_circle_rounded
+                  : Icons.person_outline_rounded,
+              size: 18,
+              color: entry.isGraded
+                  ? const Color(0xFF10B981)
+                  : TeacherPalette.muted,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.studentName,
+                  style: const TextStyle(
+                    color: TeacherPalette.ink,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (entry.isGraded && entry.confirmed)
+                  const Text(
+                    'ยืนยันคะแนนแล้ว',
+                    style: TextStyle(
+                      color: Color(0xFF10B981),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (entry.isGraded)
+            TeacherStatusChip(
+              label:
+                  '${entry.score!.toStringAsFixed(0)}/${entry.maxScore!.toStringAsFixed(0)}',
+              color: const Color(0xFF10B981),
+            ),
+          const SizedBox(width: 8),
+          if (entry.isGraded && !entry.confirmed) ...[
+            OutlinedButton(
+              onPressed: canScore ? onScore : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+              child: const Text('แก้ไข', style: TextStyle(fontSize: 12)),
+            ),
+            const SizedBox(width: 6),
+            ElevatedButton(
+              onPressed: onConfirm,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: TeacherPalette.primary,
+                foregroundColor: Colors.white,
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'ยืนยัน',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
               ),
             ),
-            if (submission.isGraded)
-              TeacherStatusChip(
-                label:
-                    '${submission.score!.toStringAsFixed(0)}/${maxScore.toStringAsFixed(0)}',
-                color: const Color(0xFF10B981),
-              ),
-            const SizedBox(width: 8),
+          ] else if (!entry.isGraded)
             ElevatedButton(
-              onPressed: onTap,
+              onPressed: canScore ? onScore : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: submission.isGraded
-                    ? Colors.white
-                    : TeacherPalette.primary,
-                foregroundColor: submission.isGraded
-                    ? TeacherPalette.primary
-                    : Colors.white,
-                side: submission.isGraded
-                    ? const BorderSide(color: TeacherPalette.border)
-                    : null,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
+                backgroundColor: TeacherPalette.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 minimumSize: Size.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: Text(
-                submission.isGraded ? 'แก้คะแนน' : 'ให้คะแนน',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                ),
+              child: const Text(
+                'ให้คะแนน',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
 class _ScoringSheet extends StatefulWidget {
-  const _ScoringSheet({required this.rubric, required this.submission});
+  const _ScoringSheet({required this.rubric, required this.studentName});
 
   final RubricModel rubric;
-  final _SubmissionMock submission;
+  final String studentName;
 
   @override
   State<_ScoringSheet> createState() => _ScoringSheetState();
 }
 
 class _ScoringSheetState extends State<_ScoringSheet> {
-  // key = criterion id, value = ระดับที่เลือก (null = ยังไม่เลือก)
   late final Map<String, RubricLevel?> _selected = {
     for (final c in widget.rubric.criteria) c.id: null,
   };
-  late final TextEditingController _feedbackCtrl = TextEditingController(
-    text: widget.submission.feedback ?? '',
-  );
-  late final TextEditingController _deviationReasonCtrl =
-      TextEditingController();
-  late bool _coiFlagged = widget.submission.coiFlagged;
+  final TextEditingController _feedbackCtrl = TextEditingController();
 
   double get _total =>
       _selected.values.fold(0.0, (sum, level) => sum + (level?.score ?? 0));
 
   bool get _allScored => _selected.values.every((v) => v != null);
 
-  // AI-9/AI-10: ครูเลือกต่างจากที่ AI เสนอในเกณฑ์ไหนบ้าง (นับเฉพาะเกณฑ์ที่
-  // ให้คะแนนแล้ว) — ใช้ตัดสินว่าต้องโชว์ช่องเหตุผลการแก้ไขไหม
-  bool get _deviatedFromAi {
-    final aiSuggestion = widget.submission.aiSuggestedLevelIndex;
-    if (aiSuggestion == null) return false;
-    for (final criterion in widget.rubric.criteria) {
-      final picked = _selected[criterion.id];
-      if (picked == null) continue;
-      final suggestedIndex = aiSuggestion[criterion.id];
-      if (suggestedIndex == null) continue;
-      if (criterion.levels.indexOf(picked) != suggestedIndex) return true;
-    }
-    return false;
-  }
-
-  void _applyAiSuggestion() {
-    final aiSuggestion = widget.submission.aiSuggestedLevelIndex;
-    if (aiSuggestion == null) return;
-    setState(() {
-      for (final criterion in widget.rubric.criteria) {
-        final idx = aiSuggestion[criterion.id];
-        if (idx != null && idx < criterion.levels.length) {
-          _selected[criterion.id] = criterion.levels[idx];
-        }
-      }
-      if (_feedbackCtrl.text.trim().isEmpty &&
-          widget.submission.aiSuggestedFeedback != null) {
-        _feedbackCtrl.text = widget.submission.aiSuggestedFeedback!;
-      }
-    });
-  }
-
   @override
   void dispose() {
     _feedbackCtrl.dispose();
-    _deviationReasonCtrl.dispose();
     super.dispose();
   }
 
@@ -475,16 +549,7 @@ class _ScoringSheetState extends State<_ScoringSheet> {
     if (!_allScored) return;
     Navigator.pop(
       context,
-      _ScoringResult(
-        score: _total,
-        feedback: _feedbackCtrl.text.trim(),
-        coiFlagged: _coiFlagged,
-        aiDeviationReason: _deviatedFromAi
-            ? (_deviationReasonCtrl.text.trim().isEmpty
-                  ? null
-                  : _deviationReasonCtrl.text.trim())
-            : null,
-      ),
+      _ScoringResult(score: _total, feedback: _feedbackCtrl.text.trim()),
     );
   }
 
@@ -518,7 +583,7 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                   children: [
                     Text(
-                      widget.submission.studentName,
+                      widget.studentName,
                       style: const TextStyle(
                         color: TeacherPalette.ink,
                         fontSize: 16,
@@ -535,83 +600,6 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    if (widget.submission.aiUnavailableReason != null) ...[
-                      _InfoBanner(
-                        icon: Icons.info_outline_rounded,
-                        color: TeacherPalette.muted,
-                        text:
-                            'AI วิเคราะห์งานนี้ไม่ได้ (${widget.submission.aiUnavailableReason}) '
-                            '— ให้คะแนนเองทั้งหมด',
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (widget.submission.aiAnomalyNote != null) ...[
-                      _InfoBanner(
-                        icon: Icons.warning_amber_rounded,
-                        color: const Color(0xFFD97706),
-                        text: widget.submission.aiAnomalyNote!,
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (widget.submission.hasAiSuggestion) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF5F3FF),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFDDD6FE)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.auto_awesome_rounded,
-                                  size: 16,
-                                  color: Color(0xFF7C3AED),
-                                ),
-                                const SizedBox(width: 6),
-                                const Expanded(
-                                  child: Text(
-                                    'AI แนะนำคะแนนเบื้องต้น (ยังไม่มีผลจนกว่าครูจะยืนยัน)',
-                                    style: TextStyle(
-                                      color: Color(0xFF6D28D9),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            TextButton(
-                              onPressed: _applyAiSuggestion,
-                              style: TextButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF6D28D9),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text(
-                                'ใช้ตามที่ AI แนะนำทั้งหมด',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                     for (final criterion in widget.rubric.criteria) ...[
                       _CriterionScorer(
                         criterion: criterion,
@@ -649,58 +637,6 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                         ),
                       ),
                     ),
-                    if (_deviatedFromAi) ...[
-                      const SizedBox(height: 14),
-                      const Text(
-                        'เหตุผลที่แก้ไขจากคะแนนที่ AI เสนอ (ไม่บังคับ)',
-                        style: TextStyle(
-                          color: TeacherPalette.ink,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _deviationReasonCtrl,
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          hintText:
-                              'เช่น งานจริงมีรายละเอียดมากกว่าที่ AI อ่านได้...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: TeacherPalette.border,
-                            ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                              color: TeacherPalette.border,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    CheckboxListTile(
-                      value: _coiFlagged,
-                      onChanged: (v) =>
-                          setState(() => _coiFlagged = v ?? false),
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      dense: true,
-                      title: const Text(
-                        'ฉันเป็นผู้ปกครองของนักเรียนคนนี้ด้วย (CoI)',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      subtitle: const Text(
-                        'ระบบจะติด coi_flag และบันทึก audit ตาม AUTH-8 BR3 — ยังยืนยันคะแนนได้ตามปกติ',
-                        style: TextStyle(fontSize: 11),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -735,13 +671,7 @@ class _ScoringSheetState extends State<_ScoringSheet> {
                         ),
                       ),
                       child: Text(
-                        !_allScored
-                            ? 'ให้คะแนนครบทุกเกณฑ์ก่อน'
-                            : (widget.submission.hasAiSuggestion
-                                  ? (_deviatedFromAi
-                                        ? 'ยืนยันคะแนน (แก้ไขจาก AI)'
-                                        : 'ยืนยันตามที่ AI แนะนำ')
-                                  : 'บันทึกคะแนน'),
+                        !_allScored ? 'ให้คะแนนครบทุกเกณฑ์ก่อน' : 'บันทึกคะแนน',
                       ),
                     ),
                   ],
@@ -751,48 +681,6 @@ class _ScoringSheetState extends State<_ScoringSheet> {
           ),
         );
       },
-    );
-  }
-}
-
-class _InfoBanner extends StatelessWidget {
-  const _InfoBanner({
-    required this.icon,
-    required this.color,
-    required this.text,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: color,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
