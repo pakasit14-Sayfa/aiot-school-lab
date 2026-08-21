@@ -146,6 +146,21 @@ services vs. still carry mock/TODO markers:
   mock/TODO markers found in the rest, but that hasn't been runtime-verified
   for every page.
 
+**2026-08-21 update — traced from the real routes (`RoleRouter`), not just
+grep, across every role**: teacher and student are indeed mostly wired.
+**Executive (`executive_home_page.dart`) and facility manager (every page
+under `facility_redesign_prototype/`) are still 100% mock** — the earlier
+memory note "facility redesign 100% done" meant UI/UX design complete, not
+backend-connected; don't trust that phrasing again. Parent is partially
+wired (home page only). Full per-role breakdown: 4 teacher pages still fully
+mock (`teacher_gscore_confirm_page.dart`, `teacher_knowledge_library_page.dart`,
+`teacher_student_support_page.dart` — **all three need new backend
+tables/RPCs designed from scratch, not just UI wiring**, since nothing like
+G-Score accumulation, a knowledge library, or "at-risk student" flags exists
+in the schema yet); student `student_qr_login_page.dart` (device pairing) is
+also honestly self-documented as UI-only, needs a new pairing-session RPC
+flow.
+
 ### Known issues not yet fixed
 
 - `teacher_profile_page.dart` — some of the displayed stats appeared to be
@@ -191,6 +206,35 @@ calls an RPC using the service-role client (the pattern used by every
 upload/download function so far), that RPC's `grant execute ... to` list
 **must include `service_role`**, not just `anon, authenticated`. This has
 now bitten two features; check for it explicitly when adding a third.
+
+### Submission review — wired to real data (commits `ef80971`, `c03955b`)
+
+`teacher_submission_review_page.dart` (`TeacherSubmissionRosterPage`, opened
+from `teacher_grading_page.dart` via "ตรวจงาน") was 100% mock. Changed:
+
+| Piece | Before | After |
+|---|---|---|
+| Roster of students | Hardcoded `_mockSubmissions()` list of 5 fake names | `AssignmentService.listSubmissions(assignmentId)`, filtered to `status != 'not_submitted'` |
+| Rubric | Hardcoded `_mockAssignmentRubric()` (2 fixed criteria) | Teacher picks from `RubricService.listMyRubrics()`, full criteria loaded via `RubricService.getRubric(id)` on selection — see "why a picker, not auto-linked" below |
+| AI-suggested scores, anomaly warnings, "apply AI suggestion" button | Hardcoded fake data (`aiSuggestedLevelIndex`, `aiAnomalyNote`, etc.) presented as if a real AI ran | **Removed entirely.** No AI backend exists; showing this would fabricate output and mislead the teacher. |
+| "I'm this student's parent (CoI)" checkbox | Manual checkbox, teacher self-reports | **Removed.** `create_grade` already auto-detects CoI server-side from `parent_links`; the Decision Log explicitly forbids a client-settable `coi_flag`. The checkbox was redundant and architecturally wrong. |
+| Saving a score | `setState` only, nothing persisted | `GradeService.createGrade(...)` (new) or `updateGrade(...)` (re-scoring a draft), then a separate explicit `GradeService.confirmGrade(...)` step |
+| Feedback text | `setState` only | `AssignmentService.giveFeedback(submissionId, body)` |
+| "Already graded" status on page load | N/A (was all fake data) | **Deliberately not shown.** `grades` has no `assignment_id` column — a grade fetched via `GradeService.listCourseGrades(courseId)` can't be attributed to a specific assignment, so in a course with 2+ assignments the wrong grade could get displayed against this one. Left unsolved rather than guessed; needs an `assignment_id` column (new migration) to do properly. |
+
+**Why a rubric picker instead of assignment→rubric auto-linking**:
+`assignments.rubric_id` exists as a column in the schema, but no RPC
+(`create_assignment`, `update_assignment`) ever sets it — there's no way to
+actually link a rubric to an assignment through the app today. Building that
+link (new migration adding a `p_rubric_id` param) was out of scope for this
+pass, so the page asks the teacher to pick a rubric each time instead of
+assuming a link that can't exist yet.
+
+Verified against the real local DB end-to-end (not just `flutter analyze`):
+created a rubric via `create_rubric`/`add_rubric_criterion`, then
+`list_submissions` → `create_grade` → `give_feedback` → `confirm_grade`
+against a real seeded submission, confirmed via `list_feedback`.
+`flutter build web` passes.
 
 ## Where to look next
 
