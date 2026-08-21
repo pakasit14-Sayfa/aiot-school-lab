@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_core/shared_core.dart';
@@ -94,7 +95,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   Future<void> _initPairingSession() async {
     try {
       final session = await TerminalPairingService.createPairingSession(
-        terminalName: 'Lab Tablet Kiosk',
+        terminalName: 'แท็บเล็ตประจำโต๊ะแล็บ AIoT',
       );
       if (mounted) {
         setState(() {
@@ -112,7 +113,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
       ).join();
       if (mounted) {
         setState(() {
-          _pairingToken = 'aiot-school-pairing:$code';
+          _pairingToken = 'aiot-pairing:$code';
           _expiresAt = DateTime.now().add(_validDuration);
           _remaining = _validDuration;
         });
@@ -141,7 +142,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
 
         if (statusResult.sessionToken != null) {
           await SessionTokenStorage().write(statusResult.sessionToken!);
-        await AuthService.initialize();
+          await AuthService.initialize();
         }
 
         if (mounted) {
@@ -171,20 +172,24 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
     _handleScannedCode(value);
   }
 
+  /// BR3: Scan -> Peek context -> Show confirmation sheet -> User taps confirm -> Claim
   Future<void> _handleScannedCode(String code) async {
     if (AuthService.sessionToken != null) {
-      // Authenticated student claiming terminal
       try {
-        final result = await TerminalPairingService.claimPairingSession(code);
-        if (mounted) {
+        final peek = await TerminalPairingService.peekPairingSession(code);
+        if (!mounted) return;
+
+        if (!peek.isValid) {
           _showResultSheet(
-            title: result.success ? 'จับคู่เครื่องสำเร็จ' : 'ไม่สามารถจับคู่ได้',
-            message: result.success
-                ? 'เข้าสู่ระบบบนเครื่องแล็บสำเร็จแล้วสำหรับ ${result.studentName}'
-                : result.message,
-            isSuccess: result.success,
+            title: 'รหัสไม่ถูกต้องหรือหมดอายุ',
+            message: 'กรุณาตรวจสอบว่ารหัส QR บนหน้าจอเครื่องแล็บยังไม่หมดอายุ',
+            isSuccess: false,
           );
+          return;
         }
+
+        // Show Pre-Confirmation Sheet with Device Context (Anti-Relay)
+        _showDeviceConfirmationSheet(code: code, peek: peek);
       } catch (e) {
         if (mounted) {
           _showResultSheet(
@@ -196,10 +201,254 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
       }
     } else {
       // Mock / Preview Mode
+      _showDeviceConfirmationSheet(
+        code: code,
+        peek: TerminalPairingPeek(
+          isValid: true,
+          terminalName: 'แท็บเล็ตประจำโต๊ะแล็บ AIoT #01',
+          createdAt: DateTime.now(),
+        ),
+      );
+    }
+  }
+
+  /// AUTH-5 BR3: Pre-Confirmation Sheet displaying device context before claiming
+  Future<void> _showDeviceConfirmationSheet({
+    required String code,
+    required TerminalPairingPeek peek,
+  }) async {
+    final timeStr = peek.createdAt != null
+        ? DateFormat('HH:mm:ss').format(peek.createdAt!)
+        : DateFormat('HH:mm:ss').format(DateTime.now());
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x290F172A),
+                  blurRadius: 30,
+                  offset: Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        color: SchoolPalette.softGreenBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.devices_rounded,
+                        color: SchoolPalette.deepGreen,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ยืนยันการเข้าสู่ระบบ',
+                            style: TextStyle(
+                              color: SchoolPalette.ink,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 17,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'ตรวจสอบบริบทอุปกรณ์ก่อนกดยืนยัน',
+                            style: TextStyle(
+                              color: SchoolPalette.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.laptop_chromebook_rounded,
+                            size: 18,
+                            color: SchoolPalette.deepGreen,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'อุปกรณ์เป้าหมาย:',
+                            style: TextStyle(
+                              color: SchoolPalette.muted,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            peek.terminalName,
+                            style: const TextStyle(
+                              color: SchoolPalette.ink,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.access_time_rounded,
+                            size: 18,
+                            color: SchoolPalette.muted,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'เวลาที่ร้องขอ:',
+                            style: TextStyle(
+                              color: SchoolPalette.muted,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            timeStr,
+                            style: const TextStyle(
+                              color: SchoolPalette.ink,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 14,
+                      color: Color(0xFF64748B),
+                    ),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Session นี้จะหมดอายุอัตโนมัติเมื่อหมดคาบเรียน (4 ชม.)',
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          setState(() => _handled = false);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: const Text('ยกเลิก'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        icon: const Icon(Icons.check_rounded, size: 18),
+                        label: const Text('ยืนยันเข้าสู่ระบบ'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SchoolPalette.green,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: const StadiumBorder(),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(sheetContext);
+                          await _executeClaim(code);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _executeClaim(String code) async {
+    if (AuthService.sessionToken != null) {
+      try {
+        final result =
+            await TerminalPairingService.claimPairingSession(code);
+        if (mounted) {
+          _showResultSheet(
+            title: result.success ? 'เข้าสู่ระบบสำเร็จ' : 'ไม่สามารถเข้าสู่ระบบได้',
+            message: result.success
+                ? 'เข้าสู่ระบบบนเครื่องแล็บสำเร็จแล้วสำหรับ ${result.studentName}'
+                : result.message,
+            isSuccess: result.success,
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          _showResultSheet(
+            title: 'เกิดข้อผิดพลาด',
+            message: e.toString().contains('forbidden')
+                ? 'เฉพาะบัญชีนักเรียนเท่านั้นที่สามารถจับคู่เข้าสู่ระบบเครื่องแล็บได้'
+                : '$e',
+            isSuccess: false,
+          );
+        }
+      }
+    } else {
       _showResultSheet(
-        title: 'สแกน QR สำเร็จ',
-        message:
-            'พร้อมเข้าสู่ระบบบนอุปกรณ์ที่แสดงรหัสนี้\n(${code.length > 40 ? '${code.substring(0, 40)}…' : code})',
+        title: 'เข้าสู่ระบบสำเร็จ (ตัวอย่าง)',
+        message: 'พร้อมเข้าสู่ระบบบนเครื่องแล็บเรียบร้อยแล้ว',
         isSuccess: true,
       );
     }

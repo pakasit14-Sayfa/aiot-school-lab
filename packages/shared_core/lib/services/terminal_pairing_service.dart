@@ -18,6 +18,18 @@ class TerminalPairingService {
     );
   }
 
+  static Future<TerminalPairingPeek> peekPairingSession(String pairingCode) async {
+    final rows = await supabase.rpc(
+      'peek_terminal_pairing_session',
+      params: {'p_pairing_code': pairingCode.trim()},
+    ) as List;
+
+    if (rows.isEmpty) {
+      return const TerminalPairingPeek(isValid: false, terminalName: '');
+    }
+    return TerminalPairingPeek.fromRow(rows.first as Map<String, dynamic>);
+  }
+
   static Future<({bool success, String studentName, String message})> claimPairingSession(
     String pairingCode,
   ) async {

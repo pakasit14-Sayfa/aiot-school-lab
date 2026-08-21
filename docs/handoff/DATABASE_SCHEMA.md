@@ -1184,7 +1184,7 @@ Foreign keys:
 
 # RPC Functions (public schema, callable via supabase.rpc)
 
-Total: 156
+Total: 157
 
 Almost every one takes `p_token text` as its first arg — the custom session token (see auth pattern in main handoff doc), validated internally via `get_session_actor(p_token)`. This is NOT Supabase Auth; there is no `auth.uid()`.
 
@@ -1298,6 +1298,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `list_terms` | p_token text | TABLE(term_id uuid, term_name character varying, academic_year_name character... |
 | `mark_lesson_complete` | p_token text, p_lesson_id uuid | void |
 | `mark_notification_read` | p_token text, p_notification_id uuid | void |
+| `peek_terminal_pairing_session` | p_pairing_code text | TABLE(is_valid boolean, terminal_name text, created_at timestamp with time zo... |
 | `poll_device_commands` | p_device_token text | TABLE(command_id uuid, command jsonb, created_at timestamp with time zone) |
 | `publish_assignment` | p_token text, p_assignment_id uuid | void |
 | `publish_consent_policy` | p_token text, p_consent_type text, p_version text, p_document_hash text, p_content_url text, p_is... | uuid |
