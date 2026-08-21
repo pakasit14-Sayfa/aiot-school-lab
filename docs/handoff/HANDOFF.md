@@ -157,20 +157,40 @@ services vs. still carry mock/TODO markers:
   questions did not appear to persist / round-trip correctly. Needs
   reproduction with the local stack running to confirm current behavior.
 
-### In progress at time of writing
+### Lesson-materials upload/download — verified (commit `26d0343`)
 
-Commit `b7628f6` ("wire lesson content, incident severity, and student
-groups to real backend") added the lesson-materials upload/download Edge
-Functions and migration described above (`20260823010000_lesson_material_upload.sql`,
+Commit `b7628f6` added the lesson-materials upload/download Edge Functions
+and migration (`20260823010000_lesson_material_upload.sql`,
 `supabase/functions/lesson-material-upload/`,
-`supabase/functions/lesson-material-download/`). This was being verified
-end-to-end (teacher uploads a lesson attachment → student can view/download
-it) when handed off — local Supabase is confirmed running and the app boots
-and connects to it (`Supabase init completed` in console), but the actual
-click-through UI verification via browser automation was not completed
-before handoff. **Next step for whoever picks this up: drive that flow
-manually or via browser automation and confirm the signed-URL upload/download
-round-trip actually works, not just that the Edge Functions deploy.**
+`supabase/functions/lesson-material-download/`). This was driven end-to-end
+via `curl` (sign in as teacher → upload → register material → sign in as
+student → download → diff bytes against the original) and two real bugs
+were found and fixed in the process:
+
+1. `get_lesson_material_for_download` declared `RETURNS TABLE(storage_path
+   text, ...)` but returned `lesson_materials.url` (`varchar`) uncast —
+   Postgres rejected the call with a type mismatch on every invocation.
+2. The function's `EXECUTE` grant only covered `anon, authenticated`, but
+   the Edge Function calls it with the **service-role** client — so it had
+   no permission to call its own RPC and always failed.
+
+Fixed in `26d0343`. Full upload→download round-trip is now confirmed
+working, plus probes (student tries to upload, invalid session token,
+missing required field) all correctly rejected.
+
+**The same grant bug existed in the older `course_files` feature**
+(`get_course_file_for_download`, same service-role-calls-ungranted-function
+shape) — course file downloads were silently broken the same way. Fixed in
+`908707e` (new migration `20260823020000_fix_course_file_download_grant.sql`,
+not editing the original `20260731020000_course_files.sql` — see the "not
+editing shipped migrations" rule in `CLAUDE.md`). Also verified end-to-end
+with the same upload→download→byte-diff method.
+
+**Takeaway for future Edge Functions in this codebase**: if a function
+calls an RPC using the service-role client (the pattern used by every
+upload/download function so far), that RPC's `grant execute ... to` list
+**must include `service_role`**, not just `anon, authenticated`. This has
+now bitten two features; check for it explicitly when adding a third.
 
 ## Where to look next
 

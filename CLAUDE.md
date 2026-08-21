@@ -31,7 +31,11 @@ codebase itself.
    `assert_*_access` RPC) → signed upload/download URL → client uses it
    directly. Copy the `lesson-material-upload`/`-download` or
    `course-file-upload`/`-download` functions as the template for any new
-   upload feature.
+   upload feature. **Gotcha (bit both existing pairs, fixed in `26d0343`/
+   `908707e`): any RPC called from the service-role client needs
+   `grant execute ... to service_role` explicitly — it is not a member of
+   `anon`/`authenticated` and gets no execute privilege from a grant to
+   those roles alone.**
 4. **One service class per domain** in `packages/shared_core/lib/services/`.
    Pages call the service; the service calls the RPC. Don't call
    `supabase.rpc(...)` directly from a page widget.
