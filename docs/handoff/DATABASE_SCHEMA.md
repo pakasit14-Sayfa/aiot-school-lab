@@ -1,8 +1,8 @@
-# Database Schema (live dump from local Supabase, generated 2026-08-20)
+# Database Schema (live dump from local Supabase, regenerated 2026-08-21)
 
-Total tables: 65
+Total tables: 66
 
-All tables have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST. Every read/write goes through a `SECURITY DEFINER` RPC function (see `db_functions.txt` / RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
+All tables have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
 
 
 ## academic_years
@@ -395,6 +395,26 @@ Foreign keys:
 Foreign keys:
 - `author_id` → `users.id`
 - `submission_id` → `submissions.id`
+
+## g_score_entries
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| student_id | uuid | NO |  |
+| course_id | uuid | NO |  |
+| source | USER-DEFINED | NO |  |
+| source_id | uuid | NO |  |
+| points | numeric | NO |  |
+| status | USER-DEFINED | NO | 'pending'::g_score_status |
+| created_at | timestamp with time zone | NO | now() |
+| confirmed_by | uuid | YES |  |
+| confirmed_at | timestamp with time zone | YES |  |
+
+Foreign keys:
+- `confirmed_by` → `users.id`
+- `course_id` → `courses.id`
+- `student_id` → `users.id`
 
 ## gateway_request_nonces
 
@@ -1110,7 +1130,7 @@ Foreign keys:
 
 # RPC Functions (public schema, callable via supabase.rpc)
 
-Total: 143
+Total: 148
 
 Almost every one takes `p_token text` as its first arg — the custom session token (see auth pattern in main handoff doc), validated internally via `get_session_actor(p_token)`. This is NOT Supabase Auth; there is no `auth.uid()`.
 
@@ -1126,6 +1146,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `add_rubric_criterion` | p_token text, p_rubric_id uuid, p_name text, p_description text, p_max_score numeric, p_levels js... | TABLE(criterion_id uuid) |
 | `approve_parent_link` | p_token text, p_parent_link_id uuid | void |
 | `assert_course_upload_access` | p_token text, p_course_id uuid | void |
+| `assert_lesson_upload_access` | p_token text, p_lesson_id uuid | void |
 | `assign_incident_report` | p_token text, p_id uuid, p_assignee_id uuid | void |
 | `auth_sign_in` | p_email text, p_password text, p_device_info text, p_ip_address text | TABLE(auth_state text, session_token text, user_id uuid, email character vary... |
 | `auth_sign_out` | p_token text | void |
@@ -1134,6 +1155,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `auth_verify_login_otp` | p_otp_token text, p_otp_code text | TABLE(session_token text, user_id uuid, email character varying, first_name c... |
 | `close_emergency_event` | p_token text, p_event_id uuid, p_review_note text | void |
 | `close_incident_report` | p_token text, p_id uuid, p_resolution_type incident_resolution_type, p_resolution_note text | void |
+| `confirm_g_score` | p_token text, p_entry_id uuid | void |
 | `confirm_grade` | p_token text, p_grade_id uuid | void |
 | `confirm_parent_binding` | p_verification_token text, p_otp_code text, p_relationship text, p_first_name text, p_last_name t... | TABLE(parent_link_id uuid, status binding_status) |
 | `confirm_password_reset` | p_email text, p_otp_code text, p_new_password text | void |
@@ -1163,6 +1185,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `get_incident_report` | p_token text, p_id uuid | TABLE(id uuid, category incident_category, room character varying, status inc... |
 | `get_incident_summary` | p_token text | TABLE(category incident_category, total_count integer, avg_response_seconds n... |
 | `get_lesson` | p_token text, p_lesson_id uuid | TABLE(lesson_id uuid, course_id uuid, title character varying, content jsonb,... |
+| `get_lesson_material_for_download` | p_token text, p_material_id uuid | TABLE(storage_path text, file_name character varying) |
 | `get_my_latest_quiz_attempt` | p_token text, p_quiz_id uuid | TABLE(attempt_id uuid, started_at timestamp with time zone, submitted_at time... |
 | `get_my_student_room` | p_token text | TABLE(room character varying, grade_level character varying) |
 | `get_quiz_for_student` | p_token text, p_quiz_id uuid | TABLE(quiz_id uuid, title character varying, type quiz_type, time_limit_min i... |
@@ -1191,6 +1214,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `list_lessons` | p_token text, p_course_id uuid | TABLE(lesson_id uuid, title character varying, status lesson_status, publishe... |
 | `list_my_consents` | p_token text, p_parent_link_id uuid | TABLE(consent_id uuid, policy_id uuid, consent_type character varying, versio... |
 | `list_my_courses` | p_token text | TABLE(course_id uuid, subject_name character varying, grade_level character v... |
+| `list_my_g_score` | p_token text | TABLE(entry_id uuid, course_id uuid, subject_name character varying, source g... |
 | `list_my_grades` | p_token text | TABLE(grade_id uuid, course_id uuid, subject_name character varying, score nu... |
 | `list_my_incident_reports` | p_token text | TABLE(id uuid, category incident_category, room character varying, status inc... |
 | `list_my_notifications` | p_token text | TABLE(id uuid, type character varying, title character varying, body text, pa... |
@@ -1201,6 +1225,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `list_my_submission_versions` | p_token text, p_assignment_id uuid | TABLE(version integer, content text, submitted_at timestamp with time zone) |
 | `list_parent_links` | p_token text, p_status binding_status, p_school_id uuid | TABLE(id uuid, student_id uuid, student_first_name character varying, student... |
 | `list_pending_coi_grades` | p_token text | TABLE(grade_id uuid, student_id uuid, student_first_name character varying, s... |
+| `list_pending_g_score` | p_token text | TABLE(entry_id uuid, student_id uuid, student_first_name character varying, s... |
 | `list_posts` | p_token text, p_course_id uuid | TABLE(post_id uuid, author_id uuid, author_first_name character varying, auth... |
 | `list_school_devices` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location char... |
 | `list_school_invitations` | p_token text, p_school_id uuid | TABLE(id uuid, email character varying, initial_role role_type, status invita... |

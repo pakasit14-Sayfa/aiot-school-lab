@@ -152,14 +152,15 @@ grep, across every role**: teacher and student are indeed mostly wired.
 under `facility_redesign_prototype/`) are still 100% mock** — the earlier
 memory note "facility redesign 100% done" meant UI/UX design complete, not
 backend-connected; don't trust that phrasing again. Parent is partially
-wired (home page only). Full per-role breakdown: 4 teacher pages still fully
-mock (`teacher_gscore_confirm_page.dart`, `teacher_knowledge_library_page.dart`,
-`teacher_student_support_page.dart` — **all three need new backend
-tables/RPCs designed from scratch, not just UI wiring**, since nothing like
-G-Score accumulation, a knowledge library, or "at-risk student" flags exists
-in the schema yet); student `student_qr_login_page.dart` (device pairing) is
-also honestly self-documented as UI-only, needs a new pairing-session RPC
-flow.
+wired (home page only). Full per-role breakdown, teacher pages still fully
+mock: `teacher_knowledge_library_page.dart`, `teacher_student_support_page.dart`
+— **both need new backend tables/RPCs designed from scratch, not just UI
+wiring**, since nothing like a knowledge library or "at-risk student" flags
+exists in the schema yet. (`teacher_submission_review_page.dart` and
+`teacher_gscore_confirm_page.dart` were in this same "needs new backend"
+bucket — both now wired, see their own sections below.) Student
+`student_qr_login_page.dart` (device pairing) is also honestly
+self-documented as UI-only, needs a new pairing-session RPC flow.
 
 ### Known issues not yet fixed
 
@@ -235,6 +236,42 @@ created a rubric via `create_rubric`/`add_rubric_criterion`, then
 `list_submissions` → `create_grade` → `give_feedback` → `confirm_grade`
 against a real seeded submission, confirmed via `list_feedback`.
 `flutter build web` passes.
+
+### G-Score (LRN-11/LRN-12) — built from scratch (migration `20260823030000_g_score.sql`)
+
+`teacher_gscore_confirm_page.dart` used to be an honest placeholder ("no
+table/RPC exists yet for this"). It was true — there was no G-Score anything
+in the schema. Built the whole thing this pass:
+
+- **New table** `g_score_entries` (student_id, course_id, source
+  `lesson_completed`/`assignment_on_time`, source_id, points, status
+  `pending`/`confirmed`, confirmed_by/confirmed_at). Unique on
+  `(student_id, source, source_id)` so a lesson/assignment can only ever
+  award points once.
+- **LRN-11 (auto-accumulate)**: hooked directly into the existing
+  `mark_lesson_complete` and `submit_assignment` RPCs (both redefined via
+  `create or replace function` in the new migration — the original migration
+  files that first created them are untouched). A lesson awards 10 points
+  the first time it's completed; an assignment awards 15 points only on the
+  *first* submission and only if it lands before `due_at`. Point values are
+  placeholder tuning, not from any spec.
+- **LRN-12 (teacher confirms)**: `list_pending_g_score`/`confirm_g_score`,
+  scoped to courses the teacher actually teaches (`course_teachers`).
+  Students never see pending points — `list_my_g_score` filters
+  `status = 'confirmed'`, same gate pattern as `list_my_grades`.
+- `shared_core`: new `GScoreService` + `g_score_model.dart`
+  (`PendingGScoreEntry`, `MyGScoreEntry`).
+
+Verified against the real local DB end-to-end: completed a real lesson as
+the seeded student (`mark_lesson_complete`) → confirmed a `g_score_entries`
+row landed as `pending` → re-completing the same lesson did **not** create a
+duplicate → teacher's `list_pending_g_score` showed it → student's
+`list_my_g_score` returned empty *before* confirm and the entry *after* →
+teacher's pending list emptied out → confirming the same entry twice
+correctly raised `already_confirmed`. `flutter build web` passes.
+
+**Not done**: a student-facing "my G-Score" display page (only the backend
++ teacher confirm UI exist so far — no page reads `listMyGScore()` yet).
 
 ## Where to look next
 
