@@ -79,7 +79,7 @@ begin
   end if;
   if not v_is_member then raise exception 'forbidden'; end if;
 
-  return query select v_material.url, coalesce(v_material.title, 'ไฟล์แนบ')::varchar;
+  return query select v_material.url::text, coalesce(v_material.title, 'ไฟล์แนบ')::varchar;
 end;
 $$;
 
@@ -87,4 +87,4 @@ revoke all on function assert_lesson_upload_access(text, uuid) from public;
 revoke all on function get_lesson_material_for_download(text, uuid) from public;
 
 grant execute on function assert_lesson_upload_access(text, uuid) to service_role;
-grant execute on function get_lesson_material_for_download(text, uuid) to anon, authenticated;
+grant execute on function get_lesson_material_for_download(text, uuid) to anon, authenticated, service_role;
