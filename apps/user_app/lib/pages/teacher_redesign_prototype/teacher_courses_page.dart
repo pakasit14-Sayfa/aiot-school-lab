@@ -4539,10 +4539,23 @@ class _CourseAssignmentListTabWidgetState
               children: [
                 OutlinedButton.icon(
                   onPressed: () {
+                    final courseId = widget.course.id;
+                    if (courseId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'วิชานี้สร้างในเครื่องเท่านั้น ยังไม่บันทึกลง'
+                            'เซิร์ฟเวอร์ จึงยังสร้างกิจกรรม PBL ไม่ได้',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const TeacherPblActivityEditorPage(),
+                        builder: (_) =>
+                            TeacherPblActivityEditorPage(courseId: courseId),
                       ),
                     );
                   },

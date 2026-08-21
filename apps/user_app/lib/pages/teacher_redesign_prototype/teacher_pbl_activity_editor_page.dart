@@ -1,10 +1,21 @@
-// PROTOTYPE — UI/UX เท่านั้น mock ทั้งหมด ยังไม่ผูก Supabase จริง
-//
 // PBL-2: สร้างกิจกรรม Project-Based Learning แบบครบวงจร — ต่างจาก PBL-1
 // (สร้างใบงาน/การบ้านทั่วไป ทำไว้แล้วใน teacher_assignment_editor_page.dart)
 // ตรงที่ PBL-2 ผูกหัวข้อ + ข้อมูล AIoT จริง + Rubric + ระยะเวลา + รูปแบบ
 // เดี่ยว/กลุ่ม เข้าด้วยกันเป็นขั้นตอนเดียวตั้งแต่ต้น เพิ่มเมื่อ 2026-08-16
-
+//
+// เชื่อมกับ RubricService/AiotLabService/AssignmentService จริงแล้ว
+// (2026-08-21) — เดิม comment บอกว่า "mock ทั้งหมด" แต่จริงๆ ปุ่มเผยแพร่ถูก
+// ต่อเข้า Supabase ไปครึ่งหนึ่งแล้วโดยไม่มีใครอัปเดต comment: ใช้
+// courses.first.id เดาวิชาแบบสุ่ม (ไม่ใช้ courseId ที่ถูกต้องจากบริบทที่เปิด
+// มา), กลืน error แล้วยังโชว์ "สำเร็จ" ให้ครูเห็นอยู่ดี, และข้อมูลที่กรอกไว้
+// (อุปกรณ์ AIoT ที่เลือก/Rubric/ระยะเวลา/รูปแบบงาน) ไม่ถูกส่งไปที่ไหนเลย —
+// แก้ทั้ง 3 จุดนี้แล้ว
+//
+// ยังมีข้อจำกัดจริงที่แก้ไม่ได้ในรอบนี้: assignments ไม่มีคอลัมน์ rubric_id ที่
+// RPC ไหนตั้งค่าได้ (เหมือนที่เจอใน teacher_submission_review_page.dart) และ
+// ไม่มีที่เก็บ device links/duration/group-mode แบบมีโครงสร้างเลย — ข้อมูล
+// พวกนี้เลยถูกพับรวมเป็นข้อความใน instructions แทน (ดีกว่าไม่บันทึกอะไร
+// เลย) ถ้าจะทำให้ถูกต้องสมบูรณ์ ต้องเพิ่มคอลัมน์/RPC ใหม่
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart' hide RubricModel;
 
@@ -27,70 +38,10 @@ const _pblTopics = [
   _PblTopic('ความปลอดภัย', Icons.shield_rounded, Color(0xFFDC2626)),
 ];
 
-// PBL-2 BR1: ข้อมูล AIoT ที่เลือกใช้ได้ต้องมาจากอุปกรณ์ที่ลงทะเบียนในระบบ
-// เท่านั้น — "ความปลอดภัย" ตั้งใจไม่มีอุปกรณ์เลยเพื่อสาธิต Exception Flow 1
-const _devicesByTopic = <String, List<String>>{
-  'พลังงาน': [
-    'Smart Meter Node-3 (มิเตอร์ไฟฟ้าอาคาร 2)',
-    'Solar Panel Monitor Node-8',
-  ],
-  'คุณภาพอากาศ': ['AQI Sensor Node-1 (ห้อง GreenLab)', 'PM2.5 Sensor Node-7'],
-  'แสงในห้องเรียน': ['Light Sensor Node-2 (ห้อง 421)'],
-  'ความปลอดภัย': [],
-};
-
-RubricModel _mockPblRubric(String id, String title) => RubricModel(
-  id: id,
-  title: title,
-  description: 'เกณฑ์ประเมินโครงงาน PBL ตามหัวข้อที่เลือก',
-  scope: 'ใช้ร่วมข้ามวิชา',
-  isLocked: false,
-  usedCount: 0,
-  updatedAt: '-',
-  criteria: [
-    RubricCriterion(
-      id: 'c1',
-      title: 'ความเข้าใจปัญหาและการใช้ข้อมูลจริง',
-      maxPoints: 10,
-      levels: [
-        RubricLevel(
-          name: 'ดีมาก',
-          score: 10,
-          description: 'เชื่อมโยงข้อมูล AIoT กับปัญหาได้ชัดเจน',
-        ),
-        RubricLevel(
-          name: 'พอใช้',
-          score: 6,
-          description: 'เชื่อมโยงได้บางส่วน',
-        ),
-      ],
-    ),
-    RubricCriterion(
-      id: 'c2',
-      title: 'การนำเสนอผลลัพธ์',
-      maxPoints: 10,
-      levels: [
-        RubricLevel(
-          name: 'ดีมาก',
-          score: 10,
-          description: 'นำเสนอเป็นระบบ เข้าใจง่าย',
-        ),
-        RubricLevel(name: 'พอใช้', score: 6, description: 'นำเสนอพอเข้าใจได้'),
-      ],
-    ),
-  ],
-);
-
-final _mockAvailableRubrics = [
-  _mockPblRubric(
-    'rubric-pbl-1',
-    'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-  ),
-  _mockPblRubric('rubric-pbl-2', 'เกณฑ์ประเมินโครงงานสิ่งแวดล้อม'),
-];
-
 class TeacherPblActivityEditorPage extends StatefulWidget {
-  const TeacherPblActivityEditorPage({super.key});
+  const TeacherPblActivityEditorPage({super.key, required this.courseId});
+
+  final String courseId;
 
   @override
   State<TeacherPblActivityEditorPage> createState() =>
@@ -108,6 +59,91 @@ class _TeacherPblActivityEditorPageState
   RubricModel? _selectedRubric;
   final _durationCtrl = TextEditingController(text: '3 สัปดาห์');
   bool _isGroupWork = true;
+
+  bool _loadingOptions = true;
+  String? _loadError;
+  List<AiotLabDeviceItem> _devices = [];
+  List<dynamic> _rubricSummaries = []; // shared_core RubricModel, hidden import
+  bool _loadingRubricDetail = false;
+  bool _publishing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOptions();
+  }
+
+  Future<void> _loadOptions() async {
+    setState(() {
+      _loadingOptions = true;
+      _loadError = null;
+    });
+    try {
+      final results = await Future.wait([
+        AiotLabService.listTeachingKitDevices(),
+        RubricService.listMyRubrics(),
+      ]);
+      final allDevices = results[0] as List<AiotLabDeviceItem>;
+      if (!mounted) return;
+      setState(() {
+        _devices = allDevices
+            .where((d) => d.courseId == widget.courseId)
+            .toList();
+        _rubricSummaries = results[1] as List;
+        _loadingOptions = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดข้อมูลอุปกรณ์/เกณฑ์ประเมินไม่สำเร็จ: $e';
+        _loadingOptions = false;
+      });
+    }
+  }
+
+  Future<void> _pickRubric(String rubricId) async {
+    setState(() => _loadingRubricDetail = true);
+    try {
+      final d = await RubricService.getRubric(rubricId);
+      final rubric = RubricModel(
+        id: d.id,
+        title: d.title,
+        description: d.description ?? '',
+        scope: 'เกณฑ์การประเมินโรงเรียน',
+        isLocked: false,
+        usedCount: 0,
+        updatedAt: '-',
+        criteria: d.criteria
+            .map(
+              (c) => RubricCriterion(
+                id: c.id,
+                title: c.name,
+                maxPoints: c.maxScore.toDouble(),
+                levels: (c.levels ?? []).map((l) {
+                  final map = l as Map<String, dynamic>;
+                  return RubricLevel(
+                    name: map['name'] as String? ?? '',
+                    score: (map['score'] as num?)?.toDouble() ?? 0.0,
+                    description: map['description'] as String? ?? '',
+                  );
+                }).toList(),
+              ),
+            )
+            .toList(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _selectedRubric = rubric;
+        _loadingRubricDetail = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingRubricDetail = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('โหลดเกณฑ์ไม่สำเร็จ: $e')));
+    }
+  }
 
   @override
   void dispose() {
@@ -131,12 +167,72 @@ class _TeacherPblActivityEditorPageState
   void _next() => setState(() => _step += 1);
   void _back() => setState(() => _step -= 1);
 
+  Future<void> _publish() async {
+    setState(() => _publishing = true);
+    final instructions =
+        '${_problemCtrl.text.trim()}\n\n'
+        'วัตถุประสงค์: ${_objectiveCtrl.text.trim()}\n'
+        'ผลลัพธ์ที่คาดหวัง: ${_outcomeCtrl.text.trim()}\n'
+        'ข้อมูล AIoT ที่ใช้: ${_selectedDevices.join(', ')}\n'
+        'Rubric: ${_selectedRubric?.title ?? '-'}\n'
+        'ระยะเวลา: ${_durationCtrl.text.trim()} · '
+        '${_isGroupWork ? 'งานกลุ่ม' : 'งานเดี่ยว'}';
+
+    try {
+      final pblId = await AssignmentService.createAssignment(
+        courseId: widget.courseId,
+        type: 'project',
+        title: 'PBL: ${_selectedTopic ?? "โครงงาน AIoT"}',
+        instructions: instructions,
+      );
+      await AssignmentService.publishAssignment(pblId);
+
+      if (!mounted) return;
+      setState(() => _publishing = false);
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'เผยแพร่กิจกรรม PBL หัวข้อ "$_selectedTopic" ให้นักเรียนแล้ว',
+          ),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _publishing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เผยแพร่ไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'สร้างกิจกรรม PBL',
       activeMenuLabel: 'รายวิชา',
       builder: (context, isDesktop) {
+        if (_loadingOptions) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+        if (_loadError != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(_loadError!),
+            ),
+          );
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -214,7 +310,11 @@ class _TeacherPblActivityEditorPageState
     );
   }
 
-  Widget _buildNavRow({required bool canNext, VoidCallback? onNext}) {
+  Widget _buildNavRow({
+    required bool canNext,
+    VoidCallback? onNext,
+    bool busy = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Row(
@@ -223,11 +323,20 @@ class _TeacherPblActivityEditorPageState
             OutlinedButton(onPressed: _back, child: const Text('ย้อนกลับ')),
           const Spacer(),
           FilledButton(
-            onPressed: canNext ? (onNext ?? _next) : null,
+            onPressed: (canNext && !busy) ? (onNext ?? _next) : null,
             style: FilledButton.styleFrom(
               backgroundColor: TeacherPalette.primary,
             ),
-            child: Text(_step == 5 ? 'เผยแพร่กิจกรรม' : 'ถัดไป'),
+            child: busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(_step == 5 ? 'เผยแพร่กิจกรรม' : 'ถัดไป'),
           ),
         ],
       ),
@@ -325,7 +434,6 @@ class _TeacherPblActivityEditorPageState
   }
 
   Widget _buildDeviceStep() {
-    final devices = _devicesByTopic[_selectedTopic] ?? [];
     return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -335,12 +443,12 @@ class _TeacherPblActivityEditorPageState
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
           ),
           const SizedBox(height: 4),
-          Text(
-            'อุปกรณ์ที่ลงทะเบียนในระบบตรงกับหัวข้อ "$_selectedTopic"',
-            style: const TextStyle(fontSize: 12, color: TeacherPalette.muted),
+          const Text(
+            'อุปกรณ์ที่ลงทะเบียนจริงในวิชานี้',
+            style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
           ),
           const SizedBox(height: 14),
-          if (devices.isEmpty)
+          if (_devices.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -350,9 +458,9 @@ class _TeacherPblActivityEditorPageState
                 border: Border.all(color: const Color(0xFFFECACA)),
               ),
               child: const Text(
-                // Exception Flow 1: ไม่มีอุปกรณ์ AIoT ตรงกับหัวข้อที่เลือก
-                'ยังไม่มีอุปกรณ์ AIoT ที่ลงทะเบียนตรงกับหัวข้อนี้ในระบบ — '
-                'กรุณาเลือกหัวข้ออื่น หรือรอ Technician ติดตั้งอุปกรณ์เพิ่มก่อน',
+                // Exception Flow 1: ไม่มีอุปกรณ์ AIoT ลงทะเบียนในวิชานี้
+                'ยังไม่มีอุปกรณ์ AIoT ที่ลงทะเบียนในวิชานี้ — '
+                'กรุณารอ Technician ติดตั้งอุปกรณ์ก่อน',
                 style: TextStyle(
                   color: Color(0xFFB91C1C),
                   fontSize: 12.5,
@@ -361,17 +469,20 @@ class _TeacherPblActivityEditorPageState
               ),
             )
           else
-            for (final device in devices)
+            for (final device in _devices)
               CheckboxListTile(
-                value: _selectedDevices.contains(device),
+                value: _selectedDevices.contains(device.deviceId),
                 onChanged: (v) => setState(() {
                   if (v == true) {
-                    _selectedDevices.add(device);
+                    _selectedDevices.add(device.deviceId);
                   } else {
-                    _selectedDevices.remove(device);
+                    _selectedDevices.remove(device.deviceId);
                   }
                 }),
-                title: Text(device, style: const TextStyle(fontSize: 13)),
+                title: Text(
+                  '${device.name} (${device.location})',
+                  style: const TextStyle(fontSize: 13),
+                ),
                 contentPadding: EdgeInsets.zero,
               ),
           _buildNavRow(canNext: _canGoNextFromStep2),
@@ -395,19 +506,31 @@ class _TeacherPblActivityEditorPageState
             style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
           ),
           const SizedBox(height: 14),
-          for (final rubric in _mockAvailableRubrics)
-            RadioListTile<RubricModel>(
-              value: rubric,
-              // ignore: deprecated_member_use
-              groupValue: _selectedRubric,
-              // ignore: deprecated_member_use
-              onChanged: (v) => setState(() => _selectedRubric = v),
-              title: Text(rubric.title, style: const TextStyle(fontSize: 13)),
-              subtitle: Text(
-                '${rubric.criteria.length} เกณฑ์ · เต็ม ${rubric.totalMaxPoints.toStringAsFixed(0)} คะแนน',
-                style: const TextStyle(fontSize: 11),
+          if (_rubricSummaries.isEmpty)
+            const Text(
+              'ยังไม่มี Rubric ในระบบ — สร้างที่หน้า Rubric ก่อน',
+              style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+            )
+          else
+            for (final r in _rubricSummaries)
+              RadioListTile<String>(
+                value: r.id as String,
+                groupValue: _selectedRubric?.id,
+                onChanged: _loadingRubricDetail
+                    ? null
+                    : (v) {
+                        if (v != null) _pickRubric(v);
+                      },
+                title: Text(
+                  r.title as String,
+                  style: const TextStyle(fontSize: 13),
+                ),
+                contentPadding: EdgeInsets.zero,
               ),
-              contentPadding: EdgeInsets.zero,
+          if (_loadingRubricDetail)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: LinearProgressIndicator(),
             ),
           _buildNavRow(canNext: _canGoNextFromStep3),
         ],
@@ -465,42 +588,17 @@ class _TeacherPblActivityEditorPageState
           const SizedBox(height: 14),
           _reviewRow('หัวข้อ', _selectedTopic ?? '-'),
           _reviewRow('โจทย์', _problemCtrl.text),
-          _reviewRow('ข้อมูล AIoT', _selectedDevices.join(', ')),
+          _reviewRow(
+            'ข้อมูล AIoT',
+            _devices
+                .where((d) => _selectedDevices.contains(d.deviceId))
+                .map((d) => d.name)
+                .join(', '),
+          ),
           _reviewRow('Rubric', _selectedRubric?.title ?? '-'),
           _reviewRow('ระยะเวลา', _durationCtrl.text),
           _reviewRow('รูปแบบงาน', _isGroupWork ? 'งานกลุ่ม' : 'งานเดี่ยว'),
-          _buildNavRow(
-            canNext: true,
-            onNext: () async {
-              try {
-                final courses = await CourseService.listMyCourses();
-                if (courses.isNotEmpty) {
-                  final courseId = courses.first.id;
-                  final pblId = await AssignmentService.createAssignment(
-                    courseId: courseId,
-                    type: 'project',
-                    title: 'PBL: ${_selectedTopic ?? "โครงงาน AIoT"}',
-                    instructions: _problemCtrl.text.trim(),
-                  );
-                  await AssignmentService.publishAssignment(pblId);
-                }
-              } catch (e) {
-                debugPrint('Error publishing PBL assignment: $e');
-              }
-
-              if (!mounted) return;
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'เผยแพร่กิจกรรม PBL หัวข้อ "$_selectedTopic" ให้นักเรียนแล้ว',
-                  ),
-                  backgroundColor: const Color(0xFF10B981),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
+          _buildNavRow(canNext: true, onNext: _publish, busy: _publishing),
         ],
       ),
     );

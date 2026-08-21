@@ -258,7 +258,10 @@ class MyApp extends StatelessWidget {
       return const TeacherParentBindingApprovalPage();
     }
     if (path.contains('pbl-activity')) {
-      return const TeacherPblActivityEditorPage();
+      // Dev-preview only route (isPrototypeRoute=false in production, see
+      // top of this file) — no real course in scope here, so this shows
+      // the page with an empty device/rubric list rather than real data.
+      return const TeacherPblActivityEditorPage(courseId: '');
     }
     if (path.contains('teacher-courses') || path.contains('courses')) {
       return const TeacherCoursesPage();
