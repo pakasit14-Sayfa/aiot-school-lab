@@ -2505,7 +2505,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                                 widget.lesson.status = LessonStatus.published;
                               });
                             } catch (e) {
-                              if (!mounted) return;
+                              if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text('เผยแพร่ไม่สำเร็จ: $e'),
@@ -3668,27 +3668,25 @@ class _DashedBorderContainer extends StatelessWidget {
   const _DashedBorderContainer({
     required this.child,
     this.color = const Color(0xFFCBD5E1),
-    this.strokeWidth = 1.5,
-    this.dashWidth = 6.0,
-    this.dashSpace = 4.0,
     this.borderRadius = 16.0,
   });
 
   final Widget child;
   final Color color;
-  final double strokeWidth;
-  final double dashWidth;
-  final double dashSpace;
   final double borderRadius;
+
+  static const double _strokeWidth = 1.5;
+  static const double _dashWidth = 6.0;
+  static const double _dashSpace = 4.0;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       painter: _DashedRectPainter(
         color: color,
-        strokeWidth: strokeWidth,
-        dashWidth: dashWidth,
-        dashSpace: dashSpace,
+        strokeWidth: _strokeWidth,
+        dashWidth: _dashWidth,
+        dashSpace: _dashSpace,
         borderRadius: borderRadius,
       ),
       child: child,

@@ -657,8 +657,9 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
               interval: (points.length / 4).clamp(1, 10).toDouble(),
               getTitlesWidget: (value, meta) {
                 final idx = value.toInt();
-                if (idx < 0 || idx >= points.length)
+                if (idx < 0 || idx >= points.length) {
                   return const SizedBox.shrink();
+                }
                 final dt = points[idx].ts;
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
