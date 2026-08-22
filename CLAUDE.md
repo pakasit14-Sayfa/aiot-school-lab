@@ -58,6 +58,17 @@ Test accounts (seeded, password `Test1234!` for all): `teacher@aiot-school-lab.l
 `student@aiot-school-lab.local`, `parent@aiot-school-lab.local`,
 `admin@aiot-school-lab.local`, `facility@aiot-school-lab.local`.
 
+These same 8 accounts also exist in real `auth.users` (seeded by
+`20260823070000_seed_auth_users_for_local_dev.sql`) with the same
+`Test1234!` password, for `aiot_dev_dashboard` — the separate admin app in
+this repo that uses actual Supabase Auth instead of `my_first_app`'s custom
+session system (see hard rule 1). **Gotcha, found via real login testing:**
+this password only lives in the migration file — if anyone changes it
+directly in the DB (`docker exec`/Studio) while testing, it silently drifts
+from what a fresh `db reset` reproduces. Verify with:
+`select encrypted_password = crypt('Test1234!', encrypted_password) from auth.users;`
+— should be all `t`.
+
 ## If you received this codebase as a zip file
 
 This repo is normally shared as a full folder copy (zip), not a GitLab
