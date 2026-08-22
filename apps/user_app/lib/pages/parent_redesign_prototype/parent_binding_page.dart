@@ -208,7 +208,7 @@ class _ParentBindingPageState extends State<ParentBindingPage> {
             controller: _codeCtrl,
             textCapitalization: TextCapitalization.characters,
             decoration: InputDecoration(
-              labelText: 'Binding Code',
+              labelText: 'รหัสผูกบัญชี (Binding Code)',
               hintText: 'เช่น SCH-AIOT-2026',
               errorText: _codeError,
               border: OutlineInputBorder(
