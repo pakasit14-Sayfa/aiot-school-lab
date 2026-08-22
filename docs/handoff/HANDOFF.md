@@ -1,4 +1,4 @@
-# AIoT School Lab — Handoff Notes (2026-08-20)
+# AIoT School Lab — Handoff Notes (updated 2026-08-22)
 
 This file is written for another developer/AI picking up this codebase cold.
 It covers what this project is, how it's built, the non-obvious patterns you
@@ -24,12 +24,35 @@ Flutter monorepo (melos workspace) at `~/my_first_app`:
 
 - `apps/user_app` — the main app; all roles (teacher/student/parent/facility/
   executive) route through here based on the logged-in user's role.
-- `apps/admin_app` — separate admin app.
+- `apps/admin_app` — **an old, mostly-unused stub** (2 page files: a login
+  gate + a placeholder dashboard body, one working "จัดการผู้ใช้" page).
+  **This is not the real Super Admin app** — don't confuse it with the one
+  below. Kept around mainly so its `admin_login_page.dart` still works if
+  something links to it, but there's no active plan to build it out further.
 - `packages/shared_core` — all business logic: Supabase client setup, auth,
   and one service class per domain (see below). Both apps depend on this.
 - `packages/shared_ui` — shared widgets/design tokens.
-- `supabase/` — migrations (45 files, `supabase/migrations/`), Edge Functions
+- `supabase/` — migrations (61 files, `supabase/migrations/`), Edge Functions
   (`supabase/functions/`), config, and `seed.sql` (test data + test accounts).
+
+**The real Super Admin app lives OUTSIDE this repo**, at `~/aiot_dev_dashboard`
+(separate Flutter project, not part of this melos workspace, not git-tracked
+as of this writing). It points at the same local Supabase instance
+(`http://127.0.0.1:54321` — see `lib/config/supabase_config.dart` there) and
+uses **real Supabase Auth** (`signInWithPassword`/`auth.users`), unlike this
+repo's own custom session system — a completely different auth model running
+against the same database. Run it with:
+```bash
+cd ~/aiot_dev_dashboard && flutter pub get && flutter run -d chrome --web-port=3000
+```
+Only **4 of its 27 pages are wired to a real backend repository**
+(`dev_dashboard_page.dart`, `device_control_page.dart`,
+`learning_platform_page.dart`, `schools_page.dart`) — the rest, including
+every page under `lib/pages/school_admin/*`, are UI-only mockups with no
+persistence (a "โหมดจำลอง UI (Mock Preview)" banner is shown on the ones
+routed through `dev_navigation_shell.dart`/`school_admin_dashboard_page.dart`,
+which covers all of them except `KioskPairingScannerPage`, which opens via a
+separate fullscreen dialog outside both shells and has no banner yet).
 
 Remotes: pushes to both GitHub (`pakasit14-Sayfa/aiot-school-lab`) and GitLab
 (`diliondev/aiot-school-lab`).
@@ -52,14 +75,24 @@ no JWT-based RLS. Login is fully custom:
   check in PL/pgSQL. There is no framework-level authorization — it's
   hand-written in every function.
 
-**2. RLS is deny-all everywhere; RPC is the only door.** All 65 tables have
-Row-Level Security **enabled** with **zero policies** defined. That's
-deliberate — it means PostgREST's auto-generated `/rest/v1/<table>` endpoints
-are unusable from the client no matter what key you hold. All reads and
-writes happen through `SECURITY DEFINER` functions in the `public` schema,
-called via `supabase.rpc('function_name', {...})`. **Never** add a table that
-clients touch with `.from('table').select()` — that's not how this codebase
-works, and it would silently return nothing because of RLS.
+**2. RLS is deny-all everywhere; RPC is the only door.** All 72 base tables
+have Row-Level Security **enabled** with **zero policies** defined for this
+app's own custom auth model. That's deliberate — it means PostgREST's
+auto-generated `/rest/v1/<table>` endpoints are unusable from the client no
+matter what key you hold. All reads and writes happen through `SECURITY
+DEFINER` functions in the `public` schema, called via
+`supabase.rpc('function_name', {...})`. **Never** add a table that clients
+touch with `.from('table').select()` — that's not how this codebase works,
+and it would silently return nothing because of RLS.
+
+**Exception, added 2026-08-22 for `aiot_dev_dashboard`**: `devices`,
+`schools`, `device_commands`, `sensor_readings`, `device_categories`,
+`device_logs`, `control_approval_requests`, `users`, and `user_roles` now
+also have real `authenticated`-role RLS policies (`is_super_admin()`/
+`get_auth_school_id()`-based), plus two views (`profiles`, `alerts`) — this
+is a **second, parallel security model** for the separate dashboard app
+above, layered on top of the same tables. A security incident happened here
+(see below) — read it before touching any of these policies.
 
 **3. File uploads never touch client-side Storage calls directly.** Pattern
 (see `course-file-upload`/`course-file-download` and the newer
@@ -119,7 +152,23 @@ all of them):
 - `parent@aiot-school-lab.local`
 - `admin@aiot-school-lab.local` (super admin)
 - `facility@aiot-school-lab.local`
+- `schooladmin@`, `executive@`, `technician@` also exist (`user_roles`).
 - Full list: `select email, role from ...` query at the bottom of `seed.sql`.
+
+The same 8 accounts also exist in real `auth.users` (for `aiot_dev_dashboard`,
+seeded by `20260823070000_seed_auth_users_for_local_dev.sql`), **same
+password `Test1234!`**. These two password stores (`public.users.password_hash`
+vs `auth.users.encrypted_password`) are independent — a migration
+(`20260823120000_fix_seed_auth_password_drift.sql`) had to re-sync them once
+already after they drifted apart from manual DB testing. If login into
+`aiot_dev_dashboard` ever fails with correct-looking credentials, check this
+first: `select encrypted_password = crypt('Test1234!', encrypted_password)
+from auth.users;` should be all `t`.
+
+`teacher@`/`schooladmin@`/`executive@`/`admin@` (super_admin) require a 2FA
+OTP step after password — in local dev, the OTP code comes back directly in
+the sign-in response as `dev_otp_code` (or check Mailpit at
+`http://127.0.0.1:54324`), no real email needed.
 
 `isPrototypeRoute` in `apps/user_app/lib/main.dart` is `false` — the app goes
 through real login (`RoleRouter` picks the home page from the real role in
@@ -172,6 +221,25 @@ self-documented as UI-only, needs a new pairing-session RPC flow.
 - `teacher_exam_builder_page.dart` — image/video attachments on exam
   questions did not appear to persist / round-trip correctly. Needs
   reproduction with the local stack running to confirm current behavior.
+- **`supabase_migrations.schema_migrations` tracking table doesn't match the
+  files on disk** (53 tracked rows vs 61 files as of 2026-08-22). Several
+  migrations this week were applied via `docker exec ... psql < file.sql`
+  directly because `npx supabase migration up`/`--include-all` kept erroring
+  on out-of-order/duplicate-version conflicts, which bypasses the CLI's
+  tracking. Every migration file involved uses `create or replace`/`if not
+  exists`/`on conflict`, so a full `npx supabase db reset` should converge to
+  the same state and rebuild the tracking table cleanly — do that rather than
+  hand-editing `schema_migrations`.
+- `~/aiot_dev_dashboard` is 4/27 pages real, 23 mockup (see repo layout note
+  above) — treat anything under `lib/pages/school_admin/*`,
+  `devices_page.dart`, `permissions_page.dart`, `alerts_logs_page.dart`,
+  `settings_page.dart`, `device_test_page.dart`, `scan_page.dart`,
+  `kiosk_pairing_scanner_page.dart` as **not persisting data** until wired to
+  a repository like `SchoolRepository`.
+- `KioskPairingScannerPage` (in `~/aiot_dev_dashboard`) has no "Mock Preview"
+  banner — it opens via a fullscreen `Navigator.push` outside both
+  navigation shells that carry the banner elsewhere. Needs a live
+  camera/device test before touching its layout, so left alone for now.
 
 ### Lesson-materials upload/download — verified (commit `26d0343`)
 
@@ -272,6 +340,88 @@ correctly raised `already_confirmed`. `flutter build web` passes.
 
 **Not done**: a student-facing "my G-Score" display page (only the backend
 + teacher confirm UI exist so far — no page reads `listMyGScore()` yet).
+
+### 2026-08-22 — `aiot_dev_dashboard` integration, security incident, and RBAC audit
+
+Another AI agent working on this same repo ("agy") integrated
+`~/aiot_dev_dashboard` (a separate, more mature Super Admin app — see repo
+layout note above) against this project's shared local Supabase instance.
+This introduced a real, verified security vulnerability, which was found,
+reported, and fixed the same day — full trail below in case similar work
+happens again.
+
+**The vulnerability**: `20260823060000_admin_dev_dashboard_compatibility.sql`
+and `20260823080000_super_admin_hardening_rls_and_health.sql` added
+`anon`-permissive RLS policies (`using (true)`) and direct `grant ... to anon`
+statements on `devices`, `schools`, `sensor_readings`, `device_commands`,
+`users`, `user_roles`, plus two new views `profiles`/`alerts` also granted to
+`anon` — all reachable with just the public anon key, no login. Confirmed
+exploitable via real unauthenticated `curl` (not `docker exec` as postgres,
+which bypasses RLS and gives a false-safe reading):
+```bash
+curl "http://127.0.0.1:54321/rest/v1/profiles?select=email,role,school_id" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY"
+# → 200, every user's email/name/role/school_id, no auth at all
+```
+A first fix pass (`20260823100000_close_anon_rls_holes.sql`) correctly
+dropped the anon policies/grants on the 8 base tables and added proper
+`authenticated`-only policies keyed on new `is_super_admin()`/
+`get_auth_school_id()` `SECURITY DEFINER` helpers — but missed the
+`profiles`/`alerts` **views**, which run with the view owner's privileges by
+default and bypass the underlying tables' RLS entirely regardless of how
+locked-down `users`/`sensor_alerts` are. Closed in
+`20260823110000_close_anon_view_leak.sql` (`revoke all on
+profiles/alerts from anon`). Re-verified with the same curl method — all
+three surfaces (`/devices`, `/profiles`, `/alerts`) now return `401
+permission denied` for anon.
+
+**Follow-on findings from independently re-verifying self-reported fixes**
+(pattern worth repeating: every "100% done"/"verified" claim this session,
+when actually re-tested, had something incomplete):
+- `is_super_admin()` had a hardcoded `or u.email =
+  'admin@aiot-school-lab.local'` bypass independent of `user_roles` — a
+  latent privilege-escalation path for anyone who ever gets that exact
+  email. Removed in `20260823130000_fix_is_super_admin_email_bypass.sql`.
+- A claimed "OTP error message fixed" migration actually edited
+  `apps/user_app/lib/pages/login_page.dart` (wrong app — that flow doesn't
+  even exist in `aiot_dev_dashboard`'s login, which is plain
+  `signInWithPassword` with no OTP/Edge Function at all) and introduced a
+  regression (an over-broad `'functionexception'` string match that would
+  mislabel unrelated errors). Reverted; the real fix landed in
+  `apps/admin_app/lib/pages/admin_login_page.dart` instead, since that's
+  where the OTP-cooldown `FunctionException` genuinely is reproducible
+  (`AuthService.signIn` → `auth-sign-in` Edge Function → this repo's own
+  `auth_sign_in` RPC, which does have 2FA/rate-limiting).
+- A claimed "banner added to 23 mockup pages" turned out to actually be
+  correct on closer reading (the banner is injected by two shell wrappers,
+  not per-file — grepping individual files for the banner string was the
+  wrong check) — logged here as a reminder that "verify the claim" cuts
+  both ways; not everything that looks wrong on a shallow check actually is.
+
+**RBAC audit (task tracked as #77)** — tested cross-tenant/cross-role access
+live for every role, using real login sessions and temporary throwaway test
+data (created, tested, deleted each time — never left in the seed data):
+
+| Role | Attack tried | Result |
+|---|---|---|
+| `school_admin` (aiot_dev_dashboard) | Read another school's `schools`/`devices` rows, by id and by broad select | Blocked (RLS) |
+| `student` | Guess another student's `student_personal_tasks`/`incident_reports` id | Blocked (`forbidden`/`not_found`, ownership checks in RPC) |
+| `teacher` | `get_course`/`list_course_students`/`list_assignments` on a course they don't teach | Blocked (`forbidden`) |
+| `parent` | `grant_parent_consent`/`withdraw_parent_consent` using another parent's `parent_link_id` | Blocked (`approved_parent_link_required`) |
+| `executive` | Check `count_school_users_by_role` for PII leakage | Clean — role+count only, no names/emails |
+| `facility_manager` | `queue_device_command` on a device outside their assigned building | **Vulnerable — fixed** |
+
+`queue_device_command` (`supabase/migrations/20260721010000_relay_commands.sql`)
+only checked the target device's `school_id`, never the caller's `building`
+for `facility_manager` — even though `list_devices_in_my_building` and
+`sensor_latest` both correctly enforce that scope elsewhere (BR4: "อาคารที่
+รับผิดชอบเท่านั้น"). A facility manager who knew/guessed a `device_id`
+outside their building could queue a real command against it. Fixed in
+`20260823140000_fix_facility_manager_device_command_scope.sql` (same
+building-prefix check pattern as the other two functions); re-verified the
+exploit now 403s, same-building control still works, and
+`school_admin`/`super_admin`/`technician` (intentionally unrestricted by
+building) are unaffected.
 
 ## Where to look next
 

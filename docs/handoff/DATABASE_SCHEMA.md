@@ -1,8 +1,10 @@
-# Database Schema (live dump from local Supabase, regenerated 2026-08-21)
+# Database Schema (live dump from local Supabase, regenerated 2026-08-23)
 
-Total tables: 69
+Total tables: 72 (+ 2 views: alerts, profiles)
 
-All tables have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
+All base tables have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST except through explicit grants. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
+
+`profiles` and `alerts` are **views** added for `aiot_dev_dashboard` compatibility (over `users`/`sensor_alerts`) — views run with the view owner's privileges by default and bypass the underlying tables' RLS, so their own grants matter independently (currently `authenticated` only, `anon` was revoked after a leak was found and fixed 2026-08-22).
 
 
 ## academic_years
@@ -17,6 +19,20 @@ All tables have Row-Level Security enabled with **zero policies** — nothing is
 
 Foreign keys:
 - `school_id` → `schools.id`
+
+## alerts (view)
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | YES |  |
+| school_id | uuid | YES |  |
+| device_id | uuid | YES |  |
+| alert_type | text | YES |  |
+| title | text | YES |  |
+| message | text | YES |  |
+| severity | text | YES |  |
+| status | text | YES |  |
+| created_at | timestamp with time zone | YES |  |
 
 ## assignment_sensor_datasets
 
@@ -217,6 +233,27 @@ Foreign keys:
 - `parent_link_id` → `parent_links.id`
 - `policy_id` → `consent_policies.id`
 
+## control_approval_requests
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| school_id | uuid | YES |  |
+| device_id | uuid | YES |  |
+| command | text | NO |  |
+| requested_by | uuid | YES |  |
+| status | text | NO | 'pending'::text |
+| reviewed_by | uuid | YES |  |
+| reviewed_at | timestamp with time zone | YES |  |
+| notes | text | YES |  |
+| created_at | timestamp with time zone | YES | now() |
+
+Foreign keys:
+- `device_id` → `devices.id`
+- `requested_by` → `users.id`
+- `reviewed_by` → `users.id`
+- `school_id` → `schools.id`
+
 ## course_files
 
 | column | type | nullable | default |
@@ -311,6 +348,17 @@ Foreign keys:
 - `school_id` → `schools.id`
 - `term_id` → `terms.id`
 
+## device_categories
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| name | text | NO |  |
+| code | text | YES |  |
+| description | text | YES |  |
+| icon | text | YES |  |
+| created_at | timestamp with time zone | YES | now() |
+
 ## device_commands
 
 | column | type | nullable | default |
@@ -338,6 +386,22 @@ Foreign keys:
 Foreign keys:
 - `device_id` → `devices.id`
 
+## device_logs
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| device_id | uuid | YES |  |
+| school_id | uuid | YES |  |
+| event_type | text | NO |  |
+| message | text | YES |  |
+| metadata | jsonb | YES | '{}'::jsonb |
+| created_at | timestamp with time zone | YES | now() |
+
+Foreign keys:
+- `device_id` → `devices.id`
+- `school_id` → `schools.id`
+
 ## devices
 
 | column | type | nullable | default |
@@ -355,6 +419,15 @@ Foreign keys:
 | token_hash | character varying | YES |  |
 | token_issued_at | timestamp with time zone | YES |  |
 | course_id | uuid | YES |  |
+| category_code | text | YES |  |
+| device_code | text | YES |  |
+| building | text | YES |  |
+| room | text | YES |  |
+| metadata | jsonb | YES | '{}'::jsonb |
+| updated_at | timestamp with time zone | YES | now() |
+| last_seen_at | timestamp with time zone | YES | now() |
+| ip_address | text | YES | '192.168.1.100'::text |
+| firmware_version | text | YES | 'v1.2.0-prod'::text |
 
 Foreign keys:
 - `course_id` → `courses.id`
@@ -715,6 +788,19 @@ Foreign keys:
 - `second_approved_by` → `users.id`
 - `student_id` → `users.id`
 
+## profiles (view)
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | YES |  |
+| email | character varying | YES |  |
+| full_name | text | YES |  |
+| role | text | YES |  |
+| is_active | boolean | YES |  |
+| school_id | uuid | YES |  |
+| created_at | timestamp with time zone | YES |  |
+| updated_at | timestamp with time zone | YES |  |
+
 ## quiz_answers
 
 | column | type | nullable | default |
@@ -850,6 +936,13 @@ Foreign keys:
 | logo_url | character varying | YES |  |
 | status | USER-DEFINED | YES | 'active'::user_status |
 | created_at | timestamp with time zone | YES | now() |
+| province | text | YES | 'กรุงเทพมหานคร'::text |
+| admin_email | text | YES | 'schooladmin@aiot-school-lab.local'::text |
+| package_name | text | YES | 'Pro Package'::text |
+| license_expires_at | timestamp with time zone | YES | (now() + '365 days'::interval) |
+| max_users | integer | YES | 500 |
+| max_devices | integer | YES | 100 |
+| updated_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
 - `package_id` → `packages.id`
@@ -1184,136 +1277,139 @@ Foreign keys:
 
 # RPC Functions (public schema, callable via supabase.rpc)
 
-Total: 161
+Total: 164
 
 Almost every one takes `p_token text` as its first arg — the custom session token (see auth pattern in main handoff doc), validated internally via `get_session_actor(p_token)`. This is NOT Supabase Auth; there is no `auth.uid()`.
 
 | function | args | returns |
 |---|---|---|
-| `accept_staff_invitation` | p_token text, p_first_name text, p_last_name text, p_password text | TABLE(auth_state text, session_token text, user_id uuid, email character vary... |
+| `accept_staff_invitation` | p_token text, p_first_name text, p_last_name text, p_password text | TABLE(auth_state text, session_token text, user_id uuid, email character varying, first_na... |
 | `acknowledge_emergency_event` | p_token text, p_event_id uuid | void |
 | `acknowledge_incident_report` | p_token text, p_id uuid | void |
 | `add_group_member` | p_token text, p_group_id uuid, p_student_id uuid | void |
 | `add_incident_action` | p_token text, p_id uuid, p_note text | void |
-| `add_lesson_material` | p_token text, p_lesson_id uuid, p_type material_type, p_title text, p_url text, p_sort_order inte... | TABLE(material_id uuid) |
-| `add_quiz_question` | p_token text, p_quiz_id uuid, p_type question_type, p_question text, p_points numeric, p_choices ... | TABLE(question_id uuid) |
-| `add_rubric_criterion` | p_token text, p_rubric_id uuid, p_name text, p_description text, p_max_score numeric, p_levels js... | TABLE(criterion_id uuid) |
+| `add_lesson_material` | p_token text, p_lesson_id uuid, p_type material_type, p_title text, p_url text, p_sort_ord... | TABLE(material_id uuid) |
+| `add_quiz_question` | p_token text, p_quiz_id uuid, p_type question_type, p_question text, p_points numeric, p_c... | TABLE(question_id uuid) |
+| `add_rubric_criterion` | p_token text, p_rubric_id uuid, p_name text, p_description text, p_max_score numeric, p_le... | TABLE(criterion_id uuid) |
 | `add_student_support_intervention` | p_token text, p_case_id uuid, p_action_type text, p_notes text | TABLE(intervention_id uuid) |
 | `approve_parent_link` | p_token text, p_parent_link_id uuid | void |
 | `assert_course_upload_access` | p_token text, p_course_id uuid | void |
 | `assert_lesson_upload_access` | p_token text, p_lesson_id uuid | void |
 | `assign_incident_report` | p_token text, p_id uuid, p_assignee_id uuid | void |
-| `auth_sign_in` | p_email text, p_password text, p_device_info text, p_ip_address text | TABLE(auth_state text, session_token text, user_id uuid, email character vary... |
+| `auth_sign_in` | p_email text, p_password text, p_device_info text, p_ip_address text | TABLE(auth_state text, session_token text, user_id uuid, email character varying, first_na... |
 | `auth_sign_out` | p_token text | void |
 | `auth_sign_out_all` | p_token text | integer |
-| `auth_validate_session` | p_token text | TABLE(user_id uuid, email character varying, first_name character varying, la... |
-| `auth_verify_login_otp` | p_otp_token text, p_otp_code text | TABLE(session_token text, user_id uuid, email character varying, first_name c... |
+| `auth_validate_session` | p_token text | TABLE(user_id uuid, email character varying, first_name character varying, last_name chara... |
+| `auth_verify_login_otp` | p_otp_token text, p_otp_code text | TABLE(session_token text, user_id uuid, email character varying, first_name character vary... |
 | `check_terminal_pairing_status` | p_pairing_code text | TABLE(status text, session_token text, student_name text) |
 | `claim_terminal_pairing_session` | p_token text, p_pairing_code text | TABLE(success boolean, student_name text, message text) |
 | `close_emergency_event` | p_token text, p_event_id uuid, p_review_note text | void |
-| `close_incident_report` | p_token text, p_id uuid, p_resolution_type incident_resolution_type, p_resolution_note text | void |
+| `close_incident_report` | p_token text, p_id uuid, p_resolution_type incident_resolution_type, p_resolution_note tex... | void |
 | `confirm_g_score` | p_token text, p_entry_id uuid | void |
 | `confirm_grade` | p_token text, p_grade_id uuid | void |
-| `confirm_parent_binding` | p_verification_token text, p_otp_code text, p_relationship text, p_first_name text, p_last_name t... | TABLE(parent_link_id uuid, status binding_status) |
+| `confirm_parent_binding` | p_verification_token text, p_otp_code text, p_relationship text, p_first_name text, p_last... | TABLE(parent_link_id uuid, status binding_status) |
 | `confirm_password_reset` | p_email text, p_otp_code text, p_new_password text | void |
 | `count_school_users_by_role` | p_token text | TABLE(active_role text, user_count bigint) |
-| `create_assignment` | p_token text, p_course_id uuid, p_type assignment_type, p_title text, p_instructions text, p_due_... | TABLE(assignment_id uuid) |
-| `create_course` | p_token text, p_term_id uuid, p_subject_name text, p_grade_level text, p_room text, p_description... | TABLE(course_id uuid) |
+| `create_assignment` | p_token text, p_course_id uuid, p_type assignment_type, p_title text, p_instructions text,... | TABLE(assignment_id uuid) |
+| `create_course` | p_token text, p_term_id uuid, p_subject_name text, p_grade_level text, p_room text, p_desc... | TABLE(course_id uuid) |
 | `create_grade` | p_token text, p_student_id uuid, p_course_id uuid, p_score numeric, p_max_score numeric | TABLE(grade_id uuid) |
 | `create_incident_report` | p_token text, p_category incident_category, p_room text, p_reason text, p_severity text | TABLE(incident_id uuid) |
 | `create_lesson` | p_token text, p_course_id uuid, p_title text, p_content jsonb | TABLE(lesson_id uuid) |
-| `create_parent_binding_code` | p_token text, p_student_code text | TABLE(binding_code text, expires_at timestamp with time zone, student_first_n... |
+| `create_parent_binding_code` | p_token text, p_student_code text | TABLE(binding_code text, expires_at timestamp with time zone, student_first_name character... |
 | `create_personal_task` | p_token text, p_title text, p_note text, p_due_at timestamp with time zone | TABLE(task_id uuid) |
 | `create_post` | p_token text, p_course_id uuid, p_body text | TABLE(post_id uuid) |
-| `create_quiz` | p_token text, p_course_id uuid, p_type quiz_type, p_title text, p_lesson_id uuid, p_time_limit_mi... | TABLE(quiz_id uuid) |
+| `create_quiz` | p_token text, p_course_id uuid, p_type quiz_type, p_title text, p_lesson_id uuid, p_time_l... | TABLE(quiz_id uuid) |
 | `create_reply` | p_token text, p_post_id uuid, p_body text | TABLE(reply_id uuid) |
 | `create_rubric` | p_token text, p_title text, p_description text, p_criteria jsonb | TABLE(rubric_id uuid) |
 | `create_staff_invitation` | p_token text, p_email text, p_role role_type, p_school_id uuid | TABLE(invitation_token text, expires_at timestamp with time zone) |
 | `create_student_group` | p_token text, p_course_id uuid, p_name text | uuid |
-| `create_student_support_case` | p_token text, p_student_id uuid, p_course_id uuid, p_category text, p_risk_level text, p_title te... | TABLE(case_id uuid) |
+| `create_student_support_case` | p_token text, p_student_id uuid, p_course_id uuid, p_category text, p_risk_level text, p_t... | TABLE(case_id uuid) |
 | `create_terminal_pairing_session` | p_terminal_name text | TABLE(pairing_code text, expires_at timestamp with time zone) |
 | `delete_personal_task` | p_token text, p_task_id uuid | void |
 | `delete_student_group` | p_token text, p_group_id uuid | void |
 | `enroll_student` | p_token text, p_course_id uuid, p_student_id uuid | void |
 | `escalate_incident_report` | p_token text, p_id uuid | void |
-| `find_student_by_email` | p_token text, p_email text | TABLE(student_id uuid, first_name character varying, last_name character vary... |
-| `get_assignment` | p_token text, p_assignment_id uuid | TABLE(assignment_id uuid, course_id uuid, type assignment_type, title charact... |
-| `get_course` | p_token text, p_course_id uuid | TABLE(course_id uuid, subject_name character varying, grade_level character v... |
+| `find_student_by_email` | p_token text, p_email text | TABLE(student_id uuid, first_name character varying, last_name character varying, email ch... |
+| `get_assignment` | p_token text, p_assignment_id uuid | TABLE(assignment_id uuid, course_id uuid, type assignment_type, title character varying, i... |
+| `get_auth_school_id` | p_uid uuid | uuid |
+| `get_course` | p_token text, p_course_id uuid | TABLE(course_id uuid, subject_name character varying, grade_level character varying, room ... |
 | `get_course_file_for_download` | p_token text, p_file_id uuid | TABLE(storage_path text, file_name character varying) |
 | `get_energy_efficiency_score` | p_token text | TABLE(score numeric, label text, current_kwh numeric, previous_kwh numeric) |
-| `get_energy_usage_summary` | p_token text, p_period text | TABLE(device_count integer, total_kwh numeric, electricity_rate_thb numeric, ... |
+| `get_energy_usage_summary` | p_token text, p_period text | TABLE(device_count integer, total_kwh numeric, electricity_rate_thb numeric, is_rate_defau... |
 | `get_energy_usage_trend` | p_token text, p_days integer | TABLE(day date, total_kwh numeric) |
-| `get_incident_report` | p_token text, p_id uuid | TABLE(id uuid, category incident_category, room character varying, status inc... |
-| `get_incident_summary` | p_token text | TABLE(category incident_category, total_count integer, avg_response_seconds n... |
-| `get_lesson` | p_token text, p_lesson_id uuid | TABLE(lesson_id uuid, course_id uuid, title character varying, content jsonb,... |
+| `get_incident_report` | p_token text, p_id uuid | TABLE(id uuid, category incident_category, room character varying, status incident_status,... |
+| `get_incident_summary` | p_token text | TABLE(category incident_category, total_count integer, avg_response_seconds numeric) |
+| `get_lesson` | p_token text, p_lesson_id uuid | TABLE(lesson_id uuid, course_id uuid, title character varying, content jsonb, status lesso... |
 | `get_lesson_material_for_download` | p_token text, p_material_id uuid | TABLE(storage_path text, file_name character varying) |
-| `get_my_latest_quiz_attempt` | p_token text, p_quiz_id uuid | TABLE(attempt_id uuid, started_at timestamp with time zone, submitted_at time... |
+| `get_my_latest_quiz_attempt` | p_token text, p_quiz_id uuid | TABLE(attempt_id uuid, started_at timestamp with time zone, submitted_at timestamp with ti... |
 | `get_my_student_room` | p_token text | TABLE(room character varying, grade_level character varying) |
-| `get_quiz_for_student` | p_token text, p_quiz_id uuid | TABLE(quiz_id uuid, title character varying, type quiz_type, time_limit_min i... |
-| `get_rubric` | p_token text, p_rubric_id uuid | TABLE(rubric_id uuid, title character varying, description text, criteria jso... |
-| `get_school_utility_rates` | p_token text | TABLE(electricity_rate_thb numeric, is_electricity_default boolean, water_rat... |
+| `get_quiz_for_student` | p_token text, p_quiz_id uuid | TABLE(quiz_id uuid, title character varying, type quiz_type, time_limit_min integer, quest... |
+| `get_rubric` | p_token text, p_rubric_id uuid | TABLE(rubric_id uuid, title character varying, description text, criteria jsonb) |
+| `get_school_utility_rates` | p_token text | TABLE(electricity_rate_thb numeric, is_electricity_default boolean, water_rate_thb numeric... |
 | `get_session_actor` | p_token text | TABLE(user_id uuid, role role_type, school_id uuid) |
 | `get_water_efficiency_score` | p_token text | TABLE(score numeric, label text, current_m3 numeric, previous_m3 numeric) |
-| `get_water_usage_summary` | p_token text, p_period text | TABLE(device_count integer, total_m3 numeric, water_rate_thb numeric, is_rate... |
+| `get_water_usage_summary` | p_token text, p_period text | TABLE(device_count integer, total_m3 numeric, water_rate_thb numeric, is_rate_default bool... |
 | `get_water_usage_trend` | p_token text, p_days integer | TABLE(day date, total_m3 numeric) |
 | `give_feedback` | p_token text, p_submission_id uuid, p_body text | TABLE(feedback_id uuid) |
 | `grant_parent_consent` | p_token text, p_parent_link_id uuid, p_policy_id uuid, p_evidence jsonb | uuid |
 | `ingest_sensor_readings_verified` | p_gateway_id uuid, p_readings jsonb | integer |
+| `is_super_admin` | p_uid uuid | boolean |
 | `issue_device_token` | p_token text, p_device_id uuid | text |
-| `link_assignment_sensor_dataset` | p_token text, p_assignment_id uuid, p_device_id uuid, p_metric metric_type, p_time_start timestam... | TABLE(dataset_id uuid) |
-| `link_lesson_sensor` | p_token text, p_lesson_id uuid, p_device_id uuid, p_metric metric_type, p_time_start timestamp wi... | TABLE(link_id uuid) |
-| `list_active_consent_policies` | p_token text | TABLE(policy_id uuid, consent_type character varying, version character varyi... |
-| `list_assignments` | p_token text, p_course_id uuid | TABLE(assignment_id uuid, type assignment_type, title character varying, due_... |
-| `list_binding_codes` | p_token text, p_school_id uuid | TABLE(id uuid, student_id uuid, student_first_name character varying, student... |
-| `list_consent_policies_admin` | p_token text, p_school_id uuid | TABLE(policy_id uuid, school_id uuid, consent_type character varying, version... |
-| `list_course_files` | p_token text, p_course_id uuid | TABLE(file_id uuid, storage_path text, file_name character varying, size_byte... |
-| `list_course_grades` | p_token text, p_course_id uuid | TABLE(grade_id uuid, student_id uuid, student_first_name character varying, s... |
-| `list_course_quizzes` | p_token text, p_course_id uuid | TABLE(quiz_id uuid, type quiz_type, title character varying, time_limit_min i... |
-| `list_course_students` | p_token text, p_course_id uuid | TABLE(student_id uuid, first_name character varying, last_name character vary... |
-| `list_devices_in_my_building` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location char... |
-| `list_emergency_events` | p_token text, p_status emergency_status | TABLE(id uuid, school_id uuid, source_device_id uuid, device_name character v... |
-| `list_feedback` | p_token text, p_submission_id uuid | TABLE(feedback_id uuid, author_first_name character varying, author_last_name... |
-| `list_incident_reports` | p_token text, p_status incident_status | TABLE(id uuid, category incident_category, room character varying, status inc... |
-| `list_lessons` | p_token text, p_course_id uuid | TABLE(lesson_id uuid, title character varying, status lesson_status, publishe... |
-| `list_my_consents` | p_token text, p_parent_link_id uuid | TABLE(consent_id uuid, policy_id uuid, consent_type character varying, versio... |
-| `list_my_courses` | p_token text | TABLE(course_id uuid, subject_name character varying, grade_level character v... |
-| `list_my_g_score` | p_token text | TABLE(entry_id uuid, course_id uuid, subject_name character varying, source g... |
-| `list_my_grades` | p_token text | TABLE(grade_id uuid, course_id uuid, subject_name character varying, score nu... |
-| `list_my_incident_reports` | p_token text | TABLE(id uuid, category incident_category, room character varying, status inc... |
-| `list_my_notifications` | p_token text | TABLE(id uuid, type character varying, title character varying, body text, pa... |
-| `list_my_parent_links` | p_token text | TABLE(parent_link_id uuid, student_id uuid, student_first_name character vary... |
-| `list_my_personal_tasks` | p_token text | TABLE(task_id uuid, title character varying, note text, due_at timestamp with... |
-| `list_my_rubrics` | p_token text | TABLE(rubric_id uuid, title character varying, description text, created_by u... |
-| `list_my_schedule` | p_token text | TABLE(schedule_id uuid, course_id uuid, subject_name character varying, day_o... |
+| `link_assignment_sensor_dataset` | p_token text, p_assignment_id uuid, p_device_id uuid, p_metric metric_type, p_time_start t... | TABLE(dataset_id uuid) |
+| `link_lesson_sensor` | p_token text, p_lesson_id uuid, p_device_id uuid, p_metric metric_type, p_time_start times... | TABLE(link_id uuid) |
+| `list_active_consent_policies` | p_token text | TABLE(policy_id uuid, consent_type character varying, version character varying, document_... |
+| `list_assignments` | p_token text, p_course_id uuid | TABLE(assignment_id uuid, type assignment_type, title character varying, due_at timestamp ... |
+| `list_binding_codes` | p_token text, p_school_id uuid | TABLE(id uuid, student_id uuid, student_first_name character varying, student_last_name ch... |
+| `list_consent_policies_admin` | p_token text, p_school_id uuid | TABLE(policy_id uuid, school_id uuid, consent_type character varying, version character va... |
+| `list_course_files` | p_token text, p_course_id uuid | TABLE(file_id uuid, storage_path text, file_name character varying, size_bytes bigint, upl... |
+| `list_course_grades` | p_token text, p_course_id uuid | TABLE(grade_id uuid, student_id uuid, student_first_name character varying, student_last_n... |
+| `list_course_quizzes` | p_token text, p_course_id uuid | TABLE(quiz_id uuid, type quiz_type, title character varying, time_limit_min integer, statu... |
+| `list_course_students` | p_token text, p_course_id uuid | TABLE(student_id uuid, first_name character varying, last_name character varying, email ch... |
+| `list_devices_in_my_building` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location character varying... |
+| `list_emergency_events` | p_token text, p_status emergency_status | TABLE(id uuid, school_id uuid, source_device_id uuid, device_name character varying, locat... |
+| `list_feedback` | p_token text, p_submission_id uuid | TABLE(feedback_id uuid, author_first_name character varying, author_last_name character va... |
+| `list_incident_reports` | p_token text, p_status incident_status | TABLE(id uuid, category incident_category, room character varying, status incident_status,... |
+| `list_lessons` | p_token text, p_course_id uuid | TABLE(lesson_id uuid, title character varying, status lesson_status, published_at timestam... |
+| `list_my_consents` | p_token text, p_parent_link_id uuid | TABLE(consent_id uuid, policy_id uuid, consent_type character varying, version character v... |
+| `list_my_courses` | p_token text | TABLE(course_id uuid, subject_name character varying, grade_level character varying, room ... |
+| `list_my_g_score` | p_token text | TABLE(entry_id uuid, course_id uuid, subject_name character varying, source g_score_source... |
+| `list_my_grades` | p_token text | TABLE(grade_id uuid, course_id uuid, subject_name character varying, score numeric, max_sc... |
+| `list_my_incident_reports` | p_token text | TABLE(id uuid, category incident_category, room character varying, status incident_status,... |
+| `list_my_notifications` | p_token text | TABLE(id uuid, type character varying, title character varying, body text, payload jsonb, ... |
+| `list_my_parent_links` | p_token text | TABLE(parent_link_id uuid, student_id uuid, student_first_name character varying, student_... |
+| `list_my_personal_tasks` | p_token text | TABLE(task_id uuid, title character varying, note text, due_at timestamp with time zone, d... |
+| `list_my_rubrics` | p_token text | TABLE(rubric_id uuid, title character varying, description text, created_by uuid, criteria... |
+| `list_my_schedule` | p_token text | TABLE(schedule_id uuid, course_id uuid, subject_name character varying, day_of_week smalli... |
 | `list_my_submission_versions` | p_token text, p_assignment_id uuid | TABLE(version integer, content text, submitted_at timestamp with time zone) |
-| `list_parent_links` | p_token text, p_status binding_status, p_school_id uuid | TABLE(id uuid, student_id uuid, student_first_name character varying, student... |
-| `list_pending_coi_grades` | p_token text | TABLE(grade_id uuid, student_id uuid, student_first_name character varying, s... |
-| `list_pending_g_score` | p_token text | TABLE(entry_id uuid, student_id uuid, student_first_name character varying, s... |
-| `list_posts` | p_token text, p_course_id uuid | TABLE(post_id uuid, author_id uuid, author_first_name character varying, auth... |
-| `list_school_devices` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location char... |
-| `list_school_invitations` | p_token text, p_school_id uuid | TABLE(id uuid, email character varying, initial_role role_type, status invita... |
-| `list_school_users` | p_token text | TABLE(user_id uuid, first_name character varying, last_name character varying... |
-| `list_student_groups` | p_token text, p_course_id uuid | TABLE(id uuid, course_id uuid, name character varying, created_at timestamp w... |
-| `list_student_support_cases` | p_token text, p_course_id uuid, p_status text | TABLE(case_id uuid, student_id uuid, student_name text, student_email text, c... |
-| `list_student_support_interventions` | p_token text, p_case_id uuid | TABLE(intervention_id uuid, case_id uuid, action_type text, notes text, recor... |
-| `list_submissions` | p_token text, p_assignment_id uuid | TABLE(submission_id uuid, student_id uuid, student_first_name character varyi... |
-| `list_teaching_kit_command_history` | p_token text, p_limit integer | TABLE(command_id uuid, device_id uuid, device_name character varying, command... |
-| `list_teaching_kit_devices` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location char... |
-| `list_terms` | p_token text | TABLE(term_id uuid, term_name character varying, academic_year_name character... |
+| `list_parent_links` | p_token text, p_status binding_status, p_school_id uuid | TABLE(id uuid, student_id uuid, student_first_name character varying, student_last_name ch... |
+| `list_pending_coi_grades` | p_token text | TABLE(grade_id uuid, student_id uuid, student_first_name character varying, student_last_n... |
+| `list_pending_g_score` | p_token text | TABLE(entry_id uuid, student_id uuid, student_first_name character varying, student_last_n... |
+| `list_posts` | p_token text, p_course_id uuid | TABLE(post_id uuid, author_id uuid, author_first_name character varying, author_last_name ... |
+| `list_school_devices` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location character varying... |
+| `list_school_invitations` | p_token text, p_school_id uuid | TABLE(id uuid, email character varying, initial_role role_type, status invitation_status, ... |
+| `list_school_users` | p_token text | TABLE(user_id uuid, first_name character varying, last_name character varying, email chara... |
+| `list_student_groups` | p_token text, p_course_id uuid | TABLE(id uuid, course_id uuid, name character varying, created_at timestamp with time zone... |
+| `list_student_support_cases` | p_token text, p_course_id uuid, p_status text | TABLE(case_id uuid, student_id uuid, student_name text, student_email text, course_id uuid... |
+| `list_student_support_interventions` | p_token text, p_case_id uuid | TABLE(intervention_id uuid, case_id uuid, action_type text, notes text, recorded_by_name t... |
+| `list_submissions` | p_token text, p_assignment_id uuid | TABLE(submission_id uuid, student_id uuid, student_first_name character varying, student_l... |
+| `list_teaching_kit_command_history` | p_token text, p_limit integer | TABLE(command_id uuid, device_id uuid, device_name character varying, command jsonb, creat... |
+| `list_teaching_kit_devices` | p_token text | TABLE(device_id uuid, name character varying, type device_type, location character varying... |
+| `list_terms` | p_token text | TABLE(term_id uuid, term_name character varying, academic_year_name character varying, sta... |
 | `mark_lesson_complete` | p_token text, p_lesson_id uuid | void |
 | `mark_notification_read` | p_token text, p_notification_id uuid | void |
-| `peek_terminal_pairing_session` | p_pairing_code text | TABLE(is_valid boolean, terminal_name text, created_at timestamp with time zo... |
+| `peek_terminal_pairing_session` | p_pairing_code text | TABLE(is_valid boolean, terminal_name text, created_at timestamp with time zone, expires_a... |
 | `poll_device_commands` | p_device_token text | TABLE(command_id uuid, command jsonb, created_at timestamp with time zone) |
 | `publish_assignment` | p_token text, p_assignment_id uuid | void |
-| `publish_consent_policy` | p_token text, p_consent_type text, p_version text, p_document_hash text, p_content_url text, p_is... | uuid |
+| `publish_consent_policy` | p_token text, p_consent_type text, p_version text, p_document_hash text, p_content_url tex... | uuid |
 | `publish_lesson` | p_token text, p_lesson_id uuid | void |
 | `publish_quiz` | p_token text, p_quiz_id uuid | void |
 | `queue_device_command` | p_token text, p_device_id uuid, p_command jsonb | uuid |
 | `queue_teaching_kit_command` | p_token text, p_device_id uuid, p_command jsonb | uuid |
+| `record_device_heartbeat` | p_device_id uuid, p_ip_address text, p_firmware text, p_details jsonb | jsonb |
 | `record_operational_alert` | p_category text, p_severity text, p_details jsonb | bigint |
-| `redeem_parent_binding_code` | p_code text, p_relationship text, p_email text, p_first_name text, p_last_name text, p_password t... | TABLE(session_token text, user_id uuid, email character varying, first_name c... |
+| `redeem_parent_binding_code` | p_code text, p_relationship text, p_email text, p_first_name text, p_last_name text, p_pas... | TABLE(session_token text, user_id uuid, email character varying, first_name character vary... |
 | `register_course_file` | p_token text, p_course_id uuid, p_storage_path text, p_file_name text, p_size_bytes bigint | TABLE(file_id uuid) |
-| `register_device` | p_token text, p_type device_type, p_name text, p_serial_no text, p_location text, p_kit_code text | TABLE(device_id uuid, device_token text) |
+| `register_device` | p_token text, p_type device_type, p_name text, p_serial_no text, p_location text, p_kit_co... | TABLE(device_id uuid, device_token text) |
 | `reject_parent_link` | p_token text, p_parent_link_id uuid, p_reason text | void |
 | `remove_class_schedule` | p_token text, p_schedule_id uuid | void |
 | `remove_group_member` | p_token text, p_group_id uuid, p_student_id uuid | void |
@@ -1327,12 +1423,12 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `revoke_binding_code` | p_token text, p_code_id uuid | void |
 | `revoke_staff_invitation` | p_token text, p_invitation_id uuid | void |
 | `save_quiz_answer` | p_token text, p_attempt_id uuid, p_question_id uuid, p_answer jsonb | void |
-| `search_school_students` | p_token text, p_query text | TABLE(student_id uuid, first_name character varying, last_name character vary... |
+| `search_school_students` | p_token text, p_query text | TABLE(student_id uuid, first_name character varying, last_name character varying, email ch... |
 | `second_approve_parent_link` | p_token text, p_parent_link_id uuid | void |
-| `sensor_history` | p_token text, p_device_id uuid, p_metric metric_type, p_from timestamp with time zone, p_to times... | TABLE(ts timestamp with time zone, value numeric) |
+| `sensor_history` | p_token text, p_device_id uuid, p_metric metric_type, p_from timestamp with time zone, p_t... | TABLE(ts timestamp with time zone, value numeric) |
 | `sensor_ingest` | p_device_token text, p_readings jsonb | integer |
-| `sensor_latest` | p_token text, p_device_id uuid | TABLE(device_id uuid, device_name character varying, location character varyi... |
-| `set_class_schedule` | p_token text, p_course_id uuid, p_day_of_week smallint, p_start_time time without time zone, p_en... | TABLE(schedule_id uuid) |
+| `sensor_latest` | p_token text, p_device_id uuid | TABLE(device_id uuid, device_name character varying, location character varying, metric me... |
+| `set_class_schedule` | p_token text, p_course_id uuid, p_day_of_week smallint, p_start_time time without time zon... | TABLE(schedule_id uuid) |
 | `set_device_token_issued_at` |  | trigger |
 | `set_facility_manager_building` | p_token text, p_target_user_id uuid, p_building text | void |
 | `set_school_utility_rates` | p_token text, p_electricity_rate_thb numeric, p_water_rate_thb numeric | void |
@@ -1341,13 +1437,13 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `submit_quiz_attempt` | p_token text, p_attempt_id uuid | TABLE(auto_score numeric) |
 | `suspend_user` | p_token text, p_target_user_id uuid | void |
 | `toggle_personal_task` | p_token text, p_task_id uuid, p_done boolean | void |
-| `update_assignment` | p_token text, p_assignment_id uuid, p_title text, p_instructions text, p_due_at timestamp with ti... | void |
-| `update_course` | p_token text, p_course_id uuid, p_subject_name text, p_grade_level text, p_room text, p_descripti... | void |
+| `update_assignment` | p_token text, p_assignment_id uuid, p_title text, p_instructions text, p_due_at timestamp ... | void |
+| `update_course` | p_token text, p_course_id uuid, p_subject_name text, p_grade_level text, p_room text, p_de... | void |
 | `update_grade` | p_token text, p_grade_id uuid, p_score numeric, p_max_score numeric | void |
 | `update_lesson` | p_token text, p_lesson_id uuid, p_title text, p_content jsonb | void |
 | `update_lesson_progress` | p_token text, p_lesson_id uuid, p_progress_pct numeric | void |
 | `update_student_support_case_status` | p_token text, p_case_id uuid, p_status text, p_note text | void |
 | `update_user_profile` | p_token text, p_target_user_id uuid, p_first_name text, p_last_name text | void |
 | `update_user_role` | p_token text, p_target_user_id uuid, p_new_role role_type | void |
-| `verify_gateway_request` | p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_path text... | boolean |
+| `verify_gateway_request` | p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_pa... | boolean |
 | `withdraw_parent_consent` | p_token text, p_consent_id uuid, p_reason text | void |
