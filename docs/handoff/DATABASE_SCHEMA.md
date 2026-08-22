@@ -1184,7 +1184,7 @@ Foreign keys:
 
 # RPC Functions (public schema, callable via supabase.rpc)
 
-Total: 157
+Total: 161
 
 Almost every one takes `p_token text` as its first arg — the custom session token (see auth pattern in main handoff doc), validated internally via `get_session_actor(p_token)`. This is NOT Supabase Auth; there is no `auth.uid()`.
 
@@ -1240,7 +1240,9 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `get_assignment` | p_token text, p_assignment_id uuid | TABLE(assignment_id uuid, course_id uuid, type assignment_type, title charact... |
 | `get_course` | p_token text, p_course_id uuid | TABLE(course_id uuid, subject_name character varying, grade_level character v... |
 | `get_course_file_for_download` | p_token text, p_file_id uuid | TABLE(storage_path text, file_name character varying) |
+| `get_energy_efficiency_score` | p_token text | TABLE(score numeric, label text, current_kwh numeric, previous_kwh numeric) |
 | `get_energy_usage_summary` | p_token text, p_period text | TABLE(device_count integer, total_kwh numeric, electricity_rate_thb numeric, ... |
+| `get_energy_usage_trend` | p_token text, p_days integer | TABLE(day date, total_kwh numeric) |
 | `get_incident_report` | p_token text, p_id uuid | TABLE(id uuid, category incident_category, room character varying, status inc... |
 | `get_incident_summary` | p_token text | TABLE(category incident_category, total_count integer, avg_response_seconds n... |
 | `get_lesson` | p_token text, p_lesson_id uuid | TABLE(lesson_id uuid, course_id uuid, title character varying, content jsonb,... |
@@ -1251,7 +1253,9 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `get_rubric` | p_token text, p_rubric_id uuid | TABLE(rubric_id uuid, title character varying, description text, criteria jso... |
 | `get_school_utility_rates` | p_token text | TABLE(electricity_rate_thb numeric, is_electricity_default boolean, water_rat... |
 | `get_session_actor` | p_token text | TABLE(user_id uuid, role role_type, school_id uuid) |
+| `get_water_efficiency_score` | p_token text | TABLE(score numeric, label text, current_m3 numeric, previous_m3 numeric) |
 | `get_water_usage_summary` | p_token text, p_period text | TABLE(device_count integer, total_m3 numeric, water_rate_thb numeric, is_rate... |
+| `get_water_usage_trend` | p_token text, p_days integer | TABLE(day date, total_m3 numeric) |
 | `give_feedback` | p_token text, p_submission_id uuid, p_body text | TABLE(feedback_id uuid) |
 | `grant_parent_consent` | p_token text, p_parent_link_id uuid, p_policy_id uuid, p_evidence jsonb | uuid |
 | `ingest_sensor_readings_verified` | p_gateway_id uuid, p_readings jsonb | integer |

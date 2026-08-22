@@ -61,4 +61,68 @@ class UtilityService {
     if (rows.isEmpty) return null;
     return WaterUsageSummary.fromRow(rows.first as Map<String, dynamic>);
   }
+
+  static Future<List<UtilityTrendPoint>> getEnergyUsageTrend({
+    int days = 7,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return [];
+    final rows =
+        await supabase.rpc(
+              'get_energy_usage_trend',
+              params: {'p_token': token, 'p_days': days},
+            )
+            as List;
+    return rows
+        .map(
+          (r) => UtilityTrendPoint.fromEnergyRow(r as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
+  static Future<List<UtilityTrendPoint>> getWaterUsageTrend({
+    int days = 7,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return [];
+    final rows =
+        await supabase.rpc(
+              'get_water_usage_trend',
+              params: {'p_token': token, 'p_days': days},
+            )
+            as List;
+    return rows
+        .map((r) => UtilityTrendPoint.fromWaterRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<UtilityEfficiencyScore?> getEnergyEfficiencyScore() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return null;
+    final rows =
+        await supabase.rpc(
+              'get_energy_efficiency_score',
+              params: {'p_token': token},
+            )
+            as List;
+    if (rows.isEmpty) return null;
+    return UtilityEfficiencyScore.fromEnergyRow(
+      rows.first as Map<String, dynamic>,
+    );
+  }
+
+  static Future<UtilityEfficiencyScore?> getWaterEfficiencyScore() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return null;
+    final rows =
+        await supabase.rpc(
+              'get_water_efficiency_score',
+              params: {'p_token': token},
+            )
+            as List;
+    if (rows.isEmpty) return null;
+    return UtilityEfficiencyScore.fromWaterRow(
+      rows.first as Map<String, dynamic>,
+    );
+  }
 }

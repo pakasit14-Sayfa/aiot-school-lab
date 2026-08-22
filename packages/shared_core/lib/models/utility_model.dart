@@ -51,6 +51,56 @@ class EnergyUsageSummary {
       );
 }
 
+class UtilityTrendPoint {
+  const UtilityTrendPoint({required this.day, required this.value});
+
+  final DateTime day;
+  final double value;
+
+  factory UtilityTrendPoint.fromEnergyRow(Map<String, dynamic> row) =>
+      UtilityTrendPoint(
+        day: DateTime.parse(row['day'] as String),
+        value: (row['total_kwh'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  factory UtilityTrendPoint.fromWaterRow(Map<String, dynamic> row) =>
+      UtilityTrendPoint(
+        day: DateTime.parse(row['day'] as String),
+        value: (row['total_m3'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
+class UtilityEfficiencyScore {
+  const UtilityEfficiencyScore({
+    required this.score,
+    required this.label,
+    required this.current,
+    required this.previous,
+  });
+
+  /// null = ไม่มีข้อมูลช่วงก่อนหน้าให้เทียบ (เช่นเพิ่งติดตั้งมิเตอร์)
+  final double? score;
+  final String? label;
+  final double current;
+  final double previous;
+
+  factory UtilityEfficiencyScore.fromEnergyRow(Map<String, dynamic> row) =>
+      UtilityEfficiencyScore(
+        score: (row['score'] as num?)?.toDouble(),
+        label: row['label'] as String?,
+        current: (row['current_kwh'] as num?)?.toDouble() ?? 0.0,
+        previous: (row['previous_kwh'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  factory UtilityEfficiencyScore.fromWaterRow(Map<String, dynamic> row) =>
+      UtilityEfficiencyScore(
+        score: (row['score'] as num?)?.toDouble(),
+        label: row['label'] as String?,
+        current: (row['current_m3'] as num?)?.toDouble() ?? 0.0,
+        previous: (row['previous_m3'] as num?)?.toDouble() ?? 0.0,
+      );
+}
+
 class WaterUsageSummary {
   const WaterUsageSummary({
     required this.deviceCount,

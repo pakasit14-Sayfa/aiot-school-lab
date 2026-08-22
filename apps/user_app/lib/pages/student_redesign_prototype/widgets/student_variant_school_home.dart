@@ -4,6 +4,7 @@ import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'aiot_weather_sensors_card.dart';
 import 'school_encouragement_card.dart';
+import 'school_utility_trend_card.dart';
 import 'academy_quick_actions.dart';
 import 'academy_continue_learning_card.dart';
 import 'academy_tasks_due_card.dart';
@@ -425,14 +426,20 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               ),
               const SizedBox(height: 16),
               const SchoolEncouragementCard(),
+              const SizedBox(height: 16),
+              const SchoolUtilityTrendCard(height: 160),
             ],
           );
         }
 
         final scoreCardHeight = width >= 1100 ? 238.0 : 232.0;
         final encouragementCardHeight = width >= 1100 ? 192.0 : 186.0;
+        final utilityCardHeight = width >= 1100 ? 168.0 : 160.0;
         final sensorCardHeight =
-            scoreCardHeight + encouragementCardHeight + columnGap;
+            scoreCardHeight +
+            encouragementCardHeight +
+            utilityCardHeight +
+            columnGap * 2;
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,6 +468,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                     child: SchoolEncouragementCard(
                       height: encouragementCardHeight,
                     ),
+                  ),
+                  SizedBox(height: columnGap),
+                  SizedBox(
+                    height: utilityCardHeight,
+                    child: SchoolUtilityTrendCard(height: utilityCardHeight),
                   ),
                 ],
               ),
