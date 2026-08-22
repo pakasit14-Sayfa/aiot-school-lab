@@ -73,10 +73,14 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       }
     } catch (e) {
       if (!mounted) return;
+      final msg = e.toString().toLowerCase();
+      final friendly = (msg.contains('429') || msg.contains('rate_limited'))
+          ? 'ส่งรหัส OTP ไปแล้วเมื่อครู่ กรุณารออีกสักครู่ก่อนกดเข้าสู่ระบบใหม่'
+          : 'เกิดข้อผิดพลาด: $e';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'เกิดข้อผิดพลาด: $e',
+            friendly,
             style: const TextStyle(color: Colors.white),
           ),
           backgroundColor: Colors.red,
