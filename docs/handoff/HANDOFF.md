@@ -179,37 +179,80 @@ logging in (see `NOTES.md` in `teacher_redesign_prototype/` /
 of what they call "not connected" has since been wired to real RPCs. Trust
 the code and `git log`, not those NOTES files, for current status.**
 
-## Current status (as of commit `b7628f6`)
+## Current status (re-audited 2026-08-22, see methodology note below)
 
 Both teacher-side and student-side UIs have been progressively wired from
 mock data to real Supabase RPCs over many commits (see `git log --oneline`).
-Rough state by role, based on which page files still import `shared_core`
-services vs. still carry mock/TODO markers:
 
-- **Teacher pages**: ~18 of 25 page files call real backend services.
-  Remaining gaps / things to check before trusting a teacher page:
-  `teacher_courses_page.dart`, `teacher_lesson_editor_page.dart`, and
-  `teacher_redesign_prototype_page.dart` still had mock/TODO markers as of
-  this writing.
-- **Student pages**: ~13 of 24 page files call real backend services; no
-  mock/TODO markers found in the rest, but that hasn't been runtime-verified
-  for every page.
+**Teacher (`teacher_redesign_prototype/`): effectively fully wired.** Of 25
+files, 3 are not feature pages at all (`teacher_design_system_page.dart`,
+`teacher_shared_widgets.dart`, `teacher_storybook_page.dart` — design-system/
+component-showcase demos, not screens a real user reaches) and don't need
+backend calls. **All 22 remaining feature pages make at least one genuine
+`XService.method()` call.** Two of them
+(`teacher_courses_page.dart`, `teacher_lesson_editor_page.dart`) still have
+module-level variables literally named `mockTeacherCourses`/
+`mockLessonsList` — these are **not mock data**, just a leftover-naming
+initial/loading placeholder state that gets overwritten by a real service
+call in `initState`/`_loadReal*()` before the user sees it (confirmed by
+reading both call sites, not just grepping for the word "mock" — grepping
+alone is misleading here, which is exactly why an earlier version of this
+doc flagged them as gaps when they aren't). Worth a rename for clarity, not
+a functional fix.
 
-**2026-08-21 update — traced from the real routes (`RoleRouter`), not just
-grep, across every role**: teacher and student are indeed mostly wired.
-**Executive (`executive_home_page.dart`) and facility manager (every page
-under `facility_redesign_prototype/`) are still 100% mock** — the earlier
-memory note "facility redesign 100% done" meant UI/UX design complete, not
-backend-connected; don't trust that phrasing again. Parent is partially
-wired (home page only). Full per-role breakdown, teacher pages still fully
-mock: `teacher_knowledge_library_page.dart`, `teacher_student_support_page.dart`
-— **both need new backend tables/RPCs designed from scratch, not just UI
-wiring**, since nothing like a knowledge library or "at-risk student" flags
-exists in the schema yet. (`teacher_submission_review_page.dart` and
-`teacher_gscore_confirm_page.dart` were in this same "needs new backend"
-bucket — both now wired, see their own sections below.) Student
-`student_qr_login_page.dart` (device pairing) is also honestly
-self-documented as UI-only, needs a new pairing-session RPC flow.
+**Student (`student_redesign_prototype/` + `widgets/`): also effectively
+fully wired**, once support files are excluded — of ~25 files: 3 are
+non-page support files (`student_dashboard_models.dart` — models,
+`student_redesign_palette.dart` — theme, `widgets.dart` — barrel export), 5
+are presentational widgets correctly fed real data via constructor params
+from an already-wired parent (`academy_continue_learning_card.dart`,
+`academy_quick_actions.dart`, `academy_tasks_due_card.dart`,
+`learning_progress_card.dart`, and `school_encouragement_card.dart` — the
+last is intentionally static/quote-only by design, not data-driven), 1 is a
+design-variant switcher container with nothing of its own to fetch
+(`student_redesign_prototype_page.dart`), and 2 are **unused dead code**
+(`student_course_catalog_carousel_page.dart`,
+`student_course_catalog_streaming_page.dart` — only referenced from a
+dev-preview picker in `main.dart`, not from the real navigation shell
+`student_navigation_prototype.dart`, which uses
+`student_course_catalog_minimal_page.dart` instead; worth deleting the two
+unused ones rather than leaving them to confuse the next person). Every
+other student page has real service calls, including
+`student_qr_login_page.dart` (an earlier note here called this "UI-only,
+needs a new pairing-session RPC flow" — that was true when written but is
+now stale; it calls `TerminalPairingService` end-to-end since the AUTH-5 QR
+pairing work).
+
+**Methodology / honest limits of this re-audit**: checked for the presence
+of at least one real `XService.method()` call per file, plus manually
+read the ambiguous cases (the ones above) rather than trusting a keyword
+grep alone — a plain "does this file contain TODO or the word mock" search
+gives false positives (see the courses/lesson-editor case) and false
+negatives (files calling services through a pattern a narrow regex misses).
+This confirms **no page is entirely mock**, but it does **not** confirm every
+field/button inside a large file (`teacher_courses_page.dart` is 4,872
+lines, `teacher_redesign_prototype_page.dart` is 5,770) is wired — that
+still needs the real "run it and click through" verification this project
+otherwise insists on for any specific feature before trusting it end-to-end.
+Executive and facility manager remain the real, confirmed gap — see below.
+
+**2026-08-21 update, corrected 2026-08-22**: `teacher_knowledge_library_page.dart`,
+`teacher_student_support_page.dart`, and `student_qr_login_page.dart` were
+noted here as fully mock / needing new backend from scratch — all three are
+now wired (student support case tracking + terminal/QR pairing RPCs were
+built since that note was written; see the teacher-page audit above, both
+files now call real services). Don't trust that specific claim anymore, but
+keep the general lesson: **re-check "not wired yet" notes against the actual
+code before repeating them**, this doc has been wrong about it twice now.
+
+**Executive (`executive_redesign_prototype/executive_home_page.dart`) is
+still 100% mock** (zero service calls) — confirmed again 2026-08-22. **Facility
+manager is now partially wired**, not 100% mock as previously noted here:
+of 12 files under `facility_redesign_prototype/`,
+`facility_device_health_page.dart`, `facility_light_water_control_page.dart`,
+and `facility_notifications_page.dart` have real service calls; the other 9
+(including `facility_dashboard_page.dart`, the role's actual home page) do
+not. Parent is partially wired (home page only).
 
 ### Known issues not yet fixed
 
