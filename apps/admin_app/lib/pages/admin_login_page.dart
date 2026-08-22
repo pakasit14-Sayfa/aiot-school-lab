@@ -43,7 +43,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
       }
 
       if (user != null) {
-        if (currentUserModel?.role == UserRole.schoolAdmin) {
+        final role = currentUserModel?.role;
+        if (role == UserRole.schoolAdmin || role == UserRole.superAdmin) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const AdminDashboard()),
           );
