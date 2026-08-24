@@ -86,12 +86,11 @@ final deviceRows = await client
 final int totalDevices = deviceRows.length;
 final int onlineDevices = deviceRows.where((d) => d['status'] == 'online').length;
 
-// 5. รายการที่ต้องตรวจสอบ (Unresolved Alerts)
+// 5. รายการที่ต้องตรวจสอบ (Unresolved Alerts from View)
 final alertRows = await client
-    .from('sensor_alerts')
-    .select('id, severity, is_acknowledged')
-    .eq('school_id', schoolId)
-    .eq('is_acknowledged', false);
+    .from('alerts')
+    .select('id, status')
+    .eq('school_id', schoolId);
 final int pendingAlerts = alertRows.length;
 ```
 
