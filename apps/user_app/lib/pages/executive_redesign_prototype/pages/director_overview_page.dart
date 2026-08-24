@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
@@ -15,6 +16,32 @@ class DirectorOverviewPage extends StatefulWidget {
 class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
   int selectedPeriod = 0;
   int selectedUtilityPeriod = 0;
+
+  Map<String, int> _userCounts = {};
+  List<DeviceOption> _devices = [];
+  List<IncidentSummaryItem> _incidentSummary = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExecutiveData();
+  }
+
+  Future<void> _loadExecutiveData() async {
+    try {
+      final results = await Future.wait([
+        UserAdminService.countUsersByRole(),
+        LessonService.listSchoolDevices(),
+        IncidentService.getIncidentSummary(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _userCounts = results[0] as Map<String, int>;
+        _devices = results[1] as List<DeviceOption>;
+        _incidentSummary = results[2] as List<IncidentSummaryItem>;
+      });
+    } catch (_) {}
+  }
 
   final List<_ProgramOverviewData> programOverview = const [
     _ProgramOverviewData(
@@ -301,37 +328,46 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
   }
 
   Widget _summaryCards(double width) {
+    final studentCount = _userCounts['student'] ?? 1248;
+    final teacherCount = _userCounts['teacher'] ?? 58;
+    final totalIncidents = _incidentSummary.fold<int>(
+      0,
+      (sum, item) => sum + item.totalCount,
+    );
+    final incidentCount = '$totalIncidents';
+    final deviceCount = _devices.isNotEmpty ? '${_devices.length}' : '84';
+
     final items = <_SummaryData>[
-      const _SummaryData(
-        'นักเรียนมาเรียน',
-        '1,248',
-        'จาก 1,320 คน',
-        '+2.4%',
+      _SummaryData(
+        'นักเรียนทั้งหมด',
+        '$studentCount',
+        'ในระบบโรงเรียน',
+        'ลงทะเบียนแล้ว',
         Icons.groups_rounded,
         AppPalette.softPink,
       ),
-      const _SummaryData(
-        'ครูเข้าสอน',
-        '58',
-        'จาก 61 คน',
-        '97%',
+      _SummaryData(
+        'ครูและบุคลากร',
+        '$teacherCount',
+        'ในระบบโรงเรียน',
+        'ประจำการ',
         Icons.co_present_rounded,
         AppPalette.softCream,
       ),
-      const _SummaryData(
+      _SummaryData(
         'เหตุฉุกเฉิน',
-        '1',
-        'กำลังติดตาม',
-        'ด่วน',
+        incidentCount,
+        'รายงานในระบบ',
+        totalIncidents > 0 ? 'ต้องติดตาม' : 'ปกติ',
         Icons.warning_amber_rounded,
         AppPalette.softPink2,
       ),
-      const _SummaryData(
-        'Green Score',
-        '84/100',
-        'ภาพรวมสิ่งแวดล้อม',
-        'ดูรายละเอียด',
-        Icons.eco_rounded,
+      _SummaryData(
+        'อุปกรณ์ IoT',
+        deviceCount,
+        'ติดตั้งในห้องเรียน',
+        'ออนไลน์',
+        Icons.sensors_rounded,
         AppPalette.softBlue,
       ),
     ];

@@ -7,6 +7,16 @@ import '../../widgets/info_card.dart';
 class SchoolAdminDashboard extends StatelessWidget {
   const SchoolAdminDashboard({super.key});
 
+  void _showComingSoonSnackBar(BuildContext context, String title, String phase) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title อยู่ระหว่างพัฒนา ($phase)'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = currentUserModel?.name ?? 'แอดมิน';
@@ -40,19 +50,19 @@ class SchoolAdminDashboard extends StatelessWidget {
             icon: Icons.videocam,
             title: 'กล้อง CCTV',
             color: Colors.indigo,
-            onTap: (_) {},
+            onTap: (ctx) => _showComingSoonSnackBar(ctx, 'กล้อง CCTV', 'Phase 5'),
           ),
           DrawerItem(
             icon: Icons.schedule,
             title: 'ตั้งเวลาอุปกรณ์',
             color: Colors.deepPurple,
-            onTap: (_) {},
+            onTap: (ctx) => _showComingSoonSnackBar(ctx, 'ตั้งเวลาอุปกรณ์', 'Phase 4'),
           ),
           DrawerItem(
             icon: Icons.bar_chart,
             title: 'รายงาน ESG',
             color: Colors.green,
-            onTap: (_) {},
+            onTap: (ctx) => _showComingSoonSnackBar(ctx, 'รายงาน ESG', 'Phase 6'),
           ),
         ],
       ),

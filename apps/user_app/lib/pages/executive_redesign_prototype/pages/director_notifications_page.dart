@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
@@ -58,7 +59,11 @@ class _DirectorNotificationsPageState
   @override
   void initState() {
     super.initState();
+    _initNotifications();
+    _loadNotifications();
+  }
 
+  void _initNotifications() {
     notifications = [
       const _NotificationData(
         id: 'N001',
@@ -260,6 +265,35 @@ class _DirectorNotificationsPageState
         isUnread: false,
       ),
     ];
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final realList = await NotificationService.listMyNotifications();
+      if (!mounted || realList.isEmpty) return;
+      setState(() {
+        notifications = realList.map((n) {
+          return _NotificationData(
+            id: n.id,
+            title: n.title,
+            summary: n.body ?? '',
+            category: 'ระบบ',
+            priority: 'ข้อมูลทั่วไป',
+            status: n.isUnread ? 'ใหม่' : 'รับทราบแล้ว',
+            location: 'ระบบโรงเรียน',
+            source: 'Notification Service',
+            createdAt:
+                '${n.createdAt.hour.toString().padLeft(2, '0')}:${n.createdAt.minute.toString().padLeft(2, '0')} น.',
+            responsible: 'ฝ่ายบริหาร',
+            action: 'ตรวจสอบรายละเอียด',
+            detail: n.body ?? '',
+            icon: Icons.notifications_rounded,
+            color: AppPalette.learningBlue,
+            isUnread: n.isUnread,
+          );
+        }).toList();
+      });
+    } catch (_) {}
   }
 
   @override

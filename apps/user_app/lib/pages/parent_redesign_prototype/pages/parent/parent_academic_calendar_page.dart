@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
 class ParentAcademicCalendarPage extends StatefulWidget {
@@ -17,6 +18,20 @@ class _ParentAcademicCalendarPageState
   DateTime selectedMonth = DateTime(2026, 8);
   DateTime? selectedDate = DateTime(2026, 8, 21);
   String selectedFilter = 'ทั้งหมด';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final students = await ParentPortalService.listMyLinkedStudents();
+      if (!mounted || students.isEmpty) return;
+      await ParentPortalService.listMyStudentSchedule(students.first.studentId);
+    } catch (_) {}
+  }
 
   final List<String> filters = const [
     'ทั้งหมด',

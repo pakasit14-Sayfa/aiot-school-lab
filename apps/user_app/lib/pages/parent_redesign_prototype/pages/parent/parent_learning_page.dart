@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
 class ParentLearningPage extends StatefulWidget {
@@ -14,6 +15,33 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
 
   static const Color _bg = Color(0xFFF5F7FB);
   static const Color _primary = Color(0xFF2867B2);
+
+  LinkedStudentItem? _selectedStudent;
+  List<StudentGradeItem> _realGrades = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final students = await ParentPortalService.listMyLinkedStudents();
+      if (!mounted) return;
+      if (students.isNotEmpty) {
+        final firstStudent = students.first;
+        final grades = await ParentPortalService.listMyStudentGrades(
+          firstStudent.studentId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedStudent = firstStudent;
+          _realGrades = grades;
+        });
+      }
+    } catch (_) {}
+  }
 
   final List<String> periods = const [
     'สัปดาห์นี้',
@@ -127,11 +155,35 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
     ),
   ];
 
+  List<_SubjectLearningData> get _effectiveSubjects {
+    if (_realGrades.isEmpty) return subjectData;
+    return _realGrades.map((g) {
+      final pct = g.percentage;
+      final gradeLabel = pct >= 80
+          ? 'A'
+          : (pct >= 70 ? 'B' : (pct >= 60 ? 'C' : 'D'));
+      return _SubjectLearningData(
+        subject: g.subjectName,
+        teacher: 'ครูผู้สอน',
+        score: pct.round(),
+        grade: gradeLabel,
+        attendance: 100,
+        submitted: 1,
+        totalAssignments: 1,
+        lateAssignments: 0,
+        missingAssignments: 0,
+        trend: '+0',
+        color: const Color(0xFF2E83C5),
+      );
+    }).toList();
+  }
+
   List<_SubjectLearningData> get filteredSubjects {
+    final list = _effectiveSubjects;
     if (selectedSubject == 'ทุกวิชา') {
-      return subjectData;
+      return list;
     }
-    return subjectData
+    return list
         .where((item) => item.subject == selectedSubject)
         .toList();
   }
@@ -189,8 +241,9 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
                         );
                       }
 
-                      return const Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      return const IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
                               flex: 4,
@@ -207,7 +260,8 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
                               child: _OverallPerformanceCard(),
                             ),
                           ],
-                        );
+                        ),
+                      );
                     },
                   ),
 
@@ -229,8 +283,9 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
                         );
                       }
 
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      return IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
                               flex: 7,
@@ -242,7 +297,8 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
                               child: _LearningBehaviorCard(),
                             ),
                           ],
-                        );
+                        ),
+                      );
                     },
                   ),
 
@@ -260,8 +316,9 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
                         );
                       }
 
-                      return const Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                      return const IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
                               flex: 6,
@@ -273,7 +330,8 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
                               child: _AiLearningInsightCard(),
                             ),
                           ],
-                        );
+                        ),
+                      );
                     },
                   ),
                 ],

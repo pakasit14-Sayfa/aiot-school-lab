@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
@@ -12,6 +13,40 @@ class DirectorEnvironmentPage extends StatefulWidget {
 }
 
 class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
+  EnergyUsageSummary? _energySummary;
+  WaterUsageSummary? _waterSummary;
+  List<UtilityTrendPoint> _energyTrend = [];
+  List<UtilityTrendPoint> _waterTrend = [];
+  UtilityEfficiencyScore? _energyScore;
+  UtilityEfficiencyScore? _waterScore;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUtilityData();
+  }
+
+  Future<void> _loadUtilityData() async {
+    try {
+      final results = await Future.wait([
+        UtilityService.getEnergyUsageSummary(period: 'month'),
+        UtilityService.getWaterUsageSummary(period: 'month'),
+        UtilityService.getEnergyUsageTrend(days: 7),
+        UtilityService.getWaterUsageTrend(days: 7),
+        UtilityService.getEnergyEfficiencyScore(),
+        UtilityService.getWaterEfficiencyScore(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _energySummary = results[0] as EnergyUsageSummary?;
+        _waterSummary = results[1] as WaterUsageSummary?;
+        _energyTrend = results[2] as List<UtilityTrendPoint>;
+        _waterTrend = results[3] as List<UtilityTrendPoint>;
+        _energyScore = results[4] as UtilityEfficiencyScore?;
+        _waterScore = results[5] as UtilityEfficiencyScore?;
+      });
+    } catch (_) {}
+  }
   // ---------------------------------------------------------------------------
   // MOCK DATA
   // ---------------------------------------------------------------------------

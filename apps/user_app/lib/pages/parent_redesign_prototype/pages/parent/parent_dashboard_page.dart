@@ -1,14 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
-class ParentDashboardPage extends StatelessWidget {
+class ParentDashboardPage extends StatefulWidget {
   const ParentDashboardPage({super.key});
 
+  @override
+  State<ParentDashboardPage> createState() => _ParentDashboardPageState();
+}
+
+class _ParentDashboardPageState extends State<ParentDashboardPage> {
   static const Color _navy = Color(0xFF173B69);
   static const Color _bg = Color(0xFFF5F7FB);
 
-  // เปลี่ยน path ตรงนี้ให้ตรงกับไฟล์มาสคอตของโปรเจกต์ได้เลย
   static const String mascotAsset = 'assets/images/mascot_parent.png';
+
+  LinkedStudentItem? _selectedStudent;
+  List<StudentGradeItem> _grades = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final students = await ParentPortalService.listMyLinkedStudents();
+      if (!mounted) return;
+      if (students.isNotEmpty) {
+        final firstStudent = students.first;
+        final grades = await ParentPortalService.listMyStudentGrades(
+          firstStudent.studentId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedStudent = firstStudent;
+          _grades = grades;
+        });
+      }
+    } catch (_) {}
+  }
+
+  String get _gpaDisplay {
+    if (_grades.isEmpty) return '3.62';
+    final total = _grades.fold<double>(0, (sum, g) => sum + g.percentage);
+    final avg = total / _grades.length;
+    // Map average percentage (0-100) to standard 4.0 scale
+    final gpa = (avg / 25).clamp(0.0, 4.0);
+    return gpa.toStringAsFixed(2);
+  }
+
+  String get _studentNameDisplay {
+    if (_selectedStudent != null && _selectedStudent!.firstName.isNotEmpty) {
+      return _selectedStudent!.firstName;
+    }
+    return 'น้องมะลิ';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,12 +130,14 @@ class ParentDashboardPage extends StatelessWidget {
                           ),
                           SizedBox(
                             width: width,
-                            child: const _StatusMetricCard(
+                            child: _StatusMetricCard(
                               title: 'GPA ล่าสุด',
-                              value: '3.62',
-                              subtitle: 'ผลการเรียนดีมาก',
+                              value: _gpaDisplay,
+                              subtitle: _grades.isNotEmpty
+                                  ? 'ผลการเรียนยืนยัน ${_grades.length} วิชา'
+                                  : 'ผลการเรียนดีมาก',
                               icon: Icons.star_rounded,
-                              color: Color(0xFFF0A03B),
+                              color: const Color(0xFFF0A03B),
                             ),
                           ),
                           SizedBox(
@@ -415,7 +465,7 @@ class ParentDashboardPage extends StatelessWidget {
         ),
         const SizedBox(height: 3),
         Text(
-          'วันนี้น้องมะลิมาโรงเรียนเรียบร้อยแล้ว',
+          'วันนี้น้อง$_studentNameDisplayมาโรงเรียนเรียบร้อยแล้ว',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w900,

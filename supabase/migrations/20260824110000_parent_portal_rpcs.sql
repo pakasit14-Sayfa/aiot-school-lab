@@ -32,7 +32,7 @@ begin
     u.last_name,
     u.school_id,
     pl.relationship,
-    pl.reviewed_at as linked_at
+    pl.approved_at as linked_at
   from parent_links pl
   join users u on u.id = pl.student_id
   where pl.parent_id = v_actor.user_id

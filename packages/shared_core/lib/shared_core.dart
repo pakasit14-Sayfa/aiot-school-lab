@@ -48,3 +48,7 @@ export 'models/terminal_pairing_model.dart';
 export 'services/terminal_pairing_service.dart';
 export 'models/student_support_model.dart';
 export 'services/student_support_service.dart';
+export 'models/parent_portal_model.dart';
+export 'services/parent_portal_service.dart';
+export 'models/executive_overview_model.dart';
+export 'services/executive_service.dart';

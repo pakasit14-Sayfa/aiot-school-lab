@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
 class ParentSchedulePage extends StatefulWidget {
@@ -13,6 +14,47 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
 
   String selectedDay = 'วันนี้';
   String selectedHomeworkFilter = 'ทั้งหมด';
+
+  LinkedStudentItem? _selectedStudent;
+  List<StudentScheduleItem> _realSchedule = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final students = await ParentPortalService.listMyLinkedStudents();
+      if (!mounted) return;
+      if (students.isNotEmpty) {
+        final firstStudent = students.first;
+        final sched = await ParentPortalService.listMyStudentSchedule(
+          firstStudent.studentId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _selectedStudent = firstStudent;
+          _realSchedule = sched;
+        });
+      }
+    } catch (_) {}
+  }
+
+  List<_ScheduleItem> get _effectiveSchedule {
+    if (_realSchedule.isEmpty) return schedule;
+    return _realSchedule.map((s) {
+      return _ScheduleItem(
+        time: s.startTime,
+        endTime: s.endTime,
+        subject: s.subjectName,
+        teacher: 'ครูผู้สอน',
+        room: s.room ?? 'ห้องเรียน',
+        type: _ScheduleType.upcoming,
+      );
+    }).toList();
+  }
 
   final List<String> days = const [
     'วันนี้',
@@ -244,6 +286,9 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
   }
 
   Widget _buildChildBadge() {
+    final name = _selectedStudent != null && _selectedStudent!.firstName.isNotEmpty
+        ? _selectedStudent!.firstName
+        : 'มะลิ';
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 11,
@@ -256,18 +301,18 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
           color: const Color(0xFFE1E6EE),
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.face_rounded,
             color: Color(0xFF2867B2),
             size: 18,
           ),
-          SizedBox(width: 7),
+          const SizedBox(width: 7),
           Text(
-            'น้องมะลิ · ม.2/1',
-            style: TextStyle(
+            'น้อง$name · ม.2/1',
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
             ),
@@ -515,7 +560,7 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
             subtitle: 'รายวิชา เวลา ห้องเรียน และสถานะของแต่ละคาบ',
           ),
           const SizedBox(height: 14),
-          for (final item in schedule)
+          for (final item in _effectiveSchedule)
             _ScheduleRow(item: item),
         ],
       ),

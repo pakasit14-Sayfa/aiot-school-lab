@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
@@ -14,6 +15,24 @@ class DirectorClassroomsPage extends StatefulWidget {
 class _DirectorClassroomsPageState
     extends State<DirectorClassroomsPage> {
   _ClassroomData? selectedRoom;
+
+  ClassroomsOverviewItem? _overview;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadClassroomsOverview();
+  }
+
+  Future<void> _loadClassroomsOverview() async {
+    try {
+      final overview = await ExecutiveService.getClassroomsOverview();
+      if (!mounted) return;
+      setState(() {
+        _overview = overview;
+      });
+    } catch (_) {}
+  }
 
   String searchText = '';
   String selectedGrade = 'ทุกระดับชั้น';
@@ -714,24 +733,28 @@ class _DirectorClassroomsPageState
   }
 
   Widget _overviewSummary() {
-    const items = [
+    final roomCount = _overview?.roomCount.toString() ?? '36';
+    final studentCount = _overview?.activeStudentCount.toString() ?? '1,248';
+    final assignmentCount = _overview?.assignmentsDueThisWeek.toString() ?? '64';
+
+    final items = [
       _OverviewSummary(
         title: 'ห้องเรียนทั้งหมด',
-        value: '36',
-        subtitle: 'ม.1 - ม.6',
+        value: roomCount,
+        subtitle: 'ในระบบโรงเรียน',
         icon: Icons.meeting_room_rounded,
         color: AppPalette.softPink,
       ),
       _OverviewSummary(
         title: 'นักเรียนทั้งหมด',
-        value: '1,248',
+        value: studentCount,
         subtitle: 'ทุกระดับชั้น',
         icon: Icons.groups_rounded,
         color: AppPalette.softBlue,
       ),
       _OverviewSummary(
         title: 'งานที่มอบหมายสัปดาห์นี้',
-        value: '64',
+        value: assignmentCount,
         subtitle: 'ทุกห้องรวมกัน',
         icon: Icons.assignment_rounded,
         color: AppPalette.softCream,

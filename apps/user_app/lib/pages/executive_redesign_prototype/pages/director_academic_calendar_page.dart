@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
@@ -31,9 +32,17 @@ class _DirectorAcademicCalendarPageState
   @override
   void initState() {
     super.initState();
+    _initCalendarEvents();
+    _loadSchoolSchedules();
+  }
 
-    // ตัวอย่างข้อมูลสำหรับ Dashboard
-    // สามารถเปลี่ยนเป็นข้อมูลจาก Supabase ภายหลังได้
+  Future<void> _loadSchoolSchedules() async {
+    try {
+      await ExecutiveService.listAllSchoolSchedules();
+    } catch (_) {}
+  }
+
+  void _initCalendarEvents() {
     selectedMonth = DateTime(2026, 8);
     selectedDate = DateTime(2026, 8, 20);
 
