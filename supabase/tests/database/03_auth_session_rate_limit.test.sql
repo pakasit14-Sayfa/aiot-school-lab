@@ -110,15 +110,19 @@ select is(
   'successful login clears the failed-attempt record'
 );
 
+create temporary table latest_auth_token (session_token text);
+
 do $$
 declare
   v_index integer;
+  v_token text;
 begin
   for v_index in 1..5 loop
-    perform * from auth_sign_in(
+    select session_token into v_token from auth_sign_in(
       'auth-user@pdpa.test', 'Correct-Password-123!', 'test-device', repeat('2', 64)
     );
   end loop;
+  insert into latest_auth_token values (v_token);
 end;
 $$;
 
@@ -138,11 +142,6 @@ select ok(
       and (ip_address is null or ip_address !~ '^[0-9a-f]{64}$')
   ),
   'sessions retain only a peppered IP fingerprint, never a raw address'
-);
-
-create temporary table latest_auth_token as
-select session_token from auth_sign_in(
-  'auth-user@pdpa.test', 'Correct-Password-123!', 'test-device', repeat('2', 64)
 );
 
 select is(
