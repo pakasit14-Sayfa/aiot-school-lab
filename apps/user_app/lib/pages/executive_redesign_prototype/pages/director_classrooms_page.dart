@@ -1079,7 +1079,7 @@ class _DirectorClassroomsPageState
                   crossAxisCount: columns,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  mainAxisExtent: 225,
+                  mainAxisExtent: 260,
                 ),
                 itemBuilder: (context, index) {
                   return _classroomCard(filtered[index]);

@@ -1005,7 +1005,7 @@ class _DirectorSettingsPageState
                   crossAxisCount: 2,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
-                  mainAxisExtent: 104,
+                  mainAxisExtent: 148,
                 ),
                 itemBuilder: (context, index) {
                   return securityItems[index];

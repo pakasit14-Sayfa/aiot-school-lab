@@ -287,7 +287,7 @@ class _DirectorAcademicCalendarPageState
             crossAxisCount: columns,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            mainAxisExtent: 112,
+            mainAxisExtent: 130,
           ),
           itemBuilder: (context, index) {
             final item = items[index];

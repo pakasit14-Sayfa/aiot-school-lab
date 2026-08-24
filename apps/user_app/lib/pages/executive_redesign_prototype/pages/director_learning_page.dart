@@ -548,7 +548,7 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                   crossAxisCount: columns,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  mainAxisExtent: 230,
+                  mainAxisExtent: 290,
                 ),
                 itemBuilder: (context, index) {
                   return _programCard(visiblePrograms[index]);
