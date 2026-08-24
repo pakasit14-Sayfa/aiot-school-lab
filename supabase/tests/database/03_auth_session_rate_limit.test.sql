@@ -119,7 +119,7 @@ declare
 begin
   for v_index in 1..5 loop
     select session_token into v_token from auth_sign_in(
-      'auth-user@pdpa.test', 'Correct-Password-123!', 'test-device', repeat('2', 64)
+      'auth-user@pdpa.test', 'Correct-Password-123!', 'test-device', repeat('3', 64)
     );
   end loop;
   insert into latest_auth_token values (v_token);

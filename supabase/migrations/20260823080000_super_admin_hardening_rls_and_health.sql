@@ -22,8 +22,8 @@ where status = 'offline';
 create index if not exists idx_devices_school_status on public.devices(school_id, status);
 create index if not exists idx_devices_last_seen on public.devices(last_seen_at desc);
 create index if not exists idx_sensor_readings_device_ts on public.sensor_readings(device_id, ts desc);
-create index if not exists idx_device_commands_device_status on public.device_commands(device_id, status);
-create index if not exists idx_device_heartbeats_device_ts on public.device_heartbeats(device_id, recorded_at desc);
+create index if not exists idx_device_commands_device_delivered on public.device_commands(device_id, delivered_at);
+create index if not exists idx_device_heartbeats_device_ts on public.device_heartbeats(device_id, ts desc);
 
 -- 3. Heartbeat RPC Function for IoT Devices
 create or replace function public.record_device_heartbeat(
@@ -47,8 +47,8 @@ begin
     firmware_version = coalesce(p_firmware, firmware_version)
   where id = p_device_id;
 
-  insert into public.device_heartbeats(device_id, recorded_at)
-  values (p_device_id, now());
+  insert into public.device_heartbeats(device_id, status, ts)
+  values (p_device_id, 'online', now());
 
   return jsonb_build_object('success', true, 'device_id', p_device_id, 'last_seen_at', now());
 end;

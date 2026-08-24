@@ -91,3 +91,6 @@ REVOKE ALL ON FUNCTION public.admin_update_user_profile(UUID, TEXT, TEXT, TEXT, 
 REVOKE ALL ON FUNCTION public.admin_update_user_profile(UUID, TEXT, TEXT, TEXT, UUID) FROM anon;
 GRANT EXECUTE ON FUNCTION public.admin_update_user_profile(UUID, TEXT, TEXT, TEXT, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_update_user_profile(UUID, TEXT, TEXT, TEXT, UUID) TO service_role;
+
+-- Revoke direct table updates to enforce RPC pathway
+REVOKE UPDATE ON public.users FROM PUBLIC, anon, authenticated;
