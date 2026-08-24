@@ -19,9 +19,8 @@ import 'pages/teacher_redesign_prototype/teacher_gscore_confirm_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_student_support_page.dart';
 import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
 import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
-import 'pages/executive_redesign_prototype/executive_home_page.dart';
-import 'pages/parent_redesign_prototype/parent_binding_page.dart';
-import 'pages/parent_redesign_prototype/parent_home_page.dart';
+import 'pages/executive_redesign_prototype/widgets/director_navigation_shell.dart';
+import 'pages/parent_redesign_prototype/widgets/parent_navigation_shell.dart';
 import 'pages/teacher_redesign_prototype/teacher_parent_binding_approval_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_pbl_activity_editor_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
@@ -87,9 +86,9 @@ class MyApp extends StatelessWidget {
         '/prototype/facility-device-health': (context) =>
             const FacilityStorybookPage(initialIndex: 4),
         '/prototype/facility': (context) => const FacilityStorybookPage(),
-        '/prototype/executive': (context) => const ExecutiveHomePage(),
+        '/prototype/executive': (context) => const DirectorNavigationShell(),
         '/prototype/executive-inbox': (context) =>
-            const ExecutiveHomePage(initialIndex: 1),
+            const DirectorNavigationShell(),
         '/prototype/storybook': (context) => const TeacherStorybookPage(),
         '/prototype/teacher-courses': (context) => const TeacherCoursesPage(),
         '/prototype/course-detail': (context) =>
@@ -172,13 +171,13 @@ class MyApp extends StatelessWidget {
         if (uri.path == '/prototype/executive') {
           return MaterialPageRoute(
             settings: settings,
-            builder: (_) => const ExecutiveHomePage(),
+            builder: (_) => const DirectorNavigationShell(),
           );
         }
         if (uri.path == '/prototype/executive-inbox') {
           return MaterialPageRoute(
             settings: settings,
-            builder: (_) => const ExecutiveHomePage(initialIndex: 1),
+            builder: (_) => const DirectorNavigationShell(),
           );
         }
         if (uri.path == '/prototype/teacher-courses' ||
@@ -210,10 +209,10 @@ class MyApp extends StatelessWidget {
       return const FacilityStorybookPage();
     }
     if (path.contains('executive-inbox')) {
-      return const ExecutiveHomePage(initialIndex: 1);
+      return const DirectorNavigationShell();
     }
     if (path.contains('executive')) {
-      return const ExecutiveHomePage();
+      return const DirectorNavigationShell();
     }
     if (path.contains('teacher-dashboard')) {
       return const TeacherDashboard();
@@ -248,11 +247,8 @@ class MyApp extends StatelessWidget {
     if (path.contains('student-support')) {
       return const TeacherStudentSupportPage();
     }
-    if (path.contains('parent-binding')) {
-      return const ParentBindingPage();
-    }
     if (path.contains('parent-home') || path.contains('parent-redesign')) {
-      return const ParentHomePage();
+      return const ParentNavigationShell();
     }
     if (path.contains('parent-binding-approval')) {
       return const TeacherParentBindingApprovalPage();
