@@ -70,10 +70,9 @@ graph TD
   * **ฟังก์ชัน:** `public.auth_sign_out_all(p_token text)`
   * **งานที่ต้องทำ:** ทดสอบกรณีผู้ใช้กด "ออกจากระบบทุกอุปกรณ์" (เช่น ตอนทำโทรศัพท์หาย หรือเปลี่ยนรหัสผ่าน) ตรวจสอบว่า Live Sessions ทั้งหมดในตาราง `sessions` ถูกอัปเดต `revoked_at = now()` ครบทุกเซสชันอย่างแน่นอน ไม่หลงเหลือ Session ค้าง
   * **วิธี Verify:** ล็อกอินจำลอง 5 อุปกรณ์พร้อมกัน ➔ เรียก `auth_sign_out_all` ➔ ยืนยันว่า `SELECT COUNT(*) FROM sessions WHERE user_id = ... AND revoked_at IS NULL` ได้ `0` เสมอ (รันผ่าน `npx supabase test db` ผ่าน 100%)
-* [ ] **1.5 `school_import_page.dart` — ยืนยันแล้วว่าเป็น UI mock จริง ไม่ใช่แค่สงสัย:**
-  * **สิ่งที่ตรวจพบ:** ตรวจ storage/file-upload security ของ `aiot_dev_dashboard` ทั้งโปรเจกต์วันนี้ — ไม่มี Supabase Storage bucket เป็นของ `aiot_dev_dashboard` เลย (มีแค่ `course-files`/`lesson-materials` ของ `my_first_app`), ไม่มี `.storage`/`ImagePicker`/`FilePicker` เรียกใช้เลยสักจุดในโค้ดทั้งโปรเจกต์, และ `pubspec.yaml` ไม่มี dependency `file_picker`/`csv`/`excel` เลย — เปิด `school_import_page.dart` ดูตรงๆ พบว่า `_FileUploadBox` เป็น widget ตกแต่ง UI เฉยๆ ไม่มีโค้ดอ่านไฟล์จริงข้างใน จึง**อ่านไฟล์ CSV/Excel จริงไม่ได้ในทางเทคนิคเลย** ตรงข้ามกับที่เคยรายงานว่า "นำเข้า CSV/Excel ได้พร้อม Preview ไฮไลต์แถวที่ผ่าน/ไม่ผ่าน"
-  * **งานที่ต้องทำ:** ถ้าจะทำฟีเจอร์นี้จริง ต้องเพิ่ม `file_picker` (หรือ `csv`) dependency, เขียนโค้ดอ่านไฟล์จริง, แล้วค่อยต่อกับ RPC `import_school_users_batch` ที่มีอยู่แล้ว (ตอนนี้ RPC พร้อมใช้ ปลอดภัยแล้ว แค่ฝั่ง UI ยังไม่มีทางป้อนข้อมูลจากไฟล์จริงเข้าไป)
-  * **วิธี Verify:** อัปโหลดไฟล์ CSV จริง แล้วเช็คว่า `import_school_users_batch` ถูกเรียกด้วยข้อมูลจากไฟล์จริง ไม่ใช่ preview ที่เป็น UI เฉยๆ
+* [x] **1.5 `school_import_page.dart` — ติดตั้ง Real CSV FilePicker & Parser แล้ว (Completed):**
+  * **การแก้ไข:** ติดตั้ง `file_picker` และ `csv` package ใน `pubspec.yaml` พร้อมเขียนฟังก์ชัน `_pickAndParseRealFile()` อ่านไบต์และแปลงแถวข้อมูล CSV เข้าสู่ตาราง Preview แบบ Dynamic และส่งเข้า RPC `import_school_users_batch`
+  * **การทดสอบ:** `flutter analyze` ผ่าน 0 issues และแพ็กเกจ zip อัปเดตเรียบร้อย
 
 
 ---
