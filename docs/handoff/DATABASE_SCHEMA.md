@@ -1,10 +1,12 @@
-# Database Schema (live dump from local Supabase, regenerated 2026-08-23)
+# Database Schema (live dump from local Supabase, regenerated 2026-08-24)
 
 Total tables: 72 (+ 2 views: alerts, profiles)
 
-All base tables have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST except through explicit grants. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
+Most tables (`my_first_app`'s own domain) have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST except through explicit grants. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
 
-`profiles` and `alerts` are **views** added for `aiot_dev_dashboard` compatibility (over `users`/`sensor_alerts`) — views run with the view owner's privileges by default and bypass the underlying tables' RLS, so their own grants matter independently (currently `authenticated` only, `anon` was revoked after a leak was found and fixed 2026-08-22).
+**Exception**: `devices`, `schools`, `thresholds`, `school_settings`, `device_commands`, `device_logs`, `control_approval_requests`, `sensor_readings`, `users`, `user_roles` also carry real `authenticated`-role RLS policies for `aiot_dev_dashboard` (a second app, real Supabase Auth, outside this repo) — each has a school-membership check (`school_id = get_auth_school_id()`) *and*, for writes, a role check (`has_role('school_admin')`/`'technician'`/etc). Both checks matter: a policy with only the school check was a real, fixed vulnerability (any authenticated school member had school_admin-level write access) — see HANDOFF.md's 2026-08-24 section before adding a new policy on any of these tables.
+
+`profiles` and `alerts` are **views** added for `aiot_dev_dashboard` compatibility (over `users`/`sensor_alerts`) — views run with the view owner's privileges by default and bypass the underlying tables' RLS, so their own grants matter independently (currently `authenticated` only, `anon` was revoked after a leak was found and fixed).
 
 
 ## academic_years
@@ -1277,7 +1279,7 @@ Foreign keys:
 
 # RPC Functions (public schema, callable via supabase.rpc)
 
-Total: 164
+Total: 169
 
 Almost every one takes `p_token text` as its first arg — the custom session token (see auth pattern in main handoff doc), validated internally via `get_session_actor(p_token)`. This is NOT Supabase Auth; there is no `auth.uid()`.
 
@@ -1293,6 +1295,8 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `add_rubric_criterion` | p_token text, p_rubric_id uuid, p_name text, p_description text, p_max_score numeric, p_le... | TABLE(criterion_id uuid) |
 | `add_student_support_intervention` | p_token text, p_case_id uuid, p_action_type text, p_notes text | TABLE(intervention_id uuid) |
 | `approve_parent_link` | p_token text, p_parent_link_id uuid | void |
+| `archive_school_device` | p_device_id uuid | jsonb |
+| `archive_school_user` | p_user_id uuid | jsonb |
 | `assert_course_upload_access` | p_token text, p_course_id uuid | void |
 | `assert_lesson_upload_access` | p_token text, p_lesson_id uuid | void |
 | `assign_incident_report` | p_token text, p_id uuid, p_assignee_id uuid | void |
@@ -1325,6 +1329,7 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `create_student_group` | p_token text, p_course_id uuid, p_name text | uuid |
 | `create_student_support_case` | p_token text, p_student_id uuid, p_course_id uuid, p_category text, p_risk_level text, p_t... | TABLE(case_id uuid) |
 | `create_terminal_pairing_session` | p_terminal_name text | TABLE(pairing_code text, expires_at timestamp with time zone) |
+| `current_user_school_id` |  | uuid |
 | `delete_personal_task` | p_token text, p_task_id uuid | void |
 | `delete_student_group` | p_token text, p_group_id uuid | void |
 | `enroll_student` | p_token text, p_course_id uuid, p_student_id uuid | void |
@@ -1352,6 +1357,8 @@ Almost every one takes `p_token text` as its first arg — the custom session to
 | `get_water_usage_trend` | p_token text, p_days integer | TABLE(day date, total_m3 numeric) |
 | `give_feedback` | p_token text, p_submission_id uuid, p_body text | TABLE(feedback_id uuid) |
 | `grant_parent_consent` | p_token text, p_parent_link_id uuid, p_policy_id uuid, p_evidence jsonb | uuid |
+| `has_role` | p_role text | boolean |
+| `import_school_users_batch` | p_school_id uuid, p_role text, p_users jsonb | jsonb |
 | `ingest_sensor_readings_verified` | p_gateway_id uuid, p_readings jsonb | integer |
 | `is_super_admin` | p_uid uuid | boolean |
 | `issue_device_token` | p_token text, p_device_id uuid | text |

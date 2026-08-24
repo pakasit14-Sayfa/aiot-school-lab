@@ -1,4 +1,4 @@
-# AIoT School Lab — Handoff Notes (updated 2026-08-22)
+# AIoT School Lab — Handoff Notes (updated 2026-08-24)
 
 This file is written for another developer/AI picking up this codebase cold.
 It covers what this project is, how it's built, the non-obvious patterns you
@@ -465,6 +465,68 @@ building-prefix check pattern as the other two functions); re-verified the
 exploit now 403s, same-building control still works, and
 `school_admin`/`super_admin`/`technician` (intentionally unrestricted by
 building) are unaffected.
+
+### 2026-08-24 — critical auth-bypass fix, full 9-table RLS role-check fix, complete RBAC audit
+
+Continuation of the 2026-08-22 security work above. Two more real, verified
+vulnerabilities found and closed the same day, plus the RBAC audit (tracked
+internally as "#77") is now considered complete across both apps.
+
+**Unauthenticated privilege escalation** (`20260824000000_fix_school_admin_batch_import_auth_bypass.sql`):
+a follow-on migration from agy (`import_school_users_batch`,
+`archive_school_device`, `archive_school_user`) had the same bug shape three
+times — `if auth.uid() is not null then <check> else <nothing>` is fail-open,
+not fail-closed. `auth.uid()` is NULL for `anon`, and all three had `grant
+execute ... to anon`. Confirmed live: an unauthenticated request created a
+real `super_admin` account with just the public anon key, no login at all.
+Fixed by making the check unconditional and revoking `anon`'s execute grant.
+
+**Missing role checks across 9 RLS policies** (`20260824020000_fix_school_member_rls_missing_role_checks.sql`)
+— the bigger one. Every `school_user_isolated_*` policy added for
+`aiot_dev_dashboard` (`devices`, `schools`, `thresholds`, `school_settings`,
+`device_commands`, `device_logs`, `control_approval_requests`,
+`sensor_readings`, `users`) checked `school_id` only, never role, under a
+single `for all`. Confirmed live: `student@` — a plain student account —
+successfully changed a real device's status via a direct PATCH to
+`/rest/v1/devices`, and could read `password_hash` for every user in the
+school via `.from('users').select('email,password_hash')`. Also found
+auditing grants: `control_approval_requests` and `device_logs` had
+`TRUNCATE` granted to `authenticated` — RLS does not apply to `TRUNCATE` in
+Postgres, so any authenticated user could have wiped either table for every
+school in one call. Fixed by splitting each policy into a school-scoped
+SELECT (kept broad) and role-gated INSERT/UPDATE/DELETE
+(`has_role('school_admin')`/`'technician'` depending on the table), a
+column-level revoke on `users.password_hash`, and revoking `TRUNCATE`.
+
+**Convention going forward**: any new RLS policy on a table shared with
+`aiot_dev_dashboard` needs *two* checks, not one — school membership *and*
+role for anything beyond SELECT. See the note at the top of
+`DATABASE_SCHEMA.md`'s table list for which tables this applies to.
+
+**Full RBAC audit results** — every role tested live against real login
+sessions and disposable test data (created, tested, deleted each time):
+
+| Area | Test | Result |
+|---|---|---|
+| `my_first_app` | student guesses another student's `student_personal_tasks`/`incident_reports` id | Blocked |
+| `my_first_app` | teacher opens a course they don't teach | Blocked |
+| `my_first_app` | parent uses another parent's `parent_link_id` | Blocked |
+| `my_first_app` | executive's aggregate RPC leaks PII | Clean, role+count only |
+| `my_first_app` | facility_manager controls a device outside their building | **Was vulnerable, fixed** (`queue_device_command`) |
+| `aiot_dev_dashboard` | school_admin reads/writes another school's rows, all 9 RLS-fixed tables | Blocked, cross-checked against direct DB state each time |
+| `aiot_dev_dashboard` | student writes `devices`/`device_commands` directly | **Was vulnerable, fixed** |
+| `aiot_dev_dashboard` | teacher/facility write `devices`/`device_commands` | Blocked (as intended — only school_admin/technician/super_admin should) |
+| `aiot_dev_dashboard` | technician writes `devices`/`device_commands` | Allowed (as intended) |
+
+Also independently re-ran the pgTAP suite (`npx supabase test db`) rather
+than trusting a self-report: found `03_auth_session_rate_limit.test.sql`
+failing 2 subtests (`auth_sign_out_all` wasn't actually revoking sessions —
+a real "log out everywhere" bug, security-relevant for a lost/stolen
+device scenario), reported it, agy fixed it, re-ran independently a second
+time and confirmed `Files=24, Tests=236, Result: PASS`.
+
+Full remaining backlog (feature completeness, not security) written up in
+`docs/handoff/agy-brief-full-remaining-backlog-2026-08-24.md`.
 
 ## Where to look next
 
