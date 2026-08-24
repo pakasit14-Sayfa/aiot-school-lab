@@ -3,6 +3,10 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(17);
 
+delete from auth_login_rate_limits;
+delete from auth_login_ip_rate_limits;
+delete from sessions where user_id = '31000000-0000-0000-0000-000000000001';
+
 insert into packages (id, name, license_type)
 values ('11000000-0000-0000-0000-000000000001', 'Auth test package', 'perpetual');
 

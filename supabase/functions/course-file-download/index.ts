@@ -69,8 +69,17 @@ Deno.serve(async (req) => {
     return json({ error: "download_url_unavailable" }, 500);
   }
 
+  const publicBaseUrl =
+    Deno.env.get("PUBLIC_STORAGE_URL") ?? "http://127.0.0.1:54321";
+  const signedUrl = new URL(signed.data.signedUrl);
+  if (publicBaseUrl) {
+    const publicUrl = new URL(publicBaseUrl);
+    signedUrl.protocol = publicUrl.protocol;
+    signedUrl.host = publicUrl.host;
+  }
+
   return json({
-    signed_url: signed.data.signedUrl,
+    signed_url: signedUrl.toString(),
     file_name: lookup.data.file_name,
   });
 });
