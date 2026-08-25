@@ -65,6 +65,21 @@ class _LoginPageState extends State<LoginPage>
       if (!mounted) return;
 
       UserModel? user = result.user;
+      final roleSelection = result.roleSelection;
+      if (roleSelection != null) {
+        user = await Navigator.of(context).push<UserModel>(
+          MaterialPageRoute(
+            builder: (roleContext) => RoleSelectionPage(
+              challenge: roleSelection,
+              onSelected: (selectedUser) {
+                Navigator.of(roleContext).pop(selectedUser);
+              },
+            ),
+          ),
+        );
+        if (!mounted) return;
+      }
+
       final challenge = result.challenge;
       if (challenge != null) {
         user = await Navigator.of(context).push<UserModel>(

@@ -1,3 +1,4 @@
+import 'role_selection_challenge.dart';
 import 'user_model.dart';
 
 class LoginOtpChallenge {
@@ -32,16 +33,22 @@ class LoginOtpChallenge {
 }
 
 class AuthSignInResult {
-  const AuthSignInResult._({this.user, this.challenge});
+  const AuthSignInResult._({this.user, this.challenge, this.roleSelection});
 
   const AuthSignInResult.authenticated(UserModel user) : this._(user: user);
 
   const AuthSignInResult.otpRequired(LoginOtpChallenge challenge)
     : this._(challenge: challenge);
 
+  const AuthSignInResult.roleSelectionRequired(
+    RoleSelectionChallenge roleSelection,
+  ) : this._(roleSelection: roleSelection);
+
   final UserModel? user;
   final LoginOtpChallenge? challenge;
+  final RoleSelectionChallenge? roleSelection;
 
   bool get isAuthenticated => user != null;
   bool get requiresOtp => challenge != null;
+  bool get requiresRoleSelection => roleSelection != null;
 }

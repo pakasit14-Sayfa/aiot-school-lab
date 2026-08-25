@@ -5,6 +5,7 @@ export 'models/parent_binding_model.dart';
 export 'models/consent_model.dart';
 export 'models/notification_model.dart';
 export 'models/login_otp_challenge.dart';
+export 'models/role_selection_challenge.dart';
 export 'models/course_model.dart';
 export 'models/lesson_model.dart';
 export 'models/grade_model.dart';

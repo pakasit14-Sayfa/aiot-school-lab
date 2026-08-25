@@ -33,6 +33,20 @@ class UserAdminService {
     );
   }
 
+  static Future<void> addSecondaryRole({
+    required String uid,
+    required UserRole role,
+    String? schoolId,
+  }) async {
+    final params = <String, dynamic>{
+      'p_token': AuthService.sessionToken,
+      'p_target_user_id': uid,
+      'p_role': role.value,
+    };
+    if (schoolId != null) params['p_school_id'] = schoolId;
+    await supabase.rpc('add_secondary_role', params: params);
+  }
+
   static Future<void> deleteUser(String uid) async {
     await supabase.rpc(
       'suspend_user',

@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import '../models/user_model.dart';
 import '../models/login_otp_challenge.dart';
+import '../models/role_selection_challenge.dart';
 import 'supabase_config.dart';
 import 'session_token_storage.dart';
 
 UserModel? currentUserModel;
 
-/// Owns the signed-in session: establishing it (signIn/verifyLoginOtp/
+/// Owns the signed-in session: establishing it (signIn/selectRole/verifyLoginOtp/
 /// acceptInvitation), tearing it down (signOut/signOutAllDevices), and the
 /// currentUserModel/authStateChanges state everything else reads.
 ///
@@ -66,11 +68,67 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    final response = await supabase.functions.invoke(
-      'auth-sign-in',
-      body: {'email': email.trim().toLowerCase(), 'password': password},
-    );
-    final data = response.data as Map<String, dynamic>?;
+    Map<String, dynamic>? data;
+    try {
+      final response = await supabase.functions.invoke(
+        'auth-sign-in',
+        body: {'email': email.trim().toLowerCase(), 'password': password},
+      );
+      data = response.data as Map<String, dynamic>?;
+    } catch (_) {}
+
+    if (data == null ||
+        (data['session'] == null &&
+            data['mfa_required'] != true &&
+            data['role_selection_required'] != true)) {
+      // Direct RPC fallback if edge function is unreachable
+      final rows =
+          await supabase.rpc(
+                'auth_sign_in',
+                params: {
+                  'p_email': email.trim().toLowerCase(),
+                  'p_password': password,
+                },
+              )
+              as List;
+      if (rows.isNotEmpty) {
+        final row = Map<String, dynamic>.from(rows.first as Map);
+        if (row['auth_state'] == 'role_selection_required') {
+          List<dynamic> roles = [];
+          if (row['building'] != null) {
+            try {
+              roles = (row['building'] is List)
+                  ? row['building'] as List
+                  : (row['building'] is String)
+                      ? List<dynamic>.from(
+                          jsonDecode(row['building'] as String) as List,
+                        )
+                      : [];
+            } catch (_) {}
+          }
+          data = {
+            'role_selection_required': true,
+            'role_selection_token': row['otp_token'],
+            'available_roles': roles,
+          };
+        } else if (row['auth_state'] == 'mfa_required') {
+          data = {
+            'mfa_required': true,
+            'otp_token': row['otp_token'],
+            'otp_expires_at': row['otp_expires_at']?.toString(),
+            'dev_otp_code': row['otp_code'],
+          };
+        } else if (row['auth_state'] == 'authenticated') {
+          data = {'session': row};
+        }
+      }
+    }
+
+    if (data?['role_selection_required'] == true) {
+      return AuthSignInResult.roleSelectionRequired(
+        RoleSelectionChallenge.fromResponse(data!),
+      );
+    }
     if (data?['mfa_required'] == true) {
       return AuthSignInResult.otpRequired(
         LoginOtpChallenge.fromResponse(data!),
@@ -79,6 +137,73 @@ class AuthService {
     final session = data?['session'];
     if (session is! Map) {
       throw Exception('invalid_credentials');
+    }
+
+    final user = await _applySession(Map<String, dynamic>.from(session));
+    return AuthSignInResult.authenticated(user);
+  }
+
+  static Future<AuthSignInResult> selectRole({
+    required String roleSelectionToken,
+    required UserRole role,
+    String? schoolId,
+  }) async {
+    Map<String, dynamic>? data;
+    try {
+      final response = await supabase.functions.invoke(
+        'auth-select-role',
+        body: {
+          'role_selection_token': roleSelectionToken.trim(),
+          'role': role.value,
+          if (schoolId != null) 'school_id': schoolId,
+        },
+      );
+      data = response.data as Map<String, dynamic>?;
+    } catch (_) {}
+
+    if (data == null ||
+        (data['session'] == null && data['mfa_required'] != true)) {
+      // Direct RPC fallback
+      final rows =
+          await supabase.rpc(
+                'auth_select_role',
+                params: {
+                  'p_role_selection_token': roleSelectionToken.trim(),
+                  'p_role': role.value,
+                  if (schoolId != null) 'p_school_id': schoolId,
+                },
+              )
+              as List;
+
+      if (rows.isEmpty) {
+        throw Exception('invalid_or_expired_role_selection');
+      }
+
+      final row = Map<String, dynamic>.from(rows.first as Map);
+      if (row['auth_state'] == 'mfa_required') {
+        data = {
+          'mfa_required': true,
+          'otp_token': row['otp_token'],
+          'otp_expires_at': row['otp_expires_at']?.toString(),
+          'dev_otp_code': row['otp_code'],
+        };
+      } else if (row['auth_state'] == 'authenticated' &&
+          row['session_token'] != null) {
+        data = {'session': row};
+      } else {
+        throw Exception('role_selection_failed');
+      }
+    }
+
+    if (data['mfa_required'] == true) {
+      return AuthSignInResult.otpRequired(
+        LoginOtpChallenge.fromResponse(data),
+      );
+    }
+
+    final session = data['session'];
+    if (session is! Map) {
+      throw Exception('role_selection_failed');
     }
 
     final user = await _applySession(Map<String, dynamic>.from(session));

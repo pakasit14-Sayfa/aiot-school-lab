@@ -1,5 +1,5 @@
-// Public login boundary. The database RPC is service-role only so clients
-// cannot choose or spoof the address used by the IP rate-limit bucket.
+// Public boundary for choosing a role from a multi-role login challenge.
+// The RPC issues an MFA challenge (if OTP required) or mints a session directly.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -25,8 +25,6 @@ function json(body: unknown, status = 200): Response {
 }
 
 function clientAddress(req: Request): string | null {
-  // Supabase's gateway supplies these headers. For x-forwarded-for, use the
-  // last hop so a client-prepended value is not trusted as the rate-limit key.
   for (const name of ["cf-connecting-ip", "x-real-ip"]) {
     const value = req.headers.get(name)?.trim();
     if (value) return value.slice(0, 64);
@@ -61,50 +59,14 @@ async function enforceMinimumResponseTime(startedAt: number): Promise<void> {
   }
 }
 
-async function recordOperationalAlert(
-  supabase: SupabaseClient,
-  category: string,
-  severity: "warning" | "critical",
-  details: Record<string, unknown>,
-): Promise<void> {
-  const result = await supabase.rpc("record_operational_alert", {
-    p_category: category,
-    p_severity: severity,
-    p_details: details,
-  });
-  if (result.error) {
-    console.error("failed to persist operational alert");
-  }
-
-  const webhookUrl = Deno.env.get("SECURITY_ALERT_WEBHOOK_URL");
-  if (!webhookUrl) return;
-  try {
-    const response = await fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ category, severity, details }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) console.error("operational alert webhook failed");
-  } catch {
-    console.error("operational alert webhook unavailable");
-  }
-}
-
-// Local Supabase (`supabase start`) has no real email provider — this must
-// never be true against a hosted project, since Deno.env only sees vars the
-// project's own Edge Runtime was started with.
 function isLocalDev(): boolean {
   const url = Deno.env.get("SUPABASE_URL") ?? "";
-  // `http://kong:8000` is the fixed internal hostname the Supabase CLI's
-  // local dev stack (`supabase start`) always gives the Edge Runtime
-  // container — never present against a hosted/deployed project.
   return url.includes("127.0.0.1") || url.includes("localhost") ||
     url.includes("kong:8000");
 }
 
 async function sendLoginOtpEmail(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   email: string,
   otpCode: string,
 ): Promise<void> {
@@ -112,14 +74,6 @@ async function sendLoginOtpEmail(
   const fromEmail = Deno.env.get("RESEND_FROM_EMAIL");
   if (!resendApiKey || !fromEmail) {
     console.error("login OTP email provider is not configured");
-    if (!isLocalDev()) {
-      await recordOperationalAlert(
-        supabase,
-        "login_otp_email_configuration_missing",
-        "critical",
-        { provider: "resend" },
-      );
-    }
     return;
   }
 
@@ -140,28 +94,15 @@ async function sendLoginOtpEmail(
             ${otpCode}
           </p>
           <p>รหัสนี้มีอายุ 10 นาทีและใช้ได้ครั้งเดียว</p>
-          <p>หากคุณไม่ได้พยายามเข้าสู่ระบบ กรุณาแจ้งผู้ดูแลโรงเรียน</p>
         `,
       }),
       signal: AbortSignal.timeout(10_000),
     });
     if (!emailResponse.ok) {
       console.error("login OTP email delivery failed");
-      await recordOperationalAlert(
-        supabase,
-        "login_otp_email_delivery_failed",
-        "critical",
-        { provider: "resend", http_status: emailResponse.status },
-      );
     }
   } catch {
     console.error("login OTP email provider unavailable");
-    await recordOperationalAlert(
-      supabase,
-      "login_otp_email_delivery_failed",
-      "critical",
-      { provider: "resend", reason: "network_or_timeout" },
-    );
   }
 }
 
@@ -174,53 +115,54 @@ Deno.serve(async (req) => {
   }
   const startedAt = performance.now();
 
-  let email: string | null = null;
-  let password: string | null = null;
+  let roleSelectionToken: string | null = null;
+  let role: string | null = null;
+  let schoolId: string | null = null;
   try {
     const body = await req.json();
-    email = typeof body.email === "string"
-      ? body.email.trim().toLowerCase()
+    roleSelectionToken = typeof body.role_selection_token === "string"
+      ? body.role_selection_token.trim()
       : null;
-    password = typeof body.password === "string" ? body.password : null;
+    role = typeof body.role === "string" ? body.role.trim() : null;
+    schoolId = typeof body.school_id === "string" ? body.school_id.trim() : null;
   } catch {
-    // Invalid bodies deliberately receive the generic authentication result.
+    // Invalid bodies deliberately receive generic error.
   }
 
-  if (
-    !email || !password || email.length > 320 || password.length > 1024
-  ) {
+  if (!roleSelectionToken || !role) {
     await enforceMinimumResponseTime(startedAt);
-    return json({ session: null });
+    return json({ session: null, error: "invalid_request" }, 400);
   }
 
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!serviceRoleKey) {
-    console.error("auth-sign-in server configuration unavailable");
+    console.error("auth-select-role server configuration unavailable");
     await enforceMinimumResponseTime(startedAt);
     return json({ session: null });
   }
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     serviceRoleKey,
   );
   const address = clientAddress(req);
-  // Prefer a dedicated secret. Falling back to the server-only service key
-  // keeps raw IPv4 addresses out of Postgres even before rollout config is set.
   const ipPepper = Deno.env.get("LOGIN_IP_PEPPER") ?? serviceRoleKey;
   const ipFingerprint = address
     ? await hmacSha256Hex(ipPepper, `login-ip:v1:${address}`)
     : null;
-  const { data, error } = await supabase.rpc("auth_sign_in", {
-    p_email: email,
-    p_password: password,
+
+  const { data, error } = await supabase.rpc("auth_select_role", {
+    p_role_selection_token: roleSelectionToken,
+    p_role: role,
+    p_school_id: schoolId,
     p_device_info: req.headers.get("user-agent")?.slice(0, 255) ?? null,
     p_ip_address: ipFingerprint,
   }).maybeSingle();
 
   if (error) {
-    console.error("auth_sign_in failed without user-identifying fields");
+    console.error("auth_select_role failed:", error.message);
     await enforceMinimumResponseTime(startedAt);
-    return json({ session: null });
+    return json({ error: error.message }, 400);
   }
 
   if (data?.auth_state === "rate_limited") {
@@ -228,43 +170,11 @@ Deno.serve(async (req) => {
     return json({ error: "rate_limited" }, 429);
   }
 
-  if (data?.auth_state === "role_selection_required") {
-    const roleSelectionToken = data.otp_token;
-    if (
-      typeof roleSelectionToken !== "string" ||
-      !roleSelectionToken.startsWith("rs_")
-    ) {
-      console.error("auth_sign_in returned an invalid role selection challenge");
-      await enforceMinimumResponseTime(startedAt);
-      return json({ session: null });
-    }
-
-    let availableRoles: unknown[] = [];
-    try {
-      if (data.building) {
-        availableRoles = JSON.parse(data.building);
-      }
-    } catch (_) {
-      availableRoles = [];
-    }
-
-    await enforceMinimumResponseTime(startedAt);
-    return json({
-      session: null,
-      role_selection_required: true,
-      role_selection_token: roleSelectionToken,
-      available_roles: availableRoles,
-    });
-  }
-
   if (data?.auth_state === "mfa_required") {
     const otpCode = data.otp_code;
     const otpToken = data.otp_token;
-    if (
-      typeof otpCode !== "string" || typeof otpToken !== "string" ||
-      typeof data.email !== "string"
-    ) {
-      console.error("auth_sign_in returned an invalid MFA challenge");
+    if (typeof otpCode !== "string" || typeof otpToken !== "string" || typeof data.email !== "string") {
+      console.error("auth_select_role returned an invalid MFA challenge");
       await enforceMinimumResponseTime(startedAt);
       return json({ session: null });
     }
@@ -278,10 +188,6 @@ Deno.serve(async (req) => {
       mfa_required: true,
       otp_token: otpToken,
       otp_expires_at: data.otp_expires_at,
-      // Local Supabase has no email provider configured, so the OTP would
-      // otherwise be undeliverable and unrecoverable (only its hash is
-      // stored). Echo it back for local dev only — never against a real
-      // deployed project, since RESEND_API_KEY/SUPABASE_URL are per-project.
       ...(isLocalDev() && !Deno.env.get("RESEND_API_KEY")
         ? { dev_otp_code: otpCode }
         : {}),
