@@ -27,12 +27,16 @@ class LessonSummary {
   final String title;
   final String status;
   final DateTime? publishedAt;
+  final int materialsCount;
+  final int sensorLinksCount;
 
   const LessonSummary({
     required this.id,
     required this.title,
     required this.status,
     required this.publishedAt,
+    this.materialsCount = 0,
+    this.sensorLinksCount = 0,
   });
 
   factory LessonSummary.fromRow(Map<String, dynamic> row) => LessonSummary(
@@ -42,6 +46,8 @@ class LessonSummary {
     publishedAt: row['published_at'] == null
         ? null
         : DateTime.parse(row['published_at'] as String).toUtc(),
+    materialsCount: (row['materials_count'] as num?)?.toInt() ?? 0,
+    sensorLinksCount: (row['sensor_links_count'] as num?)?.toInt() ?? 0,
   );
 
   bool get isPublished => status == 'published';

@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminCctvPage extends StatefulWidget {
-  const SchoolAdminCctvPage({super.key});
+  const SchoolAdminCctvPage({
+    super.key,
+    this.initialGrants,
+    this.initialUsers,
+  });
+
+  final List<CameraAccessGrantItem>? initialGrants;
+  final List<UserModel>? initialUsers;
 
   @override
   State<SchoolAdminCctvPage> createState() => _SchoolAdminCctvPageState();
@@ -16,10 +23,17 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    if (widget.initialGrants != null) {
+      _grants = widget.initialGrants!;
+      _users = widget.initialUsers ?? [];
+      _isLoading = false;
+    } else {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
+    if (widget.initialGrants != null) return;
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
@@ -219,9 +233,14 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'รายการผู้ได้รับสิทธิ์เข้าถึงกล้อง (${_grants.length})',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      Expanded(
+                        child: Text(
+                          'รายการผู้ได้รับสิทธิ์เข้าถึงกล้อง (${_grants.length})',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -255,12 +274,14 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
             children: [
               Icon(Icons.security, color: Colors.indigo.shade700),
               const SizedBox(width: 8),
-              Text(
-                'การคุ้มครองข้อมูลส่วนบุคคล (PDPA & CCTV Policy)',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo.shade900,
+              Expanded(
+                child: Text(
+                  'การคุ้มครองข้อมูลส่วนบุคคล (PDPA & CCTV Policy)',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.indigo.shade900,
+                  ),
                 ),
               ),
             ],

@@ -65,6 +65,7 @@ class UserModel {
   final String name;
   final String email;
   final UserRole role;
+  final List<UserRole> allRoles;
   final String schoolId;
   final String building;
   final String room;
@@ -75,22 +76,40 @@ class UserModel {
     required this.name,
     required this.email,
     required this.role,
+    this.allRoles = const [],
     this.schoolId = '',
     this.building = '',
     this.room = '',
     this.status = 'active',
   });
 
+  /// True if this user holds [target] as any of their roles, not just
+  /// their single collapsed "active_role" — needed because a
+  /// multi-role account's active_role only reflects whichever role was
+  /// granted most recently (see list_school_users), which would
+  /// otherwise silently exclude e.g. a teacher who was later also
+  /// granted school_admin from role == teacher filters.
+  bool hasRole(UserRole target) =>
+      role == target || allRoles.contains(target);
+
   /// Parses the row shape returned by auth/session/user-list RPCs
   /// (user_id, first_name, last_name, active_role, active_school_id,
   /// building — building is only ever set for facility_manager accounts,
-  /// see 20260814000000_facility_manager_building_scope.sql).
+  /// see 20260814000000_facility_manager_building_scope.sql). `all_roles`
+  /// is only present on `list_school_users` rows (see
+  /// 20260826130000_list_school_users_all_roles.sql) — absent elsewhere,
+  /// in which case it falls back to just [role].
   factory UserModel.fromAuthRow(Map<String, dynamic> row) {
+    final role = UserRoleExt.fromString(row['active_role'] as String? ?? 'student');
+    final rawAllRoles = row['all_roles'] as List?;
     return UserModel(
       uid: row['user_id'] as String,
       name: '${row['first_name']} ${row['last_name']}'.trim(),
       email: row['email'] as String,
-      role: UserRoleExt.fromString(row['active_role'] as String? ?? 'student'),
+      role: role,
+      allRoles: rawAllRoles == null
+          ? [role]
+          : rawAllRoles.map((r) => UserRoleExt.fromString(r as String)).toList(),
       schoolId: row['active_school_id'] as String? ?? '',
       building: row['building'] as String? ?? '',
       status: row['status'] as String? ?? 'active',

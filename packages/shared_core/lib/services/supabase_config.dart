@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+export 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Supabase connection settings are injected at build time via:
 ///   flutter run --dart-define-from-file=env.json

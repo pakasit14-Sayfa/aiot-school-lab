@@ -478,8 +478,8 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                     ? LessonStatus.published
                     : LessonStatus.draft,
                 lastEdited: 'อัปเดตล่าสุด',
-                materialsCount: 0,
-                sensorChartsCount: 0,
+                materialsCount: s.materialsCount,
+                sensorChartsCount: s.sensorLinksCount,
                 blocks: [
                   ContentBlockModel(
                     id: 'b1',
@@ -1381,13 +1381,123 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     super.initState();
     _titleController = TextEditingController(text: widget.lesson.title);
     _blocks = List.from(widget.lesson.blocks);
-    Future.delayed(const Duration(milliseconds: 500), () {
+    _loadFullLesson();
+  }
+
+  Future<void> _loadFullLesson() async {
+    if (widget.lesson.id.isEmpty) {
       if (mounted) setState(() => _isLoading = false);
-    });
+      return;
+    }
+    try {
+      final detail = await LessonService.getLesson(widget.lesson.id);
+      if (!mounted) return;
+
+      widget.lesson.materials = detail.materials
+          .map(
+            (m) => LessonMaterialModel(
+              id: m.id,
+              title: m.title ?? 'ไฟล์แนบ',
+              type: m.type,
+              url: m.url,
+            ),
+          )
+          .toList();
+      widget.lesson.materialsCount = widget.lesson.materials.length;
+
+      widget.lesson.sensorLinks = detail.sensorLinks
+          .map(
+            (s) => LessonSensorLinkModel(
+              id: s.id,
+              deviceName: s.deviceId,
+              metric: s.metric,
+              timeRange: s.timeStart != null
+                  ? '${s.timeStart} - ${s.timeEnd}'
+                  : 'ช่วงเวลาที่บันทึก',
+              caption: s.caption ?? '',
+            ),
+          )
+          .toList();
+      widget.lesson.sensorChartsCount = widget.lesson.sensorLinks.length;
+
+      final List<ContentBlockModel> parsedBlocks = [];
+      final content = detail.content;
+      if (content != null &&
+          content['blocks'] is List &&
+          (content['blocks'] as List).isNotEmpty) {
+        final rawBlocks = content['blocks'] as List;
+        for (int i = 0; i < rawBlocks.length; i++) {
+          final raw = rawBlocks[i];
+          if (raw is Map) {
+            final blockTypeStr = raw['type'] as String? ?? 'text';
+            final blockType = ContentBlockType.values.firstWhere(
+              (t) => t.name == blockTypeStr,
+              orElse: () => ContentBlockType.text,
+            );
+            parsedBlocks.add(
+              ContentBlockModel(
+                id: raw['id'] as String? ?? 'b-$i',
+                type: blockType,
+                text: raw['text'] as String? ?? '',
+                mediaUrl: raw['mediaUrl'] as String? ?? '',
+                caption: raw['caption'] as String? ?? '',
+                sensorDeviceId: raw['sensorDeviceId'] as String? ?? '',
+                sensorMetric: raw['sensorMetric'] as String? ?? '',
+                timeRange: raw['timeRange'] as String? ?? '',
+              ),
+            );
+          }
+        }
+      } else if (content != null &&
+          content['body'] is String &&
+          (content['body'] as String).trim().isNotEmpty) {
+        final bodyStr = (content['body'] as String).trim();
+        final paragraphs = bodyStr.split('\n\n');
+        for (int i = 0; i < paragraphs.length; i++) {
+          final p = paragraphs[i].trim();
+          if (p.isNotEmpty) {
+            parsedBlocks.add(
+              ContentBlockModel(
+                id: 'b-$i',
+                type: ContentBlockType.text,
+                text: p,
+              ),
+            );
+          }
+        }
+      }
+
+      if (parsedBlocks.isEmpty) {
+        if (widget.lesson.blocks.isNotEmpty) {
+          parsedBlocks.addAll(widget.lesson.blocks);
+        } else {
+          parsedBlocks.add(
+            ContentBlockModel(
+              id: 'b-init',
+              type: ContentBlockType.text,
+              text: '',
+            ),
+          );
+        }
+      }
+
+      setState(() {
+        _blocks = parsedBlocks;
+        _titleController.text = detail.title;
+        widget.lesson.title = detail.title;
+        widget.lesson.blocks = _blocks;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading full lesson in editor: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   void _triggerAutoSave() {
-    if (widget.isCourseClosed) return;
+    if (widget.isCourseClosed || _isLoading) return;
     _saveAttempt++;
     final thisAttempt = _saveAttempt;
     setState(() {
@@ -2607,9 +2717,12 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                 color: TeacherPalette.primary,
               ),
               SizedBox(width: 8),
-              Text(
-                'สารบัญบทเรียน',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+              Expanded(
+                child: Text(
+                  'สารบัญบทเรียน',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),

@@ -2,7 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminEsgPage extends StatefulWidget {
-  const SchoolAdminEsgPage({super.key});
+  const SchoolAdminEsgPage({
+    super.key,
+    this.initialEnergyScore,
+    this.initialWaterScore,
+    this.initialEnergySummary,
+    this.initialWaterSummary,
+  });
+
+  final UtilityEfficiencyScore? initialEnergyScore;
+  final UtilityEfficiencyScore? initialWaterScore;
+  final EnergyUsageSummary? initialEnergySummary;
+  final WaterUsageSummary? initialWaterSummary;
 
   @override
   State<SchoolAdminEsgPage> createState() => _SchoolAdminEsgPageState();
@@ -18,10 +29,19 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    if (widget.initialEnergyScore != null || widget.initialEnergySummary != null) {
+      _energyScore = widget.initialEnergyScore;
+      _waterScore = widget.initialWaterScore;
+      _energySummary = widget.initialEnergySummary;
+      _waterSummary = widget.initialWaterSummary;
+      _isLoading = false;
+    } else {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
+    if (widget.initialEnergyScore != null || widget.initialEnergySummary != null) return;
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
@@ -293,9 +313,11 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
             children: [
               Icon(Icons.info_outline, color: Colors.grey.shade700),
               const SizedBox(width: 8),
-              const Text(
-                'ขอบเขตและที่มาของข้อมูล (ESG Transparency)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              const Expanded(
+                child: Text(
+                  'ขอบเขตและที่มาของข้อมูล (ESG Transparency)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

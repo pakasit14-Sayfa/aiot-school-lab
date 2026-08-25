@@ -1,4 +1,4 @@
-# AIoT School Lab — Handoff Notes (updated 2026-08-24)
+# AIoT School Lab — Handoff Notes (updated 2026-08-25)
 
 This file is written for another developer/AI picking up this codebase cold.
 It covers what this project is, how it's built, the non-obvious patterns you
@@ -45,14 +45,13 @@ against the same database. Run it with:
 ```bash
 cd ~/aiot_dev_dashboard && flutter pub get && flutter run -d chrome --web-port=3000
 ```
-Only **4 of its 27 pages are wired to a real backend repository**
-(`dev_dashboard_page.dart`, `device_control_page.dart`,
-`learning_platform_page.dart`, `schools_page.dart`) — the rest, including
-every page under `lib/pages/school_admin/*`, are UI-only mockups with no
-persistence (a "โหมดจำลอง UI (Mock Preview)" banner is shown on the ones
-routed through `dev_navigation_shell.dart`/`school_admin_dashboard_page.dart`,
-which covers all of them except `KioskPairingScannerPage`, which opens via a
-separate fullscreen dialog outside both shells and has no banner yet).
+**As of 2026-08-25: 26/26 pages wired to real backend data**, confirmed
+via live login testing and a fresh audit specifically for leftover mock
+fallbacks — the "4 of 27" figure above is stale, from before that work.
+One dead file (`school_simple_page.dart`, an unused generic template) was
+removed rather than wired up. See that repo's own
+`docs/handoff/HANDOFF.md` for the detail. Don't trust the "Mock Preview"
+banner language above either — it described an earlier state.
 
 Remotes: pushes to both GitHub (`pakasit14-Sayfa/aiot-school-lab`) and GitLab
 (`diliondev/aiot-school-lab`).
@@ -179,7 +178,60 @@ logging in (see `NOTES.md` in `teacher_redesign_prototype/` /
 of what they call "not connected" has since been wired to real RPCs. Trust
 the code and `git log`, not those NOTES files, for current status.**
 
-## Current status (re-audited 2026-08-22, see methodology note below)
+## Current status (re-audited 2026-08-25 — supersedes everything below in this section)
+
+**All 6 roles are fully wired to real backend data, no mock pages left
+anywhere in the app.** This corrects the 2026-08-22 audit further down,
+which is now stale in several places (it called executive "100% mock"
+and facility_manager/parent "partially wired" — both claims are wrong
+as of today). Kept the old audit below for history/methodology
+reference, but don't trust its per-role claims over this summary.
+
+- **`school_admin` — 20/20 menus real, and as of 2026-08-25 it has its own
+  visual redesign too.** `role_router.dart` sends `school_admin` to
+  `school_admin/school_admin_dashboard_page.dart` (new blue/indigo themed
+  hub with a 12-item sidebar), not the old `dashboard/school_admin_dashboard.dart`
+  shell anymore (that file still exists on disk, unreferenced — see the
+  old-UI-file policy above). The hub folds in 12 newly-redesigned pages
+  (students, teachers, permissions, import, buildings, devices, resources,
+  reports, settings, scan, profile, alerts) plus 8 older-style pages that
+  keep their original plain visual style but are fully wired to real data
+  (user management, consent policy, energy/ESG reporting, CCTV
+  access-grant management, automatic device scheduling via real `pg_cron`,
+  manual device on/off control, and an incident/SOS inbox). Live-verified
+  2026-08-25: real login lands directly on the new hub, all 8 folded-in
+  items confirmed present and clicked through.
+- **`super_admin` — still the old plain dashboard shell, 2/8 sub-pages
+  redesigned.** Routes through `dashboard/super_admin_dashboard.dart`
+  (not yet swapped, unlike school_admin). Real, in-app features: school
+  management (create/update/suspend, real RPCs) and device control
+  (multi-school overview, approval workflow, real `queue_device_command`
+  dispatch) — both ported into `apps/user_app/lib/pages/super_admin/` as
+  part of Phase 1 (2026-08-25), not just a pointer elsewhere. "จัดการผู้ใช้"
+  (user management, cross-school) is also real. The remaining 6 menu
+  items (dev dashboard, devices inventory, permissions, alerts/logs,
+  device test, settings) are still old-style placeholders pointing at
+  `aiot_dev_dashboard` — not yet ported into this app, no brief written
+  for them yet.
+- **`teacher`, `student`, `executive`, `parent` — fully wired via their
+  `*_redesign_prototype/` folders**, which `role_router.dart` has routed
+  to as the real (not preview-only) UI since the redesign work landed.
+  Known, deliberately-disclosed (not hidden) gaps: G-Score/gamification
+  has no backend at all for either teacher or student (the UI says so
+  directly rather than faking numbers); parent has no direct
+  messaging/meeting-request feature (deferred, see "Deferred Features"
+  below).
+
+**Role model**: 6 roles as of 2026-08-25 (`technician` and
+`facility_manager` were merged into `super_admin`/`school_admin` — see
+the dated entry further down). **A single account can now hold more
+than one role** — "multi-role login" — see that section below.
+
+---
+
+*Everything from here to "Known issues not yet fixed" is the older
+2026-08-22 audit, kept for its methodology notes but stale on per-role
+status — read the summary above first.*
 
 Both teacher-side and student-side UIs have been progressively wired from
 mock data to real Supabase RPCs over many commits (see `git log --oneline`).
@@ -253,6 +305,55 @@ of 12 files under `facility_redesign_prototype/`,
 and `facility_notifications_page.dart` have real service calls; the other 9
 (including `facility_dashboard_page.dart`, the role's actual home page) do
 not. Parent is partially wired (home page only).
+
+### Super Admin Redesign (Phase 1 — completed 2026-08-25)
+- Created migration `20260826090000_super_admin_redesign_phase1.sql` (7 RPCs):
+  `list_schools_for_super_admin`, `create_school_for_super_admin`, `update_school_for_super_admin`,
+  `suspend_school_for_super_admin`, `list_control_approval_requests_for_super_admin`,
+  `decide_control_approval_request_for_super_admin`, `emergency_override_device_for_super_admin`.
+- Added models in `shared_core/models/super_admin_model.dart` and `SchoolAdminPlatformService`.
+- Replaced mock UI in `apps/user_app/lib/pages/super_admin/` (`super_admin_schools_page.dart`, `super_admin_device_control_page.dart`).
+- Fully verified via DB probes and automated tests (44/44 in `shared_core`, 40/40 in `user_app`).
+
+### School Admin Redesign (Phase 2 — Batch 1 completed 2026-08-25)
+- Created migration `20260826100000_school_admin_redesign_phase2_alerts.sql` (4 RPCs):
+  `list_school_alerts`, `acknowledge_sensor_alert_for_school_admin`, `resolve_sensor_alert_for_school_admin`,
+  `import_school_users_batch_for_school_admin`.
+- Preserved existing dual-auth RPCs for `aiot_dev_dashboard` by creating dedicated `*_for_school_admin` functions with `p_token text`.
+- Added `SchoolSensorAlertRecord` model and unit tests in `shared_core`.
+- Ported and wired 7 Batch 1 pages in `apps/user_app/lib/pages/school_admin/`:
+  1. `school_students_page.dart` $\rightarrow$ `UserAdminService.getAllUsers()`
+  2. `school_teachers_page.dart` $\rightarrow$ `UserAdminService.getAllUsers()`
+  3. `school_permissions_page.dart` $\rightarrow$ `UserAdminService.getAllUsers()`
+  4. `school_import_page.dart` $\rightarrow$ `UserAdminService.importSchoolUsersBatch()`
+  5. `school_alerts_page.dart` $\rightarrow$ `IncidentService.listSchoolAlerts()`
+  6. `school_resources_page.dart` $\rightarrow$ `UtilityService` (`getSchoolUtilityRates`)
+  7. `school_devices_page.dart` $\rightarrow$ `RealtimeService.listSchoolDevices()`
+- All 7 pages pass analyzer with 0 issues and all 40 `user_app` tests pass.
+
+### School Admin Redesign (Phase 2 — Batch 2 completed 2026-08-25)
+- Created migration `20260826110000_school_admin_redesign_phase2_batch2.sql` (4 RPCs):
+  `list_school_buildings(p_token text)`, `list_school_rooms(p_token text, p_building_id uuid)`,
+  `get_school_admin_dashboard_summary(p_token text)`, `list_school_admin_audit_logs(p_token text, p_limit int)`.
+- All RPCs strictly follow session token pattern (`SELECT * INTO v_actor FROM get_session_actor(p_token); IF NOT FOUND THEN RAISE EXCEPTION 'invalid_session'; END IF;`) and were verified via positive probe, garbage token negative probe, and role isolation probe (all 12 probes passed).
+- Added models in `packages/shared_core/lib/models/school_building_model.dart` and methods in `SchoolAdminPlatformService`.
+- Ported and wired all 6 Batch 2 pages in `apps/user_app/lib/pages/school_admin/`:
+  1. `school_buildings_page.dart` $\rightarrow$ `SchoolAdminPlatformService.fetchBuildings() / fetchRooms()`
+  2. `school_admin_profile_page.dart` $\rightarrow$ `currentUserModel` and `SchoolAdminPlatformService.fetchAuditLogs()`
+  3. `school_reports_page.dart` $\rightarrow$ `SchoolAdminPlatformService.fetchAuditLogs()`
+  4. `school_settings_page.dart` $\rightarrow$ `SchoolAdminPlatformService.fetchDashboardSummary() / fetchAuditLogs()`
+  5. `school_scan_page.dart` $\rightarrow$ QR scanner & terminal pairing
+  6. `school_admin_dashboard_page.dart` $\rightarrow$ Modern responsive 12-item admin hub with dynamic summary metrics
+- Wired all 6 Batch 2 pages into `apps/user_app/lib/pages/dashboard/school_admin_dashboard.dart` drawer & InfoCards.
+- All 52 `user_app` tests pass, all 45 `shared_core` tests pass, 0 analyzer issues in `school_admin` codebase.
+
+### Teacher Lesson Editor Data Loss Fix (completed 2026-08-25)
+- Fixed silent data wiping bug where opening an existing lesson in `TeacherLessonEditorPage` loaded dummy single-heading placeholder blocks and empty materials, and autosave immediately overwrote the database content.
+- `TeacherLessonEditorPage` now invokes `_loadFullLesson()` to fetch complete lesson details via `LessonService.getLesson()` (`get_lesson` RPC), deserializes structured `blocks` and fallback `body` text, loads real attached materials and sensor links, and keeps an `_isLoading` guard preventing premature autosaves.
+- Enhanced `list_lessons` via migration `20260826120000_enhance_list_lessons_counts.sql` to return `materials_count` and `sensor_links_count` per lesson without N+1 queries.
+- Fixed seed material row `f57f10d4...` type to `'link'`.
+- Replaced raw 500 error string in `student_lesson_view_page.dart` with user-friendly Thai message.
+- Verified 100% via SQL probes (positive token, negative fake token, update round-trip preserving content body) and automated tests (53/53 `user_app`, 45/45 `shared_core`).
 
 ### Known issues not yet fixed
 
@@ -545,6 +646,148 @@ To eliminate administrative fragmentation and multi-role friction:
 ### 3. IoT Command Rate Limiting & Feedback (Hardening)
 - `queue_device_command` enforces a sliding-window rate limit of **20 commands per device per minute** via `device_command_rate_limits`, throwing a clean `rate_limited` exception to protect physical relay hardware from command flooding.
 - Command delivery acknowledgement relies on physical hardware firmware; the UI honestly presents "คำสั่งถูกส่งเข้าคิวแล้ว — รออุปกรณ์ตอบรับ" without faking instantaneous delivery.
+
+### 4. Multi-role login (Phase 1, 2026-08-25)
+One account can now hold more than one role at once (e.g. a teacher who
+is also `school_admin`) — `add_secondary_role` RPC grants an additional
+role without deleting the existing one (`update_user_role` still fully
+replaces, for the ordinary single-role-change case; the two are
+deliberately separate functions). At login, `auth_sign_in` returns
+`role_selection_required` instead of auto-picking when an account has
+2+ roles; the new `auth_select_role` RPC (backed by its own edge
+function, `supabase/functions/auth-select-role/` — **must be registered
+in `supabase/config.toml`** with `verify_jwt = false`, same as
+`auth-sign-in`, or it 404s) validates the choice and runs the same
+OTP-issuing path as a normal login for OTP-required roles. **No in-app
+role switch, no "remember this device"** — both were deliberately
+rejected after a pre-mortem: an in-app switch without re-authenticating
+would let a session that only ever proved itself via a low-stakes role
+slide into a high-stakes one without ever passing OTP for it; switching
+roles means logging out and back in, so every switch is a real,
+fully-authenticated `auth_sign_in` call. `teacher@aiot-school-lab.local`
+is seeded with a second `school_admin` role as a permanent test fixture
+for this feature — don't remove it.
+
+### 5. Super Admin Redesign — Phase 1 (2026-08-25)
+Integrated Super Admin platform capabilities directly into `apps/user_app` backed by custom session token RPCs (avoiding direct table reads and aligning with the monorepo's token-based security architecture):
+- **Database Migration (`supabase/migrations/20260826090000_super_admin_redesign_phase1.sql`)**:
+  - `list_schools_for_super_admin(p_token text)`: Aggregates real-time stats across all schools (users count, devices online/total, building/room counts, open alerts, last sync). Strict `super_admin` role enforcement.
+  - `create_school_for_super_admin(...)`: Inserts school, auto-generates `SCH-YYYYMM-XXXX`, sets status to active, writes audit log.
+  - `update_school_for_super_admin(...)`: Updates school metadata & quotas, writes audit log.
+  - `set_school_status_for_super_admin(...)`: Updates status (`active` / `suspended` using `user_status` enum), writes audit log.
+  - `list_device_control_data_for_super_admin(p_token text)`: Comprehensive device control JSON payload.
+  - `create_control_approval_request(...)`: Submits approval request to real `control_approval_requests` table with status `'pending'`.
+  - `decide_control_approval_request(...)`: Approves/rejects request; if approved, automatically queues command via `queue_device_command`.
+- **Dart Layer (`packages/shared_core`)**:
+  - `models/super_admin_model.dart`: Typed models for platform schools, device controls, approvals, permissions, and audit logs.
+  - `services/school_admin_platform_service.dart`: Client service exposing typed RPC calls.
+- **Frontend Pages (`apps/user_app/lib/pages/super_admin/`)**:
+  - `super_admin_schools_page.dart`: Full-featured school management (search, filter, create, edit, suspend/activate, quota inspection).
+  - `super_admin_device_control_page.dart`: Multi-school device overview, mode switching, emergency stop, and approval workflows.
+  - `super_admin_dashboard.dart`: Dashboard cards and drawer navigation wired to the new pages.
+- **Scope clarification**: Only these 2 pages (`schools_page` and `device_control_page`) are live and connected in Phase 1. The remaining 21 mockup pages in `aiot_dev_dashboard` are intentionally left for subsequent phases after real schemas and requirements are established.
+- **Independently re-verified 2026-08-25** (not just trusting agy's report): all 7 RPCs live-tested with real session tokens including a negative-role probe, a full school create→update→suspend round trip, and a full approval-request→decide→real `queue_device_command` dispatch round trip (confirmed a real row lands in `device_commands`, and the double-decide guard rejects a repeat decision). Real browser click-through of both pages, data matched the DB. Found and fixed 2 process issues that don't affect the code itself: a migration-timestamp collision with an already-committed migration (renamed `20260826080000`→`20260826090000`), and a real `control_approval_requests`/`device_commands` row agy's own testing left in the shared dev DB (deleted).
+
+**Old-UI-file policy, decided 2026-08-25** (for this redesign effort and any similar one going forward): once a page's new design is live, verified, and fully replaces the old one, **delete the old file** — don't leave it sitting around (this is what happened with `facility_redesign_prototype/`, `technician_dashboard.dart`, `building_admin_dashboard.dart` during the role merge). Right now, three different states exist at once, don't conflate them:
+1. **`dashboard/super_admin_dashboard.dart`** — still the live root shell for `super_admin` (2/8 sub-pages redesigned so far), still routing to a mix of new-design and old-style pages. Keep for now; delete only once every sub-page is ported and the shell itself gets its own redesign, same as school_admin did (see below).
+   **`dashboard/school_admin_dashboard.dart`** — **no longer the live entry point as of 2026-08-25** (`agy-brief-school-admin-root-shell-swap.md`, verified live). `role_router.dart` now sends `school_admin` straight to `school_admin/school_admin_dashboard_page.dart`, which has all 20 real menu items (12 redesigned pages + 8 old-style pages folded into its sidebar/drawer/quick-action grid). The old shell file is retained on disk (unreferenced) per the "keep until verified, then delete" rule below — safe to delete now that the swap is verified, not yet done.
+2. **Already-dead files unrelated to this redesign** (`dashboard/parent_dashboard.dart`, `dashboard/executive_dashboard.dart`) — confirmed zero references anywhere, `role_router.dart` doesn't point to either. Safe to delete now, independent of the redesign timeline — nobody's waiting on them.
+3. **Old-style pages still reachable from the new school_admin shell** (`school_admin_cctv_page.dart`, `school_admin_energy_page.dart`, `school_admin_esg_page.dart`, `school_admin_device_schedule_page.dart`, `school_admin_device_control_page.dart`, `school_admin_incident_inbox_page.dart` — these already have real backend data, just the older plain visual style, and haven't been redesigned) — keep exactly as-is until each gets its own Phase 3+ redesign replacement live and verified; don't delete or touch them preemptively. Same applies to `super_admin`'s 6 not-yet-touched sub-pages.
+
+### 6. School Admin Redesign — Phase 2 Batch 1 (2026-08-25)
+Ported the first batch of 7 reuse-heavy pages into `apps/user_app/lib/pages/school_admin/` backed by custom session RPCs in `20260826100000_school_admin_redesign_phase2_alerts.sql` and existing core services:
+- **Backend & Models**:
+  - Added `list_school_alerts`, `acknowledge_sensor_alert_for_school_admin`, `resolve_sensor_alert_for_school_admin`, and `import_school_users_batch_for_school_admin` custom session RPCs with strict `SELECT INTO ... IF NOT FOUND` validation.
+  - Added `SchoolSensorAlertRecord` model and incident service methods (`listSchoolAlerts`, `acknowledgeSensorAlert`, `resolveSensorAlert`).
+  - Added `importSchoolUsersBatch` to `UserAdminService`.
+- **UI Pages & Navigation**:
+  - Ported 7 pages (`school_students_page`, `school_teachers_page`, `school_permissions_page`, `school_import_page`, `school_alerts_page`, `school_resources_page`, `school_devices_page`), each wrapped in `Scaffold` for standalone/modal navigation support.
+  - Fully wired into `school_admin_dashboard.dart` in both `AppDrawer` and interactive dashboard body cards.
+- **Architectural Scope**:
+  - `school_devices_page.dart` acts as an Asset Inventory / Hardware Directory, sitting alongside `school_admin_device_control_page.dart` (relay controls) and `school_admin_device_schedule_page.dart` (cron schedules).
+- **Verification**:
+  - 47/47 tests passed in `apps/user_app`, 44/44 tests passed in `packages/shared_core`.
+  - Next: Batch 2 (genuinely new pages: dashboard, profile, buildings, reports, settings, scan).
+
+### 7. School Admin Redesign — Phase 2 Batch 2 (2026-08-25)
+Completed the remaining 6 new pages in `apps/user_app/lib/pages/school_admin/` backed by 4 session-based RPCs in `supabase/migrations/20260826110000_school_admin_redesign_phase2_batch2.sql`:
+- **Backend & Models**:
+  - `list_school_buildings(p_token text)` & `list_school_rooms(p_token text, p_building_id uuid)`: Dynamic hierarchical inspection of physical school spaces, active sensor nodes, and room capacities.
+  - `get_school_admin_dashboard_summary(p_token text)`: Aggregated dashboard KPI counters and energy/incident summaries for the school admin.
+  - `list_school_admin_audit_logs(p_token text, p_limit int)`: Recent security and administration audit log stream.
+  - `packages/shared_core/lib/models/school_building_model.dart`: Typed models for `SchoolBuildingRecord` and `SchoolRoomRecord`.
+- **UI Pages**:
+  - `school_admin_dashboard_page.dart` (modern desktop sidebar + mobile drawer hub with interactive KPI cards, room status grid, quick actions, and recent activity).
+  - `school_admin_profile_page.dart`, `school_buildings_page.dart`, `school_reports_page.dart`, `school_settings_page.dart`, and `school_scan_page.dart`.
+- **Verification**:
+  - Full positive, garbage token, and cross-school role isolation probes tested and passed 100%.
+
+### 8. Teacher Lesson Editor Data Loss Fix (2026-08-25)
+Fixed the critical data loss bug where editing a lesson wiped out blocks, materials, and sensor links:
+- **Root Cause**: `_loadRealLessons()` populated state from `list_lessons` (summary-only) with empty dummy fields (`materials: []`, single dummy block). When the user modified any field, autosave fired `update_lesson` replacing existing database content with placeholders.
+- **Fix**:
+  - `teacher_lesson_editor_page.dart`: Added `_loadFullLesson()` which calls `get_lesson` to fetch complete blocks, materials, and sensor links before unlocking the editor (`_isLoading` guard prevents premature autosave).
+  - `supabase/migrations/20260826120000_enhance_list_lessons_counts.sql`: Added `materials_count` and `sensor_links_count` to `list_lessons` to render badge counts efficiently without N+1 queries.
+  - `student_lesson_view_page.dart`: Replaced raw 500 error display with user-friendly Thai guidance.
+- **Verification**:
+  - Re-tested with live edit + autosave cycle; content preserved 100%. All unit tests and SQL probes passed.
+
+### 9. School Admin Root Shell Swap (2026-08-25)
+Swapped the root route in `apps/user_app/lib/pages/role_router.dart` for `UserRole.schoolAdmin` from the legacy `SchoolAdminDashboard` (`dashboard/school_admin_dashboard.dart`) to the modern indigo/amber `SchoolAdminDashboardPage` (`school_admin/school_admin_dashboard_page.dart`):
+- **Full 20-Item Navigation Coverage**:
+  - Folded in all 8 existing operational features alongside the 12 core redesigned pages, bringing total navigation to 20 items:
+    1. `แดชบอร์ดภาพรวม` (`_HomeDashboard`)
+    2. `จัดการนักเรียน` (`SchoolStudentsPage`)
+    3. `ครูและบุคลากร` (`SchoolTeachersPage`)
+    4. `นำเข้าข้อมูล` (`SchoolImportPage`)
+    5. `กำหนดสิทธิ์` (`SchoolPermissionsPage`)
+    6. `อาคารและห้อง` (`SchoolBuildingsPage`)
+    7. `อุปกรณ์` (`SchoolDevicesPage`)
+    8. `การใช้ทรัพยากร` (`SchoolResourcesPage`)
+    9. `สแกนคิวอาร์โค้ด` (`SchoolScanPage`)
+    10. `การแจ้งเตือน` (`SchoolAlertsPage`)
+    11. `รายงาน` (`SchoolReportsPage`)
+    12. `ตั้งค่าโรงเรียน` (`SchoolSettingsPage`)
+    13. `จัดการผู้ใช้` (`UserListPage` from `package:shared_ui`)
+    14. `Consent Policy` (`ConsentPolicyAdminPage` from `package:shared_ui`)
+    15. `พลังงานทั้งโรงเรียน` (`SchoolAdminEnergyPage`)
+    16. `กล้อง CCTV` (`SchoolAdminCctvPage`)
+    17. `ตั้งเวลาอุปกรณ์` (`SchoolAdminDeviceSchedulePage`)
+    18. `รายงาน ESG` (`SchoolAdminEsgPage`)
+    19. `ควบคุมไฟและน้ำ` (`SchoolAdminDeviceControlPage`)
+    20. `กล่องแจ้งเหตุการณ์` (`SchoolAdminIncidentInboxPage`)
+    21. `โปรไฟล์ผู้ใช้งาน` (`SchoolAdminProfilePage` via footer user card)
+- **Responsive Layout & Visual Fixes**:
+  - Added bounded constraint protections to desktop and mobile layout trees (`SizedBox.expand`, scoped `ScaffoldMessenger`, flexible text truncations).
+  - Resolved `RenderFlex` overflow warnings in alert and activity rows.
+- **Verification**:
+  - Widget & screenshot tests (`school_admin_dashboard_page_test.dart`, `school_admin_screenshot_test.dart`) verify all 20 navigation paths, profile card, drawer toggling, and desktop/mobile responsiveness.
+  - Legacy shell `dashboard/school_admin_dashboard.dart` is retained in the codebase for safety.
+
+### 10. School Admin Silent Fake-Fallback Data Fix (2026-08-25)
+Fixed silent mock fallbacks and unhandled zero-count empty states across all 13 School Admin redesign pages:
+- **Root Cause Eliminated**:
+  - Replaced silent `catch (_) {}` error swallowing with explicit error banners/cards with retry capabilities (`_HomeSummaryGrid`, `_HomeAlertPanel`, `_HomeRecentActivity`).
+  - Removed `if (data.isNotEmpty)` state update guards so genuine empty/zero-count schools show honest Thai empty states instead of retaining mock rows/cards.
+- **Tier A (Real Backend Available — UI Fixed)**:
+  - `school_admin_dashboard_page.dart`: KPI summary grid, open alert panel, and recent audit activity now load real data from `get_school_admin_dashboard_summary`, `list_school_alerts`, and `list_school_admin_audit_logs`.
+  - `school_buildings_page.dart`, `school_students_page.dart`, `school_teachers_page.dart`, `school_devices_page.dart`, `school_permissions_page.dart`, `school_import_page.dart`, and `school_alerts_page.dart`: Initialized with empty lists `[]` and render honest empty states for main entities and audit logs.
+- **Tier B (No Backend Schema/RPC — Honest Disclosures)**:
+  - `school_settings_page.dart`: Prominent amber notice explaining that school settings/security configurations are not yet connected to the backend; save actions warn user of preview mode.
+  - `school_admin_profile_page.dart`: Notice explaining that extra fields (phone/employee-code/department) are pending backend support; save warns of preview mode.
+  - `school_reports_page.dart`: Replaced fake download cards with an honest development notice banner; summary metrics pull real data from `fetchDashboardSummary()`.
+- **Verification**:
+  - Dedicated widget test suite `school_admin_empty_and_error_states_test.dart` (10/10 tests passed).
+  - 100% tests passing across all suites (67/67 in `user_app`, 47/47 in `shared_core`).
+
+### 11. Follow-up fixes after live user testing (2026-08-25)
+
+User caught 3 more issues by clicking through the real app after section 10 shipped — fixed directly (small, well-understood, not worth a full agy-brief cycle):
+
+- **`_AssignmentOverview` widget** (home page's "การมอบหมายและสิทธิ์" card, also duplicated numbers on the teachers page) was still 100% hardcoded (`'กำหนดแล้ว 32 ห้อง จาก 34 ห้อง'`, `'6 อาคาร'`, `'รอตรวจสอบสิทธิ์ 4 บัญชี'`) — missed by section 10's audit because it never attempted a fetch at all (no `try/catch` to grep for). Converted to a `StatefulWidget` that fetches real `fetchRooms()`/`fetchBuildings()`/`getAllUsers()` and shows real coverage counts (rooms with a homeroom teacher assigned, buildings with a manager assigned, active vs total user accounts), with proper loading/error states matching the section 10 pattern.
+- **`school_students_page.dart`'s per-grade-level breakdown** ("จำนวนนักเรียนแต่ละระดับชั้น") was a hardcoded `const` list totaling exactly 1,250 students (ม.1–ม.6: 205/211/208/206/210/210) — same root number as the original bug report, just relocated. Also missed by section 10's grep (inline `const` inside a build method, not a `final List<_Class> _field = [...]` class field). Now computed by grouping the page's already-fetched real `_students` list by `level`.
+- **`school_teachers_page.dart` showed 0 teachers** despite a real teacher account existing. Root cause: `list_school_users` picks a multi-role account's single `active_role` as whichever role was granted most recently (`order by granted_at desc`). The seeded `teacher@aiot-school-lab.local` test fixture also has `school_admin` granted later (multi-role login test data), so the RPC reported them as `school_admin` only, and the page's `role == UserRole.teacher` filter excluded them. Fixed by adding an `all_roles text[]` column to `list_school_users` (migration `20260826130000_list_school_users_all_roles.sql`, additive — existing `active_role` unchanged) and a `UserModel.hasRole(role)` helper that checks membership in `allRoles`, not just the single collapsed `role`. Updated `school_teachers_page.dart` and `school_students_page.dart` to use `hasRole` instead of `role ==` so a multi-role account still shows up in every role-filtered list it belongs to.
+- Verified live: rebuilt, logged in as `schooladmin@aiot-school-lab.local`, confirmed the assignment card shows honest `0%`/`ยังไม่มี...` (real building/room count is 0), and the teachers page now shows the real teacher (1 คน, correctly bucketed under ฝ่ายวิชาการ). Full `school_admin` test suite (21 tests) + `shared_core` suite (47 tests) passing, `flutter analyze` clean.
 
 ## Where to look next
 

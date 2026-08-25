@@ -162,9 +162,9 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('ไม่สามารถเปิดไฟล์ได้: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('ไม่สามารถเปิดไฟล์นี้ได้ในขณะนี้ กรุณาแจ้งครูผู้สอน'),
+          backgroundColor: Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
       );

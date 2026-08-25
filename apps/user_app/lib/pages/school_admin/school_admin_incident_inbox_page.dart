@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminIncidentInboxPage extends StatefulWidget {
-  const SchoolAdminIncidentInboxPage({super.key});
+  const SchoolAdminIncidentInboxPage({
+    super.key,
+    this.initialIncidents,
+  });
+
+  final List<TeacherIncidentReport>? initialIncidents;
 
   @override
   State<SchoolAdminIncidentInboxPage> createState() =>
@@ -22,7 +27,12 @@ class _SchoolAdminIncidentInboxPageState
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _load();
+    if (widget.initialIncidents != null) {
+      _incidents = widget.initialIncidents!;
+      _loading = false;
+    } else {
+      _load();
+    }
   }
 
   @override
@@ -32,6 +42,7 @@ class _SchoolAdminIncidentInboxPageState
   }
 
   Future<void> _load() async {
+    if (widget.initialIncidents != null) return;
     setState(() {
       _loading = true;
       _loadError = null;
@@ -657,7 +668,7 @@ class _SchoolAdminIncidentInboxPageState
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  item.id.substring(0, 8),
+                  item.id.length > 8 ? item.id.substring(0, 8) : item.id,
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

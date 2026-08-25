@@ -2,14 +2,31 @@
 
 School management app (Thai-language UI): classes, assignments, grading,
 quizzes, lesson content, incident/emergency reporting, parent-student
-binding, and IoT sensor data from physical classroom devices. Roles:
-teacher, student, parent, facility manager, executive/admin.
+binding, and IoT sensor data from physical classroom devices.
+
+**Roles (6, as of 2026-08-25): `super_admin`, `school_admin`, `teacher`,
+`executive`, `student`, `parent`.** There is no `facility_manager` or
+`technician` role anymore — both were merged (`facility_manager` →
+`school_admin`, `technician` → `super_admin`) on 2026-08-25; see
+`docs/handoff/HANDOFF.md` for the migration details. **All 6 roles route
+through their redesigned UI and are fully wired to real backend data** —
+`role_router.dart` sends `student`/`teacher`/`executive`/`parent` to their
+`*_redesign_prototype/` shell, `school_admin` to `school_admin/school_admin_dashboard_page.dart`
+(new-design hub, 20 real menu items — swapped from the old `dashboard/school_admin_dashboard.dart`
+shell on 2026-08-25, live-verified), `super_admin` to `dashboard/super_admin_dashboard.dart`
+(still the old shell, only 2/8 sub-pages redesigned so far).
+**A single account can hold more than one role** — see "Multi-role login"
+in HANDOFF.md.
 
 Full architecture writeup, "how to run," current status, and known issues:
 **[docs/handoff/HANDOFF.md](docs/handoff/HANDOFF.md)**. Full live database
 schema (every table, every RPC function signature): **[docs/handoff/DATABASE_SCHEMA.md](docs/handoff/DATABASE_SCHEMA.md)**
 — regenerate this from the running local DB rather than hand-editing it (see
-"Keeping this current" below).
+"Keeping this current" below). **Index of every `agy-brief-*.md` task and
+its actual status: [docs/handoff/WORK_LOG.md](docs/handoff/WORK_LOG.md)**
+— `docs/handoff/` has ~30 individual brief files with no other way to see
+at a glance which are done vs still open; check this before re-reading
+briefs one by one or re-doing work that's already finished.
 
 There is also a separate Obsidian vault at `~/Documents/AIoT-School-Lab-Vault/`
 covering product design, decisions, and the 173 use-case specs — that's
@@ -43,7 +60,11 @@ codebase itself.
 6. **`NOTES.md` files inside `teacher_redesign_prototype/` and
    `student_redesign_prototype/` are stale** (describe an early UI-only
    mock phase). Trust `git log` and the actual code over those files for
-   current status.
+   current status. **This applies doubly to this CLAUDE.md and to
+   HANDOFF.md themselves** — both drifted badly behind real progress
+   earlier in the project (see the 2026-08-25 note in HANDOFF.md's
+   "Current status"). If a claim here contradicts what `role_router.dart`
+   or a live login actually shows, trust the live system.
 
 ## Running locally
 
@@ -91,11 +112,27 @@ invite. If that's how you got this:
    `git remote add <you> <path-to-your-copy> && git fetch <you> && git merge <you>/<your-branch>`
    — so a clean, real commit history from you is what makes that painless.
 
-## Keeping this current
+## Keeping this current — mandatory, not optional, part of finishing any task
+
+**This is not a "nice to have" — it caused a real problem 2026-08-25**: a
+Claude session read this file and `HANDOFF.md` mid-project and got the
+project's status completely wrong (thought `facility_manager` still
+existed, thought the redesigned UI pages were still unwired mockups)
+because whoever did that work never updated these docs. The project
+owner had to notice and point it out. Don't repeat this — if you (agy,
+or any Claude session) finish a task that changes what's true about this
+project, updating the docs below is part of *finishing the task*, not a
+separate follow-up someone else does later.
 
 - `docs/handoff/HANDOFF.md` — update the "Current status" / "Known issues"
   sections when they materially change; don't let it rot into another stale
   NOTES.md.
+- `docs/handoff/WORK_LOG.md` — the index of every `agy-brief-*.md` file
+  and its status. When you finish a brief, move it from "In progress" to
+  "Done" here **with the commit hash**, in the same commit/session as the
+  work itself. When you start a new one, add it to "In progress" first.
+  This file is the only reason someone doesn't have to open all ~30
+  brief files one by one to know what's already done — keep it honest.
 - `docs/handoff/DATABASE_SCHEMA.md` — regenerate, don't hand-edit, after any
   migration. It was generated with:
   ```bash

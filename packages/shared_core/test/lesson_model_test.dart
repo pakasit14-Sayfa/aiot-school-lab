@@ -15,16 +15,20 @@ void main() {
       expect(lesson.publishedAt, isNull);
     });
 
-    test('a published lesson parses published_at', () {
+    test('a published lesson parses published_at and counts', () {
       final lesson = LessonSummary.fromRow({
         'lesson_id': 'lesson-1',
         'title': 'Air Quality 101',
         'status': 'published',
         'published_at': '2026-07-24T09:00:00Z',
+        'materials_count': 3,
+        'sensor_links_count': 2,
       });
 
       expect(lesson.isPublished, isTrue);
       expect(lesson.publishedAt, DateTime.utc(2026, 7, 24, 9, 0, 0));
+      expect(lesson.materialsCount, 3);
+      expect(lesson.sensorLinksCount, 2);
     });
   });
 

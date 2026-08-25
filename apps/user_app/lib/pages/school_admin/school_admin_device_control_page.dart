@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminDeviceControlPage extends StatefulWidget {
-  const SchoolAdminDeviceControlPage({super.key});
+  const SchoolAdminDeviceControlPage({
+    super.key,
+    this.initialRelays,
+  });
+
+  final List<DeviceOption>? initialRelays;
 
   @override
   State<SchoolAdminDeviceControlPage> createState() =>
@@ -24,10 +29,16 @@ class _SchoolAdminDeviceControlPageState
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.initialRelays != null) {
+      _relays = widget.initialRelays!;
+      _loading = false;
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    if (widget.initialRelays != null) return;
     setState(() {
       _loading = true;
       _loadError = null;

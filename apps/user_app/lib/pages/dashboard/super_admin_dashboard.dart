@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/info_card.dart';
+import '../super_admin/super_admin_schools_page.dart';
+import '../super_admin/super_admin_device_control_page.dart';
 
 class SuperAdminDashboard extends StatelessWidget {
   const SuperAdminDashboard({super.key});
@@ -16,8 +18,26 @@ class SuperAdminDashboard extends StatelessWidget {
       drawer: AppDrawer(
         items: [
           DrawerItem(
-            icon: Icons.people,
-            title: 'จัดการผู้ใช้ (ข้ามโรงเรียน)',
+            icon: Icons.account_balance_rounded,
+            title: 'จัดการโรงเรียน (Schools)',
+            color: const Color(0xFF0F5B8F),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SuperAdminSchoolsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.toggle_on_rounded,
+            title: 'ควบคุมและอนุมัติอุปกรณ์ (Device Control)',
+            color: const Color(0xFF1E88E5),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SuperAdminDeviceControlPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.people_alt_rounded,
+            title: 'จัดการผู้ใช้ (User Management)',
             color: Colors.blueGrey,
             onTap: (ctx) => Navigator.pushNamed(ctx, '/users'),
           ),
@@ -34,61 +54,39 @@ class SuperAdminDashboard extends StatelessWidget {
               style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
             const Text(
-              'Super Admin — platform-level เท่านั้น ไม่มีสิทธิ์ Classroom/AIoT/Emergency/Security',
+              'Super Admin — ระบบบริหารจัดการระดับแพลตฟอร์ม (Platform Control Center)',
               style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 20),
 
             InfoCard(
-              icon: Icons.admin_panel_settings,
-              title: 'บทบาท',
-              value: 'ผู้ดูแลระบบสูงสุด',
-              color: Colors.blueGrey,
+              icon: Icons.account_balance_rounded,
+              title: 'จัดการโรงเรียน (Schools)',
+              value: 'โควต้า, ไลเซนส์, สถานะเปิด/ระงับ',
+              color: const Color(0xFF0F5B8F),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SuperAdminSchoolsPage()),
+              ),
             ),
 
             InfoCard(
-              icon: Icons.people,
-              title: 'จัดการผู้ใช้',
-              value: 'กดเพื่อจัดการ',
-              color: Colors.blueGrey,
-              onTap: () => Navigator.pushNamed(context, '/users'),
+              icon: Icons.toggle_on_rounded,
+              title: 'ควบคุม & อนุมัติอุปกรณ์ (Device Control)',
+              value: 'สั่งการอุปกรณ์, คำขออนุมัติคำสั่ง',
+              color: const Color(0xFF1E88E5),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SuperAdminDeviceControlPage()),
+              ),
             ),
 
-            Card(
-              color: Colors.indigo.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.open_in_new, color: Colors.indigo.shade700),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'จัดการโรงเรียน, Audit Log และสถานะอุปกรณ์ข้ามโรงเรียน',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo.shade900,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'งานเหล่านี้ทำผ่านแอปแอดมินแยกต่างหาก (aiot_dev_dashboard) '
-                            'ซึ่งเป็นแอปสำหรับผู้ดูแลระบบระดับแพลตฟอร์มโดยเฉพาะ ไม่ได้อยู่ในแอปนี้',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.indigo.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            InfoCard(
+              icon: Icons.people_alt_rounded,
+              title: 'จัดการผู้ใช้ (User Management)',
+              value: 'บัญชีผู้ใช้งานข้ามโรงเรียน',
+              color: Colors.blueGrey,
+              onTap: () => Navigator.pushNamed(context, '/users'),
             ),
           ],
         ),

@@ -2,7 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminEnergyPage extends StatefulWidget {
-  const SchoolAdminEnergyPage({super.key});
+  const SchoolAdminEnergyPage({
+    super.key,
+    this.initialEnergySummary,
+    this.initialWaterSummary,
+    this.initialEnergyTrend,
+    this.initialWaterTrend,
+    this.initialEnergyScore,
+    this.initialWaterScore,
+  });
+
+  final EnergyUsageSummary? initialEnergySummary;
+  final WaterUsageSummary? initialWaterSummary;
+  final List<UtilityTrendPoint>? initialEnergyTrend;
+  final List<UtilityTrendPoint>? initialWaterTrend;
+  final UtilityEfficiencyScore? initialEnergyScore;
+  final UtilityEfficiencyScore? initialWaterScore;
 
   @override
   State<SchoolAdminEnergyPage> createState() => _SchoolAdminEnergyPageState();
@@ -22,10 +37,21 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    if (widget.initialEnergySummary != null || widget.initialWaterSummary != null) {
+      _energySummary = widget.initialEnergySummary;
+      _waterSummary = widget.initialWaterSummary;
+      _energyTrend = widget.initialEnergyTrend ?? [];
+      _waterTrend = widget.initialWaterTrend ?? [];
+      _energyScore = widget.initialEnergyScore;
+      _waterScore = widget.initialWaterScore;
+      _isLoading = false;
+    } else {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
+    if (widget.initialEnergySummary != null || widget.initialWaterSummary != null) return;
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([

@@ -78,4 +78,27 @@ class UserAdminService {
         row['active_role'] as String: (row['user_count'] as num).toInt(),
     };
   }
+
+  /// Batch import users for school_admin / super_admin
+  static Future<int> importSchoolUsersBatch({
+    required UserRole role,
+    required List<Map<String, dynamic>> users,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    final res = await supabase.rpc(
+      'import_school_users_batch_for_school_admin',
+      params: {
+        'p_token': token,
+        'p_role': role.value,
+        'p_users': users,
+      },
+    );
+
+    if (res is Map && res['inserted_count'] != null) {
+      return (res['inserted_count'] as num).toInt();
+    }
+    return 0;
+  }
 }
+

@@ -9,6 +9,19 @@ import '../school_admin/school_admin_device_schedule_page.dart';
 import '../school_admin/school_admin_esg_page.dart';
 import '../school_admin/school_admin_device_control_page.dart';
 import '../school_admin/school_admin_incident_inbox_page.dart';
+import '../school_admin/school_students_page.dart';
+import '../school_admin/school_teachers_page.dart';
+import '../school_admin/school_permissions_page.dart';
+import '../school_admin/school_import_page.dart';
+import '../school_admin/school_alerts_page.dart';
+import '../school_admin/school_resources_page.dart';
+import '../school_admin/school_devices_page.dart';
+import '../school_admin/school_buildings_page.dart';
+import '../school_admin/school_reports_page.dart';
+import '../school_admin/school_settings_page.dart';
+import '../school_admin/school_scan_page.dart';
+import '../school_admin/school_admin_dashboard_page.dart';
+import '../school_admin/school_admin_profile_page.dart';
 
 class SchoolAdminDashboard extends StatelessWidget {
   const SchoolAdminDashboard({super.key});
@@ -102,6 +115,123 @@ class SchoolAdminDashboard extends StatelessWidget {
               ),
             ),
           ),
+          DrawerItem(
+            icon: Icons.school,
+            title: 'ข้อมูลนักเรียน',
+            color: Colors.blue,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolStudentsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.badge,
+            title: 'ครูและบุคลากร',
+            color: Colors.indigo,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolTeachersPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.security,
+            title: 'กำหนดสิทธิ์บุคลากร',
+            color: Colors.deepPurple,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolPermissionsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.upload_file,
+            title: 'นำเข้าข้อมูล (Batch Import)',
+            color: Colors.cyan,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolImportPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.notifications_active,
+            title: 'การแจ้งเตือนเซนเซอร์ & ระบบ',
+            color: Colors.redAccent,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolAlertsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.pie_chart,
+            title: 'การใช้ทรัพยากร (น้ำ/ไฟ)',
+            color: Colors.teal,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolResourcesPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.devices_other,
+            title: 'คลังอุปกรณ์ IoT (Inventory)',
+            color: Colors.blueGrey,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolDevicesPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.apartment,
+            title: 'อาคารและห้องเรียน (Buildings)',
+            color: Colors.deepOrange,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolBuildingsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.assessment,
+            title: 'รายงานและสถิติ (Reports)',
+            color: Colors.teal,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolReportsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.settings,
+            title: 'ตั้งค่าโรงเรียน (Settings)',
+            color: Colors.blueGrey,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolSettingsPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.qr_code_scanner,
+            title: 'สแกน QR Code (Scanner)',
+            color: Colors.amber.shade800,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolScanPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.dashboard_customize,
+            title: 'ศูนย์กลางแดชบอร์ดใหม่ (Admin Hub)',
+            color: Colors.purple,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolAdminDashboardPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.account_circle,
+            title: 'โปรไฟล์ผู้ดูแล (Admin Profile)',
+            color: Colors.blue,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolAdminProfilePage()),
+            ),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -121,20 +251,91 @@ class SchoolAdminDashboard extends StatelessWidget {
             const SizedBox(height: 20),
 
             InfoCard(
-              icon: Icons.admin_panel_settings,
-              title: 'สิทธิ์การใช้งาน',
-              value: 'แอดมินโรงเรียน',
-              color: Colors.purple,
-              subtitle: 'เข้าถึงได้ทุกระบบ',
+              icon: Icons.school,
+              title: 'ข้อมูลนักเรียน',
+              value: 'ทะเบียนนักเรียน',
+              color: Colors.blue,
+              subtitle: 'ค้นหา กรองรายชั้น/ห้อง และจัดการสถานะ',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SchoolStudentsPage()),
+              ),
             ),
 
             InfoCard(
-              icon: Icons.people,
-              title: 'จัดการผู้ใช้',
-              value: 'กดเพื่อจัดการ',
-              color: Colors.purple,
-              subtitle: 'เพิ่ม / ลบ / เปลี่ยนสิทธิ์',
-              onTap: () => Navigator.pushNamed(context, '/users'),
+              icon: Icons.badge,
+              title: 'ครูและบุคลากร',
+              value: 'บุคลากรโรงเรียน',
+              color: Colors.indigo,
+              subtitle: 'รายชื่อครู แผนก หน้าที่ และอาคารที่รับผิดชอบ',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SchoolTeachersPage()),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.security,
+              title: 'กำหนดสิทธิ์บุคลากร',
+              value: 'Role Matrix',
+              color: Colors.deepPurple,
+              subtitle: 'จัดการบทบาท พื้นที่รับผิดชอบ และสิทธิ์รอง',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolPermissionsPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.upload_file,
+              title: 'นำเข้าข้อมูล (Batch Import)',
+              value: 'Excel / CSV / Sheets',
+              color: Colors.cyan,
+              subtitle: 'นำเข้าข้อมูลนักเรียน ครู และอุปกรณ์เป็นชุด',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SchoolImportPage()),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.notifications_active,
+              title: 'การแจ้งเตือนเซนเซอร์ & ระบบ',
+              value: 'ศูนย์แจ้งเตือน',
+              color: Colors.redAccent,
+              subtitle: 'ติดตามและกดรับทราบเหตุขัดข้องเซนเซอร์ IoT',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SchoolAlertsPage()),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.pie_chart,
+              title: 'การใช้ทรัพยากร (น้ำ/ไฟ)',
+              value: 'กราฟภาพรวม',
+              color: Colors.teal,
+              subtitle: 'สถิติการใช้ไฟและน้ำ รายวัน รายเดือน รายปี',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolResourcesPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.devices_other,
+              title: 'คลังอุปกรณ์ IoT (Inventory)',
+              value: 'รายการอุปกรณ์ทั้งหมด',
+              color: Colors.blueGrey,
+              subtitle: 'ทะเบียนฮาร์ดแวร์ ตรวจสถานะออนไลน์/ออฟไลน์',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SchoolDevicesPage()),
+              ),
             ),
 
             InfoCard(
@@ -209,7 +410,7 @@ class SchoolAdminDashboard extends StatelessWidget {
 
             InfoCard(
               icon: Icons.lightbulb,
-              title: 'ควบคุมอุปกรณ์ (ไฟและน้ำ)',
+              title: 'ควบคุมสวิตช์รีเลย์ (ไฟและน้ำ)',
               value: 'สวิตช์รีเลย์ทั้งโรงเรียน',
               color: Colors.orange,
               subtitle: 'เปิด-ปิดไฟแสงสว่างและปั๊มน้ำทุกอาคาร',
@@ -222,7 +423,7 @@ class SchoolAdminDashboard extends StatelessWidget {
             ),
 
             InfoCard(
-              icon: Icons.notifications_active,
+              icon: Icons.inbox,
               title: 'กล่องข้อความแจ้งเหตุ (Incident Inbox)',
               value: 'ติดตามเหตุการณ์',
               color: Colors.redAccent,
@@ -234,9 +435,94 @@ class SchoolAdminDashboard extends StatelessWidget {
                 ),
               ),
             ),
+
+            InfoCard(
+              icon: Icons.apartment,
+              title: 'อาคารและห้องเรียน (Buildings & Rooms)',
+              value: 'ผังอาคารและห้อง',
+              color: Colors.deepOrange,
+              subtitle: 'จัดการข้อมูลอาคาร ห้องเรียน ผู้รับผิดชอบ และความจุ',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolBuildingsPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.assessment,
+              title: 'รายงานและสถิติ (School Reports)',
+              value: 'สรุปข้อมูลและส่งออก',
+              color: Colors.teal,
+              subtitle: 'สร้างรายงานสรุปไฟฟ้า น้ำ คุณภาพอากาศ และนักเรียน',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolReportsPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.settings,
+              title: 'ตั้งค่าโรงเรียน (School Settings)',
+              value: 'การตั้งค่าระบบ',
+              color: Colors.blueGrey,
+              subtitle: 'จัดการข้อมูลโรงเรียน ปีการศึกษา และความปลอดภัย',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolSettingsPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.qr_code_scanner,
+              title: 'สแกน QR Code (Scanner)',
+              value: 'สแกนด่วน',
+              color: Colors.amber.shade800,
+              subtitle: 'สแกน QR Code อุปกรณ์ หรือจับคู่เทอร์มินัล',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolScanPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.dashboard_customize,
+              title: 'ศูนย์กลางแดชบอร์ดใหม่ (Admin Hub)',
+              value: 'Modern Dashboard Hub',
+              color: Colors.purple,
+              subtitle: 'สลับไปยังมุมมองศูนย์รวมการบริหารโรงเรียนแบบใหม่',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminDashboardPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.account_circle,
+              title: 'โปรไฟล์ผู้ดูแล (Admin Profile)',
+              value: 'บัญชีและประวัติ',
+              color: Colors.blue,
+              subtitle: 'ดูข้อมูลผู้ใช้ เปลี่ยนรหัสผ่าน และดู Audit Logs',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminProfilePage(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 }
+

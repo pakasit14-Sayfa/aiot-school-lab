@@ -25,13 +25,23 @@ class _UserListPageState extends State<UserListPage> {
   }
 
   Future<void> loadUsers() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
-    final result = await UserAdminService.getAllUsers();
-    if (mounted) {
-      setState(() {
-        users = result;
-        isLoading = false;
-      });
+    try {
+      final result = await UserAdminService.getAllUsers();
+      if (mounted) {
+        setState(() {
+          users = result;
+          isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          users = [];
+          isLoading = false;
+        });
+      }
     }
   }
 

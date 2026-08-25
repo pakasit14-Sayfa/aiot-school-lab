@@ -148,4 +148,50 @@ class IncidentService {
         .map((row) => IncidentSummaryItem.fromRow(row as Map<String, dynamic>))
         .toList();
   }
+
+  /// List sensor alerts for the active school (School Admin / Super Admin)
+  static Future<List<SchoolSensorAlertRecord>> listSchoolAlerts({
+    String? status,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final params = <String, dynamic>{'p_token': token};
+    if (status != null) params['p_status'] = status;
+    final rows =
+        await supabase.rpc('list_school_alerts', params: params) as List;
+    return rows
+        .map((row) => SchoolSensorAlertRecord.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Acknowledge a sensor alert for school_admin
+  static Future<void> acknowledgeSensorAlert(String alertId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'acknowledge_sensor_alert_for_school_admin',
+      params: {
+        'p_token': token,
+        'p_alert_id': alertId,
+      },
+    );
+  }
+
+  /// Resolve a sensor alert for school_admin
+  static Future<void> resolveSensorAlert(
+    String alertId, {
+    String? note,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'resolve_sensor_alert_for_school_admin',
+      params: {
+        'p_token': token,
+        'p_alert_id': alertId,
+        if (note != null) 'p_note': note,
+      },
+    );
+  }
 }
+

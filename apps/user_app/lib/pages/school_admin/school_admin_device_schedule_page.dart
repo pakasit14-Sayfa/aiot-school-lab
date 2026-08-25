@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminDeviceSchedulePage extends StatefulWidget {
-  const SchoolAdminDeviceSchedulePage({super.key});
+  const SchoolAdminDeviceSchedulePage({
+    super.key,
+    this.initialSchedules,
+    this.initialDevices,
+  });
+
+  final List<DeviceSchedule>? initialSchedules;
+  final List<DeviceOption>? initialDevices;
 
   @override
   State<SchoolAdminDeviceSchedulePage> createState() =>
@@ -18,10 +25,17 @@ class _SchoolAdminDeviceSchedulePageState
   @override
   void initState() {
     super.initState();
-    _loadData();
+    if (widget.initialSchedules != null) {
+      _schedules = widget.initialSchedules!;
+      _devices = widget.initialDevices ?? [];
+      _isLoading = false;
+    } else {
+      _loadData();
+    }
   }
 
   Future<void> _loadData() async {
+    if (widget.initialSchedules != null) return;
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
@@ -329,12 +343,14 @@ class _SchoolAdminDeviceSchedulePageState
             children: [
               Icon(Icons.schedule, color: Colors.deepPurple.shade700),
               const SizedBox(width: 8),
-              Text(
-                'ระบบเบื้องหลัง (Background pg_cron Engine)',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple.shade900,
+              Expanded(
+                child: Text(
+                  'ระบบเบื้องหลัง (Background pg_cron Engine)',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple.shade900,
+                  ),
                 ),
               ),
             ],

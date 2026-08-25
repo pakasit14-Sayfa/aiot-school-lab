@@ -150,7 +150,7 @@ begin
   -- 2026-08-18: Seed lesson materials and AIoT sensor link with sample readings
   if not exists (select 1 from lesson_materials where lesson_id = v_lesson_id) then
     insert into lesson_materials (lesson_id, type, title, url, sort_order) values
-      (v_lesson_id, 'file', 'คู่มือการใช้งานเซนเซอร์ PM2.5 (PDF)', 'https://example.com/materials/pm25_manual.pdf', 1),
+      (v_lesson_id, 'link', 'คู่มือการใช้งานเซนเซอร์ PM2.5 (PDF)', 'https://example.com/materials/pm25_manual.pdf', 1),
       (v_lesson_id, 'link', 'สไลด์บรรยายบทเรียน PM2.5', 'https://example.com/slides/pm25_intro', 2);
   end if;
 

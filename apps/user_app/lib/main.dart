@@ -24,6 +24,8 @@ import 'pages/teacher_redesign_prototype/teacher_pbl_activity_editor_page.dart';
 import 'pages/student_home_page/student_home_page_widget.dart';
 import 'pages/dashboard/teacher_dashboard.dart';
 import 'pages/teacher/course_list_page.dart';
+import 'pages/super_admin/super_admin_schools_page.dart';
+import 'pages/super_admin/super_admin_device_control_page.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -93,6 +95,9 @@ class MyApp extends StatelessWidget {
             const StudentCourseCatalogMinimalPage(),
         '/prototype/student-catalog-streaming': (context) =>
             const StudentCourseCatalogStreamingPage(),
+        '/super_admin/schools': (context) => const SuperAdminSchoolsPage(),
+        '/super_admin/device_control': (context) =>
+            const SuperAdminDeviceControlPage(),
       },
       onGenerateRoute: (settings) {
         final name = settings.name;

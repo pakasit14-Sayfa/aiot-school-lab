@@ -3,7 +3,7 @@ import 'package:shared_core/shared_core.dart';
 import '../pages/login_page.dart';
 import 'student_redesign_prototype/widgets/student_navigation_prototype.dart';
 import 'teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
-import 'dashboard/school_admin_dashboard.dart';
+import 'school_admin/school_admin_dashboard_page.dart';
 import 'executive_redesign_prototype/widgets/director_navigation_shell.dart';
 import 'dashboard/super_admin_dashboard.dart';
 import 'parent_redesign_prototype/widgets/parent_navigation_shell.dart';
@@ -24,7 +24,7 @@ class RoleRouter extends StatelessWidget {
       case UserRole.teacher:
         return const TeacherRedesignPrototypePage();
       case UserRole.schoolAdmin:
-        return const SchoolAdminDashboard();
+        return const SchoolAdminDashboardPage();
       case UserRole.executive:
         return const DirectorNavigationShell();
       case UserRole.superAdmin:

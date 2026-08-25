@@ -178,3 +178,61 @@ class IncidentSummaryItem {
             : (row['avg_response_seconds'] as num).toDouble(),
       );
 }
+
+class SchoolSensorAlertRecord {
+  const SchoolSensorAlertRecord({
+    required this.id,
+    required this.deviceId,
+    required this.deviceName,
+    required this.deviceCode,
+    required this.schoolId,
+    required this.metric,
+    required this.value,
+    required this.triggeredAt,
+    required this.status,
+    this.thresholdId,
+    this.acknowledgedBy,
+    this.acknowledgedByName,
+    this.acknowledgedAt,
+  });
+
+  final String id;
+  final String deviceId;
+  final String deviceName;
+  final String deviceCode;
+  final String schoolId;
+  final String metric;
+  final double value;
+  final DateTime triggeredAt;
+  final String status;
+  final String? thresholdId;
+  final String? acknowledgedBy;
+  final String? acknowledgedByName;
+  final DateTime? acknowledgedAt;
+
+  bool get isNew => status == 'new';
+  bool get isAcknowledged => status == 'acknowledged';
+  bool get isResolved => status == 'resolved';
+
+  factory SchoolSensorAlertRecord.fromRow(Map<String, dynamic> row) =>
+      SchoolSensorAlertRecord(
+        id: row['id'] as String,
+        deviceId: row['device_id'] as String,
+        deviceName: row['device_name'] as String? ?? 'Unknown Device',
+        deviceCode: row['device_code'] as String? ?? 'DEV-UNKNOWN',
+        schoolId: row['school_id'] as String,
+        thresholdId: row['threshold_id'] as String?,
+        metric: row['metric'] as String? ?? 'unknown',
+        value: (row['value'] as num?)?.toDouble() ?? 0.0,
+        triggeredAt: row['triggered_at'] != null
+            ? DateTime.parse(row['triggered_at'] as String).toLocal()
+            : DateTime.now(),
+        status: row['status'] as String? ?? 'new',
+        acknowledgedBy: row['acknowledged_by'] as String?,
+        acknowledgedByName: row['acknowledged_by_name'] as String?,
+        acknowledgedAt: row['acknowledged_at'] != null
+            ? DateTime.parse(row['acknowledged_at'] as String).toLocal()
+            : null,
+      );
+}
+
