@@ -16,22 +16,10 @@ class SuperAdminDashboard extends StatelessWidget {
       drawer: AppDrawer(
         items: [
           DrawerItem(
-            icon: Icons.school,
-            title: 'จัดการโรงเรียนทั้งระบบ',
-            color: Colors.blueGrey,
-            onTap: (_) {},
-          ),
-          DrawerItem(
             icon: Icons.people,
             title: 'จัดการผู้ใช้ (ข้ามโรงเรียน)',
             color: Colors.blueGrey,
             onTap: (ctx) => Navigator.pushNamed(ctx, '/users'),
-          ),
-          DrawerItem(
-            icon: Icons.receipt_long,
-            title: 'Audit Log',
-            color: Colors.blueGrey,
-            onTap: (_) {},
           ),
         ],
       ),
@@ -66,25 +54,41 @@ class SuperAdminDashboard extends StatelessWidget {
               onTap: () => Navigator.pushNamed(context, '/users'),
             ),
 
-            const ComingSoonCard(
-              icon: Icons.school,
-              title: 'สร้าง/จัดการโรงเรียนทั้งระบบ',
-              phase: 'Phase 3',
-              color: Colors.indigo,
-            ),
-
-            const ComingSoonCard(
-              icon: Icons.receipt_long,
-              title: 'Audit Log ข้ามโรงเรียน',
-              phase: 'Phase 3',
-              color: Colors.blueGrey,
-            ),
-
-            const ComingSoonCard(
-              icon: Icons.settings_ethernet,
-              title: 'สถานะอุปกรณ์ (read-only ข้ามโรงเรียน)',
-              phase: 'Phase 3',
-              color: Colors.teal,
+            Card(
+              color: Colors.indigo.shade50,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.open_in_new, color: Colors.indigo.shade700),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'จัดการโรงเรียน, Audit Log และสถานะอุปกรณ์ข้ามโรงเรียน',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.indigo.shade900,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'งานเหล่านี้ทำผ่านแอปแอดมินแยกต่างหาก (aiot_dev_dashboard) '
+                            'ซึ่งเป็นแอปสำหรับผู้ดูแลระบบระดับแพลตฟอร์มโดยเฉพาะ ไม่ได้อยู่ในแอปนี้',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.indigo.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
