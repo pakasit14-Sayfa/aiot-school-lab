@@ -67,4 +67,52 @@ class CalendarService {
       params: {'p_token': token, 'p_task_id': taskId},
     );
   }
+
+  static Future<String> setClassSchedule({
+    required String courseId,
+    required int dayOfWeek,
+    required String startTime,
+    required String endTime,
+    String? room,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    final rows =
+        await supabase.rpc(
+              'set_class_schedule',
+              params: {
+                'p_token': token,
+                'p_course_id': courseId,
+                'p_day_of_week': dayOfWeek,
+                'p_start_time': startTime,
+                'p_end_time': endTime,
+                'p_room': room,
+              },
+            )
+            as List;
+    return (rows.first as Map<String, dynamic>)['schedule_id'] as String;
+  }
+
+  static Future<void> removeClassSchedule(String scheduleId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'remove_class_schedule',
+      params: {'p_token': token, 'p_schedule_id': scheduleId},
+    );
+  }
+
+  static Future<List<ClassScheduleSlot>> listTeacherSchedules({
+    String? courseId,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final params = <String, dynamic>{'p_token': token};
+    if (courseId != null) params['p_course_id'] = courseId;
+    final rows =
+        await supabase.rpc('list_teacher_schedules', params: params) as List;
+    return rows
+        .map((row) => ClassScheduleSlot.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
 }

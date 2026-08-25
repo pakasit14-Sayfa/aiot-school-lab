@@ -528,6 +528,24 @@ time and confirmed `Files=24, Tests=236, Result: PASS`.
 Full remaining backlog (feature completeness, not security) written up in
 `docs/handoff/agy-brief-full-remaining-backlog-2026-08-24.md`.
 
+## Deferred Features & Architecture Decisions (updated 2026-08-25)
+
+### 1. Direct Parent-Teacher In-App Messaging (Deferred)
+Direct 1-on-1 parent-teacher chat was intentionally deferred and not built into the app:
+- **School Communication Norms**: Line Official Account (LINE OA) and broadcast announcement channels are universally preferred in Thai schools for general school-to-parent communications rather than building custom in-app chat from scratch.
+- **Teacher Boundaries & Workload**: Teachers strongly oppose unstructured 24/7 personal chat channels where 40+ parents per classroom can message at all hours without school office mediation.
+- **Sufficient Structured Channels**: The existing structured workflows — parent binding verification (`parent_binding_requests`), automated SOS/incident alerts, attendance tracking, and published grade/assignment reports — fulfill genuine communication needs without creating unmoderated chat debt or data retention overhead.
+
+### 2. Role Merge (Technician → Super Admin, Facility Manager → School Admin)
+To eliminate administrative fragmentation and multi-role friction:
+- **Technician role merged into `super_admin`**: Device registration, firmware updates, and infrastructure-level diagnostics are managed by super admins.
+- **Facility Manager role merged into `school_admin`**: School-wide energy monitoring, CCTV access management, device automation schedules, and relay switches are unified in the `school_admin` portal without per-building silos.
+- The `UserRole` enum in `shared_core` was pruned to 6 canonical roles (`super_admin`, `school_admin`, `teacher`, `student`, `parent`, `executive`).
+
+### 3. IoT Command Rate Limiting & Feedback (Hardening)
+- `queue_device_command` enforces a sliding-window rate limit of **20 commands per device per minute** via `device_command_rate_limits`, throwing a clean `rate_limited` exception to protect physical relay hardware from command flooding.
+- Command delivery acknowledgement relies on physical hardware firmware; the UI honestly presents "คำสั่งถูกส่งเข้าคิวแล้ว — รออุปกรณ์ตอบรับ" without faking instantaneous delivery.
+
 ## Where to look next
 
 - `docs/handoff/DATABASE_SCHEMA.md` — every table + every RPC, generated live.

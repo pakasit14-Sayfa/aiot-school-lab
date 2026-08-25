@@ -21,13 +21,13 @@ insert into users (
   ('88500000-0000-0000-0000-000000000003', '88200000-0000-0000-0000-000000000001',
    'emg-student@test.local', crypt('pass', gen_salt('bf')), 'Emergency', 'Student', '88500000-0000-0000-0000-000000000001'),
   ('88500000-0000-0000-0000-000000000004', '88200000-0000-0000-0000-000000000001',
-   'emg-facility@test.local', crypt('pass', gen_salt('bf')), 'Emergency', 'Facility', '88500000-0000-0000-0000-000000000001');
+   'emg-admin@test.local', crypt('pass', gen_salt('bf')), 'Emergency', 'Admin', '88500000-0000-0000-0000-000000000001');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
   ('88500000-0000-0000-0000-000000000001', 'teacher', '88200000-0000-0000-0000-000000000001', '88500000-0000-0000-0000-000000000001'),
   ('88500000-0000-0000-0000-000000000002', 'executive', '88200000-0000-0000-0000-000000000001', '88500000-0000-0000-0000-000000000001'),
   ('88500000-0000-0000-0000-000000000003', 'student', '88200000-0000-0000-0000-000000000001', '88500000-0000-0000-0000-000000000001'),
-  ('88500000-0000-0000-0000-000000000004', 'facility_manager', '88200000-0000-0000-0000-000000000001', '88500000-0000-0000-0000-000000000001');
+  ('88500000-0000-0000-0000-000000000004', 'school_admin', '88200000-0000-0000-0000-000000000001', '88500000-0000-0000-0000-000000000001');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
   ('88500000-0000-0000-0000-000000000001', 'teacher', '88200000-0000-0000-0000-000000000001',
@@ -36,8 +36,8 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
    encode(digest('emg-exec-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('88500000-0000-0000-0000-000000000003', 'student', '88200000-0000-0000-0000-000000000001',
    encode(digest('emg-student-token', 'sha256'), 'hex'), now() + interval '1 hour'),
-  ('88500000-0000-0000-0000-000000000004', 'facility_manager', '88200000-0000-0000-0000-000000000001',
-   encode(digest('emg-facility-token', 'sha256'), 'hex'), now() + interval '1 hour');
+  ('88500000-0000-0000-0000-000000000004', 'school_admin', '88200000-0000-0000-0000-000000000001',
+   encode(digest('emg-admin-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
 -- Insert test emergency event
 insert into emergency_events (id, school_id, location, status, warning_light_on)
@@ -60,8 +60,12 @@ select is(
 prepare student_list as select * from list_emergency_events('emg-student-token');
 select throws_ok('student_list', 'forbidden', 'Student is forbidden from listing emergency events');
 
-prepare facility_list as select * from list_emergency_events('emg-facility-token');
-select throws_ok('facility_list', 'forbidden', 'Facility Manager is forbidden from listing detailed emergency events');
+prepare admin_list as select * from list_emergency_events('emg-admin-token');
+select is(
+  (select count(*)::int from list_emergency_events('emg-admin-token')),
+  1,
+  'School Admin can list emergency events'
+);
 
 -- 2. Test acknowledge_emergency_event
 prepare exec_ack as select acknowledge_emergency_event('emg-exec-token', '88800000-0000-0000-0000-000000000001');
@@ -76,8 +80,8 @@ select throws_ok('teacher_ack', 'event_already_acknowledged', 'Cannot acknowledg
 prepare teacher_close_empty as select close_emergency_event('emg-teacher-token', '88800000-0000-0000-0000-000000000001', '');
 select throws_ok('teacher_close_empty', 'review_note_required', 'Empty review note throws review_note_required');
 
-prepare facility_close as select close_emergency_event('emg-facility-token', '88800000-0000-0000-0000-000000000001', 'เรียบร้อย');
-select throws_ok('facility_close', 'forbidden', 'Facility Manager is forbidden from closing emergency event');
+prepare student_close as select close_emergency_event('emg-student-token', '88800000-0000-0000-0000-000000000001', 'เรียบร้อย');
+select throws_ok('student_close', 'forbidden', 'Student is forbidden from closing emergency event');
 
 prepare teacher_close_valid as select close_emergency_event('emg-teacher-token', '88800000-0000-0000-0000-000000000001', 'ระงับเหตุเรียบร้อย ปลอดภัย');
 select lives_ok('teacher_close_valid', 'Teacher can close emergency event with valid review_note');

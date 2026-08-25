@@ -24,6 +24,7 @@ import 'teacher_rubric_page.dart';
 import 'teacher_shared_widgets.dart';
 import 'teacher_student_support_page.dart';
 import 'teacher_students_page.dart';
+import 'teacher_class_schedule_page.dart';
 
 enum TeacherPrototypeVariant {
   a('A', 'Dashboard'),
@@ -4690,6 +4691,7 @@ class TeacherMock {
   static const menu = [
     _MenuItem('แดชบอร์ด', Icons.dashboard_rounded),
     _MenuItem('รายวิชา', Icons.menu_book_rounded),
+    _MenuItem('ตารางสอน', Icons.calendar_month_rounded),
     _MenuItem('คลังข้อสอบ', Icons.quiz_rounded),
     _MenuItem('คลังความรู้', Icons.folder_special_rounded),
     _MenuItem('นักเรียน', Icons.groups_2_rounded),
@@ -5649,6 +5651,11 @@ void _openTeacherMenuItem(BuildContext context, String label) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherCoursesPage()),
+      );
+    case 'ตารางสอน':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherClassSchedulePage()),
       );
     case 'คลังข้อสอบ':
       Navigator.push(

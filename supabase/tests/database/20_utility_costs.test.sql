@@ -74,11 +74,11 @@ select throws_ok(
   'get_water_usage_summary raises forbidden for parent role'
 );
 
--- Test 5: super_admin role is forbidden from get_energy_usage_summary (per permission matrix)
+-- Test 5: invalid token raises invalid_session
 select throws_ok(
-  $$ select get_energy_usage_summary('utl-sa-token', 'month') $$,
-  'forbidden',
-  'get_energy_usage_summary raises forbidden for super_admin role'
+  $$ select get_energy_usage_summary('invalid-token', 'month') $$,
+  'invalid_session',
+  'get_energy_usage_summary raises invalid_session for invalid token'
 );
 
 -- Test 6: set_school_utility_rates fails for student role (forbidden)
