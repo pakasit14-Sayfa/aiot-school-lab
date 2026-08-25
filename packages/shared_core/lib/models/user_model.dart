@@ -5,8 +5,6 @@ enum UserRole {
   executive,
   student,
   parent,
-  facilityManager,
-  technician,
 }
 
 extension UserRoleExt on UserRole {
@@ -24,10 +22,6 @@ extension UserRoleExt on UserRole {
         return 'student';
       case UserRole.parent:
         return 'parent';
-      case UserRole.facilityManager:
-        return 'facility_manager';
-      case UserRole.technician:
-        return 'technician';
     }
   }
 
@@ -45,10 +39,6 @@ extension UserRoleExt on UserRole {
         return 'นักเรียน';
       case UserRole.parent:
         return 'ผู้ปกครอง';
-      case UserRole.facilityManager:
-        return 'ผู้ดูแลอาคาร';
-      case UserRole.technician:
-        return 'ช่างเทคนิค';
     }
   }
 
@@ -64,10 +54,6 @@ extension UserRoleExt on UserRole {
         return UserRole.executive;
       case 'parent':
         return UserRole.parent;
-      case 'facility_manager':
-        return UserRole.facilityManager;
-      case 'technician':
-        return UserRole.technician;
       default:
         return UserRole.student;
     }
@@ -82,6 +68,7 @@ class UserModel {
   final String schoolId;
   final String building;
   final String room;
+  final String status;
 
   const UserModel({
     required this.uid,
@@ -91,6 +78,7 @@ class UserModel {
     this.schoolId = '',
     this.building = '',
     this.room = '',
+    this.status = 'active',
   });
 
   /// Parses the row shape returned by auth/session/user-list RPCs
@@ -105,6 +93,7 @@ class UserModel {
       role: UserRoleExt.fromString(row['active_role'] as String? ?? 'student'),
       schoolId: row['active_school_id'] as String? ?? '',
       building: row['building'] as String? ?? '',
+      status: row['status'] as String? ?? 'active',
     );
   }
 
@@ -117,6 +106,7 @@ class UserModel {
       schoolId: map['schoolId'] ?? '',
       building: map['building'] ?? '',
       room: map['room'] ?? '',
+      status: map['status'] ?? 'active',
     );
   }
 
@@ -127,16 +117,18 @@ class UserModel {
     'schoolId': schoolId,
     'building': building,
     'room': room,
+    'status': status,
   };
 
   bool get isSchoolAdmin => role == UserRole.schoolAdmin;
+  bool get isSuspended => status == 'suspended';
 
   bool get canControlDevices =>
       role == UserRole.teacher ||
-      role == UserRole.facilityManager ||
-      role == UserRole.schoolAdmin;
+      role == UserRole.schoolAdmin ||
+      role == UserRole.superAdmin;
 
-  UserModel copyWith({String? name, UserRole? role}) {
+  UserModel copyWith({String? name, UserRole? role, String? status}) {
     return UserModel(
       uid: uid,
       name: name ?? this.name,
@@ -145,6 +137,7 @@ class UserModel {
       schoolId: schoolId,
       building: building,
       room: room,
+      status: status ?? this.status,
     );
   }
 }

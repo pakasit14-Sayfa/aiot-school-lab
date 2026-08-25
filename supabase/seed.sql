@@ -55,9 +55,7 @@ begin
       ('teacher'::role_type,          'teacher@aiot-school-lab.local',     'ครู',       'ทดสอบ',    null::varchar),
       ('executive'::role_type,        'executive@aiot-school-lab.local',   'ผู้บริหาร',  'ทดสอบ',    null::varchar),
       ('student'::role_type,          'student@aiot-school-lab.local',     'นักเรียน',   'ทดสอบ',    'STU0001'::varchar),
-      ('parent'::role_type,           'parent@aiot-school-lab.local',      'ผู้ปกครอง',  'ทดสอบ',    null::varchar),
-      ('facility_manager'::role_type, 'facility@aiot-school-lab.local',    'ผู้ดูแล',    'อาคาร',    null::varchar),
-      ('technician'::role_type,       'technician@aiot-school-lab.local',  'ช่าง',      'เทคนิค',   null::varchar)
+      ('parent'::role_type,           'parent@aiot-school-lab.local',      'ผู้ปกครอง',  'ทดสอบ',    null::varchar)
     ) as t(role, email, first_name, last_name, student_code)
   loop
     if not exists (select 1 from users where email = v_role.email) then
@@ -260,9 +258,7 @@ begin
     values (v_course_id, 3, '10:30', '11:30', 'Lab 3', v_teacher_id);
   end if;
 
-  -- 2026-08-17: Seed facility_manager building assignment & sample devices for STK-9/STK-11
-  update users set building = 'อาคาร 3 (วิทยาศาสตร์)' where email = 'facility@aiot-school-lab.local';
-
+  -- 2026-08-17: Seed sample devices
   if not exists (select 1 from devices where name = 'ไฟแสงสว่าง โถงทางเดิน ชั้น 1') then
     insert into devices (school_id, type, name, location, status, registered_by) values
       (v_school_id, 'relay', 'ไฟแสงสว่าง โถงทางเดิน ชั้น 1', 'อาคาร 3 (วิทยาศาสตร์) · ชั้น 1', 'online', v_super_admin_id),

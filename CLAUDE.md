@@ -56,7 +56,7 @@ flutter run -d chrome --dart-define-from-file=../../env.json
 
 Test accounts (seeded, password `Test1234!` for all): `teacher@aiot-school-lab.local`,
 `student@aiot-school-lab.local`, `parent@aiot-school-lab.local`,
-`admin@aiot-school-lab.local`, `facility@aiot-school-lab.local`.
+`schooladmin@aiot-school-lab.local`, `admin@aiot-school-lab.local`, `executive@aiot-school-lab.local`.
 
 These same 8 accounts also exist in real `auth.users` (seeded by
 `20260823070000_seed_auth_users_for_local_dev.sql`) with the same

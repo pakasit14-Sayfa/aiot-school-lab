@@ -187,15 +187,14 @@ class RealtimeService {
     );
   }
 
-  /// STK-9/STK-11: รายชื่ออุปกรณ์จริงในอาคารที่ผู้ดูแลอาคารรับผิดชอบ (ดู
-  /// supabase/migrations/20260817000000_facility_manager_device_list.sql)
-  /// — สโคปตามอาคารในระดับ SQL แล้ว (BR4) ไม่ต้องกรองซ้ำฝั่ง Flutter
-  static Future<List<DeviceOption>> listMyBuildingDevices() async {
+  /// รายชื่ออุปกรณ์จริงทั้งหมดในโรงเรียน (ดู
+  /// supabase/migrations/20260826020000_rename_list_school_devices.sql)
+  static Future<List<DeviceOption>> listSchoolDevices() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
     final rows =
         await supabase.rpc(
-              'list_devices_in_my_building',
+              'list_school_devices',
               params: {'p_token': token},
             )
             as List;

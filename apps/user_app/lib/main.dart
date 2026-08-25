@@ -17,8 +17,6 @@ import 'pages/teacher_redesign_prototype/teacher_question_bank_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_knowledge_library_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_gscore_confirm_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_student_support_page.dart';
-import 'pages/facility_redesign_prototype/facility_storybook_page.dart';
-import 'pages/facility_redesign_prototype/facility_ux_showcase_page.dart';
 import 'pages/executive_redesign_prototype/widgets/director_navigation_shell.dart';
 import 'pages/parent_redesign_prototype/widgets/parent_navigation_shell.dart';
 import 'pages/teacher_redesign_prototype/teacher_parent_binding_approval_page.dart';
@@ -77,15 +75,6 @@ class MyApp extends StatelessWidget {
             const TeacherDesignSystemPage(),
         '/prototype/teacher-storybook': (context) =>
             const TeacherStorybookPage(),
-        '/prototype/facility-storybook': (context) =>
-            const FacilityUXShowcasePage(),
-        '/prototype/facility-redesign': (context) =>
-            const FacilityStorybookPage(),
-        '/prototype/facility-light-water': (context) =>
-            const FacilityStorybookPage(initialIndex: 1),
-        '/prototype/facility-device-health': (context) =>
-            const FacilityStorybookPage(initialIndex: 4),
-        '/prototype/facility': (context) => const FacilityStorybookPage(),
         '/prototype/executive': (context) => const DirectorNavigationShell(),
         '/prototype/executive-inbox': (context) =>
             const DirectorNavigationShell(),
@@ -155,19 +144,6 @@ class MyApp extends StatelessWidget {
             builder: (_) => const TeacherStorybookPage(),
           );
         }
-        if (uri.path == '/prototype/facility-storybook') {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const FacilityUXShowcasePage(),
-          );
-        }
-        if (uri.path == '/prototype/facility-redesign' ||
-            uri.path == '/prototype/facility') {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => const FacilityStorybookPage(),
-          );
-        }
         if (uri.path == '/prototype/executive') {
           return MaterialPageRoute(
             settings: settings,
@@ -202,12 +178,6 @@ class MyApp extends StatelessWidget {
   Widget _buildPrototypeHome(Uri uri) {
     final path = uri.fragment.isNotEmpty ? uri.fragment : uri.path;
 
-    if (path.contains('facility-storybook')) {
-      return const FacilityUXShowcasePage();
-    }
-    if (path.contains('facility')) {
-      return const FacilityStorybookPage();
-    }
     if (path.contains('executive-inbox')) {
       return const DirectorNavigationShell();
     }
