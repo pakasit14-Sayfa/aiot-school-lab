@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
 class ParentAttendancePage extends StatefulWidget {
@@ -11,6 +12,10 @@ class ParentAttendancePage extends StatefulWidget {
 class _ParentAttendancePageState extends State<ParentAttendancePage> {
   static const Color _bg = Color(0xFFF5F7FB);
 
+  LinkedStudentItem? _selectedStudent;
+  List<StudentAttendanceItem> _attendanceRecords = [];
+  bool _isLoading = false;
+
   String selectedPeriod = 'เดือนนี้';
 
   final List<String> periods = const [
@@ -20,99 +25,32 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
     'เทอมนี้',
   ];
 
-  final List<_AttendanceHistory> history = const [
-    _AttendanceHistory(
-      date: '21 ส.ค. 2569',
-      checkIn: '07:41',
-      checkOut: '-',
-      status: 'มาเรียน',
-      detail: 'ปกติ',
-      type: _AttendanceType.present,
-    ),
-    _AttendanceHistory(
-      date: '20 ส.ค. 2569',
-      checkIn: '07:36',
-      checkOut: '16:18',
-      status: 'มาเรียน',
-      detail: 'ปกติ',
-      type: _AttendanceType.present,
-    ),
-    _AttendanceHistory(
-      date: '19 ส.ค. 2569',
-      checkIn: '07:52',
-      checkOut: '16:10',
-      status: 'มาเรียน',
-      detail: 'ปกติ',
-      type: _AttendanceType.present,
-    ),
-    _AttendanceHistory(
-      date: '18 ส.ค. 2569',
-      checkIn: '-',
-      checkOut: '-',
-      status: 'ลา',
-      detail: 'ลาป่วย',
-      type: _AttendanceType.leave,
-    ),
-    _AttendanceHistory(
-      date: '17 ส.ค. 2569',
-      checkIn: '07:39',
-      checkOut: '16:21',
-      status: 'มาเรียน',
-      detail: 'ปกติ',
-      type: _AttendanceType.present,
-    ),
-    _AttendanceHistory(
-      date: '16 ส.ค. 2569',
-      checkIn: '08:12',
-      checkOut: '16:14',
-      status: 'มาสาย',
-      detail: 'สาย 12 นาที',
-      type: _AttendanceType.late,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
-  final List<_ClassAttendance> classAttendance = const [
-    _ClassAttendance(
-      time: '08:30',
-      subject: 'ภาษาไทย',
-      teacher: 'ครูศิริพร',
-      room: 'ม.2/1',
-      status: 'เข้าเรียน',
-      type: _ClassAttendanceType.present,
-    ),
-    _ClassAttendance(
-      time: '09:30',
-      subject: 'คณิตศาสตร์',
-      teacher: 'ครูอนุชา',
-      room: 'ม.2/1',
-      status: 'กำลังเรียน',
-      type: _ClassAttendanceType.current,
-    ),
-    _ClassAttendance(
-      time: '10:30',
-      subject: 'วิทยาศาสตร์',
-      teacher: 'ครูปวีณา',
-      room: 'Lab 2',
-      status: 'รอเข้าเรียน',
-      type: _ClassAttendanceType.upcoming,
-    ),
-    _ClassAttendance(
-      time: '13:00',
-      subject: 'ภาษาอังกฤษ',
-      teacher: 'Teacher Anna',
-      room: 'ม.2/1',
-      status: 'รอเข้าเรียน',
-      type: _ClassAttendanceType.upcoming,
-    ),
-    _ClassAttendance(
-      time: '14:00',
-      subject: 'สังคมศึกษา',
-      teacher: 'ครูสมชาย',
-      room: 'ม.2/1',
-      status: 'รอเข้าเรียน',
-      type: _ClassAttendanceType.upcoming,
-    ),
-  ];
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    try {
+      final students = await ParentPortalService.listMyLinkedStudents();
+      if (students.isNotEmpty && mounted) {
+        _selectedStudent = students.first;
+        final records = await ParentPortalService.listMyStudentAttendance(_selectedStudent!.studentId);
+        if (mounted) {
+          setState(() {
+            _attendanceRecords = records;
+            _isLoading = false;
+          });
+        }
+      } else if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +198,9 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   }
 
   Widget _buildChildBadge() {
+    final name = _selectedStudent != null
+        ? '${_selectedStudent!.fullName}${_selectedStudent!.relationship != null ? ' (${_selectedStudent!.relationship})' : ''}'
+        : 'น้องมะลิ · ม.2/1';
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: 11,
@@ -272,18 +213,28 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
           color: const Color(0xFFE1E6EE),
         ),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.face_rounded,
-            color: Color(0xFF2867B2),
-            size: 18,
-          ),
-          SizedBox(width: 7),
+          if (_isLoading)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              ),
+            )
+          else
+            const Icon(
+              Icons.face_rounded,
+              color: Color(0xFF2867B2),
+              size: 18,
+            ),
+          const SizedBox(width: 7),
           Text(
-            'น้องมะลิ · ม.2/1',
-            style: TextStyle(
+            name,
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
             ),
@@ -294,6 +245,13 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   }
 
   Widget _buildTodayHero() {
+    final studentName = _selectedStudent?.fullName ?? 'น้องมะลิ';
+    final latestRecord = _attendanceRecords.isNotEmpty ? _attendanceRecords.first : null;
+    final total = _attendanceRecords.length;
+    final presentCount = _attendanceRecords.where((r) => r.isPresent).length;
+    final lateCount = _attendanceRecords.where((r) => r.isLate).length;
+    final rate = total > 0 ? (((presentCount + lateCount) / total) * 100).round() : 100;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
@@ -314,45 +272,47 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'สถานะวันนี้',
+                'สถานะการเช็คชื่อในคาบเรียน',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: .75),
                   fontSize: 10,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'น้องมะลิมาโรงเรียนเรียบร้อยแล้ว',
-                style: TextStyle(
+              Text(
+                latestRecord != null
+                    ? '$studentName • ${latestRecord.courseName}'
+                    : '$studentName (ยังไม่มีประวัติการเช็คชื่อวันนี้)',
+                style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                'ศุกร์ 21 สิงหาคม 2569',
+                latestRecord != null
+                    ? 'บันทึกเมื่อ: ${latestRecord.classDate.day}/${latestRecord.classDate.month}/${latestRecord.classDate.year + 543} (สถานะ: ${latestRecord.status})'
+                    : 'อัปเดตล่าสุดจากการเช็คชื่อของครูประจำวิชา',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: .78),
                   fontSize: 9.5,
                 ),
               ),
               const SizedBox(height: 14),
-              const Wrap(
+              Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   _HeroAttendanceBadge(
-                    icon: Icons.login_rounded,
-                    text: 'เข้าโรงเรียน 07:41 น.',
+                    icon: Icons.fact_check_rounded,
+                    text: latestRecord != null
+                        ? 'สถานะคาบล่าสุด: ${latestRecord.isPresent ? "เข้าเรียน" : latestRecord.isLate ? "มาสาย" : latestRecord.isAbsent ? "ขาดเรียน" : "ลา"}'
+                        : 'รอครูเช็คชื่อประจำคาบ',
                   ),
-                  _HeroAttendanceBadge(
-                    icon: Icons.location_on_rounded,
-                    text: 'อาคารเรียน ม.2',
-                  ),
-                  _HeroAttendanceBadge(
-                    icon: Icons.schedule_rounded,
-                    text: 'ไม่มาสาย',
+                  const _HeroAttendanceBadge(
+                    icon: Icons.info_outline_rounded,
+                    text: 'ข้อมูลจากครูผู้สอนประจำคาบ (ไม่ใช่เวลาสแกนเข้าประตู)',
                   ),
                 ],
               ),
@@ -368,37 +328,37 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                 color: Colors.white.withValues(alpha: .14),
               ),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'เวลาเรียนวันนี้',
+                const Text(
+                  'อัตราการเข้าเรียน',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 8.5,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '08:30–15:50',
-                  style: TextStyle(
+                  '$rate%',
+                  style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.check_circle_rounded,
                       size: 16,
                       color: Color(0xFF8BE3B2),
                     ),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     Text(
-                      'สถานะปกติ',
-                      style: TextStyle(
+                      latestRecord?.isPresent == true ? 'สถานะปกติ' : 'บันทึกครบถ้วน',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
@@ -473,43 +433,51 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   }
 
   Widget _buildSummaryCards() {
-    const data = [
+    final total = _attendanceRecords.length;
+    final presentCount = _attendanceRecords.where((r) => r.isPresent).length;
+    final lateCount = _attendanceRecords.where((r) => r.isLate).length;
+    final absentCount = _attendanceRecords.where((r) => r.isAbsent).length;
+    final excusedCount = _attendanceRecords.where((r) => r.isExcused).length;
+    final rate = total > 0 ? (((presentCount + lateCount) / total) * 100).round() : 100;
+
+    final data = [
       _AttendanceSummaryData(
         title: 'อัตรามาเรียน',
-        value: '96%',
-        subtitle: '48 จาก 50 วัน',
+        value: '$rate%',
+        subtitle: total > 0 ? '$presentCount จาก $total คาบ' : 'ไม่มีข้อมูลคาบ',
         icon: Icons.check_circle_rounded,
-        color: Color(0xFF18A06F),
+        color: const Color(0xFF18A06F),
       ),
       _AttendanceSummaryData(
         title: 'มาสาย',
-        value: '1 ครั้ง',
-        subtitle: 'รวม 12 นาที',
+        value: '$lateCount ครั้ง',
+        subtitle: 'ตามการเช็คชื่อในคาบ',
         icon: Icons.schedule_rounded,
-        color: Color(0xFFF09A37),
+        color: const Color(0xFFF09A37),
       ),
       _AttendanceSummaryData(
         title: 'ลา',
-        value: '2 วัน',
-        subtitle: 'ป่วย 1 · กิจ 1',
+        value: '$excusedCount ครั้ง',
+        subtitle: 'มีใบลา/แจ้งล่วงหน้า',
         icon: Icons.event_busy_rounded,
-        color: Color(0xFF8A65C7),
+        color: const Color(0xFF8A65C7),
       ),
       _AttendanceSummaryData(
         title: 'ขาดเรียน',
-        value: '0 วัน',
-        subtitle: 'ไม่พบการขาดเรียน',
+        value: '$absentCount ครั้ง',
+        subtitle: absentCount == 0 ? 'ไม่พบการขาดเรียน' : 'ขาดเรียนในคาบ',
         icon: Icons.cancel_rounded,
-        color: Color(0xFFDB5962),
+        color: const Color(0xFFDB5962),
       ),
       _AttendanceSummaryData(
-        title: 'เข้าเรียนครบคาบ',
-        value: '98%',
-        subtitle: '49 จาก 50 คาบล่าสุด',
+        title: 'เข้าเรียนตรงเวลา',
+        value: total > 0 ? '${((presentCount / total) * 100).round()}%' : '100%',
+        subtitle: '$presentCount คาบตรงเวลา',
         icon: Icons.menu_book_rounded,
-        color: Color(0xFF2E83C5),
+        color: const Color(0xFF2E83C5),
       ),
     ];
+
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -541,107 +509,160 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   }
 
   Widget _buildTodayTimeline() {
-    const timeline = [
-      _TimelineItem(
-        time: '07:41',
-        title: 'เข้าโรงเรียน',
-        detail: 'ตรวจพบการเข้าโรงเรียนเรียบร้อย',
-        icon: Icons.login_rounded,
-        color: Color(0xFF18A06F),
-      ),
-      _TimelineItem(
-        time: '08:26',
-        title: 'ถึงอาคารเรียน',
-        detail: 'อยู่ในพื้นที่อาคารเรียน ม.2',
-        icon: Icons.location_on_rounded,
-        color: Color(0xFF2E83C5),
-      ),
-      _TimelineItem(
-        time: '08:30',
-        title: 'เข้าเรียนคาบแรก',
-        detail: 'ภาษาไทย · ห้อง ม.2/1',
-        icon: Icons.menu_book_rounded,
-        color: Color(0xFF8A65C7),
-      ),
-      _TimelineItem(
-        time: '09:30',
-        title: 'คาบปัจจุบัน',
-        detail: 'คณิตศาสตร์ · กำลังเรียน',
-        icon: Icons.calculate_rounded,
-        color: Color(0xFFF09A37),
-      ),
-    ];
+    final now = DateTime.now();
+    final todayRecords = _attendanceRecords.where((rec) {
+      return rec.classDate.year == now.year &&
+          rec.classDate.month == now.month &&
+          rec.classDate.day == now.day;
+    }).toList();
 
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _AttendanceSectionTitle(
-            icon: Icons.timeline_rounded,
-            title: 'ไทม์ไลน์วันนี้',
-            subtitle: 'ติดตามการเข้าโรงเรียนและการเข้าเรียน',
+            icon: Icons.checklist_rounded,
+            title: 'สถานะการเช็คชื่อวันนี้',
+            subtitle: 'ติดตามสถานะการเช็คชื่อตามรายวิชาในวันนี้',
           ),
           const SizedBox(height: 14),
-          for (final item in timeline)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 13),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 45,
-                    child: Text(
-                      item.time,
-                      style: const TextStyle(
-                        fontSize: 8.5,
-                        color: Color(0xFF8791A2),
+          if (todayRecords.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E9F0)),
+              ),
+              child: const Center(
+                child: Text(
+                  'ยังไม่มีประวัติการเช็คชื่อวันนี้',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF718096),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )
+          else
+            for (final rec in todayRecords)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 13),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 35,
+                      height: 35,
+                      decoration: BoxDecoration(
+                        color: (rec.isPresent
+                                ? const Color(0xFF18A06F)
+                                : rec.isLate
+                                    ? const Color(0xFFF09A37)
+                                    : rec.isAbsent
+                                        ? const Color(0xFFE53935)
+                                        : const Color(0xFF2E83C5))
+                            .withValues(alpha: .10),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        rec.isPresent
+                            ? Icons.check_circle_rounded
+                            : rec.isLate
+                                ? Icons.schedule_rounded
+                                : rec.isAbsent
+                                    ? Icons.cancel_rounded
+                                    : Icons.info_rounded,
+                        size: 17,
+                        color: rec.isPresent
+                            ? const Color(0xFF18A06F)
+                            : rec.isLate
+                                ? const Color(0xFFF09A37)
+                                : rec.isAbsent
+                                    ? const Color(0xFFE53935)
+                                    : const Color(0xFF2E83C5),
                       ),
                     ),
-                  ),
-                  Container(
-                    width: 35,
-                    height: 35,
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: .10),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 17,
-                      color: item.color,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 9.8,
-                            fontWeight: FontWeight.w800,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            rec.courseName,
+                            style: const TextStyle(
+                              fontSize: 10.2,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        Text(
-                          item.detail,
-                          style: const TextStyle(
-                            fontSize: 8.2,
-                            color: Color(0xFF8993A4),
+                          const SizedBox(height: 2),
+                          Text(
+                            rec.note?.isNotEmpty == true
+                                ? rec.note!
+                                : 'บันทึกสถานะการเข้าเรียนในคาบเรียบร้อย',
+                            style: const TextStyle(
+                              fontSize: 8.5,
+                              color: Color(0xFF8993A4),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (rec.isPresent
+                                ? const Color(0xFF18A06F)
+                                : rec.isLate
+                                    ? const Color(0xFFF09A37)
+                                    : rec.isAbsent
+                                        ? const Color(0xFFE53935)
+                                        : const Color(0xFF2E83C5))
+                            .withValues(alpha: .12),
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: Text(
+                        rec.isPresent
+                            ? 'มาเรียน'
+                            : rec.isLate
+                                ? 'มาสาย'
+                                : rec.isAbsent
+                                    ? 'ขาดเรียน'
+                                    : 'ลา',
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: rec.isPresent
+                              ? const Color(0xFF18A06F)
+                              : rec.isLate
+                                  ? const Color(0xFFF09A37)
+                                  : rec.isAbsent
+                                      ? const Color(0xFFE53935)
+                                      : const Color(0xFF2E83C5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
         ],
       ),
     );
   }
 
   Widget _buildClassAttendanceCard() {
+    final now = DateTime.now();
+    final todayRecords = _attendanceRecords.where((rec) {
+      return rec.classDate.year == now.year &&
+          rec.classDate.month == now.month &&
+          rec.classDate.day == now.day;
+    }).toList();
+
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,17 +670,84 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
           const _AttendanceSectionTitle(
             icon: Icons.class_rounded,
             title: 'การเข้าเรียนแต่ละคาบวันนี้',
-            subtitle: 'ดูว่านักเรียนเข้าเรียนครบตามตารางหรือไม่',
+            subtitle: 'ดูสถานะการเข้าเรียนรายคาบตามที่ครูผู้สอนบันทึก',
           ),
           const SizedBox(height: 14),
-          for (final item in classAttendance)
-            _ClassAttendanceRow(item: item),
+          if (todayRecords.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E9F0)),
+              ),
+              child: const Center(
+                child: Text(
+                  'ยังไม่มีข้อมูลการเข้าเรียนประจำคาบในวันนี้',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF718096),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            )
+          else
+            for (final rec in todayRecords)
+              _ClassAttendanceRow(
+                item: _ClassAttendance(
+                  time: rec.courseCode.isNotEmpty ? rec.courseCode : 'วิชาเรียน',
+                  subject: rec.courseName,
+                  teacher: rec.note ?? 'บันทึกในคาบเรียน',
+                  room: 'ม.2/1',
+                  status: rec.isPresent
+                      ? 'เข้าเรียน'
+                      : rec.isLate
+                          ? 'มาสาย'
+                          : rec.isAbsent
+                              ? 'ขาดเรียน'
+                              : 'ลา',
+                  type: rec.isPresent
+                      ? _ClassAttendanceType.present
+                      : rec.isLate
+                          ? _ClassAttendanceType.current
+                          : _ClassAttendanceType.upcoming,
+                ),
+              ),
         ],
       ),
     );
   }
 
   Widget _buildHistoryCard() {
+    final displayHistory = _attendanceRecords.map((rec) {
+      final dateStr =
+          '${rec.classDate.day}/${rec.classDate.month}/${rec.classDate.year + 543}';
+      final statusStr = rec.isPresent
+          ? 'มาเรียน'
+          : rec.isLate
+              ? 'มาสาย'
+              : rec.isAbsent
+                  ? 'ขาดเรียน'
+                  : 'ลา';
+      final type = rec.isPresent
+          ? _AttendanceType.present
+          : rec.isLate
+              ? _AttendanceType.late
+              : rec.isAbsent
+                  ? _AttendanceType.absent
+                  : _AttendanceType.leave;
+      return _AttendanceHistory(
+        date: dateStr,
+        checkIn: rec.courseName,
+        checkOut: rec.courseCode.isNotEmpty ? rec.courseCode : '-',
+        status: statusStr,
+        detail: rec.note ?? 'บันทึกในคาบเรียน',
+        type: type,
+      );
+    }).toList();
+
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,79 +755,112 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
           const _AttendanceSectionTitle(
             icon: Icons.history_rounded,
             title: 'ประวัติการมาเรียนย้อนหลัง',
-            subtitle: 'เวลาเข้า–ออกโรงเรียน และสถานะประจำวัน',
+            subtitle: 'บันทึกสถานะการเช็คชื่อตามคาบเรียน',
           ),
           const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 700) {
-                return Column(
-                  children: [
-                    for (final item in history) ...[
-                      _MobileHistoryCard(item: item),
-                      const SizedBox(height: 9),
-                    ],
-                  ],
-                );
-              }
-
-              return Column(
+          if (displayHistory.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE5E9F0)),
+              ),
+              child: const Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F6F9),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'วันที่',
-                            style: _AttendanceTableHeader.style,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'เข้า',
-                            style: _AttendanceTableHeader.style,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'ออก',
-                            style: _AttendanceTableHeader.style,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'สถานะ',
-                            style: _AttendanceTableHeader.style,
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'รายละเอียด',
-                            style: _AttendanceTableHeader.style,
-                          ),
-                        ),
-                      ],
+                  Icon(Icons.history_rounded, size: 36, color: Color(0xFF9EABC0)),
+                  SizedBox(height: 10),
+                  Text(
+                    'ยังไม่มีประวัติการมาเรียน',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF4A5568),
                     ),
                   ),
-                  for (final item in history)
-                    _HistoryTableRow(item: item),
+                  SizedBox(height: 4),
+                  Text(
+                    'เมื่อครูประจำวิชาบันทึกการเช็คชื่อ ประวัติจะปรากฏที่นี่',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: Color(0xFF718096),
+                    ),
+                  ),
                 ],
-              );
-            },
-          ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 700) {
+                  return Column(
+                    children: [
+                      for (final item in displayHistory) ...[
+                        _MobileHistoryCard(item: item),
+                        const SizedBox(height: 9),
+                      ],
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4F6F9),
+                        borderRadius: BorderRadius.circular(11),
+                      ),
+                      child: const Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'วันที่',
+                              style: _AttendanceTableHeader.style,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'วิชา',
+                              style: _AttendanceTableHeader.style,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'ระดับ/ห้อง',
+                              style: _AttendanceTableHeader.style,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Text(
+                              'สถานะ',
+                              style: _AttendanceTableHeader.style,
+                            ),
+                          ),
+                          Expanded(
+                            flex: 3,
+                            child: Text(
+                              'หมายเหตุ',
+                              style: _AttendanceTableHeader.style,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    for (final item in displayHistory)
+                      _HistoryTableRow(item: item),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );
@@ -1683,22 +1804,6 @@ class _AttendanceSummaryData {
     required this.title,
     required this.value,
     required this.subtitle,
-    required this.icon,
-    required this.color,
-  });
-}
-
-class _TimelineItem {
-  final String time;
-  final String title;
-  final String detail;
-  final IconData icon;
-  final Color color;
-
-  const _TimelineItem({
-    required this.time,
-    required this.title,
-    required this.detail,
     required this.icon,
     required this.color,
   });

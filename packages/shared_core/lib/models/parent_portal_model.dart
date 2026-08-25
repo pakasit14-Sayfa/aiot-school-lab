@@ -96,3 +96,44 @@ class StudentScheduleItem {
     );
   }
 }
+
+class StudentAttendanceItem {
+  final String recordId;
+  final String courseId;
+  final String courseName;
+  final String courseCode;
+  final DateTime classDate;
+  final String status;
+  final String? note;
+  final DateTime markedAt;
+
+  const StudentAttendanceItem({
+    required this.recordId,
+    required this.courseId,
+    required this.courseName,
+    required this.courseCode,
+    required this.classDate,
+    required this.status,
+    this.note,
+    required this.markedAt,
+  });
+
+  bool get isPresent => status == 'present';
+  bool get isLate => status == 'late';
+  bool get isAbsent => status == 'absent';
+  bool get isExcused => status == 'excused';
+
+  factory StudentAttendanceItem.fromRow(Map<String, dynamic> row) {
+    return StudentAttendanceItem(
+      recordId: row['record_id'] as String,
+      courseId: row['course_id'] as String,
+      courseName: row['course_name'] as String? ?? '',
+      courseCode: row['course_code'] as String? ?? '',
+      classDate: DateTime.parse(row['class_date'] as String),
+      status: row['status'] as String? ?? 'present',
+      note: row['note'] as String?,
+      markedAt: DateTime.parse(row['marked_at'] as String),
+    );
+  }
+}
+
