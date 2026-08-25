@@ -40,6 +40,13 @@ class UserAdminService {
     );
   }
 
+  static Future<void> reactivateUser(String uid) async {
+    await supabase.rpc(
+      'reactivate_user',
+      params: {'p_token': AuthService.sessionToken, 'p_target_user_id': uid},
+    );
+  }
+
   // LA-9 BR1: ผู้บริหารเห็นภาพรวมระดับโรงเรียนเท่านั้น ไม่ใช่รายชื่อ/อีเมล
   // รายคน — RPC นี้คืนแค่ {role, count} ต่างจาก list_school_users ที่คืน
   // ข้อมูลรายคนทั้งหมด (getAllUsers ด้านบน ยังจำกัดสิทธิ์ school_admin/

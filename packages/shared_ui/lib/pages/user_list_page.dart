@@ -101,6 +101,9 @@ class _UserListPageState extends State<UserListPage> {
 
   void showChangeRoleDialog(UserModel user) {
     UserRole selectedRole = user.role;
+    final allowedRoles = UserRole.values.where((r) =>
+        currentUserModel?.role == UserRole.superAdmin ||
+        r != UserRole.superAdmin).toList();
 
     showDialog(
       context: context,
@@ -109,22 +112,24 @@ class _UserListPageState extends State<UserListPage> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text('เปลี่ยนสิทธิ์ผู้ใช้'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Email: ${user.email}'),
-                  const SizedBox(height: 16),
-                  ...UserRole.values.map((role) {
-                    return RadioListTile<UserRole>(
-                      title: Text(role.label),
-                      value: role,
-                      groupValue: selectedRole,
-                      onChanged: (v) {
-                        if (v != null) setDialogState(() => selectedRole = v);
-                      },
-                    );
-                  }),
-                ],
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Email: ${user.email}'),
+                    const SizedBox(height: 16),
+                    ...allowedRoles.map((role) {
+                      return RadioListTile<UserRole>(
+                        title: Text(role.label),
+                        value: role,
+                        groupValue: selectedRole,
+                        onChanged: (v) {
+                          if (v != null) setDialogState(() => selectedRole = v);
+                        },
+                      );
+                    }),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -198,6 +203,45 @@ class _UserListPageState extends State<UserListPage> {
     );
   }
 
+  void confirmReactivateUser(UserModel user) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('ยืนยันการเปิดใช้งานผู้ใช้'),
+          content: Text('ต้องการเปิดใช้งานบัญชีผู้ใช้นี้อีกครั้งหรือไม่?\n${user.email}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await UserAdminService.reactivateUser(user.uid);
+
+                if (!mounted) return;
+                Navigator.pop(dialogContext);
+                await loadUsers();
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('เปิดใช้งานผู้ใช้เรียบร้อยแล้ว'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('เปิดใช้งาน'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget buildRoleBadge(UserRole role) {
     final isAdmin = role == UserRole.schoolAdmin;
     return Container(
@@ -205,18 +249,40 @@ class _UserListPageState extends State<UserListPage> {
       decoration: BoxDecoration(
         color: isAdmin
             ? Colors.purple.withValues(alpha: 0.12)
-            : Colors.green.withValues(alpha: 0.12),
+            : Colors.blue.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         role.label,
         style: TextStyle(
-          color: isAdmin ? Colors.purple : Colors.green,
+          color: isAdmin ? Colors.purple : Colors.blue.shade700,
           fontWeight: FontWeight.bold,
           fontSize: 12,
         ),
       ),
     );
+  }
+
+  Widget buildStatusBadge(UserModel user) {
+    if (user.isSuspended) {
+      return Container(
+        margin: const EdgeInsets.only(left: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(
+          'ถูกระงับ',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
@@ -408,13 +474,20 @@ class _UserListPageState extends State<UserListPage> {
                                                   ),
                                                 ),
                                                 buildRoleBadge(user.role),
+                                                buildStatusBadge(user),
                                               ],
                                             ),
                                             const SizedBox(height: 4),
                                             Text(
                                               user.email,
-                                              style: const TextStyle(
-                                                  color: Colors.grey),
+                                              style: TextStyle(
+                                                color: user.isSuspended
+                                                    ? Colors.red.shade400
+                                                    : Colors.grey,
+                                                decoration: user.isSuspended
+                                                    ? TextDecoration.lineThrough
+                                                    : null,
+                                              ),
                                             ),
                                             if (isMe)
                                               const Text(
@@ -446,15 +519,28 @@ class _UserListPageState extends State<UserListPage> {
                                             onPressed: () =>
                                                 showEditUserDialog(user),
                                           ),
-                                          IconButton(
-                                            tooltip: 'ระงับผู้ใช้',
-                                            icon: const Icon(Icons.delete),
-                                            color: Colors.red,
-                                            onPressed: isMe
-                                                ? null
-                                                : () =>
-                                                    confirmDeleteUser(user),
-                                          ),
+                                           if (user.isSuspended)
+                                             IconButton(
+                                               tooltip: 'เปิดใช้งานผู้ใช้',
+                                               icon: const Icon(
+                                                   Icons.check_circle_outline),
+                                               color: Colors.green,
+                                               onPressed: isMe
+                                                   ? null
+                                                   : () =>
+                                                       confirmReactivateUser(
+                                                           user),
+                                             )
+                                           else
+                                             IconButton(
+                                               tooltip: 'ระงับผู้ใช้',
+                                               icon: const Icon(Icons.delete),
+                                               color: Colors.red,
+                                               onPressed: isMe
+                                                   ? null
+                                                   : () =>
+                                                       confirmDeleteUser(user),
+                                             ),
                                         ],
                                       ),
                                     ],

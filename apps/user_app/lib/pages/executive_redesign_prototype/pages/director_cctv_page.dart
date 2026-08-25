@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
@@ -15,6 +16,30 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   String selectedBuilding = 'ทุกอาคาร';
   String selectedStatus = 'ทุกสถานะ';
   String selectedAi = 'ทั้งหมด';
+
+  List<CameraAccessGrantItem> _grants = [];
+  bool _loadingGrants = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGrants();
+  }
+
+  Future<void> _loadGrants() async {
+    setState(() => _loadingGrants = true);
+    try {
+      final list = await ExecutiveService.listCameraAccessGrants();
+      if (mounted) {
+        setState(() {
+          _grants = list;
+          _loadingGrants = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingGrants = false);
+    }
+  }
 
   final List<String> buildings = const [
     'ทุกอาคาร',
@@ -223,6 +248,8 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           ),
           const SizedBox(height: 16),
           _cameraSection(filtered),
+          const SizedBox(height: 16),
+          _accessGrantsSection(),
         ],
       ),
     );
@@ -1510,7 +1537,223 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
       SnackBar(content: Text(message)),
     );
   }
+
+  Widget _accessGrantsSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: directorWhiteCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppPalette.tint(AppPalette.learningBlue, 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.vpn_key_rounded,
+                  color: AppPalette.learningBlue,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'การจัดการสิทธิ์การเข้าถึงกล้อง (Camera Access Grants)',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'ตรวจสอบและจัดการสิทธิ์การดูข้อมูลกล้องวงจรปิดตามนโยบาย PDPA',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppPalette.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_loadingGrants)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                IconButton(
+                  onPressed: _loadGrants,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  tooltip: 'รีเฟรชสิทธิ์',
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (_grants.isEmpty && !_loadingGrants)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppPalette.pageBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppPalette.border),
+              ),
+              child: const Text(
+                'ไม่มีรายการสิทธิ์การเข้าถึงกล้องที่บันทึกไว้ในระบบ',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final grant in _grants)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(13),
+                    decoration: BoxDecoration(
+                      color: AppPalette.pageBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppPalette.border),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: grant.isActive
+                                ? AppPalette.tint(AppPalette.success, 0.12)
+                                : AppPalette.tint(AppPalette.danger, 0.12),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(
+                            grant.isActive
+                                ? Icons.verified_user_rounded
+                                : Icons.gpp_bad_rounded,
+                            color: grant.isActive
+                                ? AppPalette.success
+                                : AppPalette.danger,
+                            size: 17,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    grant.userName,
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppPalette.softTag,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      grant.userRole,
+                                      style: const TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '• กล้อง: ${grant.cameraName}',
+                                    style: const TextStyle(
+                                      fontSize: 9.5,
+                                      color: AppPalette.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'เหตุผล: ${grant.reason} • ใช้ได้ถึง ${grant.validUntil.day}/${grant.validUntil.month}/${grant.validUntil.year + 543}',
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  color: AppPalette.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (grant.isActive)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppPalette.danger,
+                              side: const BorderSide(color: AppPalette.danger),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                            ),
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('ยกเลิกสิทธิ์การเข้าถึงกล้อง'),
+                                  content: Text(
+                                    'คุณต้องการยกเลิกสิทธิ์ของ ${grant.userName} สำหรับกล้อง ${grant.cameraName} หรือไม่?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('ยกเลิก'),
+                                    ),
+                                    FilledButton(
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppPalette.danger,
+                                      ),
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('ยืนยันเพิกถอน'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirmed == true) {
+                                await ExecutiveService.revokeCameraAccess(grant.grantId);
+                                _loadGrants();
+                              }
+                            },
+                            icon: const Icon(Icons.block_rounded, size: 14),
+                            label: const Text('เพิกถอนสิทธิ์', style: TextStyle(fontSize: 9.5)),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 }
+
 
 class _CameraSummary {
   final String title;

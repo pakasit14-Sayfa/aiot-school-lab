@@ -3,19 +3,15 @@ import 'package:shared_core/shared_core.dart';
 import 'package:shared_ui/shared_ui.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/info_card.dart';
+import '../school_admin/school_admin_energy_page.dart';
+import '../school_admin/school_admin_cctv_page.dart';
+import '../school_admin/school_admin_device_schedule_page.dart';
+import '../school_admin/school_admin_esg_page.dart';
+import '../school_admin/school_admin_device_control_page.dart';
+import '../school_admin/school_admin_incident_inbox_page.dart';
 
 class SchoolAdminDashboard extends StatelessWidget {
   const SchoolAdminDashboard({super.key});
-
-  void _showComingSoonSnackBar(BuildContext context, String title, String phase) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$title อยู่ระหว่างพัฒนา ($phase)'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,22 +43,64 @@ class SchoolAdminDashboard extends StatelessWidget {
             ),
           ),
           DrawerItem(
+            icon: Icons.bolt,
+            title: 'พลังงานทั้งโรงเรียน',
+            color: Colors.amber,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolAdminEnergyPage()),
+            ),
+          ),
+          DrawerItem(
             icon: Icons.videocam,
             title: 'กล้อง CCTV',
             color: Colors.indigo,
-            onTap: (ctx) => _showComingSoonSnackBar(ctx, 'กล้อง CCTV', 'Phase 5'),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolAdminCctvPage()),
+            ),
           ),
           DrawerItem(
             icon: Icons.schedule,
             title: 'ตั้งเวลาอุปกรณ์',
             color: Colors.deepPurple,
-            onTap: (ctx) => _showComingSoonSnackBar(ctx, 'ตั้งเวลาอุปกรณ์', 'Phase 4'),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => const SchoolAdminDeviceSchedulePage(),
+              ),
+            ),
           ),
           DrawerItem(
             icon: Icons.bar_chart,
             title: 'รายงาน ESG',
             color: Colors.green,
-            onTap: (ctx) => _showComingSoonSnackBar(ctx, 'รายงาน ESG', 'Phase 6'),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SchoolAdminEsgPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.lightbulb,
+            title: 'ควบคุมไฟและน้ำ',
+            color: Colors.orange,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => const SchoolAdminDeviceControlPage(),
+              ),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.inbox,
+            title: 'กล่องแจ้งเหตุการณ์',
+            color: Colors.red,
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => const SchoolAdminIncidentInboxPage(),
+              ),
+            ),
           ),
         ],
       ),
@@ -91,6 +129,15 @@ class SchoolAdminDashboard extends StatelessWidget {
             ),
 
             InfoCard(
+              icon: Icons.people,
+              title: 'จัดการผู้ใช้',
+              value: 'กดเพื่อจัดการ',
+              color: Colors.purple,
+              subtitle: 'เพิ่ม / ลบ / เปลี่ยนสิทธิ์',
+              onTap: () => Navigator.pushNamed(context, '/users'),
+            ),
+
+            InfoCard(
               icon: Icons.policy,
               title: 'Consent Policy',
               value: 'จัดการ Version',
@@ -105,40 +152,87 @@ class SchoolAdminDashboard extends StatelessWidget {
             ),
 
             InfoCard(
-              icon: Icons.people,
-              title: 'จัดการผู้ใช้',
-              value: 'กดเพื่อจัดการ',
-              color: Colors.purple,
-              subtitle: 'เพิ่ม / ลบ / เปลี่ยนสิทธิ์',
-              onTap: () => Navigator.pushNamed(context, '/users'),
-            ),
-
-            const ComingSoonCard(
               icon: Icons.bolt,
               title: 'การใช้พลังงานทั้งโรงเรียน',
-              phase: 'Phase 3',
-              color: Colors.amber,
+              value: 'มิเตอร์ IoT ไฟฟ้า & น้ำ',
+              color: Colors.amber.shade800,
+              subtitle: 'สรุปการใช้งานและคะแนนประสิทธิภาพ',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminEnergyPage(),
+                ),
+              ),
             ),
 
-            const ComingSoonCard(
+            InfoCard(
               icon: Icons.videocam,
-              title: 'กล้อง CCTV + AI Detection',
-              phase: 'Phase 5',
+              title: 'กล้อง CCTV & สิทธิ์การเข้าถึง',
+              value: 'PDPA Access Grants',
               color: Colors.indigo,
+              subtitle: 'จัดการสิทธิ์เข้าถึงกล้องและ Audit Log',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminCctvPage(),
+                ),
+              ),
             ),
 
-            const ComingSoonCard(
+            InfoCard(
               icon: Icons.schedule,
               title: 'ตั้งเวลาเปิด-ปิดอุปกรณ์อัตโนมัติ',
-              phase: 'Phase 4',
+              value: 'bg pg_cron',
               color: Colors.deepPurple,
+              subtitle: 'สร้างและจัดการตารางเวลาเปิด-ปิดอัตโนมัติ',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminDeviceSchedulePage(),
+                ),
+              ),
             ),
 
-            const ComingSoonCard(
+            InfoCard(
               icon: Icons.eco,
               title: 'รายงาน ESG & Green Score',
-              phase: 'Phase 6',
+              value: 'ความยั่งยืนโรงเรียน',
               color: Colors.green,
+              subtitle: 'คะแนน Green Score จากการใช้พลังงานจริง',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminEsgPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.lightbulb,
+              title: 'ควบคุมอุปกรณ์ (ไฟและน้ำ)',
+              value: 'สวิตช์รีเลย์ทั้งโรงเรียน',
+              color: Colors.orange,
+              subtitle: 'เปิด-ปิดไฟแสงสว่างและปั๊มน้ำทุกอาคาร',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminDeviceControlPage(),
+                ),
+              ),
+            ),
+
+            InfoCard(
+              icon: Icons.notifications_active,
+              title: 'กล่องข้อความแจ้งเหตุ (Incident Inbox)',
+              value: 'ติดตามเหตุการณ์',
+              color: Colors.redAccent,
+              subtitle: 'รับเรื่องและจัดการข้อขัดข้องทั่วทั้งโรงเรียน',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SchoolAdminIncidentInboxPage(),
+                ),
+              ),
             ),
           ],
         ),

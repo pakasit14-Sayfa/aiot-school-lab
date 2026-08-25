@@ -159,6 +159,9 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
                       prefixIcon: Icon(Icons.badge),
                     ),
                     items: UserRole.values
+                        .where((role) =>
+                            currentUserModel?.role == UserRole.superAdmin ||
+                            role != UserRole.superAdmin)
                         .map((role) => DropdownMenuItem(
                               value: role,
                               child: Text(role.label),
