@@ -82,61 +82,68 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     return _menuItems[_selectedIndex].title;
   }
 
+  // Design-system-unification (2026-08-26, ticket 03): every School
+  // Admin page below is wrapped in the shared structural theme, same
+  // mechanism ticket 02 verified on the home page — a page's own
+  // per-field/per-button style overrides were removed on a page-by-page
+  // basis inside each file, not here. Indices 12/13 (`UserListPage`,
+  // `ConsentPolicyAdminPage`) are deliberately NOT wrapped — they live
+  // in `shared_ui`, not `school_admin`, and are reused by other roles;
+  // migrating them is out of scope for a School Admin-only ticket.
+  Widget _themed(Widget child) =>
+      Theme(data: SchoolAdminPalette.theme, child: child);
+
   Widget _buildCurrentPage() {
     if (_profileOpen) {
-      return SchoolAdminProfilePage(
-        onBack: () => _openPage(0),
-      );
+      return _themed(SchoolAdminProfilePage(onBack: () => _openPage(0)));
     }
 
     if (_selectedIndex == 0) {
-      return _HomeDashboard(onOpenPage: _openPage);
+      return _themed(_HomeDashboard(onOpenPage: _openPage));
     }
 
     if (_selectedIndex == 1) {
-      return const SchoolStudentsPage();
+      return _themed(const SchoolStudentsPage());
     }
 
     if (_selectedIndex == 2) {
-      return const SchoolTeachersPage();
+      return _themed(const SchoolTeachersPage());
     }
 
     if (_selectedIndex == 3) {
-      return const SchoolImportPage();
+      return _themed(const SchoolImportPage());
     }
 
     if (_selectedIndex == 4) {
-      return const SchoolPermissionsPage();
+      return _themed(const SchoolPermissionsPage());
     }
 
     if (_selectedIndex == 5) {
-      return const SchoolBuildingsPage();
+      return _themed(const SchoolBuildingsPage());
     }
 
     if (_selectedIndex == 6) {
-      return const SchoolDevicesPage();
+      return _themed(const SchoolDevicesPage());
     }
 
     if (_selectedIndex == 7) {
-      return const SchoolResourcesPage();
+      return _themed(const SchoolResourcesPage());
     }
 
     if (_selectedIndex == 8) {
-      return SchoolScanPage(
-        onBack: () => _openPage(0),
-      );
+      return _themed(SchoolScanPage(onBack: () => _openPage(0)));
     }
 
     if (_selectedIndex == 9) {
-      return const SchoolAlertsPage();
+      return _themed(const SchoolAlertsPage());
     }
 
     if (_selectedIndex == 10) {
-      return const SchoolReportsPage();
+      return _themed(const SchoolReportsPage());
     }
 
     if (_selectedIndex == 11) {
-      return const SchoolSettingsPage();
+      return _themed(const SchoolSettingsPage());
     }
 
     if (_selectedIndex == 12) {
@@ -148,27 +155,27 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     }
 
     if (_selectedIndex == 14) {
-      return const SchoolAdminEnergyPage();
+      return _themed(const SchoolAdminEnergyPage());
     }
 
     if (_selectedIndex == 15) {
-      return const SchoolAdminCctvPage();
+      return _themed(const SchoolAdminCctvPage());
     }
 
     if (_selectedIndex == 16) {
-      return const SchoolAdminDeviceSchedulePage();
+      return _themed(const SchoolAdminDeviceSchedulePage());
     }
 
     if (_selectedIndex == 17) {
-      return const SchoolAdminEsgPage();
+      return _themed(const SchoolAdminEsgPage());
     }
 
     if (_selectedIndex == 18) {
-      return const SchoolAdminDeviceControlPage();
+      return _themed(const SchoolAdminDeviceControlPage());
     }
 
     if (_selectedIndex == 19) {
-      return const SchoolAdminIncidentInboxPage();
+      return _themed(const SchoolAdminIncidentInboxPage());
     }
 
     return Center(
@@ -208,61 +215,61 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
               children: [
                 SizedBox(
                   width: 255,
-                child: _DesktopSidebar(
-                  items: _menuItems,
-                  selectedIndex: _selectedIndex,
-                  onSelect: _openPage,
-                  onOpenProfile: _openProfile,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Container(
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: SchoolAdminPalette.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: SchoolAdminPalette.border,
-                    ),
+                  child: _DesktopSidebar(
+                    items: _menuItems,
+                    selectedIndex: _selectedIndex,
+                    onSelect: _openPage,
+                    onOpenProfile: _openProfile,
                   ),
-                  child: Column(
-                    children: [
-                      _DesktopTopBar(
-                        title: _menuItems[_selectedIndex].title,
-                        onOpenAlerts: () => _openPage(9),
-                        onOpenScan: () => _openPage(8),
-                      ),
-                      const Divider(
-                        height: 1,
-                        color: SchoolAdminPalette.border,
-                      ),
-                      Expanded(
-                        child: ScaffoldMessenger(
-                          child: ColoredBox(
-                            color: Colors.white,
-                            child: SizedBox.expand(
-                              child: KeyedSubtree(
-                                key: ValueKey<String>(
-                                  _profileOpen ? 'profile' : 'page-$_selectedIndex',
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: SchoolAdminPalette.surface,
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(color: SchoolAdminPalette.border),
+                    ),
+                    child: Column(
+                      children: [
+                        _DesktopTopBar(
+                          title: _menuItems[_selectedIndex].title,
+                          onOpenAlerts: () => _openPage(9),
+                          onOpenScan: () => _openPage(8),
+                        ),
+                        const Divider(
+                          height: 1,
+                          color: SchoolAdminPalette.border,
+                        ),
+                        Expanded(
+                          child: ScaffoldMessenger(
+                            child: ColoredBox(
+                              color: Colors.white,
+                              child: SizedBox.expand(
+                                child: KeyedSubtree(
+                                  key: ValueKey<String>(
+                                    _profileOpen
+                                        ? 'profile'
+                                        : 'page-$_selectedIndex',
+                                  ),
+                                  child: _buildCurrentPage(),
                                 ),
-                                child: _buildCurrentPage(),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildMobileLayout() {
     return Scaffold(
@@ -459,10 +466,7 @@ class _MobileDrawer extends StatelessWidget {
         child: Column(
           children: [
             const _BrandHeader(),
-            const Divider(
-              height: 1,
-              color: SchoolAdminPalette.border,
-            ),
+            const Divider(height: 1, color: SchoolAdminPalette.border),
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.all(10),
@@ -546,10 +550,7 @@ class _BrandHeader extends StatelessWidget {
           CircleAvatar(
             radius: 22,
             backgroundColor: SchoolAdminPalette.primary,
-            child: Icon(
-              Icons.school_rounded,
-              color: Colors.white,
-            ),
+            child: Icon(Icons.school_rounded, color: Colors.white),
           ),
           SizedBox(width: 11),
           Expanded(
@@ -582,10 +583,7 @@ class _BrandHeader extends StatelessWidget {
 }
 
 class _UserCard extends StatelessWidget {
-  const _UserCard({
-    super.key,
-    required this.onTap,
-  });
+  const _UserCard({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
@@ -666,10 +664,7 @@ class _DesktopTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(minHeight: 78),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
           Expanded(
@@ -704,10 +699,7 @@ class _DesktopTopBar extends StatelessWidget {
 }
 
 class _BottomMenu extends StatelessWidget {
-  const _BottomMenu({
-    required this.selectedIndex,
-    required this.onSelect,
-  });
+  const _BottomMenu({required this.selectedIndex, required this.onSelect});
 
   final int selectedIndex;
   final ValueChanged<int> onSelect;
@@ -809,9 +801,7 @@ class _BottomButton extends StatelessWidget {
 }
 
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard({
-    required this.onOpenPage,
-  });
+  const _HomeDashboard({required this.onOpenPage});
 
   final ValueChanged<int> onOpenPage;
 
@@ -835,10 +825,7 @@ class _HomeDashboard extends StatelessWidget {
               _ManagementGrid(onOpenPage: onOpenPage),
               const SizedBox(height: 14),
               LayoutBuilder(
-                builder: (
-                  BuildContext context,
-                  BoxConstraints constraints,
-                ) {
+                builder: (BuildContext context, BoxConstraints constraints) {
                   final Widget assignments = _AssignmentOverview(
                     onOpenTeachers: () => onOpenPage(2),
                     onOpenBuildings: () => onOpenPage(5),
@@ -862,29 +849,18 @@ class _HomeDashboard extends StatelessWidget {
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 5,
-                        child: assignments,
-                      ),
+                      Expanded(flex: 5, child: assignments),
                       const SizedBox(width: 14),
-                      Expanded(
-                        flex: 3,
-                        child: alerts,
-                      ),
+                      Expanded(flex: 3, child: alerts),
                     ],
                   );
                 },
               ),
               const SizedBox(height: 14),
-              _HomeResourceOverview(
-                onOpenResources: () => onOpenPage(7),
-              ),
+              _HomeResourceOverview(onOpenResources: () => onOpenPage(7)),
               const SizedBox(height: 14),
               LayoutBuilder(
-                builder: (
-                  BuildContext context,
-                  BoxConstraints constraints,
-                ) {
+                builder: (BuildContext context, BoxConstraints constraints) {
                   final Widget rules = const _AutomaticRulePanel();
 
                   final Widget logs = _HomeRecentActivity(
@@ -893,26 +869,16 @@ class _HomeDashboard extends StatelessWidget {
 
                   if (constraints.maxWidth < 930) {
                     return Column(
-                      children: [
-                        rules,
-                        const SizedBox(height: 14),
-                        logs,
-                      ],
+                      children: [rules, const SizedBox(height: 14), logs],
                     );
                   }
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 4,
-                        child: rules,
-                      ),
+                      Expanded(flex: 4, child: rules),
                       const SizedBox(width: 14),
-                      Expanded(
-                        flex: 5,
-                        child: logs,
-                      ),
+                      Expanded(flex: 5, child: logs),
                     ],
                   );
                 },
@@ -942,15 +908,10 @@ class _HomeWelcomeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final Widget title = const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1005,10 +966,6 @@ class _HomeWelcomeCard extends StatelessWidget {
                 onPressed: onOpenAlerts,
                 icon: const Icon(Icons.notifications_none_rounded),
                 label: const Text('ดูการแจ้งเตือน'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SchoolAdminPalette.primary,
-                  foregroundColor: Colors.white,
-                ),
               ),
             ],
           );
@@ -1016,11 +973,7 @@ class _HomeWelcomeCard extends StatelessWidget {
           if (constraints.maxWidth < 760) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 16),
-                actions,
-              ],
+              children: [title, const SizedBox(height: 16), actions],
             );
           }
 
@@ -1095,7 +1048,10 @@ class _HomeSummaryGridState extends State<_HomeSummaryGrid> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, color: SchoolAdminPalette.red),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: SchoolAdminPalette.red,
+            ),
             const Text(
               'โหลดข้อมูลสรุปไม่สำเร็จ',
               style: TextStyle(
@@ -1134,7 +1090,9 @@ class _HomeSummaryGridState extends State<_HomeSummaryGrid> {
         progress: 1,
       ),
       _SummaryData(
-        value: s != null ? '${s.buildingsCount} / ${s.roomsCount}' : placeholder,
+        value: s != null
+            ? '${s.buildingsCount} / ${s.roomsCount}'
+            : placeholder,
         title: 'อาคาร / ห้อง',
         detail: 'พื้นที่ที่เปิดใช้งาน',
         icon: Icons.apartment_rounded,
@@ -1142,7 +1100,9 @@ class _HomeSummaryGridState extends State<_HomeSummaryGrid> {
         progress: 1,
       ),
       _SummaryData(
-        value: s != null ? '${s.devicesCount} (${s.devicesOnline} ออนไลน์)' : placeholder,
+        value: s != null
+            ? '${s.devicesCount} (${s.devicesOnline} ออนไลน์)'
+            : placeholder,
         title: 'อุปกรณ์ / ชุดฝึก',
         detail: 'ลงทะเบียนในระบบ',
         icon: Icons.memory_rounded,
@@ -1152,10 +1112,7 @@ class _HomeSummaryGridState extends State<_HomeSummaryGrid> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
 
         if (constraints.maxWidth < 1050) {
@@ -1188,153 +1145,139 @@ class _HomeSummaryGridState extends State<_HomeSummaryGrid> {
 }
 
 class _HomeSummaryCard extends StatelessWidget {
-  const _HomeSummaryCard({
-    required this.data,
-  });
+  const _HomeSummaryCard({required this.data});
 
   final _SummaryData data;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
-        return Container(
-          constraints: BoxConstraints(
-            minHeight: compact ? 152 : 140,
-          ),
-          padding: EdgeInsets.all(compact ? 13 : 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color: SchoolAdminPalette.border,
+        // Design-system-unification (2026-08-26): shell now comes from
+        // the ambient `Theme.of(context).cardTheme` via the real `Card`
+        // widget instead of a hand-rolled `BoxDecoration` — see
+        // `_SectionCard` above for the same change with more detail.
+        return ConstrainedBox(
+          constraints: BoxConstraints(minHeight: compact ? 152 : 140),
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(compact ? 13 : 16),
+              child: compact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 43,
+                          height: 43,
+                          decoration: BoxDecoration(
+                            color: data.color.withAlpha(28),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(
+                              color: data.color.withAlpha(95),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Icon(data.icon, color: data.color, size: 22),
+                        ),
+                        const SizedBox(height: 13),
+                        Text(
+                          data.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 23,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          data.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          data.detail,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 8,
+                            height: 1.35,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: data.color.withAlpha(28),
+                            borderRadius: BorderRadius.circular(17),
+                            border: Border.all(
+                              color: data.color.withAlpha(95),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Icon(data.icon, color: data.color, size: 26),
+                        ),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                data.value,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 27,
+                                  height: 1,
+                                  fontWeight: FontWeight.w900,
+                                  color: SchoolAdminPalette.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 7),
+                              Text(
+                                data.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                  color: SchoolAdminPalette.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                data.detail,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 9,
+                                  height: 1.4,
+                                  color: SchoolAdminPalette.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
-          child: compact
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 43,
-                      height: 43,
-                      decoration: BoxDecoration(
-                        color: data.color.withAlpha(28),
-                        borderRadius: BorderRadius.circular(15),
-                        border: Border.all(
-                          color: data.color.withAlpha(95),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Icon(
-                        data.icon,
-                        color: data.color,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(height: 13),
-                    Text(
-                      data.value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 23,
-                        height: 1,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Text(
-                      data.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      data.detail,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 8,
-                        height: 1.35,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                )
-              : Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: data.color.withAlpha(28),
-                        borderRadius: BorderRadius.circular(17),
-                        border: Border.all(
-                          color: data.color.withAlpha(95),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Icon(
-                        data.icon,
-                        color: data.color,
-                        size: 26,
-                      ),
-                    ),
-                    const SizedBox(width: 13),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            data.value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 27,
-                              height: 1,
-                              fontWeight: FontWeight.w900,
-                              color: SchoolAdminPalette.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            data.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: SchoolAdminPalette.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            data.detail,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 9,
-                              height: 1.4,
-                              color: SchoolAdminPalette.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
         );
       },
     );
@@ -1342,9 +1285,7 @@ class _HomeSummaryCard extends StatelessWidget {
 }
 
 class _ManagementGrid extends StatelessWidget {
-  const _ManagementGrid({
-    required this.onOpenPage,
-  });
+  const _ManagementGrid({required this.onOpenPage});
 
   final ValueChanged<int> onOpenPage;
 
@@ -1497,10 +1438,7 @@ class _ManagementGrid extends StatelessWidget {
       title: 'เมนูจัดการโรงเรียน',
       subtitle: 'รวมงานหลักของแอดมินไว้ให้เข้าถึงได้ง่ายจากหน้าเดียว',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 4;
 
           if (constraints.maxWidth < 1180) {
@@ -1537,31 +1475,36 @@ class _ManagementGrid extends StatelessWidget {
 }
 
 class _ManagementCard extends StatelessWidget {
-  const _ManagementCard({
-    required this.data,
-  });
+  const _ManagementCard({required this.data});
 
   final _ManagementData data;
 
   @override
   Widget build(BuildContext context) {
+    // Design-system-unification (2026-08-26): shell radius/color/border
+    // now come from the ambient `Theme.of(context).cardTheme` (see
+    // `buildRoleTheme` in shared_ui) instead of 3 separately hardcoded
+    // `circular(18)`/`Colors.white` values — `Material`+`InkWell` (not
+    // `Card`) is kept deliberately, since this card needs a real tap
+    // ripple, which plain `Card` doesn't provide on its own.
+    final cardShape =
+        Theme.of(context).cardTheme.shape as RoundedRectangleBorder;
+    final BorderRadius radius = cardShape.borderRadius as BorderRadius;
+    final Color borderColor = (cardShape.side).color;
+    final Color cardColor = Theme.of(context).cardTheme.color ?? Colors.white;
+
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      color: cardColor,
+      borderRadius: radius,
       child: InkWell(
         onTap: data.onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: radius,
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: SchoolAdminPalette.border,
-            ),
+            color: cardColor,
+            borderRadius: radius,
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -1569,11 +1512,7 @@ class _ManagementCard extends StatelessWidget {
               CircleAvatar(
                 radius: 21,
                 backgroundColor: data.color.withAlpha(18),
-                child: Icon(
-                  data.icon,
-                  color: data.color,
-                  size: 22,
-                ),
+                child: Icon(data.icon, color: data.color, size: 22),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -1664,10 +1603,12 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
       final buildings = results[1] as List<SchoolBuildingRecord>;
       final users = results[2] as List<UserModel>;
 
-      final roomsWithTeacher =
-          rooms.where((r) => r.teacherName.isNotEmpty).length;
-      final buildingsWithManager =
-          buildings.where((b) => b.managerName.isNotEmpty).length;
+      final roomsWithTeacher = rooms
+          .where((r) => r.teacherName.isNotEmpty)
+          .length;
+      final buildingsWithManager = buildings
+          .where((b) => b.managerName.isNotEmpty)
+          .length;
       final activeUsers = users.where((u) => u.status == 'active').length;
 
       if (mounted) {
@@ -1686,8 +1627,9 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
               duty: buildings.isEmpty
                   ? 'ยังไม่มีอาคารในระบบ'
                   : 'กำหนดแล้ว $buildingsWithManager อาคาร จาก ${buildings.length} อาคาร',
-              progress:
-                  buildings.isEmpty ? 0 : buildingsWithManager / buildings.length,
+              progress: buildings.isEmpty
+                  ? 0
+                  : buildingsWithManager / buildings.length,
               color: SchoolAdminPalette.green,
             ),
             _TeacherData(
@@ -1744,7 +1686,11 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
           children: [
             Row(
               children: const [
-                Icon(Icons.error_outline_rounded, color: SchoolAdminPalette.red, size: 18),
+                Icon(
+                  Icons.error_outline_rounded,
+                  color: SchoolAdminPalette.red,
+                  size: 18,
+                ),
                 SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -1787,9 +1733,7 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(17),
-                  border: Border.all(
-                    color: SchoolAdminPalette.border,
-                  ),
+                  border: Border.all(color: SchoolAdminPalette.border),
                 ),
                 child: Row(
                   children: [
@@ -1799,8 +1743,8 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
                         item.name == 'สิทธิ์ผู้ใช้งาน'
                             ? Icons.admin_panel_settings_rounded
                             : item.name == 'ครูประจำอาคาร'
-                                ? Icons.apartment_rounded
-                                : Icons.co_present_rounded,
+                            ? Icons.apartment_rounded
+                            : Icons.co_present_rounded,
                         color: item.color,
                         size: 19,
                       ),
@@ -1863,26 +1807,17 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
             children: [
               OutlinedButton.icon(
                 onPressed: onOpenTeachers,
-                icon: const Icon(
-                  Icons.co_present_rounded,
-                  size: 17,
-                ),
+                icon: const Icon(Icons.co_present_rounded, size: 17),
                 label: const Text('ครูประจำชั้น'),
               ),
               OutlinedButton.icon(
                 onPressed: onOpenBuildings,
-                icon: const Icon(
-                  Icons.apartment_rounded,
-                  size: 17,
-                ),
+                icon: const Icon(Icons.apartment_rounded, size: 17),
                 label: const Text('ครูประจำอาคาร'),
               ),
               OutlinedButton.icon(
                 onPressed: onOpenPermissions,
-                icon: const Icon(
-                  Icons.security_rounded,
-                  size: 17,
-                ),
+                icon: const Icon(Icons.security_rounded, size: 17),
                 label: const Text('จัดการสิทธิ์'),
               ),
             ],
@@ -1894,9 +1829,7 @@ class _AssignmentOverviewState extends State<_AssignmentOverview> {
 }
 
 class _HomeAlertPanel extends StatefulWidget {
-  const _HomeAlertPanel({
-    required this.onOpenAlerts,
-  });
+  const _HomeAlertPanel({required this.onOpenAlerts});
 
   final VoidCallback onOpenAlerts;
 
@@ -1962,15 +1895,19 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, color: SchoolAdminPalette.red, size: 20),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: SchoolAdminPalette.red,
+              size: 20,
+            ),
             const Text(
               'โหลดรายการแจ้งเตือนไม่สำเร็จ',
-              style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
+              style: TextStyle(
+                fontSize: 12,
+                color: SchoolAdminPalette.textSecondary,
+              ),
             ),
-            TextButton(
-              onPressed: _loadAlerts,
-              child: const Text('ลองใหม่'),
-            ),
+            TextButton(onPressed: _loadAlerts, child: const Text('ลองใหม่')),
           ],
         ),
       );
@@ -1985,7 +1922,11 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
         ),
         child: const Column(
           children: [
-            Icon(Icons.check_circle_outline_rounded, color: SchoolAdminPalette.green, size: 30),
+            Icon(
+              Icons.check_circle_outline_rounded,
+              color: SchoolAdminPalette.green,
+              size: 30,
+            ),
             SizedBox(height: 6),
             Text(
               'ไม่มีรายการแจ้งเตือนที่ต้องตรวจสอบ',
@@ -1998,7 +1939,10 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
             SizedBox(height: 2),
             Text(
               'ระบบและอุปกรณ์ทำงานปกติ',
-              style: TextStyle(fontSize: 11, color: SchoolAdminPalette.textSecondary),
+              style: TextStyle(
+                fontSize: 11,
+                color: SchoolAdminPalette.textSecondary,
+              ),
             ),
           ],
         ),
@@ -2008,9 +1952,13 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
         children: _alerts.take(4).map((SchoolSensorAlertRecord item) {
           final Color badgeColor = item.isNew
               ? SchoolAdminPalette.red
-              : (item.isAcknowledged ? SchoolAdminPalette.secondary : SchoolAdminPalette.primary);
+              : (item.isAcknowledged
+                    ? SchoolAdminPalette.secondary
+                    : SchoolAdminPalette.primary);
 
-          final String statusLabel = item.isNew ? 'ใหม่' : (item.isAcknowledged ? 'รับทราบแล้ว' : item.status);
+          final String statusLabel = item.isNew
+              ? 'ใหม่'
+              : (item.isAcknowledged ? 'รับทราบแล้ว' : item.status);
 
           return Padding(
             padding: const EdgeInsets.only(bottom: 9),
@@ -2019,9 +1967,7 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(17),
-                border: Border.all(
-                  color: SchoolAdminPalette.border,
-                ),
+                border: Border.all(color: SchoolAdminPalette.border),
               ),
               child: Row(
                 children: [
@@ -2071,9 +2017,7 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
                       decoration: BoxDecoration(
                         color: badgeColor.withAlpha(13),
                         borderRadius: BorderRadius.circular(99),
-                        border: Border.all(
-                          color: badgeColor.withAlpha(45),
-                        ),
+                        border: Border.all(color: badgeColor.withAlpha(45)),
                       ),
                       child: Text(
                         statusLabel,
@@ -2107,9 +2051,7 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
 }
 
 class _HomeResourceOverview extends StatelessWidget {
-  const _HomeResourceOverview({
-    required this.onOpenResources,
-  });
+  const _HomeResourceOverview({required this.onOpenResources});
 
   final VoidCallback onOpenResources;
 
@@ -2144,17 +2086,11 @@ class _HomeResourceOverview extends StatelessWidget {
       subtitle: 'แสดงเฉพาะค่าที่แอดมินควรเห็นเพื่อดูความผิดปกติของโรงเรียน',
       trailing: TextButton.icon(
         onPressed: onOpenResources,
-        icon: const Icon(
-          Icons.bar_chart_rounded,
-          size: 17,
-        ),
+        icon: const Icon(Icons.bar_chart_rounded, size: 17),
         label: const Text('ดูรายละเอียด'),
       ),
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 3;
 
           if (constraints.maxWidth < 800) {
@@ -2177,19 +2113,14 @@ class _HomeResourceOverview extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: SchoolAdminPalette.border,
-                    ),
+                    border: Border.all(color: SchoolAdminPalette.border),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 22,
                         backgroundColor: item.color.withAlpha(15),
-                        child: Icon(
-                          item.icon,
-                          color: item.color,
-                        ),
+                        child: Icon(item.icon, color: item.color),
                       ),
                       const SizedBox(width: 11),
                       Expanded(
@@ -2300,20 +2231,14 @@ class _AutomaticRuleRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 19,
             backgroundColor: color.withAlpha(15),
-            child: Icon(
-              icon,
-              color: color,
-              size: 19,
-            ),
+            child: Icon(icon, color: color, size: 19),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -2352,9 +2277,7 @@ class _AutomaticRuleRow extends StatelessWidget {
 }
 
 class _HomeRecentActivity extends StatefulWidget {
-  const _HomeRecentActivity({
-    required this.onOpenReports,
-  });
+  const _HomeRecentActivity({required this.onOpenReports});
 
   final VoidCallback onOpenReports;
 
@@ -2420,15 +2343,19 @@ class _HomeRecentActivityState extends State<_HomeRecentActivity> {
           runSpacing: 4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, color: SchoolAdminPalette.red, size: 20),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: SchoolAdminPalette.red,
+              size: 20,
+            ),
             const Text(
               'โหลดกิจกรรมล่าสุดไม่สำเร็จ',
-              style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
+              style: TextStyle(
+                fontSize: 12,
+                color: SchoolAdminPalette.textSecondary,
+              ),
             ),
-            TextButton(
-              onPressed: _loadLogs,
-              child: const Text('ลองใหม่'),
-            ),
+            TextButton(onPressed: _loadLogs, child: const Text('ลองใหม่')),
           ],
         ),
       );
@@ -2443,7 +2370,11 @@ class _HomeRecentActivityState extends State<_HomeRecentActivity> {
         ),
         child: const Column(
           children: [
-            Icon(Icons.history_rounded, color: SchoolAdminPalette.textSecondary, size: 30),
+            Icon(
+              Icons.history_rounded,
+              color: SchoolAdminPalette.textSecondary,
+              size: 30,
+            ),
             SizedBox(height: 6),
             Text(
               'ยังไม่มีกิจกรรมและ Log ล่าสุด',
@@ -2456,7 +2387,10 @@ class _HomeRecentActivityState extends State<_HomeRecentActivity> {
             SizedBox(height: 2),
             Text(
               'เมื่อมีการดำเนินงานในระบบ รายการจะปรากฏที่นี่',
-              style: TextStyle(fontSize: 11, color: SchoolAdminPalette.textSecondary),
+              style: TextStyle(
+                fontSize: 11,
+                color: SchoolAdminPalette.textSecondary,
+              ),
             ),
           ],
         ),
@@ -2474,9 +2408,7 @@ class _HomeRecentActivityState extends State<_HomeRecentActivity> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(17),
-                border: Border.all(
-                  color: SchoolAdminPalette.border,
-                ),
+                border: Border.all(color: SchoolAdminPalette.border),
               ),
               child: Row(
                 children: [
@@ -2578,109 +2510,108 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SchoolAdminPalette.card,
-        borderRadius: BorderRadius.circular(23),
-        border: Border.all(color: SchoolAdminPalette.border),
-        boxShadow: SchoolAdminPalette.smallShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (trailing == null) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    // Design-system-unification (2026-08-26): the card *shell*
+    // (radius/border/background) now comes from the ambient
+    // `Theme.of(context).cardTheme` (see `buildRoleTheme` in
+    // shared_ui) via the real `Card` widget, instead of a hand-rolled
+    // `Container(decoration: BoxDecoration(...))`. Everything inside
+    // — title/subtitle layout, spacing — is unchanged; only the shell
+    // now matches the shared structural language.
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (trailing == null) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: SchoolAdminPalette.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: SchoolAdminPalette.textSecondary,
+                        ),
+                      ),
+                    ],
+                  );
+                }
+
+                if (constraints.maxWidth < 320) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: SchoolAdminPalette.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.4,
+                          color: SchoolAdminPalette.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Align(alignment: Alignment.centerLeft, child: trailing!),
+                    ],
+                  );
+                }
+
+                return Row(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: SchoolAdminPalette.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.4,
+                              color: SchoolAdminPalette.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
+                    trailing!,
                   ],
                 );
-              }
-
-              if (constraints.maxWidth < 320) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: trailing!,
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: SchoolAdminPalette.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            height: 1.4,
-                            color: SchoolAdminPalette.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  trailing!,
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 15),
-          child,
-        ],
+              },
+            ),
+            const SizedBox(height: 15),
+            child,
+          ],
+        ),
       ),
     );
   }

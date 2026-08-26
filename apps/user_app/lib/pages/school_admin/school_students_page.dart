@@ -28,7 +28,9 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   Future<void> _loadStudents() async {
     try {
       final users = await UserAdminService.getAllUsers();
-      final studentUsers = users.where((u) => u.hasRole(UserRole.student)).toList();
+      final studentUsers = users
+          .where((u) => u.hasRole(UserRole.student))
+          .toList();
       if (mounted) {
         setState(() {
           _students = studentUsers.asMap().entries.map((entry) {
@@ -65,7 +67,8 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
     final String keyword = _searchController.text.trim().toLowerCase();
 
     return _students.where((_StudentRecord student) {
-      final bool matchesSearch = keyword.isEmpty ||
+      final bool matchesSearch =
+          keyword.isEmpty ||
           student.fullName.toLowerCase().contains(keyword) ||
           student.studentCode.toLowerCase().contains(keyword) ||
           student.email.toLowerCase().contains(keyword) ||
@@ -78,7 +81,8 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
       final bool matchesRoom =
           _selectedRoom == 'ทุกห้อง' || student.room == _selectedRoom;
 
-      final bool matchesStatus = _selectedStatus == 'ทุกสถานะ' ||
+      final bool matchesStatus =
+          _selectedStatus == 'ทุกสถานะ' ||
           student.accountStatus == _selectedStatus;
 
       return matchesSearch && matchesLevel && matchesRoom && matchesStatus;
@@ -92,11 +96,11 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
       _students.where((s) => s.accountStatus == 'รอตรวจสอบ').length;
 
   int get _attentionCount => _students.where((s) {
-        return s.attendance == 'ขาดเรียน' ||
-            s.attendance == 'มาสาย' ||
-            s.accountStatus == 'รอตรวจสอบ' ||
-            s.accountStatus == 'ระงับ';
-      }).length;
+    return s.attendance == 'ขาดเรียน' ||
+        s.attendance == 'มาสาย' ||
+        s.accountStatus == 'รอตรวจสอบ' ||
+        s.accountStatus == 'ระงับ';
+  }).length;
 
   void _clearFilters() {
     setState(() {
@@ -108,9 +112,9 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openStudentForm({_StudentRecord? student}) async {
@@ -145,10 +149,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               insetPadding: const EdgeInsets.all(16),
               contentPadding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
@@ -159,152 +160,148 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 width: 760,
                 child: SingleChildScrollView(
                   child: LayoutBuilder(
-                    builder: (
-                      BuildContext context,
-                      BoxConstraints constraints,
-                    ) {
-                      final bool oneColumn = constraints.maxWidth < 620;
-                      final double fieldWidth = oneColumn
-                          ? constraints.maxWidth
-                          : (constraints.maxWidth - 12) / 2;
+                    builder:
+                        (BuildContext context, BoxConstraints constraints) {
+                          final bool oneColumn = constraints.maxWidth < 620;
+                          final double fieldWidth = oneColumn
+                              ? constraints.maxWidth
+                              : (constraints.maxWidth - 12) / 2;
 
-                      return Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: codeController,
-                              decoration: const InputDecoration(
-                                labelText: 'รหัสนักเรียน',
-                                hintText: 'เช่น ST-2569-0013',
-                                prefixIcon: Icon(Icons.badge_rounded),
+                          return Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: codeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'รหัสนักเรียน',
+                                    hintText: 'เช่น ST-2569-0013',
+                                    prefixIcon: Icon(Icons.badge_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'ชื่อ–นามสกุล',
-                                prefixIcon: Icon(Icons.person_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: nameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'ชื่อ–นามสกุล',
+                                    prefixIcon: Icon(Icons.person_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: emailController,
-                              decoration: const InputDecoration(
-                                labelText: 'อีเมล',
-                                prefixIcon: Icon(Icons.email_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: emailController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'อีเมล',
+                                    prefixIcon: Icon(Icons.email_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: numberController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'เลขที่',
-                                prefixIcon:
-                                    Icon(Icons.format_list_numbered_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: numberController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'เลขที่',
+                                    prefixIcon: Icon(
+                                      Icons.format_list_numbered_rounded,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: guardianController,
-                              decoration: const InputDecoration(
-                                labelText: 'ชื่อผู้ปกครอง',
-                                prefixIcon:
-                                    Icon(Icons.supervisor_account_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: guardianController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'ชื่อผู้ปกครอง',
+                                    prefixIcon: Icon(
+                                      Icons.supervisor_account_rounded,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: 'เบอร์ผู้ปกครอง',
-                                prefixIcon: Icon(Icons.phone_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: const InputDecoration(
+                                    labelText: 'เบอร์ผู้ปกครอง',
+                                    prefixIcon: Icon(Icons.phone_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _DialogDropdown(
-                              label: 'ระดับชั้น',
-                              icon: Icons.layers_rounded,
-                              value: level,
-                              items: const [
-                                'ม.1',
-                                'ม.2',
-                                'ม.3',
-                                'ม.4',
-                                'ม.5',
-                                'ม.6',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => level = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _DialogDropdown(
-                              label: 'ห้อง',
-                              icon: Icons.meeting_room_rounded,
-                              value: room,
-                              items: const ['1', '2', '3', '4', '5', '6'],
-                              onChanged: (String value) {
-                                setDialogState(() => room = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _DialogDropdown(
-                              label: 'การมาเรียนวันนี้',
-                              icon: Icons.fact_check_rounded,
-                              value: attendance,
-                              items: const [
-                                'มาเรียน',
-                                'ลา',
-                                'ลาป่วย',
-                                'มาสาย',
-                                'ขาดเรียน',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => attendance = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _DialogDropdown(
-                              label: 'สถานะบัญชี',
-                              icon: Icons.verified_user_rounded,
-                              value: accountStatus,
-                              items: const [
-                                'ใช้งาน',
-                                'รอตรวจสอบ',
-                                'ระงับ',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => accountStatus = value);
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _DialogDropdown(
+                                  label: 'ระดับชั้น',
+                                  icon: Icons.layers_rounded,
+                                  value: level,
+                                  items: const [
+                                    'ม.1',
+                                    'ม.2',
+                                    'ม.3',
+                                    'ม.4',
+                                    'ม.5',
+                                    'ม.6',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => level = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _DialogDropdown(
+                                  label: 'ห้อง',
+                                  icon: Icons.meeting_room_rounded,
+                                  value: room,
+                                  items: const ['1', '2', '3', '4', '5', '6'],
+                                  onChanged: (String value) {
+                                    setDialogState(() => room = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _DialogDropdown(
+                                  label: 'การมาเรียนวันนี้',
+                                  icon: Icons.fact_check_rounded,
+                                  value: attendance,
+                                  items: const [
+                                    'มาเรียน',
+                                    'ลา',
+                                    'ลาป่วย',
+                                    'มาสาย',
+                                    'ขาดเรียน',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => attendance = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _DialogDropdown(
+                                  label: 'สถานะบัญชี',
+                                  icon: Icons.verified_user_rounded,
+                                  value: accountStatus,
+                                  items: const ['ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
+                                  onChanged: (String value) {
+                                    setDialogState(() => accountStatus = value);
+                                  },
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                   ),
                 ),
               ),
@@ -325,15 +322,14 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                         name.isEmpty ||
                         email.isEmpty ||
                         number <= 0) {
-                      _showMessage(
-                        'กรุณากรอกรหัส ชื่อ อีเมล และเลขที่ให้ครบ',
-                      );
+                      _showMessage('กรุณากรอกรหัส ชื่อ อีเมล และเลขที่ให้ครบ');
                       return;
                     }
 
                     Navigator.of(dialogContext).pop(
                       _StudentRecord(
-                        id: student?.id ??
+                        id:
+                            student?.id ??
                             'student-${DateTime.now().millisecondsSinceEpoch}',
                         studentCode: code,
                         fullName: name,
@@ -353,9 +349,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                   icon: Icon(
                     editing ? Icons.save_rounded : Icons.person_add_rounded,
                   ),
-                  label: Text(
-                    editing ? 'บันทึกการแก้ไข' : 'เพิ่มนักเรียน',
-                  ),
+                  label: Text(editing ? 'บันทึกการแก้ไข' : 'เพิ่มนักเรียน'),
                 ),
               ],
             );
@@ -395,9 +389,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('ลบนักเรียน'),
-          content: Text(
-            'ต้องการลบ ${student.fullName} ออกจากรายการหรือไม่',
-          ),
+          content: Text('ต้องการลบ ${student.fullName} ออกจากรายการหรือไม่'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -428,8 +420,9 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
     final int index = _students.indexWhere((s) => s.id == student.id);
     if (index < 0) return;
 
-    final String nextStatus =
-        student.accountStatus == 'ระงับ' ? 'ใช้งาน' : 'ระงับ';
+    final String nextStatus = student.accountStatus == 'ระงับ'
+        ? 'ใช้งาน'
+        : 'ระงับ';
 
     setState(() {
       _students[index] = student.copyWith(accountStatus: nextStatus);
@@ -451,104 +444,103 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: SchoolAdminPalette.border),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const CircleAvatar(
-                        radius: 28,
-                        backgroundColor: SchoolAdminPalette.primarySoft,
-                        child: Icon(
-                          Icons.person_rounded,
-                          color: SchoolAdminPalette.primaryDark,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              student.fullName,
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                                color: SchoolAdminPalette.textPrimary,
-                              ),
+                      Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 28,
+                            backgroundColor: SchoolAdminPalette.primarySoft,
+                            child: Icon(
+                              Icons.person_rounded,
+                              color: SchoolAdminPalette.primaryDark,
                             ),
-                            Text(
-                              '${student.studentCode} • ${student.level}/${student.room} • เลขที่ ${student.number}',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: SchoolAdminPalette.textSecondary,
-                              ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  student.fullName,
+                                  style: const TextStyle(
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w900,
+                                    color: SchoolAdminPalette.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  '${student.studentCode} • ${student.level}/${student.room} • เลขที่ ${student.number}',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: SchoolAdminPalette.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                      const SizedBox(height: 18),
+                      _DetailRow(
+                        icon: Icons.email_rounded,
+                        label: 'อีเมล',
+                        value: student.email,
+                      ),
+                      _DetailRow(
+                        icon: Icons.supervisor_account_rounded,
+                        label: 'ผู้ปกครอง',
+                        value: student.guardianName,
+                      ),
+                      _DetailRow(
+                        icon: Icons.phone_rounded,
+                        label: 'เบอร์ติดต่อ',
+                        value: student.guardianPhone,
+                      ),
+                      _DetailRow(
+                        icon: Icons.fact_check_rounded,
+                        label: 'การมาเรียนวันนี้',
+                        value: student.attendance,
+                      ),
+                      _DetailRow(
+                        icon: Icons.verified_user_rounded,
+                        label: 'สถานะบัญชี',
+                        value: student.accountStatus,
+                      ),
+                      _DetailRow(
+                        icon: Icons.schedule_rounded,
+                        label: 'เข้าใช้ล่าสุด',
+                        value: student.lastLogin,
+                      ),
+                      _DetailRow(
+                        icon: Icons.notes_rounded,
+                        label: 'หมายเหตุ',
+                        value: student.note,
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _openStudentForm(student: student);
+                          },
+                          icon: const Icon(Icons.edit_rounded),
+                          label: const Text('แก้ไขข้อมูล'),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  _DetailRow(
-                    icon: Icons.email_rounded,
-                    label: 'อีเมล',
-                    value: student.email,
-                  ),
-                  _DetailRow(
-                    icon: Icons.supervisor_account_rounded,
-                    label: 'ผู้ปกครอง',
-                    value: student.guardianName,
-                  ),
-                  _DetailRow(
-                    icon: Icons.phone_rounded,
-                    label: 'เบอร์ติดต่อ',
-                    value: student.guardianPhone,
-                  ),
-                  _DetailRow(
-                    icon: Icons.fact_check_rounded,
-                    label: 'การมาเรียนวันนี้',
-                    value: student.attendance,
-                  ),
-                  _DetailRow(
-                    icon: Icons.verified_user_rounded,
-                    label: 'สถานะบัญชี',
-                    value: student.accountStatus,
-                  ),
-                  _DetailRow(
-                    icon: Icons.schedule_rounded,
-                    label: 'เข้าใช้ล่าสุด',
-                    value: student.lastLogin,
-                  ),
-                  _DetailRow(
-                    icon: Icons.notes_rounded,
-                    label: 'หมายเหตุ',
-                    value: student.note,
-                  ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.of(sheetContext).pop();
-                        _openStudentForm(student: student);
-                      },
-                      icon: const Icon(Icons.edit_rounded),
-                      label: const Text('แก้ไขข้อมูล'),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -592,96 +584,89 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.school_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.school_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                    ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'จัดการนักเรียน',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'ดูรายชื่อ เพิ่มข้อมูล แก้ไขห้องเรียน ติดต่อผู้ปกครอง และตรวจสอบบัญชีนักเรียน',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _showMessage(
+                        'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อจากไฟล์',
+                      );
+                    },
+                    icon: const Icon(Icons.upload_file_rounded),
+                    label: const Text('นำเข้ารายชื่อ'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _openStudentForm(),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('เพิ่มนักเรียน'),
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'จัดการนักเรียน',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'ดูรายชื่อ เพิ่มข้อมูล แก้ไขห้องเรียน ติดต่อผู้ปกครอง และตรวจสอบบัญชีนักเรียน',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.45,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  children: [title, const SizedBox(height: 16), actions],
+                );
+              }
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage(
-                      'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อจากไฟล์');
-                },
-                icon: const Icon(Icons.upload_file_rounded),
-                label: const Text('นำเข้ารายชื่อ'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _openStudentForm(),
-                icon: const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('เพิ่มนักเรียน'),
-              ),
-            ],
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 16),
-                actions,
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -761,7 +746,8 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
               icon: Icons.upload_file_rounded,
               onTap: () {
                 _showMessage(
-                    'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อจากไฟล์');
+                  'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อจากไฟล์',
+                );
               },
             ),
             _QuickActionData(
@@ -851,15 +837,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
           final Widget room = _FilterDropdown(
             label: 'ห้อง',
             value: _selectedRoom,
-            items: const [
-              'ทุกห้อง',
-              '1',
-              '2',
-              '3',
-              '4',
-              '5',
-              '6',
-            ],
+            items: const ['ทุกห้อง', '1', '2', '3', '4', '5', '6'],
             onChanged: (String value) {
               setState(() => _selectedRoom = value);
             },
@@ -868,12 +846,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
           final Widget status = _FilterDropdown(
             label: 'สถานะบัญชี',
             value: _selectedStatus,
-            items: const [
-              'ทุกสถานะ',
-              'ใช้งาน',
-              'รอตรวจสอบ',
-              'ระงับ',
-            ],
+            items: const ['ทุกสถานะ', 'ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
             onChanged: (String value) {
               setState(() => _selectedStatus = value);
             },
@@ -934,10 +907,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
       child: students.isEmpty
           ? const _EmptyState()
           : LayoutBuilder(
-              builder: (
-                BuildContext context,
-                BoxConstraints constraints,
-              ) {
+              builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 1050) {
                   return _DesktopStudentTable(
                     students: students,
@@ -978,10 +948,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
           title: 'จำนวนนักเรียนแต่ละระดับชั้น',
           subtitle: 'ช่วยดูภาพรวมการกระจายของนักเรียน',
           child: LayoutBuilder(
-            builder: (
-              BuildContext context,
-              BoxConstraints levelConstraints,
-            ) {
+            builder: (BuildContext context, BoxConstraints levelConstraints) {
               int columns = 3;
 
               if (levelConstraints.maxWidth < 520) {
@@ -995,10 +962,15 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
               const double spacing = 8;
               final double cardWidth =
                   (levelConstraints.maxWidth - ((columns - 1) * spacing)) /
-                      columns;
+                  columns;
 
               const List<String> levelOrder = [
-                'ม.1', 'ม.2', 'ม.3', 'ม.4', 'ม.5', 'ม.6',
+                'ม.1',
+                'ม.2',
+                'ม.3',
+                'ม.4',
+                'ม.5',
+                'ม.6',
               ];
               final Map<String, int> counts = {};
               for (final _StudentRecord s in _students) {
@@ -1009,7 +981,9 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 ...counts.keys.where((l) => !levelOrder.contains(l)),
               ];
               final List<_LevelCountData> levels = orderedLevels
-                  .map((l) => _LevelCountData(level: l, value: '${counts[l]} คน'))
+                  .map(
+                    (l) => _LevelCountData(level: l, value: '${counts[l]} คน'),
+                  )
                   .toList();
 
               if (levels.isEmpty) {
@@ -1066,11 +1040,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
 
         if (constraints.maxWidth < 900) {
           return Column(
-            children: [
-              levels,
-              const SizedBox(height: 14),
-              attentionCard,
-            ],
+            children: [levels, const SizedBox(height: 14), attentionCard],
           );
         }
 
@@ -1095,16 +1065,11 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 220;
 
         return Container(
-          constraints: BoxConstraints(
-            minHeight: compact ? 152 : 145,
-          ),
+          constraints: BoxConstraints(minHeight: compact ? 152 : 145),
           padding: EdgeInsets.all(compact ? 12 : 16),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1176,36 +1141,35 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              child,
+            ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1302,11 +1266,7 @@ class _FilterDropdown extends StatelessWidget {
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -1336,20 +1296,14 @@ class _DialogDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-      ),
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
           isDense: true,
           items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
+            return DropdownMenuItem<String>(value: item, child: Text(item));
           }).toList(),
           onChanged: (String? newValue) {
             if (newValue != null) onChanged(newValue);
@@ -1384,16 +1338,12 @@ class _DesktopStudentTable extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Table(
         border: TableBorder(
-          horizontalInside: BorderSide(
-            color: SchoolAdminPalette.border,
-          ),
+          horizontalInside: BorderSide(color: SchoolAdminPalette.border),
         ),
         columnWidths: const {
           0: FlexColumnWidth(2.5),
@@ -1408,14 +1358,9 @@ class _DesktopStudentTable extends StatelessWidget {
         defaultVerticalAlignment: TableCellVerticalAlignment.middle,
         children: [
           const TableRow(
-            decoration: BoxDecoration(
-              color: SchoolAdminPalette.primarySoft,
-            ),
+            decoration: BoxDecoration(color: SchoolAdminPalette.primarySoft),
             children: [
-              _StudentTableHeader(
-                text: 'นักเรียน',
-                align: TextAlign.left,
-              ),
+              _StudentTableHeader(text: 'นักเรียน', align: TextAlign.left),
               _StudentTableHeader(text: 'รหัส'),
               _StudentTableHeader(text: 'ชั้น/ห้อง'),
               _StudentTableHeader(text: 'เลขที่'),
@@ -1468,14 +1413,10 @@ class _DesktopStudentTable extends StatelessWidget {
                   ),
                 ),
                 _StudentTableCell(
-                  child: _AttendanceBadge(
-                    value: student.attendance,
-                  ),
+                  child: _AttendanceBadge(value: student.attendance),
                 ),
                 _StudentTableCell(
-                  child: _AccountBadge(
-                    value: student.accountStatus,
-                  ),
+                  child: _AccountBadge(value: student.accountStatus),
                 ),
                 _StudentTableCell(
                   child: Text(
@@ -1563,10 +1504,7 @@ class _StudentTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 18,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
       child: Text(
         text,
         textAlign: align,
@@ -1581,29 +1519,21 @@ class _StudentTableHeader extends StatelessWidget {
 }
 
 class _StudentTableCell extends StatelessWidget {
-  const _StudentTableCell({
-    required this.child,
-  });
+  const _StudentTableCell({required this.child});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 14),
       child: Center(child: child),
     );
   }
 }
 
 class _StudentTableNameCell extends StatelessWidget {
-  const _StudentTableNameCell({
-    required this.student,
-    required this.onTap,
-  });
+  const _StudentTableNameCell({required this.student, required this.onTap});
 
   final _StudentRecord student;
   final VoidCallback onTap;
@@ -1613,10 +1543,7 @@ class _StudentTableNameCell extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 13,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           children: [
             const CircleAvatar(
@@ -1717,13 +1644,9 @@ class _MobileStudentCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: _AttendanceBadge(value: student.attendance),
-              ),
+              Expanded(child: _AttendanceBadge(value: student.attendance)),
               const SizedBox(width: 8),
-              Expanded(
-                child: _AccountBadge(value: student.accountStatus),
-              ),
+              Expanded(child: _AccountBadge(value: student.accountStatus)),
             ],
           ),
           const SizedBox(height: 10),
@@ -1780,11 +1703,7 @@ class _AttendanceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Badge(
-      label: value,
-      color: color,
-      icon: Icons.fact_check_rounded,
-    );
+    return _Badge(label: value, color: color, icon: Icons.fact_check_rounded);
   }
 }
 
@@ -1815,11 +1734,7 @@ class _AccountBadge extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.label,
-    required this.color,
-    required this.icon,
-  });
+  const _Badge({required this.label, required this.color, required this.icon});
 
   final String label;
   final Color color;
@@ -1860,20 +1775,14 @@ class _Badge extends StatelessWidget {
 }
 
 class _LevelCountData {
-  const _LevelCountData({
-    required this.level,
-    required this.value,
-  });
+  const _LevelCountData({required this.level, required this.value});
 
   final String level;
   final String value;
 }
 
 class _LevelCountCard extends StatelessWidget {
-  const _LevelCountCard({
-    required this.level,
-    required this.value,
-  });
+  const _LevelCountCard({required this.level, required this.value});
 
   final String level;
   final String value;
@@ -1882,10 +1791,7 @@ class _LevelCountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -1918,10 +1824,7 @@ class _LevelCountCard extends StatelessWidget {
 }
 
 class _AttentionRow extends StatelessWidget {
-  const _AttentionRow({
-    required this.student,
-    required this.onTap,
-  });
+  const _AttentionRow({required this.student, required this.onTap});
 
   final _StudentRecord student;
   final VoidCallback onTap;
@@ -2004,11 +1907,7 @@ class _DetailRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: SchoolAdminPalette.primaryDark,
-            size: 19,
-          ),
+          Icon(icon, color: SchoolAdminPalette.primaryDark, size: 19),
           const SizedBox(width: 10),
           SizedBox(
             width: 120,
@@ -2042,38 +1941,37 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 45),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 46,
-            color: SchoolAdminPalette.textMuted,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 45),
+          child: const Column(
+            children: [
+              Icon(
+                Icons.search_off_rounded,
+                size: 46,
+                color: SchoolAdminPalette.textMuted,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'ไม่พบรายชื่อนักเรียน',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              Text(
+                'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
-          Text(
-            'ไม่พบรายชื่อนักเรียน',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          Text(
-            'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2140,9 +2038,7 @@ class _StudentRecord {
   final String lastLogin;
   final String note;
 
-  _StudentRecord copyWith({
-    String? accountStatus,
-  }) {
+  _StudentRecord copyWith({String? accountStatus}) {
     return _StudentRecord(
       id: id,
       studentCode: studentCode,

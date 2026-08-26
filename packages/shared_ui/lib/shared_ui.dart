@@ -6,3 +6,8 @@ export 'pages/role_selection_page.dart';
 export 'pages/parent_consent_page.dart';
 export 'pages/parent_link_review_page.dart';
 export 'pages/user_list_page.dart';
+export 'theme/role_colors.dart';
+export 'theme/role_theme.dart';
+export 'theme/app_button.dart';
+export 'theme/app_text_field.dart';
+export 'theme/app_search_field.dart';

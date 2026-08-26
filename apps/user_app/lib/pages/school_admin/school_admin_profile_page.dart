@@ -4,10 +4,7 @@ import 'package:shared_core/shared_core.dart';
 import '../../theme/school_admin_palette.dart';
 
 class SchoolAdminProfilePage extends StatefulWidget {
-  const SchoolAdminProfilePage({
-    super.key,
-    this.onBack,
-  });
+  const SchoolAdminProfilePage({super.key, this.onBack});
 
   final VoidCallback? onBack;
 
@@ -51,7 +48,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     final user = currentUserModel;
     if (user != null) {
       if (user.name.isNotEmpty) _fullNameController.text = user.name;
-      _displayNameController.text = user.role == UserRole.schoolAdmin ? 'ผู้ดูแลโรงเรียน' : user.role.name;
+      _displayNameController.text = user.role == UserRole.schoolAdmin
+          ? 'ผู้ดูแลโรงเรียน'
+          : user.role.name;
       if (user.email.isNotEmpty) _emailController.text = user.email;
     }
     _loadLogs();
@@ -62,12 +61,17 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 10);
       if (!mounted) return;
       setState(() {
-        _logs = logs.map((l) => _ProfileLog(
-          time: '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
-          action: l.action,
-          detail: l.detail.isNotEmpty ? l.detail : l.target,
-          type: 'success',
-        )).toList();
+        _logs = logs
+            .map(
+              (l) => _ProfileLog(
+                time:
+                    '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
+                action: l.action,
+                detail: l.detail.isNotEmpty ? l.detail : l.target,
+                type: 'success',
+              ),
+            )
+            .toList();
       });
     } catch (_) {}
   }
@@ -85,9 +89,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   }
 
   void _message(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _confirm({
@@ -100,10 +104,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text(title),
-          content: Text(
-            message,
-            style: const TextStyle(height: 1.45),
-          ),
+          content: Text(message, style: const TextStyle(height: 1.45)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -123,8 +124,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   }
 
   Future<void> _changeProfileImage() async {
-    final TextEditingController urlController =
-        TextEditingController(text: _profileImageUrl ?? '');
+    final TextEditingController urlController = TextEditingController(
+      text: _profileImageUrl ?? '',
+    );
 
     final String? result = await showDialog<String>(
       context: context,
@@ -209,14 +211,17 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
 
     final bool confirmed = await _confirm(
       title: 'ยืนยันการบันทึกโปรไฟล์',
-      message: 'ต้องการบันทึกข้อมูลโปรไฟล์ที่แก้ไขแล้วหรือไม่\n(หมายเหตุ: ระบบบันทึกข้อมูลโปรไฟล์เพิ่มเติมยังไม่เชื่อมต่อระบบหลังบ้าน ข้อมูลเพิ่มเติมจะไม่ถูกบันทึกจริง)',
+      message:
+          'ต้องการบันทึกข้อมูลโปรไฟล์ที่แก้ไขแล้วหรือไม่\n(หมายเหตุ: ระบบบันทึกข้อมูลโปรไฟล์เพิ่มเติมยังไม่เชื่อมต่อระบบหลังบ้าน ข้อมูลเพิ่มเติมจะไม่ถูกบันทึกจริง)',
     );
 
     if (!confirmed || !mounted) {
       return;
     }
 
-    _message('บันทึกข้อมูลโปรไฟล์แล้ว (ข้อมูลเพิ่มเติมยังไม่เชื่อมต่อระบบหลังบ้าน)');
+    _message(
+      'บันทึกข้อมูลโปรไฟล์แล้ว (ข้อมูลเพิ่มเติมยังไม่เชื่อมต่อระบบหลังบ้าน)',
+    );
   }
 
   Future<void> _changePassword() async {
@@ -233,10 +238,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               insetPadding: const EdgeInsets.all(16),
               title: const Text('เปลี่ยนรหัสผ่าน'),
@@ -384,22 +386,19 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        errorBuilder: (
-          BuildContext context,
-          Object error,
-          StackTrace? stackTrace,
-        ) {
-          return Container(
-            width: size,
-            height: size,
-            color: SchoolAdminPalette.primary,
-            child: Icon(
-              Icons.person_rounded,
-              size: size * 0.48,
-              color: Colors.white,
-            ),
-          );
-        },
+        errorBuilder:
+            (BuildContext context, Object error, StackTrace? stackTrace) {
+              return Container(
+                width: size,
+                height: size,
+                color: SchoolAdminPalette.primary,
+                child: Icon(
+                  Icons.person_rounded,
+                  size: size * 0.48,
+                  color: Colors.white,
+                ),
+              );
+            },
       ),
     );
   }
@@ -440,144 +439,136 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   }
 
   Widget _buildProfileHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final bool mobile = constraints.maxWidth < 700;
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final bool mobile = constraints.maxWidth < 700;
 
-          final Widget profile = Row(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
+              final Widget profile = Row(
                 children: [
-                  _profileAvatar(mobile ? 78 : 92),
-                  Positioned(
-                    right: -3,
-                    bottom: -3,
-                    child: Material(
-                      color: SchoolAdminPalette.primaryDark,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: _changeProfileImage,
-                        child: const SizedBox(
-                          width: 34,
-                          height: 34,
-                          child: Icon(
-                            Icons.camera_alt_rounded,
-                            size: 17,
-                            color: Colors.white,
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _profileAvatar(mobile ? 78 : 92),
+                      Positioned(
+                        right: -3,
+                        bottom: -3,
+                        child: Material(
+                          color: SchoolAdminPalette.primaryDark,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _changeProfileImage,
+                            child: const SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: Icon(
+                                Icons.camera_alt_rounded,
+                                size: 17,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _fullNameController.text,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: mobile ? 18 : 22,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _positionController.text,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: SchoolAdminPalette.primaryDark,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'AIoT Smart Lab • โรงเรียนตัวอย่าง',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _ProfileBadge(
-                          label: 'ผู้ดูแลโรงเรียน',
-                          color: SchoolAdminPalette.primaryDark,
+                        Text(
+                          _fullNameController.text,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: mobile ? 18 : 22,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
                         ),
-                        _ProfileBadge(
-                          label: 'พร้อมใช้งาน',
-                          color: SchoolAdminPalette.green,
+                        const SizedBox(height: 4),
+                        Text(
+                          _positionController.text,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: SchoolAdminPalette.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'AIoT Smart Lab • โรงเรียนตัวอย่าง',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Wrap(
+                          spacing: 7,
+                          runSpacing: 7,
+                          children: [
+                            _ProfileBadge(
+                              label: 'ผู้ดูแลโรงเรียน',
+                              color: SchoolAdminPalette.primaryDark,
+                            ),
+                            _ProfileBadge(
+                              label: 'พร้อมใช้งาน',
+                              color: SchoolAdminPalette.green,
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  ),
+                ],
+              );
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back_rounded),
-                label: const Text('กลับ'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _changeProfileImage,
-                icon: const Icon(Icons.image_rounded),
-                label: const Text('เปลี่ยนรูป'),
-              ),
-              FilledButton.icon(
-                onPressed: _saveProfile,
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('บันทึก'),
-              ),
-            ],
-          );
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: widget.onBack,
+                    icon: const Icon(Icons.arrow_back_rounded),
+                    label: const Text('กลับ'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _changeProfileImage,
+                    icon: const Icon(Icons.image_rounded),
+                    label: const Text('เปลี่ยนรูป'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _saveProfile,
+                    icon: const Icon(Icons.save_rounded),
+                    label: const Text('บันทึก'),
+                  ),
+                ],
+              );
 
-          if (mobile) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                profile,
-                const SizedBox(height: 16),
-                actions,
-              ],
-            );
-          }
+              if (mobile) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [profile, const SizedBox(height: 16), actions],
+                );
+              }
 
-          return Row(
-            children: [
-              Expanded(child: profile),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+              return Row(
+                children: [
+                  Expanded(child: profile),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -615,10 +606,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 950) {
           columns = 2;
@@ -650,10 +638,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       title: 'ข้อมูลส่วนตัว',
       subtitle: 'ข้อมูลที่ใช้สำหรับติดต่อและแสดงในระบบ',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final bool oneColumn = constraints.maxWidth < 700;
           final double width = oneColumn
               ? constraints.maxWidth
@@ -716,10 +701,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       title: 'ข้อมูลการทำงานและบัญชี',
       subtitle: 'ข้อมูลบทบาท ตำแหน่ง และหน่วยงานของผู้ใช้งาน',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final bool oneColumn = constraints.maxWidth < 700;
           final double width = oneColumn
               ? constraints.maxWidth
@@ -951,37 +933,36 @@ class _ProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              child,
+            ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 11.5,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1062,13 +1043,8 @@ class _ReadOnlyProfileField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(
-        minHeight: 58,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 10,
-      ),
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: SchoolAdminPalette.primarySoft,
         borderRadius: BorderRadius.circular(14),
@@ -1076,10 +1052,7 @@ class _ReadOnlyProfileField extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: SchoolAdminPalette.primaryDark,
-          ),
+          Icon(icon, color: SchoolAdminPalette.primaryDark),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1173,10 +1146,7 @@ class _ProfileSwitchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -1202,14 +1172,12 @@ class _ProfileActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color =
-        danger ? SchoolAdminPalette.red : SchoolAdminPalette.primaryDark;
+    final Color color = danger
+        ? SchoolAdminPalette.red
+        : SchoolAdminPalette.primaryDark;
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool mobile = constraints.maxWidth < 600;
 
         final Widget info = Row(
@@ -1264,9 +1232,7 @@ class _ProfileActionRow extends StatelessWidget {
                       child: OutlinedButton(
                         onPressed: onPressed,
                         style: danger
-                            ? OutlinedButton.styleFrom(
-                                foregroundColor: color,
-                              )
+                            ? OutlinedButton.styleFrom(foregroundColor: color)
                             : null,
                         child: Text(buttonText),
                       ),
@@ -1280,9 +1246,7 @@ class _ProfileActionRow extends StatelessWidget {
                     OutlinedButton(
                       onPressed: onPressed,
                       style: danger
-                          ? OutlinedButton.styleFrom(
-                              foregroundColor: color,
-                            )
+                          ? OutlinedButton.styleFrom(foregroundColor: color)
                           : null,
                       child: Text(buttonText),
                     ),
@@ -1315,10 +1279,7 @@ class _ProfileLogRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ProfileIconBox(
-            icon: Icons.history_rounded,
-            color: color,
-          ),
+          _ProfileIconBox(icon: Icons.history_rounded, color: color),
           const SizedBox(width: 10),
           Expanded(
             flex: 2,
@@ -1362,10 +1323,7 @@ class _ProfileLogRow extends StatelessWidget {
 }
 
 class _ProfileBadge extends StatelessWidget {
-  const _ProfileBadge({
-    required this.label,
-    required this.color,
-  });
+  const _ProfileBadge({required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -1373,10 +1331,7 @@ class _ProfileBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: color.withAlpha(15),
         borderRadius: BorderRadius.circular(99),
@@ -1395,10 +1350,7 @@ class _ProfileBadge extends StatelessWidget {
 }
 
 class _ProfileIconBox extends StatelessWidget {
-  const _ProfileIconBox({
-    required this.icon,
-    required this.color,
-  });
+  const _ProfileIconBox({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
@@ -1413,11 +1365,7 @@ class _ProfileIconBox extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withAlpha(70)),
       ),
-      child: Icon(
-        icon,
-        size: 20,
-        color: color,
-      ),
+      child: Icon(icon, size: 20, color: color),
     );
   }
 }

@@ -37,7 +37,8 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialEnergySummary != null || widget.initialWaterSummary != null) {
+    if (widget.initialEnergySummary != null ||
+        widget.initialWaterSummary != null) {
       _energySummary = widget.initialEnergySummary;
       _waterSummary = widget.initialWaterSummary;
       _energyTrend = widget.initialEnergyTrend ?? [];
@@ -51,7 +52,9 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   }
 
   Future<void> _loadData() async {
-    if (widget.initialEnergySummary != null || widget.initialWaterSummary != null) return;
+    if (widget.initialEnergySummary != null ||
+        widget.initialWaterSummary != null)
+      return;
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
@@ -150,7 +153,9 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
         Expanded(
           child: Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             color: Colors.amber.shade50,
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -163,7 +168,10 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                       const SizedBox(width: 8),
                       const Text(
                         'ไฟฟ้า',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -190,7 +198,9 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
         Expanded(
           child: Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             color: Colors.blue.shade50,
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -199,11 +209,18 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.water_drop, color: Colors.blue.shade700, size: 28),
+                      Icon(
+                        Icons.water_drop,
+                        color: Colors.blue.shade700,
+                        size: 28,
+                      ),
                       const SizedBox(width: 8),
                       const Text(
                         'น้ำประปา',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -271,7 +288,12 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
     );
   }
 
-  Widget _buildScoreBadge(String title, double score, String label, Color color) {
+  Widget _buildScoreBadge(
+    String title,
+    double score,
+    String label,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -288,7 +310,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
             children: [
               Text(
                 '${score.toStringAsFixed(0)}/100',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
@@ -299,7 +325,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                 ),
                 child: Text(
                   label,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
                 ),
               ),
             ],
@@ -333,7 +363,9 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
-                  child: Text('ยังไม่มีข้อมูลประวัติการใช้งานในช่วง 7 วันที่ผ่านมา'),
+                  child: Text(
+                    'ยังไม่มีข้อมูลประวัติการใช้งานในช่วง 7 วันที่ผ่านมา',
+                  ),
                 ),
               )
             else ...[
@@ -350,7 +382,10 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                         children: [
                           Text(
                             '${pt.value.toStringAsFixed(1)} kWh',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.amber),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber,
+                            ),
                           ),
                         ],
                       ),

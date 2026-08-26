@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_ui/shared_ui.dart';
 
 class SchoolAdminPalette {
   const SchoolAdminPalette._();
@@ -108,4 +109,23 @@ class SchoolAdminPalette {
   static List<BoxShadow> get cardShadow => const [];
 
   static List<BoxShadow> get smallShadow => const [];
+
+  // Design-system-unification (2026-08-26, ticket 01): the single place
+  // that feeds School Admin's existing colors into the shared,
+  // structure-only theme builder. Never add a new color value here —
+  // this only re-packages the constants already defined above.
+  static const RoleColors roleColors = RoleColors(
+    primary: primary,
+    onPrimary: onPrimary,
+    secondary: secondary,
+    background: background,
+    surface: surface,
+    border: border,
+    textPrimary: textPrimary,
+    textSecondary: textSecondary,
+    error: red,
+    success: green,
+  );
+
+  static ThemeData get theme => buildRoleTheme(roleColors);
 }

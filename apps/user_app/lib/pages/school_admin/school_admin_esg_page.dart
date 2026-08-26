@@ -29,7 +29,8 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialEnergyScore != null || widget.initialEnergySummary != null) {
+    if (widget.initialEnergyScore != null ||
+        widget.initialEnergySummary != null) {
       _energyScore = widget.initialEnergyScore;
       _waterScore = widget.initialWaterScore;
       _energySummary = widget.initialEnergySummary;
@@ -41,7 +42,9 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
   }
 
   Future<void> _loadData() async {
-    if (widget.initialEnergyScore != null || widget.initialEnergySummary != null) return;
+    if (widget.initialEnergyScore != null ||
+        widget.initialEnergySummary != null)
+      return;
     setState(() => _isLoading = true);
     try {
       final results = await Future.wait([
@@ -72,7 +75,8 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
     // Calculate combined score
     final eScore = _energyScore?.score ?? 0.0;
     final wScore = _waterScore?.score ?? 0.0;
-    final count = (_energyScore != null ? 1 : 0) + (_waterScore != null ? 1 : 0);
+    final count =
+        (_energyScore != null ? 1 : 0) + (_waterScore != null ? 1 : 0);
     final overallScore = count > 0 ? (eScore + wScore) / count : 0.0;
 
     String overallLabel = 'ดีมาก';
@@ -111,11 +115,15 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                     // Pillar Breakdown
                     const Text(
                       'การประเมินประสิทธิภาพรายด้าน (Environmental Pillars)',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     _buildPillarCard(
-                      title: 'ประสิทธิภาพการใช้พลังงานไฟฟ้า (Energy Efficiency)',
+                      title:
+                          'ประสิทธิภาพการใช้พลังงานไฟฟ้า (Energy Efficiency)',
                       icon: Icons.bolt,
                       color: Colors.amber.shade800,
                       score: eScore,
@@ -195,16 +203,16 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                 children: [
                   const Text(
                     'Green School Score',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green.shade700,
                           borderRadius: BorderRadius.circular(12),
@@ -257,11 +265,17 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                 Expanded(
                   child: Text(
                     title,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -324,7 +338,11 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
           const SizedBox(height: 8),
           Text(
             'คะแนน Green Score ด้านสิ่งแวดล้อม (Environmental) คำนวณจากข้อมูลมิเตอร์วัดการใช้ไฟฟ้าและน้ำประปาจริงในระบบ IoT สำหรับมิติการจัดการขยะ (Waste Management) และมิติสังคม/ธรรมาภิบาล (Social & Governance) ปัจจุบันยังไม่มีอุปกรณ์จัดเก็บข้อมูลอัตโนมัติ จึงไม่มีการแสดงผลตัวเลขประมาณการ',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade700,
+              height: 1.4,
+            ),
           ),
         ],
       ),

@@ -226,6 +226,17 @@ reference, but don't trust its per-role claims over this summary.
   messaging/meeting-request feature (deferred, see "Deferred Features"
   below).
 
+- **`school_admin`'s "นำเข้าข้อมูล" (bulk import) is now real, all 5 data
+  types, as of 2026-08-26** — was previously a facade (fake file picker,
+  hardcoded preview rows) that, for นักเรียน/ครูและบุคลากร, actually wrote
+  those hardcoded fake names into the real database on every click (found
+  live, fixed, see `docs/handoff/WORK_LOG.md`). Real `.xlsx`/`.xls`/`.csv`
+  parsing + public-CSV Google Sheets import, real per-row validation, and
+  new backend (`import_school_buildings_batch`/`import_school_rooms_batch`/
+  `import_school_devices_batch` in `20260826150000_school_admin_bulk_import.sql`
+  — buildings/rooms/devices had no create RPC at all before this).
+  Live-verified end-to-end for all 5 types with real fixture files.
+
 **Role model**: 6 roles as of 2026-08-25 (`technician` and
 `facility_manager` were merged into `super_admin`/`school_admin` — see
 the dated entry further down). **A single account can now hold more
@@ -828,6 +839,43 @@ retained, unreferenced, per the old-UI-file policy above.
 
 ## Where to look next
 
+- `.scratch/design-system-unification/issues/` — 7 tickets (2026-08-26)
+  to unify button/text-field/search-field *structure* across
+  school_admin, super_admin, executive, and parent, using teacher/
+  student's UI as the structural reference. Each role **keeps its own
+  existing colors** — structure-only, not a color rewrite; teacher/
+  student are never modified. **Ticket 01 (foundation) is done and
+  verified** as of 2026-08-26: `buildRoleTheme()`/`RoleColors`/
+  `AppButton`/`AppTextField`/`AppSearchField` live in
+  `packages/shared_ui/lib/theme/`, and every migrating role now has a
+  `roleColors`/`theme`/`roleTheme` getter built from its own existing
+  colors (`SchoolAdminPalette`, `AppPalette` ×2, new `ParentPalette`).
+  **Ticket 02 (School Admin home page, the pilot) is also done and
+  verified** as of 2026-08-26: the home page's only widget
+  (`_HomeDashboard`) is wrapped in `Theme(data: SchoolAdminPalette.theme,
+  child: ...)`, live-verified real data + real navigation still work,
+  and — critically — confirmed via screenshot that every *other*
+  School Admin page (e.g. the students page) is untouched, still
+  rendering with the old button/field structure. **Ticket 03 (School
+  Admin's other 18 pages) is done and verified** as of 2026-08-26: every
+  page's return in `school_admin_dashboard_page.dart`'s
+  `_buildCurrentPage()` switch is wrapped in a `_themed()` helper (except
+  the two shared_ui-owned pages, `UserListPage`/`ConsentPolicyAdminPage`,
+  correctly left out since they're reused by other roles); 5 redundant
+  bare `OutlineInputBorder()` overrides removed; 45 generic large
+  content-wrapper containers converted to `Card` across 13 files — small
+  chips/badges/stat tiles deliberately left at their original
+  size-appropriate radius (user's explicit call, see ticket 03 file) and
+  the 16 semantic button color overrides (red=delete, green=confirm,
+  etc.) deliberately left untouched since they're content, not
+  duplicated structure. Live-verified: logged in as school_admin,
+  clicked through home/buildings/teachers/students/alerts, confirmed
+  real seeded data + honest zero-states + working search-field filtering
+  (typed a query, list live-filtered, clear button worked) survived the
+  migration intact. Full school_admin test suite (22 tests) passes,
+  `flutter analyze` clean. → 04/05/06 (Super Admin/Executive/Parent,
+  each blocked by 02 only, not started) → 07 cleanup (blocked by
+  03-06).
 - `docs/handoff/DATABASE_SCHEMA.md` — every table + every RPC, generated live.
 - `supabase/seed.sql` — test data and accounts; also documents itself inline.
 - `supabase/migrations/` — read in filename (timestamp) order for schema history.

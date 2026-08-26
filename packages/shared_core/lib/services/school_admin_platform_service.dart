@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/super_admin_model.dart';
 import '../models/school_building_model.dart';
 import 'auth_service.dart';
+import 'school_import_service.dart' show BulkImportResult;
 
 class SchoolAdminPlatformService {
   SchoolAdminPlatformService({
@@ -210,6 +211,44 @@ class SchoolAdminPlatformService {
     return res
         .map((e) => SchoolAdminAuditLog.fromRow(Map<String, dynamic>.from(e as Map)))
         .toList();
+  }
+
+  /// Bulk-import buildings (real backend write — see import_school_buildings_batch)
+  Future<BulkImportResult> importBuildingsBatch(
+    List<Map<String, dynamic>> buildings,
+  ) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('import_school_buildings_batch', params: {
+      'p_token': token,
+      'p_buildings': buildings,
+    });
+    return BulkImportResult.fromJson(Map<String, dynamic>.from(res as Map));
+  }
+
+  /// Bulk-import rooms, each row referencing a building by its code
+  /// (see import_school_rooms_batch)
+  Future<BulkImportResult> importRoomsBatch(
+    List<Map<String, dynamic>> rooms,
+  ) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('import_school_rooms_batch', params: {
+      'p_token': token,
+      'p_rooms': rooms,
+    });
+    return BulkImportResult.fromJson(Map<String, dynamic>.from(res as Map));
+  }
+
+  /// Bulk-import devices — also used for ชุดฝึก (training kits), which are
+  /// just device rows sharing a kit_code (see import_school_devices_batch)
+  Future<BulkImportResult> importDevicesBatch(
+    List<Map<String, dynamic>> devices,
+  ) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('import_school_devices_batch', params: {
+      'p_token': token,
+      'p_devices': devices,
+    });
+    return BulkImportResult.fromJson(Map<String, dynamic>.from(res as Map));
   }
 }
 

@@ -105,7 +105,9 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
   Future<void> _loadTeachers() async {
     try {
       final users = await UserAdminService.getAllUsers();
-      final teacherUsers = users.where((u) => u.hasRole(UserRole.teacher)).toList();
+      final teacherUsers = users
+          .where((u) => u.hasRole(UserRole.teacher))
+          .toList();
       if (mounted) {
         setState(() {
           _teachers = teacherUsers.asMap().entries.map((entry) {
@@ -143,7 +145,8 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
     final String keyword = _searchController.text.trim().toLowerCase();
 
     return _teachers.where((_TeacherRecord teacher) {
-      final bool matchesSearch = keyword.isEmpty ||
+      final bool matchesSearch =
+          keyword.isEmpty ||
           teacher.fullName.toLowerCase().contains(keyword) ||
           teacher.teacherCode.toLowerCase().contains(keyword) ||
           teacher.email.toLowerCase().contains(keyword) ||
@@ -153,11 +156,13 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       final bool matchesRole =
           _selectedRole == 'ทุกบทบาท' || teacher.permission == _selectedRole;
 
-      final bool matchesBuilding = _selectedBuilding == 'ทุกอาคาร' ||
+      final bool matchesBuilding =
+          _selectedBuilding == 'ทุกอาคาร' ||
           teacher.building == _selectedBuilding ||
           teacher.buildingDuty == _selectedBuilding;
 
-      final bool matchesStatus = _selectedStatus == 'ทุกสถานะ' ||
+      final bool matchesStatus =
+          _selectedStatus == 'ทุกสถานะ' ||
           teacher.accountStatus == _selectedStatus;
 
       return matchesSearch && matchesRole && matchesBuilding && matchesStatus;
@@ -173,8 +178,8 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       _teachers.where((t) => t.buildingDuty != '-').length;
 
   int get _attentionCount => _teachers.where((t) {
-        return t.accountStatus == 'รอตรวจสอบ' || t.accountStatus == 'ระงับ';
-      }).length;
+    return t.accountStatus == 'รอตรวจสอบ' || t.accountStatus == 'ระงับ';
+  }).length;
 
   void _clearFilters() {
     setState(() {
@@ -186,9 +191,9 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openTeacherForm({
@@ -232,242 +237,231 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               insetPadding: const EdgeInsets.all(16),
               contentPadding: const EdgeInsets.fromLTRB(22, 12, 22, 8),
-              title: Text(
-                editing ? 'แก้ไขข้อมูลครู' : 'เพิ่มครูและบุคลากร',
-              ),
+              title: Text(editing ? 'แก้ไขข้อมูลครู' : 'เพิ่มครูและบุคลากร'),
               content: SizedBox(
                 width: 820,
                 child: SingleChildScrollView(
                   child: LayoutBuilder(
-                    builder: (
-                      BuildContext context,
-                      BoxConstraints constraints,
-                    ) {
-                      final bool oneColumn = constraints.maxWidth < 640;
-                      final double fieldWidth = oneColumn
-                          ? constraints.maxWidth
-                          : (constraints.maxWidth - 12) / 2;
+                    builder:
+                        (BuildContext context, BoxConstraints constraints) {
+                          final bool oneColumn = constraints.maxWidth < 640;
+                          final double fieldWidth = oneColumn
+                              ? constraints.maxWidth
+                              : (constraints.maxWidth - 12) / 2;
 
-                      return Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: codeController,
-                              decoration: const InputDecoration(
-                                labelText: 'รหัสครู / บุคลากร',
-                                hintText: 'เช่น TC-2569-011',
-                                prefixIcon: Icon(Icons.badge_rounded),
+                          return Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: codeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'รหัสครู / บุคลากร',
+                                    hintText: 'เช่น TC-2569-011',
+                                    prefixIcon: Icon(Icons.badge_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'ชื่อ–นามสกุล',
-                                prefixIcon: Icon(Icons.person_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: nameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'ชื่อ–นามสกุล',
+                                    prefixIcon: Icon(Icons.person_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: emailController,
-                              decoration: const InputDecoration(
-                                labelText: 'อีเมล',
-                                prefixIcon: Icon(Icons.email_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: emailController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'อีเมล',
+                                    prefixIcon: Icon(Icons.email_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: phoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: 'เบอร์โทรศัพท์',
-                                prefixIcon: Icon(Icons.phone_rounded),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: TextField(
+                                  controller: phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: const InputDecoration(
+                                    labelText: 'เบอร์โทรศัพท์',
+                                    prefixIcon: Icon(Icons.phone_rounded),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'ฝ่ายงาน',
-                              icon: Icons.account_tree_rounded,
-                              value: division,
-                              items: _divisions,
-                              onChanged: (String value) {
-                                setDialogState(() {
-                                  division = value;
-                                });
-                              },
-                            ),
-                          ),
-                          if (division == 'ฝ่ายวิชาการ')
-                            SizedBox(
-                              width: fieldWidth,
-                              child: _TeacherDialogDropdown(
-                                label: 'กลุ่มสาระ / หมวดวิชา',
-                                icon: Icons.menu_book_rounded,
-                                value: academicSubject,
-                                items: _academicSubjects,
-                                onChanged: (String value) {
-                                  setDialogState(() {
-                                    academicSubject = value;
-                                  });
-                                },
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'ฝ่ายงาน',
+                                  icon: Icons.account_tree_rounded,
+                                  value: division,
+                                  items: _divisions,
+                                  onChanged: (String value) {
+                                    setDialogState(() {
+                                      division = value;
+                                    });
+                                  },
+                                ),
                               ),
-                            ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'ตำแหน่งหลัก',
-                              icon: Icons.work_outline_rounded,
-                              value: mainRole,
-                              items: const [
-                                'ครูผู้สอน',
-                                'หัวหน้ากลุ่มสาระ',
-                                'ครูแนะแนว',
-                                'หัวหน้าฝ่ายปกครอง',
-                                'เจ้าหน้าที่ประชาสัมพันธ์',
-                                'เจ้าหน้าที่ทะเบียน',
-                                'หัวหน้างานบุคคล',
-                                'เจ้าหน้าที่บริหารทั่วไป',
-                                'ฝ่ายบริหาร',
-                                'เจ้าหน้าที่',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => mainRole = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'ครูประจำชั้น',
-                              icon: Icons.co_present_rounded,
-                              value: homeroom,
-                              items: const [
-                                '-',
-                                'ม.1/1',
-                                'ม.1/2',
-                                'ม.2/1',
-                                'ม.2/2',
-                                'ม.3/1',
-                                'ม.3/2',
-                                'ม.4/1',
-                                'ม.4/2',
-                                'ม.5/1',
-                                'ม.5/2',
-                                'ม.6/1',
-                                'ม.6/2',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => homeroom = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'อาคารที่ทำงานหลัก',
-                              icon: Icons.apartment_rounded,
-                              value: building,
-                              items: const [
-                                'อาคารเรียน A',
-                                'อาคารเรียน B',
-                                'อาคารปฏิบัติการ',
-                                'อาคารอำนวยการ',
-                                'อาคารกีฬา',
-                                'โรงอาหาร',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => building = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'ครูประจำอาคาร',
-                              icon: Icons.engineering_rounded,
-                              value: buildingDuty,
-                              items: const [
-                                '-',
-                                'อาคารเรียน A',
-                                'อาคารเรียน B',
-                                'อาคารปฏิบัติการ',
-                                'อาคารอำนวยการ',
-                                'อาคารกีฬา',
-                                'โรงอาหาร',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => buildingDuty = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'สิทธิ์ในระบบ',
-                              icon: Icons.security_rounded,
-                              value: permission,
-                              items: const [
-                                'ครูผู้สอน',
-                                'ครูประจำชั้น',
-                                'ครูประจำอาคาร',
-                                'ฝ่ายบริหาร',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => permission = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _TeacherDialogDropdown(
-                              label: 'สถานะบัญชี',
-                              icon: Icons.verified_user_rounded,
-                              value: accountStatus,
-                              items: const [
-                                'ใช้งาน',
-                                'รอตรวจสอบ',
-                                'ระงับ',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => accountStatus = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: oneColumn
-                                ? constraints.maxWidth
-                                : constraints.maxWidth,
-                            child: TextField(
-                              controller: noteController,
-                              minLines: 2,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: 'หมายเหตุ',
-                                prefixIcon: Icon(Icons.notes_rounded),
+                              if (division == 'ฝ่ายวิชาการ')
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: _TeacherDialogDropdown(
+                                    label: 'กลุ่มสาระ / หมวดวิชา',
+                                    icon: Icons.menu_book_rounded,
+                                    value: academicSubject,
+                                    items: _academicSubjects,
+                                    onChanged: (String value) {
+                                      setDialogState(() {
+                                        academicSubject = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'ตำแหน่งหลัก',
+                                  icon: Icons.work_outline_rounded,
+                                  value: mainRole,
+                                  items: const [
+                                    'ครูผู้สอน',
+                                    'หัวหน้ากลุ่มสาระ',
+                                    'ครูแนะแนว',
+                                    'หัวหน้าฝ่ายปกครอง',
+                                    'เจ้าหน้าที่ประชาสัมพันธ์',
+                                    'เจ้าหน้าที่ทะเบียน',
+                                    'หัวหน้างานบุคคล',
+                                    'เจ้าหน้าที่บริหารทั่วไป',
+                                    'ฝ่ายบริหาร',
+                                    'เจ้าหน้าที่',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => mainRole = value);
+                                  },
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'ครูประจำชั้น',
+                                  icon: Icons.co_present_rounded,
+                                  value: homeroom,
+                                  items: const [
+                                    '-',
+                                    'ม.1/1',
+                                    'ม.1/2',
+                                    'ม.2/1',
+                                    'ม.2/2',
+                                    'ม.3/1',
+                                    'ม.3/2',
+                                    'ม.4/1',
+                                    'ม.4/2',
+                                    'ม.5/1',
+                                    'ม.5/2',
+                                    'ม.6/1',
+                                    'ม.6/2',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => homeroom = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'อาคารที่ทำงานหลัก',
+                                  icon: Icons.apartment_rounded,
+                                  value: building,
+                                  items: const [
+                                    'อาคารเรียน A',
+                                    'อาคารเรียน B',
+                                    'อาคารปฏิบัติการ',
+                                    'อาคารอำนวยการ',
+                                    'อาคารกีฬา',
+                                    'โรงอาหาร',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => building = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'ครูประจำอาคาร',
+                                  icon: Icons.engineering_rounded,
+                                  value: buildingDuty,
+                                  items: const [
+                                    '-',
+                                    'อาคารเรียน A',
+                                    'อาคารเรียน B',
+                                    'อาคารปฏิบัติการ',
+                                    'อาคารอำนวยการ',
+                                    'อาคารกีฬา',
+                                    'โรงอาหาร',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => buildingDuty = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'สิทธิ์ในระบบ',
+                                  icon: Icons.security_rounded,
+                                  value: permission,
+                                  items: const [
+                                    'ครูผู้สอน',
+                                    'ครูประจำชั้น',
+                                    'ครูประจำอาคาร',
+                                    'ฝ่ายบริหาร',
+                                  ],
+                                  onChanged: (String value) {
+                                    setDialogState(() => permission = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: fieldWidth,
+                                child: _TeacherDialogDropdown(
+                                  label: 'สถานะบัญชี',
+                                  icon: Icons.verified_user_rounded,
+                                  value: accountStatus,
+                                  items: const ['ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
+                                  onChanged: (String value) {
+                                    setDialogState(() => accountStatus = value);
+                                  },
+                                ),
+                              ),
+                              SizedBox(
+                                width: oneColumn
+                                    ? constraints.maxWidth
+                                    : constraints.maxWidth,
+                                child: TextField(
+                                  controller: noteController,
+                                  minLines: 2,
+                                  maxLines: 3,
+                                  decoration: const InputDecoration(
+                                    labelText: 'หมายเหตุ',
+                                    prefixIcon: Icon(Icons.notes_rounded),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                   ),
                 ),
               ),
@@ -483,15 +477,14 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
                     final String email = emailController.text.trim();
 
                     if (code.isEmpty || name.isEmpty || email.isEmpty) {
-                      _showMessage(
-                        'กรุณากรอกรหัส ชื่อ และอีเมลให้ครบ',
-                      );
+                      _showMessage('กรุณากรอกรหัส ชื่อ และอีเมลให้ครบ');
                       return;
                     }
 
                     Navigator.of(dialogContext).pop(
                       _TeacherRecord(
-                        id: teacher?.id ??
+                        id:
+                            teacher?.id ??
                             'teacher-${DateTime.now().millisecondsSinceEpoch}',
                         teacherCode: code,
                         fullName: name,
@@ -516,9 +509,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
                   icon: Icon(
                     editing ? Icons.save_rounded : Icons.person_add_rounded,
                   ),
-                  label: Text(
-                    editing ? 'บันทึกการแก้ไข' : 'เพิ่มบุคลากร',
-                  ),
+                  label: Text(editing ? 'บันทึกการแก้ไข' : 'เพิ่มบุคลากร'),
                 ),
               ],
             );
@@ -557,9 +548,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('ลบครูและบุคลากร'),
-          content: Text(
-            'ต้องการลบ ${teacher.fullName} ออกจากระบบหรือไม่',
-          ),
+          content: Text('ต้องการลบ ${teacher.fullName} ออกจากระบบหรือไม่'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -590,8 +579,9 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
     final int index = _teachers.indexWhere((t) => t.id == teacher.id);
     if (index < 0) return;
 
-    final String nextStatus =
-        teacher.accountStatus == 'ระงับ' ? 'ใช้งาน' : 'ระงับ';
+    final String nextStatus = teacher.accountStatus == 'ระงับ'
+        ? 'ใช้งาน'
+        : 'ระงับ';
 
     setState(() {
       _teachers[index] = teacher.copyWith(accountStatus: nextStatus);
@@ -613,147 +603,146 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: SchoolAdminPalette.border),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const CircleAvatar(
-                        radius: 28,
-                        backgroundColor: SchoolAdminPalette.primarySoft,
-                        child: Icon(
-                          Icons.badge_rounded,
-                          color: SchoolAdminPalette.primaryDark,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              teacher.fullName,
-                              style: const TextStyle(
-                                fontSize: 21,
-                                fontWeight: FontWeight.w900,
-                                color: SchoolAdminPalette.textPrimary,
-                              ),
+                      Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 28,
+                            backgroundColor: SchoolAdminPalette.primarySoft,
+                            child: Icon(
+                              Icons.badge_rounded,
+                              color: SchoolAdminPalette.primaryDark,
                             ),
-                            Text(
-                              '${teacher.teacherCode} • ${teacher.department}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: SchoolAdminPalette.textSecondary,
-                              ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  teacher.fullName,
+                                  style: const TextStyle(
+                                    fontSize: 21,
+                                    fontWeight: FontWeight.w900,
+                                    color: SchoolAdminPalette.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  '${teacher.teacherCode} • ${teacher.department}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: SchoolAdminPalette.textSecondary,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                      const SizedBox(height: 18),
+                      _TeacherDetailRow(
+                        icon: Icons.email_rounded,
+                        label: 'อีเมล',
+                        value: teacher.email,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.phone_rounded,
+                        label: 'เบอร์โทร',
+                        value: teacher.phone,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.account_tree_rounded,
+                        label: 'ฝ่ายงาน',
+                        value: _divisionFromDepartment(teacher.department),
+                      ),
+                      if (_divisionFromDepartment(teacher.department) ==
+                          'ฝ่ายวิชาการ')
+                        _TeacherDetailRow(
+                          icon: Icons.menu_book_rounded,
+                          label: 'กลุ่มสาระ',
+                          value: _subjectFromDepartment(teacher.department),
+                        ),
+                      _TeacherDetailRow(
+                        icon: Icons.work_outline_rounded,
+                        label: 'ตำแหน่งหลัก',
+                        value: teacher.mainRole,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.co_present_rounded,
+                        label: 'ครูประจำชั้น',
+                        value: teacher.homeroom,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.apartment_rounded,
+                        label: 'อาคารหลัก',
+                        value: teacher.building,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.engineering_rounded,
+                        label: 'ครูประจำอาคาร',
+                        value: teacher.buildingDuty,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.security_rounded,
+                        label: 'สิทธิ์ในระบบ',
+                        value: teacher.permission,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.verified_user_rounded,
+                        label: 'สถานะบัญชี',
+                        value: teacher.accountStatus,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.schedule_rounded,
+                        label: 'เข้าใช้ล่าสุด',
+                        value: teacher.lastLogin,
+                      ),
+                      _TeacherDetailRow(
+                        icon: Icons.notes_rounded,
+                        label: 'หมายเหตุ',
+                        value: teacher.note,
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                _showMessage(
+                                  'ส่งคำขอตั้งรหัสผ่านใหม่ให้ ${teacher.fullName} แล้ว',
+                                );
+                              },
+                              icon: const Icon(Icons.password_rounded),
+                              label: const Text('ตั้งรหัสผ่านใหม่'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(sheetContext).pop();
+                                _openTeacherForm(teacher: teacher);
+                              },
+                              icon: const Icon(Icons.edit_rounded),
+                              label: const Text('แก้ไขข้อมูล'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
-                  _TeacherDetailRow(
-                    icon: Icons.email_rounded,
-                    label: 'อีเมล',
-                    value: teacher.email,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.phone_rounded,
-                    label: 'เบอร์โทร',
-                    value: teacher.phone,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.account_tree_rounded,
-                    label: 'ฝ่ายงาน',
-                    value: _divisionFromDepartment(teacher.department),
-                  ),
-                  if (_divisionFromDepartment(teacher.department) ==
-                      'ฝ่ายวิชาการ')
-                    _TeacherDetailRow(
-                      icon: Icons.menu_book_rounded,
-                      label: 'กลุ่มสาระ',
-                      value: _subjectFromDepartment(teacher.department),
-                    ),
-                  _TeacherDetailRow(
-                    icon: Icons.work_outline_rounded,
-                    label: 'ตำแหน่งหลัก',
-                    value: teacher.mainRole,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.co_present_rounded,
-                    label: 'ครูประจำชั้น',
-                    value: teacher.homeroom,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.apartment_rounded,
-                    label: 'อาคารหลัก',
-                    value: teacher.building,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.engineering_rounded,
-                    label: 'ครูประจำอาคาร',
-                    value: teacher.buildingDuty,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.security_rounded,
-                    label: 'สิทธิ์ในระบบ',
-                    value: teacher.permission,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.verified_user_rounded,
-                    label: 'สถานะบัญชี',
-                    value: teacher.accountStatus,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.schedule_rounded,
-                    label: 'เข้าใช้ล่าสุด',
-                    value: teacher.lastLogin,
-                  ),
-                  _TeacherDetailRow(
-                    icon: Icons.notes_rounded,
-                    label: 'หมายเหตุ',
-                    value: teacher.note,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _showMessage(
-                              'ส่งคำขอตั้งรหัสผ่านใหม่ให้ ${teacher.fullName} แล้ว',
-                            );
-                          },
-                          icon: const Icon(Icons.password_rounded),
-                          label: const Text('ตั้งรหัสผ่านใหม่'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _openTeacherForm(teacher: teacher);
-                          },
-                          icon: const Icon(Icons.edit_rounded),
-                          label: const Text('แก้ไขข้อมูล'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -836,98 +825,90 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.groups_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.groups_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                    ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ครูและบุคลากร',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'เพิ่มและแก้ไขบุคลากร กำหนดครูประจำชั้น ครูประจำอาคาร สิทธิ์การใช้งาน และตรวจสอบสถานะบัญชี',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _showMessage(
+                        'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อบุคลากรจากไฟล์',
+                      );
+                    },
+                    icon: const Icon(Icons.upload_file_rounded),
+                    label: const Text('นำเข้ารายชื่อ'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _openTeacherForm(),
+                    icon: const Icon(Icons.person_add_alt_1_rounded),
+                    label: const Text('เพิ่มบุคลากร'),
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ครูและบุคลากร',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'เพิ่มและแก้ไขบุคลากร กำหนดครูประจำชั้น ครูประจำอาคาร สิทธิ์การใช้งาน และตรวจสอบสถานะบัญชี',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  children: [title, const SizedBox(height: 16), actions],
+                );
+              }
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage(
-                    'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อบุคลากรจากไฟล์',
-                  );
-                },
-                icon: const Icon(Icons.upload_file_rounded),
-                label: const Text('นำเข้ารายชื่อ'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _openTeacherForm(),
-                icon: const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('เพิ่มบุคลากร'),
-              ),
-            ],
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 16),
-                actions,
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -965,10 +946,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 1050) columns = 2;
         if (constraints.maxWidth < 520) columns = 2;
@@ -1043,10 +1021,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       subtitle:
           'เลือกฝ่ายที่ต้องการก่อน แล้วกดเข้าไปดูรายชื่อ รายละเอียด และแก้ไขบุคลากรในฝ่ายนั้น',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 3;
 
           if (constraints.maxWidth < 900) {
@@ -1196,10 +1171,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       title: 'จัดการได้อย่างรวดเร็ว',
       subtitle: 'รวมงานที่แอดมินโรงเรียนใช้บ่อยไว้ในจุดเดียว',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 4;
           if (constraints.maxWidth < 900) columns = 2;
           if (constraints.maxWidth < 520) columns = 1;
@@ -1228,10 +1200,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       title: 'การมอบหมายหน้าที่',
       subtitle: 'ตรวจสอบครูประจำชั้น ครูประจำอาคาร และสิทธิ์ที่เกี่ยวข้อง',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final List<_AssignmentData> items = [
             _AssignmentData(
               title: 'ครูประจำชั้น',
@@ -1286,10 +1255,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       title: 'ค้นหาและกรองรายชื่อ',
       subtitle: 'ค้นหาได้จากชื่อ รหัส อีเมล เบอร์โทร หรือกลุ่มสาระ',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final Widget search = TextField(
             controller: _searchController,
             onChanged: (_) => setState(() {}),
@@ -1343,12 +1309,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
           final Widget status = _TeacherFilterDropdown(
             label: 'สถานะบัญชี',
             value: _selectedStatus,
-            items: const [
-              'ทุกสถานะ',
-              'ใช้งาน',
-              'รอตรวจสอบ',
-              'ระงับ',
-            ],
+            items: const ['ทุกสถานะ', 'ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
             onChanged: (String value) {
               setState(() => _selectedStatus = value);
             },
@@ -1409,10 +1370,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       child: teachers.isEmpty
           ? const _TeacherEmptyState()
           : LayoutBuilder(
-              builder: (
-                BuildContext context,
-                BoxConstraints constraints,
-              ) {
+              builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 1080) {
                   return _DesktopTeacherTable(
                     teachers: teachers,
@@ -1448,59 +1406,56 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
 
   Widget _buildBottomOverview() {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final Widget departments = _TeacherSectionCard(
           title: 'กลุ่มสาระในฝ่ายวิชาการ',
           subtitle: 'กดกลุ่มสาระเพื่อเปิดรายชื่อครูในหมวดนั้นโดยตรง',
           child: LayoutBuilder(
-            builder: (
-              BuildContext context,
-              BoxConstraints departmentConstraints,
-            ) {
-              int columns = 3;
+            builder:
+                (BuildContext context, BoxConstraints departmentConstraints) {
+                  int columns = 3;
 
-              if (departmentConstraints.maxWidth < 620) {
-                columns = 2;
-              }
+                  if (departmentConstraints.maxWidth < 620) {
+                    columns = 2;
+                  }
 
-              if (departmentConstraints.maxWidth < 270) {
-                columns = 1;
-              }
+                  if (departmentConstraints.maxWidth < 270) {
+                    columns = 1;
+                  }
 
-              const double spacing = 8;
-              final double cardWidth =
-                  (departmentConstraints.maxWidth - ((columns - 1) * spacing)) /
+                  const double spacing = 8;
+                  final double cardWidth =
+                      (departmentConstraints.maxWidth -
+                          ((columns - 1) * spacing)) /
                       columns;
 
-              final List<_DepartmentData> departments =
-                  _academicSubjects.map((String subject) {
-                return _DepartmentData(
-                  label: subject,
-                  value: '${_countSubject(subject)}',
-                );
-              }).toList();
+                  final List<_DepartmentData> departments = _academicSubjects
+                      .map((String subject) {
+                        return _DepartmentData(
+                          label: subject,
+                          value: '${_countSubject(subject)}',
+                        );
+                      })
+                      .toList();
 
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: departments.map((_DepartmentData item) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _DepartmentChip(
-                      label: item.label,
-                      value: item.value,
-                      onTap: () => _openDivisionBrowser(
-                        'ฝ่ายวิชาการ',
-                        initialSubject: item.label,
-                      ),
-                    ),
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: departments.map((_DepartmentData item) {
+                      return SizedBox(
+                        width: cardWidth,
+                        child: _DepartmentChip(
+                          label: item.label,
+                          value: item.value,
+                          onTap: () => _openDivisionBrowser(
+                            'ฝ่ายวิชาการ',
+                            initialSubject: item.label,
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
-              );
-            },
+                },
           ),
         );
 
@@ -1534,11 +1489,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
 
         if (constraints.maxWidth < 900) {
           return Column(
-            children: [
-              departments,
-              const SizedBox(height: 14),
-              attentionCard,
-            ],
+            children: [departments, const SizedBox(height: 14), attentionCard],
           );
         }
 
@@ -1563,10 +1514,7 @@ class _TeacherSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
         return Container(
@@ -1619,10 +1567,7 @@ class _TeacherSummaryCard extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _TeacherIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _TeacherIconBox(icon: data.icon, color: data.color),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1817,37 +1762,36 @@ class _TeacherSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              child,
+            ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1878,11 +1822,7 @@ class _TeacherFilterDropdown extends StatelessWidget {
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -1912,20 +1852,14 @@ class _TeacherDialogDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-      ),
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
           isDense: true,
           items: items.map((String item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
-            );
+            return DropdownMenuItem<String>(value: item, child: Text(item));
           }).toList(),
           onChanged: (String? newValue) {
             if (newValue != null) onChanged(newValue);
@@ -2176,14 +2110,10 @@ class _MobileTeacherCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: _TeacherRoleBadge(value: teacher.permission),
-              ),
+              Expanded(child: _TeacherRoleBadge(value: teacher.permission)),
               const SizedBox(width: 8),
               Expanded(
-                child: _TeacherAccountBadge(
-                  value: teacher.accountStatus,
-                ),
+                child: _TeacherAccountBadge(value: teacher.accountStatus),
               ),
             ],
           ),
@@ -2375,16 +2305,9 @@ class _TeacherIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withAlpha(25),
         borderRadius: BorderRadius.circular(compact ? 14 : 16),
-        border: Border.all(
-          color: color.withAlpha(82),
-          width: 1.1,
-        ),
+        border: Border.all(color: color.withAlpha(82), width: 1.1),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: compact ? 22 : 24,
-      ),
+      child: Icon(icon, color: color, size: compact ? 22 : 24),
     );
   }
 }
@@ -2412,11 +2335,7 @@ class _TeacherDetailRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: SchoolAdminPalette.primaryDark,
-            size: 19,
-          ),
+          Icon(icon, color: SchoolAdminPalette.primaryDark, size: 19),
           const SizedBox(width: 10),
           SizedBox(
             width: 120,
@@ -2446,10 +2365,7 @@ class _TeacherDetailRow extends StatelessWidget {
 }
 
 class _DepartmentData {
-  const _DepartmentData({
-    required this.label,
-    required this.value,
-  });
+  const _DepartmentData({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -2476,13 +2392,8 @@ class _DepartmentChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          constraints: const BoxConstraints(
-            minHeight: 92,
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
+          constraints: const BoxConstraints(minHeight: 92),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: SchoolAdminPalette.border),
@@ -2526,10 +2437,7 @@ class _DepartmentChip extends StatelessWidget {
 }
 
 class _TeacherAttentionRow extends StatelessWidget {
-  const _TeacherAttentionRow({
-    required this.teacher,
-    required this.onTap,
-  });
+  const _TeacherAttentionRow({required this.teacher, required this.onTap});
 
   final _TeacherRecord teacher;
   final VoidCallback onTap;
@@ -2594,38 +2502,37 @@ class _TeacherEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 45),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 46,
-            color: SchoolAdminPalette.textMuted,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 45),
+          child: const Column(
+            children: [
+              Icon(
+                Icons.search_off_rounded,
+                size: 46,
+                color: SchoolAdminPalette.textMuted,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'ไม่พบรายชื่อครูและบุคลากร',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              Text(
+                'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
-          Text(
-            'ไม่พบรายชื่อครูและบุคลากร',
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          Text(
-            'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
-            style: TextStyle(
-              fontSize: 11.5,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2648,10 +2555,7 @@ class _DivisionViewData {
 }
 
 class _DivisionOverviewCard extends StatelessWidget {
-  const _DivisionOverviewCard({
-    required this.data,
-    required this.onTap,
-  });
+  const _DivisionOverviewCard({required this.data, required this.onTap});
 
   final _DivisionViewData data;
   final VoidCallback onTap;
@@ -2669,9 +2573,7 @@ class _DivisionOverviewCard extends StatelessWidget {
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: SchoolAdminPalette.border,
-            ),
+            border: Border.all(color: SchoolAdminPalette.border),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2679,11 +2581,7 @@ class _DivisionOverviewCard extends StatelessWidget {
               CircleAvatar(
                 radius: 23,
                 backgroundColor: data.color.withAlpha(18),
-                child: Icon(
-                  data.icon,
-                  size: 23,
-                  color: data.color,
-                ),
+                child: Icon(data.icon, size: 23, color: data.color),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -2788,13 +2686,16 @@ class _TeacherDivisionBrowserSheetState
   List<_TeacherRecord> get _filteredTeachers {
     final String keyword = _searchController.text.trim().toLowerCase();
 
-    final List<_TeacherRecord> items =
-        _divisionTeachers.where((_TeacherRecord teacher) {
-      final bool matchesSubject = widget.division != 'ฝ่ายวิชาการ' ||
+    final List<_TeacherRecord> items = _divisionTeachers.where((
+      _TeacherRecord teacher,
+    ) {
+      final bool matchesSubject =
+          widget.division != 'ฝ่ายวิชาการ' ||
           _selectedSubject == null ||
           widget.subjectForTeacher(teacher) == _selectedSubject;
 
-      final bool matchesSearch = keyword.isEmpty ||
+      final bool matchesSearch =
+          keyword.isEmpty ||
           teacher.fullName.toLowerCase().contains(keyword) ||
           teacher.teacherCode.toLowerCase().contains(keyword) ||
           teacher.email.toLowerCase().contains(keyword) ||
@@ -2827,9 +2728,7 @@ class _TeacherDivisionBrowserSheetState
         decoration: BoxDecoration(
           color: const Color(0xFFFCFAF7),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: SchoolAdminPalette.border,
-          ),
+          border: Border.all(color: SchoolAdminPalette.border),
         ),
         child: Column(
           children: [
@@ -2864,10 +2763,7 @@ class _TeacherDivisionBrowserSheetState
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 16, 16),
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final bool compact = constraints.maxWidth < 720;
 
           final Widget title = Row(
@@ -2930,11 +2826,7 @@ class _TeacherDivisionBrowserSheetState
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 12),
-                actions,
-              ],
+              children: [title, const SizedBox(height: 12), actions],
             );
           }
 
@@ -2952,9 +2844,7 @@ class _TeacherDivisionBrowserSheetState
 
   Widget _buildSummary() {
     final int active = _divisionTeachers
-        .where(
-          (_TeacherRecord teacher) => teacher.accountStatus == 'ใช้งาน',
-        )
+        .where((_TeacherRecord teacher) => teacher.accountStatus == 'ใช้งาน')
         .length;
 
     final int attention = _divisionTeachers
@@ -2966,10 +2856,7 @@ class _TeacherDivisionBrowserSheetState
         .length;
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 3;
 
         if (constraints.maxWidth < 640) {
@@ -3037,10 +2924,7 @@ class _TeacherDivisionBrowserSheetState
         ),
         const SizedBox(height: 10),
         LayoutBuilder(
-          builder: (
-            BuildContext context,
-            BoxConstraints constraints,
-          ) {
+          builder: (BuildContext context, BoxConstraints constraints) {
             int columns = 5;
 
             if (constraints.maxWidth < 950) {
@@ -3151,10 +3035,7 @@ class _TeacherDivisionBrowserSheetState
           _buildEmpty()
         else
           LayoutBuilder(
-            builder: (
-              BuildContext context,
-              BoxConstraints constraints,
-            ) {
+            builder: (BuildContext context, BoxConstraints constraints) {
               int columns = 2;
 
               if (constraints.maxWidth < 820) {
@@ -3190,52 +3071,46 @@ class _TeacherDivisionBrowserSheetState
   }
 
   Widget _buildEmpty() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 34,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.person_search_rounded,
+                size: 44,
+                color: SchoolAdminPalette.textMuted,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'ยังไม่พบบุคลากรตามเงื่อนไข',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'เปลี่ยนคำค้นหา เลือกกลุ่มสาระอื่น หรือเพิ่มบุคลากรใหม่',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: () => widget.onAdd(_selectedSubject),
+                icon: const Icon(Icons.person_add_alt_1_rounded),
+                label: const Text('เพิ่มบุคลากร'),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.person_search_rounded,
-            size: 44,
-            color: SchoolAdminPalette.textMuted,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'ยังไม่พบบุคลากรตามเงื่อนไข',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'เปลี่ยนคำค้นหา เลือกกลุ่มสาระอื่น หรือเพิ่มบุคลากรใหม่',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 11.5,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: () => widget.onAdd(_selectedSubject),
-            icon: const Icon(Icons.person_add_alt_1_rounded),
-            label: const Text('เพิ่มบุคลากร'),
-          ),
-        ],
       ),
     );
   }
@@ -3256,9 +3131,7 @@ class _DivisionMiniSummary {
 }
 
 class _DivisionMiniSummaryCard extends StatelessWidget {
-  const _DivisionMiniSummaryCard({
-    required this.data,
-  });
+  const _DivisionMiniSummaryCard({required this.data});
 
   final _DivisionMiniSummary data;
 
@@ -3270,20 +3143,14 @@ class _DivisionMiniSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 21,
             backgroundColor: data.color.withAlpha(16),
-            child: Icon(
-              data.icon,
-              size: 20,
-              color: data.color,
-            ),
+            child: Icon(data.icon, size: 20, color: data.color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -3423,9 +3290,7 @@ class _DivisionTeacherCard extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: SchoolAdminPalette.border,
-            ),
+            border: Border.all(color: SchoolAdminPalette.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3478,9 +3343,7 @@ class _DivisionTeacherCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: _statusColor.withAlpha(14),
                       borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: _statusColor.withAlpha(45),
-                      ),
+                      border: Border.all(color: _statusColor.withAlpha(45)),
                     ),
                     child: Text(
                       teacher.accountStatus,
@@ -3525,10 +3388,7 @@ class _DivisionTeacherCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onView,
-                      icon: const Icon(
-                        Icons.visibility_rounded,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.visibility_rounded, size: 18),
                       label: const Text('ดูข้อมูล'),
                     ),
                   ),
@@ -3536,10 +3396,7 @@ class _DivisionTeacherCard extends StatelessWidget {
                   Expanded(
                     child: FilledButton.icon(
                       onPressed: onEdit,
-                      icon: const Icon(
-                        Icons.edit_rounded,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.edit_rounded, size: 18),
                       label: const Text('แก้ไข'),
                     ),
                   ),
@@ -3569,11 +3426,7 @@ class _DivisionTeacherInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 17,
-          color: SchoolAdminPalette.primaryDark,
-        ),
+        Icon(icon, size: 17, color: SchoolAdminPalette.primaryDark),
         const SizedBox(width: 7),
         SizedBox(
           width: 72,
@@ -3684,9 +3537,7 @@ class _TeacherRecord {
   final String lastLogin;
   final String note;
 
-  _TeacherRecord copyWith({
-    String? accountStatus,
-  }) {
+  _TeacherRecord copyWith({String? accountStatus}) {
     return _TeacherRecord(
       id: id,
       teacherCode: teacherCode,

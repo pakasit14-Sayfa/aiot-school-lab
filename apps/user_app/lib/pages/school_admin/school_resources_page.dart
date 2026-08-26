@@ -3,11 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import 'theme/school_admin_palette.dart';
 
-enum _ResourcePeriod {
-  daily,
-  monthly,
-  yearly,
-}
+enum _ResourcePeriod { daily, monthly, yearly }
 
 class SchoolResourcesPage extends StatefulWidget {
   const SchoolResourcesPage({super.key});
@@ -124,20 +120,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
         'พ.ย.',
         'ธ.ค.',
       ],
-      values: [
-        342,
-        331,
-        355,
-        371,
-        389,
-        402,
-        396,
-        382,
-        368,
-        351,
-        340,
-        328,
-      ],
+      values: [342, 331, 355, 371, 389, 402, 396, 382, 368, 351, 340, 328],
       total: '4,455 m³',
       previous: '4,610 m³',
       change: 'ลดลง 3.4%',
@@ -174,9 +157,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -212,87 +195,79 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.energy_savings_leaf_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                  size: 26,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.energy_savings_leaf_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                      size: 26,
+                    ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'การใช้ทรัพยากร',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          'ติดตามการใช้ไฟฟ้า การใช้น้ำ และคุณภาพอากาศของโรงเรียน พร้อมดูแนวโน้มรายวัน รายเดือน และรายปี',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.5,
+                            fontWeight: FontWeight.w600,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final Widget action = OutlinedButton.icon(
+                onPressed: () {
+                  _showMessage('เตรียมข้อมูลสำหรับสร้างรายงานแล้ว');
+                },
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('ส่งออกรายงาน'),
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'การใช้ทรัพยากร',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 5),
-                    Text(
-                      'ติดตามการใช้ไฟฟ้า การใช้น้ำ และคุณภาพอากาศของโรงเรียน พร้อมดูแนวโน้มรายวัน รายเดือน และรายปี',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  children: [title, const SizedBox(height: 14), action],
+                );
+              }
 
-          final Widget action = OutlinedButton.icon(
-            onPressed: () {
-              _showMessage('เตรียมข้อมูลสำหรับสร้างรายงานแล้ว');
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  action,
+                ],
+              );
             },
-            icon: const Icon(Icons.download_rounded),
-            label: const Text('ส่งออกรายงาน'),
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 14),
-                action,
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              action,
-            ],
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -302,10 +277,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
       title: 'เลือกข้อมูลที่ต้องการดู',
       subtitle: 'เลือกช่วงเวลา อาคาร และห้อง ระบบจะเปลี่ยนกราฟให้ตามตัวเลือก',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final Widget period = _PeriodSelector(
             selected: _period,
             onChanged: (_ResourcePeriod value) {
@@ -413,10 +385,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 1050) columns = 2;
         if (constraints.maxWidth < 300) columns = 1;
@@ -441,10 +410,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 
   Widget _buildCharts() {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final Widget electricity = _UsageChartCard(
           title: 'กราฟการใช้ไฟฟ้า',
           subtitle: _electricity.caption,
@@ -471,11 +437,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 
         if (constraints.maxWidth < 1000) {
           return Column(
-            children: [
-              electricity,
-              const SizedBox(height: 14),
-              water,
-            ],
+            children: [electricity, const SizedBox(height: 14), water],
           );
         }
 
@@ -496,10 +458,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
       title: 'การใช้ทรัพยากรแยกตามอาคาร',
       subtitle: 'ช่วยดูว่าอาคารใดใช้ไฟหรือน้ำสูงกว่าส่วนอื่น',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           const List<_BuildingUsageData> items = [
             _BuildingUsageData(
               name: 'อาคารเรียน A',
@@ -555,10 +514,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 
   Widget _buildAlertsAndStatus() {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         const Widget alerts = _ResourceSectionCard(
           title: 'รายการที่ควรตรวจสอบ',
           subtitle: 'แจ้งเฉพาะค่าที่สูงผิดปกติหรือเซนเซอร์มีปัญหา',
@@ -613,13 +569,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
         );
 
         if (constraints.maxWidth < 900) {
-          return const Column(
-            children: [
-              alerts,
-              SizedBox(height: 14),
-              status,
-            ],
-          );
+          return const Column(children: [alerts, SizedBox(height: 14), status]);
         }
 
         return const Row(
@@ -636,10 +586,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 }
 
 class _PeriodSelector extends StatelessWidget {
-  const _PeriodSelector({
-    required this.selected,
-    required this.onChanged,
-  });
+  const _PeriodSelector({required this.selected, required this.onChanged});
 
   final _ResourcePeriod selected;
   final ValueChanged<_ResourcePeriod> onChanged;
@@ -743,11 +690,7 @@ class _ResourceDropdown extends StatelessWidget {
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -760,19 +703,14 @@ class _ResourceDropdown extends StatelessWidget {
 }
 
 class _ResourceSummaryCard extends StatelessWidget {
-  const _ResourceSummaryCard({
-    required this.data,
-  });
+  const _ResourceSummaryCard({required this.data});
 
   final _ResourceSummaryData data;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
         return Container(
@@ -829,10 +767,7 @@ class _ResourceSummaryCard extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _ResourceIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _ResourceIconBox(icon: data.icon, color: data.color),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -901,16 +836,9 @@ class _ResourceIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withAlpha(26),
         borderRadius: BorderRadius.circular(compact ? 14 : 16),
-        border: Border.all(
-          color: color.withAlpha(85),
-          width: 1.2,
-        ),
+        border: Border.all(color: color.withAlpha(85), width: 1.2),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: compact ? 21 : 24,
-      ),
+      child: Icon(icon, color: color, size: compact ? 21 : 24),
     );
   }
 }
@@ -940,81 +868,74 @@ class _UsageChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _ResourceIconBox(icon: icon, color: color),
-              const SizedBox(width: 11),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(17),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _ResourceIconBox(icon: icon, color: color),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: SchoolAdminPalette.textPrimary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: SchoolAdminPalette.textSecondary,
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: SchoolAdminPalette.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _MiniMetric(
-                label: 'ช่วงนี้',
-                value: total,
-                color: color,
-              ),
-              _MiniMetric(
-                label: 'ช่วงก่อนหน้า',
-                value: previous,
-                color: SchoolAdminPalette.textSecondary,
-              ),
-              _MiniMetric(
-                label: 'เปลี่ยนแปลง',
-                value: change,
-                color: change.contains('เพิ่ม')
-                    ? SchoolAdminPalette.red
-                    : SchoolAdminPalette.green,
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            height: 285,
-            width: double.infinity,
-            child: _SimpleLineChart(
-              labels: series.labels,
-              values: series.values,
-              color: color,
-              unit: unit,
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _MiniMetric(label: 'ช่วงนี้', value: total, color: color),
+                _MiniMetric(
+                  label: 'ช่วงก่อนหน้า',
+                  value: previous,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+                _MiniMetric(
+                  label: 'เปลี่ยนแปลง',
+                  value: change,
+                  color: change.contains('เพิ่ม')
+                      ? SchoolAdminPalette.red
+                      : SchoolAdminPalette.green,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              height: 285,
+              width: double.infinity,
+              child: _SimpleLineChart(
+                labels: series.labels,
+                values: series.values,
+                color: color,
+                unit: unit,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1157,11 +1078,7 @@ class _LineChartPainter extends CustomPainter {
     for (int i = 0; i <= horizontalLines; i++) {
       final double y = plot.top + (plot.height / horizontalLines) * i;
 
-      canvas.drawLine(
-        Offset(plot.left, y),
-        Offset(plot.right, y),
-        gridPaint,
-      );
+      canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), gridPaint);
 
       final double value =
           maxValue - ((maxValue - minValue) / horizontalLines) * i;
@@ -1169,8 +1086,8 @@ class _LineChartPainter extends CustomPainter {
       final String label = value >= 1000
           ? '${(value / 1000).toStringAsFixed(1)}k'
           : value >= 100
-              ? value.toStringAsFixed(0)
-              : value.toStringAsFixed(1);
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(1);
 
       textPainter.text = TextSpan(
         text: label,
@@ -1183,10 +1100,7 @@ class _LineChartPainter extends CustomPainter {
       textPainter.layout(maxWidth: 40);
       textPainter.paint(
         canvas,
-        Offset(
-          plot.left - textPainter.width - 7,
-          y - (textPainter.height / 2),
-        ),
+        Offset(plot.left - textPainter.width - 7, y - (textPainter.height / 2)),
       );
     }
 
@@ -1271,10 +1185,7 @@ class _LineChartPainter extends CustomPainter {
         x = size.width - textPainter.width;
       }
 
-      textPainter.paint(
-        canvas,
-        Offset(x, plot.bottom + 10),
-      );
+      textPainter.paint(canvas, Offset(x, plot.bottom + 10));
     }
 
     textPainter.text = TextSpan(
@@ -1286,10 +1197,7 @@ class _LineChartPainter extends CustomPainter {
       ),
     );
     textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(4, 1),
-    );
+    textPainter.paint(canvas, Offset(4, 1));
   }
 
   @override
@@ -1302,9 +1210,7 @@ class _LineChartPainter extends CustomPainter {
 }
 
 class _BuildingUsageCard extends StatelessWidget {
-  const _BuildingUsageCard({
-    required this.data,
-  });
+  const _BuildingUsageCard({required this.data});
 
   final _BuildingUsageData data;
 
@@ -1437,11 +1343,7 @@ class _ResourceAlertRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ResourceIconBox(
-            icon: icon,
-            color: color,
-            compact: true,
-          ),
+          _ResourceIconBox(icon: icon, color: color, compact: true),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1469,10 +1371,7 @@ class _ResourceAlertRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 9,
-              vertical: 6,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
             decoration: BoxDecoration(
               color: color.withAlpha(14),
               borderRadius: BorderRadius.circular(99),
@@ -1517,11 +1416,7 @@ class _SensorStatusRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ResourceIconBox(
-            icon: icon,
-            color: color,
-            compact: true,
-          ),
+          _ResourceIconBox(icon: icon, color: color, compact: true),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1570,37 +1465,36 @@ class _ResourceSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              child,
+            ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }

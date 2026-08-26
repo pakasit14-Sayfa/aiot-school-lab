@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_ui/shared_ui.dart';
 
 class AppPalette {
   // ชุดสีหลักจากภาพอ้างอิง
@@ -151,4 +152,26 @@ class AppPalette {
       ),
     );
   }
+
+  // Design-system-unification (2026-08-26, ticket 01): the single place
+  // that feeds Super Admin's existing colors into the shared,
+  // structure-only theme builder. Never add a new color value here —
+  // this only re-packages the constants already defined above. Use
+  // [roleTheme] (not the pre-existing [theme] getter above, which is
+  // Super Admin's own hand-written theme) once Super Admin migrates to
+  // the shared component system.
+  static const RoleColors roleColors = RoleColors(
+    primary: deepBlue,
+    onPrimary: Colors.white,
+    secondary: carnivalRed,
+    background: background,
+    surface: surface,
+    border: softBeige,
+    textPrimary: textPrimary,
+    textSecondary: textSecondary,
+    error: carnivalRed,
+    success: gardenGreen,
+  );
+
+  static ThemeData get roleTheme => buildRoleTheme(roleColors);
 }

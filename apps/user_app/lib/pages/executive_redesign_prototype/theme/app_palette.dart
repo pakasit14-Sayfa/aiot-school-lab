@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_ui/shared_ui.dart';
 
 class AppPalette {
   static const Color pageBg = Color(0xFFFBF7F9);
@@ -34,4 +35,23 @@ class AppPalette {
 
   static Color tint(Color color, double alpha) =>
       color.withAlpha((255 * alpha).round());
+
+  // Design-system-unification (2026-08-26, ticket 01): the single place
+  // that feeds Executive's existing colors into the shared,
+  // structure-only theme builder. Never add a new color value here —
+  // this only re-packages the constants already defined above.
+  static const RoleColors roleColors = RoleColors(
+    primary: primaryPink,
+    onPrimary: Colors.white,
+    secondary: primaryPinkDark,
+    background: pageBg,
+    surface: Colors.white,
+    border: border,
+    textPrimary: textDark,
+    textSecondary: textMuted,
+    error: danger,
+    success: success,
+  );
+
+  static ThemeData get roleTheme => buildRoleTheme(roleColors);
 }

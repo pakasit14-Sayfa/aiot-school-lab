@@ -39,42 +39,55 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 6);
       if (!mounted) return;
       setState(() {
-        _buildings = buildings.map((b) => _BuildingRecord(
-          id: b.id,
-          code: b.code,
-          name: b.name,
-          floors: b.floors,
-          rooms: b.roomsCount,
-          manager: b.managerName,
-          devices: b.devicesCount,
-          trainingKits: b.trainingKitsCount,
-          status: b.status == 'active' ? 'ใช้งาน' : 'ตรวจสอบ',
-          note: b.note,
-        )).toList();
+        _buildings = buildings
+            .map(
+              (b) => _BuildingRecord(
+                id: b.id,
+                code: b.code,
+                name: b.name,
+                floors: b.floors,
+                rooms: b.roomsCount,
+                manager: b.managerName,
+                devices: b.devicesCount,
+                trainingKits: b.trainingKitsCount,
+                status: b.status == 'active' ? 'ใช้งาน' : 'ตรวจสอบ',
+                note: b.note,
+              ),
+            )
+            .toList();
 
-        _rooms = rooms.map((r) => _RoomRecord(
-          id: r.id,
-          code: r.code,
-          name: r.name,
-          building: r.buildingName,
-          floor: r.floor,
-          type: r.roomType,
-          capacity: r.capacity,
-          teacher: r.teacherName,
-          devices: r.devicesCount,
-          trainingKits: r.trainingKitsCount,
-          status: r.status == 'active' ? 'พร้อมใช้งาน' : 'ตรวจสอบ',
-          resourceStatus: r.resourceStatus,
-        )).toList();
+        _rooms = rooms
+            .map(
+              (r) => _RoomRecord(
+                id: r.id,
+                code: r.code,
+                name: r.name,
+                building: r.buildingName,
+                floor: r.floor,
+                type: r.roomType,
+                capacity: r.capacity,
+                teacher: r.teacherName,
+                devices: r.devicesCount,
+                trainingKits: r.trainingKitsCount,
+                status: r.status == 'active' ? 'พร้อมใช้งาน' : 'ตรวจสอบ',
+                resourceStatus: r.resourceStatus,
+              ),
+            )
+            .toList();
 
-        _logs = logs.map((l) => _BuildingLogRecord(
-          time: '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
-          action: l.action,
-          target: l.target,
-          detail: l.detail.isNotEmpty ? l.detail : l.target,
-          by: l.actorName,
-          type: 'success',
-        )).toList();
+        _logs = logs
+            .map(
+              (l) => _BuildingLogRecord(
+                time:
+                    '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
+                action: l.action,
+                target: l.target,
+                detail: l.detail.isNotEmpty ? l.detail : l.target,
+                by: l.actorName,
+                type: 'success',
+              ),
+            )
+            .toList();
 
         _loading = false;
       });
@@ -102,7 +115,8 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     final String keyword = _searchController.text.trim().toLowerCase();
 
     return _rooms.where((_RoomRecord room) {
-      final bool matchesSearch = keyword.isEmpty ||
+      final bool matchesSearch =
+          keyword.isEmpty ||
           room.code.toLowerCase().contains(keyword) ||
           room.name.toLowerCase().contains(keyword) ||
           room.building.toLowerCase().contains(keyword) ||
@@ -134,9 +148,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       _buildings.fold<int>(0, (sum, item) => sum + item.devices);
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _clearFilters() {
@@ -146,6 +160,17 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       _selectedType = 'ทุกประเภท';
       _selectedStatus = 'ทุกสถานะ';
     });
+  }
+
+  Widget _buildDialogInputLabel(String label) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w800,
+        color: SchoolAdminPalette.textPrimary,
+      ),
+    );
   }
 
   Future<void> _openBuildingForm({_BuildingRecord? building}) async {
@@ -173,125 +198,381 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          insetPadding: const EdgeInsets.all(16),
-          title: Text(
-            editing ? 'แก้ไขข้อมูลอาคาร' : 'สร้างอาคารใหม่',
-          ),
-          content: SizedBox(
-            width: 720,
-            child: SingleChildScrollView(
-              child: StatefulBuilder(
-                builder: (
-                  BuildContext context,
-                  StateSetter setDialogState,
-                ) {
-                  return Column(
-                    children: [
-                      TextField(
-                        controller: codeController,
-                        decoration: const InputDecoration(
-                          labelText: 'รหัสอาคาร',
-                          hintText: 'เช่น BLD-C',
-                          prefixIcon: Icon(Icons.tag_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'ชื่ออาคาร',
-                          prefixIcon: Icon(Icons.apartment_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: floorsController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'จำนวนชั้น',
-                          prefixIcon: Icon(Icons.layers_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: managerController,
-                        decoration: const InputDecoration(
-                          labelText: 'ครูประจำอาคาร / ผู้รับผิดชอบ',
-                          prefixIcon: Icon(Icons.person_rounded),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _BuildingDialogDropdown(
-                        label: 'สถานะอาคาร',
-                        icon: Icons.verified_rounded,
-                        value: status,
-                        items: const [
-                          'ใช้งาน',
-                          'ตรวจสอบ',
-                          'ปิดใช้งาน',
-                        ],
-                        onChanged: (String value) {
-                          setDialogState(() => status = value);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: noteController,
-                        minLines: 2,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'หมายเหตุ',
-                          prefixIcon: Icon(Icons.notes_rounded),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+                side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('ยกเลิก'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                final String code = codeController.text.trim();
-                final String name = nameController.text.trim();
-                final int floors =
-                    int.tryParse(floorsController.text.trim()) ?? 0;
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: SchoolAdminPalette.primaryDark.withAlpha(
+                                  20,
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                editing
+                                    ? Icons.edit_location_alt_rounded
+                                    : Icons.add_business_rounded,
+                                color: SchoolAdminPalette.primaryDark,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    editing ? 'แก้ไขข้อมูลอาคาร' : 'สร้างอาคารใหม่',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      color: SchoolAdminPalette.textPrimary,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    editing
+                                        ? 'ปรับปรุงข้อมูลอาคาร จำนวนชั้น และผู้รับผิดชอบ'
+                                        : 'เพิ่มอาคารใหม่เข้าสู่ระบบเพื่อจัดการพื้นที่และห้องเรียน',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: SchoolAdminPalette.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFF3F4F6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
 
-                if (code.isEmpty || name.isEmpty || floors <= 0) {
-                  _showMessage('กรุณากรอกรหัส ชื่ออาคาร และจำนวนชั้น');
-                  return;
-                }
+                        // Form Inputs
+                        _buildDialogInputLabel('รหัสอาคาร'),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: codeController,
+                          decoration: InputDecoration(
+                            hintText: 'เช่น BLD-C',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: const Icon(Icons.tag_rounded, size: 20),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: SchoolAdminPalette.primaryDark,
+                                width: 1.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
-                Navigator.of(dialogContext).pop(
-                  _BuildingRecord(
-                    id: building?.id ??
-                        'building-${DateTime.now().millisecondsSinceEpoch}',
-                    code: code,
-                    name: name,
-                    floors: floors,
-                    rooms: building?.rooms ?? 0,
-                    manager: managerController.text.trim().isEmpty
-                        ? 'ยังไม่กำหนด'
-                        : managerController.text.trim(),
-                    devices: building?.devices ?? 0,
-                    trainingKits: building?.trainingKits ?? 0,
-                    status: status,
-                    note: noteController.text.trim().isEmpty
-                        ? 'ไม่มีหมายเหตุ'
-                        : noteController.text.trim(),
+                        _buildDialogInputLabel('ชื่ออาคาร'),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: nameController,
+                          decoration: InputDecoration(
+                            hintText: 'เช่น อาคารปฏิบัติการวิทยาศาสตร์',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: const Icon(
+                              Icons.apartment_rounded,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: SchoolAdminPalette.primaryDark,
+                                width: 1.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildDialogInputLabel('จำนวนชั้น'),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: floorsController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      hintText: 'เช่น 4',
+                                      filled: true,
+                                      fillColor: const Color(0xFFF8FAFC),
+                                      prefixIcon: const Icon(
+                                        Icons.layers_rounded,
+                                        size: 20,
+                                      ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFE2E8F0),
+                                        ),
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFE2E8F0),
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                        borderSide: const BorderSide(
+                                          color: SchoolAdminPalette.primaryDark,
+                                          width: 1.8,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildDialogInputLabel('สถานะอาคาร'),
+                                  const SizedBox(height: 6),
+                                  _BuildingDialogDropdown(
+                                    icon: Icons.verified_outlined,
+                                    value: status,
+                                    items: const ['ใช้งาน', 'ตรวจสอบ', 'ปิดใช้งาน'],
+                                    onChanged: (String value) {
+                                      setDialogState(() => status = value);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        _buildDialogInputLabel('ครูประจำอาคาร / ผู้รับผิดชอบ'),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: managerController,
+                          decoration: InputDecoration(
+                            hintText: 'เช่น อ.สมศักดิ์ รักดี',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: const Icon(
+                              Icons.person_outline_rounded,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: SchoolAdminPalette.primaryDark,
+                                width: 1.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        _buildDialogInputLabel('หมายเหตุเพิ่มเติม'),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: noteController,
+                          minLines: 2,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText: 'ระบุรายละเอียดหรือหมายเหตุของอาคาร',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            prefixIcon: const Icon(
+                              Icons.notes_rounded,
+                              size: 20,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: SchoolAdminPalette.primaryDark,
+                                width: 1.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Actions
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              ),
+                              child: const Text(
+                                'ยกเลิก',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: SchoolAdminPalette.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton.icon(
+                              onPressed: () {
+                                final String code = codeController.text.trim();
+                                final String name = nameController.text.trim();
+                                final int floors =
+                                    int.tryParse(floorsController.text.trim()) ?? 0;
+
+                                if (code.isEmpty || name.isEmpty || floors <= 0) {
+                                  _showMessage(
+                                    'กรุณากรอกรหัส ชื่ออาคาร และจำนวนชั้น',
+                                  );
+                                  return;
+                                }
+
+                                Navigator.of(dialogContext).pop(
+                                  _BuildingRecord(
+                                    id:
+                                        building?.id ??
+                                        'building-${DateTime.now().millisecondsSinceEpoch}',
+                                    code: code,
+                                    name: name,
+                                    floors: floors,
+                                    rooms: building?.rooms ?? 0,
+                                    manager:
+                                        managerController.text.trim().isEmpty
+                                            ? 'ยังไม่กำหนด'
+                                            : managerController.text.trim(),
+                                    devices: building?.devices ?? 0,
+                                    trainingKits: building?.trainingKits ?? 0,
+                                    status: status,
+                                    note: noteController.text.trim().isEmpty
+                                        ? 'ไม่มีหมายเหตุ'
+                                        : noteController.text.trim(),
+                                  ),
+                                );
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: SchoolAdminPalette.primaryDark,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              icon: const Icon(Icons.save_rounded, size: 18),
+                              label: Text(
+                                editing ? 'บันทึกการแก้ไข' : 'สร้างอาคาร',
+                                style: const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.save_rounded),
-              label: Text(editing ? 'บันทึกการแก้ไข' : 'สร้างอาคาร'),
-            ),
-          ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -339,13 +620,13 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       }
     });
 
-    _showMessage(
-      editing ? 'บันทึกข้อมูลอาคารแล้ว' : 'สร้างอาคารใหม่แล้ว',
-    );
+    _showMessage(editing ? 'บันทึกข้อมูลอาคารแล้ว' : 'สร้างอาคารใหม่แล้ว');
   }
 
-  Future<void> _openRoomForm(
-      {_RoomRecord? room, String? initialBuilding}) async {
+  Future<void> _openRoomForm({
+    _RoomRecord? room,
+    String? initialBuilding,
+  }) async {
     final bool editing = room != null;
 
     final TextEditingController codeController = TextEditingController(
@@ -361,7 +642,8 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       text: room?.teacher ?? '',
     );
 
-    String building = room?.building ??
+    String building =
+        room?.building ??
         initialBuilding ??
         (_buildings.isNotEmpty ? _buildings.first.name : 'อาคารเรียน A');
     String floor = room?.floor ?? 'ชั้น 1';
@@ -372,187 +654,488 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          insetPadding: const EdgeInsets.all(16),
-          title: Text(editing ? 'แก้ไขข้อมูลห้อง' : 'สร้างห้องใหม่'),
-          content: SizedBox(
-            width: 760,
-            child: SingleChildScrollView(
-              child: StatefulBuilder(
-                builder: (
-                  BuildContext context,
-                  StateSetter setDialogState,
-                ) {
-                  return LayoutBuilder(
-                    builder: (
-                      BuildContext context,
-                      BoxConstraints constraints,
-                    ) {
-                      final bool oneColumn = constraints.maxWidth < 620;
-                      final double fieldWidth = oneColumn
-                          ? constraints.maxWidth
-                          : (constraints.maxWidth - 12) / 2;
-
-                      return Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: codeController,
-                              decoration: const InputDecoration(
-                                labelText: 'รหัสห้อง',
-                                hintText: 'เช่น A-301',
-                                prefixIcon: Icon(Icons.tag_rounded),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'ชื่อห้อง',
-                                prefixIcon: Icon(Icons.meeting_room_rounded),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _BuildingDialogDropdown(
-                              label: 'อาคาร',
-                              icon: Icons.apartment_rounded,
-                              value: building,
-                              items:
-                                  _buildings.map((item) => item.name).toList(),
-                              onChanged: (String value) {
-                                setDialogState(() => building = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _BuildingDialogDropdown(
-                              label: 'ชั้น',
-                              icon: Icons.layers_rounded,
-                              value: floor,
-                              items: const [
-                                'ชั้น 1',
-                                'ชั้น 2',
-                                'ชั้น 3',
-                                'ชั้น 4',
-                                'ชั้น 5',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => floor = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _BuildingDialogDropdown(
-                              label: 'ประเภทห้อง',
-                              icon: Icons.category_rounded,
-                              value: type,
-                              items: const [
-                                'ห้องเรียน',
-                                'ห้องปฏิบัติการ',
-                                'ห้องประชุม',
-                                'ห้องสำนักงาน',
-                                'ห้องเก็บอุปกรณ์',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => type = value);
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: capacityController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'ความจุ',
-                                prefixIcon: Icon(Icons.groups_rounded),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: TextField(
-                              controller: teacherController,
-                              decoration: const InputDecoration(
-                                labelText: 'ครู / ผู้ดูแลห้อง',
-                                prefixIcon: Icon(Icons.person_rounded),
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _BuildingDialogDropdown(
-                              label: 'สถานะห้อง',
-                              icon: Icons.verified_rounded,
-                              value: status,
-                              items: const [
-                                'พร้อมใช้งาน',
-                                'ตรวจสอบ',
-                                'ปิดใช้งาน',
-                              ],
-                              onChanged: (String value) {
-                                setDialogState(() => status = value);
-                              },
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+                side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('ยกเลิก'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                final String code = codeController.text.trim();
-                final String name = nameController.text.trim();
-                final int capacity =
-                    int.tryParse(capacityController.text.trim()) ?? 0;
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: SchoolAdminPalette.primaryDark.withAlpha(
+                                  20,
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                editing
+                                    ? Icons.edit_rounded
+                                    : Icons.add_home_work_rounded,
+                                color: SchoolAdminPalette.primaryDark,
+                                size: 26,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    editing ? 'แก้ไขข้อมูลห้อง' : 'สร้างห้องใหม่',
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w900,
+                                      color: SchoolAdminPalette.textPrimary,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    editing
+                                        ? 'ปรับปรุงรายละเอียดห้อง ความจุ และครูประจำห้อง'
+                                        : 'เพิ่มห้องเรียนหรือห้องปฏิบัติการใหม่เข้าสู่อาคาร',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: SchoolAdminPalette.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              style: IconButton.styleFrom(
+                                backgroundColor: const Color(0xFFF3F4F6),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
 
-                if (code.isEmpty || name.isEmpty || capacity <= 0) {
-                  _showMessage('กรุณากรอกรหัส ชื่อห้อง และความจุ');
-                  return;
-                }
+                        // Form Inputs (2 Columns on wide screen)
+                        LayoutBuilder(
+                          builder: (
+                            BuildContext context,
+                            BoxConstraints constraints,
+                          ) {
+                            final bool oneColumn = constraints.maxWidth < 620;
+                            final double fieldWidth = oneColumn
+                                ? constraints.maxWidth
+                                : (constraints.maxWidth - 14) / 2;
 
-                Navigator.of(dialogContext).pop(
-                  _RoomRecord(
-                    id: room?.id ??
-                        'room-${DateTime.now().millisecondsSinceEpoch}',
-                    code: code,
-                    name: name,
-                    building: building,
-                    floor: floor,
-                    type: type,
-                    capacity: capacity,
-                    teacher: teacherController.text.trim().isEmpty
-                        ? 'ยังไม่กำหนด'
-                        : teacherController.text.trim(),
-                    devices: room?.devices ?? 0,
-                    trainingKits: room?.trainingKits ?? 0,
-                    status: status,
-                    resourceStatus: room?.resourceStatus ?? 'ปกติ',
+                            return Wrap(
+                              spacing: 14,
+                              runSpacing: 14,
+                              children: [
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('รหัสห้อง'),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: codeController,
+                                        decoration: InputDecoration(
+                                          hintText: 'เช่น A-301',
+                                          filled: true,
+                                          fillColor: const Color(0xFFF8FAFC),
+                                          prefixIcon: const Icon(
+                                            Icons.tag_rounded,
+                                            size: 20,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color:
+                                                  SchoolAdminPalette.primaryDark,
+                                              width: 1.8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('ชื่อห้อง'),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: nameController,
+                                        decoration: InputDecoration(
+                                          hintText: 'เช่น ห้องเรียน ม.3/1',
+                                          filled: true,
+                                          fillColor: const Color(0xFFF8FAFC),
+                                          prefixIcon: const Icon(
+                                            Icons.meeting_room_rounded,
+                                            size: 20,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color:
+                                                  SchoolAdminPalette.primaryDark,
+                                              width: 1.8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('อาคาร'),
+                                      const SizedBox(height: 6),
+                                      _BuildingDialogDropdown(
+                                        icon: Icons.apartment_rounded,
+                                        value: building,
+                                        items: _buildings
+                                            .map((item) => item.name)
+                                            .toList(),
+                                        onChanged: (String value) {
+                                          setDialogState(() => building = value);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('ชั้น'),
+                                      const SizedBox(height: 6),
+                                      _BuildingDialogDropdown(
+                                        icon: Icons.layers_rounded,
+                                        value: floor,
+                                        items: const [
+                                          'ชั้น 1',
+                                          'ชั้น 2',
+                                          'ชั้น 3',
+                                          'ชั้น 4',
+                                          'ชั้น 5',
+                                        ],
+                                        onChanged: (String value) {
+                                          setDialogState(() => floor = value);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('ประเภทห้อง'),
+                                      const SizedBox(height: 6),
+                                      _BuildingDialogDropdown(
+                                        icon: Icons.category_rounded,
+                                        value: type,
+                                        items: const [
+                                          'ห้องเรียน',
+                                          'ห้องปฏิบัติการ',
+                                          'ห้องประชุม',
+                                          'ห้องสำนักงาน',
+                                          'ห้องเก็บอุปกรณ์',
+                                        ],
+                                        onChanged: (String value) {
+                                          setDialogState(() => type = value);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('ความจุ (คน)'),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: capacityController,
+                                        keyboardType: TextInputType.number,
+                                        decoration: InputDecoration(
+                                          hintText: 'เช่น 40',
+                                          filled: true,
+                                          fillColor: const Color(0xFFF8FAFC),
+                                          prefixIcon: const Icon(
+                                            Icons.groups_rounded,
+                                            size: 20,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color:
+                                                  SchoolAdminPalette.primaryDark,
+                                              width: 1.8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel(
+                                        'ครู / ผู้ดูแลห้อง',
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextField(
+                                        controller: teacherController,
+                                        decoration: InputDecoration(
+                                          hintText: 'เช่น ครูสมศรี มุ่งมั่น',
+                                          filled: true,
+                                          fillColor: const Color(0xFFF8FAFC),
+                                          prefixIcon: const Icon(
+                                            Icons.person_outline_rounded,
+                                            size: 20,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE2E8F0),
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            borderSide: const BorderSide(
+                                              color:
+                                                  SchoolAdminPalette.primaryDark,
+                                              width: 1.8,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildDialogInputLabel('สถานะห้อง'),
+                                      const SizedBox(height: 6),
+                                      _BuildingDialogDropdown(
+                                        icon: Icons.verified_outlined,
+                                        value: status,
+                                        items: const [
+                                          'พร้อมใช้งาน',
+                                          'ตรวจสอบ',
+                                          'ปิดใช้งาน',
+                                        ],
+                                        onChanged: (String value) {
+                                          setDialogState(() => status = value);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Actions
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              ),
+                              child: const Text(
+                                'ยกเลิก',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: SchoolAdminPalette.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            FilledButton.icon(
+                              onPressed: () {
+                                final String code = codeController.text.trim();
+                                final String name = nameController.text.trim();
+                                final int capacity =
+                                    int.tryParse(
+                                      capacityController.text.trim(),
+                                    ) ??
+                                    0;
+
+                                if (code.isEmpty ||
+                                    name.isEmpty ||
+                                    capacity <= 0) {
+                                  _showMessage(
+                                    'กรุณากรอกรหัส ชื่อห้อง และความจุ',
+                                  );
+                                  return;
+                                }
+
+                                Navigator.of(dialogContext).pop(
+                                  _RoomRecord(
+                                    id:
+                                        room?.id ??
+                                        'room-${DateTime.now().millisecondsSinceEpoch}',
+                                    code: code,
+                                    name: name,
+                                    building: building,
+                                    floor: floor,
+                                    type: type,
+                                    capacity: capacity,
+                                    teacher:
+                                        teacherController.text.trim().isEmpty
+                                            ? 'ยังไม่กำหนด'
+                                            : teacherController.text.trim(),
+                                    devices: room?.devices ?? 0,
+                                    trainingKits: room?.trainingKits ?? 0,
+                                    status: status,
+                                    resourceStatus:
+                                        room?.resourceStatus ?? 'ปกติ',
+                                  ),
+                                );
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: SchoolAdminPalette.primaryDark,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              icon: const Icon(Icons.save_rounded, size: 18),
+                              label: Text(
+                                editing ? 'บันทึกการแก้ไข' : 'สร้างห้อง',
+                                style: const TextStyle(fontWeight: FontWeight.w800),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                );
-              },
-              icon: const Icon(Icons.save_rounded),
-              label: Text(editing ? 'บันทึกการแก้ไข' : 'สร้างห้อง'),
-            ),
-          ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -585,8 +1168,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       } else {
         _rooms.insert(0, result);
 
-        final int buildingIndex =
-            _buildings.indexWhere((item) => item.name == result.building);
+        final int buildingIndex = _buildings.indexWhere(
+          (item) => item.name == result.building,
+        );
         if (buildingIndex >= 0) {
           final _BuildingRecord oldBuilding = _buildings[buildingIndex];
           _buildings[buildingIndex] = oldBuilding.copyWith(
@@ -614,25 +1198,138 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
   Future<void> _deleteRoom(_RoomRecord room) async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('ลบห้อง'),
-          content: Text(
-            'ต้องการลบ ${room.code} ${room.name} ออกจากระบบหรือไม่',
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('ยกเลิก'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: SchoolAdminPalette.red,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: SchoolAdminPalette.red.withAlpha(20),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: SchoolAdminPalette.red,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'ยืนยันการลบห้อง',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: SchoolAdminPalette.textPrimary,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'การกระทำนี้ไม่สามารถยกเลิกได้',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: SchoolAdminPalette.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: SchoolAdminPalette.red.withAlpha(40),
+                      ),
+                    ),
+                    child: Text(
+                      'ต้องการลบห้อง "${room.code} ${room.name}" (${room.building}) ออกจากระบบใช่หรือไม่?',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF991B1B),
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(false),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        ),
+                        child: const Text(
+                          'ยกเลิก',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: SchoolAdminPalette.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 22,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        icon: const Icon(Icons.delete_forever_rounded, size: 18),
+                        label: const Text(
+                          'ลบห้อง',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: const Text('ยืนยันลบ'),
             ),
-          ],
+          ),
         );
       },
     );
@@ -642,8 +1339,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     setState(() {
       _rooms.removeWhere((item) => item.id == room.id);
 
-      final int buildingIndex =
-          _buildings.indexWhere((item) => item.name == room.building);
+      final int buildingIndex = _buildings.indexWhere(
+        (item) => item.name == room.building,
+      );
       if (buildingIndex >= 0) {
         final _BuildingRecord oldBuilding = _buildings[buildingIndex];
         _buildings[buildingIndex] = oldBuilding.copyWith(
@@ -729,121 +1427,166 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       builder: (BuildContext sheetContext) {
         return SafeArea(
           child: Container(
-            margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: SchoolAdminPalette.border),
+              border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A0F172A),
+                  blurRadius: 30,
+                  offset: Offset(0, 12),
+                ),
+              ],
             ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 28,
-                        backgroundColor: SchoolAdminPalette.primarySoft,
-                        child: Icon(
-                          Icons.meeting_room_rounded,
-                          color: SchoolAdminPalette.primaryDark,
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: SchoolAdminPalette.primarySoft,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: const Icon(
+                            Icons.meeting_room_rounded,
+                            color: SchoolAdminPalette.primaryDark,
+                            size: 28,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${room.code} • ${room.name}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: SchoolAdminPalette.textPrimary,
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${room.code} • ${room.name}',
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w900,
+                                  color: SchoolAdminPalette.textPrimary,
+                                  letterSpacing: -0.3,
+                                ),
                               ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${room.building} • ${room.floor}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: SchoolAdminPalette.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFFF3F4F6),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            Text(
-                              '${room.building} • ${room.floor}',
-                              style: const TextStyle(
-                                fontSize: 10,
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    _BuildingDetailRow(
+                      icon: Icons.category_rounded,
+                      label: 'ประเภทห้อง',
+                      value: room.type,
+                    ),
+                    _BuildingDetailRow(
+                      icon: Icons.groups_rounded,
+                      label: 'ความจุ',
+                      value: '${room.capacity} คน',
+                    ),
+                    _BuildingDetailRow(
+                      icon: Icons.person_rounded,
+                      label: 'ครู / ผู้ดูแล',
+                      value: room.teacher,
+                    ),
+                    _BuildingDetailRow(
+                      icon: Icons.memory_rounded,
+                      label: 'อุปกรณ์',
+                      value: '${room.devices} รายการ',
+                    ),
+                    _BuildingDetailRow(
+                      icon: Icons.handyman_rounded,
+                      label: 'ชุดฝึก',
+                      value: '${room.trainingKits} ชุด',
+                    ),
+                    _BuildingDetailRow(
+                      icon: Icons.verified_rounded,
+                      label: 'สถานะห้อง',
+                      value: room.status,
+                    ),
+                    _BuildingDetailRow(
+                      icon: Icons.energy_savings_leaf_rounded,
+                      label: 'ทรัพยากร / ระบบ',
+                      value: room.resourceStatus,
+                    ),
+                    const SizedBox(height: 18),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              _showMessage(
+                                'เปิดหน้าอุปกรณ์ของ ${room.code} แล้ว',
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            icon: const Icon(Icons.memory_rounded, size: 18),
+                            label: const Text(
+                              'ดูอุปกรณ์',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
                                 color: SchoolAdminPalette.textSecondary,
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  _BuildingDetailRow(
-                    icon: Icons.category_rounded,
-                    label: 'ประเภทห้อง',
-                    value: room.type,
-                  ),
-                  _BuildingDetailRow(
-                    icon: Icons.groups_rounded,
-                    label: 'ความจุ',
-                    value: '${room.capacity} คน',
-                  ),
-                  _BuildingDetailRow(
-                    icon: Icons.person_rounded,
-                    label: 'ครู / ผู้ดูแล',
-                    value: room.teacher,
-                  ),
-                  _BuildingDetailRow(
-                    icon: Icons.memory_rounded,
-                    label: 'อุปกรณ์',
-                    value: '${room.devices} รายการ',
-                  ),
-                  _BuildingDetailRow(
-                    icon: Icons.handyman_rounded,
-                    label: 'ชุดฝึก',
-                    value: '${room.trainingKits} ชุด',
-                  ),
-                  _BuildingDetailRow(
-                    icon: Icons.verified_rounded,
-                    label: 'สถานะห้อง',
-                    value: room.status,
-                  ),
-                  _BuildingDetailRow(
-                    icon: Icons.energy_savings_leaf_rounded,
-                    label: 'ทรัพยากร / ระบบ',
-                    value: room.resourceStatus,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _showMessage(
-                              'เปิดหน้าอุปกรณ์ของ ${room.code} แล้ว',
-                            );
-                          },
-                          icon: const Icon(Icons.memory_rounded),
-                          label: const Text('ดูอุปกรณ์'),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              _openRoomForm(room: room);
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: SchoolAdminPalette.primaryDark,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            icon: const Icon(Icons.edit_rounded, size: 18),
+                            label: const Text(
+                              'แก้ไขห้อง',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _openRoomForm(room: room);
-                          },
-                          icon: const Icon(Icons.edit_rounded),
-                          label: const Text('แก้ไขห้อง'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -891,95 +1634,87 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.apartment_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.apartment_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                    ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'อาคารและห้อง',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'สร้างและดูแลอาคาร ห้องเรียน ห้องปฏิบัติการ '
+                          'กำหนดผู้รับผิดชอบ ตรวจอุปกรณ์ ชุดฝึก และสถานะพื้นที่',
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.45,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => _openRoomForm(),
+                    icon: const Icon(Icons.add_home_work_rounded),
+                    label: const Text('สร้างห้อง'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _openBuildingForm(),
+                    icon: const Icon(Icons.add_business_rounded),
+                    label: const Text('สร้างอาคาร'),
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'อาคารและห้อง',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'สร้างและดูแลอาคาร ห้องเรียน ห้องปฏิบัติการ '
-                      'กำหนดผู้รับผิดชอบ ตรวจอุปกรณ์ ชุดฝึก และสถานะพื้นที่',
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.45,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  children: [title, const SizedBox(height: 14), actions],
+                );
+              }
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => _openRoomForm(),
-                icon: const Icon(Icons.add_home_work_rounded),
-                label: const Text('สร้างห้อง'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _openBuildingForm(),
-                icon: const Icon(Icons.add_business_rounded),
-                label: const Text('สร้างอาคาร'),
-              ),
-            ],
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 14),
-                actions,
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -1017,10 +1752,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 1050) columns = 2;
         if (constraints.maxWidth < 300) columns = 1;
@@ -1079,10 +1811,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       title: 'จัดการได้อย่างรวดเร็ว',
       subtitle: 'รวมงานที่ใช้บ่อยไว้ในจุดเดียว',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 4;
           if (constraints.maxWidth < 900) columns = 2;
           if (constraints.maxWidth < 520) columns = 1;
@@ -1124,67 +1853,74 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: SchoolAdminPalette.red, size: 20),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: SchoolAdminPalette.red,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
                 'โหลดข้อมูลอาคารไม่สำเร็จ',
-                style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
               ),
             ),
-            TextButton(
-              onPressed: _loadData,
-              child: const Text('ลองใหม่'),
-            ),
+            TextButton(onPressed: _loadData, child: const Text('ลองใหม่')),
           ],
         ),
       );
     } else if (_buildings.isEmpty) {
-      content = Container(
+      content = SizedBox(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: SchoolAdminPalette.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.apartment_rounded, size: 40, color: SchoolAdminPalette.textSecondary),
-            const SizedBox(height: 8),
-            const Text(
-              'ยังไม่มีข้อมูลอาคารในระบบ',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: SchoolAdminPalette.textPrimary,
-              ),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.apartment_rounded,
+                  size: 40,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'ยังไม่มีข้อมูลอาคารในระบบ',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: SchoolAdminPalette.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'กดปุ่มด้านล่างเพื่อเพิ่มอาคารเรียนหรืออาคารปฏิบัติการแรก',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () => _openBuildingForm(),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('เพิ่มอาคารแรก'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SchoolAdminPalette.primaryDark,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'กดปุ่มด้านล่างเพื่อเพิ่มอาคารเรียนหรืออาคารปฏิบัติการแรก',
-              style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => _openBuildingForm(),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('เพิ่มอาคารแรก'),
-              style: FilledButton.styleFrom(
-                backgroundColor: SchoolAdminPalette.primaryDark,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
+          ),
         ),
       );
     } else {
       content = LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 3;
           if (constraints.maxWidth < 1050) columns = 2;
           if (constraints.maxWidth < 650) columns = 1;
@@ -1225,10 +1961,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       title: 'ค้นหาและกรองห้อง',
       subtitle: 'ค้นหาจากรหัสห้อง ชื่อห้อง อาคาร หรือผู้รับผิดชอบ',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final Widget search = TextField(
             controller: _searchController,
             onChanged: (_) => setState(() {}),
@@ -1250,10 +1983,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
           final Widget building = _BuildingFilterDropdown(
             label: 'อาคาร',
             value: _selectedBuilding,
-            items: [
-              'ทุกอาคาร',
-              ..._buildings.map((item) => item.name),
-            ],
+            items: ['ทุกอาคาร', ..._buildings.map((item) => item.name)],
             onChanged: (String value) {
               setState(() => _selectedBuilding = value);
             },
@@ -1278,12 +2008,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
           final Widget status = _BuildingFilterDropdown(
             label: 'สถานะ',
             value: _selectedStatus,
-            items: const [
-              'ทุกสถานะ',
-              'พร้อมใช้งาน',
-              'ตรวจสอบ',
-              'ปิดใช้งาน',
-            ],
+            items: const ['ทุกสถานะ', 'พร้อมใช้งาน', 'ตรวจสอบ', 'ปิดใช้งาน'],
             onChanged: (String value) {
               setState(() => _selectedStatus = value);
             },
@@ -1344,10 +2069,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       child: rooms.isEmpty
           ? const _BuildingEmptyState()
           : LayoutBuilder(
-              builder: (
-                BuildContext context,
-                BoxConstraints constraints,
-              ) {
+              builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 1050) {
                   return Container(
                     width: double.infinity,
@@ -1516,10 +2238,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
 
   Widget _buildMonitoring() {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         const Widget alerts = _BuildingSectionCard(
           title: 'รายการที่ควรตรวจสอบ',
           subtitle: 'รวมพื้นที่ที่อุปกรณ์หรือการใช้ทรัพยากรมีความผิดปกติ',
@@ -1558,11 +2277,17 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
           child: _buildings.isEmpty
               ? Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 20,
+                    horizontal: 16,
+                  ),
                   alignment: Alignment.center,
                   child: const Text(
                     'ยังไม่มีข้อมูลอาคาร',
-                    style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: SchoolAdminPalette.textSecondary,
+                    ),
                   ),
                 )
               : Column(
@@ -1577,11 +2302,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
 
         if (constraints.maxWidth < 900) {
           return Column(
-            children: [
-              alerts,
-              const SizedBox(height: 14),
-              assignments,
-            ],
+            children: [alerts, const SizedBox(height: 14), assignments],
           );
         }
 
@@ -1635,42 +2356,54 @@ class _BuildingSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
         return Container(
-          constraints: BoxConstraints(minHeight: compact ? 148 : 130),
-          padding: const EdgeInsets.all(14),
+          constraints: BoxConstraints(minHeight: compact ? 150 : 134),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: SchoolAdminPalette.border),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.1),
+            boxShadow: [
+              const BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+              const BoxShadow(
+                color: Color(0x0C0F172A),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+              BoxShadow(
+                color: data.color.withAlpha(20),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: compact
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _BuildingIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
-                    const SizedBox(height: 10),
+                    _BuildingIconBox(icon: data.icon, color: data.color),
+                    const SizedBox(height: 12),
                     Text(
                       data.value,
                       style: const TextStyle(
-                        fontSize: 22,
+                        fontSize: 26,
                         fontWeight: FontWeight.w900,
                         color: SchoolAdminPalette.textPrimary,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 4),
                     Text(
                       data.title,
                       style: const TextStyle(
-                        fontSize: 10,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w900,
                         color: SchoolAdminPalette.textPrimary,
                       ),
@@ -1681,7 +2414,7 @@ class _BuildingSummaryCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 8,
+                        fontSize: 11,
                         color: SchoolAdminPalette.textSecondary,
                       ),
                     ),
@@ -1689,11 +2422,8 @@ class _BuildingSummaryCard extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _BuildingIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
-                    const SizedBox(width: 11),
+                    _BuildingIconBox(icon: data.icon, color: data.color),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1702,16 +2432,17 @@ class _BuildingSummaryCard extends StatelessWidget {
                           Text(
                             data.value,
                             style: const TextStyle(
-                              fontSize: 24,
+                              fontSize: 28,
                               fontWeight: FontWeight.w900,
                               color: SchoolAdminPalette.textPrimary,
+                              letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 4),
                           Text(
                             data.title,
                             style: const TextStyle(
-                              fontSize: 10.5,
+                              fontSize: 13,
                               fontWeight: FontWeight.w900,
                               color: SchoolAdminPalette.textPrimary,
                             ),
@@ -1722,7 +2453,7 @@ class _BuildingSummaryCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 8.5,
+                              fontSize: 11.5,
                               color: SchoolAdminPalette.textSecondary,
                             ),
                           ),
@@ -1752,33 +2483,59 @@ class _BuildingSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Color(0x0C0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: SchoolAdminPalette.primaryDark,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 12.5,
               height: 1.45,
               color: SchoolAdminPalette.textSecondary,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           child,
         ],
       ),
@@ -1795,16 +2552,27 @@ class _BuildingQuickActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: data.onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: SchoolAdminPalette.border),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x050F172A),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+              BoxShadow(
+                color: Color(0x080F172A),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -1812,7 +2580,7 @@ class _BuildingQuickActionCard extends StatelessWidget {
                 icon: data.icon,
                 color: SchoolAdminPalette.primaryDark,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1820,18 +2588,18 @@ class _BuildingQuickActionCard extends StatelessWidget {
                     Text(
                       data.title,
                       style: const TextStyle(
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.w900,
                         color: SchoolAdminPalette.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       data.subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 11.5,
                         height: 1.35,
                         color: SchoolAdminPalette.textSecondary,
                       ),
@@ -1885,8 +2653,10 @@ class _BuildingRoomsBrowserSheetState
   }
 
   List<String> get _floors {
-    final List<String> values =
-        widget.rooms.map((_RoomRecord room) => room.floor).toSet().toList();
+    final List<String> values = widget.rooms
+        .map((_RoomRecord room) => room.floor)
+        .toSet()
+        .toList();
 
     values.sort();
     return values;
@@ -1896,7 +2666,8 @@ class _BuildingRoomsBrowserSheetState
     final String keyword = _searchController.text.trim().toLowerCase();
 
     final List<_RoomRecord> result = widget.rooms.where((_RoomRecord room) {
-      final bool matchesSearch = keyword.isEmpty ||
+      final bool matchesSearch =
+          keyword.isEmpty ||
           room.code.toLowerCase().contains(keyword) ||
           room.name.toLowerCase().contains(keyword) ||
           room.type.toLowerCase().contains(keyword) ||
@@ -1931,14 +2702,14 @@ class _BuildingRoomsBrowserSheetState
       widget.rooms.where((_RoomRecord room) => room.status == 'ตรวจสอบ').length;
 
   int get _totalCapacity => widget.rooms.fold<int>(
-        0,
-        (int total, _RoomRecord room) => total + room.capacity,
-      );
+    0,
+    (int total, _RoomRecord room) => total + room.capacity,
+  );
 
   int get _totalDevices => widget.rooms.fold<int>(
-        0,
-        (int total, _RoomRecord room) => total + room.devices,
-      );
+    0,
+    (int total, _RoomRecord room) => total + room.devices,
+  );
 
   Color _buildingStatusColor(String value) {
     if (value == 'ใช้งาน') {
@@ -1955,8 +2726,9 @@ class _BuildingRoomsBrowserSheetState
   @override
   Widget build(BuildContext context) {
     final List<_RoomRecord> rooms = _filteredRooms;
-    final Color buildingStatusColor =
-        _buildingStatusColor(widget.building.status);
+    final Color buildingStatusColor = _buildingStatusColor(
+      widget.building.status,
+    );
 
     return SafeArea(
       child: Container(
@@ -1964,9 +2736,7 @@ class _BuildingRoomsBrowserSheetState
         decoration: BoxDecoration(
           color: const Color(0xFFFCFAF7),
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(
-            color: SchoolAdminPalette.border,
-          ),
+          border: Border.all(color: SchoolAdminPalette.border),
         ),
         child: Column(
           children: [
@@ -2003,10 +2773,7 @@ class _BuildingRoomsBrowserSheetState
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 16, 16),
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final bool compact = constraints.maxWidth < 720;
 
           final Widget title = Row(
@@ -2017,9 +2784,7 @@ class _BuildingRoomsBrowserSheetState
                 decoration: BoxDecoration(
                   color: SchoolAdminPalette.primarySoft,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: SchoolAdminPalette.border,
-                  ),
+                  border: Border.all(color: SchoolAdminPalette.border),
                 ),
                 child: const Icon(
                   Icons.apartment_rounded,
@@ -2070,10 +2835,7 @@ class _BuildingRoomsBrowserSheetState
               ),
               FilledButton.icon(
                 onPressed: widget.onAddRoom,
-                icon: const Icon(
-                  Icons.add_home_work_rounded,
-                  size: 18,
-                ),
+                icon: const Icon(Icons.add_home_work_rounded, size: 18),
                 label: const Text('เพิ่มห้อง'),
               ),
               IconButton.outlined(
@@ -2087,11 +2849,7 @@ class _BuildingRoomsBrowserSheetState
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 12),
-                actions,
-              ],
+              children: [title, const SizedBox(height: 12), actions],
             );
           }
 
@@ -2127,7 +2885,7 @@ class _BuildingRoomsBrowserSheetState
           recordedRooms == configuredRooms
               ? 'รายละเอียดห้องที่บันทึกไว้ในระบบครบ $recordedRooms ห้อง'
               : 'มีรายละเอียดห้องในข้อมูลตัวอย่าง $recordedRooms ห้อง '
-                  'จากจำนวนห้องที่กำหนดไว้ $configuredRooms ห้อง',
+                    'จากจำนวนห้องที่กำหนดไว้ $configuredRooms ห้อง',
           style: const TextStyle(
             fontSize: 12,
             height: 1.45,
@@ -2136,10 +2894,7 @@ class _BuildingRoomsBrowserSheetState
         ),
         const SizedBox(height: 12),
         LayoutBuilder(
-          builder: (
-            BuildContext context,
-            BoxConstraints constraints,
-          ) {
+          builder: (BuildContext context, BoxConstraints constraints) {
             int columns = 5;
 
             if (constraints.maxWidth < 920) {
@@ -2200,10 +2955,7 @@ class _BuildingRoomsBrowserSheetState
               spacing: spacing,
               runSpacing: spacing,
               children: items.map((Widget item) {
-                return SizedBox(
-                  width: width,
-                  child: item,
-                );
+                return SizedBox(width: width, child: item);
               }).toList(),
             );
           },
@@ -2213,10 +2965,7 @@ class _BuildingRoomsBrowserSheetState
   }
 
   Widget _buildFilters() {
-    final List<String> floorItems = [
-      'ทุกชั้น',
-      ..._floors,
-    ];
+    final List<String> floorItems = ['ทุกชั้น', ..._floors];
 
     return Container(
       width: double.infinity,
@@ -2224,15 +2973,10 @@ class _BuildingRoomsBrowserSheetState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final bool oneColumn = constraints.maxWidth < 620;
           final double fieldWidth = oneColumn
               ? constraints.maxWidth
@@ -2373,10 +3117,7 @@ class _BuildingRoomsBrowserSheetState
           _buildEmptyRooms()
         else
           LayoutBuilder(
-            builder: (
-              BuildContext context,
-              BoxConstraints constraints,
-            ) {
+            builder: (BuildContext context, BoxConstraints constraints) {
               int columns = 2;
 
               if (constraints.maxWidth < 780) {
@@ -2408,57 +3149,51 @@ class _BuildingRoomsBrowserSheetState
   }
 
   Widget _buildEmptyRooms() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 20,
-        vertical: 34,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
+          child: Column(
+            children: [
+              const CircleAvatar(
+                radius: 30,
+                backgroundColor: SchoolAdminPalette.primarySoft,
+                child: Icon(
+                  Icons.meeting_room_outlined,
+                  size: 28,
+                  color: SchoolAdminPalette.primaryDark,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'ยังไม่พบห้องตามตัวกรอง',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'ลองเปลี่ยนคำค้นหา ชั้น หรือสถานะ '
+                'หรือเพิ่มข้อมูลห้องใหม่ให้กับอาคารนี้',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                onPressed: widget.onAddRoom,
+                icon: const Icon(Icons.add_home_work_rounded),
+                label: const Text('เพิ่มห้องใหม่'),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: SchoolAdminPalette.primarySoft,
-            child: Icon(
-              Icons.meeting_room_outlined,
-              size: 28,
-              color: SchoolAdminPalette.primaryDark,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'ยังไม่พบห้องตามตัวกรอง',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            'ลองเปลี่ยนคำค้นหา ชั้น หรือสถานะ '
-            'หรือเพิ่มข้อมูลห้องใหม่ให้กับอาคารนี้',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          FilledButton.icon(
-            onPressed: widget.onAddRoom,
-            icon: const Icon(Icons.add_home_work_rounded),
-            label: const Text('เพิ่มห้องใหม่'),
-          ),
-        ],
       ),
     );
   }
@@ -2487,20 +3222,14 @@ class _RoomBrowserSummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 21,
             backgroundColor: color.withAlpha(18),
-            child: Icon(
-              icon,
-              size: 21,
-              color: color,
-            ),
+            child: Icon(icon, size: 21, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2585,9 +3314,7 @@ class _BuildingRoomBrowserCard extends StatelessWidget {
           padding: const EdgeInsets.all(15),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(19),
-            border: Border.all(
-              color: SchoolAdminPalette.border,
-            ),
+            border: Border.all(color: SchoolAdminPalette.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2642,10 +3369,7 @@ class _BuildingRoomBrowserCard extends StatelessWidget {
                 spacing: 7,
                 runSpacing: 7,
                 children: [
-                  _RoomBrowserBadge(
-                    label: room.status,
-                    color: _statusColor,
-                  ),
+                  _RoomBrowserBadge(label: room.status, color: _statusColor),
                   _RoomBrowserBadge(
                     label: 'ระบบ: ${room.resourceStatus}',
                     color: _resourceColor,
@@ -2682,20 +3406,14 @@ class _BuildingRoomBrowserCard extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: onView,
-                      icon: const Icon(
-                        Icons.visibility_rounded,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.visibility_rounded, size: 18),
                       label: const Text('ดูรายละเอียด'),
                     ),
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: onEdit,
-                    icon: const Icon(
-                      Icons.edit_rounded,
-                      size: 18,
-                    ),
+                    icon: const Icon(Icons.edit_rounded, size: 18),
                     label: const Text('แก้ไข'),
                   ),
                 ],
@@ -2724,11 +3442,7 @@ class _RoomBrowserInfoRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 17,
-          color: SchoolAdminPalette.primaryDark,
-        ),
+        Icon(icon, size: 17, color: SchoolAdminPalette.primaryDark),
         const SizedBox(width: 7),
         SizedBox(
           width: 88,
@@ -2759,10 +3473,7 @@ class _RoomBrowserInfoRow extends StatelessWidget {
 }
 
 class _RoomBrowserBadge extends StatelessWidget {
-  const _RoomBrowserBadge({
-    required this.label,
-    required this.color,
-  });
+  const _RoomBrowserBadge({required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -2770,16 +3481,11 @@ class _RoomBrowserBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withAlpha(14),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(
-          color: color.withAlpha(50),
-        ),
+        border: Border.all(color: color.withAlpha(50)),
       ),
       child: Text(
         label,
@@ -2807,11 +3513,23 @@ class _BuildingOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(color: SchoolAdminPalette.border),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x050F172A),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2822,7 +3540,7 @@ class _BuildingOverviewCard extends StatelessWidget {
                 icon: Icons.apartment_rounded,
                 color: SchoolAdminPalette.primaryDark,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2830,15 +3548,16 @@ class _BuildingOverviewCard extends StatelessWidget {
                     Text(
                       building.name,
                       style: const TextStyle(
-                        fontSize: 14.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.w900,
                         color: SchoolAdminPalette.textPrimary,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       '${building.code} • ${building.floors} ชั้น',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         height: 1.35,
                         color: SchoolAdminPalette.textSecondary,
                       ),
@@ -2849,7 +3568,7 @@ class _BuildingOverviewCard extends StatelessWidget {
               _BuildingStatusBadge(value: building.status),
             ],
           ),
-          const SizedBox(height: 13),
+          const SizedBox(height: 14),
           _BuildingMetricRow(
             icon: Icons.meeting_room_rounded,
             label: 'ห้อง',
@@ -2873,20 +3592,37 @@ class _BuildingOverviewCard extends StatelessWidget {
             label: 'ผู้รับผิดชอบ',
             value: building.manager,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
                   onPressed: onOpenRooms,
-                  child: const Text('ดูห้อง'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  icon: const Icon(Icons.meeting_room_rounded, size: 16),
+                  label: const Text(
+                    'ดูห้อง',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton.outlined(
                 onPressed: onEdit,
                 tooltip: 'แก้ไขอาคาร',
-                icon: const Icon(Icons.edit_rounded),
+                style: IconButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                icon: const Icon(Icons.edit_rounded, size: 18),
               ),
             ],
           ),
@@ -2911,18 +3647,14 @@ class _BuildingMetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: SchoolAdminPalette.primaryDark,
-        ),
-        const SizedBox(width: 7),
+        Icon(icon, size: 17, color: SchoolAdminPalette.primaryDark),
+        const SizedBox(width: 8),
         SizedBox(
-          width: 72,
+          width: 76,
           child: Text(
             label,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: 11.5,
               color: SchoolAdminPalette.textSecondary,
             ),
           ),
@@ -2934,7 +3666,7 @@ class _BuildingMetricRow extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w900,
               color: SchoolAdminPalette.textPrimary,
             ),
@@ -2953,10 +3685,7 @@ class _RoomTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 17,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 17),
       child: Text(
         text,
         textAlign: TextAlign.center,
@@ -2978,20 +3707,14 @@ class _RoomTableCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
       child: Center(child: child),
     );
   }
 }
 
 class _RoomTableNameCell extends StatelessWidget {
-  const _RoomTableNameCell({
-    required this.room,
-    required this.onTap,
-  });
+  const _RoomTableNameCell({required this.room, required this.onTap});
 
   final _RoomRecord room;
   final VoidCallback onTap;
@@ -3001,22 +3724,22 @@ class _RoomTableNameCell extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 13,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         child: Row(
           children: [
-            const CircleAvatar(
-              radius: 19,
-              backgroundColor: SchoolAdminPalette.primarySoft,
-              child: Icon(
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: SchoolAdminPalette.primarySoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
                 Icons.meeting_room_rounded,
                 size: 18,
                 color: SchoolAdminPalette.primaryDark,
               ),
             ),
-            const SizedBox(width: 9),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3024,7 +3747,7 @@ class _RoomTableNameCell extends StatelessWidget {
                   Text(
                     room.code,
                     style: const TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w900,
                       color: SchoolAdminPalette.textPrimary,
                     ),
@@ -3034,7 +3757,7 @@ class _RoomTableNameCell extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 11,
                       color: SchoolAdminPalette.textSecondary,
                     ),
                   ),
@@ -3062,25 +3785,41 @@ class _RoomMobileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SchoolAdminPalette.border),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x050F172A),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Color(0x080F172A),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                radius: 22,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: SchoolAdminPalette.primarySoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
                   Icons.meeting_room_rounded,
                   color: SchoolAdminPalette.primaryDark,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3098,7 +3837,7 @@ class _RoomMobileCard extends StatelessWidget {
                     Text(
                       '${room.building} • ${room.floor}',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         height: 1.35,
                         color: SchoolAdminPalette.textSecondary,
                       ),
@@ -3108,18 +3847,22 @@ class _RoomMobileCard extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onView,
-                icon: const Icon(Icons.visibility_outlined),
+                style: IconButton.styleFrom(
+                  backgroundColor: const Color(0xFFF3F4F6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.visibility_outlined, size: 20),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(child: _RoomStatusBadge(value: room.status)),
               const SizedBox(width: 8),
-              Expanded(
-                child: _ResourceBadge(value: room.resourceStatus),
-              ),
+              Expanded(child: _ResourceBadge(value: room.resourceStatus)),
             ],
           ),
           const SizedBox(height: 10),
@@ -3200,10 +3943,7 @@ class _RoomTypeBadge extends StatelessWidget {
       color = SchoolAdminPalette.secondary;
     }
 
-    return _BuildingBadge(
-      label: value,
-      color: color,
-    );
+    return _BuildingBadge(label: value, color: color);
   }
 }
 
@@ -3217,13 +3957,10 @@ class _RoomStatusBadge extends StatelessWidget {
     final Color color = value == 'พร้อมใช้งาน'
         ? SchoolAdminPalette.green
         : value == 'ตรวจสอบ'
-            ? SchoolAdminPalette.secondary
-            : SchoolAdminPalette.red;
+        ? SchoolAdminPalette.secondary
+        : SchoolAdminPalette.red;
 
-    return _BuildingBadge(
-      label: value,
-      color: color,
-    );
+    return _BuildingBadge(label: value, color: color);
   }
 }
 
@@ -3237,13 +3974,10 @@ class _BuildingStatusBadge extends StatelessWidget {
     final Color color = value == 'ใช้งาน'
         ? SchoolAdminPalette.green
         : value == 'ตรวจสอบ'
-            ? SchoolAdminPalette.secondary
-            : SchoolAdminPalette.red;
+        ? SchoolAdminPalette.secondary
+        : SchoolAdminPalette.red;
 
-    return _BuildingBadge(
-      label: value,
-      color: color,
-    );
+    return _BuildingBadge(label: value, color: color);
   }
 }
 
@@ -3254,21 +3988,16 @@ class _ResourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color =
-        value == 'ปกติ' ? SchoolAdminPalette.green : SchoolAdminPalette.red;
+    final Color color = value == 'ปกติ'
+        ? SchoolAdminPalette.green
+        : SchoolAdminPalette.red;
 
-    return _BuildingBadge(
-      label: value,
-      color: color,
-    );
+    return _BuildingBadge(label: value, color: color);
   }
 }
 
 class _BuildingBadge extends StatelessWidget {
-  const _BuildingBadge({
-    required this.label,
-    required this.color,
-  });
+  const _BuildingBadge({required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -3276,29 +4005,37 @@ class _BuildingBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(
-        minWidth: 96,
-        minHeight: 34,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
+      constraints: const BoxConstraints(minWidth: 80, minHeight: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withAlpha(15),
+        color: color.withAlpha(18),
         borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withAlpha(50)),
+        border: Border.all(color: color.withAlpha(45)),
       ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-          color: color,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3329,11 +4066,7 @@ class _BuildingFilterDropdown extends StatelessWidget {
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -3347,14 +4080,12 @@ class _BuildingFilterDropdown extends StatelessWidget {
 
 class _BuildingDialogDropdown extends StatelessWidget {
   const _BuildingDialogDropdown({
-    required this.label,
     required this.icon,
     required this.value,
     required this.items,
     required this.onChanged,
   });
 
-  final String label;
   final IconData icon;
   final String value;
   final List<String> items;
@@ -3362,20 +4093,42 @@ class _BuildingDialogDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
-          isDense: true,
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            color: SchoolAdminPalette.textSecondary,
+          ),
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(item),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: SchoolAdminPalette.primaryDark),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: SchoolAdminPalette.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -3439,10 +4192,7 @@ class _BuildingAlertRow extends StatelessWidget {
               ],
             ),
           ),
-          _BuildingBadge(
-            label: status,
-            color: color,
-          ),
+          _BuildingBadge(label: status, color: color),
         ],
       ),
     );
@@ -3526,19 +4276,28 @@ class _BuildingLogRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool mobile = constraints.maxWidth < 760;
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(color: SchoolAdminPalette.border),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE5E7EB), width: 1.1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x040F172A),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+              BoxShadow(
+                color: Color(0x060F172A),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
           child: mobile
               ? Column(
@@ -3547,7 +4306,7 @@ class _BuildingLogRow extends StatelessWidget {
                     Text(
                       '${log.action} • ${log.target}',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w900,
                         color: SchoolAdminPalette.textPrimary,
                       ),
@@ -3556,7 +4315,7 @@ class _BuildingLogRow extends StatelessWidget {
                     Text(
                       log.detail,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 11.5,
                         height: 1.45,
                         color: SchoolAdminPalette.textSecondary,
                       ),
@@ -3565,7 +4324,7 @@ class _BuildingLogRow extends StatelessWidget {
                     Text(
                       '${log.time} • โดย ${log.by}',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w800,
                         color: color,
                       ),
@@ -3574,17 +4333,14 @@ class _BuildingLogRow extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _BuildingIconBox(
-                      icon: Icons.history_rounded,
-                      color: color,
-                    ),
-                    const SizedBox(width: 12),
+                    _BuildingIconBox(icon: Icons.history_rounded, color: color),
+                    const SizedBox(width: 14),
                     Expanded(
                       flex: 3,
                       child: Text(
                         '${log.action} • ${log.target}',
                         style: const TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w900,
                           color: SchoolAdminPalette.textPrimary,
                         ),
@@ -3596,7 +4352,7 @@ class _BuildingLogRow extends StatelessWidget {
                       child: Text(
                         log.detail,
                         style: const TextStyle(
-                          fontSize: 9.5,
+                          fontSize: 11.5,
                           color: SchoolAdminPalette.textSecondary,
                         ),
                       ),
@@ -3608,7 +4364,7 @@ class _BuildingLogRow extends StatelessWidget {
                         log.time,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: color,
                         ),
@@ -3621,7 +4377,7 @@ class _BuildingLogRow extends StatelessWidget {
                         log.by,
                         textAlign: TextAlign.right,
                         style: const TextStyle(
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: SchoolAdminPalette.textPrimary,
                         ),
@@ -3658,11 +4414,7 @@ class _BuildingDetailRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 19,
-            color: SchoolAdminPalette.primaryDark,
-          ),
+          Icon(icon, size: 19, color: SchoolAdminPalette.primaryDark),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -3692,10 +4444,7 @@ class _BuildingDetailRow extends StatelessWidget {
 }
 
 class _BuildingIconBox extends StatelessWidget {
-  const _BuildingIconBox({
-    required this.icon,
-    required this.color,
-  });
+  const _BuildingIconBox({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
@@ -3703,21 +4452,14 @@ class _BuildingIconBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 42,
-      height: 42,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
-        color: color.withAlpha(24),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withAlpha(80),
-          width: 1.1,
-        ),
+        color: color.withAlpha(22),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withAlpha(45), width: 1.1),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
+      child: Icon(icon, color: color, size: 22),
     );
   }
 }
@@ -3727,38 +4469,37 @@ class _BuildingEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 45),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 46,
-            color: SchoolAdminPalette.textMuted,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 45),
+          child: const Column(
+            children: [
+              Icon(
+                Icons.search_off_rounded,
+                size: 46,
+                color: SchoolAdminPalette.textMuted,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'ไม่พบห้อง',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              Text(
+                'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
-          Text(
-            'ไม่พบห้อง',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          Text(
-            'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
-            style: TextStyle(
-              fontSize: 10,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -3819,9 +4560,7 @@ class _BuildingRecord {
   final String status;
   final String note;
 
-  _BuildingRecord copyWith({
-    int? rooms,
-  }) {
+  _BuildingRecord copyWith({int? rooms}) {
     return _BuildingRecord(
       id: id,
       code: code,

@@ -5,10 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/school_admin_palette.dart';
 
 class SchoolScanPage extends StatefulWidget {
-  const SchoolScanPage({
-    super.key,
-    this.onBack,
-  });
+  const SchoolScanPage({super.key, this.onBack});
 
   final VoidCallback? onBack;
 
@@ -39,9 +36,9 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleDetect(BarcodeCapture capture) {
@@ -66,83 +63,82 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: SchoolAdminPalette.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircleAvatar(
-                  radius: 28,
-                  backgroundColor: SchoolAdminPalette.primarySoft,
-                  child: Icon(
-                    Icons.qr_code_2_rounded,
-                    color: SchoolAdminPalette.primaryDark,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'พบข้อมูลจาก QR Code',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: SchoolAdminPalette.border),
-                  ),
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: SchoolAdminPalette.textPrimary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: value),
-                          );
-                          if (sheetContext.mounted) {
-                            Navigator.of(sheetContext).pop();
-                          }
-                          _showMessage('คัดลอกข้อมูลแล้ว');
-                        },
-                        icon: const Icon(Icons.copy_rounded),
-                        label: const Text('คัดลอก'),
+                    const CircleAvatar(
+                      radius: 28,
+                      backgroundColor: SchoolAdminPalette.primarySoft,
+                      child: Icon(
+                        Icons.qr_code_2_rounded,
+                        color: SchoolAdminPalette.primaryDark,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          _showMessage('เปิดข้อมูลอุปกรณ์จาก $value');
-                        },
-                        icon: const Icon(Icons.open_in_new_rounded),
-                        label: const Text('เปิดข้อมูล'),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'พบข้อมูลจาก QR Code',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: SchoolAdminPalette.textPrimary,
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: SchoolAdminPalette.border),
+                      ),
+                      child: Text(
+                        value,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: SchoolAdminPalette.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: value),
+                              );
+                              if (sheetContext.mounted) {
+                                Navigator.of(sheetContext).pop();
+                              }
+                              _showMessage('คัดลอกข้อมูลแล้ว');
+                            },
+                            icon: const Icon(Icons.copy_rounded),
+                            label: const Text('คัดลอก'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              _showMessage('เปิดข้อมูลอุปกรณ์จาก $value');
+                            },
+                            icon: const Icon(Icons.open_in_new_rounded),
+                            label: const Text('เปิดข้อมูล'),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -224,43 +220,42 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: SchoolAdminPalette.border),
-            ),
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'ประวัติการสแกนล่าสุด',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ประวัติการสแกนล่าสุด',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: SchoolAdminPalette.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    _ScanHistoryRow(
+                      code: 'DEV-PM-0004',
+                      detail: 'SPS30 • ห้อง B-101',
+                      time: 'วันนี้ 10:30 น.',
+                    ),
+                    SizedBox(height: 8),
+                    _ScanHistoryRow(
+                      code: 'KIT-LAB1-01',
+                      detail: 'ชุดฝึก AIoT • LAB-01',
+                      time: 'วันนี้ 09:55 น.',
+                    ),
+                    SizedBox(height: 8),
+                    _ScanHistoryRow(
+                      code: 'DEV-AIR-0002',
+                      detail: 'ENS160 • LAB-01',
+                      time: 'เมื่อวาน 16:20 น.',
+                    ),
+                  ],
                 ),
-                SizedBox(height: 12),
-                _ScanHistoryRow(
-                  code: 'DEV-PM-0004',
-                  detail: 'SPS30 • ห้อง B-101',
-                  time: 'วันนี้ 10:30 น.',
-                ),
-                SizedBox(height: 8),
-                _ScanHistoryRow(
-                  code: 'KIT-LAB1-01',
-                  detail: 'ชุดฝึก AIoT • LAB-01',
-                  time: 'วันนี้ 09:55 น.',
-                ),
-                SizedBox(height: 8),
-                _ScanHistoryRow(
-                  code: 'DEV-AIR-0002',
-                  detail: 'ENS160 • LAB-01',
-                  time: 'เมื่อวาน 16:20 น.',
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -273,10 +268,7 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (
-            BuildContext context,
-            BoxConstraints constraints,
-          ) {
+          builder: (BuildContext context, BoxConstraints constraints) {
             final bool mobile = constraints.maxWidth < 700;
 
             return Container(
@@ -365,10 +357,7 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
               SizedBox(height: 2),
               Text(
                 'AIoT Smart Lab',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF71808E),
-                ),
+                style: TextStyle(fontSize: 10, color: Color(0xFF71808E)),
               ),
             ],
           ),
@@ -390,9 +379,7 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(
-          color: SchoolAdminPalette.border,
-        ),
+        border: Border.all(color: SchoolAdminPalette.border),
       ),
       child: AspectRatio(
         aspectRatio: mobile ? 0.96 : 1.18,
@@ -406,29 +393,30 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
                 MobileScanner(
                   controller: _scannerController,
                   onDetect: _handleDetect,
-                  errorBuilder: (
-                    BuildContext context,
-                    MobileScannerException error,
-                    Widget? child,
-                  ) {
-                    return _CameraUnavailable(
-                      onRetry: () {
-                        setState(() {
-                          _cameraStarted = false;
-                        });
-                        Future<void>.delayed(
-                          const Duration(milliseconds: 150),
-                          () {
-                            if (mounted) {
-                              setState(() {
-                                _cameraStarted = true;
-                              });
-                            }
+                  errorBuilder:
+                      (
+                        BuildContext context,
+                        MobileScannerException error,
+                        Widget? child,
+                      ) {
+                        return _CameraUnavailable(
+                          onRetry: () {
+                            setState(() {
+                              _cameraStarted = false;
+                            });
+                            Future<void>.delayed(
+                              const Duration(milliseconds: 150),
+                              () {
+                                if (mounted) {
+                                  setState(() {
+                                    _cameraStarted = true;
+                                  });
+                                }
+                              },
+                            );
                           },
                         );
                       },
-                    );
-                  },
                 )
               else
                 const SizedBox.shrink(),
@@ -466,52 +454,46 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
   }
 
   Widget _buildQuickActions() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 18,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ScanQuickAction(
-              icon: _torchOn
-                  ? Icons.flashlight_on_rounded
-                  : Icons.flashlight_off_rounded,
-              label: _torchOn ? 'ปิดไฟ' : 'เปิดไฟ',
-              onTap: _toggleTorch,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Row(
+            children: [
+              Expanded(
+                child: _ScanQuickAction(
+                  icon: _torchOn
+                      ? Icons.flashlight_on_rounded
+                      : Icons.flashlight_off_rounded,
+                  label: _torchOn ? 'ปิดไฟ' : 'เปิดไฟ',
+                  onTap: _toggleTorch,
+                ),
+              ),
+              Expanded(
+                child: _ScanQuickAction(
+                  icon: Icons.keyboard_rounded,
+                  label: 'กรอกรหัส',
+                  onTap: _enterCodeManually,
+                ),
+              ),
+              Expanded(
+                child: _ScanQuickAction(
+                  icon: Icons.cameraswitch_rounded,
+                  label: 'สลับกล้อง',
+                  onTap: _switchCamera,
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: _ScanQuickAction(
-              icon: Icons.keyboard_rounded,
-              label: 'กรอกรหัส',
-              onTap: _enterCodeManually,
-            ),
-          ),
-          Expanded(
-            child: _ScanQuickAction(
-              icon: Icons.cameraswitch_rounded,
-              label: 'สลับกล้อง',
-              onTap: _switchCamera,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _CameraUnavailable extends StatelessWidget {
-  const _CameraUnavailable({
-    required this.onRetry,
-  });
+  const _CameraUnavailable({required this.onRetry});
 
   final VoidCallback onRetry;
 
@@ -593,12 +575,7 @@ class _ScannerOverlayPainter extends CustomPainter {
 
     final Path overlay = Path()
       ..addRect(Offset.zero & size)
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          scanRect,
-          const Radius.circular(20),
-        ),
-      )
+      ..addRRect(RRect.fromRectAndRadius(scanRect, const Radius.circular(20)))
       ..fillType = PathFillType.evenOdd;
 
     final Paint paint = Paint()..color = Colors.black.withAlpha(105);
@@ -620,9 +597,7 @@ class _ScanCorners extends StatelessWidget {
         child: FractionallySizedBox(
           widthFactor: 0.68,
           heightFactor: 0.68,
-          child: CustomPaint(
-            painter: _CornerPainter(),
-          ),
+          child: CustomPaint(painter: _CornerPainter()),
         ),
       ),
     );
@@ -640,33 +615,17 @@ class _CornerPainter extends CustomPainter {
 
     const double length = 42;
 
-    canvas.drawLine(
-      const Offset(0, 0),
-      const Offset(length, 0),
-      paint,
-    );
-    canvas.drawLine(
-      const Offset(0, 0),
-      const Offset(0, length),
-      paint,
-    );
+    canvas.drawLine(const Offset(0, 0), const Offset(length, 0), paint);
+    canvas.drawLine(const Offset(0, 0), const Offset(0, length), paint);
 
     canvas.drawLine(
       Offset(size.width, 0),
       Offset(size.width - length, 0),
       paint,
     );
-    canvas.drawLine(
-      Offset(size.width, 0),
-      Offset(size.width, length),
-      paint,
-    );
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, length), paint);
 
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(length, size.height),
-      paint,
-    );
+    canvas.drawLine(Offset(0, size.height), Offset(length, size.height), paint);
     canvas.drawLine(
       Offset(0, size.height),
       Offset(0, size.height - length),
@@ -715,15 +674,9 @@ class _ScanQuickAction extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFEAF4FB),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: const Color(0xFFB7D4E8),
-                ),
+                border: Border.all(color: const Color(0xFFB7D4E8)),
               ),
-              child: Icon(
-                icon,
-                color: const Color(0xFF1769AA),
-                size: 25,
-              ),
+              child: Icon(icon, color: const Color(0xFF1769AA), size: 25),
             ),
             const SizedBox(height: 8),
             Text(
@@ -821,10 +774,7 @@ class _RoundActionButton extends StatelessWidget {
         child: SizedBox(
           width: 48,
           height: 48,
-          child: Icon(
-            icon,
-            color: iconColor,
-          ),
+          child: Icon(icon, color: iconColor),
         ),
       ),
     );

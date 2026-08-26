@@ -67,7 +67,8 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
 
   Future<void> _loadSettings() async {
     try {
-      final summary = await SchoolAdminPlatformService().fetchDashboardSummary();
+      final summary = await SchoolAdminPlatformService()
+          .fetchDashboardSummary();
       final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 5);
       if (!mounted) return;
       if (summary.schoolName.isNotEmpty) {
@@ -79,13 +80,18 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
         });
       }
       setState(() {
-        _logs = logs.map((l) => _SettingsLog(
-          time: '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
-          action: l.action,
-          detail: l.detail.isNotEmpty ? l.detail : l.target,
-          by: l.actorName,
-          type: 'success',
-        )).toList();
+        _logs = logs
+            .map(
+              (l) => _SettingsLog(
+                time:
+                    '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
+                action: l.action,
+                detail: l.detail.isNotEmpty ? l.detail : l.target,
+                by: l.actorName,
+                type: 'success',
+              ),
+            )
+            .toList();
       });
     } catch (_) {}
   }
@@ -102,9 +108,9 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _confirmAction({
@@ -117,10 +123,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text(title),
-          content: Text(
-            message,
-            style: const TextStyle(height: 1.45),
-          ),
+          content: Text(message, style: const TextStyle(height: 1.45)),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -148,7 +151,8 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
 
     final bool confirmed = await _confirmAction(
       title: 'ยืนยันการบันทึกข้อมูลโรงเรียน',
-      message: 'ต้องการบันทึกข้อมูลโรงเรียนที่แก้ไขแล้วหรือไม่\n(หมายเหตุ: ระบบการตั้งค่าโรงเรียนยังไม่เชื่อมต่อระบบหลังบ้าน ข้อมูลจะไม่ถูกบันทึกจริง)',
+      message:
+          'ต้องการบันทึกข้อมูลโรงเรียนที่แก้ไขแล้วหรือไม่\n(หมายเหตุ: ระบบการตั้งค่าโรงเรียนยังไม่เชื่อมต่อระบบหลังบ้าน ข้อมูลจะไม่ถูกบันทึกจริง)',
     );
 
     if (!confirmed || !mounted) return;
@@ -237,97 +241,89 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.settings_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.settings_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                    ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ตั้งค่าโรงเรียน',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'จัดการข้อมูลโรงเรียน ปีการศึกษา การแจ้งเตือน '
+                          'ความปลอดภัย การนำเข้าข้อมูล และการใช้งานระบบ',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _showMessage('เรียกคืนค่าล่าสุดที่บันทึกไว้แล้ว');
+                    },
+                    icon: const Icon(Icons.restore_rounded),
+                    label: const Text('เรียกคืนค่าล่าสุด'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _saveSystemSettings,
+                    icon: const Icon(Icons.save_rounded),
+                    label: const Text('บันทึกทั้งหมด'),
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ตั้งค่าโรงเรียน',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'จัดการข้อมูลโรงเรียน ปีการศึกษา การแจ้งเตือน '
-                      'ความปลอดภัย การนำเข้าข้อมูล และการใช้งานระบบ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  children: [title, const SizedBox(height: 14), actions],
+                );
+              }
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage('เรียกคืนค่าล่าสุดที่บันทึกไว้แล้ว');
-                },
-                icon: const Icon(Icons.restore_rounded),
-                label: const Text('เรียกคืนค่าล่าสุด'),
-              ),
-              FilledButton.icon(
-                onPressed: _saveSystemSettings,
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('บันทึกทั้งหมด'),
-              ),
-            ],
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 14),
-                actions,
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -365,10 +361,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 1050) {
           columns = 2;
@@ -405,10 +398,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
         label: const Text('บันทึกข้อมูล'),
       ),
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final bool oneColumn = constraints.maxWidth < 760;
           final double width = oneColumn
               ? constraints.maxWidth
@@ -544,10 +534,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
       title: 'ปีการศึกษาและรูปแบบระบบ',
       subtitle: 'กำหนดค่าพื้นฐานที่ใช้กับข้อมูลและหน้าจอของโรงเรียน',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 3;
           if (constraints.maxWidth < 950) {
             columns = 2;
@@ -582,11 +569,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
                   label: 'ภาคเรียน',
                   icon: Icons.menu_book_rounded,
                   value: _semester,
-                  items: const [
-                    'ภาคเรียนที่ 1',
-                    'ภาคเรียนที่ 2',
-                    'ภาคฤดูร้อน',
-                  ],
+                  items: const ['ภาคเรียนที่ 1', 'ภาคเรียนที่ 2', 'ภาคฤดูร้อน'],
                   onChanged: (String value) {
                     setState(() => _semester = value);
                   },
@@ -610,10 +593,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
                   label: 'เขตเวลา',
                   icon: Icons.schedule_rounded,
                   value: _timeZone,
-                  items: const [
-                    'ประเทศไทย (UTC+7)',
-                    'UTC',
-                  ],
+                  items: const ['ประเทศไทย (UTC+7)', 'UTC'],
                   onChanged: (String value) {
                     setState(() => _timeZone = value);
                   },
@@ -625,10 +605,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
                   label: 'รูปแบบวันที่',
                   icon: Icons.date_range_rounded,
                   value: _dateFormat,
-                  items: const [
-                    'วัน/เดือน/ปี',
-                    'ปี-เดือน-วัน',
-                  ],
+                  items: const ['วัน/เดือน/ปี', 'ปี-เดือน-วัน'],
                   onChanged: (String value) {
                     setState(() => _dateFormat = value);
                   },
@@ -892,35 +869,17 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
       subtitle: 'ดูสถานะสิทธิ์การใช้งานของโรงเรียน',
       child: Column(
         children: [
-          _PackageRow(
-            label: 'แพ็กเกจ',
-            value: 'AIoT Smart Lab School',
-          ),
+          _PackageRow(label: 'แพ็กเกจ', value: 'AIoT Smart Lab School'),
           SizedBox(height: 8),
-          _PackageRow(
-            label: 'สถานะ',
-            value: 'ใช้งานปกติ',
-          ),
+          _PackageRow(label: 'สถานะ', value: 'ใช้งานปกติ'),
           SizedBox(height: 8),
-          _PackageRow(
-            label: 'วันแพ็กเกจคงเหลือ',
-            value: '238 วัน',
-          ),
+          _PackageRow(label: 'วันแพ็กเกจคงเหลือ', value: '238 วัน'),
           SizedBox(height: 8),
-          _PackageRow(
-            label: 'วันหมดอายุ',
-            value: '5 เมษายน 2570',
-          ),
+          _PackageRow(label: 'วันหมดอายุ', value: '5 เมษายน 2570'),
           SizedBox(height: 8),
-          _PackageRow(
-            label: 'จำนวนผู้ใช้งาน',
-            value: '96 / 300 บัญชี',
-          ),
+          _PackageRow(label: 'จำนวนผู้ใช้งาน', value: '96 / 300 บัญชี'),
           SizedBox(height: 8),
-          _PackageRow(
-            label: 'จำนวนอุปกรณ์',
-            value: '152 / 500 รายการ',
-          ),
+          _PackageRow(label: 'จำนวนอุปกรณ์', value: '152 / 500 รายการ'),
         ],
       ),
     );
@@ -1057,16 +1016,11 @@ class _SettingsSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
         return Container(
-          constraints: BoxConstraints(
-            minHeight: compact ? 148 : 130,
-          ),
+          constraints: BoxConstraints(minHeight: compact ? 148 : 130),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1077,10 +1031,7 @@ class _SettingsSummaryCard extends StatelessWidget {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SettingsIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _SettingsIconBox(icon: data.icon, color: data.color),
                     const SizedBox(height: 10),
                     Text(
                       data.value,
@@ -1113,10 +1064,7 @@ class _SettingsSummaryCard extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _SettingsIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _SettingsIconBox(icon: data.icon, color: data.color),
                     const SizedBox(width: 11),
                     Expanded(
                       child: Column(
@@ -1176,53 +1124,52 @@ class _SettingsSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.5,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: 10),
+                    trailing!,
                   ],
-                ),
+                ],
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 10),
-                trailing!,
-              ],
+              const SizedBox(height: 14),
+              child,
             ],
           ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1246,10 +1193,7 @@ class _SettingsDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon),
-      ),
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
@@ -1258,11 +1202,7 @@ class _SettingsDropdown extends StatelessWidget {
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: (String? value) {
@@ -1296,10 +1236,7 @@ class _SettingsSwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool mobile = constraints.maxWidth < 650;
 
         final Widget text = Row(
@@ -1340,10 +1277,7 @@ class _SettingsSwitchRow extends StatelessWidget {
         );
 
         return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 14,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(17),
@@ -1361,10 +1295,7 @@ class _SettingsSwitchRow extends StatelessWidget {
                         else
                           const Spacer(),
                         const SizedBox(width: 10),
-                        Switch(
-                          value: value,
-                          onChanged: onChanged,
-                        ),
+                        Switch(value: value, onChanged: onChanged),
                       ],
                     ),
                   ],
@@ -1377,10 +1308,7 @@ class _SettingsSwitchRow extends StatelessWidget {
                       trailing!,
                     ],
                     const SizedBox(width: 14),
-                    Switch(
-                      value: value,
-                      onChanged: onChanged,
-                    ),
+                    Switch(value: value, onChanged: onChanged),
                   ],
                 ),
         );
@@ -1415,10 +1343,7 @@ class _SettingsActionRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _SettingsIconBox(
-            icon: icon,
-            color: SchoolAdminPalette.primaryDark,
-          ),
+          _SettingsIconBox(icon: icon, color: SchoolAdminPalette.primaryDark),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1444,10 +1369,7 @@ class _SettingsActionRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          OutlinedButton(
-            onPressed: onPressed,
-            child: Text(buttonText),
-          ),
+          OutlinedButton(onPressed: onPressed, child: Text(buttonText)),
         ],
       ),
     );
@@ -1476,16 +1398,11 @@ class _DangerActionRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: SchoolAdminPalette.red.withAlpha(80),
-        ),
+        border: Border.all(color: SchoolAdminPalette.red.withAlpha(80)),
       ),
       child: Row(
         children: [
-          _SettingsIconBox(
-            icon: icon,
-            color: SchoolAdminPalette.red,
-          ),
+          _SettingsIconBox(icon: icon, color: SchoolAdminPalette.red),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1540,10 +1457,7 @@ class _NumberSetting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 5,
-        vertical: 3,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
       decoration: BoxDecoration(
         color: SchoolAdminPalette.primarySoft,
         borderRadius: BorderRadius.circular(14),
@@ -1577,10 +1491,7 @@ class _NumberSetting extends StatelessWidget {
 }
 
 class _PackageRow extends StatelessWidget {
-  const _PackageRow({
-    required this.label,
-    required this.value,
-  });
+  const _PackageRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -1635,10 +1546,7 @@ class _SettingsLogRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool mobile = constraints.maxWidth < 760;
 
         return Container(
@@ -1682,10 +1590,7 @@ class _SettingsLogRow extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _SettingsIconBox(
-                      icon: Icons.history_rounded,
-                      color: color,
-                    ),
+                    _SettingsIconBox(icon: Icons.history_rounded, color: color),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
@@ -1744,10 +1649,7 @@ class _SettingsLogRow extends StatelessWidget {
 }
 
 class _SettingsIconBox extends StatelessWidget {
-  const _SettingsIconBox({
-    required this.icon,
-    required this.color,
-  });
+  const _SettingsIconBox({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
@@ -1760,16 +1662,9 @@ class _SettingsIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withAlpha(24),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withAlpha(80),
-          width: 1.1,
-        ),
+        border: Border.all(color: color.withAlpha(80), width: 1.1),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
+      child: Icon(icon, color: color, size: 20),
     );
   }
 }

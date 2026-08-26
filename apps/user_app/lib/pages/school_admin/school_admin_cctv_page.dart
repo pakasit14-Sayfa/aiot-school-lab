@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminCctvPage extends StatefulWidget {
-  const SchoolAdminCctvPage({
-    super.key,
-    this.initialGrants,
-    this.initialUsers,
-  });
+  const SchoolAdminCctvPage({super.key, this.initialGrants, this.initialUsers});
 
   final List<CameraAccessGrantItem>? initialGrants;
   final List<UserModel>? initialUsers;
@@ -55,7 +51,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
 
   void _showGrantDialog() {
     String? selectedUserId = _users.isNotEmpty ? _users.first.uid : null;
-    final reasonController = TextEditingController(text: 'เฝ้าระวังความปลอดภัยและกิจกรรมการเรียนการสอน');
+    final reasonController = TextEditingController(
+      text: 'เฝ้าระวังความปลอดภัยและกิจกรรมการเรียนการสอน',
+    );
     int validDays = 7;
 
     showDialog(
@@ -76,16 +74,22 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       value: selectedUserId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       items: _users.map((u) {
                         return DropdownMenuItem(
                           value: u.uid,
-                          child: Text('${u.name} (${u.role.label})', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            '${u.name} (${u.role.label})',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         );
                       }).toList(),
-                      onChanged: (v) => setDialogState(() => selectedUserId = v),
+                      onChanged: (v) =>
+                          setDialogState(() => selectedUserId = v),
                     ),
                     const SizedBox(height: 16),
                     const Text('เหตุผลความจำเป็น (ตามหลัก PDPA):'),
@@ -94,7 +98,6 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       controller: reasonController,
                       maxLines: 2,
                       decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
                         hintText: 'ระบุเหตุผลการเข้าถึง',
                       ),
                     ),
@@ -104,16 +107,31 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                     DropdownButtonFormField<int>(
                       value: validDays,
                       decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 1, child: Text('1 วัน (ชั่วคราว)')),
-                        DropdownMenuItem(value: 7, child: Text('7 วัน (1 สัปดาห์)')),
-                        DropdownMenuItem(value: 30, child: Text('30 วัน (1 เดือน)')),
-                        DropdownMenuItem(value: 90, child: Text('90 วัน (1 ภาคการศึกษา)')),
+                        DropdownMenuItem(
+                          value: 1,
+                          child: Text('1 วัน (ชั่วคราว)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 7,
+                          child: Text('7 วัน (1 สัปดาห์)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 30,
+                          child: Text('30 วัน (1 เดือน)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 90,
+                          child: Text('90 วัน (1 ภาคการศึกษา)'),
+                        ),
                       ],
-                      onChanged: (v) => setDialogState(() => validDays = v ?? 7),
+                      onChanged: (v) =>
+                          setDialogState(() => validDays = v ?? 7),
                     ),
                   ],
                 ),
@@ -129,7 +147,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       : () async {
                           final messenger = ScaffoldMessenger.of(context);
                           final nav = Navigator.of(dialogContext);
-                          final validUntil = DateTime.now().add(Duration(days: validDays));
+                          final validUntil = DateTime.now().add(
+                            Duration(days: validDays),
+                          );
                           await ExecutiveService.grantCameraAccess(
                             userId: selectedUserId!,
                             reason: reasonController.text.trim(),
@@ -142,7 +162,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
 
                           messenger.showSnackBar(
                             const SnackBar(
-                              content: Text('อนุญาตสิทธิ์เข้าถึงกล้อง CCTV เรียบร้อยแล้ว'),
+                              content: Text(
+                                'อนุญาตสิทธิ์เข้าถึงกล้อง CCTV เรียบร้อยแล้ว',
+                              ),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -163,7 +185,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('ยกเลิกสิทธิ์เข้าถึงกล้อง'),
-          content: Text('ต้องการเพิกถอนสิทธิ์การเข้าถึงกล้องของ ${grant.userName} หรือไม่?'),
+          content: Text(
+            'ต้องการเพิกถอนสิทธิ์การเข้าถึงกล้องของ ${grant.userName} หรือไม่?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -289,7 +313,11 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
           const SizedBox(height: 8),
           Text(
             'การเข้าถึงภาพจากกล้องวงจรปิดต้องได้รับอนุญาตตามหลักเกณฑ์ความจำเป็นและมีบันทึก Audit Log ทุกครั้ง ทั้งนี้ฟังก์ชัน AI Video Analytics อยู่ระหว่างการพัฒนาระบบประมวลผล',
-            style: TextStyle(fontSize: 13, color: Colors.indigo.shade900, height: 1.4),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.indigo.shade900,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -378,13 +406,18 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            decoration: isActive ? null : TextDecoration.lineThrough,
+                            decoration: isActive
+                                ? null
+                                : TextDecoration.lineThrough,
                             color: isActive ? null : Colors.grey.shade600,
                           ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: statusBgColor,
                           borderRadius: BorderRadius.circular(12),

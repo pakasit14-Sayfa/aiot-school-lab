@@ -67,7 +67,9 @@ class _SchoolAdminDeviceSchedulePageState
     }
 
     String selectedDeviceId = _devices.first.id;
-    final labelController = TextEditingController(text: 'เปิดแอร์ก่อนเริ่มเรียน');
+    final labelController = TextEditingController(
+      text: 'เปิดแอร์ก่อนเริ่มเรียน',
+    );
     String selectedAction = 'on';
     TimeOfDay selectedTime = const TimeOfDay(hour: 8, minute: 0);
     List<int> selectedDays = [1, 2, 3, 4, 5]; // Mon-Fri
@@ -93,8 +95,10 @@ class _SchoolAdminDeviceSchedulePageState
                       value: selectedDeviceId,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       items: _devices.map((d) {
                         return DropdownMenuItem(
@@ -106,7 +110,8 @@ class _SchoolAdminDeviceSchedulePageState
                         );
                       }).toList(),
                       onChanged: (v) {
-                        if (v != null) setDialogState(() => selectedDeviceId = v);
+                        if (v != null)
+                          setDialogState(() => selectedDeviceId = v);
                       },
                     ),
                     const SizedBox(height: 14),
@@ -115,7 +120,6 @@ class _SchoolAdminDeviceSchedulePageState
                     TextField(
                       controller: labelController,
                       decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
                         hintText: 'เช่น เปิดแอร์ห้อง 101, ปิดไฟทางเดิน',
                       ),
                     ),
@@ -124,8 +128,14 @@ class _SchoolAdminDeviceSchedulePageState
                     const SizedBox(height: 6),
                     SegmentedButton<String>(
                       segments: const [
-                        ButtonSegment(value: 'on', label: Text('เปิดเครื่อง (ON)')),
-                        ButtonSegment(value: 'off', label: Text('ปิดเครื่อง (OFF)')),
+                        ButtonSegment(
+                          value: 'on',
+                          label: Text('เปิดเครื่อง (ON)'),
+                        ),
+                        ButtonSegment(
+                          value: 'off',
+                          label: Text('ปิดเครื่อง (OFF)'),
+                        ),
                       ],
                       selected: {selectedAction},
                       onSelectionChanged: (newSet) {
@@ -146,7 +156,10 @@ class _SchoolAdminDeviceSchedulePageState
                         }
                       },
                       icon: const Icon(Icons.access_time),
-                      label: Text(formattedTime, style: const TextStyle(fontSize: 16)),
+                      label: Text(
+                        formattedTime,
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     const Text('วันที่ต้องการให้ทำงาน:'),
@@ -247,7 +260,9 @@ class _SchoolAdminDeviceSchedulePageState
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 final nav = Navigator.of(dialogContext);
-                await DeviceScheduleService.deleteSchedule(scheduleId: schedule.id);
+                await DeviceScheduleService.deleteSchedule(
+                  scheduleId: schedule.id,
+                );
 
                 nav.pop();
                 if (!mounted) return;
@@ -406,8 +421,9 @@ class _SchoolAdminDeviceSchedulePageState
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor:
-                      isOn ? Colors.green.shade100 : Colors.red.shade100,
+                  backgroundColor: isOn
+                      ? Colors.green.shade100
+                      : Colors.red.shade100,
                   radius: 20,
                   child: Icon(
                     isOn ? Icons.power : Icons.power_off,
@@ -431,7 +447,10 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                       Text(
                         '${schedule.deviceName} • ${schedule.deviceLocation}',
-                        style: const TextStyle(fontSize: 13, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
@@ -454,7 +473,11 @@ class _SchoolAdminDeviceSchedulePageState
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.access_time, size: 18, color: Colors.purple),
+                    const Icon(
+                      Icons.access_time,
+                      size: 18,
+                      color: Colors.purple,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       schedule.timeFormatted,
@@ -464,7 +487,11 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                     ),
                     const SizedBox(width: 14),
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.purple),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.purple,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       schedule.daysFormatted,

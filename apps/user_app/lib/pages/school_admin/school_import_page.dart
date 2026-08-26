@@ -1,12 +1,10 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'theme/school_admin_palette.dart';
 
-enum _ImportSource {
-  file,
-  googleSheets,
-}
+enum _ImportSource { file, googleSheets }
 
 class SchoolImportPage extends StatefulWidget {
   const SchoolImportPage({super.key});
@@ -20,10 +18,16 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
   _ImportSource _source = _ImportSource.file;
 
   final TextEditingController _sheetUrlController = TextEditingController();
+  final SchoolAdminPlatformService _platformService =
+      SchoolAdminPlatformService();
 
   String? _selectedFileName;
   bool _hasPreview = false;
   bool _isImporting = false;
+  bool _isLoadingSource = false;
+
+  List<ImportPreviewRow> _validatedRows = [];
+  List<String> _existingBuildingCodes = [];
 
   final List<_ImportLogRecord> _logs = [];
 
@@ -33,151 +37,37 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
     super.dispose();
   }
 
-  List<_PreviewRow> get _previewRows {
-    switch (_dataType) {
-      case 'ครูและบุคลากร':
-        return const [
-          _PreviewRow(
-            row: '2',
-            code: 'TC-2569-011',
-            name: 'นางสาวสุดารัตน์ ใจดี',
-            detail: 'วิทยาศาสตร์ • ครูผู้สอน',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '3',
-            code: 'TC-2569-012',
-            name: 'นายวิทยา แสงทอง',
-            detail: 'คณิตศาสตร์ • ครูประจำชั้น',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '4',
-            code: '-',
-            name: 'นางสาวพิมพ์ชนก ศรีสุข',
-            detail: 'ภาษาไทย • ไม่พบรหัสบุคลากร',
-            status: 'ต้องแก้ไข',
-          ),
-        ];
-      case 'อุปกรณ์':
-        return const [
-          _PreviewRow(
-            row: '2',
-            code: 'DEV-A-001',
-            name: 'MQ-2 Gas Sensor',
-            detail: 'อาคารปฏิบัติการ • ห้อง Lab 1',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '3',
-            code: 'DEV-A-002',
-            name: 'ENS160',
-            detail: 'อาคารปฏิบัติการ • ห้อง Lab 1',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '4',
-            code: 'DEV-A-002',
-            name: 'BH1750',
-            detail: 'รหัสซ้ำกับข้อมูลแถวก่อนหน้า',
-            status: 'ต้องแก้ไข',
-          ),
-        ];
-      case 'ชุดฝึก':
-        return const [
-          _PreviewRow(
-            row: '2',
-            code: 'KIT-001',
-            name: 'ชุดฝึก AIoT ห้อง 101',
-            detail: 'อาคาร A • ห้อง 101',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '3',
-            code: 'KIT-002',
-            name: 'ชุดฝึก AIoT ห้อง 102',
-            detail: 'อาคาร A • ห้อง 102',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '4',
-            code: 'KIT-003',
-            name: 'ชุดฝึก AIoT ห้อง 201',
-            detail: 'ยังไม่ระบุผู้ดูแล',
-            status: 'คำเตือน',
-          ),
-        ];
-      case 'อาคารและห้อง':
-        return const [
-          _PreviewRow(
-            row: '2',
-            code: 'BLD-A',
-            name: 'อาคารเรียน A',
-            detail: '6 ห้อง',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '3',
-            code: 'BLD-B',
-            name: 'อาคารเรียน B',
-            detail: '8 ห้อง',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '4',
-            code: 'ROOM-999',
-            name: 'ห้องทดสอบ',
-            detail: 'ไม่พบอาคารที่อ้างอิง',
-            status: 'ต้องแก้ไข',
-          ),
-        ];
-      default:
-        return const [
-          _PreviewRow(
-            row: '2',
-            code: 'ST-2569-0013',
-            name: 'เด็กชายธีรภัทร ใจดี',
-            detail: 'ม.1/1 • เลขที่ 13',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '3',
-            code: 'ST-2569-0014',
-            name: 'เด็กหญิงพิมพ์ชนก ศรีงาม',
-            detail: 'ม.1/1 • เลขที่ 14',
-            status: 'พร้อมนำเข้า',
-          ),
-          _PreviewRow(
-            row: '4',
-            code: 'ST-2569-0014',
-            name: 'เด็กชายกิตติพงศ์ แก้วคำ',
-            detail: 'ม.1/2 • รหัสนักเรียนซ้ำ',
-            status: 'ต้องแก้ไข',
-          ),
-          _PreviewRow(
-            row: '5',
-            code: 'ST-2569-0016',
-            name: 'เด็กหญิงณัฐณิชา บุญส่ง',
-            detail: 'ม.2/1 • ไม่มีอีเมล',
-            status: 'คำเตือน',
-          ),
-        ];
-    }
-  }
+  List<_PreviewRow> get _previewRows => _validatedRows
+      .map(
+        (r) => _PreviewRow(
+          row: '${r.rowNumber}',
+          code: r.code,
+          name: r.name,
+          detail: r.detail,
+          status: switch (r.status) {
+            ImportRowStatus.ready => 'พร้อมนำเข้า',
+            ImportRowStatus.warning => 'คำเตือน',
+            ImportRowStatus.needsFix => 'ต้องแก้ไข',
+          },
+        ),
+      )
+      .toList();
 
   int get _readyCount =>
-      _previewRows.where((row) => row.status == 'พร้อมนำเข้า').length;
+      _validatedRows.where((row) => row.status == ImportRowStatus.ready).length;
 
-  int get _errorCount =>
-      _previewRows.where((row) => row.status == 'ต้องแก้ไข').length;
+  int get _errorCount => _validatedRows
+      .where((row) => row.status == ImportRowStatus.needsFix)
+      .length;
 
-  int get _warningCount =>
-      _previewRows.where((row) => row.status == 'คำเตือน').length;
+  int get _warningCount => _validatedRows
+      .where((row) => row.status == ImportRowStatus.warning)
+      .length;
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _resetImport() {
@@ -186,25 +76,78 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
       _sheetUrlController.clear();
       _hasPreview = false;
       _isImporting = false;
+      _validatedRows = [];
     });
   }
 
-  void _selectMockFile() {
+  /// Real building codes for this school, used to validate อาคารและห้อง room
+  /// rows that reference a building already saved in the system (as opposed
+  /// to one being created in the same file).
+  Future<void> _refreshExistingBuildingCodesIfNeeded() async {
+    if (_dataType != 'อาคารและห้อง') return;
+    try {
+      final buildings = await _platformService.fetchBuildings();
+      _existingBuildingCodes = buildings.map((b) => b.code).toList();
+    } catch (_) {
+      _existingBuildingCodes = [];
+    }
+  }
+
+  Future<void> _applyParsedRows(
+    List<Map<String, String>> rawRows, {
+    required String sourceLabel,
+  }) async {
+    if (rawRows.isEmpty) {
+      _showMessage(
+        'ไม่พบข้อมูลในไฟล์นี้ (ต้องมีหัวคอลัมน์และอย่างน้อย 1 แถวข้อมูล)',
+      );
+      return;
+    }
+
+    await _refreshExistingBuildingCodesIfNeeded();
+
+    final validated = SchoolImportService.validateRows(
+      _dataType,
+      rawRows,
+      existingBuildingCodes: _existingBuildingCodes,
+    );
+
+    if (!mounted) return;
     setState(() {
-      _selectedFileName = switch (_dataType) {
-        'ครูและบุคลากร' => 'teachers_2569.xlsx',
-        'อุปกรณ์' => 'devices_school.csv',
-        'ชุดฝึก' => 'training_kits.xlsx',
-        'อาคารและห้อง' => 'buildings_rooms.xlsx',
-        _ => 'students_2569.xlsx',
-      };
+      _selectedFileName = sourceLabel;
+      _validatedRows = validated;
       _hasPreview = true;
     });
-
-    _showMessage('เลือกไฟล์ตัวอย่างเรียบร้อยแล้ว');
   }
 
-  void _loadGoogleSheet() {
+  Future<void> _pickFile() async {
+    if (_isLoadingSource) return;
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      withData: true,
+      type: FileType.custom,
+      allowedExtensions: const ['xlsx', 'xls', 'csv'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    final picked = result.files.single;
+    final bytes = picked.bytes;
+    if (bytes == null) {
+      _showMessage('ไม่สามารถอ่านไฟล์นี้ได้');
+      return;
+    }
+
+    setState(() => _isLoadingSource = true);
+    try {
+      final rawRows = SchoolImportService.parseFile(bytes, picked.name);
+      await _applyParsedRows(rawRows, sourceLabel: picked.name);
+    } catch (e) {
+      _showMessage('อ่านไฟล์ไม่สำเร็จ: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingSource = false);
+    }
+  }
+
+  Future<void> _loadGoogleSheet() async {
     final String url = _sheetUrlController.text.trim();
 
     if (url.isEmpty) {
@@ -212,12 +155,26 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
       return;
     }
 
-    setState(() {
-      _selectedFileName = 'Google Sheets';
-      _hasPreview = true;
-    });
+    setState(() => _isLoadingSource = true);
+    try {
+      final rawRows = await SchoolImportService.fetchGoogleSheetCsv(url);
+      await _applyParsedRows(rawRows, sourceLabel: 'Google Sheets');
+    } catch (e) {
+      _showMessage(
+        'โหลดข้อมูลจาก Google Sheets ไม่สำเร็จ: $e '
+        '(รองรับเฉพาะลิงก์ที่เผยแพร่แบบ CSV จาก File > Share > Publish to web)',
+      );
+    } finally {
+      if (mounted) setState(() => _isLoadingSource = false);
+    }
+  }
 
-    _showMessage('โหลดข้อมูลตัวอย่างจาก Google Sheets แล้ว');
+  void _downloadTemplate() {
+    final bytes = SchoolImportService.buildTemplateCsv(_dataType);
+    FilePicker.platform.saveFile(
+      fileName: 'แบบฟอร์มนำเข้า_$_dataType.csv',
+      bytes: bytes,
+    );
   }
 
   Future<void> _startImport() async {
@@ -255,52 +212,111 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
 
     setState(() => _isImporting = true);
 
-    int realImported = _readyCount + _warningCount;
-    try {
-      final role = _dataType == 'ครูและบุคลากร' ? UserRole.teacher : UserRole.student;
-      final payload = _previewRows.where((r) => r.status != 'ต้องแก้ไข').map((r) => {
-        'name': r.name,
-        'email': r.code.isNotEmpty && r.code != '-' ? '${r.code.toLowerCase().replaceAll('-', '_')}@school.ac.th' : 'user_${DateTime.now().millisecondsSinceEpoch}@school.ac.th',
-      }).toList();
+    final rowsToSend = _validatedRows
+        .where((r) => r.status != ImportRowStatus.needsFix)
+        .toList();
 
-      if (payload.isNotEmpty) {
-        final count = await UserAdminService.importSchoolUsersBatch(role: role, users: payload);
-        if (count > 0) realImported = count;
+    int inserted = 0;
+    List<SkippedRow> skipped = const [];
+    String? errorMessage;
+
+    try {
+      switch (_dataType) {
+        case 'อาคารและห้อง':
+          final buildingRows = rowsToSend
+              .where((r) => r.rowType == 'อาคาร')
+              .map((r) => r.payload)
+              .toList();
+          final roomRows = rowsToSend
+              .where((r) => r.rowType == 'ห้อง')
+              .map((r) => r.payload)
+              .toList();
+
+          if (buildingRows.isNotEmpty) {
+            final res = await _platformService.importBuildingsBatch(
+              buildingRows,
+            );
+            inserted += res.insertedCount;
+            skipped = [...skipped, ...res.skipped];
+          }
+          if (roomRows.isNotEmpty) {
+            final res = await _platformService.importRoomsBatch(roomRows);
+            inserted += res.insertedCount;
+            skipped = [...skipped, ...res.skipped];
+          }
+          break;
+
+        case 'อุปกรณ์':
+        case 'ชุดฝึก':
+          final payload = rowsToSend.map((r) => r.payload).toList();
+          if (payload.isNotEmpty) {
+            final res = await _platformService.importDevicesBatch(payload);
+            inserted = res.insertedCount;
+            skipped = res.skipped;
+          }
+          break;
+
+        default:
+          final role = _dataType == 'ครูและบุคลากร'
+              ? UserRole.teacher
+              : UserRole.student;
+          final payload = rowsToSend.map((r) => r.payload).toList();
+          if (payload.isNotEmpty) {
+            inserted = await UserAdminService.importSchoolUsersBatch(
+              role: role,
+              users: payload,
+            );
+          }
       }
-    } catch (_) {
-      // In test/offline, proceed gracefully
+    } catch (e) {
+      errorMessage = e.toString();
     }
 
     if (!mounted) return;
 
-    final int imported = realImported;
+    final int totalFailed = _errorCount + skipped.length;
 
     setState(() {
       _isImporting = false;
       _logs.insert(
         0,
         _ImportLogRecord(
-          date: 'วันนี้ ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')} น.',
+          date:
+              'วันนี้ ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')} น.',
           user: 'ผู้ดูแลโรงเรียน',
           dataType: _dataType,
           source: _source == _ImportSource.file
-              ? (_selectedFileName?.endsWith('.csv') == true ? 'CSV' : 'Excel')
+              ? (_selectedFileName?.toLowerCase().endsWith('.csv') == true
+                    ? 'CSV'
+                    : 'Excel')
               : 'Google Sheets',
           fileName: _source == _ImportSource.file
               ? (_selectedFileName ?? 'ไฟล์นำเข้า')
               : 'Google Sheets',
-          total: _previewRows.length,
-          success: imported,
-          failed: _errorCount,
-          status: _errorCount == 0 ? 'สำเร็จ' : 'เสร็จสิ้น',
+          total: _validatedRows.length,
+          success: inserted,
+          failed: totalFailed,
+          status: errorMessage != null
+              ? 'ผิดพลาด'
+              : (totalFailed == 0 ? 'สำเร็จ' : 'เสร็จสิ้น'),
         ),
       );
     });
 
-    _showMessage(
-      'นำเข้า $imported รายการเรียบร้อย '
-      '${_errorCount > 0 ? 'และข้าม $_errorCount รายการที่มีปัญหา' : ''}',
-    );
+    if (errorMessage != null) {
+      _showMessage('นำเข้าไม่สำเร็จ: $errorMessage');
+      return;
+    }
+
+    final skipReasons = skipped
+        .map((s) => SkippedRow.reasonLabel(s.reason))
+        .toSet()
+        .join(', ');
+    final skipNote = skipped.isEmpty
+        ? (_errorCount > 0 ? ' และข้าม $_errorCount รายการที่มีปัญหา' : '')
+        : ' และข้าม ${skipped.length} รายการ ($skipReasons)';
+
+    _showMessage('นำเข้า $inserted รายการเรียบร้อย$skipNote');
   }
 
   void _showLogDetail(_ImportLogRecord log) {
@@ -312,103 +328,102 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: SchoolAdminPalette.border),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const CircleAvatar(
-                        backgroundColor: SchoolAdminPalette.primarySoft,
-                        child: Icon(
-                          Icons.history_rounded,
-                          color: SchoolAdminPalette.primaryDark,
-                        ),
+                      Row(
+                        children: [
+                          const CircleAvatar(
+                            backgroundColor: SchoolAdminPalette.primarySoft,
+                            child: Icon(
+                              Icons.history_rounded,
+                              color: SchoolAdminPalette.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              'รายละเอียด Log การนำเข้า',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: SchoolAdminPalette.textPrimary,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Text(
-                          'รายละเอียด Log การนำเข้า',
+                      const SizedBox(height: 16),
+                      _ImportDetailRow(
+                        label: 'วันและเวลา',
+                        value: log.date,
+                        icon: Icons.schedule_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'ผู้ดำเนินการ',
+                        value: log.user,
+                        icon: Icons.person_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'ประเภทข้อมูล',
+                        value: log.dataType,
+                        icon: Icons.category_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'แหล่งข้อมูล',
+                        value: log.source,
+                        icon: Icons.source_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'ชื่อไฟล์ / ชีต',
+                        value: log.fileName,
+                        icon: Icons.description_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'ข้อมูลทั้งหมด',
+                        value: '${log.total} รายการ',
+                        icon: Icons.list_alt_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'นำเข้าสำเร็จ',
+                        value: '${log.success} รายการ',
+                        icon: Icons.check_circle_rounded,
+                      ),
+                      _ImportDetailRow(
+                        label: 'ไม่สำเร็จ',
+                        value: '${log.failed} รายการ',
+                        icon: Icons.error_outline_rounded,
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: SchoolAdminPalette.border),
+                        ),
+                        child: const Text(
+                          'ระบบจะเก็บ Log การนำเข้าไว้เพื่อใช้ตรวจสอบย้อนหลัง '
+                          'รวมถึงผู้ดำเนินการ เวลา ประเภทข้อมูล และผลการนำเข้า',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            color: SchoolAdminPalette.textPrimary,
+                            fontSize: 10,
+                            height: 1.5,
+                            color: SchoolAdminPalette.textSecondary,
                           ),
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _ImportDetailRow(
-                    label: 'วันและเวลา',
-                    value: log.date,
-                    icon: Icons.schedule_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'ผู้ดำเนินการ',
-                    value: log.user,
-                    icon: Icons.person_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'ประเภทข้อมูล',
-                    value: log.dataType,
-                    icon: Icons.category_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'แหล่งข้อมูล',
-                    value: log.source,
-                    icon: Icons.source_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'ชื่อไฟล์ / ชีต',
-                    value: log.fileName,
-                    icon: Icons.description_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'ข้อมูลทั้งหมด',
-                    value: '${log.total} รายการ',
-                    icon: Icons.list_alt_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'นำเข้าสำเร็จ',
-                    value: '${log.success} รายการ',
-                    icon: Icons.check_circle_rounded,
-                  ),
-                  _ImportDetailRow(
-                    label: 'ไม่สำเร็จ',
-                    value: '${log.failed} รายการ',
-                    icon: Icons.error_outline_rounded,
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(13),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: SchoolAdminPalette.border),
-                    ),
-                    child: const Text(
-                      'ระบบจะเก็บ Log การนำเข้าไว้เพื่อใช้ตรวจสอบย้อนหลัง '
-                      'รวมถึงผู้ดำเนินการ เวลา ประเภทข้อมูล และผลการนำเข้า',
-                      style: TextStyle(
-                        fontSize: 10,
-                        height: 1.5,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -454,104 +469,96 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.upload_file_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.upload_file_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                    ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'นำเข้าข้อมูล',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'เพิ่มข้อมูลจำนวนมากจาก Excel, CSV หรือ Google Sheets '
+                          'พร้อมตรวจสอบความถูกต้องก่อนบันทึกเข้าสู่ระบบ',
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.45,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _downloadTemplate,
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('ดาวน์โหลดแบบฟอร์ม'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _resetImport,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('เริ่มใหม่'),
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'นำเข้าข้อมูล',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'เพิ่มข้อมูลจำนวนมากจาก Excel, CSV หรือ Google Sheets '
-                      'พร้อมตรวจสอบความถูกต้องก่อนบันทึกเข้าสู่ระบบ',
-                      style: TextStyle(
-                        fontSize: 11,
-                        height: 1.45,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  children: [title, const SizedBox(height: 14), actions],
+                );
+              }
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage('ดาวน์โหลดไฟล์ตัวอย่างสำหรับ $_dataType แล้ว');
-                },
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('ดาวน์โหลดแบบฟอร์ม'),
-              ),
-              OutlinedButton.icon(
-                onPressed: _resetImport,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('เริ่มใหม่'),
-              ),
-            ],
-          );
-
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 14),
-                actions,
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildSummary() {
-    final int importedTotal =
-        _logs.fold<int>(0, (sum, log) => sum + log.success);
+    final int importedTotal = _logs.fold<int>(
+      0,
+      (sum, log) => sum + log.success,
+    );
 
     final int failedTotal = _logs.fold<int>(0, (sum, log) => sum + log.failed);
 
@@ -589,10 +596,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 1050) columns = 2;
         if (constraints.maxWidth < 300) columns = 1;
@@ -639,27 +643,29 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: [
-          'นักเรียน',
-          'ครูและบุคลากร',
-          'อาคารและห้อง',
-          'อุปกรณ์',
-          'ชุดฝึก',
-        ].map((String type) {
-          final bool selected = _dataType == type;
+        children:
+            [
+              'นักเรียน',
+              'ครูและบุคลากร',
+              'อาคารและห้อง',
+              'อุปกรณ์',
+              'ชุดฝึก',
+            ].map((String type) {
+              final bool selected = _dataType == type;
 
-          return ChoiceChip(
-            label: Text(type),
-            selected: selected,
-            onSelected: (_) {
-              setState(() {
-                _dataType = type;
-                _hasPreview = false;
-                _selectedFileName = null;
-              });
-            },
-          );
-        }).toList(),
+              return ChoiceChip(
+                label: Text(type),
+                selected: selected,
+                onSelected: (_) {
+                  setState(() {
+                    _dataType = type;
+                    _hasPreview = false;
+                    _selectedFileName = null;
+                    _validatedRows = [];
+                  });
+                },
+              );
+            }).toList(),
       ),
     );
   }
@@ -691,15 +697,13 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
                 _source = value.first;
                 _hasPreview = false;
                 _selectedFileName = null;
+                _validatedRows = [];
               });
             },
           ),
           const SizedBox(height: 14),
           if (_source == _ImportSource.file)
-            _FileUploadBox(
-              fileName: _selectedFileName,
-              onSelectFile: _selectMockFile,
-            )
+            _FileUploadBox(fileName: _selectedFileName, onSelectFile: _pickFile)
           else
             Row(
               children: [
@@ -715,12 +719,38 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
                 ),
                 const SizedBox(width: 10),
                 FilledButton.icon(
-                  onPressed: _loadGoogleSheet,
-                  icon: const Icon(Icons.cloud_download_rounded),
+                  onPressed: _isLoadingSource ? null : _loadGoogleSheet,
+                  icon: _isLoadingSource
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cloud_download_rounded),
                   label: const Text('โหลดข้อมูล'),
                 ),
               ],
             ),
+          if (_isLoadingSource && _source == _ImportSource.file) ...[
+            const SizedBox(height: 10),
+            const Row(
+              children: [
+                SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'กำลังอ่านและตรวจสอบไฟล์...',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -730,24 +760,21 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
     final String statusText = !_hasPreview
         ? 'รอเลือกข้อมูล'
         : _errorCount > 0
-            ? 'พบข้อมูลที่ต้องตรวจสอบ'
-            : 'พร้อมนำเข้า';
+        ? 'พบข้อมูลที่ต้องตรวจสอบ'
+        : 'พร้อมนำเข้า';
 
     final Color statusColor = !_hasPreview
         ? SchoolAdminPalette.textMuted
         : _errorCount > 0
-            ? SchoolAdminPalette.red
-            : SchoolAdminPalette.green;
+        ? SchoolAdminPalette.red
+        : SchoolAdminPalette.green;
 
     return _ImportStepCard(
       step: '3',
       title: 'ตรวจสอบและนำเข้า',
       subtitle: 'ตรวจดูตัวอย่างข้อมูลและผลการตรวจสอบก่อนบันทึกเข้าสู่ระบบ',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final Widget status = Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -760,8 +787,8 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
                 Icon(
                   _hasPreview
                       ? (_errorCount > 0
-                          ? Icons.warning_amber_rounded
-                          : Icons.check_circle_rounded)
+                            ? Icons.warning_amber_rounded
+                            : Icons.check_circle_rounded)
                       : Icons.hourglass_empty_rounded,
                   color: statusColor,
                 ),
@@ -801,19 +828,13 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.upload_rounded),
-            label: Text(
-              _isImporting ? 'กำลังนำเข้า...' : 'เริ่มนำเข้าข้อมูล',
-            ),
+            label: Text(_isImporting ? 'กำลังนำเข้า...' : 'เริ่มนำเข้าข้อมูล'),
           );
 
           if (constraints.maxWidth < 650) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                status,
-                const SizedBox(height: 10),
-                button,
-              ],
+              children: [status, const SizedBox(height: 10), button],
             );
           }
 
@@ -866,10 +887,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
       subtitle:
           'ระบบตรวจรหัสซ้ำ ช่องบังคับ ความสัมพันธ์ของข้อมูล และรูปแบบเบื้องต้น',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 4;
           if (constraints.maxWidth < 850) columns = 2;
 
@@ -897,10 +915,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
       title: 'ตัวอย่างข้อมูลก่อนนำเข้า',
       subtitle: 'แสดงข้อมูลบางส่วนเพื่อให้ตรวจสอบก่อนบันทึกจริงเข้าสู่ระบบ',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           if (constraints.maxWidth >= 850) {
             return SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -981,7 +996,11 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
               alignment: Alignment.center,
               child: const Column(
                 children: [
-                  Icon(Icons.history_rounded, size: 36, color: SchoolAdminPalette.textSecondary),
+                  Icon(
+                    Icons.history_rounded,
+                    size: 36,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
                   SizedBox(height: 8),
                   Text(
                     'ยังไม่มีประวัติการนำเข้าข้อมูลในระบบ',
@@ -994,16 +1013,16 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
                   SizedBox(height: 4),
                   Text(
                     'เมื่อมีการอัปโหลดและนำเข้าข้อมูล รายการประวัติจะแสดงที่นี่',
-                    style: TextStyle(fontSize: 11, color: SchoolAdminPalette.textSecondary),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: SchoolAdminPalette.textSecondary,
+                    ),
                   ),
                 ],
               ),
             )
           : LayoutBuilder(
-              builder: (
-                BuildContext context,
-                BoxConstraints constraints,
-              ) {
+              builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 920) {
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -1145,10 +1164,7 @@ class _ImportSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
         return Container(
@@ -1163,10 +1179,7 @@ class _ImportSummaryCard extends StatelessWidget {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ImportIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _ImportIconBox(icon: data.icon, color: data.color),
                     const SizedBox(height: 10),
                     Text(
                       data.value,
@@ -1201,10 +1214,7 @@ class _ImportSummaryCard extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _ImportIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _ImportIconBox(icon: data.icon, color: data.color),
                     const SizedBox(width: 11),
                     Expanded(
                       child: Column(
@@ -1264,37 +1274,36 @@ class _ImportSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              child,
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1373,56 +1382,52 @@ class _ImportStepCard extends StatelessWidget {
 }
 
 class _FileUploadBox extends StatelessWidget {
-  const _FileUploadBox({
-    required this.fileName,
-    required this.onSelectFile,
-  });
+  const _FileUploadBox({required this.fileName, required this.onSelectFile});
 
   final String? fileName;
   final VoidCallback onSelectFile;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.cloud_upload_outlined,
-            size: 40,
-            color: SchoolAdminPalette.primaryDark,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.cloud_upload_outlined,
+                size: 40,
+                color: SchoolAdminPalette.primaryDark,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                fileName ?? 'เลือกไฟล์ Excel หรือ CSV',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'รองรับ .xlsx, .xls และ .csv',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: onSelectFile,
+                icon: const Icon(Icons.folder_open_rounded),
+                label: Text(fileName == null ? 'เลือกไฟล์' : 'เปลี่ยนไฟล์'),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            fileName ?? 'เลือกไฟล์ Excel หรือ CSV',
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'รองรับ .xlsx, .xls และ .csv',
-            style: TextStyle(
-              fontSize: 9,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: onSelectFile,
-            icon: const Icon(Icons.folder_open_rounded),
-            label: Text(fileName == null ? 'เลือกไฟล์' : 'เปลี่ยนไฟล์'),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1444,10 +1449,7 @@ class _ValidationCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _ImportIconBox(
-            icon: data.icon,
-            color: data.color,
-          ),
+          _ImportIconBox(icon: data.icon, color: data.color),
           const SizedBox(width: 9),
           Expanded(
             child: Column(
@@ -1568,18 +1570,12 @@ class _ImportStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _BadgeBase(
-      label: status,
-      color: color,
-    );
+    return _BadgeBase(label: status, color: color);
   }
 }
 
 class _LogStatusBadge extends StatelessWidget {
-  const _LogStatusBadge({
-    required this.status,
-    required this.hasError,
-  });
+  const _LogStatusBadge({required this.status, required this.hasError});
 
   final String status;
   final bool hasError;
@@ -1594,10 +1590,7 @@ class _LogStatusBadge extends StatelessWidget {
 }
 
 class _BadgeBase extends StatelessWidget {
-  const _BadgeBase({
-    required this.label,
-    required this.color,
-  });
+  const _BadgeBase({required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -1624,10 +1617,7 @@ class _BadgeBase extends StatelessWidget {
 }
 
 class _ImportLogMobileCard extends StatelessWidget {
-  const _ImportLogMobileCard({
-    required this.log,
-    required this.onTap,
-  });
+  const _ImportLogMobileCard({required this.log, required this.onTap});
 
   final _ImportLogRecord log;
   final VoidCallback onTap;
@@ -1641,10 +1631,7 @@ class _ImportLogMobileCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(17),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(17),
             border: Border.all(color: SchoolAdminPalette.border),
@@ -1695,14 +1682,8 @@ class _ImportLogMobileCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _SmallLogMetric(
-                    label: 'แหล่งข้อมูล',
-                    value: log.source,
-                  ),
-                  _SmallLogMetric(
-                    label: 'ทั้งหมด',
-                    value: '${log.total}',
-                  ),
+                  _SmallLogMetric(label: 'แหล่งข้อมูล', value: log.source),
+                  _SmallLogMetric(label: 'ทั้งหมด', value: '${log.total}'),
                   _SmallLogMetric(
                     label: 'สำเร็จ',
                     value: '${log.success}',
@@ -1784,10 +1765,7 @@ class _GuideRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 13,
-        vertical: 12,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -1840,10 +1818,7 @@ class _GuideRow extends StatelessWidget {
 }
 
 class _ImportIconBox extends StatelessWidget {
-  const _ImportIconBox({
-    required this.icon,
-    required this.color,
-  });
+  const _ImportIconBox({required this.icon, required this.color});
 
   final IconData icon;
   final Color color;
@@ -1856,16 +1831,9 @@ class _ImportIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withAlpha(24),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withAlpha(80),
-          width: 1.1,
-        ),
+        border: Border.all(color: color.withAlpha(80), width: 1.1),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: 20,
-      ),
+      child: Icon(icon, color: color, size: 20),
     );
   }
 }
@@ -1893,11 +1861,7 @@ class _ImportDetailRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 19,
-            color: SchoolAdminPalette.primaryDark,
-          ),
+          Icon(icon, size: 19, color: SchoolAdminPalette.primaryDark),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

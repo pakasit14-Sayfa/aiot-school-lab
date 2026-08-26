@@ -1,4 +1,7 @@
-# Database Schema (live dump from local Supabase, regenerated 2026-08-25)
+# Database Schema (live dump from local Supabase, regenerated 2026-08-25;
+# RPC list manually updated 2026-08-26 for the 3 new school_admin bulk-import
+# functions plus one pre-existing gap — a full re-dump wasn't re-run since
+# no tables changed, only new functions)
 
 Total tables: 82 (+ 2 views: alerts, profiles)
 
@@ -1595,7 +1598,15 @@ Foreign keys:
 
 ### `has_role(p_role text)` → `boolean` (SECURITY DEFINER)
 
+### `import_school_buildings_batch(p_token text, p_buildings jsonb)` → `jsonb` (SECURITY DEFINER)
+
+### `import_school_devices_batch(p_token text, p_devices jsonb)` → `jsonb` (SECURITY DEFINER)
+
+### `import_school_rooms_batch(p_token text, p_rooms jsonb)` → `jsonb` (SECURITY DEFINER)
+
 ### `import_school_users_batch(p_school_id uuid, p_role text, p_users jsonb)` → `jsonb` (SECURITY DEFINER)
+
+### `import_school_users_batch_for_school_admin(p_token text, p_role text, p_users jsonb)` → `jsonb` (SECURITY DEFINER)
 
 ### `ingest_sensor_readings_verified(p_gateway_id uuid, p_readings jsonb)` → `integer` (SECURITY DEFINER)
 

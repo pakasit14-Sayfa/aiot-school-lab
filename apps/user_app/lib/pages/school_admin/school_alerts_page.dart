@@ -34,7 +34,9 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       if (mounted) {
         setState(() {
           _alerts = alerts.map((a) {
-            final String statusLabel = a.isNew ? 'ใหม่' : (a.isAcknowledged ? 'รับทราบแล้ว' : 'แก้ไขแล้ว');
+            final String statusLabel = a.isNew
+                ? 'ใหม่'
+                : (a.isAcknowledged ? 'รับทราบแล้ว' : 'แก้ไขแล้ว');
             return _AlertRecord(
               id: a.id,
               title: '${a.deviceName} (${a.metric})',
@@ -45,21 +47,27 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
               building: 'อาคารเรียน',
               room: '-',
               source: a.deviceCode,
-              createdAt: '${a.triggeredAt.hour.toString().padLeft(2, '0')}:${a.triggeredAt.minute.toString().padLeft(2, '0')} น.',
+              createdAt:
+                  '${a.triggeredAt.hour.toString().padLeft(2, '0')}:${a.triggeredAt.minute.toString().padLeft(2, '0')} น.',
               recipient: 'แอดมินโรงเรียน',
               action: a.isNew ? 'กดรับทราบเพื่อตรวจสอบ' : 'ตรวจสอบเรียบร้อย',
               iconType: 'device',
             );
           }).toList();
 
-          _logs = logs.map((l) => _AlertLogRecord(
-            time: '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
-            action: l.action,
-            target: l.target,
-            detail: l.detail.isNotEmpty ? l.detail : l.target,
-            by: l.actorName,
-            type: 'update',
-          )).toList();
+          _logs = logs
+              .map(
+                (l) => _AlertLogRecord(
+                  time:
+                      '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
+                  action: l.action,
+                  target: l.target,
+                  detail: l.detail.isNotEmpty ? l.detail : l.target,
+                  by: l.actorName,
+                  type: 'update',
+                ),
+              )
+              .toList();
         });
       }
     } catch (_) {}
@@ -108,8 +116,6 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     ),
   ];
 
-
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -120,22 +126,26 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     final String keyword = _searchController.text.trim().toLowerCase();
 
     return _alerts.where((_AlertRecord alert) {
-      final bool matchesSearch = keyword.isEmpty ||
+      final bool matchesSearch =
+          keyword.isEmpty ||
           alert.title.toLowerCase().contains(keyword) ||
           alert.detail.toLowerCase().contains(keyword) ||
           alert.source.toLowerCase().contains(keyword) ||
           alert.room.toLowerCase().contains(keyword);
 
-      final bool matchesCategory = _selectedCategory == 'ทุกประเภท' ||
+      final bool matchesCategory =
+          _selectedCategory == 'ทุกประเภท' ||
           alert.category == _selectedCategory;
 
-      final bool matchesSeverity = _selectedSeverity == 'ทุกระดับ' ||
+      final bool matchesSeverity =
+          _selectedSeverity == 'ทุกระดับ' ||
           alert.severity == _selectedSeverity;
 
       final bool matchesStatus =
           _selectedStatus == 'ทุกสถานะ' || alert.status == _selectedStatus;
 
-      final bool matchesBuilding = _selectedBuilding == 'ทุกอาคาร' ||
+      final bool matchesBuilding =
+          _selectedBuilding == 'ทุกอาคาร' ||
           alert.building == _selectedBuilding;
 
       return matchesSearch &&
@@ -155,15 +165,15 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       _alerts.where((alert) => alert.status == 'กำลังตรวจสอบ').length;
 
   int get _resolvedCount => _alerts.where((alert) {
-        return alert.status == 'แก้ไขแล้ว' ||
-            alert.status == 'ส่งต่อแล้ว' ||
-            alert.status == 'รับทราบแล้ว';
-      }).length;
+    return alert.status == 'แก้ไขแล้ว' ||
+        alert.status == 'ส่งต่อแล้ว' ||
+        alert.status == 'รับทราบแล้ว';
+  }).length;
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _clearFilters() {
@@ -208,10 +218,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
-          builder: (
-            BuildContext context,
-            StateSetter setDialogState,
-          ) {
+          builder: (BuildContext context, StateSetter setDialogState) {
             final String reviewerName = reviewerController.text.trim();
             final bool canConfirm = reviewerName.isNotEmpty;
 
@@ -224,12 +231,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        message,
-                        style: const TextStyle(
-                          height: 1.45,
-                        ),
-                      ),
+                      Text(message, style: const TextStyle(height: 1.45)),
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -237,9 +239,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                         decoration: BoxDecoration(
                           color: SchoolAdminPalette.primarySoft,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: SchoolAdminPalette.border,
-                          ),
+                          border: Border.all(color: SchoolAdminPalette.border),
                         ),
                         child: const Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,9 +275,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                         decoration: const InputDecoration(
                           labelText: 'ชื่อผู้ตรวจสอบ',
                           hintText: 'กรอกชื่อ-นามสกุลผู้ตรวจสอบ',
-                          prefixIcon: Icon(
-                            Icons.draw_rounded,
-                          ),
+                          prefixIcon: Icon(Icons.draw_rounded),
                           helperText: 'จำเป็นต้องกรอกก่อนยืนยัน',
                         ),
                       ),
@@ -359,146 +357,151 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
         return SafeArea(
           child: Container(
             margin: const EdgeInsets.all(12),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: SchoolAdminPalette.border),
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: SingleChildScrollView(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _AlertIconBox(
-                        icon: _iconForType(alert.iconType),
-                        color: _severityColor(alert.severity),
-                        size: 52,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _AlertIconBox(
+                            icon: _iconForType(alert.iconType),
+                            color: _severityColor(alert.severity),
+                            size: 52,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  alert.title,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                    color: SchoolAdminPalette.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  alert.detail,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    height: 1.45,
+                                    color: SchoolAdminPalette.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              alert.title,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: SchoolAdminPalette.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              alert.detail,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                height: 1.45,
-                                color: SchoolAdminPalette.textSecondary,
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 15),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _AlertBadge(
+                            label: alert.severity,
+                            color: _severityColor(alert.severity),
+                          ),
+                          _AlertBadge(
+                            label: alert.status,
+                            color: _statusColor(alert.status),
+                          ),
+                          _AlertBadge(
+                            label: alert.category,
+                            color: SchoolAdminPalette.primaryDark,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _AlertDetailRow(
+                        icon: Icons.apartment_rounded,
+                        label: 'อาคาร',
+                        value: alert.building,
+                      ),
+                      _AlertDetailRow(
+                        icon: Icons.meeting_room_rounded,
+                        label: 'ห้อง / พื้นที่',
+                        value: alert.room,
+                      ),
+                      _AlertDetailRow(
+                        icon: Icons.sensors_rounded,
+                        label: 'แหล่งข้อมูล',
+                        value: alert.source,
+                      ),
+                      _AlertDetailRow(
+                        icon: Icons.schedule_rounded,
+                        label: 'เวลาแจ้งเตือน',
+                        value: alert.createdAt,
+                      ),
+                      _AlertDetailRow(
+                        icon: Icons.forward_to_inbox_rounded,
+                        label: 'ผู้รับแจ้ง',
+                        value: alert.recipient,
+                      ),
+                      _AlertDetailRow(
+                        icon: Icons.task_alt_rounded,
+                        label: 'สิ่งที่ควรทำ',
+                        value: alert.action,
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'จัดการการแจ้งเตือน',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: SchoolAdminPalette.textPrimary,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        icon: const Icon(Icons.close_rounded),
+                      const SizedBox(height: 9),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              _confirmAndUpdateAlertStatus(
+                                alert,
+                                'รับทราบแล้ว',
+                              );
+                            },
+                            icon: const Icon(Icons.visibility_rounded),
+                            label: const Text('รับทราบ'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              _confirmAndUpdateAlertStatus(
+                                alert,
+                                'กำลังตรวจสอบ',
+                              );
+                            },
+                            icon: const Icon(Icons.manage_search_rounded),
+                            label: const Text('กำลังตรวจสอบ'),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () {
+                              Navigator.of(sheetContext).pop();
+                              _confirmAndUpdateAlertStatus(alert, 'แก้ไขแล้ว');
+                            },
+                            icon: const Icon(Icons.check_circle_rounded),
+                            label: const Text('แก้ไขแล้ว'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 15),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _AlertBadge(
-                        label: alert.severity,
-                        color: _severityColor(alert.severity),
-                      ),
-                      _AlertBadge(
-                        label: alert.status,
-                        color: _statusColor(alert.status),
-                      ),
-                      _AlertBadge(
-                        label: alert.category,
-                        color: SchoolAdminPalette.primaryDark,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _AlertDetailRow(
-                    icon: Icons.apartment_rounded,
-                    label: 'อาคาร',
-                    value: alert.building,
-                  ),
-                  _AlertDetailRow(
-                    icon: Icons.meeting_room_rounded,
-                    label: 'ห้อง / พื้นที่',
-                    value: alert.room,
-                  ),
-                  _AlertDetailRow(
-                    icon: Icons.sensors_rounded,
-                    label: 'แหล่งข้อมูล',
-                    value: alert.source,
-                  ),
-                  _AlertDetailRow(
-                    icon: Icons.schedule_rounded,
-                    label: 'เวลาแจ้งเตือน',
-                    value: alert.createdAt,
-                  ),
-                  _AlertDetailRow(
-                    icon: Icons.forward_to_inbox_rounded,
-                    label: 'ผู้รับแจ้ง',
-                    value: alert.recipient,
-                  ),
-                  _AlertDetailRow(
-                    icon: Icons.task_alt_rounded,
-                    label: 'สิ่งที่ควรทำ',
-                    value: alert.action,
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'จัดการการแจ้งเตือน',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      color: SchoolAdminPalette.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 9),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          _confirmAndUpdateAlertStatus(alert, 'รับทราบแล้ว');
-                        },
-                        icon: const Icon(Icons.visibility_rounded),
-                        label: const Text('รับทราบ'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          _confirmAndUpdateAlertStatus(alert, 'กำลังตรวจสอบ');
-                        },
-                        icon: const Icon(Icons.manage_search_rounded),
-                        label: const Text('กำลังตรวจสอบ'),
-                      ),
-                      FilledButton.icon(
-                        onPressed: () {
-                          Navigator.of(sheetContext).pop();
-                          _confirmAndUpdateAlertStatus(alert, 'แก้ไขแล้ว');
-                        },
-                        icon: const Icon(Icons.check_circle_rounded),
-                        label: const Text('แก้ไขแล้ว'),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -593,248 +596,245 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
   }
 
   Widget _buildHeader() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
-          final Widget title = const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: SchoolAdminPalette.primarySoft,
-                child: Icon(
-                  Icons.notifications_active_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                ),
-              ),
-              SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'การแจ้งเตือน',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final Widget title = const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 25,
+                    backgroundColor: SchoolAdminPalette.primarySoft,
+                    child: Icon(
+                      Icons.notifications_active_rounded,
+                      color: SchoolAdminPalette.primaryDark,
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'รวมเหตุผิดปกติจากอุปกรณ์ ไฟฟ้า น้ำ คุณภาพอากาศ '
-                      'ความปลอดภัย และการแจ้งเตือนที่ระบบส่งต่อให้ผู้รับผิดชอบ',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.45,
-                        color: SchoolAdminPalette.textSecondary,
-                      ),
+                  ),
+                  SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'การแจ้งเตือน',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: SchoolAdminPalette.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'รวมเหตุผิดปกติจากอุปกรณ์ ไฟฟ้า น้ำ คุณภาพอากาศ '
+                          'ความปลอดภัย และการแจ้งเตือนที่ระบบส่งต่อให้ผู้รับผิดชอบ',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.45,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ],
-          );
+                  ),
+                ],
+              );
 
-          final Widget actions = Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage('ส่งออกรายงานการแจ้งเตือนแล้ว');
-                },
-                icon: const Icon(Icons.download_rounded),
-                label: const Text('ส่งออกรายงาน'),
-              ),
-              FilledButton.icon(
-                onPressed: () async {
-                  final int newCount =
-                      _alerts.where((item) => item.status == 'ใหม่').length;
+              final Widget actions = Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      _showMessage('ส่งออกรายงานการแจ้งเตือนแล้ว');
+                    },
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('ส่งออกรายงาน'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () async {
+                      final int newCount = _alerts
+                          .where((item) => item.status == 'ใหม่')
+                          .length;
 
-                  if (newCount == 0) {
-                    _showMessage(
-                      'ไม่มีการแจ้งเตือนใหม่ที่ต้องรับทราบ',
-                    );
-                    return;
-                  }
+                      if (newCount == 0) {
+                        _showMessage('ไม่มีการแจ้งเตือนใหม่ที่ต้องรับทราบ');
+                        return;
+                      }
 
-                  final TextEditingController reviewerController =
-                      TextEditingController();
+                      final TextEditingController reviewerController =
+                          TextEditingController();
 
-                  final _AlertConfirmResult? result =
-                      await showDialog<_AlertConfirmResult>(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (BuildContext dialogContext) {
-                      return StatefulBuilder(
-                        builder: (
-                          BuildContext context,
-                          StateSetter setDialogState,
-                        ) {
-                          final String reviewerName =
-                              reviewerController.text.trim();
+                      final _AlertConfirmResult?
+                      result = await showDialog<_AlertConfirmResult>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (BuildContext dialogContext) {
+                          return StatefulBuilder(
+                            builder:
+                                (
+                                  BuildContext context,
+                                  StateSetter setDialogState,
+                                ) {
+                                  final String reviewerName = reviewerController
+                                      .text
+                                      .trim();
 
-                          return AlertDialog(
-                            insetPadding: const EdgeInsets.all(16),
-                            title: const Text('ยืนยันรับทราบทั้งหมด'),
-                            content: SizedBox(
-                              width: 520,
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'มีการแจ้งเตือนใหม่ $newCount รายการ\n'
-                                      'ต้องการเปลี่ยนทั้งหมดเป็น '
-                                      '“รับทราบแล้ว” หรือไม่',
-                                      style: const TextStyle(
-                                        height: 1.45,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: SchoolAdminPalette.primarySoft,
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: SchoolAdminPalette.border,
+                                  return AlertDialog(
+                                    insetPadding: const EdgeInsets.all(16),
+                                    title: const Text('ยืนยันรับทราบทั้งหมด'),
+                                    content: SizedBox(
+                                      width: 520,
+                                      child: SingleChildScrollView(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'มีการแจ้งเตือนใหม่ $newCount รายการ\n'
+                                              'ต้องการเปลี่ยนทั้งหมดเป็น '
+                                              '“รับทราบแล้ว” หรือไม่',
+                                              style: const TextStyle(
+                                                height: 1.45,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Container(
+                                              width: double.infinity,
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: SchoolAdminPalette
+                                                    .primarySoft,
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                border: Border.all(
+                                                  color:
+                                                      SchoolAdminPalette.border,
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                'กรุณาลงชื่อผู้ตรวจสอบ '
+                                                'ชื่อจะถูกบันทึกไว้ใน Log',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: SchoolAdminPalette
+                                                      .textPrimary,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 14),
+                                            TextField(
+                                              controller: reviewerController,
+                                              autofocus: true,
+                                              onChanged: (_) {
+                                                setDialogState(() {});
+                                              },
+                                              decoration: const InputDecoration(
+                                                labelText: 'ชื่อผู้ตรวจสอบ',
+                                                hintText:
+                                                    'กรอกชื่อ-นามสกุลผู้ตรวจสอบ',
+                                                prefixIcon: Icon(
+                                                  Icons.draw_rounded,
+                                                ),
+                                                helperText:
+                                                    'จำเป็นต้องกรอกก่อนยืนยัน',
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      child: const Text(
-                                        'กรุณาลงชื่อผู้ตรวจสอบ '
-                                        'ชื่อจะถูกบันทึกไว้ใน Log',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: SchoolAdminPalette.textPrimary,
-                                        ),
-                                      ),
                                     ),
-                                    const SizedBox(height: 14),
-                                    TextField(
-                                      controller: reviewerController,
-                                      autofocus: true,
-                                      onChanged: (_) {
-                                        setDialogState(() {});
-                                      },
-                                      decoration: const InputDecoration(
-                                        labelText: 'ชื่อผู้ตรวจสอบ',
-                                        hintText: 'กรอกชื่อ-นามสกุลผู้ตรวจสอบ',
-                                        prefixIcon: Icon(
-                                          Icons.draw_rounded,
-                                        ),
-                                        helperText: 'จำเป็นต้องกรอกก่อนยืนยัน',
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(dialogContext).pop(),
+                                        child: const Text('ยกเลิก'),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () =>
-                                    Navigator.of(dialogContext).pop(),
-                                child: const Text('ยกเลิก'),
-                              ),
-                              FilledButton.icon(
-                                onPressed: reviewerName.isNotEmpty
-                                    ? () {
-                                        Navigator.of(
-                                          dialogContext,
-                                        ).pop(
-                                          _AlertConfirmResult(
-                                            confirmed: true,
-                                            reviewerName: reviewerName,
-                                          ),
-                                        );
-                                      }
-                                    : null,
-                                icon: const Icon(
-                                  Icons.done_all_rounded,
-                                ),
-                                label: const Text('ยืนยัน'),
-                              ),
-                            ],
+                                      FilledButton.icon(
+                                        onPressed: reviewerName.isNotEmpty
+                                            ? () {
+                                                Navigator.of(dialogContext).pop(
+                                                  _AlertConfirmResult(
+                                                    confirmed: true,
+                                                    reviewerName: reviewerName,
+                                                  ),
+                                                );
+                                              }
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.done_all_rounded,
+                                        ),
+                                        label: const Text('ยืนยัน'),
+                                      ),
+                                    ],
+                                  );
+                                },
                           );
                         },
                       );
-                    },
-                  );
 
-                  reviewerController.dispose();
+                      reviewerController.dispose();
 
-                  if (result?.confirmed != true ||
-                      result!.reviewerName.trim().isEmpty ||
-                      !mounted) {
-                    return;
-                  }
-
-                  final String reviewerName = result.reviewerName.trim();
-
-                  setState(() {
-                    for (int i = 0; i < _alerts.length; i++) {
-                      if (_alerts[i].status == 'ใหม่') {
-                        _alerts[i] = _alerts[i].copyWith(
-                          status: 'รับทราบแล้ว',
-                        );
+                      if (result?.confirmed != true ||
+                          result!.reviewerName.trim().isEmpty ||
+                          !mounted) {
+                        return;
                       }
-                    }
 
-                    _logs.insert(
-                      0,
-                      _AlertLogRecord(
-                        time: 'เมื่อสักครู่',
-                        action: 'รับทราบทั้งหมด',
-                        target: 'การแจ้งเตือนใหม่',
-                        detail: 'เปลี่ยนการแจ้งเตือนใหม่ทั้งหมดเป็นรับทราบแล้ว',
-                        by: reviewerName,
-                        type: 'success',
-                      ),
-                    );
-                  });
+                      final String reviewerName = result.reviewerName.trim();
 
-                  _showMessage(
-                    'รับทราบการแจ้งเตือนใหม่ทั้งหมดแล้ว',
-                  );
-                },
-                icon: const Icon(Icons.done_all_rounded),
-                label: const Text('รับทราบทั้งหมด'),
-              ),
-            ],
-          );
+                      setState(() {
+                        for (int i = 0; i < _alerts.length; i++) {
+                          if (_alerts[i].status == 'ใหม่') {
+                            _alerts[i] = _alerts[i].copyWith(
+                              status: 'รับทราบแล้ว',
+                            );
+                          }
+                        }
 
-          if (constraints.maxWidth < 760) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 14),
-                actions,
-              ],
-            );
-          }
+                        _logs.insert(
+                          0,
+                          _AlertLogRecord(
+                            time: 'เมื่อสักครู่',
+                            action: 'รับทราบทั้งหมด',
+                            target: 'การแจ้งเตือนใหม่',
+                            detail:
+                                'เปลี่ยนการแจ้งเตือนใหม่ทั้งหมดเป็นรับทราบแล้ว',
+                            by: reviewerName,
+                            type: 'success',
+                          ),
+                        );
+                      });
 
-          return Row(
-            children: [
-              Expanded(child: title),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
+                      _showMessage('รับทราบการแจ้งเตือนใหม่ทั้งหมดแล้ว');
+                    },
+                    icon: const Icon(Icons.done_all_rounded),
+                    label: const Text('รับทราบทั้งหมด'),
+                  ),
+                ],
+              );
+
+              if (constraints.maxWidth < 760) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, const SizedBox(height: 14), actions],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: title),
+                  const SizedBox(width: 14),
+                  actions,
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -872,10 +872,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     ];
 
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         int columns = 4;
         if (constraints.maxWidth < 1050) columns = 2;
         if (constraints.maxWidth < 300) columns = 1;
@@ -934,10 +931,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       title: 'ภาพรวมเรื่องที่ต้องดูวันนี้',
       subtitle: 'แยกตามประเภทเพื่อให้แอดมินเห็นสิ่งสำคัญได้เร็วขึ้น',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 4;
           if (constraints.maxWidth < 1000) columns = 2;
           if (constraints.maxWidth < 560) columns = 1;
@@ -966,10 +960,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       title: 'ค้นหาและกรองการแจ้งเตือน',
       subtitle: 'ค้นหาจากชื่อเหตุการณ์ อุปกรณ์ ห้อง หรือแหล่งข้อมูล',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           final Widget search = TextField(
             controller: _searchController,
             onChanged: (_) => setState(() {}),
@@ -1009,12 +1000,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
           final Widget severity = _AlertFilterDropdown(
             label: 'ระดับ',
             value: _selectedSeverity,
-            items: const [
-              'ทุกระดับ',
-              'เร่งด่วน',
-              'เฝ้าระวัง',
-              'แจ้งเตือน',
-            ],
+            items: const ['ทุกระดับ', 'เร่งด่วน', 'เฝ้าระวัง', 'แจ้งเตือน'],
             onChanged: (String value) {
               setState(() => _selectedSeverity = value);
             },
@@ -1079,10 +1065,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                   ],
                 ),
                 const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: clear,
-                ),
+                Align(alignment: Alignment.centerRight, child: clear),
               ],
             );
           }
@@ -1114,19 +1097,14 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       child: alerts.isEmpty
           ? const _AlertEmptyState()
           : LayoutBuilder(
-              builder: (
-                BuildContext context,
-                BoxConstraints constraints,
-              ) {
+              builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 1000) {
                   return Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: SchoolAdminPalette.border,
-                      ),
+                      border: Border.all(color: SchoolAdminPalette.border),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Table(
@@ -1216,19 +1194,19 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                                   onView: () => _showAlertDetail(alert),
                                   onAcknowledge: () =>
                                       _confirmAndUpdateAlertStatus(
-                                    alert,
-                                    'รับทราบแล้ว',
-                                  ),
+                                        alert,
+                                        'รับทราบแล้ว',
+                                      ),
                                   onChecking: () =>
                                       _confirmAndUpdateAlertStatus(
-                                    alert,
-                                    'กำลังตรวจสอบ',
-                                  ),
+                                        alert,
+                                        'กำลังตรวจสอบ',
+                                      ),
                                   onResolved: () =>
                                       _confirmAndUpdateAlertStatus(
-                                    alert,
-                                    'แก้ไขแล้ว',
-                                  ),
+                                        alert,
+                                        'แก้ไขแล้ว',
+                                      ),
                                 ),
                               ),
                             ],
@@ -1249,18 +1227,12 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                         severityColor: _severityColor(alert.severity),
                         statusColor: _statusColor(alert.status),
                         onTap: () => _showAlertDetail(alert),
-                        onAcknowledge: () => _confirmAndUpdateAlertStatus(
-                          alert,
-                          'รับทราบแล้ว',
-                        ),
-                        onChecking: () => _confirmAndUpdateAlertStatus(
-                          alert,
-                          'กำลังตรวจสอบ',
-                        ),
-                        onResolved: () => _confirmAndUpdateAlertStatus(
-                          alert,
-                          'แก้ไขแล้ว',
-                        ),
+                        onAcknowledge: () =>
+                            _confirmAndUpdateAlertStatus(alert, 'รับทราบแล้ว'),
+                        onChecking: () =>
+                            _confirmAndUpdateAlertStatus(alert, 'กำลังตรวจสอบ'),
+                        onResolved: () =>
+                            _confirmAndUpdateAlertStatus(alert, 'แก้ไขแล้ว'),
                       ),
                     );
                   }).toList(),
@@ -1276,10 +1248,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       subtitle:
           'กำหนดว่าระบบจะส่งเรื่องใดให้ใคร เพื่อให้ผู้รับผิดชอบได้รับข้อมูลตรงหน้าที่',
       child: LayoutBuilder(
-        builder: (
-          BuildContext context,
-          BoxConstraints constraints,
-        ) {
+        builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 2;
           if (constraints.maxWidth < 820) columns = 1;
 
@@ -1307,10 +1276,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
 
   Widget _buildDeliveryOverview() {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         const Widget recipients = _AlertSectionCard(
           title: 'ผู้รับการแจ้งเตือน',
           subtitle: 'สรุปเส้นทางการส่งแจ้งเตือนตามหน้าที่',
@@ -1371,11 +1337,7 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
 
         if (constraints.maxWidth < 900) {
           return const Column(
-            children: [
-              recipients,
-              SizedBox(height: 14),
-              channels,
-            ],
+            children: [recipients, SizedBox(height: 14), channels],
           );
         }
 
@@ -1429,10 +1391,7 @@ class _AlertSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool compact = constraints.maxWidth < 240;
 
         return Container(
@@ -1447,10 +1406,7 @@ class _AlertSummaryCard extends StatelessWidget {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _AlertIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _AlertIconBox(icon: data.icon, color: data.color),
                     const SizedBox(height: 10),
                     Text(
                       data.value,
@@ -1483,10 +1439,7 @@ class _AlertSummaryCard extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _AlertIconBox(
-                      icon: data.icon,
-                      color: data.color,
-                    ),
+                    _AlertIconBox(icon: data.icon, color: data.color),
                     const SizedBox(width: 11),
                     Expanded(
                       child: Column(
@@ -1544,37 +1497,36 @@ class _AlertSectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(17),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 14),
+              child,
+            ],
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
+        ),
       ),
     );
   }
@@ -1597,10 +1549,7 @@ class _PriorityCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _AlertIconBox(
-            icon: data.icon,
-            color: data.color,
-          ),
+          _AlertIconBox(icon: data.icon, color: data.color),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1666,11 +1615,7 @@ class _AlertFilterDropdown extends StatelessWidget {
           items: items.map((String item) {
             return DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
             );
           }).toList(),
           onChanged: (String? newValue) {
@@ -1690,10 +1635,7 @@ class _AlertTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 17,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 17),
       child: Text(
         text,
         textAlign: TextAlign.center,
@@ -1715,10 +1657,7 @@ class _AlertTableCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 13,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
       child: Center(child: child),
     );
   }
@@ -1742,17 +1681,10 @@ class _AlertTableNameCell extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 13,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         child: Row(
           children: [
-            _AlertIconBox(
-              icon: icon,
-              color: color,
-              size: 38,
-            ),
+            _AlertIconBox(icon: icon, color: color, size: 38),
             const SizedBox(width: 9),
             Expanded(
               child: Column(
@@ -1827,10 +1759,7 @@ class _AlertMobileCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _AlertIconBox(
-                  icon: icon,
-                  color: severityColor,
-                ),
+                _AlertIconBox(icon: icon, color: severityColor),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -1864,14 +1793,8 @@ class _AlertMobileCard extends StatelessWidget {
             spacing: 7,
             runSpacing: 7,
             children: [
-              _AlertBadge(
-                label: alert.severity,
-                color: severityColor,
-              ),
-              _AlertBadge(
-                label: alert.status,
-                color: statusColor,
-              ),
+              _AlertBadge(label: alert.severity, color: severityColor),
+              _AlertBadge(label: alert.status, color: statusColor),
               _AlertBadge(
                 label: alert.category,
                 color: SchoolAdminPalette.primaryDark,
@@ -1981,34 +1904,25 @@ class _AlertActionButtons extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: onView,
           style: smallOutlinedStyle,
-          icon: Icon(
-            Icons.visibility_outlined,
-            size: compact ? 14 : 16,
-          ),
+          icon: Icon(Icons.visibility_outlined, size: compact ? 14 : 16),
           label: const Text('ดู'),
         ),
         OutlinedButton.icon(
-          onPressed:
-              acknowledged || checking || resolved ? null : onAcknowledge,
+          onPressed: acknowledged || checking || resolved
+              ? null
+              : onAcknowledge,
           style: smallOutlinedStyle,
           icon: Icon(
             acknowledged ? Icons.check_circle_rounded : Icons.done_rounded,
             size: compact ? 14 : 16,
           ),
-          label: Text(
-            acknowledged ? 'รับทราบแล้ว' : 'รับทราบ',
-          ),
+          label: Text(acknowledged ? 'รับทราบแล้ว' : 'รับทราบ'),
         ),
         OutlinedButton.icon(
           onPressed: checking || resolved ? null : onChecking,
           style: smallOutlinedStyle,
-          icon: Icon(
-            Icons.manage_search_rounded,
-            size: compact ? 14 : 16,
-          ),
-          label: Text(
-            checking ? 'กำลังตรวจสอบ' : 'ตรวจสอบ',
-          ),
+          icon: Icon(Icons.manage_search_rounded, size: compact ? 14 : 16),
+          label: Text(checking ? 'กำลังตรวจสอบ' : 'ตรวจสอบ'),
         ),
         FilledButton.icon(
           onPressed: resolved ? null : onResolved,
@@ -2017,9 +1931,7 @@ class _AlertActionButtons extends StatelessWidget {
             Icons.check_circle_outline_rounded,
             size: compact ? 14 : 16,
           ),
-          label: Text(
-            resolved ? 'แก้ไขแล้ว' : 'แก้ไขแล้ว',
-          ),
+          label: Text(resolved ? 'แก้ไขแล้ว' : 'แก้ไขแล้ว'),
         ),
       ],
     );
@@ -2027,10 +1939,7 @@ class _AlertActionButtons extends StatelessWidget {
 }
 
 class _AlertRuleCard extends StatelessWidget {
-  const _AlertRuleCard({
-    required this.rule,
-    required this.icon,
-  });
+  const _AlertRuleCard({required this.rule, required this.icon});
 
   final _AlertRule rule;
   final IconData icon;
@@ -2049,10 +1958,7 @@ class _AlertRuleCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              _AlertIconBox(
-                icon: icon,
-                color: SchoolAdminPalette.primaryDark,
-              ),
+              _AlertIconBox(icon: icon, color: SchoolAdminPalette.primaryDark),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -2076,18 +1982,9 @@ class _AlertRuleCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _RuleInfoRow(
-            label: 'เงื่อนไข',
-            value: rule.condition,
-          ),
-          _RuleInfoRow(
-            label: 'ส่งถึง',
-            value: rule.recipient,
-          ),
-          _RuleInfoRow(
-            label: 'ติดตามต่อ',
-            value: rule.escalation,
-          ),
+          _RuleInfoRow(label: 'เงื่อนไข', value: rule.condition),
+          _RuleInfoRow(label: 'ส่งถึง', value: rule.recipient),
+          _RuleInfoRow(label: 'ติดตามต่อ', value: rule.escalation),
         ],
       ),
     );
@@ -2095,10 +1992,7 @@ class _AlertRuleCard extends StatelessWidget {
 }
 
 class _RuleInfoRow extends StatelessWidget {
-  const _RuleInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _RuleInfoRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -2209,8 +2103,9 @@ class _ChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color =
-        enabled ? SchoolAdminPalette.green : SchoolAdminPalette.textMuted;
+    final Color color = enabled
+        ? SchoolAdminPalette.green
+        : SchoolAdminPalette.textMuted;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -2275,10 +2170,7 @@ class _AlertLogRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (
-        BuildContext context,
-        BoxConstraints constraints,
-      ) {
+      builder: (BuildContext context, BoxConstraints constraints) {
         final bool mobile = constraints.maxWidth < 760;
 
         return Container(
@@ -2322,10 +2214,7 @@ class _AlertLogRow extends StatelessWidget {
                 )
               : Row(
                   children: [
-                    _AlertIconBox(
-                      icon: Icons.history_rounded,
-                      color: color,
-                    ),
+                    _AlertIconBox(icon: Icons.history_rounded, color: color),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 3,
@@ -2406,11 +2295,7 @@ class _AlertDetailRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 19,
-            color: SchoolAdminPalette.primaryDark,
-          ),
+          Icon(icon, size: 19, color: SchoolAdminPalette.primaryDark),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2458,25 +2343,15 @@ class _AlertIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withAlpha(24),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: color.withAlpha(80),
-          width: 1.1,
-        ),
+        border: Border.all(color: color.withAlpha(80), width: 1.1),
       ),
-      child: Icon(
-        icon,
-        color: color,
-        size: size * 0.48,
-      ),
+      child: Icon(icon, color: color, size: size * 0.48),
     );
   }
 }
 
 class _AlertBadge extends StatelessWidget {
-  const _AlertBadge({
-    required this.label,
-    required this.color,
-  });
+  const _AlertBadge({required this.label, required this.color});
 
   final String label;
   final Color color;
@@ -2485,10 +2360,7 @@ class _AlertBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: const BoxConstraints(minWidth: 82),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
         color: color.withAlpha(15),
         borderRadius: BorderRadius.circular(99),
@@ -2514,38 +2386,37 @@ class _AlertEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 45),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.notifications_off_outlined,
-            size: 46,
-            color: SchoolAdminPalette.textMuted,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 45),
+          child: const Column(
+            children: [
+              Icon(
+                Icons.notifications_off_outlined,
+                size: 46,
+                color: SchoolAdminPalette.textMuted,
+              ),
+              SizedBox(height: 10),
+              Text(
+                'ไม่พบการแจ้งเตือน',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              Text(
+                'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 10),
-          Text(
-            'ไม่พบการแจ้งเตือน',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: SchoolAdminPalette.textPrimary,
-            ),
-          ),
-          Text(
-            'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
-            style: TextStyle(
-              fontSize: 12,
-              color: SchoolAdminPalette.textSecondary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -2642,9 +2513,7 @@ class _AlertRecord {
   final String action;
   final String iconType;
 
-  _AlertRecord copyWith({
-    String? status,
-  }) {
+  _AlertRecord copyWith({String? status}) {
     return _AlertRecord(
       id: id,
       title: title,

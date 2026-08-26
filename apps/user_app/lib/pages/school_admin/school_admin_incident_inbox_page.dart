@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class SchoolAdminIncidentInboxPage extends StatefulWidget {
-  const SchoolAdminIncidentInboxPage({
-    super.key,
-    this.initialIncidents,
-  });
+  const SchoolAdminIncidentInboxPage({super.key, this.initialIncidents});
 
   final List<TeacherIncidentReport>? initialIncidents;
 
@@ -93,7 +90,9 @@ class _SchoolAdminIncidentInboxPageState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('รับเรื่องเหตุการณ์ ${report.id.substring(0, 8)}... เรียบร้อยแล้ว'),
+          content: Text(
+            'รับเรื่องเหตุการณ์ ${report.id.substring(0, 8)}... เรียบร้อยแล้ว',
+          ),
           backgroundColor: const Color(0xFF2563EB),
         ),
       );
@@ -256,16 +255,37 @@ class _SchoolAdminIncidentInboxPageState
                     const Divider(),
                     const SizedBox(height: 12),
                     _buildDetailRow('รหัสเหตุการณ์:', detail.id),
-                    _buildDetailRow('ห้อง / จุดเกิดเหตุ:', detail.room ?? 'ไม่ระบุ'),
+                    _buildDetailRow(
+                      'ห้อง / จุดเกิดเหตุ:',
+                      detail.room ?? 'ไม่ระบุ',
+                    ),
                     _buildDetailRow('ผู้แจ้ง:', report.reporterName),
-                    _buildDetailRow('เหตุผล / อาการ:', detail.reason ?? 'ไม่ระบุ'),
-                    _buildDetailRow('ระดับความรุนแรง:', detail.severity ?? 'ปกติ'),
+                    _buildDetailRow(
+                      'เหตุผล / อาการ:',
+                      detail.reason ?? 'ไม่ระบุ',
+                    ),
+                    _buildDetailRow(
+                      'ระดับความรุนแรง:',
+                      detail.severity ?? 'ปกติ',
+                    ),
                     _buildDetailRow('สถานะปัจจุบัน:', detail.status),
-                    _buildDetailRow('เวลาแจ้งเหตุ:', detail.createdAt.toLocal().toString().substring(0, 19)),
+                    _buildDetailRow(
+                      'เวลาแจ้งเหตุ:',
+                      detail.createdAt.toLocal().toString().substring(0, 19),
+                    ),
                     if (detail.acknowledgedAt != null)
-                      _buildDetailRow('เวลารับเรื่อง:', detail.acknowledgedAt!.toLocal().toString().substring(0, 19)),
+                      _buildDetailRow(
+                        'เวลารับเรื่อง:',
+                        detail.acknowledgedAt!.toLocal().toString().substring(
+                          0,
+                          19,
+                        ),
+                      ),
                     if (detail.resolutionNote != null)
-                      _buildDetailRow('บันทึกการปิดเหตุ:', detail.resolutionNote!),
+                      _buildDetailRow(
+                        'บันทึกการปิดเหตุ:',
+                        detail.resolutionNote!,
+                      ),
                     const SizedBox(height: 16),
                     Align(
                       alignment: Alignment.centerRight,
@@ -348,7 +368,11 @@ class _SchoolAdminIncidentInboxPageState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+              const Icon(
+                Icons.error_outline_rounded,
+                color: Colors.red,
+                size: 48,
+              ),
               const SizedBox(height: 12),
               Text(
                 _loadError!,
@@ -697,10 +721,7 @@ class _SchoolAdminIncidentInboxPageState
             const SizedBox(height: 4),
             Text(
               'ห้อง/จุดเกิดเหตุ: ${item.room ?? "ไม่ระบุ"} · ผู้แจ้ง: ${item.reporterName}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-              ),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 14),
             Row(
