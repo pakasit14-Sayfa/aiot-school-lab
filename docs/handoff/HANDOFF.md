@@ -201,18 +201,22 @@ reference, but don't trust its per-role claims over this summary.
   manual device on/off control, and an incident/SOS inbox). Live-verified
   2026-08-25: real login lands directly on the new hub, all 8 folded-in
   items confirmed present and clicked through.
-- **`super_admin` — still the old plain dashboard shell, 2/8 sub-pages
-  redesigned.** Routes through `dashboard/super_admin_dashboard.dart`
-  (not yet swapped, unlike school_admin). Real, in-app features: school
-  management (create/update/suspend, real RPCs) and device control
+- **`super_admin` — 8/8 menus real, and as of 2026-08-26 it has its own
+  visual redesign too.** `role_router.dart` sends `super_admin` to
+  `super_admin/super_admin_hub_page.dart` (the new hub, blue-themed with
+  8 quick-action cards + a matching drawer), not the old
+  `dashboard/super_admin_dashboard.dart` shell anymore (that file still
+  exists on disk, unreferenced — see the old-UI-file policy above). All
+  8 real: school management (create/update/suspend), device control
   (multi-school overview, approval workflow, real `queue_device_command`
-  dispatch) — both ported into `apps/user_app/lib/pages/super_admin/` as
-  part of Phase 1 (2026-08-25), not just a pointer elsewhere. "จัดการผู้ใช้"
-  (user management, cross-school) is also real. The remaining 6 menu
-  items (dev dashboard, devices inventory, permissions, alerts/logs,
-  device test, settings) are still old-style placeholders pointing at
-  `aiot_dev_dashboard` — not yet ported into this app, no brief written
-  for them yet.
+  dispatch), device inventory + QR codes, device diagnostics (real
+  stopwatch-timed checks against real RPCs, honestly marked unmeasured
+  where no real hardware backend exists), cross-school permissions/RBAC,
+  cross-school alerts & audit logs, platform settings (Tier B — honest
+  "not connected to backend" disclosure, no fake persistence), and
+  cross-school user management. Live-verified 2026-08-26: real login
+  lands directly on the new hub, all 8 cards present with real summary
+  metrics, spot-checked 2 of the 3 most-recently-added pages.
 - **`teacher`, `student`, `executive`, `parent` — fully wired via their
   `*_redesign_prototype/` folders**, which `role_router.dart` has routed
   to as the real (not preview-only) UI since the redesign work landed.
@@ -685,11 +689,11 @@ Integrated Super Admin platform capabilities directly into `apps/user_app` backe
   - `super_admin_schools_page.dart`: Full-featured school management (search, filter, create, edit, suspend/activate, quota inspection).
   - `super_admin_device_control_page.dart`: Multi-school device overview, mode switching, emergency stop, and approval workflows.
   - `super_admin_dashboard.dart`: Dashboard cards and drawer navigation wired to the new pages.
-- **Scope clarification**: Only these 2 pages (`schools_page` and `device_control_page`) are live and connected in Phase 1. The remaining 21 mockup pages in `aiot_dev_dashboard` are intentionally left for subsequent phases after real schemas and requirements are established.
+- **Scope clarification**: These 2 pages (`schools_page` and `device_control_page`) were Phase 1's scope. The remaining 6 super_admin pages were ported in Phase 3 (2026-08-25/26, see section 12) — all 8 are now live. The other ~19 mockup pages in `aiot_dev_dashboard` belong to that separate app, not this one.
 - **Independently re-verified 2026-08-25** (not just trusting agy's report): all 7 RPCs live-tested with real session tokens including a negative-role probe, a full school create→update→suspend round trip, and a full approval-request→decide→real `queue_device_command` dispatch round trip (confirmed a real row lands in `device_commands`, and the double-decide guard rejects a repeat decision). Real browser click-through of both pages, data matched the DB. Found and fixed 2 process issues that don't affect the code itself: a migration-timestamp collision with an already-committed migration (renamed `20260826080000`→`20260826090000`), and a real `control_approval_requests`/`device_commands` row agy's own testing left in the shared dev DB (deleted).
 
 **Old-UI-file policy, decided 2026-08-25** (for this redesign effort and any similar one going forward): once a page's new design is live, verified, and fully replaces the old one, **delete the old file** — don't leave it sitting around (this is what happened with `facility_redesign_prototype/`, `technician_dashboard.dart`, `building_admin_dashboard.dart` during the role merge). Right now, three different states exist at once, don't conflate them:
-1. **`dashboard/super_admin_dashboard.dart`** — still the live root shell for `super_admin` (2/8 sub-pages redesigned so far), still routing to a mix of new-design and old-style pages. Keep for now; delete only once every sub-page is ported and the shell itself gets its own redesign, same as school_admin did (see below).
+1. **`dashboard/super_admin_dashboard.dart`** — **no longer the live entry point as of 2026-08-26** (`agy-brief-super-admin-root-shell-swap.md`, verified live). `role_router.dart` now sends `super_admin` straight to `super_admin/super_admin_hub_page.dart`, which has all 8 real menu items. The old shell file is retained on disk (unreferenced) per the "keep until verified, then delete" rule below — safe to delete now that the swap is verified, not yet done.
    **`dashboard/school_admin_dashboard.dart`** — **no longer the live entry point as of 2026-08-25** (`agy-brief-school-admin-root-shell-swap.md`, verified live). `role_router.dart` now sends `school_admin` straight to `school_admin/school_admin_dashboard_page.dart`, which has all 20 real menu items (12 redesigned pages + 8 old-style pages folded into its sidebar/drawer/quick-action grid). The old shell file is retained on disk (unreferenced) per the "keep until verified, then delete" rule below — safe to delete now that the swap is verified, not yet done.
 2. **Already-dead files unrelated to this redesign** (`dashboard/parent_dashboard.dart`, `dashboard/executive_dashboard.dart`) — confirmed zero references anywhere, `role_router.dart` doesn't point to either. Safe to delete now, independent of the redesign timeline — nobody's waiting on them.
 3. **Old-style pages still reachable from the new school_admin shell** (`school_admin_cctv_page.dart`, `school_admin_energy_page.dart`, `school_admin_esg_page.dart`, `school_admin_device_schedule_page.dart`, `school_admin_device_control_page.dart`, `school_admin_incident_inbox_page.dart` — these already have real backend data, just the older plain visual style, and haven't been redesigned) — keep exactly as-is until each gets its own Phase 3+ redesign replacement live and verified; don't delete or touch them preemptively. Same applies to `super_admin`'s 6 not-yet-touched sub-pages.
@@ -788,6 +792,39 @@ User caught 3 more issues by clicking through the real app after section 10 ship
 - **`school_students_page.dart`'s per-grade-level breakdown** ("จำนวนนักเรียนแต่ละระดับชั้น") was a hardcoded `const` list totaling exactly 1,250 students (ม.1–ม.6: 205/211/208/206/210/210) — same root number as the original bug report, just relocated. Also missed by section 10's grep (inline `const` inside a build method, not a `final List<_Class> _field = [...]` class field). Now computed by grouping the page's already-fetched real `_students` list by `level`.
 - **`school_teachers_page.dart` showed 0 teachers** despite a real teacher account existing. Root cause: `list_school_users` picks a multi-role account's single `active_role` as whichever role was granted most recently (`order by granted_at desc`). The seeded `teacher@aiot-school-lab.local` test fixture also has `school_admin` granted later (multi-role login test data), so the RPC reported them as `school_admin` only, and the page's `role == UserRole.teacher` filter excluded them. Fixed by adding an `all_roles text[]` column to `list_school_users` (migration `20260826130000_list_school_users_all_roles.sql`, additive — existing `active_role` unchanged) and a `UserModel.hasRole(role)` helper that checks membership in `allRoles`, not just the single collapsed `role`. Updated `school_teachers_page.dart` and `school_students_page.dart` to use `hasRole` instead of `role ==` so a multi-role account still shows up in every role-filtered list it belongs to.
 - Verified live: rebuilt, logged in as `schooladmin@aiot-school-lab.local`, confirmed the assignment card shows honest `0%`/`ยังไม่มี...` (real building/room count is 0), and the teachers page now shows the real teacher (1 คน, correctly bucketed under ฝ่ายวิชาการ). Full `school_admin` test suite (21 tests) + `shared_core` suite (47 tests) passing, `flutter analyze` clean.
+
+### 12. Super Admin Phase 3 + Root Shell Swap (2026-08-25/26)
+
+Ported the remaining 6 super_admin pages (`super_admin_hub_page.dart`,
+`super_admin_devices_page.dart`, `super_admin_device_test_page.dart`,
+`super_admin_permissions_page.dart`, `super_admin_alerts_logs_page.dart`,
+`super_admin_settings_page.dart`) from `~/aiot_dev_dashboard`'s source
+— all 8 super_admin pages (including Phase 1's 2) are now real. No new
+migrations were needed for most of it; `list_school_alerts` already had
+a super_admin cross-school bypass from earlier work.
+
+**Independently re-verified, 3 issues found and fixed** (same day):
+diagnostic latency numbers in the device test page were hardcoded, not
+measured (fixed with real `Stopwatch()` timing around real RPC calls);
+`super_admin_devices_page.dart` had the exact fake-building-name
+fallback bug already fixed once that day in `school_devices_page.dart`
+(fixed to `'ไม่ระบุ'`); and `list_school_admin_audit_logs` silently
+showed a super_admin only 24 of 141 real audit log rows (17%) because
+its `WHERE` clause relied on `al.school_id = v_actor.school_id`, which
+is never `TRUE` when a super_admin's own `school_id` is `NULL` — fixed
+via `20260826140000_super_admin_audit_logs_scope.sql` adding an
+explicit `v_actor.role = 'super_admin'` bypass, verified live that
+school_admin's own scope is unchanged.
+
+**Root shell swap**: `super_admin_hub_page.dart` initially only linked
+to 5 of the 8 pages (Devices/QR, Device Test, and Settings were
+unreachable from it, only from the old shell) — added those 3 links to
+both the quick-action cards and the drawer, verified live, then swapped
+`role_router.dart`'s `super_admin` case from `SuperAdminDashboard` to
+`SuperAdminHubPage`. Live-verified 2026-08-26: real login lands
+directly on the new hub with real summary metrics, all 8 cards present
+and spot-checked. Old shell `dashboard/super_admin_dashboard.dart`
+retained, unreferenced, per the old-UI-file policy above.
 
 ## Where to look next
 

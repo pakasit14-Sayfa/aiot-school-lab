@@ -13,8 +13,9 @@ through their redesigned UI and are fully wired to real backend data** —
 `role_router.dart` sends `student`/`teacher`/`executive`/`parent` to their
 `*_redesign_prototype/` shell, `school_admin` to `school_admin/school_admin_dashboard_page.dart`
 (new-design hub, 20 real menu items — swapped from the old `dashboard/school_admin_dashboard.dart`
-shell on 2026-08-25, live-verified), `super_admin` to `dashboard/super_admin_dashboard.dart`
-(still the old shell, only 2/8 sub-pages redesigned so far).
+shell on 2026-08-25, live-verified), `super_admin` to `super_admin/super_admin_hub_page.dart`
+(new-design hub, 8 real menu items — swapped from the old `dashboard/super_admin_dashboard.dart`
+shell on 2026-08-26, live-verified).
 **A single account can hold more than one role** — see "Multi-role login"
 in HANDOFF.md.
 
