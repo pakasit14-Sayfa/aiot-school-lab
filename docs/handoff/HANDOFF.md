@@ -482,6 +482,39 @@ see `docs/handoff/WORK_LOG.md`.)*
   identically on plain sidebar navigation with no code changes involved).
   Not investigated further — treat any single Playwright run that lands here
   as a retry, not a real bug in whatever was just clicked.
+- **Teacher home dashboard's own summary widgets are still mostly fake data
+  (found 2026-08-27/28)** — distinct from the "7 teacher fake-write bugs"
+  audit closed earlier, which covered pages navigated *to* from the
+  dashboard, not the dashboard's own widgets. Status per item, backend
+  availability checked against the real schema (not guessed):
+  - `_ScheduleCard` ("ตารางสอนวันนี้") — **fixed 2026-08-28**, now calls
+    real `CalendarService.listTeacherSchedules()` filtered to today.
+  - `TeacherMock.reviewTasks` ("งานรอตรวจ") — still fake. Partial backend:
+    `list_submissions(p_token, p_assignment_id)` exists per-assignment, but
+    there's no cross-course "everything still ungraded" aggregate RPC yet.
+  - `TeacherMock.students` ("นักเรียนที่ต้องติดตาม") — still fake. No
+    auto-computed "falling behind" signal exists anywhere — the only
+    related backend is `student_support_cases`/`list_student_support_cases`,
+    which is a *manually created* case-tracking system (a teacher opens a
+    case on a student themselves), not an automatic at-risk feed. Needs a
+    product decision (reuse open cases as a proxy vs. build real risk
+    scoring) before this can be wired for real.
+  - `_SubmissionBarChartCard`/`_StudentStatusDonutCard` (per-room % bar,
+    132-student donut) — still fake. No aggregate RPC exists for either;
+    would need new ones grouping `submissions`/`course_students` by
+    `courses.room`, plus (for the donut) the same at-risk-classification
+    decision as the item above.
+  - `_SmartWiringLabCard` ("AIoT Smart Wiring Lab วันนี้" — kit-ready
+    count, Pico 2 online count, per-group wiring/inspection status) —
+    still fake, and the biggest gap: no table anywhere models a "wiring
+    group" or per-group inspection state. `teacher_aiot_lab_page.dart`'s
+    real backend (`list_teaching_kit_devices` etc., via
+    `aiot_lab_service.dart`) is per-device control, not group-based
+    tracking — would need new tables + RPCs from scratch, not just wiring
+    an existing endpoint.
+  - Top KPI row (คาบสอนวันนี้/งานรอตรวจ/ต้องติดตาม/ห้องปกติ) — still fake;
+    each number maps 1:1 to one of the items above, so it can only go real
+    once its source item does.
 - **`supabase_migrations.schema_migrations` tracking table doesn't match the
   files on disk** (53 tracked rows vs 61 files as of 2026-08-22). Several
   migrations this week were applied via `docker exec ... psql < file.sql`

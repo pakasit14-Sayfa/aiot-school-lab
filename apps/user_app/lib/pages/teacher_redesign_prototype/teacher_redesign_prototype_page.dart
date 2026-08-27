@@ -1965,8 +1965,57 @@ class _TeacherClassCard extends StatelessWidget {
   }
 }
 
-class _ScheduleCard extends StatelessWidget {
+class _ScheduleCard extends StatefulWidget {
   const _ScheduleCard();
+
+  @override
+  State<_ScheduleCard> createState() => _ScheduleCardState();
+}
+
+class _ScheduleCardState extends State<_ScheduleCard> {
+  List<_LessonItem>? _lessons;
+  String? _error;
+
+  static const _rowColors = [
+    TeacherPalette.primary,
+    TeacherPalette.skyDeep,
+    TeacherPalette.orange,
+    TeacherPalette.skyMid,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final slots = await CalendarService.listTeacherSchedules();
+      // ClassScheduleSlot.dayOfWeek: 0=จันทร์...6=อาทิตย์, DateTime.weekday: 1=จันทร์...7=อาทิตย์
+      final todayIndex = DateTime.now().weekday - 1;
+      final today = slots.where((s) => s.dayOfWeek == todayIndex).toList()
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      if (!mounted) return;
+      setState(() {
+        _lessons = [
+          for (var i = 0; i < today.length; i++)
+            _LessonItem(
+              today[i].timeRangeLabel,
+              today[i].subjectName,
+              today[i].room ?? 'ไม่ระบุห้อง',
+              '',
+              Icons.menu_book_rounded,
+              _rowColors[i % _rowColors.length],
+              _rowColors[i % _rowColors.length].withValues(alpha: 0.08),
+            ),
+        ];
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดตารางสอนไม่สำเร็จ');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1981,7 +2030,31 @@ class _ScheduleCard extends StatelessWidget {
             icon: Icons.schedule_rounded,
           ),
           const SizedBox(height: 18),
-          ...TeacherMock.lessons.map((lesson) => _ScheduleTile(lesson: lesson)),
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else if (_lessons == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (_lessons!.isEmpty)
+            const Text(
+              'วันนี้ไม่มีคาบสอนในตาราง',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            ..._lessons!.map((lesson) => _ScheduleTile(lesson: lesson)),
         ],
       ),
     );
@@ -2018,6 +2091,7 @@ class _ScheduleTile extends StatelessWidget {
                   style: TextStyle(
                     color: lesson.color,
                     fontWeight: FontWeight.w900,
+                    fontSize: 13,
                   ),
                 ),
               ),
@@ -2044,7 +2118,7 @@ class _ScheduleTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${lesson.room} · ${lesson.note}',
+                      lesson.subtitleLabel,
                       style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontWeight: FontWeight.w700,
@@ -2110,7 +2184,7 @@ class _LargeScheduleItem extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${lesson.room} · ${lesson.note}',
+                  lesson.subtitleLabel,
                   style: const TextStyle(
                     color: TeacherPalette.muted,
                     fontWeight: FontWeight.w700,
@@ -5122,6 +5196,8 @@ class _LessonItem {
   final IconData icon;
   final Color color;
   final Color tint;
+
+  String get subtitleLabel => note.trim().isEmpty ? room : '$room · $note';
 }
 
 class _ReviewTask {
