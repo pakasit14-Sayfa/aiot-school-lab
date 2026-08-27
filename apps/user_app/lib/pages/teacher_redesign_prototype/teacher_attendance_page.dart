@@ -6,15 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
-import 'teacher_shared_widgets.dart' show TeacherMockPageShell;
+import 'teacher_shared_widgets.dart'
+    show TeacherMockPageShell, TeacherSectionCard;
 
 enum _AttendanceMode { homeroom, course }
 
 const List<(String, String, Color)> _statusOptions = [
-  ('present', 'มา', Color(0xFF16A34A)),
-  ('late', 'สาย', Color(0xFFD97706)),
-  ('excused', 'ลา', Color(0xFF2563EB)),
-  ('absent', 'ขาด', Color(0xFFDC2626)),
+  ('present', 'มา', TeacherPalette.green),
+  ('late', 'สาย', TeacherPalette.orange),
+  ('excused', 'ลา', TeacherPalette.iris),
+  ('absent', 'ขาด', TeacherPalette.red),
 ];
 
 class _RosterRow {
@@ -190,6 +191,8 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
   String get _dateLabel =>
       '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year + 543}';
 
+  int _countOf(String status) => _roster.where((r) => r.status == status).length;
+
   @override
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
@@ -199,7 +202,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
         if (_loadingClasses) {
           return const Padding(
             padding: EdgeInsets.only(top: 80),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(
+              child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
           );
         }
 
@@ -207,19 +212,23 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildModeSelector(),
-            const SizedBox(height: 12),
-            _buildClassAndDatePicker(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            _buildSelectorCard(),
+            const SizedBox(height: 14),
             if (_error != null) _buildErrorBanner(),
             if (_loadingRoster)
               const Padding(
                 padding: EdgeInsets.only(top: 40),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: TeacherPalette.primary,
+                  ),
+                ),
               )
             else if (_roster.isEmpty)
               _buildEmptyState()
             else
-              _buildRoster(),
+              _buildRosterCard(),
           ],
         );
       },
@@ -260,15 +269,33 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
     );
   }
 
-  Widget _buildClassAndDatePicker() {
+  Widget _buildSelectorCard() {
     final isHomeroom = _mode == _AttendanceMode.homeroom;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9E1F5)),
-      ),
+    return TeacherSectionCard(
+      title: isHomeroom ? 'ห้องประจำชั้น' : 'รายวิชาที่สอน',
+      icon: isHomeroom ? Icons.co_present_rounded : Icons.menu_book_rounded,
+      trailing: _roster.isNotEmpty
+          ? FilledButton.icon(
+              onPressed: _saving ? null : _save,
+              style: FilledButton.styleFrom(
+                backgroundColor: TeacherPalette.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: _saving
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save_rounded, size: 16),
+              label: const Text('บันทึกการเช็คชื่อ'),
+            )
+          : null,
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -280,11 +307,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 ? DropdownButtonFormField<HomeroomAssignment>(
                     value: _selectedHomeroom,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'ห้องประจำชั้น',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    decoration: _fieldDecoration('ห้องประจำชั้น'),
                     items: _homerooms
                         .map(
                           (h) => DropdownMenuItem(
@@ -303,11 +326,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 : DropdownButtonFormField<CourseSummary>(
                     value: _selectedCourse,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'รายวิชา',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                    decoration: _fieldDecoration('รายวิชา'),
                     items: _courses
                         .map(
                           (c) => DropdownMenuItem(
@@ -327,29 +346,65 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
           ),
           OutlinedButton.icon(
             onPressed: _pickDate,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: TeacherPalette.primary,
+              side: const BorderSide(color: TeacherPalette.skyBright),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             icon: const Icon(Icons.calendar_today_rounded, size: 16),
             label: Text(_dateLabel),
           ),
-          if (_roster.isNotEmpty)
-            FilledButton.icon(
-              onPressed: _saving ? null : _save,
-              style: FilledButton.styleFrom(
-                backgroundColor: TeacherPalette.primary,
-              ),
-              icon: _saving
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.save_rounded, size: 16),
-              label: const Text('บันทึกการเช็คชื่อ'),
-            ),
+          if (_roster.isNotEmpty) _buildStatusSummary(),
         ],
       ),
+    );
+  }
+
+  InputDecoration _fieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: TeacherPalette.skyLight,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: TeacherPalette.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: TeacherPalette.primary, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _buildStatusSummary() {
+    return Wrap(
+      spacing: 8,
+      children: _statusOptions.map((opt) {
+        final (value, label, color) = opt;
+        final count = _countOf(value);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '$label $count',
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 11.5,
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -359,22 +414,25 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF2F2),
+          color: TeacherPalette.red.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFECACA)),
+          border: Border.all(color: TeacherPalette.red.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
             const Icon(
               Icons.error_outline_rounded,
-              color: Color(0xFFDC2626),
+              color: TeacherPalette.red,
               size: 18,
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 _error!,
-                style: const TextStyle(color: Color(0xFFDC2626)),
+                style: const TextStyle(
+                  color: TeacherPalette.red,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -387,88 +445,176 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
     final noClasses = _mode == _AttendanceMode.homeroom
         ? _homerooms.isEmpty
         : _courses.isEmpty;
-    return Padding(
-      padding: const EdgeInsets.only(top: 60),
-      child: Center(
-        child: Text(
-          noClasses
-              ? (_mode == _AttendanceMode.homeroom
-                    ? 'คุณยังไม่ได้รับมอบหมายเป็นครูประจำชั้น'
-                    : 'คุณยังไม่มีรายวิชาที่สอนอยู่')
-              : 'ไม่มีนักเรียนในรายชื่อนี้',
-          style: const TextStyle(color: TeacherPalette.softText),
+    return TeacherSectionCard(
+      title: 'รายชื่อนักเรียน',
+      icon: Icons.groups_2_rounded,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 32),
+        child: Center(
+          child: Column(
+            children: [
+              Icon(
+                noClasses ? Icons.info_outline_rounded : Icons.person_off_rounded,
+                color: TeacherPalette.skyMid,
+                size: 32,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                noClasses
+                    ? (_mode == _AttendanceMode.homeroom
+                          ? 'คุณยังไม่ได้รับมอบหมายเป็นครูประจำชั้น'
+                          : 'คุณยังไม่มีรายวิชาที่สอนอยู่')
+                    : 'ไม่มีนักเรียนในรายชื่อนี้',
+                style: const TextStyle(
+                  color: TeacherPalette.softText,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildRoster() {
-    return Column(
-      children: _roster
-          .map(
-            (r) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
+  Widget _buildRosterCard() {
+    return TeacherSectionCard(
+      title: 'รายชื่อนักเรียน',
+      icon: Icons.groups_2_rounded,
+      trailing: Text(
+        '${_roster.length} คน',
+        style: const TextStyle(
+          color: TeacherPalette.muted,
+          fontWeight: FontWeight.w700,
+          fontSize: 12.5,
+        ),
+      ),
+      child: Column(
+        children: _roster
+            .map(
+              (r) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _RosterTile(row: r, onChanged: () => setState(() {})),
               ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE9E1F5)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          r.studentName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: TeacherPalette.ink,
-                          ),
-                        ),
-                        if (r.studentCode.isNotEmpty)
-                          Text(
-                            r.studentCode,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: TeacherPalette.softText,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Wrap(
-                    spacing: 6,
-                    children: _statusOptions.map((opt) {
-                      final (value, label, color) = opt;
-                      final selected = r.status == value;
-                      return ChoiceChip(
-                        label: Text(label),
-                        selected: selected,
-                        onSelected: (_) => setState(() => r.status = value),
-                        selectedColor: color.withValues(alpha: 0.16),
-                        labelStyle: TextStyle(
-                          color: selected ? color : TeacherPalette.softText,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
-                        ),
-                        side: BorderSide(
-                          color: selected
-                              ? color
-                              : const Color(0xFFE9E1F5),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+class _RosterTile extends StatelessWidget {
+  const _RosterTile({required this.row, required this.onChanged});
+
+  final _RosterRow row;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: TeacherPalette.skyLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: TeacherPalette.primary.withValues(alpha: 0.14),
+            child: Text(
+              row.studentName.isNotEmpty ? row.studentName.substring(0, 1) : '?',
+              style: const TextStyle(
+                color: TeacherPalette.primary,
+                fontWeight: FontWeight.w900,
               ),
             ),
-          )
-          .toList(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  row.studentName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: TeacherPalette.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                if (row.studentCode.isNotEmpty)
+                  Text(
+                    row.studentCode,
+                    style: const TextStyle(
+                      color: TeacherPalette.muted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Wrap(
+            spacing: 6,
+            children: _statusOptions.map((opt) {
+              final (value, label, color) = opt;
+              final selected = row.status == value;
+              return _StatusPill(
+                label: label,
+                color: color,
+                selected: selected,
+                onTap: () {
+                  row.status = value;
+                  onChanged();
+                },
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: selected ? color : TeacherPalette.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : TeacherPalette.softText,
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -498,14 +644,10 @@ class _ModeTab extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: selected
-                ? TeacherPalette.primary.withValues(alpha: 0.1)
-                : Colors.white,
+            color: selected ? TeacherPalette.skyVivid : TeacherPalette.skyLight,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected
-                  ? TeacherPalette.primary
-                  : const Color(0xFFE9E1F5),
+              color: selected ? TeacherPalette.primary : TeacherPalette.border,
             ),
           ),
           child: Row(
@@ -514,18 +656,14 @@ class _ModeTab extends StatelessWidget {
               Icon(
                 icon,
                 size: 18,
-                color: selected
-                    ? TeacherPalette.primary
-                    : TeacherPalette.softText,
+                color: selected ? TeacherPalette.primary : TeacherPalette.softText,
               ),
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  color: selected
-                      ? TeacherPalette.primary
-                      : TeacherPalette.softText,
+                  color: selected ? TeacherPalette.primary : TeacherPalette.softText,
                 ),
               ),
             ],
