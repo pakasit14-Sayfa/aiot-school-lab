@@ -2479,8 +2479,68 @@ class _TodayFocusCard extends StatelessWidget {
   }
 }
 
-class _ReviewQueueCard extends StatelessWidget {
+class _ReviewQueueCard extends StatefulWidget {
   const _ReviewQueueCard();
+
+  @override
+  State<_ReviewQueueCard> createState() => _ReviewQueueCardState();
+}
+
+class _ReviewQueueCardState extends State<_ReviewQueueCard> {
+  List<_ReviewTask>? _tasks;
+  String? _error;
+
+  static const _colors = [
+    TeacherPalette.orange,
+    TeacherPalette.skyDeep,
+    TeacherPalette.red,
+    TeacherPalette.primary,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final courses = (await CourseService.listMyCourses())
+          .where((c) => c.isActive)
+          .toList();
+      final tasks = <_ReviewTask>[];
+      for (final course in courses) {
+        final assignments = await AssignmentService.listAssignments(course.id);
+        for (final assignment in assignments) {
+          if (assignment.status != 'published') continue;
+          final submissions = await AssignmentService.listSubmissions(
+            assignment.id,
+          );
+          final pending = submissions
+              .where((s) => s.status == 'submitted')
+              .length;
+          if (pending == 0) continue;
+          tasks.add(
+            _ReviewTask(
+              assignment.title,
+              '${course.subjectName} · ส่งเข้ามา $pending ชิ้น',
+              '$pending',
+              Icons.assignment_rounded,
+              _colors[tasks.length % _colors.length],
+            ),
+          );
+        }
+      }
+      tasks.sort(
+        (a, b) => int.parse(b.count).compareTo(int.parse(a.count)),
+      );
+      if (!mounted) return;
+      setState(() => _tasks = tasks);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดงานรอตรวจไม่สำเร็จ');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2495,7 +2555,31 @@ class _ReviewQueueCard extends StatelessWidget {
             icon: Icons.fact_check_rounded,
           ),
           const SizedBox(height: 14),
-          ...TeacherMock.reviewTasks.map((task) => _ReviewTaskTile(task: task)),
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else if (_tasks == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (_tasks!.isEmpty)
+            const Text(
+              'ไม่มีงานรอตรวจตอนนี้',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            ..._tasks!.map((task) => _ReviewTaskTile(task: task)),
         ],
       ),
     );

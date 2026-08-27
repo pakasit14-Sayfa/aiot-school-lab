@@ -489,9 +489,12 @@ see `docs/handoff/WORK_LOG.md`.)*
   availability checked against the real schema (not guessed):
   - `_ScheduleCard` ("ตารางสอนวันนี้") — **fixed 2026-08-28**, now calls
     real `CalendarService.listTeacherSchedules()` filtered to today.
-  - `TeacherMock.reviewTasks` ("งานรอตรวจ") — still fake. Partial backend:
-    `list_submissions(p_token, p_assignment_id)` exists per-assignment, but
-    there's no cross-course "everything still ungraded" aggregate RPC yet.
+  - `TeacherMock.reviewTasks` ("งานรอตรวจ") — **fixed 2026-08-28**, client-side
+    aggregate (no cross-course RPC exists): all active courses →
+    `list_assignments` → published ones → `list_submissions` → count
+    `status == 'submitted'`. New gap found while fixing this: the
+    dashboard's top alert banner (`_TeacherHero`) independently hardcodes
+    the same "18 ชิ้น"/"3 คน" numbers — not yet wired to this real count.
   - `TeacherMock.students` ("นักเรียนที่ต้องติดตาม") — still fake. No
     auto-computed "falling behind" signal exists anywhere — the only
     related backend is `student_support_cases`/`list_student_support_cases`,
