@@ -105,15 +105,32 @@ class AssignmentDetail {
   bool get isPublished => status == 'published';
 }
 
+class SubmissionAttachment {
+  final String id;
+  final String? fileName;
+
+  const SubmissionAttachment({required this.id, this.fileName});
+
+  factory SubmissionAttachment.fromMap(Map<String, dynamic> map) =>
+      SubmissionAttachment(
+        id: map['id'] as String,
+        fileName: map['file_name'] as String?,
+      );
+}
+
 class SubmissionVersion {
   final int version;
   final String? content;
   final DateTime submittedAt;
+  final String submissionVersionId;
+  final List<SubmissionAttachment> attachments;
 
   const SubmissionVersion({
     required this.version,
     required this.content,
     required this.submittedAt,
+    required this.submissionVersionId,
+    this.attachments = const [],
   });
 
   factory SubmissionVersion.fromRow(Map<String, dynamic> row) =>
@@ -121,6 +138,11 @@ class SubmissionVersion {
         version: row['version'] as int,
         content: row['content'] as String?,
         submittedAt: DateTime.parse(row['submitted_at'] as String).toUtc(),
+        submissionVersionId: row['submission_version_id'] as String,
+        attachments: (row['attachments'] as List? ?? [])
+            .cast<Map<String, dynamic>>()
+            .map(SubmissionAttachment.fromMap)
+            .toList(),
       );
 }
 
@@ -133,6 +155,7 @@ class SubmissionRoster {
   final int currentVersion;
   final String? latestContent;
   final DateTime? submittedAt;
+  final List<SubmissionAttachment> latestAttachments;
 
   const SubmissionRoster({
     required this.submissionId,
@@ -143,6 +166,7 @@ class SubmissionRoster {
     required this.currentVersion,
     required this.latestContent,
     required this.submittedAt,
+    this.latestAttachments = const [],
   });
 
   factory SubmissionRoster.fromRow(Map<String, dynamic> row) =>
@@ -157,6 +181,10 @@ class SubmissionRoster {
         submittedAt: row['submitted_at'] == null
             ? null
             : DateTime.parse(row['submitted_at'] as String).toUtc(),
+        latestAttachments: (row['latest_attachments'] as List? ?? [])
+            .cast<Map<String, dynamic>>()
+            .map(SubmissionAttachment.fromMap)
+            .toList(),
       );
 
   String get studentFullName => '$studentFirstName $studentLastName';

@@ -17,6 +17,7 @@
 // Log: coi_flag ต้องไม่ให้ client ตั้งเอง) ไม่ต้องมีช่องให้ครูติ๊กเลย
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart' hide RubricModel;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart'
@@ -29,11 +30,13 @@ class _RosterEntry {
     required this.studentId,
     required this.studentName,
     required this.submissionId,
+    this.attachments = const [],
   });
 
   final String studentId;
   final String studentName;
   final String submissionId;
+  final List<SubmissionAttachment> attachments;
   String? gradeId;
   num? score;
   num? maxScore;
@@ -113,6 +116,7 @@ class _TeacherSubmissionRosterPageState
           studentId: s.studentId,
           studentName: '${s.studentFirstName} ${s.studentLastName}',
           submissionId: s.submissionId,
+          attachments: s.latestAttachments,
         );
       }).toList();
 
@@ -237,6 +241,61 @@ class _TeacherSubmissionRosterPageState
     }
   }
 
+  Future<void> _openAttachment(SubmissionAttachment attachment) async {
+    try {
+      final url = await AssignmentService.getSubmissionAttachmentDownloadUrl(
+        attachment.id,
+      );
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e')));
+    }
+  }
+
+  void _viewAttachments(_RosterEntry entry) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ไฟล์แนบของ ${entry.studentName}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final a in entry.attachments)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.attach_file_rounded),
+                  title: Text(a.fileName ?? 'ไฟล์แนบ'),
+                  trailing: const Icon(Icons.download_rounded),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _openAttachment(a);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
@@ -311,6 +370,7 @@ class _TeacherSubmissionRosterPageState
                         canScore: _selectedRubric != null,
                         onScore: () => _openScoring(_roster[i]),
                         onConfirm: () => _confirmGrade(_roster[i]),
+                        onViewAttachments: () => _viewAttachments(_roster[i]),
                       ),
                     ],
                   ],
@@ -404,12 +464,14 @@ class _RosterRow extends StatelessWidget {
     required this.canScore,
     required this.onScore,
     required this.onConfirm,
+    required this.onViewAttachments,
   });
 
   final _RosterEntry entry;
   final bool canScore;
   final VoidCallback onScore;
   final VoidCallback onConfirm;
+  final VoidCallback onViewAttachments;
 
   @override
   Widget build(BuildContext context) {
@@ -462,6 +524,17 @@ class _RosterRow extends StatelessWidget {
               ],
             ),
           ),
+          if (entry.attachments.isNotEmpty) ...[
+            IconButton(
+              onPressed: onViewAttachments,
+              tooltip: 'ไฟล์แนบ (${entry.attachments.length})',
+              icon: Badge(
+                label: Text('${entry.attachments.length}'),
+                child: const Icon(Icons.attach_file_rounded, size: 18),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
           if (entry.isGraded)
             TeacherStatusChip(
               label:

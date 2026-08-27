@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/assignment_model.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
@@ -114,10 +116,8 @@ class AssignmentService {
     return AssignmentDetail.fromRow(rows.first as Map<String, dynamic>);
   }
 
-  static Future<int> submitAssignment({
-    required String assignmentId,
-    required String content,
-  }) async {
+  static Future<({int version, String submissionVersionId})>
+  submitAssignment({required String assignmentId, required String content}) async {
     final rows =
         await supabase.rpc(
               'submit_assignment',
@@ -129,7 +129,75 @@ class AssignmentService {
             )
             as List;
 
-    return (rows.first as Map<String, dynamic>)['version'] as int;
+    final row = rows.first as Map<String, dynamic>;
+    return (
+      version: row['version'] as int,
+      submissionVersionId: row['submission_version_id'] as String,
+    );
+  }
+
+  /// Uploads real bytes to the private `submission-attachments` Storage
+  /// bucket via a signed-upload URL minted by the
+  /// submission-attachment-upload Edge Function, then registers it
+  /// against the submission version.
+  static Future<String> uploadSubmissionAttachment({
+    required String submissionVersionId,
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+
+    final uploadUrlResponse = await supabase.functions.invoke(
+      'submission-attachment-upload',
+      body: {
+        'token': token,
+        'submission_version_id': submissionVersionId,
+        'file_name': fileName,
+      },
+    );
+    final uploadData = uploadUrlResponse.data as Map<String, dynamic>?;
+    final storagePath = uploadData?['storage_path'] as String?;
+    final signedToken = uploadData?['token'] as String?;
+    if (storagePath == null || signedToken == null) {
+      throw Exception('upload_url_unavailable');
+    }
+
+    await supabase.storage
+        .from('submission-attachments')
+        .uploadBinaryToSignedUrl(storagePath, signedToken, bytes);
+
+    final rows =
+        await supabase.rpc(
+              'add_submission_attachment',
+              params: {
+                'p_token': token,
+                'p_submission_version_id': submissionVersionId,
+                'p_storage_path': storagePath,
+                'p_file_name': fileName,
+              },
+            )
+            as List;
+    return (rows.first as Map<String, dynamic>)['attachment_id'] as String;
+  }
+
+  /// Resolves a submission attachment to a short-lived signed download URL.
+  static Future<String> getSubmissionAttachmentDownloadUrl(
+    String attachmentId,
+  ) async {
+    final response = await supabase.functions.invoke(
+      'submission-attachment-download',
+      body: {
+        'token': AuthService.sessionToken,
+        'attachment_id': attachmentId,
+      },
+    );
+    final data = response.data as Map<String, dynamic>?;
+    final signedUrl = data?['signed_url'] as String?;
+    if (signedUrl == null) {
+      throw Exception('download_url_unavailable');
+    }
+    return signedUrl;
   }
 
   static Future<List<SubmissionVersion>> listMySubmissionVersions(

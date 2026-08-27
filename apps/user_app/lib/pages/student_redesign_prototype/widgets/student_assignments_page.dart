@@ -1,5 +1,7 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'student_redesign_palette.dart';
 
 class _AssignmentWithCourse {
@@ -482,9 +484,12 @@ class _SummaryStatTile extends StatelessWidget {
   }
 }
 
-/// ส่งงานจริง — ระบบนี้รับแค่ข้อความ (submit_assignment RPC มี content เป็น
-/// text เท่านั้น ไม่มีระบบแนบไฟล์ผูกกับใบงานเลย) จึงตัด UI อัปโหลดไฟล์เดิม
-/// ที่จำลอง progress bar ปลอมออกทั้งหมด แทนที่ด้วยฟอร์มข้อความจริง
+/// ส่งงานจริง — เดิมระบบนี้รับแค่ข้อความ (submit_assignment RPC เดิมไม่มี
+/// ที่ทางให้แนบไฟล์เลย) เลยเคยตัด UI อัปโหลดไฟล์ที่จำลอง progress bar ปลอม
+/// ออกไปก่อน 2026-08-27: เพิ่มการแนบไฟล์จริงกลับเข้ามาแล้ว โดยใช้ตาราง
+/// submission_attachments ที่มีอยู่แล้วในสคีมาแต่ไม่เคยมี RPC ใดแตะเลย —
+/// อัปโหลดผ่าน signed URL (submission-attachment-upload Edge Function)
+/// เหมือนแพทเทิร์นเดียวกับ lesson-material/quiz-attachment
 class _AssignmentSubmitSheet extends StatefulWidget {
   const _AssignmentSubmitSheet({required this.item, required this.onSubmitted});
 
@@ -498,13 +503,19 @@ class _AssignmentSubmitSheet extends StatefulWidget {
 class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   final _controller = TextEditingController();
   bool _submitting = false;
+  bool _loadingPrevious = false;
   String? _detailError;
   AssignmentDetail? _detail;
+  final List<PlatformFile> _pickedFiles = [];
+  List<SubmissionAttachment> _previousAttachments = const [];
+
+  bool get _isEdit => widget.item.submitted;
 
   @override
   void initState() {
     super.initState();
     _loadDetail();
+    if (_isEdit) _loadPreviousSubmission();
   }
 
   Future<void> _loadDetail() async {
@@ -520,18 +531,85 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
     }
   }
 
+  /// แก้ไขงานที่ส่งไปแล้ว — โหลดข้อความ/ไฟล์แนบจากการส่งครั้งล่าสุดมาแสดง
+  /// ก่อน ให้แก้ต่อได้แทนที่จะต้องพิมพ์ใหม่ทั้งหมด
+  Future<void> _loadPreviousSubmission() async {
+    setState(() => _loadingPrevious = true);
+    try {
+      final versions = await AssignmentService.listMySubmissionVersions(
+        widget.item.assignment.id,
+      );
+      if (!mounted) return;
+      if (versions.isNotEmpty) {
+        final latest = versions.first;
+        setState(() {
+          _controller.text = latest.content ?? '';
+          _previousAttachments = latest.attachments;
+        });
+      }
+    } catch (_) {
+      // เงียบไว้ — ยังแก้/ส่งใหม่ได้แม้โหลดของเดิมไม่สำเร็จ แค่ต้องพิมพ์ใหม่เอง
+    } finally {
+      if (mounted) setState(() => _loadingPrevious = false);
+    }
+  }
+
+  Future<void> _openPreviousAttachment(SubmissionAttachment attachment) async {
+    try {
+      final url = await AssignmentService.getSubmissionAttachmentDownloadUrl(
+        attachment.id,
+      );
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _pickFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(withData: true);
+      if (result == null) return;
+      setState(() => _pickedFiles.addAll(result.files));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ: $e')));
+    }
+  }
+
   Future<void> _submit() async {
     if (_controller.text.trim().isEmpty) return;
     setState(() => _submitting = true);
+    final messenger = ScaffoldMessenger.of(context);
     try {
-      await AssignmentService.submitAssignment(
+      final result = await AssignmentService.submitAssignment(
         assignmentId: widget.item.assignment.id,
         content: _controller.text.trim(),
       );
+
+      for (final file in _pickedFiles) {
+        final bytes = file.bytes;
+        if (bytes == null) continue;
+        await AssignmentService.uploadSubmissionAttachment(
+          submissionVersionId: result.submissionVersionId,
+          fileName: file.name,
+          bytes: bytes,
+        );
+      }
+
       if (!mounted) return;
       Navigator.pop(context);
       widget.onSubmitted();
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('ส่งงานเรียบร้อยแล้ว'),
           behavior: SnackBarBehavior.floating,
@@ -540,9 +618,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('ส่งงานไม่สำเร็จ: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('ส่งงานไม่สำเร็จ: $e')));
     }
   }
 
@@ -583,8 +659,8 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Icon(
-                  Icons.send_rounded,
+                child: Icon(
+                  _isEdit ? Icons.edit_rounded : Icons.send_rounded,
                   color: SchoolPalette.deepGreen,
                   size: 20,
                 ),
@@ -594,9 +670,9 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'ส่งงาน',
-                      style: TextStyle(
+                    Text(
+                      _isEdit ? 'แก้ไขงานที่ส่งไปแล้ว' : 'ส่งงาน',
+                      style: const TextStyle(
                         color: SchoolPalette.navy,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
@@ -643,6 +719,70 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                 height: 1.4,
               ),
             ),
+          if (_isEdit) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 15,
+                    color: Color(0xFFB45309),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _loadingPrevious
+                          ? 'กำลังโหลดสิ่งที่เคยส่งไว้...'
+                          : 'แก้ไขข้อความด้านล่างแล้วส่งใหม่ได้ — ระบบจะเก็บ'
+                                'เป็นครั้งที่ส่งใหม่ ไม่ทับของเดิม',
+                      style: const TextStyle(
+                        color: Color(0xFF92400E),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_previousAttachments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'ไฟล์แนบจากการส่งครั้งก่อน',
+                style: TextStyle(
+                  color: SchoolPalette.muted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final a in _previousAttachments)
+                    ActionChip(
+                      avatar: const Icon(Icons.attach_file_rounded, size: 16),
+                      label: Text(
+                        a.fileName ?? 'ไฟล์แนบ',
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      onPressed: () => _openPreviousAttachment(a),
+                    ),
+                ],
+              ),
+            ],
+          ],
           const SizedBox(height: 14),
           TextField(
             controller: _controller,
@@ -657,6 +797,36 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _submitting ? null : _pickFiles,
+            icon: const Icon(Icons.attach_file_rounded, size: 16),
+            label: const Text('แนบไฟล์'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: SchoolPalette.deepGreen,
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+          ),
+          if (_pickedFiles.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final file in _pickedFiles)
+                  Chip(
+                    label: Text(
+                      file.name,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                    onDeleted: _submitting
+                        ? null
+                        : () => setState(() => _pickedFiles.remove(file)),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 20),
           Row(
             children: [
@@ -688,7 +858,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                           ),
                         )
                       : const Icon(Icons.send_rounded, size: 18),
-                  label: const Text('ยืนยันการส่งงาน'),
+                  label: Text(_isEdit ? 'ยืนยันการส่งใหม่' : 'ยืนยันการส่งงาน'),
                   style: FilledButton.styleFrom(
                     backgroundColor: SchoolPalette.deepGreen,
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -764,7 +934,6 @@ class AssignmentCard extends StatelessWidget {
   }
 
   void _openSubmit(BuildContext context) {
-    if (item.submitted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -897,7 +1066,7 @@ class AssignmentCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    if (!item.submitted) _buildActionPill(status.color),
+                    _buildActionPill(status.color),
                   ],
                 ),
               ],
@@ -922,14 +1091,18 @@ class AssignmentCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.upload_file_rounded, size: 15, color: Colors.white),
-          SizedBox(width: 5),
+          Icon(
+            item.submitted ? Icons.edit_rounded : Icons.upload_file_rounded,
+            size: 15,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 5),
           Text(
-            'ส่งงาน',
-            style: TextStyle(
+            item.submitted ? 'แก้ไข' : 'ส่งงาน',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 12.5,
               fontWeight: FontWeight.w900,
