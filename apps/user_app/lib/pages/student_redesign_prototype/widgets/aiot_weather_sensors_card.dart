@@ -26,6 +26,12 @@ class AiotWeatherSensorsCard extends StatelessWidget {
     return (subtitle: 'ความชื้นสูง/ต่ำกว่าปกติ', level: 'ไม่ปลอดภัย');
   }
 
+  static ({String subtitle, String level}) _luxStatus(double v) {
+    if (v >= 300) return (subtitle: 'แสงสว่างเพียงพอสำหรับอ่านหนังสือ', level: 'ปกติ');
+    if (v >= 150) return (subtitle: 'แสงสว่างพอใช้ อาจต้องเปิดไฟเพิ่ม', level: 'ปกติ');
+    return (subtitle: 'แสงสว่างน้อยกว่ามาตรฐาน', level: 'ไม่ปลอดภัย');
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -90,6 +96,7 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                 final pm25 = _pm25Status(sensor.pm25);
                 final temp = _tempStatus(sensor.temperature);
                 final humidity = _humidityStatus(sensor.humidity);
+                final lux = _luxStatus(sensor.lux);
                 return Column(
                   children: [
                     AiotSensorItemTile(
@@ -117,6 +124,15 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                       unit: '%RH',
                       subtitle: humidity.subtitle,
                       level: humidity.level,
+                      showDivider: true,
+                    ),
+                    AiotSensorItemTile(
+                      icon: Icons.wb_sunny_rounded,
+                      title: 'ความเข้มแสง',
+                      value: sensor.lux.toStringAsFixed(0),
+                      unit: 'lux',
+                      subtitle: lux.subtitle,
+                      level: lux.level,
                       showDivider: false,
                     ),
                   ],

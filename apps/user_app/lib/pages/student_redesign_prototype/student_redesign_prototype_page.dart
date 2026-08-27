@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import 'widgets/widgets.dart';
 export 'widgets/widgets.dart';
@@ -691,11 +692,59 @@ class _SchoolDashboardBodyGrid extends StatelessWidget {
 }
 
 // ignore: unused_element
-class _UpcomingSchoolTasksCard extends StatelessWidget {
+class _UpcomingSchoolTasksCard extends StatefulWidget {
   const _UpcomingSchoolTasksCard();
 
   @override
+  State<_UpcomingSchoolTasksCard> createState() =>
+      _UpcomingSchoolTasksCardState();
+}
+
+class _UpcomingSchoolTasksCardState extends State<_UpcomingSchoolTasksCard> {
+  SensorModel? _sensor;
+  Set<String> _availableMetrics = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealSensor();
+  }
+
+  Future<void> _loadRealSensor() async {
+    try {
+      // Empty room/building = aggregate across every device in the school
+      // (see RealtimeService.modelForRoom — an empty room string skips the
+      // location filter and returns the newest value per metric school-wide).
+      final results = await Future.wait([
+        RealtimeService.getSensorOnce(
+          schoolId: '',
+          building: '',
+          floor: '',
+          room: '',
+        ),
+        RealtimeService.getWeatherMetricsWithData(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _sensor = results[0] as SensorModel?;
+        // SensorModel defaults an absent metric to 0, indistinguishable
+        // from a real 0 — only trust a metric this card shows if it was
+        // actually present in the raw readings, not just "some device
+        // reported something."
+        _availableMetrics = results[1] as Set<String>;
+      });
+    } catch (_) {
+      // Keep the honest "no data" state on error.
+    }
+  }
+
+  String _levelLabel(SensorLevel level) =>
+      level == SensorLevel.good ? 'ปกติ' : 'ไม่ปลอดภัย';
+
+  @override
   Widget build(BuildContext context) {
+    final sensor = _sensor;
+    final hasAnyData = _availableMetrics.isNotEmpty;
     return _SoftCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -705,12 +754,18 @@ class _UpcomingSchoolTasksCard extends StatelessWidget {
               Container(
                 width: 10,
                 height: 10,
-                decoration: const BoxDecoration(
-                  color: SchoolPalette.green,
+                decoration: BoxDecoration(
+                  color: hasAnyData
+                      ? SchoolPalette.green
+                      : const Color(0xFF94A3B8),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Color(0x6643AC60),
+                      color:
+                          (hasAnyData
+                                  ? SchoolPalette.green
+                                  : const Color(0xFF94A3B8))
+                              .withOpacity(0.4),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
@@ -734,19 +789,25 @@ class _UpcomingSchoolTasksCard extends StatelessWidget {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: SchoolPalette.green,
+                  color: hasAnyData
+                      ? SchoolPalette.green
+                      : const Color(0xFF94A3B8),
                   borderRadius: BorderRadius.circular(999),
-                  boxShadow: const [
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x3343AC60),
+                      color:
+                          (hasAnyData
+                                  ? SchoolPalette.green
+                                  : const Color(0xFF94A3B8))
+                              .withOpacity(0.2),
                       blurRadius: 8,
-                      offset: Offset(0, 3),
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
-                child: const Text(
-                  'LIVE ⚡',
-                  style: TextStyle(
+                child: Text(
+                  hasAnyData ? 'LIVE ⚡' : 'ไม่มีข้อมูล',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
                     fontSize: 10.5,
@@ -756,40 +817,65 @@ class _UpcomingSchoolTasksCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          const _SchoolTaskItem(
+          _SchoolTaskItem(
             icon: Icons.air_rounded,
             title: 'ฝุ่น PM2.5',
-            value: '18',
+            value: _availableMetrics.contains('pm25')
+                ? '${sensor!.pm25.toInt()}'
+                : null,
             unit: 'µg/m³',
-            subtitle: 'ห้องเรียนปลอดภัย · คุณภาพอากาศ 98%',
-            level: 'ดีมาก',
-            color: Color(0xFF0284C7),
+            subtitle: _availableMetrics.contains('pm25')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('pm25')
+                ? _levelLabel(sensor!.pm25Level)
+                : 'ไม่มีข้อมูล',
+            color: const Color(0xFF0284C7),
           ),
-          const _SchoolTaskItem(
+          _SchoolTaskItem(
             icon: Icons.thermostat_rounded,
             title: 'อุณหภูมิห้องเรียน',
-            value: '28.5',
+            value: _availableMetrics.contains('temperature')
+                ? '${sensor!.temperature}'
+                : null,
             unit: '°C',
-            subtitle: 'เครื่องปรับอากาศทำงานปกติ',
-            level: 'เหมาะสม',
-            color: Color(0xFFEA580C),
+            subtitle: _availableMetrics.contains('temperature')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('temperature')
+                ? _levelLabel(sensor!.tempLevel)
+                : 'ไม่มีข้อมูล',
+            color: const Color(0xFFEA580C),
           ),
-          const _SchoolTaskItem(
+          _SchoolTaskItem(
             icon: Icons.water_drop_rounded,
             title: 'ความชื้นสัมพัทธ์',
-            value: '62',
+            value: _availableMetrics.contains('humidity')
+                ? '${sensor!.humidity}'
+                : null,
             unit: '%RH',
-            subtitle: 'ระดับความชื้นในอากาศสมดุล',
-            level: 'ปกติ',
-            color: Color(0xFF059669),
+            subtitle: _availableMetrics.contains('humidity')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('humidity')
+                ? _levelLabel(sensor!.humidityLevel)
+                : 'ไม่มีข้อมูล',
+            color: const Color(0xFF059669),
           ),
-          const _SchoolTaskItem(
+          _SchoolTaskItem(
             icon: Icons.wb_sunny_rounded,
-            title: 'ดัชนีรังสี UV',
-            value: 'UV 2',
-            subtitle: 'รังสีระดับต่ำ ปลอดภัยต่อสายตา',
-            level: 'ปลอดภัย',
-            color: Color(0xFFD97706),
+            title: 'ความเข้มแสง',
+            value: _availableMetrics.contains('light_lux')
+                ? '${sensor!.lux.toInt()}'
+                : null,
+            unit: 'lux',
+            subtitle: _availableMetrics.contains('light_lux')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('light_lux')
+                ? _levelLabel(sensor!.luxLevel)
+                : 'ไม่มีข้อมูล',
+            color: const Color(0xFFD97706),
           ),
           const SizedBox(height: 12),
           SizedBox(
