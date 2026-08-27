@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -104,7 +105,12 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
 
   Future<void> _loadTeachers() async {
     try {
-      final users = await UserAdminService.getAllUsers();
+      final results = await Future.wait([
+        UserAdminService.getAllUsers(),
+        HomeroomService.listHomeroomAssignments(),
+      ]);
+      final users = results[0] as List<UserModel>;
+      final assignments = results[1] as List<HomeroomAssignment>;
       final teacherUsers = users
           .where((u) => u.hasRole(UserRole.teacher))
           .toList();
@@ -113,6 +119,12 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
           _teachers = teacherUsers.asMap().entries.map((entry) {
             final idx = entry.key;
             final u = entry.value;
+            // ครูประจำชั้นจริงมาจาก homeroom_assignments (2026-08-27) —
+            // ก่อนหน้านี้ช่องนี้อ่าน u.room (ฟิลด์คนละความหมาย, ไม่เคยถูก
+            // ตั้งค่าจากที่นี่จริง) แทนที่จะเป็นการมอบหมายครูประจำชั้นจริง
+            final assignment = assignments
+                .where((a) => a.teacherId == u.uid)
+                .firstOrNull;
             return _TeacherRecord(
               id: u.uid,
               teacherCode: 'TC-2569-${(idx + 1).toString().padLeft(3, '0')}',
@@ -121,7 +133,8 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
               phone: '-',
               department: u.building.isNotEmpty ? u.building : 'วิทยาศาสตร์',
               mainRole: 'ครูผู้สอน',
-              homeroom: u.room.isNotEmpty ? u.room : '-',
+              homeroom: assignment?.room ?? '-',
+              homeroomAssignmentId: assignment?.assignmentId,
               building: u.building.isNotEmpty ? u.building : 'อาคารเรียน A',
               buildingDuty: '-',
               accountStatus: u.status == 'active' ? 'ใช้งาน' : 'ระงับ',
@@ -526,12 +539,61 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
 
     if (result == null || !mounted) return;
 
+    // ครูประจำชั้นเป็นค่าจริงเพียงช่องเดียวในฟอร์มนี้ (ที่เหลือยังเป็น
+    // prototype ท้องถิ่น) — บันทึกผ่าน homeroom_assignments จริงก่อน sync
+    // ค่ากลับเข้า state ถ้าฟิลด์นี้เปลี่ยนไปจากค่าเดิม
+    _TeacherRecord persisted = result;
+    if (teacher == null || teacher.homeroom != result.homeroom) {
+      try {
+        if (teacher?.homeroomAssignmentId != null) {
+          await HomeroomService.removeHomeroomTeacher(
+            teacher!.homeroomAssignmentId!,
+          );
+        }
+        String? newAssignmentId;
+        if (result.homeroom != '-') {
+          final slashIndex = result.homeroom.indexOf('/');
+          final gradeLevel = slashIndex > 0
+              ? result.homeroom.substring(0, slashIndex)
+              : result.homeroom;
+          newAssignmentId = await HomeroomService.setHomeroomTeacher(
+            gradeLevel: gradeLevel,
+            room: result.homeroom,
+            teacherId: result.id,
+          );
+        }
+        persisted = _TeacherRecord(
+          id: result.id,
+          teacherCode: result.teacherCode,
+          fullName: result.fullName,
+          email: result.email,
+          phone: result.phone,
+          department: result.department,
+          mainRole: result.mainRole,
+          homeroom: result.homeroom,
+          homeroomAssignmentId: newAssignmentId,
+          building: result.building,
+          buildingDuty: result.buildingDuty,
+          accountStatus: result.accountStatus,
+          permission: result.permission,
+          lastLogin: result.lastLogin,
+          note: result.note,
+        );
+      } catch (_) {
+        if (mounted) {
+          _showMessage('บันทึกครูประจำชั้นไม่สำเร็จ ลองใหม่อีกครั้ง');
+        }
+      }
+    }
+
+    if (!mounted) return;
+
     setState(() {
       if (editing) {
-        final int index = _teachers.indexWhere((t) => t.id == result.id);
-        if (index >= 0) _teachers[index] = result;
+        final int index = _teachers.indexWhere((t) => t.id == persisted.id);
+        if (index >= 0) _teachers[index] = persisted;
       } else {
-        _teachers.insert(0, result);
+        _teachers.insert(0, persisted);
       }
     });
 
@@ -3586,6 +3648,7 @@ class _TeacherRecord {
     required this.permission,
     required this.lastLogin,
     required this.note,
+    this.homeroomAssignmentId,
   });
 
   final String id;
@@ -3602,6 +3665,9 @@ class _TeacherRecord {
   final String permission;
   final String lastLogin;
   final String note;
+  // จับคู่กับ homeroom_assignments.id จริง (null = ยังไม่ได้กำหนดครูประจำ
+  // ชั้นในฐานข้อมูล) ใช้ตอนแก้ไข/ยกเลิกการกำหนดครูประจำชั้นจริง
+  final String? homeroomAssignmentId;
 
   _TeacherRecord copyWith({String? accountStatus}) {
     return _TeacherRecord(
@@ -3619,6 +3685,7 @@ class _TeacherRecord {
       permission: permission,
       lastLogin: lastLogin,
       note: note,
+      homeroomAssignmentId: homeroomAssignmentId,
     );
   }
 }
