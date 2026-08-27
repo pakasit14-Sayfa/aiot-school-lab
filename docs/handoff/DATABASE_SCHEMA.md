@@ -645,6 +645,62 @@ Foreign keys:
 - `group_id` → `student_groups.id`
 - `student_id` → `users.id`
 
+## homeroom_assignments
+
+Added 2026-08-27 (`20260827060000_homeroom_attendance_system.sql`) — which
+teacher is the homeroom/advisory teacher (ครูประจำชั้น) of a given
+grade_level+room for a given academic year. Previously this had no real
+backend at all (`school_admin`'s "ครูประจำชั้น" field was a fake local-only
+value).
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| school_id | uuid | NO |  |
+| academic_year_id | uuid | NO |  |
+| grade_level | varchar | NO |  |
+| room | varchar | NO |  |
+| teacher_id | uuid | NO |  |
+| created_by | uuid | NO |  |
+| created_at | timestamptz | NO | now() |
+
+Unique: `(academic_year_id, grade_level, room, teacher_id)` — allows more
+than one co-homeroom-teacher per room, but not a duplicate row for the same
+teacher+room.
+
+Foreign keys:
+- `school_id` → `schools.id`
+- `academic_year_id` → `academic_years.id`
+- `teacher_id` → `users.id`
+- `created_by` → `users.id`
+
+## homeroom_attendance_records
+
+Added 2026-08-27 (`20260827060000_homeroom_attendance_system.sql`) —
+per-room (not per-course) daily attendance, alongside the pre-existing
+`attendance_records` (course-scoped). Same status vocabulary.
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| student_id | uuid | NO |  |
+| academic_year_id | uuid | NO |  |
+| grade_level | varchar | NO |  |
+| room | varchar | NO |  |
+| class_date | date | NO |  |
+| status | text | NO | (check: present/late/absent/excused) |
+| marked_by | uuid | NO |  |
+| marked_at | timestamptz | NO | now() |
+| note | text | YES |  |
+
+Unique: `(student_id, class_date)` — one homeroom attendance record per
+student per day.
+
+Foreign keys:
+- `student_id` → `users.id`
+- `academic_year_id` → `academic_years.id`
+- `marked_by` → `users.id`
+
 ## incident_actions
 
 | column | type | nullable | default |
@@ -1687,6 +1743,20 @@ Foreign keys:
 ### `list_consent_policies_admin(p_token text, p_school_id uuid)` → `TABLE(policy_id uuid, school_id uuid, consent_type character varying, version character varying, document_hash character varying, content_url character varying, is_required boolean, effective_at timestamp with time zone, retired_at timestamp with time zone)` (SECURITY DEFINER)
 
 ### `list_course_attendance(p_token text, p_course_id uuid, p_class_date date)` → `TABLE(student_id uuid, student_name text, student_code text, status text, note text, marked_at timestamp with time zone)` (SECURITY DEFINER)
+
+### `list_homeroom_assignments(p_token text)` → `TABLE(assignment_id uuid, grade_level text, room text, teacher_id uuid, teacher_name text, student_count bigint)` (SECURITY DEFINER) — school_admin/super_admin/executive; added 2026-08-27.
+
+### `list_my_homeroom_classes(p_token text)` → `TABLE(assignment_id uuid, grade_level text, room text, student_count bigint)` (SECURITY DEFINER) — teacher-only; added 2026-08-27.
+
+### `list_homeroom_roster(p_token text, p_grade_level text, p_room text)` → `TABLE(student_id uuid, student_name text, student_code text)` (SECURITY DEFINER) — added 2026-08-27.
+
+### `list_homeroom_attendance(p_token text, p_grade_level text, p_room text, p_class_date date)` → `TABLE(student_id uuid, student_name text, student_code text, status text, note text, marked_at timestamp with time zone)` (SECURITY DEFINER) — added 2026-08-27.
+
+### `mark_homeroom_attendance(p_token text, p_grade_level text, p_room text, p_class_date date, p_records jsonb)` → `integer` (SECURITY DEFINER) — added 2026-08-27.
+
+### `set_homeroom_teacher(p_token text, p_grade_level text, p_room text, p_teacher_id uuid)` → `uuid` (SECURITY DEFINER) — school_admin/super_admin only; added 2026-08-27.
+
+### `remove_homeroom_teacher(p_token text, p_assignment_id uuid)` → `boolean` (SECURITY DEFINER) — school_admin/super_admin only; added 2026-08-27.
 
 ### `list_course_files(p_token text, p_course_id uuid)` → `TABLE(file_id uuid, storage_path text, file_name character varying, size_bytes bigint, uploaded_by uuid, uploader_first_name character varying, uploader_last_name character varying, created_at timestamp with time zone)` (SECURITY DEFINER)
 

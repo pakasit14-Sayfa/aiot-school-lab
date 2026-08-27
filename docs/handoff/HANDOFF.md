@@ -464,6 +464,24 @@ see `docs/handoff/WORK_LOG.md`.)*
   any other page relies on `FilePicker.platform.saveFile()` for a
   download** — `school_import_page.dart`'s "download template" button is
   the most likely other user, worth a look before trusting it works.
+- **Intermittent client-side redirect to the "สร้างบัญชี" (create-account/
+  invitation) screen on the Nth post-login click (found 2026-08-27)**: after
+  a fully successful login+OTP flow, some later click deep in the app
+  (observed on both `school_admin` and `teacher`, on totally unrelated
+  pages/actions — a sidebar nav click, a wheel-scroll, a dropdown open)
+  randomly bounces the whole app back to the unauthenticated "มีรหัสเชิญ?"
+  screen, as if the router momentarily read a null/stale auth state.
+  Roughly 50% of attempts hit it in Playwright testing; a plain page reload
+  after a successful login does **not** restore the session (confirmed no
+  client-side session persistence — full login+OTP is required again),
+  ruling out a token-expiry explanation (real session TTL is 7 days). Not
+  reproducible on a fixed schedule or fixed action — looks like a real
+  client-side race in the app's own auth-state stream, not something
+  introduced this session (surfaced while building `teacher_attendance_page.dart`
+  and wiring `school_teachers_page.dart`'s homeroom dropdown, but reproduced
+  identically on plain sidebar navigation with no code changes involved).
+  Not investigated further — treat any single Playwright run that lands here
+  as a retry, not a real bug in whatever was just clicked.
 - **`supabase_migrations.schema_migrations` tracking table doesn't match the
   files on disk** (53 tracked rows vs 61 files as of 2026-08-22). Several
   migrations this week were applied via `docker exec ... psql < file.sql`
