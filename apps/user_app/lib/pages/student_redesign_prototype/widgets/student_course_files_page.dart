@@ -23,6 +23,9 @@ String _typeLabelFor(String fileName) {
   return fileName.substring(dot + 1).toUpperCase();
 }
 
+const _imageExtensions = {'JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'BMP'};
+bool _isImageType(String typeLabel) => _imageExtensions.contains(typeLabel);
+
 class StudentCourseFilesPage extends StatefulWidget {
   const StudentCourseFilesPage({super.key});
 
@@ -573,7 +576,13 @@ class _CourseFileCardState extends State<CourseFileCard> {
   bool _opening = false;
   String? _error;
 
+  bool get _isImage => _isImageType(_typeLabelFor(widget.file.fileName));
+
   Future<void> _openFile() async {
+    if (_isImage) {
+      await _previewImage();
+      return;
+    }
     setState(() {
       _opening = true;
       _error = null;
@@ -589,6 +598,68 @@ class _CourseFileCardState extends State<CourseFileCard> {
     } finally {
       if (mounted) setState(() => _opening = false);
     }
+  }
+
+  /// รูปภาพ — เปิดดูในแอปเลย ไม่ต้องดาวน์โหลด/เปิดแท็บใหม่
+  Future<void> _previewImage() async {
+    setState(() {
+      _opening = true;
+      _error = null;
+    });
+    String? url;
+    try {
+      url = await CourseFileService.getDownloadUrl(widget.file.id);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'เปิดรูปภาพไม่สำเร็จ: $e');
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+    if (url == null || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Stack(
+          alignment: Alignment.topRight,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.network(
+                  url!,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return const Padding(
+                      padding: EdgeInsets.all(48),
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    padding: const EdgeInsets.all(32),
+                    color: Colors.white,
+                    child: const Text('โหลดรูปภาพไม่สำเร็จ'),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.black.withValues(alpha: 0.5),
+              ),
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -680,8 +751,13 @@ class _CourseFileCardState extends State<CourseFileCard> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Icon(Icons.download_rounded, size: 14),
-                            label: const Text('ดาวน์โหลด'),
+                                : Icon(
+                                    _isImage
+                                        ? Icons.visibility_rounded
+                                        : Icons.download_rounded,
+                                    size: 14,
+                                  ),
+                            label: Text(_isImage ? 'ดูรูปภาพ' : 'ดาวน์โหลด'),
                             style: FilledButton.styleFrom(
                               backgroundColor: accent,
                               padding: const EdgeInsets.symmetric(
