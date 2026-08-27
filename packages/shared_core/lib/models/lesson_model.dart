@@ -14,11 +14,11 @@ class DeviceOption {
   });
 
   factory DeviceOption.fromRow(Map<String, dynamic> row) => DeviceOption(
-    id: row['device_id'] as String,
-    name: row['name'] as String,
-    type: row['type'] as String,
+    id: (row['device_id'] ?? row['id']) as String,
+    name: (row['name'] ?? '') as String,
+    type: (row['type'] ?? '') as String,
     location: row['location'] as String?,
-    status: row['status'] as String,
+    status: (row['status'] ?? 'offline') as String,
   );
 }
 
