@@ -65,6 +65,24 @@ class QuizChoice {
       QuizChoice(id: map['id'] as String, text: map['text'] as String);
 }
 
+class QuizAttachment {
+  const QuizAttachment({
+    required this.id,
+    required this.type,
+    this.fileName,
+  });
+
+  final String id;
+  final String type; // 'image' or 'video'
+  final String? fileName;
+
+  factory QuizAttachment.fromMap(Map<String, dynamic> map) => QuizAttachment(
+    id: map['id'] as String,
+    type: map['type'] as String,
+    fileName: map['file_name'] as String?,
+  );
+}
+
 class QuizQuestion {
   const QuizQuestion({
     required this.id,
@@ -73,6 +91,7 @@ class QuizQuestion {
     required this.points,
     required this.sortOrder,
     required this.choices,
+    this.attachments = const [],
   });
 
   final String id;
@@ -81,6 +100,7 @@ class QuizQuestion {
   final num points;
   final int sortOrder;
   final List<QuizChoice> choices;
+  final List<QuizAttachment> attachments;
 }
 
 class QuizForStudent {
@@ -110,6 +130,10 @@ class QuizForStudent {
             choices: (row['choices'] as List? ?? [])
                 .cast<Map<String, dynamic>>()
                 .map(QuizChoice.fromMap)
+                .toList(),
+            attachments: (row['attachments'] as List? ?? [])
+                .cast<Map<String, dynamic>>()
+                .map(QuizAttachment.fromMap)
                 .toList(),
           ),
         )

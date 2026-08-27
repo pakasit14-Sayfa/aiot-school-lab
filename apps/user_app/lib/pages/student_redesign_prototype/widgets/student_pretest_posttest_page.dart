@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'student_redesign_palette.dart';
 
@@ -527,6 +528,28 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
     );
   }
 
+  Future<void> _openAttachment(QuizAttachment attachment) async {
+    try {
+      final url = await QuizService.getQuestionAttachmentDownloadUrl(
+        attachment.id,
+      );
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
   Widget _buildQuestion(int number, QuizQuestion question) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -546,6 +569,31 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
               fontWeight: FontWeight.w800,
             ),
           ),
+          if (question.attachments.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final attachment in question.attachments)
+                  ActionChip(
+                    avatar: Icon(
+                      attachment.type == 'video'
+                          ? Icons.play_circle_outline
+                          : Icons.image_outlined,
+                      size: 18,
+                      color: SchoolPalette.navy,
+                    ),
+                    label: Text(
+                      attachment.type == 'video' ? 'ดูวิดีโอแนบ' : 'ดูรูปภาพแนบ',
+                    ),
+                    backgroundColor: Colors.white,
+                    side: const BorderSide(color: SchoolPalette.glassBorder),
+                    onPressed: () => _openAttachment(attachment),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           if (question.type == 'short_answer')
             TextField(

@@ -404,13 +404,30 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
                   .toList()
             : null;
 
-        await QuizService.addQuizQuestion(
+        final questionId = await QuizService.addQuizQuestion(
           quizId: quizId,
           type: qTypeStr,
           question: q.questionText,
           points: q.score,
           choices: choicesPayload,
         );
+
+        if (q.hasImage && q.imageBytes != null) {
+          await QuizService.uploadQuestionAttachment(
+            questionId: questionId,
+            fileName: q.imageName ?? 'image.jpg',
+            bytes: q.imageBytes!,
+            type: 'image',
+          );
+        }
+        if (q.hasVideo && q.videoBytes != null) {
+          await QuizService.uploadQuestionAttachment(
+            questionId: questionId,
+            fileName: q.videoName ?? 'video.mp4',
+            bytes: q.videoBytes!,
+            type: 'video',
+          );
+        }
       }
 
       if (isPublished) {

@@ -132,6 +132,14 @@ file_size_limit = "50MiB"
 public = false
 file_size_limit = "50MiB"
 
+[storage.buckets.quiz-attachments]
+public = false
+file_size_limit = "50MiB"
+
+[storage.buckets.submission-attachments]
+public = false
+file_size_limit = "50MiB"
+
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
 enabled = true

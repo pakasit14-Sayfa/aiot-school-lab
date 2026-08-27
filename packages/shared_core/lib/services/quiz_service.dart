@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../models/quiz_model.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
@@ -144,6 +146,69 @@ class QuizService {
             )
             as List;
     return (rows.first as Map<String, dynamic>)['question_id'] as String;
+  }
+
+  /// Uploads real bytes to the private `quiz-attachments` Storage bucket
+  /// via a signed-upload URL minted by the quiz-attachment-upload Edge
+  /// Function, then registers it against the question. [type] must be
+  /// 'image' or 'video'.
+  static Future<String> uploadQuestionAttachment({
+    required String questionId,
+    required String fileName,
+    required Uint8List bytes,
+    required String type,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+
+    final uploadUrlResponse = await supabase.functions.invoke(
+      'quiz-attachment-upload',
+      body: {
+        'token': token,
+        'question_id': questionId,
+        'file_name': fileName,
+      },
+    );
+    final uploadData = uploadUrlResponse.data as Map<String, dynamic>?;
+    final storagePath = uploadData?['storage_path'] as String?;
+    final signedToken = uploadData?['token'] as String?;
+    if (storagePath == null || signedToken == null) {
+      throw Exception('upload_url_unavailable');
+    }
+
+    await supabase.storage
+        .from('quiz-attachments')
+        .uploadBinaryToSignedUrl(storagePath, signedToken, bytes);
+
+    final rows =
+        await supabase.rpc(
+              'add_quiz_question_attachment',
+              params: {
+                'p_token': token,
+                'p_question_id': questionId,
+                'p_type': type,
+                'p_storage_path': storagePath,
+                'p_file_name': fileName,
+              },
+            )
+            as List;
+    return (rows.first as Map<String, dynamic>)['attachment_id'] as String;
+  }
+
+  /// Resolves a question attachment to a short-lived signed download URL.
+  static Future<String> getQuestionAttachmentDownloadUrl(
+    String attachmentId,
+  ) async {
+    final response = await supabase.functions.invoke(
+      'quiz-attachment-download',
+      body: {'token': AuthService.sessionToken, 'attachment_id': attachmentId},
+    );
+    final data = response.data as Map<String, dynamic>?;
+    final signedUrl = data?['signed_url'] as String?;
+    if (signedUrl == null) {
+      throw Exception('download_url_unavailable');
+    }
+    return signedUrl;
   }
 
   static Future<void> publishQuiz(String quizId) async {
