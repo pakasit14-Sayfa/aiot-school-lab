@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AIoT School Lab — สถานะโปรเจกต์</title>
+<style>
+  :root {
+    --bg: #f7faf9;
+    --surface: #ffffff;
+    --surface-2: #eef5f2;
+    --border: #d5e2dd;
+    --text: #172622;
+    --text-dim: #5a7068;
+    --amber: #b36d16;
+    --teal: #087d70;
+    --coral: #bc5c43;
+    --blue: #3c6f91;
+    --trace: #b8ccc4;
+    --radius: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151a;
+      --surface: #171e24;
+      --surface-2: #1e2730;
+      --border: #2b3640;
+      --text: #dfe6ea;
+      --text-dim: #8b9aa4;
+      --amber: #e3a13a;
+      --teal: #4fbfae;
+      --coral: #ef927a;
+      --blue: #8db4d2;
+      --trace: #3a4652;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151a; --surface: #171e24; --surface-2: #1e2730; --border: #2b3640;
+    --text: #dfe6ea; --text-dim: #8b9aa4; --amber: #e3a13a; --teal: #4fbfae;
+    --coral: #ef927a; --blue: #8db4d2; --trace: #3a4652;
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f0; --surface: #ffffff; --surface-2: #e6eae8; --border: #cfd7d4;
+    --text: #171d1b; --text-dim: #56635e; --amber: #9c6a12; --teal: #12796b;
+    --coral: #b44d36; --blue: #4b7097; --trace: #b7c1bd;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, "Segoe UI", "Noto Sans Thai", -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { padding: 36px clamp(16px, 5vw, 72px) 88px; }
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  a { color: inherit; }
+  .page { max-width: 1180px; margin: 0 auto; }
+
+  header.top {
+    margin-bottom: 44px;
+    padding: 16px 0 26px 22px;
+    border-bottom: 1px solid var(--border);
+    border-left: 4px solid var(--teal);
+  }
+  .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .header-meta {
+    flex: none;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-dim);
+    border-left: 2px solid var(--teal);
+    padding-left: 10px;
+    min-width: 200px;
+    text-align: right;
+  }
+  .header-meta strong { color: var(--text); font-weight: 600; }
+  @media (max-width: 640px) {
+    .header-row { display: block; }
+    .header-meta { margin-top: 18px; max-width: 280px; text-align: left; }
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--teal); margin: 0 0 14px;
+  }
+  h1 { font-size: clamp(26px, 3.4vw, 38px); line-height: 1.14; margin: 0 0 12px; text-wrap: balance; font-weight: 700; }
+  .sub { color: var(--text-dim); font-size: 14.5px; line-height: 1.6; max-width: 70ch; margin: 0; }
+
+  section { margin-bottom: 56px; scroll-margin-top: 24px; }
+  h2 {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-dim); margin: 0 0 20px; padding: 0 0 12px 12px;
+    border-bottom: 1px solid var(--border); border-left: 3px solid var(--amber);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  h2 .count { color: var(--text-dim); font-weight: 400; opacity: 0.7; }
+
+  /* ---------- overview strip ---------- */
+  .overview-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  @media (max-width: 880px) { .overview-strip { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 480px) { .overview-strip { grid-template-columns: 1fr; } }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 16px 14px;
+  }
+  .stat-card .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 26px; font-weight: 700; color: var(--teal); line-height: 1;
+  }
+  .stat-card.warn .n { color: var(--amber); }
+  .stat-card.crit .n { color: var(--coral); }
+  .stat-card .label { margin-top: 8px; font-size: 12px; color: var(--text-dim); line-height: 1.45; }
+
+  /* ---------- role cards ---------- */
+  .roles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 880px) { .roles { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 560px) { .roles { grid-template-columns: 1fr; } }
+  .role-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    border-top: 4px solid var(--teal);
+    padding: 16px 16px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .role-card.gap { border-top-color: var(--amber); }
+  .role-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .role-head .role-name { font-size: 14.5px; font-weight: 650; }
+  .role-head .role-name .en { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
+  .role-frac {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 12.5px; font-weight: 600; color: var(--teal);
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 9px; white-space: nowrap;
+  }
+  .role-card.gap .role-frac { color: var(--amber); }
+  .role-card p { margin: 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.55; }
+  .role-card .gapline {
+    font-size: 11.5px; color: var(--text-dim); line-height: 1.5;
+    border-top: 1px dashed var(--border); padding-top: 9px; margin-top: 1px;
+  }
+  .role-card .gapline strong { color: var(--amber); font-weight: 600; }
+
+  .tag {
+    display: inline-block; font-size: 10.5px; letter-spacing: 0.04em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
+    border: 1px solid currentColor; font-weight: 600;
+  }
+  .tag.ok { color: var(--teal); }
+  .tag.warn { color: var(--amber); }
+  .tag.crit { color: var(--coral); }
+
+  /* ---------- issue list ---------- */
+  .issues { display: flex; flex-direction: column; gap: 10px; }
+  .issue {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    border-left: 4px solid var(--coral);
+    padding: 13px 16px;
+  }
+  .issue.unclear { border-left-color: var(--blue); }
+  .issue .issue-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .issue .issue-title { font-size: 13.5px; font-weight: 600; }
+  .issue p { margin: 6px 0 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.55; }
+  .issue code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 3px; font-size: 11.5px; color: var(--text);
+  }
+
+  /* ---------- two column ---------- */
+  .split-2 { display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .split-2 { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 18px 16px;
+  }
+  .panel .panel-title {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em;
+    margin: 0 0 12px;
+  }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 12.5px; margin-bottom: 14px; }
+  .kv dt { color: var(--text-dim); }
+  .kv dd { margin: 0; font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace; color: var(--text); }
+  .file-scroll {
+    max-height: 190px; overflow-y: auto; overflow-x: auto;
+    border-top: 1px dashed var(--border); padding-top: 10px;
+  }
+  .file-scroll ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .file-scroll li {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 11.5px; color: var(--text-dim); white-space: nowrap;
+  }
+
+  .worklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .worklist li {
+    font-size: 12.5px; line-height: 1.5; color: var(--text);
+    padding-left: 14px; position: relative;
+  }
+  .worklist li::before {
+    content: ""; position: absolute; left: 0; top: 6px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--amber);
+  }
+
+  /* ---------- timeline ---------- */
+  .timeline { display: flex; flex-direction: column; }
+  .tl-row {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tl-row:last-child { border-bottom: none; }
+  .tl-date {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--text-dim); padding-top: 1px; white-space: nowrap;
+  }
+  .tl-body .tl-title { font-size: 13.5px; font-weight: 600; margin: 0 0 4px; }
+  .tl-body p { margin: 0; font-size: 12.5px; color: var(--text-dim); line-height: 1.55; }
+  @media (max-width: 560px) {
+    .tl-row { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  footer {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: baseline;
+  }
+  footer .dot { color: var(--trace); }
+  footer strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <div class="header-row">
+      <div>
+        <p class="eyebrow">my_first_app — สถานะโปรเจกต์</p>
+        <h1>AIoT School Lab — Status Dashboard</h1>
+        <p class="sub">
+          สรุปว่าแต่ละสิทธิ์ (role) ใช้งานได้จริงแค่ไหน อะไรยังปลอม/รอ backend
+          อะไรยังไม่ได้ commit และเกิดอะไรขึ้นล่าสุด — ดึงจาก
+          <code class="mono">docs/handoff/HANDOFF.md</code> และ
+          <code class="mono">docs/handoff/WORK_LOG.md</code> (re-audit ล่าสุด 2569-08-25/27)
+          ไม่ใช่ข้อมูลใหม่ที่สร้างขึ้นเอง
+        </p>
+      </div>
+      <div class="header-meta">
+        <strong>branch</strong> agent/publish-current-work<br>
+        <strong>commit ล่าสุด</strong> 6c71340<br>
+        <strong>ไฟล์รอ commit</strong> 52 ไฟล์
+      </div>
+    </div>
+  </header>
+
+  <div class="overview-strip">
+    <div class="stat-card">
+      <div class="n">6 / 6</div>
+      <div class="label">สิทธิ์ (role) เชื่อม backend จริงครบแล้ว — ไม่มีหน้า mock ทั้งหน้าเหลืออยู่</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="n">5</div>
+      <div class="label">ช่องว่างที่เปิดเผยตรง ๆ ในแอปหลัก (G-Score, export, ข้อความหาครู ฯลฯ) — ไม่ใช่บั๊ก แค่ยังไม่สร้าง</div>
+    </div>
+    <div class="stat-card crit">
+      <div class="n">3</div>
+      <div class="label">ปัญหาที่ยังไม่ปิด (schema_migrations ไม่ตรงไฟล์, dev_dashboard ส่วนใหญ่เป็น mock, kiosk scanner)</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="n">52</div>
+      <div class="label">ไฟล์ที่แก้แล้วแต่ยังไม่ commit อยู่บน branch นี้ตอนนี้</div>
+    </div>
+  </div>
+
+  <section id="roles">
+    <h2>สิทธิ์แต่ละแบบ — เชื่อม backend จริงแค่ไหน <span class="count">re-audit 2569-08-25</span></h2>
+    <div class="roles">
+      <div class="role-card">
+        <div class="role-head">
+          <div class="role-name">แอดมินโรงเรียน<span class="en">school_admin</span></div>
+          <span class="role-frac">20 / 20</span>
+        </div>
+        <p>เมนูทั้งหมดจริง มี hub ออกแบบใหม่ (โทนน้ำเงิน-คราม, sidebar 12 รายการ) ตั้งแต่ 25 ส.ค. — ยืนยันด้วยการ login จริงแล้ว</p>
+      </div>
+      <div class="role-card">
+        <div class="role-head">
+          <div class="role-name">ผู้ดูแลระบบสูงสุด<span class="en">super_admin</span></div>
+          <span class="role-frac">8 / 8</span>
+        </div>
+        <p>เมนูทั้งหมดจริง มี hub ออกแบบใหม่ (โทนน้ำเงิน, การ์ด quick-action 8 ใบ) ตั้งแต่ 26 ส.ค. — ยืนยันด้วยการ login จริงแล้ว</p>
+      </div>
+      <div class="role-card gap">
+        <div class="role-head">
+          <div class="role-name">ครู<span class="en">teacher</span></div>
+          <span class="role-frac">22 / 22</span>
+        </div>
+        <p>ทุกหน้าฟีเจอร์เรียก service จริง — บั๊ก "อ่านจริงเขียนปลอม" 6 จุดที่เจอจากการไล่ตรวจถูกปิดครบแล้ว (27 ส.ค.)</p>
+        <div class="gapline"><strong>ยังไม่มี:</strong> G-Score/gamification (ไม่มี backend เลย), ส่งออก CSV/Excel ในหน้า AIoT dashboard (ยังปลอม), join code ใน courses page ยังคำนวณฝั่ง client</div>
+      </div>
+      <div class="role-card gap">
+        <div class="role-head">
+          <div class="role-name">นักเรียน<span class="en">student</span></div>
+          <span class="role-frac">wired</span>
+        </div>
+        <p>หน้าเนื้อหาทั้งหมดเรียก service จริง รวมการ์ดสภาพอากาศที่เพิ่งเติมค่าความเข้มแสง (light_lux) เข้าไปเป็นตัวที่ 4</p>
+        <div class="gapline"><strong>ยังไม่มี:</strong> G-Score เหมือนฝั่งครู · มีไฟล์ course-catalog carousel/streaming ที่เป็น dead code ไม่มี route ชี้ถึง ควรพิจารณาลบ</div>
+      </div>
+      <div class="role-card">
+        <div class="role-head">
+          <div class="role-name">ผู้บริหาร<span class="en">executive</span></div>
+          <span class="role-frac">wired</span>
+        </div>
+        <p>สถานะล่าสุด (25 ส.ค.) ยืนยันว่าเชื่อมจริงแล้ว — แก้ไขจากบันทึกเก่า 22 ส.ค. ที่เคยระบุผิดว่า "100% mock" อย่าเชื่อคำกล่าวอ้างนั้นอีก</p>
+      </div>
+      <div class="role-card gap">
+        <div class="role-head">
+          <div class="role-name">ผู้ปกครอง<span class="en">parent</span></div>
+          <span class="role-frac">wired</span>
+        </div>
+        <p>เชื่อมจริงแล้วทั้งหมด</p>
+        <div class="gapline"><strong>ยังไม่มี:</strong> ส่งข้อความ/นัดพบครูโดยตรงกับผู้ปกครอง — เป็นการตัดสินใจเลื่อนออกไปก่อน (deferred) ไม่ใช่บั๊ก</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="issues">
+    <h2>ปัญหาที่ยังไม่ปิด <span class="count">3 เรื่อง</span></h2>
+    <div class="issues">
+      <div class="issue">
+        <div class="issue-top">
+          <span class="issue-title">schema_migrations ไม่ตรงกับไฟล์บนดิสก์</span>
+          <span class="tag crit">open</span>
+        </div>
+        <p>ตาราง <code>supabase_migrations.schema_migrations</code> มี 53 แถว แต่ไฟล์ migration บนดิสก์มี 61 ไฟล์ — เกิดจากบาง migration ถูกยิงตรงด้วย
+        <code>docker exec ... psql</code> เพราะ <code>npx supabase migration up</code> error เรื่อง version ชนกัน วิธีแก้คือ <code>npx supabase db reset</code> ให้ tracking table สร้างใหม่ทั้งหมด ห้ามแก้ตารางนี้ด้วยมือ</p>
+      </div>
+      <div class="issue">
+        <div class="issue-top">
+          <span class="issue-title">aiot_dev_dashboard (แอปแยกต่างหาก) ส่วนใหญ่ยังเป็น mock</span>
+          <span class="tag crit">open</span>
+        </div>
+        <p>คนละแอปกับ my_first_app อยู่ที่ <code>~/aiot_dev_dashboard</code> — เชื่อมจริงแค่ 4/27 หน้า อีก 23 หน้า (รวม
+        <code>devices_page.dart</code>, <code>permissions_page.dart</code>, <code>alerts_logs_page.dart</code>,
+        <code>settings_page.dart</code> ฯลฯ) ยังไม่บันทึกข้อมูลจริง</p>
+      </div>
+      <div class="issue">
+        <div class="issue-top">
+          <span class="issue-title">KioskPairingScannerPage ไม่มี banner "Mock Preview"</span>
+          <span class="tag crit">open</span>
+        </div>
+        <p>อยู่ใน <code>aiot_dev_dashboard</code> เช่นกัน เปิดผ่าน fullscreen <code>Navigator.push</code> นอก navigation shell ทั้งสองแบบที่ปกติมี banner กำกับ — ต้องทดสอบกับกล้อง/อุปกรณ์จริงก่อนแตะ layout จึงยังปล่อยไว้</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="working">
+    <div class="split-2">
+      <div class="panel">
+        <p class="panel-title">งานล่าสุดที่ทำเสร็จแล้วแต่ยังไม่ commit</p>
+        <ul class="worklist">
+          <li>สลับ super_admin ไปหน้า hub ใหม่ครบ 8/8 เมนู แล้วยืนยันด้วยการ login จริงซ้ำ</li>
+          <li>ปิด 3 จุดที่ตรวจพบใน super_admin phase 3 (ตัวเลข latency ปลอม, fallback ชื่ออาคารปลอม, audit log เห็นแค่ 17% ของแถวจริง)</li>
+          <li>สร้างระบบนำเข้าข้อมูล (bulk import) ของ school_admin ใหม่ทั้งหมด — ของเดิมเป็นของปลอมที่เขียนชื่อ mock ลงฐานข้อมูลจริงทุกครั้งที่กด (บั๊ก "อ่านจริงเขียนปลอม")</li>
+          <li>ปิดบั๊ก "อ่านจริงเขียนปลอม" ของครู 6 จุด: แจ้งเตือน, โปรไฟล์, rubric, สร้างใบงาน, ปิดวิชา, แนบรูป/วิดีโอในข้อสอบ</li>
+          <li>เพิ่มค่าความเข้มแสง (light_lux) เป็นตัวที่ 4 ในการ์ดสภาพอากาศของนักเรียน</li>
+          <li>รวม design system ของ School Admin (Ticket 01-03) — commit ล่าสุด <code class="mono">6c71340</code> ทำไปแล้ว ส่วนที่เหลือ (Ticket 04-07) ยังไม่เริ่ม</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <p class="panel-title">สถานะ working tree</p>
+        <dl class="kv">
+          <dt>branch</dt><dd>agent/publish-current-work</dd>
+          <dt>commit ล่าสุด</dt><dd>6c71340</dd>
+          <dt>แก้ไข (M)</dt><dd>44 ไฟล์</dd>
+          <dt>ไฟล์ใหม่ (??)</dt><dd>8 ไฟล์</dd>
+        </dl>
+        <div class="file-scroll">
+          <ul>
+            <li>apps/user_app/lib/pages/school_admin/*.dart (14 ไฟล์)</li>
+            <li>apps/user_app/lib/pages/teacher_redesign_prototype/teacher_aiot_dashboard_page.dart</li>
+            <li>apps/user_app/lib/pages/student_redesign_prototype/* (3 ไฟล์)</li>
+            <li>… ดู <code>git status</code> เต็ม ๆ ก่อน commit จริง</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="timeline">
+    <h2>เหตุการณ์ล่าสุด <span class="count">27 – 25 ส.ค. 2569</span></h2>
+    <div class="panel timeline">
+      <div class="tl-row">
+        <div class="tl-date">27 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">แนบรูป/วิดีโอในข้อสอบของครูใช้งานได้จริง</p>
+          <p><code>teacher_exam_builder_page.dart</code> เดิมไฟล์ที่เลือกหายเงียบตอนบันทึก เพราะ RPC ไม่มีช่องรับไฟล์แนบ — สร้าง Storage bucket + Edge Function ใหม่ทั้งคู่ ยืนยันด้วยการอัปโหลดจริงแล้วเปิดดูฝั่งนักเรียนสำเร็จ</p>
+        </div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-date">27 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">ปิดบั๊กอ่านจริงเขียนปลอมของครูอีก 5 จุด</p>
+          <p>แจ้งเตือน "อ่านทั้งหมด", โปรไฟล์ (เลิกใช้ตัวเลข fallback ปลอม), rubric (แก้ไขแล้วไม่สร้างแถวซ้ำ), สร้างใบงาน, ปิดวิชา — ทั้งหมดยืนยันด้วยการเช็ก DB จริงก่อน/หลัง</p>
+        </div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-date">27 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">เพิ่มความเข้มแสงในการ์ดสภาพอากาศนักเรียน</p>
+          <p>เติมเมตริกที่ 4 (<code>light_lux</code>) เข้าการ์ดจริงที่นักเรียนเห็น ไม่ใช่ไฟล์ prototype ที่ตายแล้ว</p>
+        </div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-date">26 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">super_admin ย้ายไป hub ใหม่ครบ 8/8</p>
+          <p>เพิ่มลิงก์ 3 หน้าที่ขาด แล้วสลับ <code>role_router.dart</code> ให้เข้า hub ใหม่ตรง ๆ — หน้า shell เดิมยังอยู่ในโค้ดแต่ไม่มีอะไรอ้างถึงแล้ว</p>
+        </div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-date">26 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">ระบบนำเข้าข้อมูลของ school_admin เคยเขียนข้อมูลปลอมลง DB จริง</p>
+          <p>ตัวเลือกไฟล์เป็นของปลอม ตารางพรีวิวเป็นข้อมูล mock ตายตัว และปุ่มนำเข้าของนักเรียน/บุคลากรยิง RPC จริงที่เขียนชื่อปลอมเหล่านั้นลงฐานข้อมูลทุกครั้งที่กด — สร้างระบบพาร์สไฟล์ .xlsx/.csv จริงทดแทน พร้อม RPC ใหม่สำหรับอาคาร/ห้อง/อุปกรณ์ที่ไม่เคยมีมาก่อน</p>
+        </div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-date">26 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">หน้า AIoT dashboard ของครูเคยเป็นค่าปลอมทั้งหน้า</p>
+          <p>ค่าเซนเซอร์ทุกตัวเป็นตัวเลขคงที่ที่ติดป้าย "เรียลไทม์" ปุ่มตั้ง threshold/รับทราบ alert แก้แค่ state ในเครื่อง — เชื่อมกับข้อมูลจริงแล้ว พร้อมเปลี่ยนเมตริก "UV" ปลอม (ไม่เคยมีจริงในระบบ) เป็นความเข้มแสงจริง</p>
+        </div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-date">25 ส.ค.</div>
+        <div class="tl-body">
+          <p class="tl-title">ยุบสิทธิ์ 8 → 6 + ออกแบบหน้า admin ใหม่ทั้งคู่</p>
+          <p><code>technician</code> → <code>super_admin</code>, <code>facility_manager</code> → <code>school_admin</code> พร้อม redesign หน้า school_admin (13 หน้า) และ super_admin (phase 1) ในรอบเดียวกัน</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span><strong>flutter analyze</strong>: clean ในทุกงานล่าสุดที่ตรวจ</span>
+    <span class="dot">·</span>
+    <span>test suite ต่อฟีเจอร์ผ่านครบ (เช่น super_admin 24/24, bulk-import 19/19, teacher thresholds 11/11)</span>
+    <span class="dot">·</span>
+    <span>52 ไฟล์ยังไม่ commit บน <strong>agent/publish-current-work</strong></span>
+  </footer>
+</div>
+</body>
+</html>
