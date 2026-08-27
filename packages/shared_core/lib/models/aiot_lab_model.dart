@@ -7,6 +7,7 @@ class AiotLabDeviceItem {
     required this.status,
     required this.courseId,
     required this.courseName,
+    this.kitCode,
   });
 
   factory AiotLabDeviceItem.fromRow(Map<String, dynamic> row) {
@@ -18,6 +19,7 @@ class AiotLabDeviceItem {
       status: (row['status'] as String?) ?? 'offline',
       courseId: row['course_id'] as String,
       courseName: (row['course_name'] as String?) ?? '',
+      kitCode: row['kit_code'] as String?,
     );
   }
 
@@ -28,6 +30,7 @@ class AiotLabDeviceItem {
   final String status;
   final String courseId;
   final String courseName;
+  final String? kitCode;
 }
 
 class AiotCommandHistoryItem {
