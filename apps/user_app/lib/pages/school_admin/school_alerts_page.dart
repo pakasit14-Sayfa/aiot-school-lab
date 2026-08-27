@@ -1094,148 +1094,148 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     return _AlertSectionCard(
       title: 'รายการแจ้งเตือน',
       subtitle: 'พบ ${alerts.length} รายการ',
+      padding: EdgeInsets.zero,
       child: alerts.isEmpty
           ? const _AlertEmptyState()
           : LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 1000) {
-                  return Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: SchoolAdminPalette.border),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Table(
-                      border: TableBorder(
-                        horizontalInside: BorderSide(
-                          color: SchoolAdminPalette.border,
-                        ),
+                  return Table(
+                    border: const TableBorder(
+                      top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                      horizontalInside: BorderSide(
+                        color: Color(0xFFF1F5F9),
+                        width: 1,
                       ),
-                      columnWidths: const {
-                        0: FlexColumnWidth(2.6),
-                        1: FlexColumnWidth(1.05),
-                        2: FlexColumnWidth(1.05),
-                        3: FlexColumnWidth(1.2),
-                        4: FlexColumnWidth(1.45),
-                        5: FlexColumnWidth(1.05),
-                        6: FlexColumnWidth(2.55),
-                      },
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
-                      children: [
-                        const TableRow(
-                          decoration: BoxDecoration(
-                            color: SchoolAdminPalette.primarySoft,
-                          ),
-                          children: [
-                            _AlertTableHeader(text: 'การแจ้งเตือน'),
-                            _AlertTableHeader(text: 'ประเภท'),
-                            _AlertTableHeader(text: 'ระดับ'),
-                            _AlertTableHeader(text: 'สถานะ'),
-                            _AlertTableHeader(text: 'พื้นที่'),
-                            _AlertTableHeader(text: 'เวลา'),
-                            _AlertTableHeader(text: 'จัดการ'),
-                          ],
-                        ),
-                        ...alerts.map((_AlertRecord alert) {
-                          return TableRow(
-                            children: [
-                              _AlertTableNameCell(
-                                alert: alert,
-                                icon: _iconForType(alert.iconType),
-                                color: _severityColor(alert.severity),
-                                onTap: () => _showAlertDetail(alert),
-                              ),
-                              _AlertTableCell(
-                                child: _AlertBadge(
-                                  label: alert.category,
-                                  color: SchoolAdminPalette.primaryDark,
-                                ),
-                              ),
-                              _AlertTableCell(
-                                child: _AlertBadge(
-                                  label: alert.severity,
-                                  color: _severityColor(alert.severity),
-                                ),
-                              ),
-                              _AlertTableCell(
-                                child: _AlertBadge(
-                                  label: alert.status,
-                                  color: _statusColor(alert.status),
-                                ),
-                              ),
-                              _AlertTableCell(
-                                child: Text(
-                                  '${alert.building}\n${alert.room}',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    height: 1.45,
-                                    fontWeight: FontWeight.w700,
-                                    color: SchoolAdminPalette.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              _AlertTableCell(
-                                child: Text(
-                                  alert.createdAt,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: SchoolAdminPalette.textSecondary,
-                                  ),
-                                ),
-                              ),
-                              _AlertTableCell(
-                                child: _AlertActionButtons(
-                                  alert: alert,
-                                  onView: () => _showAlertDetail(alert),
-                                  onAcknowledge: () =>
-                                      _confirmAndUpdateAlertStatus(
-                                        alert,
-                                        'รับทราบแล้ว',
-                                      ),
-                                  onChecking: () =>
-                                      _confirmAndUpdateAlertStatus(
-                                        alert,
-                                        'กำลังตรวจสอบ',
-                                      ),
-                                  onResolved: () =>
-                                      _confirmAndUpdateAlertStatus(
-                                        alert,
-                                        'แก้ไขแล้ว',
-                                      ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
                     ),
+                    columnWidths: const {
+                      0: FlexColumnWidth(2.6),
+                      1: FlexColumnWidth(1.05),
+                      2: FlexColumnWidth(1.05),
+                      3: FlexColumnWidth(1.2),
+                      4: FlexColumnWidth(1.45),
+                      5: FlexColumnWidth(1.05),
+                      6: FlexColumnWidth(2.55),
+                    },
+                    defaultVerticalAlignment:
+                        TableCellVerticalAlignment.middle,
+                    children: [
+                      const TableRow(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF8FAFC),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                          ),
+                        ),
+                        children: [
+                          _AlertTableHeader(text: 'การแจ้งเตือน', align: TextAlign.left),
+                          _AlertTableHeader(text: 'ประเภท'),
+                          _AlertTableHeader(text: 'ระดับ'),
+                          _AlertTableHeader(text: 'สถานะ'),
+                          _AlertTableHeader(text: 'พื้นที่'),
+                          _AlertTableHeader(text: 'เวลา'),
+                          _AlertTableHeader(text: 'จัดการ'),
+                        ],
+                      ),
+                      ...alerts.map((_AlertRecord alert) {
+                        return TableRow(
+                          children: [
+                            _AlertTableNameCell(
+                              alert: alert,
+                              icon: _iconForType(alert.iconType),
+                              color: _severityColor(alert.severity),
+                              onTap: () => _showAlertDetail(alert),
+                            ),
+                            _AlertTableCell(
+                              child: _AlertBadge(
+                                label: alert.category,
+                                color: SchoolAdminPalette.primaryDark,
+                              ),
+                            ),
+                            _AlertTableCell(
+                              child: _AlertBadge(
+                                label: alert.severity,
+                                color: _severityColor(alert.severity),
+                              ),
+                            ),
+                            _AlertTableCell(
+                              child: _AlertBadge(
+                                label: alert.status,
+                                color: _statusColor(alert.status),
+                              ),
+                            ),
+                            _AlertTableCell(
+                              child: Text(
+                                '${alert.building}\n${alert.room}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                            _AlertTableCell(
+                              child: Text(
+                                alert.createdAt,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                            _AlertTableCell(
+                              child: _AlertActionButtons(
+                                alert: alert,
+                                onView: () => _showAlertDetail(alert),
+                                onAcknowledge: () =>
+                                    _confirmAndUpdateAlertStatus(
+                                      alert,
+                                      'รับทราบแล้ว',
+                                    ),
+                                onChecking: () =>
+                                    _confirmAndUpdateAlertStatus(
+                                      alert,
+                                      'กำลังตรวจสอบ',
+                                    ),
+                                onResolved: () =>
+                                    _confirmAndUpdateAlertStatus(
+                                      alert,
+                                      'แก้ไขแล้ว',
+                                    ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
                   );
                 }
 
-                return Column(
-                  children: alerts.map((_AlertRecord alert) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _AlertMobileCard(
-                        alert: alert,
-                        icon: _iconForType(alert.iconType),
-                        severityColor: _severityColor(alert.severity),
-                        statusColor: _statusColor(alert.status),
-                        onTap: () => _showAlertDetail(alert),
-                        onAcknowledge: () =>
-                            _confirmAndUpdateAlertStatus(alert, 'รับทราบแล้ว'),
-                        onChecking: () =>
-                            _confirmAndUpdateAlertStatus(alert, 'กำลังตรวจสอบ'),
-                        onResolved: () =>
-                            _confirmAndUpdateAlertStatus(alert, 'แก้ไขแล้ว'),
-                      ),
-                    );
-                  }).toList(),
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: alerts.map((_AlertRecord alert) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _AlertMobileCard(
+                          alert: alert,
+                          icon: _iconForType(alert.iconType),
+                          severityColor: _severityColor(alert.severity),
+                          statusColor: _statusColor(alert.status),
+                          onTap: () => _showAlertDetail(alert),
+                          onAcknowledge: () =>
+                              _confirmAndUpdateAlertStatus(alert, 'รับทราบแล้ว'),
+                          onChecking: () =>
+                              _confirmAndUpdateAlertStatus(alert, 'กำลังตรวจสอบ'),
+                          onResolved: () =>
+                              _confirmAndUpdateAlertStatus(alert, 'แก้ไขแล้ว'),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 );
               },
             ),
@@ -1489,40 +1489,55 @@ class _AlertSectionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.padding,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
+    final bool isFullWidth = padding == EdgeInsets.zero;
+
     return SizedBox(
       width: double.infinity,
       child: Card(
+        clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.all(17),
+          padding: padding ?? const EdgeInsets.all(17),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: SchoolAdminPalette.textPrimary,
+              Padding(
+                padding: isFullWidth
+                    ? const EdgeInsets.fromLTRB(18, 16, 18, 14)
+                    : EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: SchoolAdminPalette.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.45,
+                        color: SchoolAdminPalette.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.45,
-                  color: SchoolAdminPalette.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 14),
+              if (!isFullWidth) const SizedBox(height: 14),
               child,
             ],
           ),
@@ -1628,21 +1643,26 @@ class _AlertFilterDropdown extends StatelessWidget {
 }
 
 class _AlertTableHeader extends StatelessWidget {
-  const _AlertTableHeader({required this.text});
+  const _AlertTableHeader({
+    required this.text,
+    this.align = TextAlign.center,
+  });
 
   final String text;
+  final TextAlign align;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 17),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
       child: Text(
         text,
-        textAlign: TextAlign.center,
+        textAlign: align,
         style: const TextStyle(
           fontSize: 12.5,
-          fontWeight: FontWeight.w900,
-          color: SchoolAdminPalette.textPrimary,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF475569),
+          letterSpacing: 0.2,
         ),
       ),
     );

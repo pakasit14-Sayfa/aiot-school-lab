@@ -2661,18 +2661,21 @@ class _AiotSensorRow extends StatelessWidget {
       iconColor = const Color(0xFFE11D48);
     }
 
-    final badgeBgColor = isNormal
-        ? const Color(0xFFECFDF5)
-        : const Color(0xFFFEF2F2);
-    final badgeTextColor = isNormal
-        ? const Color(0xFF059669)
-        : const Color(0xFFDC2626);
-    final badgeDotColor = isNormal
-        ? const Color(0xFF10B981)
-        : const Color(0xFFEF4444);
-    final badgeBorderColor = isNormal
-        ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
-        : const Color(0xFFFECACA).withValues(alpha: 0.6);
+    final isNoData = level == 'ไม่มีข้อมูล';
+    final badgeBgColor = isNoData
+        ? const Color(0xFFF1F5F9)
+        : (isNormal ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2));
+    final badgeTextColor = isNoData
+        ? const Color(0xFF64748B)
+        : (isNormal ? const Color(0xFF059669) : const Color(0xFFDC2626));
+    final badgeDotColor = isNoData
+        ? const Color(0xFF94A3B8)
+        : (isNormal ? const Color(0xFF10B981) : const Color(0xFFEF4444));
+    final badgeBorderColor = isNoData
+        ? const Color(0xFFCBD5E1).withValues(alpha: 0.6)
+        : (isNormal
+              ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
+              : const Color(0xFFFECACA).withValues(alpha: 0.6));
 
     return Container(
       padding: EdgeInsets.only(top: 10, bottom: showDivider ? 10 : 0),
@@ -3155,12 +3158,19 @@ class _HomeroomUtilityCard extends StatefulWidget {
 
 class _HomeroomUtilityCardState extends State<_HomeroomUtilityCard>
     with SingleTickerProviderStateMixin {
-  static const _days = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.'];
-  static const _electricByDay = [26.0, 24.0, 30.0, 28.0, 34.0]; // รวม 142
-  static const _waterByDay = [0.6, 0.5, 0.7, 0.6, 0.8]; // รวม 3.2
+  static const _thaiWeekdayAbbr = ['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'];
 
   late final AnimationController _pulseController;
-  int _selectedDayIdx = 1; // อ. (Tuesday - 24 kWh / 0.5 m³)
+  int _selectedDayIdx = 0;
+
+  List<String> _days = const ['-', '-', '-', '-', '-'];
+  List<double> _electricByDay = const [0, 0, 0, 0, 0];
+  List<double> _waterByDay = const [0, 0, 0, 0, 0];
+
+  EnergyUsageSummary? _energySummary;
+  WaterUsageSummary? _waterSummary;
+  UtilityEfficiencyScore? _energyScore;
+  UtilityEfficiencyScore? _waterScore;
 
   @override
   void initState() {
@@ -3169,12 +3179,79 @@ class _HomeroomUtilityCardState extends State<_HomeroomUtilityCard>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+    _selectedDayIdx = _days.length - 1;
+    _loadRealUsage();
+  }
+
+  Future<void> _loadRealUsage() async {
+    try {
+      final results = await Future.wait([
+        UtilityService.getEnergyUsageSummary(period: 'week'),
+        UtilityService.getWaterUsageSummary(period: 'week'),
+        UtilityService.getEnergyEfficiencyScore(),
+        UtilityService.getWaterEfficiencyScore(),
+        UtilityService.getEnergyUsageTrend(days: 5),
+        UtilityService.getWaterUsageTrend(days: 5),
+      ]);
+      if (!mounted) return;
+
+      final energyTrend = results[4] as List<UtilityTrendPoint>;
+      final waterTrend = results[5] as List<UtilityTrendPoint>;
+
+      // Real trend RPCs only return days that actually have a reading —
+      // fill the last 5 calendar days so a day with zero usage shows as
+      // 0, not as a missing/skipped point on the chart.
+      final today = DateTime.now();
+      final last5 = List.generate(
+        5,
+        (i) => DateTime(today.year, today.month, today.day - (4 - i)),
+      );
+      double valueForDay(List<UtilityTrendPoint> trend, DateTime day) {
+        for (final p in trend) {
+          if (p.day.year == day.year &&
+              p.day.month == day.month &&
+              p.day.day == day.day) {
+            return p.value;
+          }
+        }
+        return 0;
+      }
+
+      setState(() {
+        _energySummary = results[0] as EnergyUsageSummary?;
+        _waterSummary = results[1] as WaterUsageSummary?;
+        _energyScore = results[2] as UtilityEfficiencyScore?;
+        _waterScore = results[3] as UtilityEfficiencyScore?;
+        _days = last5.map((d) => _thaiWeekdayAbbr[d.weekday - 1]).toList();
+        _electricByDay = last5.map((d) => valueForDay(energyTrend, d)).toList();
+        _waterByDay = last5.map((d) => valueForDay(waterTrend, d)).toList();
+        _selectedDayIdx = _days.length - 1;
+      });
+    } catch (_) {
+      // Keep the zeroed placeholder state on error — honest, not fake.
+    }
   }
 
   @override
   void dispose() {
     _pulseController.dispose();
     super.dispose();
+  }
+
+  /// Real week-over-week % change from get_*_efficiency_score's
+  /// current/previous (7 days vs the 7 days before that). "ไม่มีข้อมูลเทียบ"
+  /// when there's no prior week to compare against yet, rather than a fake
+  /// percentage.
+  String _trendLabel(UtilityEfficiencyScore? score) {
+    if (score == null || score.previous <= 0) return 'ไม่มีข้อมูลเทียบ';
+    final pct = ((score.current - score.previous) / score.previous * 100);
+    final sign = pct >= 0 ? '+' : '';
+    return '$sign${pct.toStringAsFixed(0)}%';
+  }
+
+  double _trendProgress(UtilityEfficiencyScore? score) {
+    if (score == null || score.previous <= 0) return 0.0;
+    return (score.current / score.previous).clamp(0.0, 1.0);
   }
 
   @override
@@ -3203,11 +3280,15 @@ class _HomeroomUtilityCardState extends State<_HomeroomUtilityCard>
                   child: _UtilitySplitMetric(
                     label: 'ไฟฟ้า',
                     dotColor: TeacherPalette.orange,
-                    value: '142',
+                    value: _energySummary != null
+                        ? _energySummary!.totalKwh.toStringAsFixed(0)
+                        : '-',
                     unit: 'kWh',
-                    trendUp: true,
-                    trendLabel: '+8%',
-                    progress: 0.65,
+                    trendUp:
+                        (_energyScore?.current ?? 0) >
+                        (_energyScore?.previous ?? 0),
+                    trendLabel: _trendLabel(_energyScore),
+                    progress: _trendProgress(_energyScore),
                     barColor: TeacherPalette.orange,
                   ),
                 ),
@@ -3221,11 +3302,15 @@ class _HomeroomUtilityCardState extends State<_HomeroomUtilityCard>
                   child: _UtilitySplitMetric(
                     label: 'น้ำ',
                     dotColor: _kWaterBlue,
-                    value: '18.5',
+                    value: _waterSummary != null
+                        ? _waterSummary!.totalM3.toStringAsFixed(1)
+                        : '-',
                     unit: 'm³',
-                    trendUp: false,
-                    trendLabel: '-4%',
-                    progress: 0.42,
+                    trendUp:
+                        (_waterScore?.current ?? 0) >
+                        (_waterScore?.previous ?? 0),
+                    trendLabel: _trendLabel(_waterScore),
+                    progress: _trendProgress(_waterScore),
                     barColor: _kWaterBlue,
                   ),
                 ),
@@ -3753,11 +3838,58 @@ class _UtilityGradientAreaChartPainter extends CustomPainter {
 /// แต่ปรับให้ใช้ TeacherPalette/_GlassCard ของแดชบอร์ดครูแทน SchoolPalette
 /// เพื่อให้เข้ากับ Design System เดิมของหน้านี้ ปุ่มด้านล่างพาไปหน้า
 /// AiotDashboardPage ตัวจริง (อ่านค่าเซนเซอร์สดจาก Supabase) เหมือนกัน
-class _AiotWeatherSensorsCard extends StatelessWidget {
+class _AiotWeatherSensorsCard extends StatefulWidget {
   const _AiotWeatherSensorsCard();
 
   @override
+  State<_AiotWeatherSensorsCard> createState() =>
+      _AiotWeatherSensorsCardState();
+}
+
+class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
+  SensorModel? _sensor;
+  Set<String> _availableMetrics = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealSensor();
+  }
+
+  Future<void> _loadRealSensor() async {
+    try {
+      // Empty room/building = aggregate across every device in the school
+      // (see RealtimeService.modelForRoom — an empty room string skips the
+      // location filter and returns the newest value per metric school-wide).
+      final results = await Future.wait([
+        RealtimeService.getSensorOnce(
+          schoolId: '',
+          building: '',
+          floor: '',
+          room: '',
+        ),
+        RealtimeService.getWeatherMetricsWithData(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _sensor = results[0] as SensorModel?;
+        // SensorModel defaults an absent metric to 0, indistinguishable
+        // from a real 0 — only trust a metric this card shows if it was
+        // actually present in the raw readings, not just "some device
+        // reported something."
+        _availableMetrics = results[1] as Set<String>;
+      });
+    } catch (_) {
+      // Keep the honest "no data" state on error.
+    }
+  }
+
+  String _levelLabel(SensorLevel level) =>
+      level == SensorLevel.good ? 'ปกติ' : 'ไม่ปลอดภัย';
+
+  @override
   Widget build(BuildContext context) {
+    final sensor = _sensor;
     return _GlassCard(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       child: Column(
@@ -3780,39 +3912,64 @@ class _AiotWeatherSensorsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          const _AiotSensorRow(
+          _AiotSensorRow(
             icon: Icons.air_rounded,
             title: 'ฝุ่น PM2.5 (ห้องเรียนปลอดภัย)',
-            value: '18',
+            value: _availableMetrics.contains('pm25')
+                ? '${sensor!.pm25.toInt()}'
+                : '-',
             unit: 'µg/m³',
-            subtitle: 'สภาพอากาศดีมาก',
-            level: 'ปกติ',
+            subtitle: _availableMetrics.contains('pm25')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('pm25')
+                ? _levelLabel(sensor!.pm25Level)
+                : 'ไม่มีข้อมูล',
             showDivider: true,
           ),
-          const _AiotSensorRow(
+          _AiotSensorRow(
             icon: Icons.thermostat_rounded,
             title: 'อุณหภูมิห้องเรียน',
-            value: '28.5',
+            value: _availableMetrics.contains('temperature')
+                ? '${sensor!.temperature}'
+                : '-',
             unit: '°C',
-            subtitle: 'อบอุ่นกำลังดี',
-            level: 'ปกติ',
+            subtitle: _availableMetrics.contains('temperature')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('temperature')
+                ? _levelLabel(sensor!.tempLevel)
+                : 'ไม่มีข้อมูล',
             showDivider: true,
           ),
-          const _AiotSensorRow(
+          _AiotSensorRow(
             icon: Icons.water_drop_rounded,
             title: 'ความชื้นสัมพัทธ์',
-            value: '62',
+            value: _availableMetrics.contains('humidity')
+                ? '${sensor!.humidity}'
+                : '-',
             unit: '%RH',
-            subtitle: 'สภาพแวดล้อมเหมาะสม',
-            level: 'ปกติ',
+            subtitle: _availableMetrics.contains('humidity')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('humidity')
+                ? _levelLabel(sensor!.humidityLevel)
+                : 'ไม่มีข้อมูล',
             showDivider: true,
           ),
-          const _AiotSensorRow(
+          _AiotSensorRow(
             icon: Icons.wb_sunny_rounded,
-            title: 'ดัชนีรังสี UV',
-            value: 'UV 6',
-            subtitle: 'เฝ้าระวังแสงแดดจัด',
-            level: 'ไม่ปลอดภัย',
+            title: 'ความเข้มแสง',
+            value: _availableMetrics.contains('light_lux')
+                ? '${sensor!.lux.toInt()}'
+                : '-',
+            unit: 'lux',
+            subtitle: _availableMetrics.contains('light_lux')
+                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+            level: _availableMetrics.contains('light_lux')
+                ? _levelLabel(sensor!.luxLevel)
+                : 'ไม่มีข้อมูล',
             showDivider: false,
           ),
           const SizedBox(height: 16),
@@ -3877,11 +4034,47 @@ class _StatusPulseDot extends StatelessWidget {
   }
 }
 
-class _SensorSnapshotCard extends StatelessWidget {
+class _SensorSnapshotCard extends StatefulWidget {
   const _SensorSnapshotCard();
 
   @override
+  State<_SensorSnapshotCard> createState() => _SensorSnapshotCardState();
+}
+
+class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
+  SensorModel? _sensor;
+  Set<String> _availableMetrics = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRealSensor();
+  }
+
+  Future<void> _loadRealSensor() async {
+    try {
+      final results = await Future.wait([
+        RealtimeService.getSensorOnce(
+          schoolId: '',
+          building: '',
+          floor: '',
+          room: '',
+        ),
+        RealtimeService.getWeatherMetricsWithData(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _sensor = results[0] as SensorModel?;
+        _availableMetrics = results[1] as Set<String>;
+      });
+    } catch (_) {
+      // Keep the honest "no data" state on error.
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final sensor = _sensor;
     return _GlassCard(
       padding: const EdgeInsets.all(18),
       child: Column(
@@ -3893,31 +4086,39 @@ class _SensorSnapshotCard extends StatelessWidget {
             icon: Icons.sensors_rounded,
           ),
           const SizedBox(height: 12),
-          const _SensorMiniMetric(
+          _SensorMiniMetric(
             label: 'PM2.5',
-            value: '18',
+            value: _availableMetrics.contains('pm25')
+                ? '${sensor!.pm25.toInt()}'
+                : '-',
             unit: 'µg/m³',
             color: TeacherPalette.blue,
           ),
           const SizedBox(height: 8),
-          const _SensorMiniMetric(
+          _SensorMiniMetric(
             label: 'Temp',
-            value: '28.5',
+            value: _availableMetrics.contains('temperature')
+                ? '${sensor!.temperature}'
+                : '-',
             unit: '°C',
             color: TeacherPalette.orange,
           ),
           const SizedBox(height: 8),
-          const _SensorMiniMetric(
+          _SensorMiniMetric(
             label: 'Humidity',
-            value: '62',
+            value: _availableMetrics.contains('humidity')
+                ? '${sensor!.humidity}'
+                : '-',
             unit: '%RH',
             color: TeacherPalette.primary2,
           ),
           const SizedBox(height: 8),
-          const _SensorMiniMetric(
-            label: 'UV',
-            value: '2',
-            unit: '',
+          _SensorMiniMetric(
+            label: 'ความเข้มแสง',
+            value: _availableMetrics.contains('light_lux')
+                ? '${sensor!.lux.toInt()}'
+                : '-',
+            unit: 'lux',
             color: TeacherPalette.violet,
           ),
           const SizedBox(height: 14),

@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../theme/school_admin_palette.dart';
+
 class SchoolAdminCctvPage extends StatefulWidget {
-  const SchoolAdminCctvPage({super.key, this.initialGrants, this.initialUsers});
+  const SchoolAdminCctvPage({
+    super.key,
+    this.initialGrants,
+    this.initialUsers,
+  });
 
   final List<CameraAccessGrantItem>? initialGrants;
   final List<UserModel>? initialUsers;
@@ -15,6 +21,8 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
   List<CameraAccessGrantItem> _grants = [];
   bool _isLoading = true;
   List<UserModel> _users = [];
+  String _searchQuery = '';
+  String _statusFilter = 'ทั้งหมด'; // ทั้งหมด, ใช้งานอยู่, หมดอายุ, เพิกถอนแล้ว
 
   @override
   void initState() {
@@ -49,6 +57,37 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
     }
   }
 
+  List<CameraAccessGrantItem> get _filteredGrants {
+    return _grants.where((g) {
+      final query = _searchQuery.trim().toLowerCase();
+      final matchQuery = query.isEmpty ||
+          g.userName.toLowerCase().contains(query) ||
+          g.userEmail.toLowerCase().contains(query) ||
+          g.reason.toLowerCase().contains(query) ||
+          g.userRole.toLowerCase().contains(query);
+
+      if (!matchQuery) return false;
+
+      final isExpired = g.validUntil.isBefore(DateTime.now());
+      if (_statusFilter == 'ใช้งานอยู่') {
+        return g.isActive && !isExpired;
+      } else if (_statusFilter == 'หมดอายุ') {
+        return isExpired && g.isActive;
+      } else if (_statusFilter == 'เพิกถอนแล้ว') {
+        return !g.isActive;
+      }
+      return true;
+    }).toList();
+  }
+
+  int get _activeCount =>
+      _grants.where((g) => g.isActive && g.validUntil.isAfter(DateTime.now())).length;
+
+  int get _expiredCount =>
+      _grants.where((g) => g.validUntil.isBefore(DateTime.now()) && g.isActive).length;
+
+  int get _revokedCount => _grants.where((g) => !g.isActive).length;
+
   void _showGrantDialog() {
     String? selectedUserId = _users.isNotEmpty ? _users.first.uid : null;
     final reasonController = TextEditingController(
@@ -56,92 +95,194 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
     );
     int validDays = 7;
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('อนุญาตสิทธิ์เข้าถึงกล้อง CCTV'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('เลือกผู้ใช้งาน:'),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: selectedUserId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                      items: _users.map((u) {
-                        return DropdownMenuItem(
-                          value: u.uid,
-                          child: Text(
-                            '${u.name} (${u.role.label})',
-                            overflow: TextOverflow.ellipsis,
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.all(Radius.circular(10)),
+                    ),
+                    child: Icon(
+                      Icons.videocam_rounded,
+                      color: SchoolAdminPalette.primaryDark,
+                      size: 22,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'อนุญาตสิทธิ์เข้าถึงกล้อง CCTV',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (v) =>
-                          setDialogState(() => selectedUserId = v),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('เหตุผลความจำเป็น (ตามหลัก PDPA):'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: reasonController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        hintText: 'ระบุเหตุผลการเข้าถึง',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text('ระยะเวลาที่อนุญาต:'),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<int>(
-                      value: validDays,
-                      decoration: const InputDecoration(
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
                         ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 1,
-                          child: Text('1 วัน (ชั่วคราว)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 7,
-                          child: Text('7 วัน (1 สัปดาห์)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 30,
-                          child: Text('30 วัน (1 เดือน)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 90,
-                          child: Text('90 วัน (1 ภาคการศึกษา)'),
+                        Text(
+                          'บันทึกสิทธิ์ตามมาตรฐาน PDPA และความปลอดภัย',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
-                      onChanged: (v) =>
-                          setDialogState(() => validDays = v ?? 7),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'เลือกผู้ใช้งานที่ได้รับสิทธิ์',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<String>(
+                        value: selectedUserId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        items: _users.map((u) {
+                          return DropdownMenuItem(
+                            value: u.uid,
+                            child: Text(
+                              '${u.name} (${u.role.label})',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 13.5),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setDialogState(() => selectedUserId = v),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'เหตุผลความจำเป็น (ตามหลักเกณฑ์ PDPA)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: reasonController,
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText: 'ระบุเหตุผลความจำเป็นในการเข้าถึงภาพกล้อง',
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'ระยะเวลาที่อนุญาต',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<int>(
+                        value: validDays,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 1,
+                            child: Text('1 วัน (ชั่วคราว / ตรวจสอบเหตุการณ์)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 7,
+                            child: Text('7 วัน (1 สัปดาห์)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 30,
+                            child: Text('30 วัน (1 เดือน)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 90,
+                            child: Text('90 วัน (1 ภาคการศึกษา)'),
+                          ),
+                        ],
+                        onChanged: (v) => setDialogState(() => validDays = v ?? 7),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('ยกเลิก'),
+                  child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
                 ),
-                ElevatedButton(
+                FilledButton.icon(
                   onPressed: selectedUserId == null
                       ? null
                       : () async {
@@ -162,14 +303,17 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
 
                           messenger.showSnackBar(
                             const SnackBar(
-                              content: Text(
-                                'อนุญาตสิทธิ์เข้าถึงกล้อง CCTV เรียบร้อยแล้ว',
-                              ),
-                              backgroundColor: Colors.green,
+                              content: Text('บันทึกการอนุญาตสิทธิ์เข้าถึงกล้อง CCTV เรียบร้อยแล้ว'),
+                              backgroundColor: Color(0xFF16A34A),
                             ),
                           );
                         },
-                  child: const Text('ยืนยันอนุญาต'),
+                  icon: const Icon(Icons.check_rounded, size: 16),
+                  label: const Text('ยืนยันอนุญาตสิทธิ์'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SchoolAdminPalette.primaryDark,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             );
@@ -180,20 +324,40 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
   }
 
   void _confirmRevokeGrant(CameraAccessGrantItem grant) {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('ยกเลิกสิทธิ์เข้าถึงกล้อง'),
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+              SizedBox(width: 10),
+              Text(
+                'ยืนยันเพิกถอนสิทธิ์',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
           content: Text(
-            'ต้องการเพิกถอนสิทธิ์การเข้าถึงกล้องของ ${grant.userName} หรือไม่?',
+            'ต้องการเพิกถอนสิทธิ์การเข้าถึงกล้อง CCTV ของ "${grant.userName}" (${grant.userEmail}) ทันทีหรือไม่?',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('ยกเลิก'),
+              child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
             ),
-            ElevatedButton(
+            FilledButton.icon(
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 final nav = Navigator.of(dialogContext);
@@ -206,15 +370,16 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                 messenger.showSnackBar(
                   const SnackBar(
                     content: Text('เพิกถอนสิทธิ์เรียบร้อยแล้ว'),
-                    backgroundColor: Colors.green,
+                    backgroundColor: Color(0xFFDC2626),
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+              icon: const Icon(Icons.lock_person_rounded, size: 16),
+              label: const Text('เพิกถอนสิทธิ์'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFDC2626),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('เพิกถอนสิทธิ์'),
             ),
           ],
         );
@@ -224,99 +389,279 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('กล้อง CCTV & สิทธิ์การเข้าถึง'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-            tooltip: 'รีเฟรชข้อมูล',
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showGrantDialog,
-        icon: const Icon(Icons.add_moderator),
-        label: const Text('อนุญาตสิทธิ์ใหม่'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1450),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Notice banner regarding PDPA and AI status
-                  _buildNoticeBanner(theme),
-                  const SizedBox(height: 20),
-
-                  // Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'รายการผู้ได้รับสิทธิ์เข้าถึงกล้อง (${_grants.length})',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Grant List
-                  if (_grants.isEmpty)
-                    _buildEmptyState()
-                  else
-                    ..._grants.map((grant) => _buildGrantCard(grant)),
-
-                  const SizedBox(height: 80),
+                  _buildHeader(),
+                  const SizedBox(height: 16),
+                  _buildKpiSummaryGrid(),
+                  const SizedBox(height: 16),
+                  _buildNoticeBanner(),
+                  const SizedBox(height: 16),
+                  _buildFilterBar(),
+                  const SizedBox(height: 16),
+                  _buildGrantsList(),
                 ],
               ),
             ),
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildNoticeBanner(ThemeData theme) {
+  Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.indigo.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.indigo.shade200),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final titleArea = Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.security, color: Colors.indigo.shade700),
-              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: SchoolAdminPalette.primary.withAlpha(25),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.videocam_rounded,
+                  color: SchoolAdminPalette.primaryDark,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  'การคุ้มครองข้อมูลส่วนบุคคล (PDPA & CCTV Policy)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.indigo.shade900,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        const Text(
+                          'กล้อง CCTV & สิทธิ์การเข้าถึง',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                          ),
+                          child: Text(
+                            '${_grants.length} รายการสิทธิ์',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1D4ED8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'ระบบบริหารจัดการสิทธิ์การเข้าชมกล้องวงจรปิดตามมาตรฐานความปลอดภัยและ PDPA',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+
+          final actionButtons = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: _loadData,
+                tooltip: 'รีเฟรชข้อมูล',
+                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _showGrantDialog,
+                icon: const Icon(Icons.add_moderator_rounded, size: 16),
+                label: const Text('อนุญาตสิทธิ์ใหม่'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SchoolAdminPalette.primaryDark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ],
+          );
+
+          if (constraints.maxWidth < 750) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                titleArea,
+                const SizedBox(height: 14),
+                actionButtons,
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: titleArea),
+              const SizedBox(width: 16),
+              actionButtons,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildKpiSummaryGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 700;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _buildKpiCard(
+              title: 'สิทธิ์ที่ใช้งานอยู่',
+              value: '$_activeCount',
+              subtitle: 'Active Grants',
+              icon: Icons.check_circle_rounded,
+              color: const Color(0xFF16A34A),
+              bgColor: const Color(0xFFF0FDF4),
+              borderColor: const Color(0xFFBBF7D0),
+              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+            ),
+            _buildKpiCard(
+              title: 'สิทธิ์ที่หมดอายุ',
+              value: '$_expiredCount',
+              subtitle: 'Expired Grants',
+              icon: Icons.history_rounded,
+              color: const Color(0xFFD97706),
+              bgColor: const Color(0xFFFFFBEB),
+              borderColor: const Color(0xFFFDE68A),
+              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+            ),
+            _buildKpiCard(
+              title: 'เพิกถอนสิทธิ์แล้ว',
+              value: '$_revokedCount',
+              subtitle: 'Revoked Grants',
+              icon: Icons.block_rounded,
+              color: const Color(0xFFDC2626),
+              bgColor: const Color(0xFFFEF2F2),
+              borderColor: const Color(0xFFFECACA),
+              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+            ),
+            _buildKpiCard(
+              title: 'ผู้ใช้งานในระบบ',
+              value: '${_users.length}',
+              subtitle: 'Total Eligible Users',
+              icon: Icons.people_alt_rounded,
+              color: const Color(0xFF2563EB),
+              bgColor: const Color(0xFFEFF6FF),
+              borderColor: const Color(0xFFBFDBFE),
+              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildKpiCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+    required Color borderColor,
+    required double width,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x04000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'การเข้าถึงภาพจากกล้องวงจรปิดต้องได้รับอนุญาตตามหลักเกณฑ์ความจำเป็นและมีบันทึก Audit Log ทุกครั้ง ทั้งนี้ฟังก์ชัน AI Video Analytics อยู่ระหว่างการพัฒนาระบบประมวลผล',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.indigo.shade900,
-              height: 1.4,
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -324,31 +669,183 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildNoticeBanner() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 48),
-      alignment: Alignment.center,
-      child: Column(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.videocam_off, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          const Text(
-            'ยังไม่มีการให้สิทธิ์เข้าถึงกล้อง CCTV',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.shield_outlined,
+              color: Color(0xFF2563EB),
+              size: 20,
+            ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'กดปุ่ม "อนุญาตสิทธิ์ใหม่" เพื่อเพิ่มผู้มีสิทธิ์เข้าถึง',
-            style: TextStyle(fontSize: 13, color: Colors.grey),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ข้อกำหนดการคุ้มครองข้อมูลส่วนบุคคล (PDPA & CCTV Policy)',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'การเข้าถึงภาพจากกล้องวงจรปิดต้องได้รับอนุญาตตามหลักเกณฑ์ความจำเป็น มีบันทึก Audit Log ทุกครั้ง และจะสิ้นสุดสิทธิ์ทันทีเมื่อหมดอายุ',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              onChanged: (v) => setState(() => _searchQuery = v),
+              decoration: InputDecoration(
+                hintText: 'ค้นหาชื่อผู้รับสิทธิ์, อีเมล หรือเหตุผล...',
+                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF94A3B8)),
+                isDense: true,
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButtonHideUnderline(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: DropdownButton<String>(
+                value: _statusFilter,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                items: ['ทั้งหมด', 'ใช้งานอยู่', 'หมดอายุ', 'เพิกถอนแล้ว'].map((s) {
+                  return DropdownMenuItem(value: s, child: Text(s));
+                }).toList(),
+                onChanged: (v) => setState(() => _statusFilter = v ?? 'ทั้งหมด'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrantsList() {
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(40),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final filtered = _filteredGrants;
+    if (filtered.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(48),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.videocam_off_rounded,
+                size: 40,
+                color: Color(0xFF94A3B8),
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'ไม่พบรายการสิทธิ์ที่ตรงกับเงื่อนไข',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'กดปุ่ม "อนุญาตสิทธิ์ใหม่" เพื่อเพิ่มผู้มีสิทธิ์เข้าชมกล้องวงจรปิด',
+              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: filtered.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final grant = filtered[index];
+        return _buildGrantCard(grant);
+      },
     );
   }
 
   Widget _buildGrantCard(CameraAccessGrantItem grant) {
     final isExpired = grant.validUntil.isBefore(DateTime.now());
-    final bool isActive = grant.isActive;
+    final bool isActive = grant.isActive && !isExpired;
 
     String statusLabel;
     Color statusBgColor;
@@ -357,109 +854,133 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
 
     if (isActive) {
       statusLabel = 'ใช้งานอยู่';
-      statusBgColor = Colors.green.shade50;
-      statusBorderColor = Colors.green.shade300;
-      statusTextColor = Colors.green.shade800;
-    } else if (isExpired) {
-      statusLabel = 'หมดอายุ';
-      statusBgColor = Colors.grey.shade200;
-      statusBorderColor = Colors.grey.shade400;
-      statusTextColor = Colors.grey.shade700;
+      statusBgColor = const Color(0xFFF0FDF4);
+      statusBorderColor = const Color(0xFFBBF7D0);
+      statusTextColor = const Color(0xFF16A34A);
+    } else if (isExpired && grant.isActive) {
+      statusLabel = 'หมดอายุแล้ว';
+      statusBgColor = const Color(0xFFFFFBEB);
+      statusBorderColor = const Color(0xFFFDE68A);
+      statusTextColor = const Color(0xFFD97706);
     } else {
       statusLabel = 'เพิกถอนสิทธิ์แล้ว';
-      statusBgColor = Colors.red.shade50;
-      statusBorderColor = Colors.red.shade300;
-      statusTextColor = Colors.red.shade800;
+      statusBgColor = const Color(0xFFFEF2F2);
+      statusBorderColor = const Color(0xFFFECACA);
+      statusTextColor = const Color(0xFFDC2626);
     }
 
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: isActive
-                  ? Colors.indigo.shade100
-                  : (isExpired ? Colors.grey.shade200 : Colors.red.shade100),
-              radius: 24,
-              child: Icon(
-                isActive ? Icons.videocam : Icons.videocam_off,
-                color: isActive
-                    ? Colors.indigo.shade700
-                    : (isExpired ? Colors.grey : Colors.red.shade700),
-              ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x03000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: isActive
+                ? SchoolAdminPalette.primary.withAlpha(25)
+                : const Color(0xFFF1F5F9),
+            radius: 22,
+            child: Icon(
+              isActive ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+              color: isActive ? SchoolAdminPalette.primaryDark : const Color(0xFF94A3B8),
+              size: 22,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          grant.userName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            decoration: isActive
-                                ? null
-                                : TextDecoration.lineThrough,
-                            color: isActive ? null : Colors.grey.shade600,
-                          ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        grant.userName,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: isActive ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+                          decoration: isActive ? null : TextDecoration.lineThrough,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: statusBgColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: statusBorderColor),
-                        ),
-                        child: Text(
-                          statusLabel,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: statusTextColor,
-                          ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusBgColor,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: statusBorderColor),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: statusTextColor,
                         ),
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${grant.userEmail} • ${grant.userRole}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${grant.userEmail} • ${grant.userRole}',
-                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFF1F5F9)),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'เหตุผล: ${grant.reason}',
-                    style: const TextStyle(fontSize: 13),
+                  child: Text(
+                    'เหตุผลความจำเป็น: ${grant.reason}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF334155),
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'หมดอายุ: ${grant.validUntil.day}/${grant.validUntil.month}/${grant.validUntil.year}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.event_outlined, size: 14, color: Color(0xFF94A3B8)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'หมดอายุ: ${grant.validUntil.day}/${grant.validUntil.month}/${grant.validUntil.year}',
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            if (isActive)
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                tooltip: 'เพิกถอนสิทธิ์',
-                onPressed: () => _confirmRevokeGrant(grant),
-              ),
+          ),
+          if (grant.isActive && !isExpired) ...[
+            const SizedBox(width: 10),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+              tooltip: 'เพิกถอนสิทธิ์',
+              onPressed: () => _confirmRevokeGrant(grant),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -1251,68 +1251,67 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
     return _PermissionSectionCard(
       title: 'ตารางสิทธิ์ตามบทบาท',
       subtitle: 'ช่วยให้เห็นภาพว่าแต่ละบทบาทเข้าถึงส่วนใดได้บ้าง',
+      padding: EdgeInsets.zero,
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           if (constraints.maxWidth >= 850) {
-            return Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Table(
-                border: const TableBorder(
-                  horizontalInside: BorderSide(
-                    color: Color(0xFFF1F5F9),
-                    width: 1,
-                  ),
+            return Table(
+              border: const TableBorder(
+                top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                horizontalInside: BorderSide(
+                  color: Color(0xFFF1F5F9),
+                  width: 1,
                 ),
-                columnWidths: const {
-                  0: FlexColumnWidth(1.45),
-                  1: FlexColumnWidth(1.1),
-                  2: FlexColumnWidth(1.15),
-                  3: FlexColumnWidth(1.15),
-                  4: FlexColumnWidth(1.05),
-                },
-                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                children: [
-                  const TableRow(
-                    decoration: BoxDecoration(
-                      color: Color(0xFFF8FAFC),
-                    ),
-                    children: [
-                      _PermissionTableHeaderCell(text: 'ข้อมูล / ฟังก์ชัน'),
-                      _PermissionTableHeaderCell(text: 'ครูผู้สอน'),
-                      _PermissionTableHeaderCell(text: 'ครูประจำชั้น'),
-                      _PermissionTableHeaderCell(text: 'ครูประจำอาคาร'),
-                      _PermissionTableHeaderCell(text: 'ฝ่ายบริหาร'),
-                    ],
-                  ),
-                  ...rows.map((_MatrixRowData row) {
-                    return TableRow(
-                      children: [
-                        _PermissionTableModuleCell(text: row.module),
-                        _PermissionTableValueCell(value: row.teacher),
-                        _PermissionTableValueCell(value: row.homeroom),
-                        _PermissionTableValueCell(value: row.building),
-                        _PermissionTableValueCell(value: row.management),
-                      ],
-                    );
-                  }),
-                ],
               ),
+              columnWidths: const {
+                0: FlexColumnWidth(1.45),
+                1: FlexColumnWidth(1.1),
+                2: FlexColumnWidth(1.15),
+                3: FlexColumnWidth(1.15),
+                4: FlexColumnWidth(1.05),
+              },
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: [
+                const TableRow(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF8FAFC),
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                    ),
+                  ),
+                  children: [
+                    _PermissionTableHeaderCell(text: 'ข้อมูล / ฟังก์ชัน'),
+                    _PermissionTableHeaderCell(text: 'ครูผู้สอน'),
+                    _PermissionTableHeaderCell(text: 'ครูประจำชั้น'),
+                    _PermissionTableHeaderCell(text: 'ครูประจำอาคาร'),
+                    _PermissionTableHeaderCell(text: 'ฝ่ายบริหาร'),
+                  ],
+                ),
+                ...rows.map((_MatrixRowData row) {
+                  return TableRow(
+                    children: [
+                      _PermissionTableModuleCell(text: row.module),
+                      _PermissionTableValueCell(value: row.teacher),
+                      _PermissionTableValueCell(value: row.homeroom),
+                      _PermissionTableValueCell(value: row.building),
+                      _PermissionTableValueCell(value: row.management),
+                    ],
+                  );
+                }),
+              ],
             );
           }
 
-          return Column(
-            children: rows.map((_MatrixRowData row) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _MatrixMobileCard(data: row),
-              );
-            }).toList(),
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: rows.map((_MatrixRowData row) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _MatrixMobileCard(data: row),
+                );
+              }).toList(),
+            ),
           );
         },
       ),
@@ -1411,163 +1410,214 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
     return _PermissionSectionCard(
       title: 'ผู้ใช้งานและสิทธิ์',
       subtitle: 'พบ ${users.length} รายการ',
+      padding: EdgeInsets.zero,
       child: users.isEmpty
           ? const _PermissionEmptyState()
           : LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 980) {
-                  return Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Table(
-                      border: const TableBorder(
-                        horizontalInside: BorderSide(
-                          color: Color(0xFFF1F5F9),
-                          width: 1,
-                        ),
+                  return Table(
+                    border: const TableBorder(
+                      top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                      horizontalInside: BorderSide(
+                        color: Color(0xFFF1F5F9),
+                        width: 1,
                       ),
-                      columnWidths: const {
-                        0: FlexColumnWidth(2.4),
-                        1: FlexColumnWidth(1.25),
-                        2: FlexColumnWidth(1.65),
-                        3: FlexColumnWidth(1.15),
-                        4: FlexColumnWidth(1.45),
-                        5: FlexColumnWidth(0.7),
-                      },
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
-                      children: [
-                        const TableRow(
-                          decoration: BoxDecoration(
-                            color: Color(0xFFF8FAFC),
-                          ),
-                          children: [
-                            _PermissionUserTableHeader(
-                              text: 'ผู้ใช้งาน',
-                              align: TextAlign.left,
-                            ),
-                            _PermissionUserTableHeader(text: 'บทบาท'),
-                            _PermissionUserTableHeader(text: 'ขอบเขต'),
-                            _PermissionUserTableHeader(text: 'สถานะ'),
-                            _PermissionUserTableHeader(text: 'แก้ไขล่าสุด'),
-                            _PermissionUserTableHeader(text: 'จัดการ'),
-                          ],
-                        ),
-                        ...users.map((_PermissionUser user) {
-                          return TableRow(
-                            children: [
-                              _PermissionUserTableUserCell(
-                                user: user,
-                                onTap: () => _showUserDetail(user),
-                              ),
-                              _PermissionUserTableCell(
-                                child: _RoleBadge(value: user.role),
-                              ),
-                              _PermissionUserTableCell(
-                                child: Text(
-                                  user.scope,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    height: 1.45,
-                                    fontWeight: FontWeight.w700,
-                                    color: SchoolAdminPalette.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              _PermissionUserTableCell(
-                                child: _PermissionStatusBadge(
-                                  value: user.status,
-                                ),
-                              ),
-                              _PermissionUserTableCell(
-                                child: Text(
-                                  user.lastUpdated,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    height: 1.45,
-                                    fontWeight: FontWeight.w700,
-                                    color: SchoolAdminPalette.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              _PermissionUserTableCell(
-                                child: PopupMenuButton<String>(
-                                  tooltip: 'จัดการ',
-                                  onSelected: (String value) {
-                                    switch (value) {
-                                      case 'view':
-                                        _showUserDetail(user);
-                                        break;
-                                      case 'edit':
-                                        _openPermissionDialog(user: user);
-                                        break;
-                                      case 'password':
-                                        _showMessage(
-                                          'ส่งคำขอตั้งรหัสผ่านใหม่ให้ ${user.name} แล้ว',
-                                        );
-                                        break;
-                                      case 'toggle':
-                                        _toggleUserStatus(user);
-                                        break;
-                                    }
-                                  },
-                                  itemBuilder: (BuildContext context) {
-                                    return [
-                                      const PopupMenuItem(
-                                        value: 'view',
-                                        child: Text('ดูรายละเอียด'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text('แก้ไขสิทธิ์'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'password',
-                                        child: Text('ตั้งรหัสผ่านใหม่'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'toggle',
-                                        child: Text(
-                                          user.status == 'ระงับ'
-                                              ? 'เปิดใช้งาน'
-                                              : 'ระงับสิทธิ์',
-                                        ),
-                                      ),
-                                    ];
-                                  },
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
                     ),
+                    columnWidths: const {
+                      0: FlexColumnWidth(2.4),
+                      1: FlexColumnWidth(1.25),
+                      2: FlexColumnWidth(1.65),
+                      3: FlexColumnWidth(1.15),
+                      4: FlexColumnWidth(1.45),
+                      5: FlexColumnWidth(0.7),
+                    },
+                    defaultVerticalAlignment:
+                        TableCellVerticalAlignment.middle,
+                    children: [
+                      const TableRow(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF8FAFC),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                          ),
+                        ),
+                        children: [
+                          _PermissionUserTableHeader(
+                            text: 'ผู้ใช้งาน',
+                            align: TextAlign.left,
+                          ),
+                          _PermissionUserTableHeader(text: 'บทบาท'),
+                          _PermissionUserTableHeader(text: 'ขอบเขต'),
+                          _PermissionUserTableHeader(text: 'สถานะ'),
+                          _PermissionUserTableHeader(text: 'แก้ไขล่าสุด'),
+                          _PermissionUserTableHeader(text: 'จัดการ'),
+                        ],
+                      ),
+                      ...users.map((_PermissionUser user) {
+                        return TableRow(
+                          children: [
+                            _PermissionUserTableUserCell(
+                              user: user,
+                              onTap: () => _showUserDetail(user),
+                            ),
+                            _PermissionUserTableCell(
+                              child: _RoleBadge(value: user.role),
+                            ),
+                            _PermissionUserTableCell(
+                              child: Text(
+                                user.scope,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                            _PermissionUserTableCell(
+                              child: _PermissionStatusBadge(
+                                value: user.status,
+                              ),
+                            ),
+                            _PermissionUserTableCell(
+                              child: Text(
+                                user.lastUpdated,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                            _PermissionUserTableCell(
+                              child: PopupMenuButton<String>(
+                                tooltip: 'จัดการ',
+                                color: Colors.white,
+                                surfaceTintColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                ),
+                                elevation: 6,
+                                shadowColor: const Color(0x1A000000),
+                                onSelected: (String value) {
+                                  switch (value) {
+                                    case 'view':
+                                      _showUserDetail(user);
+                                      break;
+                                    case 'edit':
+                                      _openPermissionDialog(user: user);
+                                      break;
+                                    case 'password':
+                                      _showMessage(
+                                        'ส่งคำขอตั้งรหัสผ่านใหม่ให้ ${user.name} แล้ว',
+                                      );
+                                      break;
+                                    case 'toggle':
+                                      _toggleUserStatus(user);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) {
+                                  return [
+                                    const PopupMenuItem(
+                                      value: 'view',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.visibility_outlined,
+                                            size: 18,
+                                            color: Color(0xFF475569),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('ดูรายละเอียด'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.edit_outlined,
+                                            size: 18,
+                                            color: Color(0xFF475569),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('แก้ไขสิทธิ์'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'password',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.lock_reset_rounded,
+                                            size: 18,
+                                            color: Color(0xFF475569),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('ตั้งรหัสผ่านใหม่'),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'toggle',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            user.status == 'ระงับ'
+                                                ? Icons.check_circle_outline_rounded
+                                                : Icons.block_rounded,
+                                            size: 18,
+                                            color: user.status == 'ระงับ'
+                                                ? const Color(0xFF16A34A)
+                                                : const Color(0xFFD97706),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(
+                                            user.status == 'ระงับ'
+                                                ? 'เปิดใช้งาน'
+                                                : 'ระงับสิทธิ์',
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ];
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
                   );
                 }
 
-                return Column(
-                  children: users.map((_PermissionUser user) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _PermissionUserMobileCard(
-                        user: user,
-                        onView: () => _showUserDetail(user),
-                        onEdit: () => _openPermissionDialog(user: user),
-                        onToggle: () => _toggleUserStatus(user),
-                      ),
-                    );
-                  }).toList(),
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: users.map((_PermissionUser user) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _PermissionUserMobileCard(
+                          user: user,
+                          onView: () => _showUserDetail(user),
+                          onEdit: () => _openPermissionDialog(user: user),
+                          onToggle: () => _toggleUserStatus(user),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 );
               },
             ),
@@ -1784,21 +1834,26 @@ class _PermissionSectionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.padding,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
+    final bool isFullWidth = padding == EdgeInsets.zero;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: padding ?? const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x060F172A),
@@ -1815,47 +1870,52 @@ class _PermissionSectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 4,
-                height: 22,
-                decoration: BoxDecoration(
-                  color: SchoolAdminPalette.primaryDark,
-                  borderRadius: BorderRadius.circular(2),
+          Padding(
+            padding: isFullWidth
+                ? const EdgeInsets.fromLTRB(20, 18, 20, 14)
+                : EdgeInsets.zero,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 4,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: SchoolAdminPalette.primaryDark,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        subtitle,
+                        title,
                         style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.4,
-                          color: SchoolAdminPalette.textSecondary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: SchoolAdminPalette.textPrimary,
                         ),
                       ),
+                      if (subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.4,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 16),
+          if (!isFullWidth) const SizedBox(height: 16),
           child,
         ],
       ),

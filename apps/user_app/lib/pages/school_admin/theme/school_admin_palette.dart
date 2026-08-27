@@ -4,51 +4,56 @@ import 'package:shared_ui/shared_ui.dart';
 class SchoolAdminPalette {
   const SchoolAdminPalette._();
 
-  // สีหลัก: Modern Royal Amber & Honey Gold (อบอุ่น สว่าง พรีเมียม ไม่อมโคลน)
-  static const Color primary = Color(0xFFD97706);
-  static const Color primaryDark = Color(0xFFB45309);
-  static const Color primaryLight = Color(0xFFFDE68A);
-  static const Color primarySoft = Color(0xFFFEF3C7);
+  // สีหลัก: Warm Coffee Palette (IMG_2118.JPG: #A45C23, #4C2113, #B38B60, #DCB485, #FFFFFF, #F1DEBC)
+  // Roasted Coffee (#A45C23) - สีหลักโทนกาแฟคั่วอบอุ่น พรีเมียม มีชีวิตชีวา
+  static const Color primary = Color(0xFFA45C23);
+  // Deep Espresso (#4C2113) - สีเข้มเอสเพรสโซ่เข้มข้น ลุ่มลึก
+  static const Color primaryDark = Color(0xFF4C2113);
+  // Soft Crema (#DCB485) - สีครีมาฟองกาแฟนุ่มละมุน
+  static const Color primaryLight = Color(0xFFDCB485);
+  // Biscuit Cream (#F1DEBC) - สีครีมบิสกิตอบอุ่น
+  static const Color primarySoft = Color(0xFFF1DEBC);
 
   // สีเสริม
-  static const Color secondary = Color(0xFFF59E0B);
-  static const Color orange = Color(0xFFEA580C);
-  static const Color yellow = Color(0xFFEAB308);
-  static const Color green = Color(0xFF10B981);
-  static const Color blue = Color(0xFF0284C7);
-  static const Color red = Color(0xFFEF4444);
-  static const Color cyan = Color(0xFF06B6D4);
+  // Caramel Latte (#B38B60) - สีคาราเมลลาเต้
+  static const Color secondary = Color(0xFFB38B60);
+  static const Color orange = Color(0xFFC76D2B);
+  static const Color yellow = Color(0xFFD49B45);
+  static const Color green = Color(0xFF4A7C59);
+  static const Color blue = Color(0xFF56728E);
+  static const Color red = Color(0xFFB84236);
+  static const Color cyan = Color(0xFF688E83);
 
-  // พื้นหลังหลัก: Warm Off-White สว่าง คมชัด
-  static const Color background = Color(0xFFFAF9F6);
+  // พื้นหลังหลัก: สีขาวล้วน (#FFFFFF) คลีน คมชัด ทันสมัย
+  static const Color background = Color(0xFFFFFFFF);
 
-  // การ์ดและกรอบเป็นสีขาวล้วน
+  // การ์ดและกรอบเป็นสีขาวล้วน (#FFFFFF)
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceSoft = Color(0xFFFAF9F6);
+  static const Color surfaceSoft = Color(0xFFFFFFFF);
   static const Color card = Color(0xFFFFFFFF);
 
-  // เมนูด้านซ้าย: Warm Neutral Clean
-  static const Color sidebar = Color(0xFFFBF8F2);
+  // เมนูด้านซ้าย: สีขาวล้วน (#FFFFFF)
+  static const Color sidebar = Color(0xFFFFFFFF);
   static const Color sidebarBg = sidebar;
 
-  // เส้นขอบบางเฉียบ คมชัดสไตล์หินอ่อน
-  static const Color border = Color(0xFFE7E5E4);
+  // เส้นขอบ Neutral Slate Hairline (#E2E8F0)
+  static const Color border = Color(0xFFE2E8F0);
 
-  // สีข้อความ: Deep Stone Charcoal อ่านง่าย คมชัด
-  static const Color textPrimary = Color(0xFF1C1917);
-  static const Color textSecondary = Color(0xFF78716C);
-  static const Color textMuted = Color(0xFFA8A29E);
+  // สีข้อความ: Deep Espresso (#4C2113) คมชัด อ่านง่าย หรูหรา
+  static const Color textPrimary = Color(0xFF4C2113);
+  static const Color textSecondary = Color(0xFF7A4A28);
+  static const Color textMuted = Color(0xFF9E7E5E);
   static const Color onPrimary = Colors.white;
 
   // สีอ่อนของป้ายและสัญลักษณ์ (Glass Tint Soft)
-  static const Color orangeSoft = Color(0xFFFFF7ED);
-  static const Color yellowSoft = Color(0xFFFEFCE8);
-  static const Color greenSoft = Color(0xFFECFDF5);
-  static const Color skySoft = Color(0xFFF0F9FF);
-  static const Color blueSoft = Color(0xFFF0FDF4);
-  static const Color redSoft = Color(0xFFFEF2F2);
-  static const Color brownSoft = Color(0xFFFAF8F5);
-  static const Color sandSoft = Color(0xFFFDFBF7);
+  static const Color orangeSoft = Color(0xFFFDF5EE);
+  static const Color yellowSoft = Color(0xFFFDF8EE);
+  static const Color greenSoft = Color(0xFFEFF7F2);
+  static const Color skySoft = Color(0xFFF0F5FA);
+  static const Color blueSoft = Color(0xFFF0F5FA);
+  static const Color redSoft = Color(0xFFFAF0EE);
+  static const Color brownSoft = Color(0xFFF7EFE3);
+  static const Color sandSoft = Color(0xFFFAF6F0);
 
   // ชื่อสำรองสำหรับหน้าที่มีอยู่เดิม
   static const Color success = green;
@@ -57,13 +62,13 @@ class SchoolAdminPalette {
   static const Color warningSoft = yellowSoft;
   static const Color shadow = Color(0x00000000);
 
-  // ไล่เฉดสี Modern Amber Gradient
+  // ไล่เฉดสี Roasted Coffee & Deep Espresso Gradient
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFD97706),
-      Color(0xFFB45309),
+      Color(0xFFA45C23),
+      Color(0xFF4C2113),
     ],
   );
 
@@ -71,8 +76,8 @@ class SchoolAdminPalette {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFF59E0B),
-      Color(0xFFD97706),
+      Color(0xFFB38B60),
+      Color(0xFFA45C23),
     ],
   );
 
@@ -80,8 +85,8 @@ class SchoolAdminPalette {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF92400E),
-      Color(0xFF78350F),
+      Color(0xFF4C2113),
+      Color(0xFF2E130B),
     ],
   );
 
@@ -89,8 +94,8 @@ class SchoolAdminPalette {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFFFDE68A),
-      Color(0xFFD97706),
+      Color(0xFFDCB485),
+      Color(0xFFA45C23),
     ],
   );
 
@@ -104,20 +109,20 @@ class SchoolAdminPalette {
     ],
   );
 
-  // เงาลอยสไตล์โมเดิร์นพร้อม Ambient Warm Glow
+  // เงาลอยสไตล์โมเดิร์นพร้อม Ambient Warm Roasted Glow
   static List<BoxShadow> get cardShadow => const [
     BoxShadow(
-      color: Color(0x060F172A),
+      color: Color(0x064C2113),
       blurRadius: 4,
       offset: Offset(0, 2),
     ),
     BoxShadow(
-      color: Color(0x0C0F172A),
+      color: Color(0x0E4C2113),
       blurRadius: 18,
       offset: Offset(0, 8),
     ),
     BoxShadow(
-      color: Color(0x0DB45309),
+      color: Color(0x0DA45C23),
       blurRadius: 24,
       offset: Offset(0, 10),
     ),
@@ -125,12 +130,12 @@ class SchoolAdminPalette {
 
   static List<BoxShadow> get smallShadow => const [
     BoxShadow(
-      color: Color(0x060F172A),
+      color: Color(0x064C2113),
       blurRadius: 4,
       offset: Offset(0, 2),
     ),
     BoxShadow(
-      color: Color(0x080F172A),
+      color: Color(0x084C2113),
       blurRadius: 12,
       offset: Offset(0, 4),
     ),

@@ -207,64 +207,49 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: SizedBox.expand(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 255,
-                  child: _DesktopSidebar(
-                    items: _menuItems,
-                    selectedIndex: _selectedIndex,
-                    onSelect: _openPage,
-                    onOpenProfile: _openProfile,
-                  ),
+        child: SizedBox.expand(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 268,
+                margin: const EdgeInsets.fromLTRB(14, 14, 0, 14),
+                child: _DesktopSidebar(
+                  items: _menuItems,
+                  selectedIndex: _selectedIndex,
+                  onSelect: _openPage,
+                  onOpenProfile: _openProfile,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Container(
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: SchoolAdminPalette.surface,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: SchoolAdminPalette.border),
+              ),
+              Expanded(
+                child: Column(
+                  children: [
+                    _DesktopTopBar(
+                      title: _menuItems[_selectedIndex].title,
+                      onOpenAlerts: () => _openPage(9),
+                      onOpenScan: () => _openPage(8),
                     ),
-                    child: Column(
-                      children: [
-                        _DesktopTopBar(
-                          title: _menuItems[_selectedIndex].title,
-                          onOpenAlerts: () => _openPage(9),
-                          onOpenScan: () => _openPage(8),
-                        ),
-                        const Divider(
-                          height: 1,
-                          color: SchoolAdminPalette.border,
-                        ),
-                        Expanded(
-                          child: ScaffoldMessenger(
-                            child: ColoredBox(
-                              color: Colors.white,
-                              child: SizedBox.expand(
-                                child: KeyedSubtree(
-                                  key: ValueKey<String>(
-                                    _profileOpen
-                                        ? 'profile'
-                                        : 'page-$_selectedIndex',
-                                  ),
-                                  child: _buildCurrentPage(),
-                                ),
+                    Expanded(
+                      child: ScaffoldMessenger(
+                        child: ColoredBox(
+                          color: Colors.white,
+                          child: SizedBox.expand(
+                            child: KeyedSubtree(
+                              key: ValueKey<String>(
+                                _profileOpen
+                                    ? 'profile'
+                                    : 'page-$_selectedIndex',
                               ),
+                              child: _buildCurrentPage(),
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -281,9 +266,9 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         onOpenProfile: _openProfile,
       ),
       appBar: AppBar(
-        // แถบด้านบนบนมือถือ เข้มกว่าพื้นหลังเล็กน้อย
-        backgroundColor: const Color(0xFFF3EBDD),
-        surfaceTintColor: const Color(0xFFF3EBDD),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         titleSpacing: 4,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,82 +346,41 @@ class _DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: SchoolAdminPalette.sidebar,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: SchoolAdminPalette.border),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
       ),
       child: Column(
         children: [
           const _BrandHeader(),
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 5),
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, index) {
                 final bool selected = selectedIndex == index;
                 final _MenuItemData item = items[index];
 
-                return Material(
-                  color: selected
-                      ? SchoolAdminPalette.primary
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    onTap: () => onSelect(index),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 11,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: selected
-                                  ? Colors.white.withAlpha(34)
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Icon(
-                              item.icon,
-                              size: 19,
-                              color: selected
-                                  ? Colors.white
-                                  : SchoolAdminPalette.primaryDark,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: selected
-                                    ? Colors.white
-                                    : SchoolAdminPalette.textPrimary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                return _SidebarMenuTile(
+                  item: item,
+                  selected: selected,
+                  onTap: () => onSelect(index),
                 );
               },
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(10),
-            child: _UserCard(
-              key: const Key('sidebar_user_card'),
-              onTap: onOpenProfile,
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _UserCard(
+                  key: const Key('sidebar_user_card'),
+                  onTap: onOpenProfile,
+                ),
+                const SizedBox(height: 8),
+                const _SchoolScopeCard(),
+              ],
             ),
           ),
         ],
@@ -461,77 +405,146 @@ class _MobileDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: SchoolAdminPalette.sidebar,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        side: BorderSide.none,
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(32)),
+      ),
       child: SafeArea(
         child: Column(
           children: [
             const _BrandHeader(),
-            const Divider(height: 1, color: SchoolAdminPalette.border),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 itemCount: items.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 5),
+                separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final bool selected = selectedIndex == index;
                   final _MenuItemData item = items[index];
 
-                  return Material(
-                    color: selected
-                        ? SchoolAdminPalette.primary
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).pop();
-                        onSelect(index);
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              item.icon,
-                              color: selected
-                                  ? Colors.white
-                                  : SchoolAdminPalette.primaryDark,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item.title,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: selected
-                                      ? Colors.white
-                                      : SchoolAdminPalette.textPrimary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  return _SidebarMenuTile(
+                    item: item,
+                    selected: selected,
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      onSelect(index);
+                    },
                   );
                 },
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(10),
-              child: _UserCard(
-                key: const Key('drawer_user_card'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onOpenProfile();
-                },
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _UserCard(
+                    key: const Key('drawer_user_card'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      onOpenProfile();
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  const _SchoolScopeCard(),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarMenuTile extends StatelessWidget {
+  const _SidebarMenuTile({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _MenuItemData item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          height: 46,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? SchoolAdminPalette.primary : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? SchoolAdminPalette.primary
+                  : const Color(0xFFF1F5F9),
+              width: 1.0,
+            ),
+            boxShadow: selected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x28A45C23),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? Colors.white.withAlpha(45)
+                      : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  item.icon,
+                  size: 18,
+                  color: selected ? Colors.white : SchoolAdminPalette.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.white : const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+              if (selected)
+                Container(
+                  width: 4,
+                  height: 22,
+                  margin: const EdgeInsets.only(left: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -543,34 +556,61 @@ class _BrandHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(18, 20, 18, 16),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        gradient: SchoolAdminPalette.heroGradient,
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x284C2113),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: SchoolAdminPalette.primary,
-            child: Icon(Icons.school_rounded, color: Colors.white),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(45),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.school_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
           ),
-          SizedBox(width: 11),
-          Expanded(
+          const SizedBox(width: 12),
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'AIoT Smart Lab',
+                  'School Admin',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 16.5,
                     fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
                   ),
                 ),
+                SizedBox(height: 2),
                 Text(
-                  'ผู้ดูแลโรงเรียน',
+                  'AIoT Smart Lab',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w700,
-                    color: SchoolAdminPalette.textSecondary,
+                    color: Colors.white70,
                   ),
                 ),
               ],
@@ -590,47 +630,56 @@ class _UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: SchoolAdminPalette.surface,
-      borderRadius: BorderRadius.circular(17),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(11),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(17),
-            border: Border.all(color: SchoolAdminPalette.border),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFF1F5F9),
+              width: 1.0,
+            ),
           ),
           child: const Row(
             children: [
               CircleAvatar(
-                radius: 20,
-                backgroundColor: SchoolAdminPalette.primary,
+                radius: 19,
+                backgroundColor: Color(0xFFF8FAFC),
                 child: Icon(
                   Icons.person_rounded,
-                  color: Colors.white,
-                  size: 19,
+                  color: SchoolAdminPalette.primary,
+                  size: 20,
                 ),
               ),
-              SizedBox(width: 9),
+              SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'ผู้ดูแลโรงเรียน',
+                      'ผู้ดูแลโรงเรียน (Admin)',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
+                    SizedBox(height: 2),
                     Text(
-                      'พร้อมใช้งาน',
+                      'admin@aiot-school.ac.th',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: SchoolAdminPalette.green,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
                       ),
                     ),
                   ],
@@ -638,12 +687,74 @@ class _UserCard extends StatelessWidget {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: SchoolAdminPalette.textMuted,
-                size: 20,
+                color: Color(0xFF64748B),
+                size: 19,
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SchoolScopeCard extends StatelessWidget {
+  const _SchoolScopeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFFF1F5F9),
+          width: 1.0,
+        ),
+      ),
+      child: const Row(
+        children: [
+          CircleAvatar(
+            radius: 17,
+            backgroundColor: Color(0xFFF8FAFC),
+            child: Icon(
+              Icons.domain_rounded,
+              color: SchoolAdminPalette.primary,
+              size: 18,
+            ),
+          ),
+          SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'โรงเรียนเทศบาล ๑ (สังกัด สถ.)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                SizedBox(height: 1),
+                Text(
+                  'ระบบบริหารจัดการสถานศึกษา',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1893,19 +1893,19 @@ class _DesktopTeacherTable extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: DataTable(
         headingRowColor: const WidgetStatePropertyAll<Color>(
-          SchoolAdminPalette.primarySoft,
+          Color(0xFFF8FAFC),
         ),
         headingTextStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
-          color: SchoolAdminPalette.textPrimary,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF475569),
         ),
         dataTextStyle: const TextStyle(
-          fontSize: 11.5,
-          color: SchoolAdminPalette.textPrimary,
+          fontSize: 12,
+          color: Color(0xFF0F172A),
         ),
-        dataRowMinHeight: 84,
-        dataRowMaxHeight: 92,
+        dataRowMinHeight: 76,
+        dataRowMaxHeight: 88,
         columnSpacing: 20,
         columns: const [
           DataColumn(label: Text('ครู / บุคลากร')),
@@ -1927,11 +1927,11 @@ class _DesktopTeacherTable extends StatelessWidget {
                     children: [
                       const CircleAvatar(
                         radius: 18,
-                        backgroundColor: SchoolAdminPalette.primarySoft,
+                        backgroundColor: Color(0xFFF1F5F9),
                         child: Icon(
                           Icons.badge_rounded,
                           size: 18,
-                          color: SchoolAdminPalette.primaryDark,
+                          color: SchoolAdminPalette.primary,
                         ),
                       ),
                       const SizedBox(width: 9),
@@ -1951,8 +1951,8 @@ class _DesktopTeacherTable extends StatelessWidget {
                             Text(
                               teacher.teacherCode,
                               style: const TextStyle(
-                                fontSize: 10,
-                                color: SchoolAdminPalette.textSecondary,
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
                               ),
                             ),
                           ],
@@ -1981,6 +1981,14 @@ class _DesktopTeacherTable extends StatelessWidget {
               DataCell(
                 PopupMenuButton<String>(
                   tooltip: 'จัดการ',
+                  color: Colors.white,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  elevation: 6,
+                  shadowColor: const Color(0x1A000000),
                   onSelected: (String value) {
                     switch (value) {
                       case 'view':
@@ -2004,27 +2012,85 @@ class _DesktopTeacherTable extends StatelessWidget {
                     return [
                       const PopupMenuItem(
                         value: 'view',
-                        child: Text('ดูรายละเอียด'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Text('แก้ไขข้อมูล'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'password',
-                        child: Text('ตั้งรหัสผ่านใหม่'),
-                      ),
-                      PopupMenuItem(
-                        value: 'toggle',
-                        child: Text(
-                          teacher.accountStatus == 'ระงับ'
-                              ? 'เปิดใช้งานบัญชี'
-                              : 'ระงับบัญชี',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.visibility_outlined,
+                              size: 18,
+                              color: Color(0xFF475569),
+                            ),
+                            SizedBox(width: 10),
+                            Text('ดูรายละเอียด'),
+                          ],
                         ),
                       ),
                       const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 18,
+                              color: Color(0xFF475569),
+                            ),
+                            SizedBox(width: 10),
+                            Text('แก้ไขข้อมูล'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'password',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lock_reset_rounded,
+                              size: 18,
+                              color: Color(0xFF475569),
+                            ),
+                            SizedBox(width: 10),
+                            Text('ตั้งรหัสผ่านใหม่'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'toggle',
+                        child: Row(
+                          children: [
+                            Icon(
+                              teacher.accountStatus == 'ระงับ'
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.block_rounded,
+                              size: 18,
+                              color: teacher.accountStatus == 'ระงับ'
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              teacher.accountStatus == 'ระงับ'
+                                  ? 'เปิดใช้งานบัญชี'
+                                  : 'ระงับบัญชีชั่วคราว',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
                         value: 'delete',
-                        child: Text('ลบรายการ'),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                              color: Color(0xFFEF4444),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'ลบรายการ',
+                              style: TextStyle(color: Color(0xFFEF4444)),
+                            ),
+                          ],
+                        ),
                       ),
                     ];
                   },

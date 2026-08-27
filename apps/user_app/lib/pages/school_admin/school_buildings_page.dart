@@ -2066,170 +2066,222 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     return _BuildingSectionCard(
       title: 'รายการห้อง',
       subtitle: 'พบ ${rooms.length} รายการ',
+      padding: EdgeInsets.zero,
       child: rooms.isEmpty
           ? const _BuildingEmptyState()
           : LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
                 if (constraints.maxWidth >= 1050) {
-                  return Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: SchoolAdminPalette.border),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Table(
-                      border: TableBorder(
-                        horizontalInside: BorderSide(
-                          color: SchoolAdminPalette.border,
-                        ),
+                  return Table(
+                    border: const TableBorder(
+                      top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                      horizontalInside: BorderSide(
+                        color: Color(0xFFF1F5F9),
+                        width: 1,
                       ),
-                      columnWidths: const {
-                        0: FlexColumnWidth(1.7),
-                        1: FlexColumnWidth(1.55),
-                        2: FlexColumnWidth(1.1),
-                        3: FlexColumnWidth(1.15),
-                        4: FlexColumnWidth(1.35),
-                        5: FlexColumnWidth(1.0),
-                        6: FlexColumnWidth(1.15),
-                        7: FlexColumnWidth(0.65),
-                      },
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
-                      children: [
-                        const TableRow(
-                          decoration: BoxDecoration(
-                            color: SchoolAdminPalette.primarySoft,
-                          ),
-                          children: [
-                            _RoomTableHeader(text: 'ห้อง'),
-                            _RoomTableHeader(text: 'อาคาร / ชั้น'),
-                            _RoomTableHeader(text: 'ประเภท'),
-                            _RoomTableHeader(text: 'ผู้ดูแล'),
-                            _RoomTableHeader(text: 'อุปกรณ์ / ชุดฝึก'),
-                            _RoomTableHeader(text: 'สถานะ'),
-                            _RoomTableHeader(text: 'ระบบ / ทรัพยากร'),
-                            _RoomTableHeader(text: 'จัดการ'),
-                          ],
-                        ),
-                        ...rooms.map((_RoomRecord room) {
-                          return TableRow(
-                            children: [
-                              _RoomTableNameCell(
-                                room: room,
-                                onTap: () => _showRoomDetail(room),
-                              ),
-                              _RoomTableCell(
-                                child: Text(
-                                  '${room.building}\n${room.floor}',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    height: 1.4,
-                                    fontWeight: FontWeight.w700,
-                                    color: SchoolAdminPalette.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              _RoomTableCell(
-                                child: _RoomTypeBadge(value: room.type),
-                              ),
-                              _RoomTableCell(
-                                child: Text(
-                                  room.teacher,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 9.5,
-                                    height: 1.35,
-                                    color: SchoolAdminPalette.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              _RoomTableCell(
-                                child: Text(
-                                  '${room.devices} อุปกรณ์\n${room.trainingKits} ชุดฝึก',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 9.5,
-                                    height: 1.45,
-                                    fontWeight: FontWeight.w700,
-                                    color: SchoolAdminPalette.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              _RoomTableCell(
-                                child: _RoomStatusBadge(value: room.status),
-                              ),
-                              _RoomTableCell(
-                                child: _ResourceBadge(
-                                  value: room.resourceStatus,
-                                ),
-                              ),
-                              _RoomTableCell(
-                                child: PopupMenuButton<String>(
-                                  tooltip: 'จัดการ',
-                                  onSelected: (String value) {
-                                    switch (value) {
-                                      case 'view':
-                                        _showRoomDetail(room);
-                                        break;
-                                      case 'edit':
-                                        _openRoomForm(room: room);
-                                        break;
-                                      case 'devices':
-                                        _showMessage(
-                                          'เปิดรายการอุปกรณ์ของ ${room.code}',
-                                        );
-                                        break;
-                                      case 'delete':
-                                        _deleteRoom(room);
-                                        break;
-                                    }
-                                  },
-                                  itemBuilder: (BuildContext context) {
-                                    return const [
-                                      PopupMenuItem(
-                                        value: 'view',
-                                        child: Text('ดูรายละเอียด'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'edit',
-                                        child: Text('แก้ไขห้อง'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'devices',
-                                        child: Text('ดูอุปกรณ์ในห้อง'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'delete',
-                                        child: Text('ลบห้อง'),
-                                      ),
-                                    ];
-                                  },
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
-                      ],
                     ),
+                    columnWidths: const {
+                      0: FlexColumnWidth(1.7),
+                      1: FlexColumnWidth(1.55),
+                      2: FlexColumnWidth(1.1),
+                      3: FlexColumnWidth(1.15),
+                      4: FlexColumnWidth(1.35),
+                      5: FlexColumnWidth(1.0),
+                      6: FlexColumnWidth(1.15),
+                      7: FlexColumnWidth(0.65),
+                    },
+                    defaultVerticalAlignment:
+                        TableCellVerticalAlignment.middle,
+                    children: [
+                      const TableRow(
+                        decoration: BoxDecoration(
+                          color: Color(0xFFF8FAFC),
+                          border: Border(
+                            bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                          ),
+                        ),
+                        children: [
+                          _RoomTableHeader(text: 'ห้อง', align: TextAlign.left),
+                          _RoomTableHeader(text: 'อาคาร / ชั้น'),
+                          _RoomTableHeader(text: 'ประเภท'),
+                          _RoomTableHeader(text: 'ผู้ดูแล'),
+                          _RoomTableHeader(text: 'อุปกรณ์ / ชุดฝึก'),
+                          _RoomTableHeader(text: 'สถานะ'),
+                          _RoomTableHeader(text: 'ระบบ / ทรัพยากร'),
+                          _RoomTableHeader(text: 'จัดการ'),
+                        ],
+                      ),
+                      ...rooms.map((_RoomRecord room) {
+                        return TableRow(
+                          children: [
+                            _RoomTableNameCell(
+                              room: room,
+                              onTap: () => _showRoomDetail(room),
+                            ),
+                            _RoomTableCell(
+                              child: Text(
+                                '${room.building}\n${room.floor}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                            _RoomTableCell(
+                              child: _RoomTypeBadge(value: room.type),
+                            ),
+                            _RoomTableCell(
+                              child: Text(
+                                room.teacher,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.35,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                            _RoomTableCell(
+                              child: Text(
+                                '${room.devices} อุปกรณ์\n${room.trainingKits} ชุดฝึก',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                            _RoomTableCell(
+                              child: _RoomStatusBadge(value: room.status),
+                            ),
+                            _RoomTableCell(
+                              child: _ResourceBadge(
+                                value: room.resourceStatus,
+                              ),
+                            ),
+                            _RoomTableCell(
+                              child: PopupMenuButton<String>(
+                                tooltip: 'จัดการ',
+                                color: Colors.white,
+                                surfaceTintColor: Colors.transparent,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                ),
+                                elevation: 6,
+                                shadowColor: const Color(0x1A000000),
+                                onSelected: (String value) {
+                                  switch (value) {
+                                    case 'view':
+                                      _showRoomDetail(room);
+                                      break;
+                                    case 'edit':
+                                      _openRoomForm(room: room);
+                                      break;
+                                    case 'devices':
+                                      _showMessage(
+                                        'เปิดรายการอุปกรณ์ของ ${room.code}',
+                                      );
+                                      break;
+                                    case 'delete':
+                                      _deleteRoom(room);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (BuildContext context) {
+                                  return [
+                                    const PopupMenuItem(
+                                      value: 'view',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.visibility_outlined,
+                                            size: 18,
+                                            color: Color(0xFF475569),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('ดูรายละเอียด'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.edit_outlined,
+                                            size: 18,
+                                            color: Color(0xFF475569),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('แก้ไขห้อง'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'devices',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.devices_rounded,
+                                            size: 18,
+                                            color: Color(0xFF475569),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text('ดูอุปกรณ์ในห้อง'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuDivider(),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 18,
+                                            color: Color(0xFFEF4444),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Text(
+                                            'ลบห้อง',
+                                            style: TextStyle(color: Color(0xFFEF4444)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ];
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
+                    ],
                   );
                 }
 
-                return Column(
-                  children: rooms.map((_RoomRecord room) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _RoomMobileCard(
-                        room: room,
-                        onView: () => _showRoomDetail(room),
-                        onEdit: () => _openRoomForm(room: room),
-                      ),
-                    );
-                  }).toList(),
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    children: rooms.map((_RoomRecord room) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _RoomMobileCard(
+                          room: room,
+                          onView: () => _showRoomDetail(room),
+                          onEdit: () => _openRoomForm(room: room),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 );
               },
             ),
@@ -2473,21 +2525,26 @@ class _BuildingSectionCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
+    this.padding,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
+    final bool isFullWidth = padding == EdgeInsets.zero;
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: padding ?? const EdgeInsets.all(22),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.2),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x060F172A),
@@ -2504,38 +2561,48 @@ class _BuildingSectionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 4,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: SchoolAdminPalette.primaryDark,
-                  borderRadius: BorderRadius.circular(2),
+          Padding(
+            padding: isFullWidth
+                ? const EdgeInsets.fromLTRB(20, 18, 20, 14)
+                : EdgeInsets.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 4,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        color: SchoolAdminPalette.primaryDark,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: SchoolAdminPalette.textPrimary,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: SchoolAdminPalette.textPrimary,
-                  letterSpacing: -0.2,
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontSize: 12.5,
-              height: 1.45,
-              color: SchoolAdminPalette.textSecondary,
+              ],
             ),
           ),
-          const SizedBox(height: 18),
+          if (!isFullWidth) const SizedBox(height: 18),
           child,
         ],
       ),
@@ -3678,21 +3745,26 @@ class _BuildingMetricRow extends StatelessWidget {
 }
 
 class _RoomTableHeader extends StatelessWidget {
-  const _RoomTableHeader({required this.text});
+  const _RoomTableHeader({
+    required this.text,
+    this.align = TextAlign.center,
+  });
 
   final String text;
+  final TextAlign align;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 17),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
       child: Text(
         text,
-        textAlign: TextAlign.center,
+        textAlign: align,
         style: const TextStyle(
           fontSize: 12.5,
-          fontWeight: FontWeight.w900,
-          color: SchoolAdminPalette.textPrimary,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF475569),
+          letterSpacing: 0.2,
         ),
       ),
     );

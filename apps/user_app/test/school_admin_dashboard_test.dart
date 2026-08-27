@@ -34,7 +34,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('พลังงานทั้งโรงเรียน'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SchoolAdminEnergyPage), findsOneWidget);
   });
@@ -50,7 +51,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('กล้อง CCTV'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SchoolAdminCctvPage), findsOneWidget);
   });
@@ -66,7 +68,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ตั้งเวลาอุปกรณ์'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SchoolAdminDeviceSchedulePage), findsOneWidget);
   });
@@ -82,7 +85,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('รายงาน ESG'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SchoolAdminEsgPage), findsOneWidget);
   });
@@ -98,7 +102,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ควบคุมไฟและน้ำ'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SchoolAdminDeviceControlPage), findsOneWidget);
   });
@@ -114,7 +119,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('กล่องแจ้งเหตุการณ์'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(SchoolAdminIncidentInboxPage), findsOneWidget);
   });

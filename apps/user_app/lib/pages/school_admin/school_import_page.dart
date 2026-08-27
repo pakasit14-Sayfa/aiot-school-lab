@@ -921,16 +921,16 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
               scrollDirection: Axis.horizontal,
               child: DataTable(
                 headingRowColor: const WidgetStatePropertyAll<Color>(
-                  SchoolAdminPalette.primarySoft,
+                  Color(0xFFF8FAFC),
                 ),
                 headingTextStyle: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: SchoolAdminPalette.textPrimary,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF475569),
                 ),
                 dataTextStyle: const TextStyle(
-                  fontSize: 11.5,
-                  color: SchoolAdminPalette.textPrimary,
+                  fontSize: 12,
+                  color: Color(0xFF0F172A),
                 ),
                 columns: const [
                   DataColumn(label: Text('แถว')),
@@ -1028,16 +1028,16 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: const WidgetStatePropertyAll<Color>(
-                        SchoolAdminPalette.primarySoft,
+                        Color(0xFFF8FAFC),
                       ),
                       headingTextStyle: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        color: SchoolAdminPalette.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF475569),
                       ),
                       dataTextStyle: const TextStyle(
-                        fontSize: 10,
-                        color: SchoolAdminPalette.textPrimary,
+                        fontSize: 12,
+                        color: Color(0xFF0F172A),
                       ),
                       columns: const [
                         DataColumn(label: Text('วันและเวลา')),
