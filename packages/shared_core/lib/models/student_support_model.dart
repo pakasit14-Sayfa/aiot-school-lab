@@ -105,3 +105,34 @@ class StudentSupportIntervention {
         _ => actionType,
       };
 }
+
+/// Auto-computed "needs attention" signal (overdue work / frequent
+/// absence / low grade average) — distinct from [StudentSupportCase],
+/// which a teacher creates manually.
+class AutoFlaggedStudent {
+  final String studentId;
+  final String studentName;
+  final String reason;
+  final String detail;
+  final String actionLabel;
+  final String severity;
+
+  const AutoFlaggedStudent({
+    required this.studentId,
+    required this.studentName,
+    required this.reason,
+    required this.detail,
+    required this.actionLabel,
+    required this.severity,
+  });
+
+  factory AutoFlaggedStudent.fromRow(Map<String, dynamic> row) =>
+      AutoFlaggedStudent(
+        studentId: row['student_id'] as String,
+        studentName: (row['student_name'] as String?) ?? '',
+        reason: (row['reason'] as String?) ?? '',
+        detail: (row['detail'] as String?) ?? '',
+        actionLabel: (row['action_label'] as String?) ?? '',
+        severity: (row['severity'] as String?) ?? 'normal',
+      );
+}

@@ -1828,6 +1828,8 @@ Foreign keys:
 
 ### `list_student_support_cases(p_token text, p_course_id uuid, p_status text)` → `TABLE(case_id uuid, student_id uuid, student_name text, student_email text, course_id uuid, course_name text, category text, risk_level text, status text, title text, notes text, created_by_name text, intervention_count bigint, created_at timestamp with time zone, updated_at timestamp with time zone)` (SECURITY DEFINER)
 
+### `list_students_needing_attention(p_token text)` → `TABLE(student_id uuid, student_name text, reason text, detail text, action_label text, severity text)` (SECURITY DEFINER) — teacher-only; added 2026-08-28. Auto-computed (≥2 overdue assignments / avg confirmed grade < 50% / ≥2 absences in 30 days), distinct from the manual `student_support_cases` above.
+
 ### `list_student_support_interventions(p_token text, p_case_id uuid)` → `TABLE(intervention_id uuid, case_id uuid, action_type text, notes text, recorded_by_name text, created_at timestamp with time zone)` (SECURITY DEFINER)
 
 ### `list_submissions(p_token text, p_assignment_id uuid)` → `TABLE(submission_id uuid, student_id uuid, student_first_name character varying, student_last_name character varying, status submission_status, current_version integer, latest_content text, submitted_at timestamp with time zone, latest_attachments jsonb)` (SECURITY DEFINER) — `latest_attachments` added 2026-08-27

@@ -495,13 +495,12 @@ see `docs/handoff/WORK_LOG.md`.)*
     `status == 'submitted'`. New gap found while fixing this: the
     dashboard's top alert banner (`_TeacherHero`) independently hardcodes
     the same "18 ชิ้น"/"3 คน" numbers — not yet wired to this real count.
-  - `TeacherMock.students` ("นักเรียนที่ต้องติดตาม") — still fake. No
-    auto-computed "falling behind" signal exists anywhere — the only
-    related backend is `student_support_cases`/`list_student_support_cases`,
-    which is a *manually created* case-tracking system (a teacher opens a
-    case on a student themselves), not an automatic at-risk feed. Needs a
-    product decision (reuse open cases as a proxy vs. build real risk
-    scoring) before this can be wired for real.
+  - `TeacherMock.students` ("นักเรียนที่ต้องติดตาม") — **fixed 2026-08-28**.
+    User chose real auto-computed risk scoring over reusing the manual
+    `student_support_cases` system. New `list_students_needing_attention`
+    RPC flags students on ≥2 overdue assignments, avg confirmed grade
+    < 50%, or ≥2 absences in 30 days (via `StudentSupportService
+    .listAutoFlaggedStudents()`) — see `WORK_LOG.md` for full detail.
   - `_SubmissionBarChartCard`/`_StudentStatusDonutCard` (per-room % bar,
     132-student donut) — still fake. No aggregate RPC exists for either;
     would need new ones grouping `submissions`/`course_students` by

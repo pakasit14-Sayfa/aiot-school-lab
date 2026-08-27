@@ -94,4 +94,21 @@ class StudentSupportService {
         .map((r) => StudentSupportIntervention.fromRow(r as Map<String, dynamic>))
         .toList();
   }
+
+  /// Auto-computed list (overdue work / frequent absence / low grade
+  /// average) — not the manual case list above.
+  static Future<List<AutoFlaggedStudent>> listAutoFlaggedStudents() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'list_students_needing_attention',
+              params: {'p_token': token},
+            )
+            as List;
+
+    return rows
+        .map((r) => AutoFlaggedStudent.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
 }

@@ -2586,8 +2586,46 @@ class _ReviewQueueCardState extends State<_ReviewQueueCard> {
   }
 }
 
-class _StudentsWatchCard extends StatelessWidget {
+class _StudentsWatchCard extends StatefulWidget {
   const _StudentsWatchCard();
+
+  @override
+  State<_StudentsWatchCard> createState() => _StudentsWatchCardState();
+}
+
+class _StudentsWatchCardState extends State<_StudentsWatchCard> {
+  List<_StudentWatch>? _students;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final flagged = await StudentSupportService.listAutoFlaggedStudents();
+      if (!mounted) return;
+      setState(() {
+        _students = flagged
+            .map(
+              (f) => _StudentWatch(
+                f.studentName,
+                f.detail,
+                f.actionLabel,
+                f.severity == 'urgent'
+                    ? TeacherPalette.red
+                    : TeacherPalette.orange,
+              ),
+            )
+            .toList();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดรายชื่อนักเรียนที่ต้องติดตามไม่สำเร็จ');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2598,13 +2636,37 @@ class _StudentsWatchCard extends StatelessWidget {
         children: [
           const _SectionTitle(
             title: 'นักเรียนที่ต้องติดตาม',
-            subtitle: 'ดูจากงานค้างและการเข้าเรียน',
+            subtitle: 'ดูจากงานค้าง การเข้าเรียน และคะแนน',
             icon: Icons.groups_3_rounded,
           ),
           const SizedBox(height: 14),
-          ...TeacherMock.students.map(
-            (student) => _StudentWatchTile(student: student),
-          ),
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else if (_students == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (_students!.isEmpty)
+            const Text(
+              'ไม่มีนักเรียนที่ต้องติดตามตอนนี้',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            ..._students!.map(
+              (student) => _StudentWatchTile(student: student),
+            ),
         ],
       ),
     );
