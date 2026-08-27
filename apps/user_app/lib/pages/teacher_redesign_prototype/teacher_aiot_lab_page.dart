@@ -52,6 +52,8 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
   List<AiotLabDeviceItem> _devices = [];
   List<AiotCommandHistoryItem> _history = [];
   List<Map<String, dynamic>> _sensorReadings = [];
+  List<WiringGroupItem> _wiringGroups = [];
+  bool _loadingGroups = false;
 
   final Map<String, _DeviceStatus> _pendingStatusOverrides = {};
 
@@ -59,6 +61,27 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
   void initState() {
     super.initState();
     _loadLabData();
+  }
+
+  List<String> get _courseIds =>
+      _devices.map((d) => d.courseId).toSet().toList();
+
+  Future<void> _loadWiringGroups() async {
+    setState(() => _loadingGroups = true);
+    try {
+      final groups = <WiringGroupItem>[];
+      for (final courseId in _courseIds) {
+        groups.addAll(await WiringGroupService.listWiringGroups(courseId));
+      }
+      if (!mounted) return;
+      setState(() {
+        _wiringGroups = groups;
+        _loadingGroups = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingGroups = false);
+    }
   }
 
   Future<void> _loadLabData() async {
@@ -76,6 +99,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
           _isLoading = false;
         });
       }
+      await _loadWiringGroups();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -151,6 +175,163 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
     }
   }
 
+  Future<void> _openCreateGroupDialog() async {
+    final kitCodes = _devices
+        .map((d) => d.kitCode)
+        .whereType<String>()
+        .toSet()
+        .toList();
+    if (kitCodes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีชุดฝึกที่กำหนดรหัสไว้')),
+      );
+      return;
+    }
+
+    final result = await showDialog<({String kitCode, String name})>(
+      context: context,
+      builder: (dialogContext) => _CreateWiringGroupDialog(kitCodes: kitCodes),
+    );
+    if (result == null || !mounted) return;
+
+    final device = _devices.firstWhere((d) => d.kitCode == result.kitCode);
+    try {
+      await WiringGroupService.createWiringGroup(
+        courseId: device.courseId,
+        kitCode: result.kitCode,
+        name: result.name,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('สร้างกลุ่มต่อสายแล้ว')));
+      await _loadWiringGroups();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _changeGroupStatus(WiringGroupItem group, String status) async {
+    try {
+      await WiringGroupService.setWiringGroupStatus(
+        groupId: group.groupId,
+        status: status,
+      );
+      await _loadWiringGroups();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปลี่ยนสถานะไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _deleteGroup(WiringGroupItem group) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ลบกลุ่มต่อสาย'),
+        content: Text('ต้องการลบ "${group.name}" ใช่หรือไม่'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: TeacherPalette.red,
+            ),
+            child: const Text('ลบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await WiringGroupService.deleteWiringGroup(group.groupId);
+      await _loadWiringGroups();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ลบไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _openMembersSheet(WiringGroupItem group) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) =>
+          _WiringGroupMembersSheet(group: group, courseId: group.courseId),
+    );
+    await _loadWiringGroups();
+  }
+
+  Widget _buildWiringGroupsSection() {
+    return _SectionCard(
+      title: 'กลุ่มต่อสาย (Wiring Groups)',
+      icon: Icons.groups_2_rounded,
+      trailing: TextButton.icon(
+        onPressed: _openCreateGroupDialog,
+        icon: const Icon(Icons.add_rounded, size: 16),
+        label: const Text('สร้างกลุ่ม'),
+        style: TextButton.styleFrom(foregroundColor: TeacherPalette.primary),
+      ),
+      child: _loadingGroups
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          : _wiringGroups.isEmpty
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              child: const Column(
+                children: [
+                  Icon(
+                    Icons.cable_rounded,
+                    size: 36,
+                    color: TeacherPalette.muted,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'ยังไม่มีกลุ่มต่อสาย — สร้างกลุ่มแรกของคุณ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: TeacherPalette.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                for (var i = 0; i < _wiringGroups.length; i++) ...[
+                  _WiringGroupCard(
+                    group: _wiringGroups[i],
+                    onStatusChange: (status) =>
+                        _changeGroupStatus(_wiringGroups[i], status),
+                    onManageMembers: () =>
+                        _openMembersSheet(_wiringGroups[i]),
+                    onDelete: () => _deleteGroup(_wiringGroups[i]),
+                  ),
+                  if (i != _wiringGroups.length - 1)
+                    const SizedBox(height: 10),
+                ],
+              ],
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
@@ -174,6 +355,8 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
             _buildSensorSection(isDesktop),
             const SizedBox(height: 16),
             _buildControlSection(isDesktop),
+            const SizedBox(height: 16),
+            _buildWiringGroupsSection(),
             const SizedBox(height: 16),
             _buildHistorySection(),
           ],
@@ -820,6 +1003,396 @@ class _HistoryRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// สถานะกลุ่มต่อสาย ต้องตรงกับ state machine ฝั่ง SQL ใน
+// set_wiring_group_status ทุกประการ (ไม่งั้นปุ่มที่โชว์ในนี้จะเสนอ
+// การเปลี่ยนสถานะที่ server จะปฏิเสธ):
+// wiring -> passed|failed, failed -> wiring|passed,
+// passed -> running|wiring|failed, running -> wiring
+const Map<String, List<String>> _wiringLegalTransitions = {
+  'wiring': ['passed', 'failed'],
+  'failed': ['wiring', 'passed'],
+  'passed': ['running', 'wiring', 'failed'],
+  'running': ['wiring'],
+};
+
+const Map<String, String> _wiringStatusLabel = {
+  'wiring': 'กำลังต่อสาย',
+  'passed': 'ผ่านการตรวจ',
+  'failed': 'ต้องตรวจสอบ',
+  'running': 'กำลังรันระบบจริง',
+};
+
+const Map<String, Color> _wiringStatusColor = {
+  'wiring': TeacherPalette.skyMid,
+  'passed': TeacherPalette.green,
+  'failed': TeacherPalette.red,
+  'running': TeacherPalette.primary,
+};
+
+class _WiringGroupCard extends StatelessWidget {
+  const _WiringGroupCard({
+    required this.group,
+    required this.onStatusChange,
+    required this.onManageMembers,
+    required this.onDelete,
+  });
+
+  final WiringGroupItem group;
+  final ValueChanged<String> onStatusChange;
+  final VoidCallback onManageMembers;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _wiringStatusColor[group.status] ?? TeacherPalette.muted;
+    final legalNext = _wiringLegalTransitions[group.status] ?? const [];
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.name,
+                      style: const TextStyle(
+                        color: TeacherPalette.ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'ชุดฝึก ${group.kitCode} · ${group.kitOnlineCount}/${group.kitDeviceCount} ออนไลน์',
+                      style: const TextStyle(
+                        color: TeacherPalette.muted,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  _wiringStatusLabel[group.status] ?? group.status,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                color: TeacherPalette.muted,
+                tooltip: 'ลบกลุ่ม',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: onManageMembers,
+            borderRadius: BorderRadius.circular(12),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final m in group.members)
+                  Chip(
+                    label: Text(
+                      m.studentName,
+                      style: const TextStyle(fontSize: 11.5),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: TeacherPalette.skyLight,
+                  ),
+                ActionChip(
+                  label: const Text(
+                    'จัดการสมาชิก',
+                    style: TextStyle(fontSize: 11.5),
+                  ),
+                  avatar: const Icon(Icons.person_add_alt_1_rounded, size: 14),
+                  onPressed: onManageMembers,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+          if (legalNext.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              children: [
+                for (final next in legalNext)
+                  OutlinedButton(
+                    onPressed: () => onStatusChange(next),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _wiringStatusColor[next],
+                      side: BorderSide(
+                        color:
+                            (_wiringStatusColor[next] ?? TeacherPalette.muted)
+                                .withValues(alpha: 0.5),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                    ),
+                    child: Text(
+                      'เปลี่ยนเป็น ${_wiringStatusLabel[next]}',
+                      style: const TextStyle(fontSize: 11.5),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (group.inspectionNote != null &&
+              group.inspectionNote!.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'บันทึกการตรวจ: ${group.inspectionNote}',
+              style: const TextStyle(
+                color: TeacherPalette.softText,
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateWiringGroupDialog extends StatefulWidget {
+  const _CreateWiringGroupDialog({required this.kitCodes});
+
+  final List<String> kitCodes;
+
+  @override
+  State<_CreateWiringGroupDialog> createState() =>
+      _CreateWiringGroupDialogState();
+}
+
+class _CreateWiringGroupDialogState extends State<_CreateWiringGroupDialog> {
+  String? _kitCode;
+  final _nameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _kitCode = widget.kitCodes.first;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      title: const Text(
+        'สร้างกลุ่มต่อสาย',
+        style: TextStyle(fontWeight: FontWeight.w900, color: TeacherPalette.ink),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonFormField<String>(
+            value: _kitCode,
+            decoration: const InputDecoration(labelText: 'ชุดฝึก (kit)'),
+            items: widget.kitCodes
+                .map((k) => DropdownMenuItem(value: k, child: Text(k)))
+                .toList(),
+            onChanged: (v) => setState(() => _kitCode = v),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'ชื่อกลุ่ม'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('ยกเลิก'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final name = _nameController.text.trim();
+            if (_kitCode == null || name.isEmpty) return;
+            Navigator.pop(context, (kitCode: _kitCode!, name: name));
+          },
+          style: FilledButton.styleFrom(backgroundColor: TeacherPalette.primary),
+          child: const Text('สร้าง'),
+        ),
+      ],
+    );
+  }
+}
+
+class _WiringGroupMembersSheet extends StatefulWidget {
+  const _WiringGroupMembersSheet({required this.group, required this.courseId});
+
+  final WiringGroupItem group;
+  final String courseId;
+
+  @override
+  State<_WiringGroupMembersSheet> createState() =>
+      _WiringGroupMembersSheetState();
+}
+
+class _WiringGroupMembersSheetState extends State<_WiringGroupMembersSheet> {
+  List<CourseStudent>? _roster;
+  late Set<String> _memberIds;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _memberIds = widget.group.members.map((m) => m.studentId).toSet();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final roster = await CourseService.listCourseStudents(widget.courseId);
+      if (!mounted) return;
+      setState(() => _roster = roster);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _roster = []);
+    }
+  }
+
+  Future<void> _toggle(String studentId, bool isMember) async {
+    setState(() => _busy = true);
+    try {
+      if (isMember) {
+        await WiringGroupService.removeWiringGroupMember(
+          groupId: widget.group.groupId,
+          studentId: studentId,
+        );
+        _memberIds.remove(studentId);
+      } else {
+        await WiringGroupService.addWiringGroupMember(
+          groupId: widget.group.groupId,
+          studentId: studentId,
+        );
+        _memberIds.add(studentId);
+      }
+    } catch (_) {
+      // เงียบไว้ — สถานะจริงจะซิงก์กลับตอนโหลดใหม่หลังปิดชีต
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roster = _roster;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: TeacherPalette.border,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          Text(
+            'สมาชิกกลุ่ม "${widget.group.name}"',
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 15.5,
+              color: TeacherPalette.ink,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (roster == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(20),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (roster.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'ยังไม่มีนักเรียนลงทะเบียนในวิชานี้',
+                style: TextStyle(color: TeacherPalette.muted),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: roster.length,
+                itemBuilder: (context, index) {
+                  final student = roster[index];
+                  final isMember = _memberIds.contains(student.studentId);
+                  return CheckboxListTile(
+                    value: isMember,
+                    onChanged: _busy
+                        ? null
+                        : (_) => _toggle(student.studentId, isMember),
+                    title: Text('${student.firstName} ${student.lastName}'),
+                    activeColor: TeacherPalette.primary,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
