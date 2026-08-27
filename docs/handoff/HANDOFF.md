@@ -507,14 +507,13 @@ see `docs/handoff/WORK_LOG.md`.)*
     section) and computed client-side (`submitted / (assignments ×
     enrolled)` per course). Donut reuses `list_students_needing_attention`
     (no new RPC) to split the roster into ปกติ/ต้องติดตาม/ขาดส่งงานบ่อย.
-  - `_SmartWiringLabCard` ("AIoT Smart Wiring Lab วันนี้" — kit-ready
-    count, Pico 2 online count, per-group wiring/inspection status) —
-    still fake, and the biggest gap: no table anywhere models a "wiring
-    group" or per-group inspection state. `teacher_aiot_lab_page.dart`'s
-    real backend (`list_teaching_kit_devices` etc., via
-    `aiot_lab_service.dart`) is per-device control, not group-based
-    tracking — would need new tables + RPCs from scratch, not just wiring
-    an existing endpoint.
+  - `_SmartWiringLabCard` — **fixed 2026-08-28**. User chose the full
+    option (real group + inspection workflow, not a scaled-down
+    device-only version). New `wiring_groups`/`wiring_group_members`
+    tables + `WiringGroupService`, a 4-state machine enforced in
+    `set_wiring_group_status`, and a new "กลุ่มต่อสาย" management section
+    in `teacher_aiot_lab_page.dart` — see `WORK_LOG.md` for full detail.
+    This closes all 6 items of the teacher-dashboard fake-data audit.
   - Top KPI row + `_TeacherHero` banner — **fixed 2026-08-28**. Both reuse
     2 shared helpers (`_fetchPendingReviewTotal`/`_fetchFlaggedStudentTotal`)
     for the numbers items 2/3 already made real; the 4th KPI tile

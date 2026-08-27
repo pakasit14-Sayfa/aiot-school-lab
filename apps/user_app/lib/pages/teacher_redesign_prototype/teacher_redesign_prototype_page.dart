@@ -3417,11 +3417,43 @@ class _UtilityAndAiotSensorRow extends StatelessWidget {
 /// หลักของครูในโครงการนี้ ส่วนข้อมูลรายกลุ่มและการควบคุมอุปกรณ์อยู่ใน
 /// TeacherAiotLabPage เพื่อไม่ให้ Dashboard กลายเป็นหน้าจัดการรายละเอียด
 /// ทั้งหมดในหน้าเดียว
-class _SmartWiringLabCard extends StatelessWidget {
+class _SmartWiringLabCard extends StatefulWidget {
   const _SmartWiringLabCard();
 
   @override
+  State<_SmartWiringLabCard> createState() => _SmartWiringLabCardState();
+}
+
+class _SmartWiringLabCardState extends State<_SmartWiringLabCard> {
+  WiringLabSummary? _summary;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final summary = await WiringGroupService.getWiringLabSummary();
+      if (!mounted) return;
+      setState(() => _summary = summary);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดข้อมูลชุดฝึก AIoT ไม่สำเร็จ');
+    }
+  }
+
+  String _deviceStatusLabel(String? status) => switch (status) {
+    'error' => 'ขัดข้อง',
+    'offline' => 'ไม่ตอบสนอง',
+    _ => 'ไม่มีสัญญาณล่าสุด',
+  };
+
+  @override
   Widget build(BuildContext context) {
+    final summary = _summary;
     return _GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -3443,22 +3475,24 @@ class _SmartWiringLabCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'AIoT Smart Wiring Lab วันนี้',
+                    const Text(
+                      'AIoT Smart Wiring Lab',
                       style: TextStyle(
                         color: TeacherPalette.ink,
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    SizedBox(height: 3),
+                    const SizedBox(height: 3),
                     Text(
-                      'AIOT-501 · ม.5/2 · คาบ 10:30 น. · ชุดฝึก 6 ชุด',
-                      style: TextStyle(
+                      summary == null
+                          ? 'กำลังโหลด...'
+                          : 'ชุดฝึกทั้งหมด ${summary.kitsTotal} ชุด',
+                      style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
@@ -3467,78 +3501,104 @@ class _SmartWiringLabCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const _LabStatusChip(
-                label: 'กำลังใช้งาน',
-                icon: Icons.play_circle_rounded,
-                color: TeacherPalette.primary,
-              ),
             ],
           ),
           const SizedBox(height: 18),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 760
-                  ? 3
-                  : constraints.maxWidth >= 480
-                  ? 2
-                  : 1;
-              final itemWidth =
-                  (constraints.maxWidth - ((columns - 1) * 10)) / columns;
-              const metrics = [
-                _LabMetric(
-                  label: 'ชุดฝึกพร้อม',
-                  value: '5/6',
-                  icon: Icons.checklist_rounded,
-                  color: TeacherPalette.green,
-                ),
-                _LabMetric(
-                  label: 'Pico 2 ออนไลน์',
-                  value: '10/12',
-                  icon: Icons.memory_rounded,
-                  color: TeacherPalette.primary,
-                ),
-                _LabMetric(
-                  label: 'กำลังต่อสาย',
-                  value: '4 กลุ่ม',
-                  icon: Icons.cable_rounded,
-                  color: TeacherPalette.skyDeep,
-                ),
-                _LabMetric(
-                  label: 'ผ่านการตรวจ',
-                  value: '2 กลุ่ม',
-                  icon: Icons.verified_rounded,
-                  color: TeacherPalette.green,
-                ),
-                _LabMetric(
-                  label: 'รอเริ่มระบบจริง',
-                  value: '1 กลุ่ม',
-                  icon: Icons.pending_actions_rounded,
-                  color: TeacherPalette.orange,
-                ),
-                _LabMetric(
-                  label: 'ต้องตรวจสอบ',
-                  value: '1 รายการ',
-                  icon: Icons.error_outline_rounded,
-                  color: TeacherPalette.red,
-                ),
-              ];
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else if (summary == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (summary.kitsTotal == 0)
+            const Text(
+              'ยังไม่มีชุดฝึก AIoT ที่ผูกกับวิชาที่คุณสอน',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else ...[
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = constraints.maxWidth >= 760
+                    ? 3
+                    : constraints.maxWidth >= 480
+                    ? 2
+                    : 1;
+                final itemWidth =
+                    (constraints.maxWidth - ((columns - 1) * 10)) / columns;
+                final metrics = [
+                  _LabMetric(
+                    label: 'ชุดฝึกพร้อม',
+                    value: '${summary.kitsReady}/${summary.kitsTotal}',
+                    icon: Icons.checklist_rounded,
+                    color: TeacherPalette.green,
+                  ),
+                  _LabMetric(
+                    label: 'อุปกรณ์ออนไลน์',
+                    value: '${summary.devicesOnline}/${summary.devicesTotal}',
+                    icon: Icons.memory_rounded,
+                    color: TeacherPalette.primary,
+                  ),
+                  _LabMetric(
+                    label: 'กำลังต่อสาย',
+                    value: '${summary.wiringCount} กลุ่ม',
+                    icon: Icons.cable_rounded,
+                    color: TeacherPalette.skyDeep,
+                  ),
+                  _LabMetric(
+                    label: 'ผ่านการตรวจ',
+                    value: '${summary.passedCount} กลุ่ม',
+                    icon: Icons.verified_rounded,
+                    color: TeacherPalette.green,
+                  ),
+                  _LabMetric(
+                    label: 'รอเริ่มระบบจริง',
+                    value: '${summary.waitingToRunCount} กลุ่ม',
+                    icon: Icons.pending_actions_rounded,
+                    color: TeacherPalette.orange,
+                  ),
+                  _LabMetric(
+                    label: 'ต้องตรวจสอบ',
+                    value: '${summary.needsReviewCount} รายการ',
+                    icon: Icons.error_outline_rounded,
+                    color: TeacherPalette.red,
+                  ),
+                ];
 
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: metrics
-                    .map(
-                      (metric) => SizedBox(
-                        width: itemWidth,
-                        child: _LabMetricTile(metric: metric),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          const _LabDeviceNotice(),
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: metrics
+                      .map(
+                        (metric) => SizedBox(
+                          width: itemWidth,
+                          child: _LabMetricTile(metric: metric),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+            if (summary.alertKitCode != null) ...[
+              const SizedBox(height: 14),
+              _LabDeviceNotice(
+                text:
+                    'ชุดฝึก ${summary.alertKitCode}: ${summary.alertDeviceName} '
+                    '${_deviceStatusLabel(summary.alertDeviceStatus)} ต้องตรวจสาย USB ก่อนเริ่มคาบ',
+              ),
+            ],
+          ],
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,
@@ -3633,46 +3693,10 @@ class _LabMetricTile extends StatelessWidget {
   }
 }
 
-class _LabStatusChip extends StatelessWidget {
-  const _LabStatusChip({
-    required this.label,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LabDeviceNotice extends StatelessWidget {
-  const _LabDeviceNotice();
+  const _LabDeviceNotice({required this.text});
+
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -3684,18 +3708,18 @@ class _LabDeviceNotice extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: TeacherPalette.red.withValues(alpha: 0.2)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.portable_wifi_off_rounded,
             size: 18,
             color: TeacherPalette.red,
           ),
-          SizedBox(width: 9),
+          const SizedBox(width: 9),
           Expanded(
             child: Text(
-              'ชุดฝึก 06: Pico 2 ไม่ตอบสนอง ต้องตรวจสาย USB ก่อนเริ่มคาบ',
-              style: TextStyle(
+              text,
+              style: const TextStyle(
                 color: TeacherPalette.ink,
                 fontSize: 12.5,
                 fontWeight: FontWeight.w800,

@@ -1403,6 +1403,51 @@ Foreign keys:
 - `group_id` → `student_groups.id`
 - `student_id` → `users.id`
 
+## wiring_groups
+
+Added 2026-08-28 (`20260828010000_wiring_groups_system.sql`) — real
+group-of-students-per-kit tracking with a pass/fail inspection workflow
+for the AIoT Smart Wiring Lab, previously 100% hardcoded on the teacher
+dashboard. Deliberately not built on `student_groups` (see that table's
+note) — different entity, different lifecycle.
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| course_id | uuid | NO |  |
+| kit_code | varchar | NO |  |
+| name | varchar | NO |  |
+| status | text | NO | 'wiring'::text (check: wiring/passed/failed/running) |
+| inspection_note | text | YES |  |
+| inspected_by | uuid | YES |  |
+| inspected_at | timestamptz | YES |  |
+| created_by | uuid | NO |  |
+| created_at | timestamptz | NO | now() |
+| updated_at | timestamptz | NO | now() |
+
+`kit_code` matches `devices.kit_code` but is not FK'd (not unique on
+`devices` — a kit is N device rows sharing a code).
+
+Foreign keys:
+- `course_id` → `courses.id`
+- `inspected_by` → `users.id`
+- `created_by` → `users.id`
+
+## wiring_group_members
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| group_id | uuid | NO |  |
+| student_id | uuid | NO |  |
+| added_at | timestamptz | NO | now() |
+
+Unique: `(group_id, student_id)`.
+
+Foreign keys:
+- `group_id` → `wiring_groups.id` (ON DELETE CASCADE)
+- `student_id` → `users.id`
+
 ## terminal_pairing_sessions
 
 | column | type | nullable | default |
@@ -1844,7 +1889,21 @@ Foreign keys:
 
 ### `list_teaching_kit_command_history(p_token text, p_limit integer)` → `TABLE(command_id uuid, device_id uuid, device_name character varying, command jsonb, created_by_name text, created_at timestamp with time zone, delivered_at timestamp with time zone)` (SECURITY DEFINER)
 
-### `list_teaching_kit_devices(p_token text)` → `TABLE(device_id uuid, name character varying, type device_type, location character varying, status device_status, course_id uuid, course_name character varying)` (SECURITY DEFINER)
+### `list_teaching_kit_devices(p_token text)` → `TABLE(device_id uuid, name character varying, type device_type, location character varying, status device_status, course_id uuid, course_name character varying, kit_code character varying)` (SECURITY DEFINER) — `kit_code` added 2026-08-28 (DROP+CREATE, `20260828010000_wiring_groups_system.sql`)
+
+### `list_wiring_groups(p_token text, p_course_id uuid)` → `TABLE(group_id uuid, course_id uuid, kit_code varchar, name varchar, status text, inspection_note text, inspected_by_name text, inspected_at timestamptz, created_at timestamptz, member_count bigint, members jsonb, kit_device_count bigint, kit_online_count bigint)` (SECURITY DEFINER) — teacher/school_admin; added 2026-08-28.
+
+### `create_wiring_group(p_token text, p_course_id uuid, p_kit_code text, p_name text)` → `uuid` (SECURITY DEFINER) — added 2026-08-28.
+
+### `delete_wiring_group(p_token text, p_group_id uuid)` → `void` (SECURITY DEFINER) — added 2026-08-28.
+
+### `add_wiring_group_member(p_token text, p_group_id uuid, p_student_id uuid)` → `void` (SECURITY DEFINER) — checks real `course_students` enrollment; added 2026-08-28.
+
+### `remove_wiring_group_member(p_token text, p_group_id uuid, p_student_id uuid)` → `void` (SECURITY DEFINER) — added 2026-08-28.
+
+### `set_wiring_group_status(p_token text, p_group_id uuid, p_status text, p_note text default null)` → `void` (SECURITY DEFINER) — enforces the wiring→passed|failed, failed→wiring|passed, passed→running|wiring|failed, running→wiring state machine server-side; added 2026-08-28.
+
+### `get_wiring_lab_summary(p_token text)` → `TABLE(kits_total int, kits_ready int, devices_total int, devices_online int, wiring_count int, passed_count int, waiting_to_run_count int, needs_review_count int, alert_kit_code varchar, alert_device_name varchar, alert_device_status device_status, alert_last_seen_at timestamptz)` (SECURITY DEFINER) — teacher-only, aggregates across all courses the teacher teaches; added 2026-08-28.
 
 ### `list_terms(p_token text)` → `TABLE(term_id uuid, term_name character varying, academic_year_name character varying, start_date date, end_date date)` (SECURITY DEFINER)
 
