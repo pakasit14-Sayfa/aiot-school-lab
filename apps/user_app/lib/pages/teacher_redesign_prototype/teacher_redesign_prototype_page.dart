@@ -2364,26 +2364,36 @@ class _TodayFocusCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          _SectionTitle(
+        children: [
+          const _SectionTitle(
             title: 'โฟกัสวันนี้',
             subtitle: 'สิ่งที่ควรทำก่อนเริ่มคาบ',
             icon: Icons.flag_rounded,
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           _FocusRow(
+            label: 'เช็คชื่อนักเรียน',
+            value: '',
+            color: TeacherPalette.violet,
+            icon: Icons.checklist_rounded,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const TeacherAttendancePage()),
+            ),
+          ),
+          const _FocusRow(
             label: 'ตรวจใบงาน PM2.5',
             value: '18 ชิ้น',
             color: TeacherPalette.orange,
             icon: Icons.assignment_rounded,
           ),
-          _FocusRow(
+          const _FocusRow(
             label: 'นักเรียนไม่ส่งงาน',
             value: '3 คน',
             color: TeacherPalette.red,
             icon: Icons.person_search_rounded,
           ),
-          _FocusRow(
+          const _FocusRow(
             label: 'คาบถัดไป',
             value: '10:30',
             color: TeacherPalette.blue,
@@ -4160,40 +4170,55 @@ class _FocusRow extends StatelessWidget {
     required this.value,
     required this.color,
     required this.icon,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          _SoftIcon(
-            icon: icon,
-            color: color,
-            background: color.withValues(alpha: 0.11),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: TeacherPalette.ink,
-                fontWeight: FontWeight.w800,
-              ),
+    final row = Row(
+      children: [
+        _SoftIcon(
+          icon: icon,
+          color: color,
+          background: color.withValues(alpha: 0.11),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: TeacherPalette.ink,
+              fontWeight: FontWeight.w800,
             ),
           ),
+        ),
+        if (value.isNotEmpty)
           Text(
             value,
             style: TextStyle(color: color, fontWeight: FontWeight.w900),
           ),
+        if (onTap != null) ...[
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right_rounded, color: color, size: 20),
         ],
-      ),
+      ],
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: onTap == null
+          ? row
+          : InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(10),
+              child: row,
+            ),
     );
   }
 }
