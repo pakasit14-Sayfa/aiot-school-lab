@@ -168,18 +168,34 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
     }
   }
 
-  void _markAllAsRead() {
-    setState(() {
-      for (final n in _notifications) {
-        n.isRead = true;
+  Future<void> _markAllAsRead() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final unread = _notifications.where((n) => !n.isRead).toList();
+    if (unread.isEmpty) return;
+    try {
+      for (final n in unread) {
+        await NotificationService.markNotificationRead(n.id);
       }
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ทำรายการอ่านการแจ้งเตือนทั้งหมดเรียบร้อยแล้ว'),
-        backgroundColor: Color(0xFF10B981),
-      ),
-    );
+      if (!mounted) return;
+      setState(() {
+        for (final n in unread) {
+          n.isRead = true;
+        }
+      });
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('ทำรายการอ่านการแจ้งเตือนทั้งหมดเรียบร้อยแล้ว'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('ทำรายการอ่านทั้งหมดไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    }
   }
 
   @override

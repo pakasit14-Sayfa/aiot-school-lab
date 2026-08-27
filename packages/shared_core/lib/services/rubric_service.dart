@@ -49,6 +49,32 @@ class RubricService {
     return row['rubric_id'] as String;
   }
 
+  /// Real update — creates/updates/drops criteria in place (see
+  /// update_rubric in supabase/migrations/
+  /// 20260826170000_teacher_close_course_update_rubric.sql). Pass each
+  /// criterion's real `id` (from [RubricCriterionModel.id]) to update it in
+  /// place; omit `id` for a new criterion. Criteria left out of [criteria]
+  /// are dropped unless they have real grade scores recorded against them.
+  static Future<void> updateRubric({
+    required String rubricId,
+    required String title,
+    String? description,
+    List<Map<String, dynamic>>? criteria,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'update_rubric',
+      params: {
+        'p_token': token,
+        'p_rubric_id': rubricId,
+        'p_title': title,
+        'p_description': description,
+        'p_criteria': criteria ?? [],
+      },
+    );
+  }
+
   static Future<String> addRubricCriterion({
     required String rubricId,
     required String name,

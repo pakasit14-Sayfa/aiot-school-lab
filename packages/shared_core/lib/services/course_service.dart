@@ -81,6 +81,15 @@ class CourseService {
     );
   }
 
+  /// Real course close (see close_course in
+  /// supabase/migrations/20260826170000_teacher_close_course_update_rubric.sql)
+  static Future<void> closeCourse(String courseId) async {
+    await supabase.rpc(
+      'close_course',
+      params: {'p_token': AuthService.sessionToken, 'p_course_id': courseId},
+    );
+  }
+
   static Future<List<CourseSummary>> listMyCourses() async {
     final rows =
         await supabase.rpc(
@@ -168,5 +177,31 @@ class CourseService {
     return rows
         .map((row) => StudentLookup.fromRow(row as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Returns the course's real join code, generating and persisting one on
+  /// first call if it doesn't have one yet.
+  static Future<String> getOrCreateJoinCode(String courseId) async {
+    return await supabase.rpc(
+          'get_or_create_course_join_code',
+          params: {
+            'p_token': AuthService.sessionToken,
+            'p_course_id': courseId,
+          },
+        )
+        as String;
+  }
+
+  /// Generates a new random join code for the course, invalidating the
+  /// previous one.
+  static Future<String> regenerateJoinCode(String courseId) async {
+    return await supabase.rpc(
+          'regenerate_course_join_code',
+          params: {
+            'p_token': AuthService.sessionToken,
+            'p_course_id': courseId,
+          },
+        )
+        as String;
   }
 }

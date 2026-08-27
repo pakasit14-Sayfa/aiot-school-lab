@@ -63,6 +63,7 @@ class TeacherGradingPage extends StatefulWidget {
 
 class _TeacherGradingPageState extends State<TeacherGradingPage> {
   final List<_GradingItemMock> _items = [];
+  List<CourseSummary> _courses = [];
   bool _loading = true;
   String? _loadError;
   String _gradeFilter = _allFilter;
@@ -146,6 +147,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
         _items
           ..clear()
           ..addAll(items);
+        _courses = courses;
         _loading = false;
       });
     } catch (e) {
@@ -182,21 +184,30 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
   }
 
   Future<void> _openCreateWorksheetSheet() async {
-    final result = await showModalBottomSheet<_GradingItemMock>(
+    if (_courses.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ยังไม่มีรายวิชาที่สอนอยู่ ไม่สามารถสร้างใบงานได้'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final created = await showModalBottomSheet<_CreatedWorksheetResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _CreateWorksheetSheet(),
+      builder: (context) => _CreateWorksheetSheet(courses: _courses),
     );
-    if (result == null) return;
-    setState(() => _items.insert(0, result));
+    if (created == null) return;
+    await _loadRealAssignments();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result.isPublished
-              ? 'สร้างและเผยแพร่ใบงาน "${result.title}" แล้ว (mock)'
-              : 'บันทึกใบงาน "${result.title}" เป็นร่างแล้ว (mock)',
+          created.isPublished
+              ? 'สร้างและเผยแพร่ใบงาน "${created.title}" แล้ว'
+              : 'บันทึกใบงาน "${created.title}" เป็นร่างแล้ว',
         ),
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
@@ -609,8 +620,19 @@ class _FilterDropdownPill extends StatelessWidget {
   }
 }
 
+class _CreatedWorksheetResult {
+  const _CreatedWorksheetResult({
+    required this.title,
+    required this.isPublished,
+  });
+  final String title;
+  final bool isPublished;
+}
+
 class _CreateWorksheetSheet extends StatefulWidget {
-  const _CreateWorksheetSheet();
+  const _CreateWorksheetSheet({required this.courses});
+
+  final List<CourseSummary> courses;
 
   @override
   State<_CreateWorksheetSheet> createState() => _CreateWorksheetSheetState();
@@ -619,33 +641,58 @@ class _CreateWorksheetSheet extends StatefulWidget {
 class _CreateWorksheetSheetState extends State<_CreateWorksheetSheet> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
-  final _courseCtrl = TextEditingController();
-  final _roomCtrl = TextEditingController();
+  CourseSummary? _selectedCourse;
   bool _isPublished = true;
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.courses.isNotEmpty) {
+      _selectedCourse = widget.courses.first;
+    }
+  }
 
   @override
   void dispose() {
     _titleCtrl.dispose();
-    _courseCtrl.dispose();
-    _roomCtrl.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.pop(
-      context,
-      _GradingItemMock(
+    final course = _selectedCourse;
+    if (course == null) return;
+
+    setState(() => _submitting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final assignmentId = await AssignmentService.createAssignment(
+        courseId: course.id,
+        type: 'worksheet',
         title: _titleCtrl.text.trim(),
-        course: _courseCtrl.text.trim(),
-        room: _roomCtrl.text.trim(),
-        submitted: 0,
-        total: 0,
-        deadline: _isPublished ? 'เพิ่งเผยแพร่' : 'ยังไม่เผยแพร่',
-        bucket: _GradingBucket.normal,
-        isPublished: _isPublished,
-      ),
-    );
+      );
+      if (_isPublished) {
+        await AssignmentService.publishAssignment(assignmentId);
+      }
+      if (!mounted) return;
+      Navigator.pop(
+        context,
+        _CreatedWorksheetResult(
+          title: _titleCtrl.text.trim(),
+          isPublished: _isPublished,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('สร้างใบงานไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
   }
 
   @override
@@ -693,16 +740,47 @@ class _CreateWorksheetSheetState extends State<_CreateWorksheetSheet> {
                   hint: 'เช่น ใบงาน: วัดค่าฝุ่น PM2.5',
                 ),
                 const SizedBox(height: 12),
-                _FormField(
-                  controller: _courseCtrl,
-                  label: 'รหัสวิชา',
-                  hint: 'เช่น AIOT-501',
+                const Text(
+                  'รายวิชา',
+                  style: TextStyle(
+                    color: TeacherPalette.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _FormField(
-                  controller: _roomCtrl,
-                  label: 'ห้องเรียน',
-                  hint: 'เช่น ม.5/1',
+                const SizedBox(height: 6),
+                DropdownButtonFormField<CourseSummary>(
+                  value: _selectedCourse,
+                  validator: (v) => v == null ? 'เลือกรายวิชา' : null,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: TeacherPalette.border,
+                      ),
+                    ),
+                  ),
+                  items: widget.courses
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(
+                            [
+                              c.subjectName,
+                              if (c.room != null) c.room!,
+                            ].join(' · '),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (c) => setState(() => _selectedCourse = c),
                 ),
                 const SizedBox(height: 16),
                 const Text(
@@ -741,7 +819,7 @@ class _CreateWorksheetSheetState extends State<_CreateWorksheetSheet> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    onPressed: _submit,
+                    onPressed: _submitting ? null : _submit,
                     style: FilledButton.styleFrom(
                       backgroundColor: TeacherPalette.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -751,9 +829,16 @@ class _CreateWorksheetSheetState extends State<_CreateWorksheetSheet> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    child: Text(
-                      _isPublished ? 'สร้างและเผยแพร่' : 'บันทึกร่าง',
-                    ),
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(_isPublished ? 'สร้างและเผยแพร่' : 'บันทึกร่าง'),
                   ),
                 ),
               ],

@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
-import 'teacher_shared_widgets.dart' show TeacherMockPageShell, TeacherSearchInput;
+import 'teacher_shared_widgets.dart'
+    show TeacherMockPageShell, TeacherSearchInput;
 
 /// Model สำหรับระดับคะแนนในแต่ละเกณฑ์ (Rubric Level)
 class RubricLevel {
@@ -864,6 +865,10 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
     });
   }
 
+  static final _realIdPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
+
   Future<void> _handleSave() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -876,10 +881,13 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
       return;
     }
 
+    final isEdit = widget.rubric != null;
+
     try {
       final payloadCriteria = _criteria
           .map(
             (c) => {
+              if (isEdit && _realIdPattern.hasMatch(c.id)) 'id': c.id,
               'name': c.title,
               'description': '',
               'max_score': c.maxPoints,
@@ -896,11 +904,22 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
           )
           .toList();
 
-      final rubricId = await RubricService.createRubric(
-        title: title,
-        description: _descController.text.trim(),
-        criteria: payloadCriteria,
-      );
+      final String rubricId;
+      if (isEdit) {
+        rubricId = widget.rubric!.id;
+        await RubricService.updateRubric(
+          rubricId: rubricId,
+          title: title,
+          description: _descController.text.trim(),
+          criteria: payloadCriteria,
+        );
+      } else {
+        rubricId = await RubricService.createRubric(
+          title: title,
+          description: _descController.text.trim(),
+          criteria: payloadCriteria,
+        );
+      }
 
       final newRubric = RubricModel(
         id: rubricId,
@@ -921,7 +940,11 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('สร้าง Rubric ไม่สำเร็จ: $e'),
+            content: Text(
+              isEdit
+                  ? 'บันทึก Rubric ไม่สำเร็จ: $e'
+                  : 'สร้าง Rubric ไม่สำเร็จ: $e',
+            ),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );

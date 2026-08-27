@@ -13,6 +13,7 @@ class TeacherProfilePage extends StatefulWidget {
 
 class _TeacherProfilePageState extends State<TeacherProfilePage> {
   bool _isLoading = true;
+  bool _hasError = false;
   List<CourseSummary> _courses = [];
   int _totalStudents = 0;
   List<TermOption> _terms = [];
@@ -26,7 +27,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   }
 
   Future<void> _loadProfileData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
 
     try {
       if (AuthService.sessionToken != null) {
@@ -46,9 +50,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         if (courses.isNotEmpty) {
           final studentFutures = courses.map((c) async {
             try {
-              final students = await CourseService.listCourseStudents(
-                c.id,
-              );
+              final students = await CourseService.listCourseStudents(c.id);
               return students.length;
             } catch (_) {
               return 0;
@@ -77,7 +79,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
       }
     }
   }
@@ -108,16 +113,24 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: const Text('ยกเลิก', style: TextStyle(color: TeacherPalette.muted)),
+            child: const Text(
+              'ยกเลิก',
+              style: TextStyle(color: TeacherPalette.muted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: TeacherPalette.red,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () => Navigator.of(dialogCtx).pop(true),
-            child: const Text('ออกจากระบบ', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'ออกจากระบบ',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -128,7 +141,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         await AuthService.signOut();
       } catch (_) {}
       if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
       }
     }
   }
@@ -141,6 +156,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         return isDesktop
             ? _DesktopLayout(
                 isLoading: _isLoading,
+                hasError: _hasError,
                 courses: _courses,
                 totalStudents: _totalStudents,
                 terms: _terms,
@@ -151,6 +167,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               )
             : _MobileLayout(
                 isLoading: _isLoading,
+                hasError: _hasError,
                 courses: _courses,
                 totalStudents: _totalStudents,
                 terms: _terms,
@@ -167,6 +184,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 class _MobileLayout extends StatelessWidget {
   const _MobileLayout({
     required this.isLoading,
+    required this.hasError,
     required this.courses,
     required this.totalStudents,
     required this.terms,
@@ -177,6 +195,7 @@ class _MobileLayout extends StatelessWidget {
   });
 
   final bool isLoading;
+  final bool hasError;
   final List<CourseSummary> courses;
   final int totalStudents;
   final List<TermOption> terms;
@@ -194,10 +213,13 @@ class _MobileLayout extends StatelessWidget {
         const SizedBox(height: 14),
         _MetricGrid(
           isLoading: isLoading,
+          hasError: hasError,
           courseCount: courses.length,
           totalStudents: totalStudents,
           deviceCount: devices.length,
-          onlineDevices: devices.where((d) => d.status.toLowerCase() == 'online').length,
+          onlineDevices: devices
+              .where((d) => d.status.toLowerCase() == 'online')
+              .length,
         ),
         const SizedBox(height: 14),
         _AcademicSettingCard(
@@ -279,6 +301,7 @@ class _MobileLayout extends StatelessWidget {
 class _DesktopLayout extends StatelessWidget {
   const _DesktopLayout({
     required this.isLoading,
+    required this.hasError,
     required this.courses,
     required this.totalStudents,
     required this.terms,
@@ -289,6 +312,7 @@ class _DesktopLayout extends StatelessWidget {
   });
 
   final bool isLoading;
+  final bool hasError;
   final List<CourseSummary> courses;
   final int totalStudents;
   final List<TermOption> terms;
@@ -317,10 +341,13 @@ class _DesktopLayout extends StatelessWidget {
                 children: [
                   _MetricGrid(
                     isLoading: isLoading,
+                    hasError: hasError,
                     courseCount: courses.length,
                     totalStudents: totalStudents,
                     deviceCount: devices.length,
-                    onlineDevices: devices.where((d) => d.status.toLowerCase() == 'online').length,
+                    onlineDevices: devices
+                        .where((d) => d.status.toLowerCase() == 'online')
+                        .length,
                   ),
                   const SizedBox(height: 16),
                   _AiotHardwareCard(devices: devices),
@@ -607,6 +634,7 @@ class _IdentityCard extends StatelessWidget {
 class _MetricGrid extends StatelessWidget {
   const _MetricGrid({
     this.isLoading = false,
+    this.hasError = false,
     this.courseCount = 0,
     this.totalStudents = 0,
     this.deviceCount = 0,
@@ -614,6 +642,7 @@ class _MetricGrid extends StatelessWidget {
   });
 
   final bool isLoading;
+  final bool hasError;
   final int courseCount;
   final int totalStudents;
   final int deviceCount;
@@ -626,29 +655,31 @@ class _MetricGrid extends StatelessWidget {
         icon: Icons.menu_book_rounded,
         color: TeacherPalette.primary,
         label: 'วิชาที่สอน',
-        value: isLoading ? '...' : (courseCount > 0 ? '$courseCount วิชา' : '3 วิชา'),
-        caption: courseCount > 0 ? '$courseCount คอร์สในระบบ' : 'ห้องเรียนทั้งหมด',
+        value: isLoading ? '...' : '$courseCount วิชา',
+        caption: '$courseCount คอร์สในระบบ',
       ),
       (
         icon: Icons.groups_2_rounded,
         color: TeacherPalette.skyDeep,
         label: 'นักเรียนทั้งหมด',
-        value: isLoading ? '...' : (totalStudents > 0 ? '$totalStudents คน' : '132 คน'),
-        caption: totalStudents > 0 ? 'ลงทะเบียนในวิชา' : 'ที่รับผิดชอบ',
+        value: isLoading ? '...' : '$totalStudents คน',
+        caption: 'ลงทะเบียนในวิชา',
       ),
       (
         icon: Icons.developer_board_rounded,
         color: TeacherPalette.orange,
         label: 'อุปกรณ์ AIoT',
-        value: isLoading ? '...' : (deviceCount > 0 ? '$deviceCount ชิ้น' : '2 บอร์ด'),
-        caption: onlineDevices > 0 ? 'ออนไลน์ $onlineDevices ชุด' : 'พร้อมเชื่อมต่อ',
+        value: isLoading ? '...' : '$deviceCount ชิ้น',
+        caption: onlineDevices > 0
+            ? 'ออนไลน์ $onlineDevices ชุด'
+            : 'พร้อมเชื่อมต่อ',
       ),
       (
         icon: Icons.verified_user_rounded,
-        color: TeacherPalette.violet,
+        color: hasError ? TeacherPalette.red : TeacherPalette.violet,
         label: 'สถานะระบบ',
-        value: 'Online',
-        caption: 'ซิงก์ฐานข้อมูลสมบูรณ์',
+        value: isLoading ? '...' : (hasError ? 'Offline' : 'Online'),
+        caption: hasError ? 'ซิงก์ฐานข้อมูลล้มเหลว' : 'ซิงก์ฐานข้อมูลสมบูรณ์',
       ),
     ];
 
@@ -693,7 +724,8 @@ class _MetricCard extends StatelessWidget {
     String label,
     String value,
     String caption,
-  }) item;
+  })
+  item;
 
   @override
   Widget build(BuildContext context) {
@@ -851,9 +883,7 @@ class _MenuTile extends StatelessWidget {
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(
-                  danger ? 'ออกจากระบบ' : 'กำลังเปิด: $title',
-                ),
+                content: Text(danger ? 'ออกจากระบบ' : 'กำลังเปิด: $title'),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
               ),
@@ -1013,7 +1043,9 @@ class _AcademicDropdownTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentVal = selectedTermName ?? (terms.isNotEmpty ? terms.first.name : 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)');
+    final currentVal =
+        selectedTermName ??
+        (terms.isNotEmpty ? terms.first.name : 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)');
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1065,9 +1097,7 @@ class _AcademicDropdownTile extends StatelessWidget {
                         onTermChanged?.call(newValue);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'เปลี่ยนปีการศึกษาเป็น: $newValue',
-                            ),
+                            content: Text('เปลี่ยนปีการศึกษาเป็น: $newValue'),
                             behavior: SnackBarBehavior.floating,
                           ),
                         );
@@ -1119,7 +1149,9 @@ class _AiotHardwareCard extends StatelessWidget {
         children: [
           for (var i = 0; i < devices.length; i++) ...[
             _HardwareTile(
-              deviceName: devices[i].name.isNotEmpty ? devices[i].name : 'อุปกรณ์แล็บ AIoT #${i + 1}',
+              deviceName: devices[i].name.isNotEmpty
+                  ? devices[i].name
+                  : 'อุปกรณ์แล็บ AIoT #${i + 1}',
               status: devices[i].status.toUpperCase(),
               statusColor: devices[i].status.toLowerCase() == 'online'
                   ? TeacherPalette.green
