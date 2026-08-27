@@ -6,7 +6,11 @@ import 'student_redesign_palette.dart';
 /// เดิมหน้านี้โชว์ G-Score/GPA/แนวโน้มรายเดือน/แบดจ์ทั้งหมด — ตรวจสอบแล้วว่า
 /// ไม่มี backend รองรับเลยสักอย่าง (ไม่มี GScoreService, ไม่มีสเกล GPA,
 /// ไม่มีระบบเก็บ trend, ไม่มีระบบแบดจ์) เหลือแค่คะแนนรายวิชาจริงจาก
-/// GradeService เท่านั้นที่มีข้อมูลจริงรองรับ จึงตัดส่วนที่เหลือออกทั้งหมด
+/// GradeService เท่านั้นที่มีข้อมูลจริงรองรับ จึงตัดส่วนที่เหลือออกทั้งหมด.
+/// 2026-08-27: G-Score ได้ backend จริงแล้ว (GScoreService.listMyGScore,
+/// migration 20260823030000_g_score.sql) — เพิ่มการ์ดคะแนนสะสมกลับเข้ามา
+/// เฉพาะส่วนที่ครูยืนยันแล้วเท่านั้น (GPA/trend/badge ยังไม่มี backend จริง
+/// ไม่เพิ่มกลับ)
 class StudentScorePage extends StatefulWidget {
   const StudentScorePage({super.key});
 
@@ -18,6 +22,7 @@ class _StudentScorePageState extends State<StudentScorePage> {
   bool _loading = true;
   String? _error;
   List<CourseGrade> _grades = const [];
+  List<MyGScoreEntry> _gScoreEntries = const [];
 
   @override
   void initState() {
@@ -31,10 +36,14 @@ class _StudentScorePageState extends State<StudentScorePage> {
       _error = null;
     });
     try {
-      final grades = await GradeService.listMyGrades();
+      final results = await Future.wait([
+        GradeService.listMyGrades(),
+        GScoreService.listMyGScore(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _grades = grades;
+        _grades = results[0] as List<CourseGrade>;
+        _gScoreEntries = results[1] as List<MyGScoreEntry>;
         _loading = false;
       });
     } catch (e) {
@@ -105,6 +114,8 @@ class _StudentScorePageState extends State<StudentScorePage> {
                           avgPercent: avgPercent,
                           gradedCount: confirmed.length,
                         ),
+                        const SizedBox(height: 16),
+                        _GScoreCard(entries: _gScoreEntries, loading: _loading),
                         if (pending.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           _PendingGradesCard(grades: pending),
@@ -282,6 +293,130 @@ class _SummaryHeroCard extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GScoreCard extends StatelessWidget {
+  const _GScoreCard({required this.entries, required this.loading});
+
+  final List<MyGScoreEntry> entries;
+  final bool loading;
+
+  static String _sourceLabel(String source) {
+    switch (source) {
+      case 'lesson_completed':
+        return 'เรียนจบบทเรียน';
+      case 'assignment_on_time':
+        return 'ส่งงานตรงเวลา';
+      default:
+        return source;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFF59E0B);
+    final total = entries.fold<num>(0, (sum, e) => sum + e.points);
+    final recent = entries.take(5).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: SchoolPalette.glassBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.stars_rounded, size: 18, color: accent),
+              const SizedBox(width: 6),
+              const Text(
+                'G-Score สะสม',
+                style: TextStyle(
+                  color: SchoolPalette.navy,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                loading ? '...' : '$total คะแนน',
+                style: const TextStyle(
+                  color: accent,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'สะสมจากบทเรียนที่เรียนจบและงานที่ส่งตรงเวลา หลังครูยืนยันแล้ว',
+            style: TextStyle(
+              color: SchoolPalette.muted,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (recent.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'ยังไม่มีคะแนน G-Score ที่ครูยืนยัน',
+                style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
+              ),
+            )
+          else
+            for (var i = 0; i < recent.length; i++) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${recent[i].subjectName} · ${_sourceLabel(recent[i].source)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.navy,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '+${recent[i].points}',
+                      style: const TextStyle(
+                        color: accent,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (i != recent.length - 1)
+                const Divider(height: 14, color: Color(0xFFE8EEF3)),
+            ],
         ],
       ),
     );

@@ -193,10 +193,7 @@ class RealtimeService {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
     final rows =
-        await supabase.rpc(
-              'list_school_devices',
-              params: {'p_token': token},
-            )
+        await supabase.rpc('list_school_devices', params: {'p_token': token})
             as List;
     return rows
         .map((row) => DeviceOption.fromRow(row as Map<String, dynamic>))
@@ -205,6 +202,94 @@ class RealtimeService {
 
   static void enableOffline() {
     // Polling needs no offline setup; readings queue on the gateway side.
+  }
+
+  /// Which of the 4 "weather" metrics (pm25/temperature/humidity/
+  /// light_lux) actually have at least one real reading anywhere in the
+  /// caller's school. `SensorModel` defaults an absent metric to 0, which
+  /// is indistinguishable from a real 0 reading — callers that need to
+  /// show an honest "no data" per metric (not just "no data for this
+  /// device at all") should check this set rather than trusting a
+  /// non-null `SensorModel` alone.
+  static Future<Set<String>> getWeatherMetricsWithData() async {
+    final rows = await _fetchLatest();
+    return rows
+        .map((r) => r['metric'] as String?)
+        .whereType<String>()
+        .where(
+          (m) =>
+              m == 'pm25' ||
+              m == 'temperature' ||
+              m == 'humidity' ||
+              m == 'light_lux',
+        )
+        .toSet();
+  }
+
+  /// One-shot snapshot of every device's latest sensor readings, keyed by
+  /// device location (or name). A device with zero real readings simply
+  /// won't be a key in the returned map — callers should treat that as
+  /// "no data yet", not synthesize a fake zero.
+  static Future<Map<String, SensorModel>> getAllDeviceSensors() async {
+    return modelsByDevice(await _fetchLatest(), '');
+  }
+
+  /// Real threshold list for the caller's school (see
+  /// supabase/migrations/20260826160000_teacher_aiot_thresholds.sql).
+  static Future<List<Map<String, dynamic>>> listThresholds() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc('list_thresholds', params: {'p_token': token})
+            as List;
+    return rows.cast<Map<String, dynamic>>();
+  }
+
+  /// Real threshold upsert (create or update the school-wide threshold for
+  /// [metric]) — see set_threshold in the same migration.
+  static Future<void> setThreshold({
+    required String metric,
+    required double min,
+    required double max,
+    bool isActive = true,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'set_threshold',
+      params: {
+        'p_token': token,
+        'p_metric': metric,
+        'p_min': min,
+        'p_max': max,
+        'p_is_active': isActive,
+      },
+    );
+  }
+
+  /// Real alert list for the caller's school (teacher/school_admin/
+  /// super_admin — see list_school_alerts in the same migration).
+  static Future<List<Map<String, dynamic>>> listAlerts({String? status}) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'list_school_alerts',
+              params: {'p_token': token, 'p_status': status},
+            )
+            as List;
+    return rows.cast<Map<String, dynamic>>();
+  }
+
+  /// Real alert acknowledge (see acknowledge_sensor_alert_for_school_admin
+  /// in the same migration — despite the name, teacher is allowed too).
+  static Future<void> acknowledgeAlert(String alertId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    await supabase.rpc(
+      'acknowledge_sensor_alert_for_school_admin',
+      params: {'p_token': token, 'p_alert_id': alertId},
+    );
   }
 
   /// Reading history for one device/metric window (LRN-8: lessons embed a
