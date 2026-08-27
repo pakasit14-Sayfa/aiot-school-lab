@@ -1561,8 +1561,77 @@ class _TeacherTopBar extends StatelessWidget {
 // Reminder banner แบบเดียวกับ reference ("Have you had your routine
 // check-up?") — พื้นไล่สีฟ้าเข้มเต็มการ์ด แทนที่การ์ดกระจกขาวเดิม
 // เพื่อให้เป็นจุดสายตาแรกของแดชบอร์ดเหมือนภาพตัวอย่างที่ส่งมา
-class _TeacherHero extends StatelessWidget {
+/// สรุป 2 ตัวเลขที่ `_TeacherHero`/`_TeacherSummaryStrip` ใช้ร่วมกัน —
+/// เขียนแยกจาก `_ReviewQueueCard`/`_StudentsWatchCard` เพราะสองการ์ดนั้น
+/// ต้องการรายละเอียดรายชิ้น/รายคน ส่วนตรงนี้ต้องการแค่ยอดรวม ให้แต่ละ
+/// วิดเจ็ตดึงข้อมูลของตัวเองอิสระต่อกัน (ตามแพทเทิร์นเดิมของไฟล์นี้) แทนที่
+/// จะยกสเตทขึ้นมาไว้ที่ widget แม่ ซึ่งจะเปราะบางเพราะการ์ดเดียวกันถูกวาง
+/// ไว้หลายจุดสำหรับ breakpoint ต่าง ๆ
+Future<int> _fetchPendingReviewTotal() async {
+  final courses = (await CourseService.listMyCourses())
+      .where((c) => c.isActive)
+      .toList();
+  var pending = 0;
+  for (final course in courses) {
+    final assignments = (await AssignmentService.listAssignments(
+      course.id,
+    )).where((a) => a.status == 'published');
+    for (final assignment in assignments) {
+      final submissions = await AssignmentService.listSubmissions(
+        assignment.id,
+      );
+      pending += submissions.where((s) => s.status == 'submitted').length;
+    }
+  }
+  return pending;
+}
+
+Future<int> _fetchFlaggedStudentTotal() async {
+  return (await StudentSupportService.listAutoFlaggedStudents()).length;
+}
+
+class _TeacherHero extends StatefulWidget {
   const _TeacherHero();
+
+  @override
+  State<_TeacherHero> createState() => _TeacherHeroState();
+}
+
+class _TeacherHeroState extends State<_TeacherHero> {
+  int? _pending;
+  int? _flagged;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        _fetchPendingReviewTotal(),
+        _fetchFlaggedStudentTotal(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _pending = results[0];
+        _flagged = results[1];
+      });
+    } catch (_) {
+      // เงียบไว้ — banner แค่โชว์ข้อความโหลดค้างต่อ ไม่ใช่จุดหลักของหน้า
+    }
+  }
+
+  String get _bannerText {
+    if (_pending == null || _flagged == null) {
+      return 'กำลังโหลดข้อมูลวันนี้...';
+    }
+    if (_pending == 0 && _flagged == 0) {
+      return 'วันนี้ไม่มีงานค้างตรวจและไม่มีนักเรียนที่ต้องติดตาม';
+    }
+    return 'มีงานรอตรวจ $_pending ชิ้น และนักเรียน $_flagged คนที่ต้องติดตามวันนี้';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1614,9 +1683,9 @@ class _TeacherHero extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'มีงานรอตรวจ 18 ชิ้น และนักเรียน 3 คนที่ต้องติดตามวันนี้',
-                      style: TextStyle(
+                    Text(
+                      _bannerText,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -1844,11 +1913,113 @@ class _TeacherMobileDrawer extends StatelessWidget {
   }
 }
 
-class _TeacherSummaryStrip extends StatelessWidget {
+class _TeacherSummaryStrip extends StatefulWidget {
   const _TeacherSummaryStrip();
 
   @override
+  State<_TeacherSummaryStrip> createState() => _TeacherSummaryStripState();
+}
+
+class _TeacherSummaryStripState extends State<_TeacherSummaryStrip> {
+  List<_StatItem>? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        CalendarService.listTeacherSchedules(),
+        _fetchPendingReviewTotal(),
+        _fetchFlaggedStudentTotal(),
+        CourseService.listMyCourses(),
+      ]);
+      final schedules = results[0] as List<ClassScheduleSlot>;
+      final pending = results[1] as int;
+      final flagged = results[2] as int;
+      final courses = (results[3] as List<CourseSummary>)
+          .where((c) => c.isActive)
+          .length;
+      final todayIndex = DateTime.now().weekday - 1;
+      final todayCount = schedules
+          .where((s) => s.dayOfWeek == todayIndex)
+          .length;
+
+      if (!mounted) return;
+      setState(() {
+        _stats = [
+          _StatItem(
+            'คาบสอนวันนี้',
+            '$todayCount',
+            Icons.co_present_rounded,
+            TeacherPalette.blue,
+            const Color(0xFFF1EEF9),
+          ),
+          _StatItem(
+            'งานรอตรวจ',
+            '$pending',
+            Icons.fact_check_rounded,
+            TeacherPalette.orange,
+            const Color(0xFFFFF1E6),
+          ),
+          _StatItem(
+            'ต้องติดตาม',
+            '$flagged',
+            Icons.groups_3_rounded,
+            TeacherPalette.red,
+            const Color(0xFFFDE9E9),
+          ),
+          _StatItem(
+            'วิชาที่สอน',
+            '$courses',
+            Icons.menu_book_rounded,
+            TeacherPalette.green,
+            const Color(0xFFE8F6EF),
+          ),
+        ];
+      });
+    } catch (_) {
+      // เงียบไว้ — แถบนี้แสดง "-" ค้างต่อ ไม่ใช่จุดหลักของหน้า
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final stats =
+        _stats ??
+        const [
+          _StatItem(
+            'คาบสอนวันนี้',
+            '-',
+            Icons.co_present_rounded,
+            TeacherPalette.blue,
+            Color(0xFFF1EEF9),
+          ),
+          _StatItem(
+            'งานรอตรวจ',
+            '-',
+            Icons.fact_check_rounded,
+            TeacherPalette.orange,
+            Color(0xFFFFF1E6),
+          ),
+          _StatItem(
+            'ต้องติดตาม',
+            '-',
+            Icons.groups_3_rounded,
+            TeacherPalette.red,
+            Color(0xFFFDE9E9),
+          ),
+          _StatItem(
+            'วิชาที่สอน',
+            '-',
+            Icons.menu_book_rounded,
+            TeacherPalette.green,
+            Color(0xFFE8F6EF),
+          ),
+        ];
     return LayoutBuilder(
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 760;
@@ -1858,7 +2029,7 @@ class _TeacherSummaryStrip extends StatelessWidget {
         return Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: TeacherMock.stats
+          children: stats
               .map(
                 (item) => SizedBox(
                   width: itemWidth,

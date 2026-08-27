@@ -515,9 +515,16 @@ see `docs/handoff/WORK_LOG.md`.)*
     `aiot_lab_service.dart`) is per-device control, not group-based
     tracking — would need new tables + RPCs from scratch, not just wiring
     an existing endpoint.
-  - Top KPI row (คาบสอนวันนี้/งานรอตรวจ/ต้องติดตาม/ห้องปกติ) — still fake;
-    each number maps 1:1 to one of the items above, so it can only go real
-    once its source item does.
+  - Top KPI row + `_TeacherHero` banner — **fixed 2026-08-28**. Both reuse
+    2 shared helpers (`_fetchPendingReviewTotal`/`_fetchFlaggedStudentTotal`)
+    for the numbers items 2/3 already made real; the 4th KPI tile
+    ("ห้องปกติ", which had no real backing anywhere) was relabeled
+    "วิชาที่สอน" (real active-course count) rather than faked.
+  - **Known gap**: `TeacherMock.lessons`/`.reviewTasks` are still directly
+    referenced at ~3 other call sites in `teacher_redesign_prototype_page.dart`
+    (not the shared `_ScheduleCard`/`_ReviewQueueCard` widgets, which are
+    fixed) — likely other prototype breakpoint/variant layouts not reached
+    by the default route, not independently confirmed dead.
 - **`supabase_migrations.schema_migrations` tracking table doesn't match the
   files on disk** (53 tracked rows vs 61 files as of 2026-08-22). Several
   migrations this week were applied via `docker exec ... psql < file.sql`
