@@ -10,6 +10,7 @@ import 'package:shared_core/shared_core.dart';
 
 import 'teacher_aiot_dashboard_page.dart';
 import 'teacher_aiot_lab_page.dart';
+import 'teacher_attendance_page.dart';
 import 'teacher_courses_page.dart';
 import 'teacher_grades_page.dart';
 import 'teacher_grading_page.dart';
@@ -4896,6 +4897,7 @@ class TeacherMock {
     _MenuItem('คลังข้อสอบ', Icons.quiz_rounded),
     _MenuItem('คลังความรู้', Icons.folder_special_rounded),
     _MenuItem('นักเรียน', Icons.groups_2_rounded),
+    _MenuItem('เช็คชื่อ', Icons.checklist_rounded),
     _MenuItem('ตรวจงาน', Icons.assignment_turned_in_rounded),
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
     _MenuItem('ยืนยัน G-Score', Icons.verified_rounded),
@@ -5872,6 +5874,11 @@ void _openTeacherMenuItem(BuildContext context, String label) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherStudentsPage()),
+      );
+    case 'เช็คชื่อ':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherAttendancePage()),
       );
     case 'ตรวจงาน':
       Navigator.push(
