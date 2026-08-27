@@ -501,11 +501,12 @@ see `docs/handoff/WORK_LOG.md`.)*
     RPC flags students on ≥2 overdue assignments, avg confirmed grade
     < 50%, or ≥2 absences in 30 days (via `StudentSupportService
     .listAutoFlaggedStudents()`) — see `WORK_LOG.md` for full detail.
-  - `_SubmissionBarChartCard`/`_StudentStatusDonutCard` (per-room % bar,
-    132-student donut) — still fake. No aggregate RPC exists for either;
-    would need new ones grouping `submissions`/`course_students` by
-    `courses.room`, plus (for the donut) the same at-risk-classification
-    decision as the item above.
+  - `_SubmissionBarChartCard`/`_StudentStatusDonutCard` — **fixed
+    2026-08-28**. Bar chart renamed "สถานะส่งงานรายวิชา" (per-course, not
+    per-room — `courses.room` is a physical lab code, not a class
+    section) and computed client-side (`submitted / (assignments ×
+    enrolled)` per course). Donut reuses `list_students_needing_attention`
+    (no new RPC) to split the roster into ปกติ/ต้องติดตาม/ขาดส่งงานบ่อย.
   - `_SmartWiringLabCard` ("AIoT Smart Wiring Lab วันนี้" — kit-ready
     count, Pico 2 online count, per-group wiring/inspection status) —
     still fake, and the biggest gap: no table anywhere models a "wiring

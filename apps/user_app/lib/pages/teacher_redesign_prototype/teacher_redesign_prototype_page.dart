@@ -1122,19 +1122,65 @@ class _DashboardChartsRow extends StatelessWidget {
   }
 }
 
-class _SubmissionBarChartCard extends StatelessWidget {
+typedef _RoomBar = ({String label, double percent});
+
+class _SubmissionBarChartCard extends StatefulWidget {
   const _SubmissionBarChartCard();
 
   @override
-  Widget build(BuildContext context) {
-    const rooms = [
-      (label: 'ม.5/1', percent: 0.92),
-      (label: 'ม.5/2', percent: 0.78),
-      (label: 'ม.5/3', percent: 0.65),
-      (label: 'ม.6/1', percent: 0.88),
-      (label: 'ม.6/2', percent: 0.54),
-    ];
+  State<_SubmissionBarChartCard> createState() =>
+      _SubmissionBarChartCardState();
+}
 
+class _SubmissionBarChartCardState extends State<_SubmissionBarChartCard> {
+  List<_RoomBar>? _rooms;
+  String? _error;
+
+  Future<void> _load() async {
+    try {
+      final courses = (await CourseService.listMyCourses())
+          .where((c) => c.isActive)
+          .toList();
+      final rooms = <_RoomBar>[];
+      for (final course in courses) {
+        final roster = await CourseService.listCourseStudents(course.id);
+        if (roster.isEmpty) continue;
+        final assignments = (await AssignmentService.listAssignments(
+          course.id,
+        )).where((a) => a.status == 'published').toList();
+        if (assignments.isEmpty) continue;
+
+        var submitted = 0;
+        for (final assignment in assignments) {
+          final submissions = await AssignmentService.listSubmissions(
+            assignment.id,
+          );
+          submitted += submissions.length;
+        }
+        final expected = assignments.length * roster.length;
+        rooms.add(
+          (
+            label: course.gradeLevel ?? course.subjectName,
+            percent: submitted / expected,
+          ),
+        );
+      }
+      if (!mounted) return;
+      setState(() => _rooms = rooms);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดสถานะส่งงานไม่สำเร็จ');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return _GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1144,86 +1190,181 @@ class _SubmissionBarChartCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _SectionTitle(
-                  title: 'สถานะส่งงานรายห้อง',
-                  subtitle: 'สัดส่วนนักเรียนที่ส่งงานแล้วในแต่ละห้อง',
+                  title: 'สถานะส่งงานรายวิชา',
+                  subtitle: 'สัดส่วนงานที่ส่งแล้ว เทียบกับงานที่มอบหมายทั้งหมด',
                   icon: Icons.bar_chart_rounded,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 22),
-          SizedBox(
-            height: 140,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (final room in rooms) ...[
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${(room.percent * 100).round()}%',
-                          style: const TextStyle(
-                            color: TeacherPalette.muted,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else if (_rooms == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (_rooms!.isEmpty)
+            const Text(
+              'ยังไม่มีข้อมูลงานที่มอบหมายให้เปรียบเทียบ',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            SizedBox(
+              height: 140,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final room in _rooms!) ...[
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${(room.percent * 100).round()}%',
+                            style: const TextStyle(
+                              color: TeacherPalette.muted,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: SizedBox(
-                            height: 96 * room.percent,
-                            width: double.infinity,
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    TeacherPalette.skySoft,
-                                    TeacherPalette.primary,
-                                  ],
+                          const SizedBox(height: 6),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              height: 96 * room.percent.clamp(0, 1),
+                              width: double.infinity,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      TeacherPalette.skySoft,
+                                      TeacherPalette.primary,
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          room.label,
-                          style: const TextStyle(
-                            color: TeacherPalette.ink,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
+                          const SizedBox(height: 8),
+                          Text(
+                            room.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: TeacherPalette.ink,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  if (room != rooms.last) const SizedBox(width: 8),
+                    if (room != _rooms!.last) const SizedBox(width: 8),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _StudentStatusDonutCard extends StatelessWidget {
+class _StudentStatusDonutCard extends StatefulWidget {
   const _StudentStatusDonutCard();
 
   @override
-  Widget build(BuildContext context) {
-    const segments = [
-      (label: 'ปกติ', percent: 0.78, color: TeacherPalette.green),
-      (label: 'ต้องติดตาม', percent: 0.14, color: TeacherPalette.orange),
-      (label: 'ขาดส่งงานบ่อย', percent: 0.08, color: TeacherPalette.red),
-    ];
+  State<_StudentStatusDonutCard> createState() =>
+      _StudentStatusDonutCardState();
+}
 
+class _StudentStatusDonutCardState extends State<_StudentStatusDonutCard> {
+  int? _total;
+  List<({String label, double percent, Color color})>? _segments;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        CourseService.listMyCourses(),
+        StudentSupportService.listAutoFlaggedStudents(),
+      ]);
+      final courses = (results[0] as List<CourseSummary>)
+          .where((c) => c.isActive)
+          .toList();
+      final flagged = results[1] as List<AutoFlaggedStudent>;
+
+      final allStudentIds = <String>{};
+      for (final course in courses) {
+        final roster = await CourseService.listCourseStudents(course.id);
+        allStudentIds.addAll(roster.map((s) => s.studentId));
+      }
+
+      final missingWork = flagged
+          .where((f) => f.reason == 'ค้างส่งงาน')
+          .map((f) => f.studentId)
+          .toSet();
+      final needsFollowUp = flagged
+          .where((f) => f.reason != 'ค้างส่งงาน')
+          .map((f) => f.studentId)
+          .toSet()
+        ..removeAll(missingWork);
+      final total = allStudentIds.length;
+      final normalCount = total - missingWork.length - needsFollowUp.length;
+
+      if (!mounted) return;
+      setState(() {
+        _total = total;
+        _segments = total == 0
+            ? []
+            : [
+                (
+                  label: 'ปกติ',
+                  percent: normalCount / total,
+                  color: TeacherPalette.green,
+                ),
+                (
+                  label: 'ต้องติดตาม',
+                  percent: needsFollowUp.length / total,
+                  color: TeacherPalette.orange,
+                ),
+                (
+                  label: 'ขาดส่งงานบ่อย',
+                  percent: missingWork.length / total,
+                  color: TeacherPalette.red,
+                ),
+              ];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'โหลดสัดส่วนนักเรียนไม่สำเร็จ');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = _segments;
     return _GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1235,75 +1376,99 @@ class _StudentStatusDonutCard extends StatelessWidget {
             icon: Icons.donut_large_rounded,
           ),
           const SizedBox(height: 18),
-          Row(
-            children: [
-              SizedBox(
-                width: 108,
-                height: 108,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: const Size(108, 108),
-                      painter: _DonutPainter(segments: segments),
-                    ),
-                    const Text(
-                      '132\nคน',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: TeacherPalette.ink,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
+          if (_error != null)
+            Text(
+              _error!,
+              style: const TextStyle(
+                color: TeacherPalette.red,
+                fontWeight: FontWeight.w700,
               ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final s in segments) ...[
-                      Row(
-                        children: [
-                          Container(
-                            width: 9,
-                            height: 9,
-                            decoration: BoxDecoration(
-                              color: s.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Text(
-                              s.label,
-                              style: const TextStyle(
-                                color: TeacherPalette.muted,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+            )
+          else if (segments == null)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(color: TeacherPalette.primary),
+              ),
+            )
+          else if (segments.isEmpty)
+            const Text(
+              'ยังไม่มีนักเรียนในความรับผิดชอบ',
+              style: TextStyle(
+                color: TeacherPalette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            Row(
+              children: [
+                SizedBox(
+                  width: 108,
+                  height: 108,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: const Size(108, 108),
+                        painter: _DonutPainter(segments: segments),
+                      ),
+                      Text(
+                        '${_total ?? 0}\nคน',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: TeacherPalette.ink,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 15,
+                          height: 1.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final s in segments) ...[
+                        Row(
+                          children: [
+                            Container(
+                              width: 9,
+                              height: 9,
+                              decoration: BoxDecoration(
+                                color: s.color,
+                                shape: BoxShape.circle,
                               ),
                             ),
-                          ),
-                          Text(
-                            '${(s.percent * 100).round()}%',
-                            style: const TextStyle(
-                              color: TeacherPalette.ink,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                s.label,
+                                style: const TextStyle(
+                                  color: TeacherPalette.muted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      if (s != segments.last) const SizedBox(height: 10),
+                            Text(
+                              '${(s.percent * 100).round()}%',
+                              style: const TextStyle(
+                                color: TeacherPalette.ink,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (s != segments.last) const SizedBox(height: 10),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
         ],
       ),
     );
