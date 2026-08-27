@@ -220,11 +220,12 @@ reference, but don't trust its per-role claims over this summary.
 - **`teacher`, `student`, `executive`, `parent` — fully wired via their
   `*_redesign_prototype/` folders**, which `role_router.dart` has routed
   to as the real (not preview-only) UI since the redesign work landed.
-  Known, deliberately-disclosed (not hidden) gaps: G-Score/gamification
-  has no backend at all for either teacher or student (the UI says so
-  directly rather than faking numbers); parent has no direct
+  Known, deliberately-disclosed (not hidden) gap: parent has no direct
   messaging/meeting-request feature (deferred, see "Deferred Features"
-  below).
+  below). (G-Score previously listed here as having no backend — the
+  backend existed since `20260823030000_g_score.sql`, it just had no
+  consuming page; `student_score_page.dart` now shows it for real, see
+  2026-08-27 in WORK_LOG.md.)
 
 - **`school_admin`'s "นำเข้าข้อมูล" (bulk import) is now real, all 5 data
   types, as of 2026-08-26** — was previously a facade (fake file picker,
@@ -236,6 +237,63 @@ reference, but don't trust its per-role claims over this summary.
   `import_school_devices_batch` in `20260826150000_school_admin_bulk_import.sql`
   — buildings/rooms/devices had no create RPC at all before this).
   Live-verified end-to-end for all 5 types with real fixture files.
+
+- **Teacher's AIoT dashboard (`teacher_aiot_dashboard_page.dart`) is now
+  real, as of 2026-08-26** — device sensor values, threshold save, and
+  alert acknowledge were all fake (hardcoded numbers labeled "เรียลไทม์",
+  buttons only mutated local state). Now wired to `sensor_latest`/
+  `RealtimeService` for real per-device readings (honest "ยังไม่มีข้อมูล"
+  when a device has no real data yet — true for every device locally,
+  since no hardware is connected), and to new/widened RPCs in
+  `20260826160000_teacher_aiot_thresholds.sql` for real threshold CRUD and
+  alert list/acknowledge (teacher was added to the existing school_admin-
+  only alert RPCs). The fake "UV index" metric was replaced with real
+  light intensity (`light_lux`) per the project owner's request — UV was
+  never a real trackable metric in this system. **Update 2026-08-27:
+  the "no auto-alert" gap noted here is now closed** —
+  `_check_threshold_violations()` (`pg_cron`, ticks every minute, same
+  pattern as the device-schedule runner) inserts a real `sensor_alerts`
+  row when a device's latest reading crosses an active threshold,
+  de-duplicated against any still-open alert for that device+threshold
+  (see `20260827030000_auto_threshold_alerts.sql`). The teacher **home
+  page**'s own separate AIoT summary
+  widgets (`_AiotWeatherSensorsCard`/`_SensorSnapshotCard`) had the same
+  hardcoded-numbers bug — also fixed same day, real data + honest "ไม่มีข้อมูล"
+  (neutral grey, not a misleading red "unsafe") when nothing has reported
+  yet. The home page's **"การใช้น้ำ-ไฟ" (water/electricity) card was fixed
+  too**, using already-existing real `UtilityService` RPCs (no new
+  migration needed) for real weekly totals, a real 5-day chart, and a
+  real week-over-week % trend. **CSV/Excel export on the dashboard page
+  is also real as of 2026-08-27** (was the only piece left fake) — see
+  WORK_LOG.md for the `file_picker` web-download bug found and fixed
+  while building it (`file_picker` 8.3.7 has no web `saveFile()`
+  implementation; `apps/user_app/lib/utils/web_download.dart` now
+  handles real browser downloads via `dart:html` instead — relevant if
+  any other page tries to reuse `FilePicker.platform.saveFile()` for a
+  download on web, e.g. `school_import_page.dart`'s template download,
+  which likely has the same latent bug, not yet independently verified).
+  A wider
+  audit of `teacher_redesign_prototype/` found 6 more fake-write bugs in
+  other files — see `docs/handoff/WORK_LOG.md` for the full list.
+  **Update 2026-08-27: all 6 are now fixed and independently
+  live-verified** (`teacher_notifications_page.dart` mark-all-read,
+  `teacher_profile_page.dart` stat fallbacks, `teacher_rubric_page.dart`
+  edit-mode via a new `RubricService.updateRubric`, `teacher_grading_page
+  .dart` create-worksheet, `teacher_courses_page.dart` close-course, and
+  `teacher_exam_builder_page.dart`'s image/video attachments via a new
+  `quiz-attachments` Storage bucket + `quiz-attachment-upload`/`-download`
+  Edge Functions, verified end-to-end including the student-facing
+  `student_pretest_posttest_page.dart` attachment viewer). **Update
+  2026-08-27: the remaining known gaps are also closed** — real course
+  join codes (`courses.join_code` + `get_or_create_course_join_code`/
+  `regenerate_course_join_code`), a real "G-Score สะสม" card on
+  `student_score_page.dart` (backend already existed, just wasn't
+  wired to any page), real CSV/Excel export on the AIoT dashboard, and
+  real `pg_cron`-driven auto-alerts from threshold violations — see
+  `docs/handoff/WORK_LOG.md` for the two real bugs found and fixed
+  while building these (a Postgres float→int rounding bug in the join
+  code generator, and `file_picker`'s missing web `saveFile()`
+  implementation).
 
 **Role model**: 6 roles as of 2026-08-25 (`technician` and
 `facility_manager` were merged into `super_admin`/`school_admin` — see
@@ -372,14 +430,40 @@ not. Parent is partially wired (home page only).
 
 ### Known issues not yet fixed
 
-- `teacher_profile_page.dart` — some of the displayed stats appeared to be
-  hardcoded rather than pulled from real data. Not yet root-caused to a
-  specific line; needs a fresh look (grep for hardcoded numbers didn't
-  immediately surface it in a 991-line file — may be computed client-side
-  from a partial dataset rather than a literal constant).
-- `teacher_exam_builder_page.dart` — image/video attachments on exam
-  questions did not appear to persist / round-trip correctly. Needs
-  reproduction with the local stack running to confirm current behavior.
+*(`teacher_exam_builder_page.dart`'s image/video attachments and
+`teacher_profile_page.dart`'s hardcoded stat fallbacks, both previously
+listed here, were fixed and independently live-verified 2026-08-27 —
+see `docs/handoff/WORK_LOG.md`.)*
+- **`file_picker` 8.3.7's web `pickFiles()` is unreliable under browser
+  automation (found 2026-08-27)**: its web implementation
+  (`_internal/file_picker_web.dart`) removes the trigger
+  `<input type=file>` from the DOM immediately after calling `.click()`,
+  which breaks Chromium DevTools Protocol's file-chooser interception —
+  confirmed this makes `page.waitForEvent('filechooser')` in Playwright
+  never fire, for *every* `pickFiles()` call site tried, not just new
+  ones (regression-tested `teacher_exam_builder_page.dart`'s image
+  picker, which had worked earlier the same session, and it now fails
+  identically). Real human users in a real browser are almost certainly
+  unaffected — the DOM removal races a genuinely async native OS dialog,
+  not something a live user's dialog interaction would ever notice — but
+  this means **no file-picking flow in this app can be verified via
+  Playwright automation** until `file_picker` is upgraded (8.3.7 → 12.1.1
+  available, untested, likely has breaking API changes worth scoping
+  separately) or replaced with a hand-rolled `dart:html` picker to match
+  `apps/user_app/lib/utils/web_download.dart` (built the same day for the
+  matching `saveFile()` web gap, see below). Any future work touching a
+  `FilePicker.platform.pickFiles(...)` call site should budget for this —
+  verify the upload *pipeline* (edge function → signed URL → RPC) via
+  direct HTTP simulation instead of trying to automate the click.
+- **`file_picker` 8.3.7's web `saveFile()` has no web implementation at
+  all** (found 2026-08-27 building the AIoT dashboard CSV/Excel export)
+  — falls through to the base class's
+  `UnimplementedError('saveFile() has not been implemented.')`. Fixed
+  for that one call site with `apps/user_app/lib/utils/web_download.dart`
+  (a small `dart:html` blob-download helper). **Not yet checked whether
+  any other page relies on `FilePicker.platform.saveFile()` for a
+  download** — `school_import_page.dart`'s "download template" button is
+  the most likely other user, worth a look before trusting it works.
 - **`supabase_migrations.schema_migrations` tracking table doesn't match the
   files on disk** (53 tracked rows vs 61 files as of 2026-08-22). Several
   migrations this week were applied via `docker exec ... psql < file.sql`
@@ -643,6 +727,52 @@ time and confirmed `Files=24, Tests=236, Result: PASS`.
 
 Full remaining backlog (feature completeness, not security) written up in
 `docs/handoff/agy-brief-full-remaining-backlog-2026-08-24.md`.
+
+**RBAC audit continuation (2026-08-27)** — the above audit predates the
+2026-08-25 role merge (`facility_manager`→`school_admin`,
+`technician`→`super_admin`) and the ~20 migrations/68 RPCs added since,
+so task #77 was re-opened to cover that gap rather than assumed still
+current. Findings:
+
+- **Role merge itself: clean.** `queue_device_command`/`list_school_devices`/
+  `sensor_latest` no longer have any building-level restriction for
+  `school_admin` — confirmed this is the *intended* outcome of "unified in
+  the school_admin portal without per-building silos" (see Deferred
+  Features #2 above), not a regression, and it's applied consistently
+  across all three (no case where reads are building-scoped but writes
+  aren't, or vice versa). No live `facility_manager`/`technician` string
+  survived in any function body (checked all of `public.*`, `prokind='f'`)
+  and the `role_type` enum is cleanly pruned to the 6 current roles — one
+  harmless exception: `set_facility_manager_building` kept its old *name*
+  (its logic already correctly checks `school_admin`/`super_admin`) —
+  cosmetic, a rename would be nice but isn't a security issue, not done.
+- **All 68 RPCs added/changed since 2026-08-24 statically reviewed** for
+  the standard pattern (`get_session_actor` → role whitelist → `school_id`
+  scoping from the actor, never from client input). Every one that should
+  have the pattern has it; the handful that don't are pre-auth flows by
+  design (`accept_staff_invitation`, `redeem_parent_binding_code`,
+  `auth_select_role`, `auth_validate_session` — token-scoped, single-use,
+  fail-closed on their own terms) or the pg_cron-only
+  `_run_due_device_schedules` (confirmed `execute` revoked from
+  `anon`/`authenticated`/`service_role`, only `postgres` can call it).
+  Bulk-import functions (`import_school_*_batch`) all insert with
+  `v_actor.school_id`, never a client-supplied school id — no cross-tenant
+  injection path. `add_secondary_role`/`update_user_role` both block
+  self-role-changes and block `school_admin` from granting/touching
+  `super_admin`.
+- **Live-verified, not just read**: minted real throwaway sessions (deleted
+  after) for `student` and `school_admin` and fired real requests at
+  `/rest/v1/rpc/...` — `student` → `create_school_for_super_admin`,
+  `import_school_devices_batch`, and self-promoting via `update_user_role`
+  all correctly `403`/`forbidden`; `school_admin` → granting another user
+  `super_admin` via `add_secondary_role` correctly `forbidden_role_grant`;
+  `student` calling the legacy `auth.uid()`-based `resolve_sensor_alert`
+  (built for `aiot_dev_dashboard`, not this app) correctly `invalid_session`
+  since this app's client never has a real Supabase Auth JWT.
+- **No new vulnerabilities found** in this pass, unlike 2026-08-22/24 which
+  each found and fixed a real one — the newer RPCs were mostly written
+  after those fixes landed and evidently followed the corrected pattern.
+  Task #77 is complete again as of this date.
 
 ## Deferred Features & Architecture Decisions (updated 2026-08-25)
 

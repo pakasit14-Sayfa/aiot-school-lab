@@ -1,9 +1,14 @@
 # Database Schema (live dump from local Supabase, regenerated 2026-08-25;
 # RPC list manually updated 2026-08-26 for the 3 new school_admin bulk-import
-# functions plus one pre-existing gap — a full re-dump wasn't re-run since
-# no tables changed, only new functions)
+# functions plus one pre-existing gap, and manually updated three more times
+# on 2026-08-27 — once for the new quiz_question_attachments table + its 3
+# RPCs, once for courses.join_code + its 2 RPCs / a renamed function / the
+# new _check_threshold_violations pg_cron job, once for submission_
+# attachments finally getting an RPC layer (file_name column + 3 RPCs) —
+# a full re-dump wasn't re-run for any of these since they were small,
+# additive changes)
 
-Total tables: 82 (+ 2 views: alerts, profiles)
+Total tables: 83 (+ 2 views: alerts, profiles)
 
 Most tables (`my_first_app`'s own domain) have Row-Level Security enabled with **zero policies** — nothing is reachable directly via PostgREST except through explicit grants. Every read/write goes through a `SECURITY DEFINER` RPC function (see RPC list below) or an Edge Function. Clients call `supabase.rpc('fn_name', {...})`, never `.from('table').select()` directly.
 
@@ -383,6 +388,12 @@ Foreign keys:
 | closed_at | timestamp with time zone | YES |  |
 | created_by | uuid | NO |  |
 | created_at | timestamp with time zone | YES | now() |
+| join_code | character varying | YES |  (unique) |
+
+`join_code` added 2026-08-27 (`20260827010000_course_join_code.sql`) —
+real, randomly-generated, unique per course; set on first call to
+`get_or_create_course_join_code`, replaced by `regenerate_course_join_code`.
+Was previously a client-computed, guessable, non-persisted string.
 
 Foreign keys:
 - `created_by` → `users.id`
@@ -974,6 +985,27 @@ Foreign keys:
 Foreign keys:
 - `quiz_id` → `quizzes.id`
 
+## quiz_question_attachments
+
+| column | type | nullable | default |
+|---|---|---|---|
+| id | uuid | NO | gen_random_uuid() |
+| question_id | uuid | NO |  |
+| type | USER-DEFINED | NO |  |
+| storage_path | character varying | NO |  |
+| file_name | character varying | YES |  |
+| sort_order | integer | NO | 0 |
+| created_at | timestamp with time zone | NO | now() |
+
+Foreign keys:
+- `question_id` → `quiz_questions.id` (on delete cascade)
+
+`type` is the `quiz_attachment_type` enum (`image`, `video`). `storage_path`
+resolves to a private-bucket (`quiz-attachments`) object via
+`get_quiz_attachment_for_download` / the `quiz-attachment-download` Edge
+Function — same signed-URL pattern as `lesson_materials`, added
+2026-08-27.
+
 ## quizzes
 
 | column | type | nullable | default |
@@ -1267,6 +1299,16 @@ Foreign keys:
 | file_url | character varying | YES |  |
 | dataset_id | uuid | YES |  |
 | chart_id | uuid | YES |  |
+| file_name | character varying | YES |  |
+
+`file_name` added 2026-08-27 (`20260827050000_submission_file_attachments.sql`)
+alongside the RPC layer this table never had before that date. `type='file'`
+rows store a real Storage path in `file_url` (resolved via
+`get_submission_attachment_for_download` / the `submission-attachment-download`
+Edge Function — same signed-URL pattern as `lesson_materials`/
+`quiz_question_attachments`). The `sensor_dataset`/`chart` `type` values
+remain unwired (a separate, never-built AIoT dataset/chart submission
+mode) — only `file` has any RPC touching it.
 
 Foreign keys:
 - `chart_id` → `charts.id`
@@ -1430,6 +1472,8 @@ Foreign keys:
 
 ### `_run_due_device_schedules()` → `void` (SECURITY DEFINER)
 
+### `_check_threshold_violations()` → `void` (SECURITY DEFINER) — added 2026-08-27, `pg_cron` job `threshold-violation-check` (every minute, same pattern as `device-schedules-tick`); `postgres` role only, no client grants; inserts a real `sensor_alerts` row per active threshold a device's latest reading crosses, de-duplicated against any still-open (`new`/`acknowledged`) alert for that device+threshold
+
 ### `accept_staff_invitation(p_token text, p_first_name text, p_last_name text, p_password text)` → `TABLE(auth_state text, session_token text, user_id uuid, email character varying, first_name character varying, last_name character varying, active_role role_type, active_school_id uuid, otp_token text, otp_code text, otp_expires_at timestamp with time zone)` (SECURITY DEFINER)
 
 ### `acknowledge_emergency_event(p_token text, p_event_id uuid)` → `void` (SECURITY DEFINER)
@@ -1556,6 +1600,12 @@ Foreign keys:
 
 ### `get_course(p_token text, p_course_id uuid)` → `TABLE(course_id uuid, subject_name character varying, grade_level character varying, room character varying, description text, status course_status, term_id uuid, teacher_names text)` (SECURITY DEFINER)
 
+### `get_or_create_course_join_code(p_token text, p_course_id uuid)` → `varchar` (SECURITY DEFINER) — added 2026-08-27, teacher-of-course only
+
+### `regenerate_course_join_code(p_token text, p_course_id uuid)` → `varchar` (SECURITY DEFINER) — added 2026-08-27, teacher-of-course only
+
+### `generate_course_join_code()` → `varchar` — added 2026-08-27, internal helper (not SECURITY DEFINER, no grants — only callable from the two RPCs above); uses `floor(random() * n)::int` — do **not** drop the `floor()` when touching this, Postgres's float→int cast rounds rather than truncates and will intermittently produce a too-short code otherwise (see WORK_LOG.md 2026-08-27)
+
 ### `get_course_file_for_download(p_token text, p_file_id uuid)` → `TABLE(storage_path text, file_name character varying)` (SECURITY DEFINER)
 
 ### `get_energy_efficiency_score(p_token text)` → `TABLE(score numeric, label text, current_kwh numeric, previous_kwh numeric)` (SECURITY DEFINER)
@@ -1576,7 +1626,13 @@ Foreign keys:
 
 ### `get_my_student_room(p_token text)` → `TABLE(room character varying, grade_level character varying)` (SECURITY DEFINER)
 
-### `get_quiz_for_student(p_token text, p_quiz_id uuid)` → `TABLE(quiz_id uuid, title character varying, type quiz_type, time_limit_min integer, question_id uuid, question_type question_type, question text, points numeric, sort_order integer, choices jsonb)` (SECURITY DEFINER)
+### `get_quiz_for_student(p_token text, p_quiz_id uuid)` → `TABLE(quiz_id uuid, title character varying, type quiz_type, time_limit_min integer, question_id uuid, question_type question_type, question text, points numeric, sort_order integer, choices jsonb, attachments jsonb)` (SECURITY DEFINER) — `attachments` added 2026-08-27, one jsonb array per question of `{id, type, file_name}` stubs (never `storage_path`)
+
+### `assert_quiz_question_upload_access(p_token text, p_question_id uuid)` → `void` (SECURITY DEFINER) — added 2026-08-27, service_role only (called from the `quiz-attachment-upload` Edge Function)
+
+### `add_quiz_question_attachment(p_token text, p_question_id uuid, p_type quiz_attachment_type, p_storage_path character varying, p_file_name character varying)` → `TABLE(attachment_id uuid)` (SECURITY DEFINER) — added 2026-08-27, called directly by the client like `add_quiz_question`
+
+### `get_quiz_attachment_for_download(p_token text, p_attachment_id uuid)` → `TABLE(storage_path text, file_name character varying)` (SECURITY DEFINER) — added 2026-08-27, called from the `quiz-attachment-download` Edge Function
 
 ### `get_rubric(p_token text, p_rubric_id uuid)` → `TABLE(rubric_id uuid, title character varying, description text, criteria jsonb)` (SECURITY DEFINER)
 
@@ -1680,7 +1736,7 @@ Foreign keys:
 
 ### `list_my_student_schedule(p_token text, p_student_id uuid)` → `TABLE(schedule_id uuid, course_id uuid, subject_name character varying, day_of_week smallint, start_time time without time zone, end_time time without time zone, room character varying)` (SECURITY DEFINER)
 
-### `list_my_submission_versions(p_token text, p_assignment_id uuid)` → `TABLE(version integer, content text, submitted_at timestamp with time zone)` (SECURITY DEFINER)
+### `list_my_submission_versions(p_token text, p_assignment_id uuid)` → `TABLE(version integer, content text, submitted_at timestamp with time zone, submission_version_id uuid, attachments jsonb)` (SECURITY DEFINER) — `submission_version_id`/`attachments` added 2026-08-27
 
 ### `list_parent_links(p_token text, p_status binding_status, p_school_id uuid)` → `TABLE(id uuid, student_id uuid, student_first_name character varying, student_last_name character varying, parent_id uuid, parent_first_name character varying, parent_last_name character varying, parent_email character varying, relationship character varying, status binding_status, requested_at timestamp with time zone)` (SECURITY DEFINER)
 
@@ -1704,7 +1760,13 @@ Foreign keys:
 
 ### `list_student_support_interventions(p_token text, p_case_id uuid)` → `TABLE(intervention_id uuid, case_id uuid, action_type text, notes text, recorded_by_name text, created_at timestamp with time zone)` (SECURITY DEFINER)
 
-### `list_submissions(p_token text, p_assignment_id uuid)` → `TABLE(submission_id uuid, student_id uuid, student_first_name character varying, student_last_name character varying, status submission_status, current_version integer, latest_content text, submitted_at timestamp with time zone)` (SECURITY DEFINER)
+### `list_submissions(p_token text, p_assignment_id uuid)` → `TABLE(submission_id uuid, student_id uuid, student_first_name character varying, student_last_name character varying, status submission_status, current_version integer, latest_content text, submitted_at timestamp with time zone, latest_attachments jsonb)` (SECURITY DEFINER) — `latest_attachments` added 2026-08-27
+
+### `assert_submission_upload_access(p_token text, p_submission_version_id uuid)` → `void` (SECURITY DEFINER) — added 2026-08-27, service_role only
+
+### `add_submission_attachment(p_token text, p_submission_version_id uuid, p_storage_path character varying, p_file_name character varying)` → `TABLE(attachment_id uuid)` (SECURITY DEFINER) — added 2026-08-27, called directly by the client
+
+### `get_submission_attachment_for_download(p_token text, p_attachment_id uuid)` → `TABLE(storage_path text, file_name character varying)` (SECURITY DEFINER) — added 2026-08-27
 
 ### `list_teacher_schedules(p_token text, p_course_id uuid)` → `TABLE(schedule_id uuid, course_id uuid, subject_name character varying, day_of_week smallint, start_time time without time zone, end_time time without time zone, room character varying)` (SECURITY DEFINER)
 
@@ -1792,7 +1854,7 @@ Foreign keys:
 
 ### `set_device_token_issued_at()` → `trigger`
 
-### `set_facility_manager_building(p_token text, p_target_user_id uuid, p_building text)` → `void` (SECURITY DEFINER)
+### `set_school_admin_building(p_token text, p_target_user_id uuid, p_building text)` → `void` (SECURITY DEFINER) — renamed 2026-08-27 from `set_facility_manager_building`, a pre-role-merge leftover name; logic unchanged (already checked school_admin/super_admin)
 
 ### `set_school_status_for_super_admin(p_token text, p_school_id uuid, p_status text)` → `boolean` (SECURITY DEFINER)
 
@@ -1800,7 +1862,7 @@ Foreign keys:
 
 ### `start_quiz_attempt(p_token text, p_quiz_id uuid)` → `TABLE(attempt_id uuid, started_at timestamp with time zone)` (SECURITY DEFINER)
 
-### `submit_assignment(p_token text, p_assignment_id uuid, p_content text)` → `TABLE(submission_id uuid, version integer)` (SECURITY DEFINER)
+### `submit_assignment(p_token text, p_assignment_id uuid, p_content text)` → `TABLE(submission_id uuid, version integer, submission_version_id uuid)` (SECURITY DEFINER) — `submission_version_id` added 2026-08-27 so the client can attach files to the version it just created
 
 ### `submit_quiz_attempt(p_token text, p_attempt_id uuid)` → `TABLE(auto_score numeric)` (SECURITY DEFINER)
 
