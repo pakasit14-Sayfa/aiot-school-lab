@@ -32,11 +32,13 @@ MQTT_BROKER_PORT = 1883
 MQTT_TOPIC = "aiot/lab01/sensors"
 
 SUPABASE_URL = "https://smqoknnftgjyhrnzugar.supabase.co"
-API_KEY = "sb_publishable_IFaGjUFwiBeBH_M-GYrSZA_Fywg9Tk9"
-DEVICE_TOKEN = "dev_11e199bc95427c21cf36a2d00e2d2cc68b9ebb4836520c4e"  # ออกใหม่
-                                     # ให้ device be76fccb-...c963a ผ่าน
-                                     # issue_device_token — token เดิม (ถ้ามี)
-                                     # ใช้ไม่ได้แล้วเพราะออกใหม่ทับ
+API_KEY = "ใส่ publishable key ที่นี่"       # ไม่ใช่ความลับ (publishable key) แต่
+                                     # ไม่ต้อง commit ค่าจริงกลับเข้า git อยู่ดี
+                                     # เพื่อไม่ให้ต้องคอยแยกว่าอันไหนลับ/ไม่ลับ
+DEVICE_TOKEN = "ใส่ device token (dev_...) ที่นี่"  # ความลับจริง ห้าม commit —
+                                     # ถ้าหลุดเข้า git ต้อง issue_device_token
+                                     # ออกใหม่ทับตัวเดิมทันที (ดู
+                                     # docs/sensor-api.md)
 
 SEND_INTERVAL = 5          # ส่งขึ้น Supabase ทุกกี่วินาที (สะสมแล้วส่งเป็นชุด)
 MAX_QUEUE = 5000
