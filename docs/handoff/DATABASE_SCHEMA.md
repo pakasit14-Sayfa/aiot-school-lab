@@ -1977,11 +1977,11 @@ Foreign keys:
 
 ### `sensor_history(p_token text, p_device_id uuid, p_metric metric_type, p_from timestamp with time zone, p_to timestamp with time zone)` → `TABLE(ts timestamp with time zone, value numeric)` (SECURITY DEFINER)
 
-### ~~`sensor_ingest(p_device_token text, p_readings jsonb)` → `integer`~~ — **DEPRECATED, do not use.** Revoked from `anon`/`authenticated` in `20260721020500_signed_gateway_ingest.sql:145-146` ("the legacy bearer-token ingest path is intentionally disabled"). Calling this will fail with a permissions error. Real devices must use the HMAC-signed `gateway-sensor-ingest` Edge Function instead — see `docs/handoff/SENSOR_GATEWAY_INTEGRATION.md`.
+### `sensor_ingest(p_device_token text, p_readings jsonb)` → `integer` (SECURITY DEFINER) — **currently the real, live path in production as of 2026-08-28** (confirmed with the project owner — real hardware/`tools/wifi_gateway.py` still posts here). **Locally, this repo's migrations revoke it** (`20260721020500_signed_gateway_ingest.sql:145-146`, in favor of the newer HMAC-signed `gateway-sensor-ingest` scheme below) — but that migration has never been deployed to the production Supabase project (`smqoknnftgjyhrnzugar`), so production still grants this to `anon`/`authenticated` and it still works there. **Don't "fix" this by deploying that migration to production without a coordinated cutover** — it would break the live hardware gateway. See `docs/sensor-api.md` (still accurate for production) and `docs/handoff/SENSOR_GATEWAY_INTEGRATION.md` (the newer scheme, local-only until production is migrated) for the full story.
 
-### `verify_gateway_request(p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_path text, p_body_hash text)` → `boolean` (SECURITY DEFINER) — `service_role` only, called internally by the `gateway-sensor-ingest` Edge Function. HMAC-verifies a real device's signed request; see `SENSOR_GATEWAY_INTEGRATION.md`.
+### `verify_gateway_request(p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_path text, p_body_hash text)` → `boolean` (SECURITY DEFINER) — `service_role` only, called internally by the `gateway-sensor-ingest` Edge Function. **Local/dev-only — not deployed to production yet**, see note above.
 
-### `ingest_sensor_readings_verified(p_gateway_id uuid, p_readings jsonb)` → `integer` (SECURITY DEFINER) — `service_role` only. The real insert path for `sensor_readings`, called after `verify_gateway_request` succeeds.
+### `ingest_sensor_readings_verified(p_gateway_id uuid, p_readings jsonb)` → `integer` (SECURITY DEFINER) — `service_role` only. **Local/dev-only — not deployed to production yet**, see note above.
 
 ### `sensor_latest(p_token text, p_device_id uuid)` → `TABLE(device_id uuid, device_name character varying, location character varying, metric metric_type, ts timestamp with time zone, value numeric)` (SECURITY DEFINER)
 

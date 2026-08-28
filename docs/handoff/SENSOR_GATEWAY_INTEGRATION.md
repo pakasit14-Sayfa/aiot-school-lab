@@ -1,12 +1,21 @@
 # Sensor Gateway Integration Guide — for the hardware/firmware team
 
-This is the guide for connecting a real physical device (ESP32, Pico,
-gateway board, etc.) to push sensor readings into AIoT School Lab. It
-covers the one and only supported ingest path as of 2026-08-28.
+**⚠️ NOT LIVE IN PRODUCTION YET (as of 2026-08-28).** Production
+(`smqoknnftgjyhrnzugar`) still runs the older `sensor_ingest` path —
+see `docs/sensor-api.md`, that one is the currently-correct guide for
+real hardware today. This document describes the newer HMAC-signed
+scheme that exists in this repo's migrations and works against the
+**local dev stack**, intended to eventually replace `sensor_ingest`
+once a coordinated cutover (new firmware + migration deploy + Edge
+Function deploy, all at once) is planned with the hardware team. Don't
+point real production hardware at the endpoint below until that
+migration is actually deployed — it doesn't exist in production yet,
+so requests to it will fail outright, not fall back to anything.
 
-**Do not use `sensor_ingest` if you see it mentioned anywhere else** —
-that RPC is deprecated and has had its permissions revoked. The path
-below (`gateway-sensor-ingest`) is the real one.
+This is the guide for connecting a real physical device (ESP32, Pico,
+gateway board, etc.) to push sensor readings into AIoT School Lab via
+the **new** scheme, once it's rolled out. It covers the intended
+long-term ingest path, verified locally as of 2026-08-28.
 
 No real hardware has been tested against this path yet, but the full
 recipe below (registration → signature → POST → DB row → device goes

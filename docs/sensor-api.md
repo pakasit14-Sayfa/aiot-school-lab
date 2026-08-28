@@ -2,6 +2,18 @@
 
 เอกสารนี้สำหรับคนทำฝั่งเซนเซอร์/gateway ที่ต้องการส่งค่าเข้าระบบ AIoT School Lab
 
+**สถานะ (ยืนยันกับเจ้าของโครงการ 2026-08-28): นี่คือเส้นทางจริงที่ใช้งานอยู่
+ใน production ตอนนี้** (`tools/wifi_gateway.py` ยิงเข้ามาทางนี้) — **ยังใช้ได้
+ตามปกติ ไม่ต้องเปลี่ยน** แม้ว่าโค้ดในเรโปนี้ (migration
+`20260721020500_signed_gateway_ingest.sql`) จะเขียนไว้ให้ปิดเส้นทางนี้แล้วก็ตาม
+— migration นั้นยังไม่เคย deploy ขึ้น production จริง (deploy ค้างอยู่ตั้งแต่
+2026-07-2x) มีสคีมใหม่ที่ปลอดภัยกว่า (HMAC signature) เตรียมไว้แล้วที่
+`docs/handoff/SENSOR_GATEWAY_INTEGRATION.md` แต่**ยังใช้กับ production ไม่ได้
+จนกว่าจะ deploy migration ตัวนั้น** — ถ้าจะย้ายมาใช้ทางใหม่ ต้องวางแผน cutover
+ร่วมกับทีมฮาร์ดแวร์ก่อน (เปลี่ยน `wifi_gateway.py` ให้เซ็น HMAC + deploy
+migration + Edge Function พร้อมกัน) ไม่ใช่แค่ deploy migration เฉยๆ เพราะจะทำให้
+เกตเวย์ปัจจุบันหยุดทำงานทันที
+
 ## สิ่งที่ต้องมี (ขอจากแอดมินระบบ)
 
 1. **`SUPABASE_URL`** — เช่น `https://<project-ref>.supabase.co`
