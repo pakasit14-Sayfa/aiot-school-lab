@@ -422,86 +422,161 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
     );
   }
 
+  // อัปเดตค่าล่าสุดต่อ metric เดียว — sensor_latest คืนแถวล่าสุดต่อ (device,
+  // metric) อยู่แล้ว แต่ถ้ามีหลายอุปกรณ์ส่ง metric เดียวกันซ้ำ เอาแถวที่มี ts
+  // ใหม่สุดของแต่ละ metric มาโชว์
+  Map<String, dynamic> get _latestByMetric {
+    final byMetric = <String, Map<String, dynamic>>{};
+    for (final r in _sensorReadings) {
+      final metric = r['metric'] as String?;
+      if (metric == null) continue;
+      final ts = DateTime.tryParse(r['ts'] as String? ?? '');
+      final prev = byMetric[metric];
+      final prevTs = prev == null
+          ? null
+          : DateTime.tryParse(prev['ts'] as String? ?? '');
+      if (prev == null || (ts != null && (prevTs == null || ts.isAfter(prevTs)))) {
+        byMetric[metric] = r;
+      }
+    }
+    return byMetric.map((k, v) => MapEntry(k, v['value']));
+  }
+
+  static String _fmt(dynamic v, {int decimals = 1}) {
+    if (v is num) return v.toStringAsFixed(decimals);
+    return '$v';
+  }
+
   Widget _buildSensorSection(bool isDesktop) {
+    final latest = _latestByMetric;
     final sensorItems =
         <({String label, String value, IconData icon, Color color})>[];
 
-    for (final r in _sensorReadings) {
-      final metric = r['metric'] as String?;
-      final val = r['value'];
-      if (metric == 'pm25') {
-        sensorItems.add((
-          label: 'PM2.5',
-          value: '$val µg/m³',
-          icon: Icons.air_rounded,
-          color: TeacherPalette.green,
-        ));
-      } else if (metric == 'temperature') {
-        sensorItems.add((
-          label: 'อุณหภูมิ',
-          value: '$val °C',
-          icon: Icons.thermostat_rounded,
-          color: TeacherPalette.orange,
-        ));
-      } else if (metric == 'humidity') {
-        sensorItems.add((
-          label: 'ความชื้น',
-          value: '$val %RH',
-          icon: Icons.water_rounded,
-          color: TeacherPalette.blue,
-        ));
-      }
+    void addIfPresent(
+      String metric,
+      String label,
+      String Function(dynamic val) formatValue,
+      IconData icon,
+      Color color,
+    ) {
+      if (!latest.containsKey(metric)) return;
+      sensorItems.add((
+        label: label,
+        value: formatValue(latest[metric]),
+        icon: icon,
+        color: color,
+      ));
     }
 
-    if (sensorItems.isEmpty) {
-      sensorItems.addAll([
-        (
-          label: 'PM2.5',
-          value: '18 µg/m³',
-          icon: Icons.air_rounded,
-          color: TeacherPalette.green,
-        ),
-        (
-          label: 'อุณหภูมิ',
-          value: '28.5 °C',
-          icon: Icons.thermostat_rounded,
-          color: TeacherPalette.orange,
-        ),
-        (
-          label: 'ความชื้น',
-          value: '62 %RH',
-          icon: Icons.water_rounded,
-          color: TeacherPalette.blue,
-        ),
-      ]);
-    }
+    addIfPresent(
+      'pm25',
+      'PM2.5',
+      (v) => '${_fmt(v)} µg/m³',
+      Icons.air_rounded,
+      TeacherPalette.green,
+    );
+    addIfPresent(
+      'temperature',
+      'อุณหภูมิ',
+      (v) => '${_fmt(v)} °C',
+      Icons.thermostat_rounded,
+      TeacherPalette.orange,
+    );
+    addIfPresent(
+      'humidity',
+      'ความชื้น',
+      (v) => '${_fmt(v)} %RH',
+      Icons.water_rounded,
+      TeacherPalette.blue,
+    );
+    addIfPresent(
+      'light_lux',
+      'ความสว่าง',
+      (v) => '${_fmt(v)} lux',
+      Icons.wb_sunny_rounded,
+      TeacherPalette.sky,
+    );
+    addIfPresent(
+      'aqi',
+      'ดัชนีคุณภาพอากาศ (AQI)',
+      (v) => _fmt(v, decimals: 0),
+      Icons.eco_rounded,
+      TeacherPalette.primary,
+    );
+    // ห้ามแสดงเป็น "แก๊ส X%" — ค่านี้คือ % ช่วง ADC ของ MQ-2 ไม่ใช่ %ความเข้ม
+    // ของแก๊ส จนกว่าจะ calibrate เป็น ppm จริง (ดู
+    // docs handoff / hardware integration spec ข้อ 20.1 และ 28.9)
+    addIfPresent(
+      'gas_mq2_percent',
+      'MQ-2 (ระดับสัญญาณ ADC)',
+      (v) => '${_fmt(v)} %',
+      Icons.warning_amber_rounded,
+      TeacherPalette.red,
+    );
+    addIfPresent(
+      'water_flow_lmin',
+      'อัตราการไหลน้ำ',
+      (v) => '${_fmt(v)} L/min',
+      Icons.water_drop_rounded,
+      TeacherPalette.skyDeep,
+    );
+    addIfPresent(
+      'water_volume_l',
+      'ปริมาตรน้ำสะสม',
+      (v) => '${_fmt(v)} L',
+      Icons.opacity_rounded,
+      TeacherPalette.skyBright,
+    );
 
     return _SectionCard(
       title: 'สถานะชุดฝึก AIoT',
       icon: Icons.sensors_rounded,
-      trailing: const _LastUpdatedChip(),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = isDesktop ? 3 : 2;
-          return GridView.count(
-            crossAxisCount: columns,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.5,
-            children: [
-              for (final s in sensorItems)
-                _SensorTile(
-                  label: s.label,
-                  value: s.value,
-                  icon: s.icon,
-                  color: s.color,
-                ),
-            ],
-          );
-        },
-      ),
+      trailing: sensorItems.isEmpty ? null : const _LastUpdatedChip(),
+      child: sensorItems.isEmpty
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              child: const Column(
+                children: [
+                  Icon(
+                    Icons.sensors_off_rounded,
+                    size: 36,
+                    color: TeacherPalette.muted,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'ยังไม่มีข้อมูลเซนเซอร์จากชุดฝึก',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: TeacherPalette.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final columns = isDesktop ? 3 : 2;
+                return GridView.count(
+                  crossAxisCount: columns,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 1.5,
+                  children: [
+                    for (final s in sensorItems)
+                      _SensorTile(
+                        label: s.label,
+                        value: s.value,
+                        icon: s.icon,
+                        color: s.color,
+                      ),
+                  ],
+                );
+              },
+            ),
     );
   }
 
