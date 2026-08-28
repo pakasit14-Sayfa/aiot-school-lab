@@ -2763,8 +2763,86 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
   }
 }
 
-class _TodayFocusCard extends StatelessWidget {
+Future<int> _fetchNotSubmittedStudentTotal() async {
+  final courses = (await CourseService.listMyCourses())
+      .where((c) => c.isActive)
+      .toList();
+  final notSubmitted = <String>{};
+  for (final course in courses) {
+    final roster = await CourseService.listCourseStudents(course.id);
+    if (roster.isEmpty) continue;
+    final assignments = (await AssignmentService.listAssignments(
+      course.id,
+    )).where((a) => a.status == 'published');
+    for (final assignment in assignments) {
+      final submissions = await AssignmentService.listSubmissions(
+        assignment.id,
+      );
+      final submittedIds = submissions.map((s) => s.studentId).toSet();
+      for (final student in roster) {
+        if (!submittedIds.contains(student.studentId)) {
+          notSubmitted.add(student.studentId);
+        }
+      }
+    }
+  }
+  return notSubmitted.length;
+}
+
+/// เวลาเริ่มคาบถัดไปของวันนี้ (HH:mm) หรือ null ถ้าไม่มีคาบเหลือแล้ว
+Future<String?> _fetchNextPeriodLabel() async {
+  final schedules = await CalendarService.listTeacherSchedules();
+  final todayIndex = DateTime.now().weekday - 1;
+  final today = schedules.where((s) => s.dayOfWeek == todayIndex).toList()
+    ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  final now = DateTime.now();
+  final nowStr =
+      '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:00';
+  for (final slot in today) {
+    if (slot.startTime.compareTo(nowStr) >= 0) {
+      return slot.startTime.substring(0, 5);
+    }
+  }
+  return null;
+}
+
+class _TodayFocusCard extends StatefulWidget {
   const _TodayFocusCard();
+
+  @override
+  State<_TodayFocusCard> createState() => _TodayFocusCardState();
+}
+
+class _TodayFocusCardState extends State<_TodayFocusCard> {
+  int? _pending;
+  int? _notSubmitted;
+  String? _nextPeriod;
+  bool _nextPeriodLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final results = await Future.wait([
+        _fetchPendingReviewTotal(),
+        _fetchNotSubmittedStudentTotal(),
+        _fetchNextPeriodLabel(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _pending = results[0] as int;
+        _notSubmitted = results[1] as int;
+        _nextPeriod = results[2] as String?;
+        _nextPeriodLoaded = true;
+      });
+    } catch (_) {
+      // เงียบไว้ — แถวจะโชว์ "-" ค้างต่อ ไม่ใช่จุดหลักของหน้า
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2789,21 +2867,23 @@ class _TodayFocusCard extends StatelessWidget {
               MaterialPageRoute(builder: (_) => const TeacherAttendancePage()),
             ),
           ),
-          const _FocusRow(
-            label: 'ตรวจใบงาน PM2.5',
-            value: '18 ชิ้น',
+          _FocusRow(
+            label: 'งานรอตรวจ',
+            value: _pending == null ? '-' : '$_pending ชิ้น',
             color: TeacherPalette.orange,
             icon: Icons.assignment_rounded,
           ),
-          const _FocusRow(
+          _FocusRow(
             label: 'นักเรียนไม่ส่งงาน',
-            value: '3 คน',
+            value: _notSubmitted == null ? '-' : '$_notSubmitted คน',
             color: TeacherPalette.red,
             icon: Icons.person_search_rounded,
           ),
-          const _FocusRow(
+          _FocusRow(
             label: 'คาบถัดไป',
-            value: '10:30',
+            value: !_nextPeriodLoaded
+                ? '-'
+                : (_nextPeriod ?? 'ไม่มีคาบแล้ว'),
             color: TeacherPalette.blue,
             icon: Icons.schedule_rounded,
           ),

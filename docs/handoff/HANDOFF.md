@@ -524,11 +524,14 @@ see `docs/handoff/WORK_LOG.md`.)*
     (not the shared `_ScheduleCard`/`_ReviewQueueCard` widgets, which are
     fixed) — likely other prototype breakpoint/variant layouts not reached
     by the default route, not independently confirmed dead.
-  - **Known gap**: `_TodayFocusCard`'s own "ตรวจใบงาน PM2.5"/"นักเรียนไม่ส่งงาน"/
-    "คาบถัดไป" rows are a second, redundant fake summary — a duplicate of
-    what `_ReviewQueueCard`/`_StudentsWatchCard`/`_ScheduleCard` now show
-    for real, in a different card. Only this card's own first row (the
-    "เช็คชื่อนักเรียน" shortcut added 2026-08-27) is real.
+  - `_TodayFocusCard`'s remaining 3 rows — **fixed 2026-08-28**. Each row
+    got its own precisely-scoped real definition rather than reusing
+    `_ReviewQueueCard`/`_StudentsWatchCard`'s numbers verbatim: "งานรอตรวจ"
+    reuses `_fetchPendingReviewTotal()`; "นักเรียนไม่ส่งงาน" is a new,
+    looser metric (`_fetchNotSubmittedStudentTotal()` — ≥1 unsubmitted
+    published assignment, vs. "ต้องติดตาม"'s ≥2 threshold); "คาบถัดไป" is
+    a new `_fetchNextPeriodLabel()` picking today's next not-yet-started
+    schedule slot, honestly showing "ไม่มีคาบแล้ว" when none remain.
   - **Fixed 2026-08-28, found via a live screenshot, not part of the
     6-item list above**: `_ClassesCarousel`'s "ฉบับร่าง"/"เผยแพร่แล้ว" badge
     checked `course.status == 'published'`, but real `courses.status` is
