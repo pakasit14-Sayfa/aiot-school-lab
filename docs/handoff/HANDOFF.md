@@ -524,6 +524,18 @@ see `docs/handoff/WORK_LOG.md`.)*
     (not the shared `_ScheduleCard`/`_ReviewQueueCard` widgets, which are
     fixed) — likely other prototype breakpoint/variant layouts not reached
     by the default route, not independently confirmed dead.
+  - **Known gap**: `_TodayFocusCard`'s own "ตรวจใบงาน PM2.5"/"นักเรียนไม่ส่งงาน"/
+    "คาบถัดไป" rows are a second, redundant fake summary — a duplicate of
+    what `_ReviewQueueCard`/`_StudentsWatchCard`/`_ScheduleCard` now show
+    for real, in a different card. Only this card's own first row (the
+    "เช็คชื่อนักเรียน" shortcut added 2026-08-27) is real.
+  - **Fixed 2026-08-28, found via a live screenshot, not part of the
+    6-item list above**: `_ClassesCarousel`'s "ฉบับร่าง"/"เผยแพร่แล้ว" badge
+    checked `course.status == 'published'`, but real `courses.status` is
+    `active`/`closed` — the check could never be true, so every real
+    course always showed "ฉบับร่าง". Now uses `course.isActive`. Also
+    fixed a real `_SubmissionBarChartCard` overflow (`SizedBox(height: 140)`
+    was ~2px too short for real 100% data) by bumping to 148.
 - **`supabase_migrations.schema_migrations` tracking table doesn't match the
   files on disk** (53 tracked rows vs 61 files as of 2026-08-22). Several
   migrations this week were applied via `docker exec ... psql < file.sql`

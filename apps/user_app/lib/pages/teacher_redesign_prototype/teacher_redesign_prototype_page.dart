@@ -1223,7 +1223,7 @@ class _SubmissionBarChartCardState extends State<_SubmissionBarChartCard> {
             )
           else
             SizedBox(
-              height: 140,
+              height: 148,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -2132,10 +2132,8 @@ class _ClassesCarouselState extends State<_ClassesCarousel> {
             c.room ?? c.gradeLevel ?? '-',
             studentCount,
             Icons.menu_book_rounded,
-            c.status == 'published' ? 'เผยแพร่แล้ว' : 'ฉบับร่าง',
-            c.status == 'published'
-                ? TeacherPalette.green
-                : TeacherPalette.orange,
+            c.isActive ? 'กำลังเปิดสอน' : 'ปิดแล้ว',
+            c.isActive ? TeacherPalette.green : TeacherPalette.muted,
             _gradients[i % _gradients.length],
           ),
         );
