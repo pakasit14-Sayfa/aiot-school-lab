@@ -23,9 +23,11 @@ import paho.mqtt.client as mqtt
 
 # ========================= CONFIG =========================
 
-MQTT_BROKER_HOST = "192.168.1.118"  # broker รันอยู่บนเครื่องนี้เอง (เดิมตั้งไว้
-                                     # เป็น 192.168.1.180 แต่เครื่องนั้นหายจาก
-                                     # LAN — ต้องแก้ secrets.py บนบอร์ดให้ชี้มาที่นี่)
+MQTT_BROKER_HOST = "192.168.1.157"  # broker จริงที่บอร์ดใช้อยู่แล้วตาม
+                                     # secrets.py (192.168.1.180 ในเอกสาร
+                                     # pinout เป็นค่าเก่า — secrets.py จริง
+                                     # อัปเดตเป็น .157 ไปแล้ว ยืนยันด้วยการ
+                                     # subscribe ตรงแล้วเห็นบอร์ด publish จริง)
 MQTT_BROKER_PORT = 1883
 MQTT_TOPIC = "aiot/lab01/sensors"
 
@@ -40,22 +42,25 @@ SEND_INTERVAL = 5          # ส่งขึ้น Supabase ทุกกี่�
 MAX_QUEUE = 5000
 
 # แปลงชื่อ field จาก payload ของบอร์ด -> ชื่อ metric ที่ระบบรู้จัก
-# รองรับตามที่ยืนยันจริงจาก sensor_latest: pm25, aqi, temperature, humidity,
-# light_lux, water_flow_lmin, water_volume_l, gas_mq2_percent
-# (ชื่อ field จริงจากบอร์ดยังไม่ยืนยัน 100% — ดู raw payload ที่ print ออกมา
-#  แล้วเพิ่ม/แก้ในตารางนี้ได้เลยถ้าไม่ตรง)
+# ยืนยันจาก payload จริงที่ subscribe ได้ (28 ส.ค. 2569):
+#   {"pm1_0_ug_m3": null, "pm2_5_ug_m3": null, "pm4_0_ug_m3": null,
+#    "pm10_ug_m3": null, "mq2_percent": 0.8, "aqi": 1, "eco2_ppm": 483,
+#    "tvoc_ppb": 63, "light_lux": 183.75, "flow_rate_l_min": 0.0,
+#    "total_volume_l": 0.0, "device_id": "maker-feather-aiot-s3", ...}
+# ตอนนี้ SPS30 ยังไม่ต่อ (pm*_ug_m3 เป็น null ทั้งหมด — to_readings() ข้าม
+# ค่า null ให้เองอยู่แล้ว) พอต่อจริงจะเริ่มส่ง pm25 ให้อัตโนมัติ
+# eco2_ppm/tvoc_ppb/pm1_0/pm4_0/pm10 ไม่ mapped เพราะยังไม่มีช่อง metric_type
+# รองรับใน DB ตอนนี้ (มีแค่ pm25 ไม่มี pm1/pm4/pm10/tvoc/eco2 แยก) —
+# ถ้าอยากเก็บต้องเพิ่ม enum value ในฐานข้อมูลก่อน
 METRIC_MAP = {
-    "pm25": "pm25", "pm2_5": "pm25", "pm2.5": "pm25",
+    "light_lux": "light_lux",
     "aqi": "aqi",
-    "temp": "temperature", "temperature": "temperature",
-    "hum": "humidity", "humidity": "humidity", "rh": "humidity",
-    "lux": "light_lux", "light": "light_lux", "light_lux": "light_lux",
-    "gas": "gas_mq2_percent", "gas_percent": "gas_mq2_percent",
-    "mq2": "gas_mq2_percent", "gas_mq2_percent": "gas_mq2_percent",
-    "flow": "water_flow_lmin", "flow_lmin": "water_flow_lmin",
-    "water_flow": "water_flow_lmin", "water_flow_lmin": "water_flow_lmin",
-    "volume": "water_volume_l", "volume_l": "water_volume_l",
-    "water_volume": "water_volume_l", "water_volume_l": "water_volume_l",
+    "mq2_percent": "gas_mq2_percent",
+    "flow_rate_l_min": "water_flow_lmin",
+    "total_volume_l": "water_volume_l",
+    "pm2_5_ug_m3": "pm25",
+    # เผื่อบอร์ดรุ่น/ไฟล์อื่นใช้ชื่อสั้นแบบเดิม
+    "temperature": "temperature", "humidity": "humidity",
 }
 
 # ============================================================
