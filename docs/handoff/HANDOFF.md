@@ -178,6 +178,80 @@ logging in (see `NOTES.md` in `teacher_redesign_prototype/` /
 of what they call "not connected" has since been wired to real RPCs. Trust
 the code and `git log`, not those NOTES files, for current status.**
 
+## Production deploy drift incident (2026-08-28) — resolved, read this first
+
+**Production (`smqoknnftgjyhrnzugar`, org `dilion.education2003@gmail.com`,
+project `aiot-school-lab-cli`) had been frozen at the 2026-07-18 migration
+snapshot for over a month** — every migration from `20260720000000`
+onward (~78 files) and every Edge Function had simply never been
+deployed there, despite local dev always running the full history. This
+was invisible until today because production had no real users yet
+(confirmed with the project owner before doing a bulk catch-up).
+
+**How it was found**: debugging why the AIoT weather-sensor card on the
+production app showed "ไม่มีข้อมูล" forever led to login itself being
+broken — `auth-sign-in`'s Edge Function expects `auth_sign_in()` to
+return an `auth_state` column (added 2026-07-21+), production's live
+function predated that column, so it came back `undefined`, the function
+silently fell into its "not authenticated" branch (HTTP 200,
+`{"session": null}`, no `console.error` — nothing showed up in Edge
+Function logs, which is what made this hard to find), and the app showed
+a generic "invalid credentials" message for every account regardless of
+password.
+
+**Fixed 2026-08-28**: applied every pending migration to production and
+deployed all 15 Edge Functions. Two migrations needed a hand fix first
+because their target objects already existed on production from earlier
+undocumented manual patches — same shape as the `gas_mq2_percent` enum
+drift below: `20260721010000_relay_commands.sql` (table `device_commands`
+pre-existed) and `20260826000000_merge_technician_facility_manager.sql`
+(the `DELETE FROM users` for the two obsolete seed accounts hit an FK
+from `user_roles` that a real production `user_roles` row for
+`facility@aiot-school-lab.local` had and local dev's seed apparently
+didn't — deleted those `user_roles` rows first, then replayed the
+migration clean). `npx supabase db push` itself is unreliable in this
+environment — it hangs indefinitely on the default Docker-based bundler
+for Edge Function deploys, and mis-splits statements in at least one
+multi-statement migration file (a `gen_random_bytes()` call that works
+fine standalone reported "does not exist" under `db push` specifically).
+Working alternative used throughout: `npx supabase db query --linked
+--project-ref smqoknnftgjyhrnzugar --file <migration.sql>` per migration,
+then manually recording it in `supabase_migrations.schema_migrations` so
+`supabase migration list` stays accurate; for Edge Functions,
+`npx supabase functions deploy <name> --project-ref smqoknnftgjyhrnzugar
+--use-api` (the `--use-api` flag skips the hanging Docker bundler).
+
+**Side effect worth knowing about**: `20260720000000_rotate_default_credentials.sql`
+(previously undeployed, applied today) rotates any account still on the
+password `Test1234!`/`ChangeMe123!` to a random, unknown value and
+revokes its sessions. This means **every account that still had a
+default password before today now has an unknown production password**
+— `teacher@aiot-school-lab.local` and `student@aiot-school-lab.local`
+were manually reset back to `Test1234!` after the fact (for continued
+testing convenience), but any other seed account on a default password
+was not and will need `issue_device_token`-style manual reset (`update
+users set password_hash = crypt('<new password>', gen_salt('bf')) where
+email = '...'`) before it can log in again.
+
+**Also discovered, not yet fixed**: `auth_sign_in`'s RPC unconditionally
+returns the plaintext OTP code (`otp_code`) in its response row, and the
+`auth-sign-in` Edge Function only *withholds* that field from its own
+JSON response when `isLocalDev()` is true — meaning the OTP is *not*
+leaked to the client on production (confirmed: a real `mfa_required`
+response from production has no `dev_otp_code` field), but anyone with
+direct Postgres/service-role access to the RPC (not just the client
+app) can read it straight out of the function's return value. Low
+urgency given today's finding that this project has no real users yet,
+but worth tightening — e.g. having the RPC itself omit `otp_code` outside
+a local-only code path — before real users are on it.
+
+**Still deferred** (explicitly, discussed with the project owner):
+rotating the `DEVICE_TOKEN` that leaked into git history on the
+`gitlab/agent/publish-current-work` branch (`tools/mqtt_to_database.py`,
+commit `026803b`) — not yet rotated, not yet purged from history.
+
+---
+
 ## Current status (re-audited 2026-08-25 — supersedes everything below in this section)
 
 **All 6 roles are fully wired to real backend data, no mock pages left
