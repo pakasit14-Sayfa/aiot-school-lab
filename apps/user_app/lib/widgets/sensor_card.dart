@@ -7,6 +7,8 @@ class SensorCard extends StatelessWidget {
   final String unit;
   final IconData icon;
   final SensorLevel level;
+  final SensorFreshness freshness;
+  final String? timeLabel;
   final VoidCallback? onTap;
 
   const SensorCard({
@@ -16,11 +18,20 @@ class SensorCard extends StatelessWidget {
     required this.unit,
     required this.icon,
     required this.level,
+    this.freshness = SensorFreshness.noData,
+    this.timeLabel,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Badge เดียว: สด/ล่าช้าเล็กน้อย -> โชว์ระดับความปลอดภัย (ปกติ/ไม่ปลอดภัย);
+    // เซนเซอร์ไม่ทำงาน/ไม่มีข้อมูล -> โชว์สถานะนั้นแทน ไม่โชว์ทั้งคู่ซ้อนกัน
+    final showLevelBadge =
+        freshness == SensorFreshness.live ||
+        freshness == SensorFreshness.delayed;
+    final badgeColor = showLevelBadge ? level.color : freshness.color;
+    final badgeLabel = showLevelBadge ? level.label : freshness.label;
     final color = level.color;
     return Card(
       elevation: 3,
@@ -49,14 +60,14 @@ class SensorCard extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.12),
+                      color: badgeColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      level.label,
+                      badgeLabel,
                       style: TextStyle(
                         fontSize: 11,
-                        color: color,
+                        color: badgeColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -85,6 +96,19 @@ class SensorCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (timeLabel != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'อัปเดต $timeLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: freshness.color,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -114,6 +138,8 @@ class SensorGrid extends StatelessWidget {
           unit: 'µg/m³',
           icon: Icons.blur_on,
           level: sensor.pm25Level,
+          freshness: sensor.freshnessOf('pm25'),
+          timeLabel: sensor.relativeTimeLabel('pm25'),
         ),
         SensorCard(
           label: 'CO₂',
@@ -121,6 +147,8 @@ class SensorGrid extends StatelessWidget {
           unit: 'ppm',
           icon: Icons.co2,
           level: sensor.co2Level,
+          freshness: sensor.freshnessOf('co2'),
+          timeLabel: sensor.relativeTimeLabel('co2'),
         ),
         SensorCard(
           label: 'อุณหภูมิ',
@@ -128,6 +156,8 @@ class SensorGrid extends StatelessWidget {
           unit: '°C',
           icon: Icons.thermostat,
           level: sensor.tempLevel,
+          freshness: sensor.freshnessOf('temperature'),
+          timeLabel: sensor.relativeTimeLabel('temperature'),
         ),
         SensorCard(
           label: 'ความชื้น',
@@ -135,6 +165,8 @@ class SensorGrid extends StatelessWidget {
           unit: '%',
           icon: Icons.water_drop,
           level: sensor.humidityLevel,
+          freshness: sensor.freshnessOf('humidity'),
+          timeLabel: sensor.relativeTimeLabel('humidity'),
         ),
         SensorCard(
           label: 'TVOC',
@@ -142,6 +174,8 @@ class SensorGrid extends StatelessWidget {
           unit: 'mg/m³',
           icon: Icons.science,
           level: sensor.tvocLevel,
+          freshness: sensor.freshnessOf('tvoc'),
+          timeLabel: sensor.relativeTimeLabel('tvoc'),
         ),
         SensorCard(
           label: 'แสงสว่าง',
@@ -149,6 +183,8 @@ class SensorGrid extends StatelessWidget {
           unit: 'lux',
           icon: Icons.light_mode,
           level: sensor.luxLevel,
+          freshness: sensor.freshnessOf('light_lux'),
+          timeLabel: sensor.relativeTimeLabel('light_lux'),
         ),
       ],
     );

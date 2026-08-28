@@ -106,6 +106,8 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                       unit: 'µg/m³',
                       subtitle: pm25.subtitle,
                       level: pm25.level,
+                      freshness: sensor.freshnessOf('pm25'),
+                      timeLabel: sensor.relativeTimeLabel('pm25'),
                       showDivider: true,
                     ),
                     AiotSensorItemTile(
@@ -115,6 +117,8 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                       unit: '°C',
                       subtitle: temp.subtitle,
                       level: temp.level,
+                      freshness: sensor.freshnessOf('temperature'),
+                      timeLabel: sensor.relativeTimeLabel('temperature'),
                       showDivider: true,
                     ),
                     AiotSensorItemTile(
@@ -124,6 +128,8 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                       unit: '%RH',
                       subtitle: humidity.subtitle,
                       level: humidity.level,
+                      freshness: sensor.freshnessOf('humidity'),
+                      timeLabel: sensor.relativeTimeLabel('humidity'),
                       showDivider: true,
                     ),
                     AiotSensorItemTile(
@@ -133,6 +139,8 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                       unit: 'lux',
                       subtitle: lux.subtitle,
                       level: lux.level,
+                      freshness: sensor.freshnessOf('light_lux'),
+                      timeLabel: sensor.relativeTimeLabel('light_lux'),
                       showDivider: false,
                     ),
                   ],
@@ -194,6 +202,8 @@ class AiotSensorItemTile extends StatelessWidget {
     required this.level,
     this.value,
     this.unit,
+    this.freshness = SensorFreshness.noData,
+    this.timeLabel,
     this.showDivider = false,
   });
 
@@ -203,6 +213,8 @@ class AiotSensorItemTile extends StatelessWidget {
   final String level;
   final String? value;
   final String? unit;
+  final SensorFreshness freshness;
+  final String? timeLabel;
   final bool showDivider;
 
   @override
@@ -324,51 +336,107 @@ class AiotSensorItemTile extends StatelessWidget {
                           height: 1.12,
                         ),
                       ),
+                      if (timeLabel != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'อัปเดต $timeLabel',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: freshness.color,
+                            fontSize: isCompact ? 9.5 : 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: badgeBgColor,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: badgeBorderColor, width: 1.0),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: badgeDotColor,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: badgeDotColor.withValues(alpha: 0.35),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
+                // Badge เดียวต่อแถว: สด/ล่าช้าเล็กน้อย → โชว์ระดับความปลอดภัย
+                // (ปกติ/ไม่ปลอดภัย); เซนเซอร์ไม่ทำงาน/ไม่มีข้อมูล → โชว์สถานะ
+                // นั้นแทน ไม่โชว์ทั้งสองอันซ้อนกัน (จะขัดแย้งกันเอง)
+                if (freshness == SensorFreshness.live ||
+                    freshness == SensorFreshness.delayed)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeBgColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: badgeBorderColor, width: 1.0),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: badgeDotColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: badgeDotColor.withValues(alpha: 0.35),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        level,
-                        style: TextStyle(
-                          color: badgeTextColor,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          letterSpacing: 0.2,
+                        const SizedBox(width: 5),
+                        Text(
+                          level,
+                          style: TextStyle(
+                            color: badgeTextColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 0.2,
+                          ),
                         ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: freshness.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: freshness.color.withValues(alpha: 0.3),
+                        width: 1.0,
                       ),
-                    ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: freshness.color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          freshness.label,
+                          style: TextStyle(
+                            color: freshness.color,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 9.5,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),

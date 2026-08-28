@@ -2,6 +2,27 @@ import 'package:flutter/material.dart';
 
 enum SensorLevel { good, moderate, danger }
 
+/// ความสดของค่าที่อ่านได้ล่าสุดของ metric หนึ่งตัว — แยกจาก [SensorLevel]
+/// (ซึ่งบอกว่าค่านั้น "ปลอดภัยไหม") เพราะค่าเก่ามากๆ ก็ยัง "ปกติ" ได้ตามตัวเลข
+/// แต่ไม่ควรให้ผู้ใช้เข้าใจว่าเป็นค่าสดตอนนี้
+enum SensorFreshness { live, delayed, offline, noData }
+
+extension SensorFreshnessExt on SensorFreshness {
+  String get label => switch (this) {
+    SensorFreshness.live => 'สด (Live)',
+    SensorFreshness.delayed => 'ข้อมูลล่าช้า',
+    SensorFreshness.offline => 'เซนเซอร์ไม่ทำงาน',
+    SensorFreshness.noData => 'ไม่มีข้อมูล',
+  };
+
+  Color get color => switch (this) {
+    SensorFreshness.live => const Color(0xFF16A34A),
+    SensorFreshness.delayed => const Color(0xFFD97706),
+    SensorFreshness.offline => const Color(0xFFDC2626),
+    SensorFreshness.noData => const Color(0xFF94A3B8),
+  };
+}
+
 class SensorModel {
   final double pm25;
   final double co2;
@@ -11,6 +32,12 @@ class SensorModel {
   final double lux;
   final DateTime? updatedAt;
 
+  /// เวลาที่แต่ละ metric อัปเดตล่าสุดจริงๆ — คนละอันกับ [updatedAt] (ซึ่งเป็นแค่
+  /// ค่าล่าสุดสุดในบรรดา metric ทั้งหมด) เพราะแต่ละ metric อาจมาจากบอร์ด/ช่วง
+  /// เวลาคนละอันกัน ใช้บอกความสด/ค่าเก่าของแต่ละตัวแยกกัน (เช่น pm25 สดวันนี้
+  /// แต่ temperature เป็นข้อมูลเก่าจากเดือนก่อน)
+  final Map<String, DateTime> metricUpdatedAt;
+
   const SensorModel({
     this.pm25 = 0,
     this.co2 = 0,
@@ -19,6 +46,7 @@ class SensorModel {
     this.humidity = 0,
     this.lux = 0,
     this.updatedAt,
+    this.metricUpdatedAt = const {},
   });
 
   factory SensorModel.fromMap(Map<dynamic, dynamic> map) {
@@ -64,6 +92,34 @@ class SensorModel {
     if (temperature >= 20 && temperature <= 28) return SensorLevel.good;
     if (temperature > 28 && temperature <= 32) return SensorLevel.moderate;
     return SensorLevel.danger;
+  }
+
+  /// อายุของค่า metric นี้เทียบกับตอนนี้ — null ถ้าไม่เคยมีข้อมูลเลย
+  Duration? ageOf(String metric) {
+    final ts = metricUpdatedAt[metric];
+    if (ts == null) return null;
+    return DateTime.now().toUtc().difference(ts.toUtc());
+  }
+
+  /// เกณฑ์: สด ≤2 นาที, ล่าช้า ≤10 นาที, เกินนั้นถือว่าเซนเซอร์ไม่ทำงาน —
+  /// บอร์ดจริงส่งค่าใหม่ทุก ~3-5 วิ ตอนทำงานปกติ ดังนั้นห่างเกิน 10 นาที
+  /// แทบจะแปลว่า bridge/เน็ตเวิร์กเสียแน่ๆ ไม่ใช่แค่ดีเลย์ธรรมดา
+  SensorFreshness freshnessOf(String metric) {
+    final age = ageOf(metric);
+    if (age == null) return SensorFreshness.noData;
+    if (age <= const Duration(minutes: 2)) return SensorFreshness.live;
+    if (age <= const Duration(minutes: 10)) return SensorFreshness.delayed;
+    return SensorFreshness.offline;
+  }
+
+  /// ข้อความเวลาแบบอ่านง่าย เช่น "2 นาทีที่แล้ว", "5 ชม.ที่แล้ว", "34 วันที่แล้ว"
+  String relativeTimeLabel(String metric) {
+    final age = ageOf(metric);
+    if (age == null) return 'ไม่มีข้อมูล';
+    if (age.inSeconds < 60) return 'เมื่อสักครู่';
+    if (age.inMinutes < 60) return '${age.inMinutes} นาทีที่แล้ว';
+    if (age.inHours < 24) return '${age.inHours} ชม.ที่แล้ว';
+    return '${age.inDays} วันที่แล้ว';
   }
 
   SensorLevel get humidityLevel {

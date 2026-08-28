@@ -111,12 +111,18 @@ class RealtimeService {
       }
     }
 
+    final metricUpdatedAt = <String, DateTime>{
+      for (final entry in tsByMetric.entries)
+        if (entry.value != null) entry.key: entry.value!,
+    };
+
     return SensorModel(
       pm25: values['pm25'] ?? 0,
       temperature: values['temperature'] ?? 0,
       humidity: values['humidity'] ?? 0,
       lux: values['light_lux'] ?? 0,
       updatedAt: updatedAt,
+      metricUpdatedAt: metricUpdatedAt,
     );
   }
 

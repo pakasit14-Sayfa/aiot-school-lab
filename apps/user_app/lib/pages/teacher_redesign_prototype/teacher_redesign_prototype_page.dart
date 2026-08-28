@@ -3273,6 +3273,8 @@ class _AiotSensorRow extends StatelessWidget {
     required this.level,
     this.value,
     this.unit,
+    this.freshness = SensorFreshness.noData,
+    this.timeLabel,
     this.showDivider = false,
   });
 
@@ -3282,6 +3284,8 @@ class _AiotSensorRow extends StatelessWidget {
   final String level;
   final String? value;
   final String? unit;
+  final SensorFreshness freshness;
+  final String? timeLabel;
   final bool showDivider;
 
   @override
@@ -3399,49 +3403,108 @@ class _AiotSensorRow extends StatelessWidget {
                     height: 1.12,
                   ),
                 ),
+                if (timeLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'อัปเดต $timeLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: freshness.color,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(width: 12),
 
-          // Redesigned Theme-matched Soft Status Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeBgColor,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: badgeBorderColor, width: 1.0),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                    color: badgeDotColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: badgeDotColor.withValues(alpha: 0.35),
-                        blurRadius: 4,
-                        offset: const Offset(0, 1),
+          // Badge เดียวต่อแถว: ข้อมูลสด/ล่าช้าเล็กน้อย → โชว์ระดับความปลอดภัย
+          // (ปกติ/ไม่ปลอดภัย) เหมือนเดิม; เซนเซอร์ไม่ทำงาน/ไม่มีข้อมูล → โชว์
+          // สถานะนั้นแทน ไม่โชว์ทั้งสองอันซ้อนกัน (จะขัดแย้งกันเอง เช่น
+          // "ปกติ" สีเขียวคู่กับ "เซนเซอร์ไม่ทำงาน" สีแดง)
+          if (freshness == SensorFreshness.live ||
+              freshness == SensorFreshness.delayed)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: badgeBgColor,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: badgeBorderColor, width: 1.0),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: badgeDotColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: badgeDotColor.withValues(alpha: 0.35),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    level,
+                    style: TextStyle(
+                      color: badgeTextColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: freshness.color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: freshness.color.withValues(alpha: 0.3),
+                  width: 1.0,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: freshness.color,
+                        shape: BoxShape.circle,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      freshness.label,
+                      style: TextStyle(
+                        color: freshness.color,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 9.5,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 5),
-                Text(
-                  level,
-                  style: TextStyle(
-                    color: badgeTextColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
         ],
       ),
     );
@@ -4594,6 +4657,8 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
             level: _availableMetrics.contains('pm25')
                 ? _levelLabel(sensor!.pm25Level)
                 : 'ไม่มีข้อมูล',
+            freshness: sensor?.freshnessOf('pm25') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('pm25'),
             showDivider: true,
           ),
           _AiotSensorRow(
@@ -4609,6 +4674,9 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
             level: _availableMetrics.contains('temperature')
                 ? _levelLabel(sensor!.tempLevel)
                 : 'ไม่มีข้อมูล',
+            freshness:
+                sensor?.freshnessOf('temperature') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('temperature'),
             showDivider: true,
           ),
           _AiotSensorRow(
@@ -4624,6 +4692,9 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
             level: _availableMetrics.contains('humidity')
                 ? _levelLabel(sensor!.humidityLevel)
                 : 'ไม่มีข้อมูล',
+            freshness:
+                sensor?.freshnessOf('humidity') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('humidity'),
             showDivider: true,
           ),
           _AiotSensorRow(
@@ -4639,6 +4710,9 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
             level: _availableMetrics.contains('light_lux')
                 ? _levelLabel(sensor!.luxLevel)
                 : 'ไม่มีข้อมูล',
+            freshness:
+                sensor?.freshnessOf('light_lux') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('light_lux'),
             showDivider: false,
           ),
           const SizedBox(height: 16),
@@ -4762,6 +4836,8 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
                 : '-',
             unit: 'µg/m³',
             color: TeacherPalette.blue,
+            freshness: sensor?.freshnessOf('pm25') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('pm25'),
           ),
           const SizedBox(height: 8),
           _SensorMiniMetric(
@@ -4771,6 +4847,9 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
                 : '-',
             unit: '°C',
             color: TeacherPalette.orange,
+            freshness:
+                sensor?.freshnessOf('temperature') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('temperature'),
           ),
           const SizedBox(height: 8),
           _SensorMiniMetric(
@@ -4780,6 +4859,9 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
                 : '-',
             unit: '%RH',
             color: TeacherPalette.primary2,
+            freshness:
+                sensor?.freshnessOf('humidity') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('humidity'),
           ),
           const SizedBox(height: 8),
           _SensorMiniMetric(
@@ -4789,6 +4871,9 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
                 : '-',
             unit: 'lux',
             color: TeacherPalette.violet,
+            freshness:
+                sensor?.freshnessOf('light_lux') ?? SensorFreshness.noData,
+            timeLabel: sensor?.relativeTimeLabel('light_lux'),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -5057,12 +5142,16 @@ class _SensorMiniMetric extends StatelessWidget {
     required this.value,
     required this.unit,
     required this.color,
+    this.freshness = SensorFreshness.noData,
+    this.timeLabel,
   });
 
   final String label;
   final String value;
   final String unit;
   final Color color;
+  final SensorFreshness freshness;
+  final String? timeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -5072,43 +5161,77 @@ class _SensorMiniMetric extends StatelessWidget {
         color: color.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(18),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: TeacherPalette.muted,
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          RichText(
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            text: TextSpan(
-              text: value,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-              ),
-              children: [
-                TextSpan(
-                  text: unit.isEmpty ? '' : ' $unit',
-                  style: TextStyle(
-                    color: color,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                   ),
                 ),
+              ),
+              const SizedBox(width: 10),
+              RichText(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  text: value,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 20,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: unit.isEmpty ? '' : ' $unit',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (timeLabel != null) ...[
+            const SizedBox(height: 3),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: freshness.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  freshness == SensorFreshness.live
+                      ? 'สด • $timeLabel'
+                      : '${freshness.label} • $timeLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: freshness.color,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 9.5,
+                  ),
+                ),
               ],
             ),
-          ),
+          ],
         ],
       ),
     );
