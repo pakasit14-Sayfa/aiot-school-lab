@@ -112,6 +112,25 @@ class SensorModel {
     return SensorFreshness.offline;
   }
 
+  /// สถานะรวมของการ์ด (จุดเขียว/ส้ม/แดงหัวการ์ด) — เอาสถานะที่ "แย่ที่สุด"
+  /// ในบรรดา metric ที่ระบุ ไม่ใช่ค่าเฉลี่ยหรือค่าใดค่าหนึ่ง เพราะถ้ามี metric
+  /// ไหนหลุด/ค้าง ควรเห็นสัญญาณเตือนที่หัวการ์ดทันที ไม่ใช่ถูกกลบด้วย metric
+  /// อื่นที่ยังสดอยู่
+  SensorFreshness overallFreshnessOf(List<String> metrics) {
+    const severity = {
+      SensorFreshness.live: 0,
+      SensorFreshness.delayed: 1,
+      SensorFreshness.offline: 2,
+      SensorFreshness.noData: 3,
+    };
+    var worst = SensorFreshness.live;
+    for (final metric in metrics) {
+      final f = freshnessOf(metric);
+      if (severity[f]! > severity[worst]!) worst = f;
+    }
+    return worst;
+  }
+
   /// ข้อความเวลาแบบอ่านง่าย เช่น "2 นาทีที่แล้ว", "5 ชม.ที่แล้ว", "34 วันที่แล้ว"
   String relativeTimeLabel(String metric) {
     final age = ageOf(metric);

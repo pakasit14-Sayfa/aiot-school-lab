@@ -27,8 +27,10 @@ class AiotWeatherSensorsCard extends StatelessWidget {
   }
 
   static ({String subtitle, String level}) _luxStatus(double v) {
-    if (v >= 300) return (subtitle: 'แสงสว่างเพียงพอสำหรับอ่านหนังสือ', level: 'ปกติ');
-    if (v >= 150) return (subtitle: 'แสงสว่างพอใช้ อาจต้องเปิดไฟเพิ่ม', level: 'ปกติ');
+    if (v >= 300)
+      return (subtitle: 'แสงสว่างเพียงพอสำหรับอ่านหนังสือ', level: 'ปกติ');
+    if (v >= 150)
+      return (subtitle: 'แสงสว่างพอใช้ อาจต้องเปิดไฟเพิ่ม', level: 'ปกติ');
     return (subtitle: 'แสงสว่างน้อยกว่ามาตรฐาน', level: 'ไม่ปลอดภัย');
   }
 
@@ -41,37 +43,6 @@ class AiotWeatherSensorsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: SchoolPalette.green,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Color(0x662F8F5B),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
-                    style: TextStyle(
-                      color: SchoolPalette.ink,
-                      fontSize: 17.5,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             StreamBuilder<SensorModel?>(
               stream: RealtimeService.sensorStream(
                 schoolId: currentUserModel?.schoolId ?? '',
@@ -81,16 +52,62 @@ class AiotWeatherSensorsCard extends StatelessWidget {
               ),
               builder: (context, snapshot) {
                 final sensor = snapshot.data;
-                if (sensor == null || sensor.updatedAt == null) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      'ยังไม่มีข้อมูลเซนเซอร์จากอุปกรณ์ในโรงเรียน',
-                      style: TextStyle(
-                        color: SchoolPalette.muted,
-                        fontSize: 12.5,
+                const trackedMetrics = [
+                  'pm25',
+                  'temperature',
+                  'humidity',
+                  'light_lux',
+                ];
+                final headerFreshness =
+                    sensor?.overallFreshnessOf(trackedMetrics) ??
+                    SensorFreshness.noData;
+                final header = Row(
+                  children: [
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: headerFreshness.color,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: headerFreshness.color.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            spreadRadius: 2,
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
+                        style: TextStyle(
+                          color: SchoolPalette.ink,
+                          fontSize: 17.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+                if (sensor == null || sensor.updatedAt == null) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      header,
+                      const SizedBox(height: 8),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'ยังไม่มีข้อมูลเซนเซอร์จากอุปกรณ์ในโรงเรียน',
+                          style: TextStyle(
+                            color: SchoolPalette.muted,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 }
                 final pm25 = _pm25Status(sensor.pm25);
@@ -98,50 +115,57 @@ class AiotWeatherSensorsCard extends StatelessWidget {
                 final humidity = _humidityStatus(sensor.humidity);
                 final lux = _luxStatus(sensor.lux);
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AiotSensorItemTile(
-                      icon: Icons.air_rounded,
-                      title: 'ฝุ่น PM2.5 (เซนเซอร์ในโรงเรียน)',
-                      value: sensor.pm25.toStringAsFixed(0),
-                      unit: 'µg/m³',
-                      subtitle: pm25.subtitle,
-                      level: pm25.level,
-                      freshness: sensor.freshnessOf('pm25'),
-                      timeLabel: sensor.relativeTimeLabel('pm25'),
-                      showDivider: true,
-                    ),
-                    AiotSensorItemTile(
-                      icon: Icons.thermostat_rounded,
-                      title: 'อุณหภูมิ (เซนเซอร์ในโรงเรียน)',
-                      value: sensor.temperature.toStringAsFixed(1),
-                      unit: '°C',
-                      subtitle: temp.subtitle,
-                      level: temp.level,
-                      freshness: sensor.freshnessOf('temperature'),
-                      timeLabel: sensor.relativeTimeLabel('temperature'),
-                      showDivider: true,
-                    ),
-                    AiotSensorItemTile(
-                      icon: Icons.water_drop_rounded,
-                      title: 'ความชื้นสัมพัทธ์',
-                      value: sensor.humidity.toStringAsFixed(0),
-                      unit: '%RH',
-                      subtitle: humidity.subtitle,
-                      level: humidity.level,
-                      freshness: sensor.freshnessOf('humidity'),
-                      timeLabel: sensor.relativeTimeLabel('humidity'),
-                      showDivider: true,
-                    ),
-                    AiotSensorItemTile(
-                      icon: Icons.wb_sunny_rounded,
-                      title: 'ความเข้มแสง',
-                      value: sensor.lux.toStringAsFixed(0),
-                      unit: 'lux',
-                      subtitle: lux.subtitle,
-                      level: lux.level,
-                      freshness: sensor.freshnessOf('light_lux'),
-                      timeLabel: sensor.relativeTimeLabel('light_lux'),
-                      showDivider: false,
+                    header,
+                    const SizedBox(height: 8),
+                    Column(
+                      children: [
+                        AiotSensorItemTile(
+                          icon: Icons.air_rounded,
+                          title: 'ฝุ่น PM2.5 (เซนเซอร์ในโรงเรียน)',
+                          value: sensor.pm25.toStringAsFixed(0),
+                          unit: 'µg/m³',
+                          subtitle: pm25.subtitle,
+                          level: pm25.level,
+                          freshness: sensor.freshnessOf('pm25'),
+                          timeLabel: sensor.relativeTimeLabel('pm25'),
+                          showDivider: true,
+                        ),
+                        AiotSensorItemTile(
+                          icon: Icons.thermostat_rounded,
+                          title: 'อุณหภูมิ (เซนเซอร์ในโรงเรียน)',
+                          value: sensor.temperature.toStringAsFixed(1),
+                          unit: '°C',
+                          subtitle: temp.subtitle,
+                          level: temp.level,
+                          freshness: sensor.freshnessOf('temperature'),
+                          timeLabel: sensor.relativeTimeLabel('temperature'),
+                          showDivider: true,
+                        ),
+                        AiotSensorItemTile(
+                          icon: Icons.water_drop_rounded,
+                          title: 'ความชื้นสัมพัทธ์',
+                          value: sensor.humidity.toStringAsFixed(0),
+                          unit: '%RH',
+                          subtitle: humidity.subtitle,
+                          level: humidity.level,
+                          freshness: sensor.freshnessOf('humidity'),
+                          timeLabel: sensor.relativeTimeLabel('humidity'),
+                          showDivider: true,
+                        ),
+                        AiotSensorItemTile(
+                          icon: Icons.wb_sunny_rounded,
+                          title: 'ความเข้มแสง',
+                          value: sensor.lux.toStringAsFixed(0),
+                          unit: 'lux',
+                          subtitle: lux.subtitle,
+                          level: lux.level,
+                          freshness: sensor.freshnessOf('light_lux'),
+                          timeLabel: sensor.relativeTimeLabel('light_lux'),
+                          showDivider: false,
+                        ),
+                      ],
                     ),
                   ],
                 );

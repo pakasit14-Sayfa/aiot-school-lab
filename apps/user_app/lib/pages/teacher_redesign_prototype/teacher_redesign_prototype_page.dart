@@ -4622,16 +4622,24 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
   @override
   Widget build(BuildContext context) {
     final sensor = _sensor;
+    final headerFreshness =
+        sensor?.overallFreshnessOf(const [
+          'pm25',
+          'temperature',
+          'humidity',
+          'light_lux',
+        ]) ??
+        SensorFreshness.noData;
     return _GlassCard(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              _StatusPulseDot(color: Color(0xFF16A34A)),
-              SizedBox(width: 8),
-              Expanded(
+              _StatusPulseDot(color: headerFreshness.color),
+              const SizedBox(width: 8),
+              const Expanded(
                 child: Text(
                   'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
                   style: TextStyle(
