@@ -441,8 +441,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
 
         final scoreCardHeight = width >= 1100 ? 238.0 : 232.0;
         final encouragementCardHeight = width >= 1100 ? 192.0 : 186.0;
+        // +16 กันการ์ดซ้าย (4 แถวเซนเซอร์ + ปุ่ม) overflow เล็กน้อย — แต่ละ
+        // แถวมีบรรทัด "อัปเดต ... ที่แล้ว" เพิ่มมาแล้ว (freshness caption)
+        // ทำให้สูงกว่าตอนคำนวณสูตรนี้ครั้งแรกนิดหน่อย
         final sensorCardHeight =
-            scoreCardHeight + encouragementCardHeight + columnGap;
+            scoreCardHeight + encouragementCardHeight + columnGap + 16;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
