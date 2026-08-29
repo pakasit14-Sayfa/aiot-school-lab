@@ -230,7 +230,8 @@ Deno.serve(async (req) => {
 
   if (data?.auth_state === "rate_limited") {
     await enforceMinimumResponseTime(startedAt);
-    return json({ error: "rate_limited" }, 429);
+    // 200, not 429 — see the matching comment in auth-select-role/index.ts.
+    return json({ error: "rate_limited" });
   }
 
   if (data?.auth_state === "role_selection_required") {

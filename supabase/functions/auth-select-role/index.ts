@@ -172,7 +172,13 @@ Deno.serve(async (req) => {
 
   if (data?.auth_state === "rate_limited") {
     await enforceMinimumResponseTime(startedAt);
-    return json({ error: "rate_limited" }, 429);
+    // 200, not 429: a real rate-limited *response* still needs to reach
+    // the client's normal JSON parsing path. A non-2xx status makes the
+    // Supabase client throw instead, which the caller's fallback-to-RPC
+    // logic then misreads as "edge function unreachable" and retries via
+    // direct RPC — reusing an already-consumed role_selection_token and
+    // masking this real error behind a confusing "expired" one instead.
+    return json({ error: "rate_limited" });
   }
 
   if (data?.auth_state === "mfa_required") {

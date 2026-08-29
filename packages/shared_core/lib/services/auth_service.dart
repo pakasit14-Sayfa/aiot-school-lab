@@ -95,10 +95,15 @@ class AuthService {
     } catch (_) {}
 
     if (data == null ||
-        (data['session'] == null &&
+        (data['error'] == null &&
+            data['session'] == null &&
             data['mfa_required'] != true &&
             data['role_selection_required'] != true)) {
-      // Direct RPC fallback if edge function is unreachable
+      // Direct RPC fallback if edge function is unreachable. Skipped when
+      // `data['error']` is set (e.g. rate_limited) — that's a definitive
+      // answer from the edge function, not "unreachable, try RPC instead",
+      // and retrying would reuse a token the edge function's own RPC call
+      // already consumed.
       final rows =
           await supabase.rpc(
                 'auth_sign_in',
@@ -152,6 +157,9 @@ class AuthService {
         LoginOtpChallenge.fromResponse(data!),
       );
     }
+    if (data?['error'] != null) {
+      throw Exception(data!['error']);
+    }
     final session = data?['session'];
     if (session is! Map) {
       throw Exception('invalid_credentials');
@@ -185,8 +193,11 @@ class AuthService {
     } catch (_) {}
 
     if (data == null ||
-        (data['session'] == null && data['mfa_required'] != true)) {
-      // Direct RPC fallback
+        (data['error'] == null &&
+            data['session'] == null &&
+            data['mfa_required'] != true)) {
+      // Direct RPC fallback — skipped when data['error'] is set, see the
+      // matching comment in signIn() above.
       final rows =
           await supabase.rpc(
                 'auth_select_role',
@@ -223,6 +234,9 @@ class AuthService {
       return AuthSignInResult.otpRequired(
         LoginOtpChallenge.fromResponse(data),
       );
+    }
+    if (data['error'] != null) {
+      throw Exception(data['error']);
     }
 
     final session = data['session'];
