@@ -879,7 +879,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                   children: [
                     _buildMetricBox(
                       title: 'ฝุ่น PM2.5',
-                      value: '${dev.pm25}',
+                      value: dev.pm25.toStringAsFixed(1),
                       unit: 'µg/m³',
                       icon: Icons.air_rounded,
                       color: const Color(0xFF0284C7),
@@ -888,7 +888,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                     const SizedBox(width: 10),
                     _buildMetricBox(
                       title: 'อุณหภูมิ',
-                      value: '${dev.temperature}',
+                      value: dev.temperature.toStringAsFixed(1),
                       unit: '°C',
                       icon: Icons.thermostat_rounded,
                       color: const Color(0xFFEA580C),
@@ -897,7 +897,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                     const SizedBox(width: 10),
                     _buildMetricBox(
                       title: 'ความชื้น',
-                      value: '${dev.humidity}',
+                      value: dev.humidity.toStringAsFixed(1),
                       unit: '%RH',
                       icon: Icons.water_drop_rounded,
                       color: const Color(0xFF2563EB),
