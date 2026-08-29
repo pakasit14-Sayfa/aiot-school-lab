@@ -172,8 +172,18 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
     final isDemo = _isDemo;
     final effectiveHasEnergy = _hasEnergy || isDemo;
     final effectiveHasWater = _hasWater || isDemo;
-    final effectiveEnergySummary = _energySummary ?? _demoEnergySummary;
-    final effectiveWaterSummary = _waterSummary ?? _demoWaterSummary;
+    // Not a plain ?? — _energySummary/_waterSummary can be a real, non-null
+    // object with deviceCount: 0 (no meters registered yet), which would
+    // otherwise leak real zeros into the "demo" branch instead of the
+    // actual demo numbers. Only substitute demo numbers when BOTH are
+    // missing (isDemo) — a mixed case (e.g. only a water meter exists)
+    // should show the real zero for energy, not an unlabeled fake one.
+    final effectiveEnergySummary = isDemo
+        ? _demoEnergySummary
+        : (_energySummary ?? _demoEnergySummary);
+    final effectiveWaterSummary = isDemo
+        ? _demoWaterSummary
+        : (_waterSummary ?? _demoWaterSummary);
     final effectiveEnergyTrend = _hasEnergy
         ? _energyTrend
         : (isDemo ? _demoTrend(40, 12) : const <UtilityTrendPoint>[]);
