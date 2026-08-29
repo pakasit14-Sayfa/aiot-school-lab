@@ -414,6 +414,13 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
         final isTwoColumn = width >= 900;
         final columnGap = width >= 1100 ? 18.0 : 14.0;
 
+        // การ์ดพลังงาน/น้ำ ย้ายออกมาเป็นแถวเต็มความกว้างของตัวเอง (ไม่ใช่ถูก
+        // บีบเป็นช่องที่ 3 ในคอลัมน์ขวาแคบๆ อีกต่อไป) เพราะมีกราฟเทรนด์ 7 วัน
+        // ที่ต้องการพื้นที่แนวนอนมากพอจะอ่านง่าย — บีบให้สูงแค่ ~160px
+        // แนวตั้งมันพอดูได้ แต่แนวนอนที่ถูกบีบไปด้วยเพราะอยู่คอลัมน์ขวาทำให้
+        // กราฟอ่านยาก
+        final utilityFullWidthHeight = width >= 1100 ? 260.0 : 230.0;
+
         if (!isTwoColumn) {
           return Column(
             children: [
@@ -427,56 +434,54 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               const SizedBox(height: 16),
               const SchoolEncouragementCard(),
               const SizedBox(height: 16),
-              const SchoolUtilityTrendCard(height: 160),
+              SchoolUtilityTrendCard(height: utilityFullWidthHeight),
             ],
           );
         }
 
         final scoreCardHeight = width >= 1100 ? 238.0 : 232.0;
         final encouragementCardHeight = width >= 1100 ? 192.0 : 186.0;
-        final utilityCardHeight = width >= 1100 ? 168.0 : 160.0;
         final sensorCardHeight =
-            scoreCardHeight +
-            encouragementCardHeight +
-            utilityCardHeight +
-            columnGap * 2;
+            scoreCardHeight + encouragementCardHeight + columnGap;
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              flex: 11,
-              child: AiotWeatherSensorsCard(height: sensorCardHeight),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 11,
+                  child: AiotWeatherSensorsCard(height: sensorCardHeight),
+                ),
+                SizedBox(width: columnGap),
+                Expanded(
+                  flex: 10,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: scoreCardHeight,
+                        child: AcademyLearningScoreCard(
+                          onTap: onViewScore,
+                          avgPercent: _avgGradePercent,
+                          gradedCourseCount: _gradedCourseCount,
+                        ),
+                      ),
+                      SizedBox(height: columnGap),
+                      SizedBox(
+                        height: encouragementCardHeight,
+                        child: SchoolEncouragementCard(
+                          height: encouragementCardHeight,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: columnGap),
-            Expanded(
-              flex: 10,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    height: scoreCardHeight,
-                    child: AcademyLearningScoreCard(
-                      onTap: onViewScore,
-                      avgPercent: _avgGradePercent,
-                      gradedCourseCount: _gradedCourseCount,
-                    ),
-                  ),
-                  SizedBox(height: columnGap),
-                  SizedBox(
-                    height: encouragementCardHeight,
-                    child: SchoolEncouragementCard(
-                      height: encouragementCardHeight,
-                    ),
-                  ),
-                  SizedBox(height: columnGap),
-                  SizedBox(
-                    height: utilityCardHeight,
-                    child: SchoolUtilityTrendCard(height: utilityCardHeight),
-                  ),
-                ],
-              ),
-            ),
+            SizedBox(height: columnGap),
+            SchoolUtilityTrendCard(height: utilityFullWidthHeight),
           ],
         );
       },
