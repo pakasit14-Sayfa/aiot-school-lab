@@ -307,6 +307,76 @@ literally cutting power to the real board mid-session and watching all
 
 ---
 
+## Real board writing sensor_ingest directly + "remember this device" (2026-08-29, later same day)
+
+**A real board (`เซนเซอร์ห้องทดลอง`, Adafruit Feather AIoT S3) started
+posting straight to `/rest/v1/rpc/sensor_ingest`** (not through MQTT/the
+Mac bridge — a second, independent ingestion path) and hit 401
+`permission denied for function sensor_ingest`. Root cause: a *third*
+casualty of the `DROP TYPE role_type CASCADE` from the incident above —
+`anon`/`authenticated` had silently lost `EXECUTE` on `sensor_ingest`
+too (confirmed via `has_function_privilege`), despite
+`20260720010000_sensor_ingest_rpc.sql` granting it. Fixed with a direct
+`grant execute on function public.sensor_ingest(text, jsonb) to anon,
+authenticated;`. Audited every `SECURITY DEFINER` function in `public`
+for the same symptom (zero grants to anon/authenticated/service_role) —
+only `_check_threshold_violations()` matched, which is correctly
+grant-less (pg_cron-only). The board's device token also didn't match
+what was stored, so it was rotated (new plaintext handed to the board's
+owner outside the repo, old one dead). Real board data is confirmed
+flowing into `sensor_readings` at ~1/sec (docs recommend batching to
+10–60s instead, not yet changed in the firmware).
+
+**Also set up real OTP email delivery** — `RESEND_API_KEY` and
+`RESEND_FROM_EMAIL` (`onboarding@resend.dev`, domain not yet verified)
+are now real Supabase secrets on production. Caveat: Resend's
+unverified-domain mode only delivers to the Resend account owner's own
+email, so `teacher@aiot-school-lab.local`'s email was changed to a real
+address for this to be testable end-to-end — every other seed account
+is still on the `.local` domain and still can't receive real OTP mail
+until either the domain gets verified or its email is swapped too. That
+same account was also granted all 6 roles (`user_roles` rows added for
+school_admin/super_admin/executive/student/parent, `teacher` already
+there) specifically to make it easy to test every OTP-gated role from
+one real, checkable inbox.
+
+**Built "remember this device"** (migrations
+`20260829000000_trusted_devices_remember_login.sql` and
+`20260829010000_trusted_devices_account_wide.sql`) after live-testing
+kept requiring a fresh OTP on every login — including every time a
+multi-role account switched roles, which was the real complaint,
+confirmed with the project owner. `trusted_devices` **already existed,
+unused, since the very first migration** (`20260715000000`) — adapted
+in place (renamed/extended its columns) instead of creating a
+competing table. `auth_sign_in` / `auth_select_role` accept an optional
+`p_device_trust_token`; if it matches a live, unexpired, unrevoked row
+for that `user_id` (**account-wide, not scoped to the role/school that
+earned it** — a token minted while verifying OTP as school_admin also
+works for that same account signing in as executive, teacher, etc. —
+this was a deliberate revision after the first pass scoped it per-role
+and the owner said that wasn't what they wanted), it skips straight to
+`authenticated` instead of issuing an OTP challenge. **The password
+check always runs first, unconditionally** — a trust token only ever
+shortens the OTP step, never substitutes for the password. On
+successful OTP verification with `p_remember_device: true`,
+`auth_verify_login_otp` mints a 30-day token and returns it; the client
+(`DeviceTrustTokenStorage` in `packages/shared_core/lib/services/`,
+same secure-storage pattern as `SessionTokenStorage`) stores one token
+per email and sends it on future sign-in attempts. UI: a checkbox on
+`packages/shared_ui/lib/pages/login_otp_page.dart`'s OTP screen,
+**"จำเครื่องนี้ 30 วัน (ไม่ต้องกรอกรหัสยืนยันซ้ำ)"**.
+
+**Gotcha for local testing of this flow**: the trust token is stored in
+the browser (secure storage → web = browser storage tied to that
+Chrome profile). `flutter run -d chrome` launches a **fresh temporary
+Chrome profile every time the command is run from scratch** — killing
+and re-running `flutter run` loses any remembered-device token even on
+the same URL/port. Hot-restarting (`R` in the terminal, same running
+`flutter run` process, same already-open browser tab) preserves it;
+killing and relaunching does not.
+
+---
+
 ## Current status (re-audited 2026-08-25 — supersedes everything below in this section)
 
 **All 6 roles are fully wired to real backend data, no mock pages left
