@@ -18,7 +18,11 @@ void main() {
             token: 'lo_${'a' * 64}',
             expiresAt: DateTime.utc(2026, 7, 22, 12, 10),
           ),
-          verifyOtp: ({required otpToken, required otpCode}) async {
+          verifyOtp: ({
+            required otpToken,
+            required otpCode,
+            rememberDevice = false,
+          }) async {
             submittedToken = otpToken;
             submittedCode = otpCode;
             return const UserModel(

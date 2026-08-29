@@ -9,6 +9,7 @@ typedef LoginOtpVerifier =
     Future<UserModel> Function({
       required String otpToken,
       required String otpCode,
+      bool rememberDevice,
     });
 
 class LoginOtpPage extends StatefulWidget {
@@ -32,6 +33,7 @@ class _LoginOtpPageState extends State<LoginOtpPage> {
   final _focusNode = FocusNode();
   bool _isLoading = false;
   String? _errorText;
+  bool _rememberDevice = false;
 
   @override
   void initState() {
@@ -60,6 +62,7 @@ class _LoginOtpPageState extends State<LoginOtpPage> {
       final user = await verifier(
         otpToken: widget.challenge.token,
         otpCode: code,
+        rememberDevice: _rememberDevice,
       );
       if (!mounted) return;
       widget.onVerified(user);
@@ -433,7 +436,55 @@ class _LoginOtpPageState extends State<LoginOtpPage> {
                       ),
                     ],
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
+
+                    // Remember this device — skips OTP next time for this
+                    // exact (account, role) on this device, for 30 days.
+                    InkWell(
+                      key: const Key('login-otp-remember-device'),
+                      onTap: _isLoading
+                          ? null
+                          : () => setState(
+                              () => _rememberDevice = !_rememberDevice,
+                            ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: Checkbox(
+                                value: _rememberDevice,
+                                onChanged: _isLoading
+                                    ? null
+                                    : (v) => setState(
+                                        () => _rememberDevice = v ?? false,
+                                      ),
+                                activeColor: const Color(0xFF4F46E5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'จำเครื่องนี้ 30 วัน (ไม่ต้องกรอกรหัสยืนยันซ้ำ)',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF334155),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
 
                     // Submit Button
                     FilledButton(

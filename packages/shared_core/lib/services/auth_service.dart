@@ -5,6 +5,7 @@ import '../models/login_otp_challenge.dart';
 import '../models/role_selection_challenge.dart';
 import 'supabase_config.dart';
 import 'session_token_storage.dart';
+import 'device_trust_token_storage.dart';
 
 UserModel? currentUserModel;
 
@@ -20,6 +21,13 @@ class AuthService {
       StreamController<UserModel?>.broadcast();
   static String? _sessionToken;
   static final _tokenStorage = SessionTokenStorage();
+  static final _trustTokenStorage = DeviceTrustTokenStorage();
+
+  /// Email of the login attempt currently in progress (between signIn()
+  /// and the eventual selectRole()/verifyLoginOtp() call) — needed to
+  /// look up/save "remember this device" trust tokens, which are keyed
+  /// by (email, role, schoolId). Not part of the signed-in session state.
+  static String? _pendingLoginEmail;
 
   static Stream<UserModel?> get authStateChanges => _authStateController.stream;
 
@@ -68,11 +76,20 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    _pendingLoginEmail = email.trim().toLowerCase();
+    final trustToken = await _trustTokenStorage.readAnyForEmail(
+      _pendingLoginEmail!,
+    );
+
     Map<String, dynamic>? data;
     try {
       final response = await supabase.functions.invoke(
         'auth-sign-in',
-        body: {'email': email.trim().toLowerCase(), 'password': password},
+        body: {
+          'email': _pendingLoginEmail,
+          'password': password,
+          if (trustToken != null) 'device_trust_token': trustToken,
+        },
       );
       data = response.data as Map<String, dynamic>?;
     } catch (_) {}
@@ -86,8 +103,9 @@ class AuthService {
           await supabase.rpc(
                 'auth_sign_in',
                 params: {
-                  'p_email': email.trim().toLowerCase(),
+                  'p_email': _pendingLoginEmail,
                   'p_password': password,
+                  if (trustToken != null) 'p_device_trust_token': trustToken,
                 },
               )
               as List;
@@ -148,6 +166,14 @@ class AuthService {
     required UserRole role,
     String? schoolId,
   }) async {
+    final trustToken = _pendingLoginEmail == null
+        ? null
+        : await _trustTokenStorage.read(
+            email: _pendingLoginEmail!,
+            role: role.value,
+            schoolId: schoolId,
+          );
+
     Map<String, dynamic>? data;
     try {
       final response = await supabase.functions.invoke(
@@ -156,6 +182,7 @@ class AuthService {
           'role_selection_token': roleSelectionToken.trim(),
           'role': role.value,
           if (schoolId != null) 'school_id': schoolId,
+          if (trustToken != null) 'device_trust_token': trustToken,
         },
       );
       data = response.data as Map<String, dynamic>?;
@@ -171,6 +198,7 @@ class AuthService {
                   'p_role_selection_token': roleSelectionToken.trim(),
                   'p_role': role.value,
                   if (schoolId != null) 'p_school_id': schoolId,
+                  if (trustToken != null) 'p_device_trust_token': trustToken,
                 },
               )
               as List;
@@ -213,17 +241,38 @@ class AuthService {
   static Future<UserModel> verifyLoginOtp({
     required String otpToken,
     required String otpCode,
+    bool rememberDevice = false,
   }) async {
     final response = await supabase.functions.invoke(
       'auth-verify-otp',
-      body: {'otp_token': otpToken.trim(), 'otp_code': otpCode.trim()},
+      body: {
+        'otp_token': otpToken.trim(),
+        'otp_code': otpCode.trim(),
+        'remember_device': rememberDevice,
+      },
     );
     final data = response.data as Map<String, dynamic>?;
     final session = data?['session'];
     if (session is! Map) {
       throw Exception('invalid_or_expired_otp');
     }
-    return _applySession(Map<String, dynamic>.from(session));
+    final sessionMap = Map<String, dynamic>.from(session);
+
+    final trustToken = sessionMap['device_trust_token'];
+    if (rememberDevice && trustToken is String) {
+      final email = sessionMap['email'] as String?;
+      final role = sessionMap['active_role'] as String?;
+      if (email != null && role != null) {
+        await _trustTokenStorage.save(
+          email: email,
+          role: role,
+          schoolId: sessionMap['active_school_id'] as String?,
+          token: trustToken,
+        );
+      }
+    }
+
+    return _applySession(sessionMap);
   }
 
   static Future<UserModel> _applySession(Map<String, dynamic> row) async {

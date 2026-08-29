@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
   let roleSelectionToken: string | null = null;
   let role: string | null = null;
   let schoolId: string | null = null;
+  let deviceTrustToken: string | null = null;
   try {
     const body = await req.json();
     roleSelectionToken = typeof body.role_selection_token === "string"
@@ -125,6 +126,9 @@ Deno.serve(async (req) => {
       : null;
     role = typeof body.role === "string" ? body.role.trim() : null;
     schoolId = typeof body.school_id === "string" ? body.school_id.trim() : null;
+    deviceTrustToken = typeof body.device_trust_token === "string"
+      ? body.device_trust_token
+      : null;
   } catch {
     // Invalid bodies deliberately receive generic error.
   }
@@ -157,6 +161,7 @@ Deno.serve(async (req) => {
     p_school_id: schoolId,
     p_device_info: req.headers.get("user-agent")?.slice(0, 255) ?? null,
     p_ip_address: ipFingerprint,
+    p_device_trust_token: deviceTrustToken,
   }).maybeSingle();
 
   if (error) {

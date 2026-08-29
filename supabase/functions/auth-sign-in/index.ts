@@ -176,12 +176,16 @@ Deno.serve(async (req) => {
 
   let email: string | null = null;
   let password: string | null = null;
+  let deviceTrustToken: string | null = null;
   try {
     const body = await req.json();
     email = typeof body.email === "string"
       ? body.email.trim().toLowerCase()
       : null;
     password = typeof body.password === "string" ? body.password : null;
+    deviceTrustToken = typeof body.device_trust_token === "string"
+      ? body.device_trust_token
+      : null;
   } catch {
     // Invalid bodies deliberately receive the generic authentication result.
   }
@@ -215,6 +219,7 @@ Deno.serve(async (req) => {
     p_password: password,
     p_device_info: req.headers.get("user-agent")?.slice(0, 255) ?? null,
     p_ip_address: ipFingerprint,
+    p_device_trust_token: deviceTrustToken,
   }).maybeSingle();
 
   if (error) {

@@ -37,12 +37,14 @@ Deno.serve(async (req) => {
 
   let otpToken: string | null = null;
   let otpCode: string | null = null;
+  let rememberDevice = false;
   try {
     const body = await req.json();
     otpToken = typeof body.otp_token === "string"
       ? body.otp_token.trim()
       : null;
     otpCode = typeof body.otp_code === "string" ? body.otp_code.trim() : null;
+    rememberDevice = body.remember_device === true;
   } catch {
     // Invalid bodies deliberately receive the same result as invalid OTPs.
   }
@@ -66,6 +68,7 @@ Deno.serve(async (req) => {
   const { data, error } = await supabase.rpc("auth_verify_login_otp", {
     p_otp_token: otpToken,
     p_otp_code: otpCode,
+    p_remember_device: rememberDevice,
   }).maybeSingle();
 
   if (error) {
