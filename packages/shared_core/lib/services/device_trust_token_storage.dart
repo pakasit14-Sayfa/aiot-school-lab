@@ -3,14 +3,16 @@ import 'dart:convert';
 import 'session_token_storage.dart';
 
 /// Persists "remember this device" trust tokens so a device that already
-/// completed login OTP once for a given (email, role, schoolId) can skip
-/// OTP on future logins for that exact combo — see [[trusted_devices]]
-/// migration `20260829000000_trusted_devices_remember_login.sql`.
+/// completed login OTP once for an account can skip OTP on future logins
+/// — for *every* role that account holds, not just the one that was
+/// active when the checkbox was ticked. See [[trusted_devices]]
+/// migrations `20260829000000_trusted_devices_remember_login.sql` and
+/// `20260829010000_trusted_devices_account_wide.sql`.
 ///
 /// Stored as a single secure-storage entry holding a JSON map keyed by
-/// `email|role|schoolId`, since one device can hold trust for more than
-/// one role (multi-role accounts) at once. Never persists anything about
-/// the password step — this class only ever shortens the OTP step.
+/// email (lowercased), one token per account this device has ever
+/// remembered. Never persists anything about the password step — this
+/// class only ever shortens the OTP step.
 final class DeviceTrustTokenStorage {
   DeviceTrustTokenStorage({
     SecureValueStore secureStore = const FlutterSecureValueStore(),
@@ -19,9 +21,6 @@ final class DeviceTrustTokenStorage {
   static const _storageKey = 'device_trust_tokens';
 
   final SecureValueStore _secureStore;
-
-  static String _mapKey(String email, String role, String? schoolId) =>
-      '${email.trim().toLowerCase()}|$role|${schoolId ?? ''}';
 
   Future<Map<String, String>> _readAll() async {
     final raw = await _secureStore.read(_storageKey);
@@ -42,40 +41,18 @@ final class DeviceTrustTokenStorage {
     await _secureStore.write(_storageKey, jsonEncode(tokens));
   }
 
-  /// Trust token for this exact (email, role, schoolId), if this device
-  /// has one stored — null if never remembered or since forgotten.
-  Future<String?> read({
-    required String email,
-    required String role,
-    String? schoolId,
-  }) async {
+  /// Trust token for this email, if this device has one stored — null if
+  /// never remembered or since forgotten. Covers every role on the
+  /// account; the server re-validates the token regardless.
+  Future<String?> read(String email) async {
     final all = await _readAll();
-    return all[_mapKey(email, role, schoolId)];
+    return all[email.trim().toLowerCase()];
   }
 
-  Future<void> save({
-    required String email,
-    required String role,
-    String? schoolId,
-    required String token,
-  }) async {
+  Future<void> save({required String email, required String token}) async {
     final all = await _readAll();
-    all[_mapKey(email, role, schoolId)] = token;
+    all[email.trim().toLowerCase()] = token;
     await _writeAll(all);
-  }
-
-  /// Best-effort lookup when the role isn't known yet (the single-role
-  /// sign-in call happens before the server has told us which role this
-  /// account has) — returns any token stored for this email, since the
-  /// server-side check re-validates role/school anyway and simply won't
-  /// match if it's the wrong one.
-  Future<String?> readAnyForEmail(String email) async {
-    final all = await _readAll();
-    final prefix = '${email.trim().toLowerCase()}|';
-    for (final entry in all.entries) {
-      if (entry.key.startsWith(prefix)) return entry.value;
-    }
-    return null;
   }
 
   Future<void> clearAll() => _secureStore.delete(_storageKey);

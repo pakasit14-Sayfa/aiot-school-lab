@@ -77,7 +77,7 @@ class AuthService {
     required String password,
   }) async {
     _pendingLoginEmail = email.trim().toLowerCase();
-    final trustToken = await _trustTokenStorage.readAnyForEmail(
+    final trustToken = await _trustTokenStorage.read(
       _pendingLoginEmail!,
     );
 
@@ -168,11 +168,7 @@ class AuthService {
   }) async {
     final trustToken = _pendingLoginEmail == null
         ? null
-        : await _trustTokenStorage.read(
-            email: _pendingLoginEmail!,
-            role: role.value,
-            schoolId: schoolId,
-          );
+        : await _trustTokenStorage.read(_pendingLoginEmail!);
 
     Map<String, dynamic>? data;
     try {
@@ -261,14 +257,8 @@ class AuthService {
     final trustToken = sessionMap['device_trust_token'];
     if (rememberDevice && trustToken is String) {
       final email = sessionMap['email'] as String?;
-      final role = sessionMap['active_role'] as String?;
-      if (email != null && role != null) {
-        await _trustTokenStorage.save(
-          email: email,
-          role: role,
-          schoolId: sessionMap['active_school_id'] as String?,
-          token: trustToken,
-        );
+      if (email != null) {
+        await _trustTokenStorage.save(email: email, token: trustToken);
       }
     }
 
