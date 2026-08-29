@@ -316,11 +316,43 @@ class _GScoreCard extends StatelessWidget {
     }
   }
 
+  /// ตัวอย่างข้อมูลจำลอง — โชว์เฉพาะตอนบัญชีนี้ยังไม่มี G-Score จริงเลย
+  /// (ให้เห็นว่าการ์ดนี้หน้าตาเป็นยังไงตอนมีข้อมูล) ต้องมี badge "ข้อมูลจำลอง"
+  /// กำกับเสมอ ห้ามโชว์ปนกับข้อมูลจริงโดยไม่บอก
+  static final List<MyGScoreEntry> _demoEntries = [
+    MyGScoreEntry(
+      id: 'demo-1',
+      courseId: 'demo',
+      subjectName: 'วิทยาศาสตร์ ม.5',
+      source: 'lesson_completed',
+      points: 5,
+      confirmedAt: DateTime.now(),
+    ),
+    MyGScoreEntry(
+      id: 'demo-2',
+      courseId: 'demo',
+      subjectName: 'การออกแบบเทคโนโลยี',
+      source: 'assignment_on_time',
+      points: 3,
+      confirmedAt: DateTime.now(),
+    ),
+    MyGScoreEntry(
+      id: 'demo-3',
+      courseId: 'demo',
+      subjectName: 'คณิตศาสตร์ ม.5',
+      source: 'lesson_completed',
+      points: 5,
+      confirmedAt: DateTime.now(),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     const accent = Color(0xFFF59E0B);
-    final total = entries.fold<num>(0, (sum, e) => sum + e.points);
-    final recent = entries.take(5).toList();
+    final isDemo = !loading && entries.isEmpty;
+    final effectiveEntries = isDemo ? _demoEntries : entries;
+    final total = effectiveEntries.fold<num>(0, (sum, e) => sum + e.points);
+    final recent = effectiveEntries.take(5).toList();
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -371,6 +403,25 @@ class _GScoreCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (isDemo) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFFCD34D)),
+              ),
+              child: const Text(
+                'ตัวอย่าง — ข้อมูลจำลอง ยังไม่มี G-Score จริง',
+                style: TextStyle(
+                  color: Color(0xFF92400E),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           if (loading)
             const Padding(
@@ -378,6 +429,8 @@ class _GScoreCard extends StatelessWidget {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (recent.isEmpty)
+            // ไม่ควรเกิดขึ้นจริง เพราะเข้า demo fallback ไปแล้วตอน entries
+            // ว่าง แต่กันไว้เผื่อ effectiveEntries ว่างจากสาเหตุอื่น
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
               child: Text(
