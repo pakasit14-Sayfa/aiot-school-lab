@@ -3291,6 +3291,7 @@ class _AiotSensorRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNormal = level == 'ปกติ';
+    final isModerate = level == 'ปานกลาง';
 
     // Theme-matched soft pastel icon container palette
     Color iconBgColor;
@@ -3311,20 +3312,31 @@ class _AiotSensorRow extends StatelessWidget {
     }
 
     final isNoData = level == 'ไม่มีข้อมูล';
-    final badgeBgColor = isNoData
-        ? const Color(0xFFF1F5F9)
-        : (isNormal ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2));
-    final badgeTextColor = isNoData
-        ? const Color(0xFF64748B)
-        : (isNormal ? const Color(0xFF059669) : const Color(0xFFDC2626));
-    final badgeDotColor = isNoData
-        ? const Color(0xFF94A3B8)
-        : (isNormal ? const Color(0xFF10B981) : const Color(0xFFEF4444));
-    final badgeBorderColor = isNoData
-        ? const Color(0xFFCBD5E1).withValues(alpha: 0.6)
-        : (isNormal
-              ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
-              : const Color(0xFFFECACA).withValues(alpha: 0.6));
+    final Color badgeBgColor;
+    final Color badgeTextColor;
+    final Color badgeDotColor;
+    final Color badgeBorderColor;
+    if (isNoData) {
+      badgeBgColor = const Color(0xFFF1F5F9);
+      badgeTextColor = const Color(0xFF64748B);
+      badgeDotColor = const Color(0xFF94A3B8);
+      badgeBorderColor = const Color(0xFFCBD5E1).withValues(alpha: 0.6);
+    } else if (isNormal) {
+      badgeBgColor = const Color(0xFFECFDF5);
+      badgeTextColor = const Color(0xFF059669);
+      badgeDotColor = const Color(0xFF10B981);
+      badgeBorderColor = const Color(0xFFA7F3D0).withValues(alpha: 0.6);
+    } else if (isModerate) {
+      badgeBgColor = const Color(0xFFFFFBEB);
+      badgeTextColor = const Color(0xFFB45309);
+      badgeDotColor = const Color(0xFFF59E0B);
+      badgeBorderColor = const Color(0xFFFDE68A).withValues(alpha: 0.6);
+    } else {
+      badgeBgColor = const Color(0xFFFEF2F2);
+      badgeTextColor = const Color(0xFFDC2626);
+      badgeDotColor = const Color(0xFFEF4444);
+      badgeBorderColor = const Color(0xFFFECACA).withValues(alpha: 0.6);
+    }
 
     return Container(
       padding: EdgeInsets.only(top: 10, bottom: showDivider ? 10 : 0),
@@ -4616,8 +4628,11 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
     }
   }
 
-  String _levelLabel(SensorLevel level) =>
-      level == SensorLevel.good ? 'ปกติ' : 'ไม่ปลอดภัย';
+  String _levelLabel(SensorLevel level) => switch (level) {
+    SensorLevel.good => 'ปกติ',
+    SensorLevel.moderate => 'ปานกลาง',
+    SensorLevel.danger => 'ไม่ปลอดภัย',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -4673,7 +4688,7 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
             icon: Icons.thermostat_rounded,
             title: 'อุณหภูมิห้องเรียน',
             value: _availableMetrics.contains('temperature')
-                ? '${sensor!.temperature}'
+                ? sensor!.temperature.toStringAsFixed(1)
                 : '-',
             unit: '°C',
             subtitle: _availableMetrics.contains('temperature')
@@ -4691,7 +4706,7 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
             icon: Icons.water_drop_rounded,
             title: 'ความชื้นสัมพัทธ์',
             value: _availableMetrics.contains('humidity')
-                ? '${sensor!.humidity}'
+                ? sensor!.humidity.toStringAsFixed(1)
                 : '-',
             unit: '%RH',
             subtitle: _availableMetrics.contains('humidity')
@@ -4851,7 +4866,7 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
           _SensorMiniMetric(
             label: 'Temp',
             value: _availableMetrics.contains('temperature')
-                ? '${sensor!.temperature}'
+                ? sensor!.temperature.toStringAsFixed(1)
                 : '-',
             unit: '°C',
             color: TeacherPalette.orange,
@@ -4863,7 +4878,7 @@ class _SensorSnapshotCardState extends State<_SensorSnapshotCard> {
           _SensorMiniMetric(
             label: 'Humidity',
             value: _availableMetrics.contains('humidity')
-                ? '${sensor!.humidity}'
+                ? sensor!.humidity.toStringAsFixed(1)
                 : '-',
             unit: '%RH',
             color: TeacherPalette.primary2,
