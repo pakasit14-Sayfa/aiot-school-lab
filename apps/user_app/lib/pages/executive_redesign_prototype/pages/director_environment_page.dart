@@ -19,6 +19,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
   List<UtilityTrendPoint> _waterTrend = [];
   UtilityEfficiencyScore? _energyScore;
   UtilityEfficiencyScore? _waterScore;
+  List<Map<String, dynamic>> _sensorReadings = [];
 
   @override
   void initState() {
@@ -35,6 +36,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
         UtilityService.getWaterUsageTrend(days: 7),
         UtilityService.getEnergyEfficiencyScore(),
         UtilityService.getWaterEfficiencyScore(),
+        AiotLabService.getLatestSensorReadings(),
       ]);
       if (!mounted) return;
       setState(() {
@@ -44,6 +46,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
         _waterTrend = results[3] as List<UtilityTrendPoint>;
         _energyScore = results[4] as UtilityEfficiencyScore?;
         _waterScore = results[5] as UtilityEfficiencyScore?;
+        _sensorReadings = results[6] as List<Map<String, dynamic>>;
       });
     } catch (_) {}
   }
@@ -96,68 +99,115 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
     ),
   ];
 
-  final List<_SensorReading> sensors = const [
-    _SensorReading(
+  /// ค่าล่าสุดต่อ metric จาก sensor_latest จริง — ไม่ใช่ mock แล้ว (ต่างจาก
+  /// electricityBreakdown/zones ด้านล่างที่ยังเป็น mock อยู่). ถ้า metric ไหน
+  /// ไม่มีข้อมูลจริงเลย จะไม่โชว์การ์ดนั้น ดีกว่าโชว์ตัวเลขปลอม.
+  Map<String, dynamic> get _latestByMetric {
+    final byMetric = <String, Map<String, dynamic>>{};
+    for (final r in _sensorReadings) {
+      final metric = r['metric'] as String?;
+      if (metric == null) continue;
+      final ts = DateTime.tryParse(r['ts'] as String? ?? '');
+      final prev = byMetric[metric];
+      final prevTs = prev == null
+          ? null
+          : DateTime.tryParse(prev['ts'] as String? ?? '');
+      if (prev == null ||
+          (ts != null && (prevTs == null || ts.isAfter(prevTs)))) {
+        byMetric[metric] = r;
+      }
+    }
+    return byMetric;
+  }
+
+  bool _isStale(String metric) {
+    final ts = DateTime.tryParse(
+      (_latestByMetric[metric]?['ts'] as String?) ?? '',
+    );
+    if (ts == null) return true;
+    return DateTime.now().toUtc().difference(ts.toUtc()) >
+        const Duration(minutes: 10);
+  }
+
+  static String _fmt(dynamic v, {int decimals = 1}) {
+    if (v is num) return v.toStringAsFixed(decimals);
+    return '$v';
+  }
+
+  List<_SensorReading> get sensors {
+    final latest = _latestByMetric;
+    final items = <_SensorReading>[];
+
+    void addIfPresent({
+      required String metric,
+      required IconData icon,
+      required String name,
+      required String Function(dynamic v) formatValue,
+      required String unit,
+      String Function(dynamic v)? detail,
+    }) {
+      if (!latest.containsKey(metric)) return;
+      final v = latest[metric]!['value'];
+      final stale = _isStale(metric);
+      items.add(
+        _SensorReading(
+          icon: icon,
+          name: name,
+          value: formatValue(v),
+          unit: unit,
+          status: stale ? 'เซนเซอร์ไม่ทำงาน' : 'ค่าล่าสุดจากเซนเซอร์จริง',
+          statusColor: stale ? AppPalette.textMuted : AppPalette.success,
+          location: 'เซนเซอร์ห้องทดลอง',
+          detail: detail?.call(v) ?? (stale ? 'ไม่มีข้อมูลใหม่ >10 นาที' : ''),
+        ),
+      );
+    }
+
+    addIfPresent(
+      metric: 'temperature',
       icon: Icons.thermostat_rounded,
       name: 'อุณหภูมิ',
-      value: '31',
+      formatValue: (v) => _fmt(v),
       unit: '°C',
-      status: 'เฝ้าระวัง',
-      statusColor: AppPalette.warning,
-      location: 'เฉลี่ยห้องเรียน',
-      detail: 'ความชื้นสัมพัทธ์ 62%',
-    ),
-    _SensorReading(
+      detail: (_) => latest.containsKey('humidity')
+          ? 'ความชื้นสัมพัทธ์ ${_fmt(latest['humidity']!['value'], decimals: 0)}%'
+          : '',
+    );
+    addIfPresent(
+      metric: 'pm25',
       icon: Icons.blur_on_rounded,
       name: 'ฝุ่น PM2.5',
-      value: '38',
+      formatValue: (v) => _fmt(v),
       unit: 'µg/m³',
-      status: 'ปานกลาง',
-      statusColor: AppPalette.warning,
-      location: 'ลานกลางแจ้ง',
-      detail: 'PM10 อยู่ที่ 62 µg/m³',
-    ),
-    _SensorReading(
+    );
+    addIfPresent(
+      metric: 'light_lux',
       icon: Icons.light_mode_rounded,
       name: 'ความเข้มแสง',
-      value: '480',
+      formatValue: (v) => _fmt(v, decimals: 0),
       unit: 'lux',
-      status: 'เหมาะสม',
-      statusColor: AppPalette.success,
-      location: 'ห้องเรียนเฉลี่ย',
-      detail: 'มาตรฐาน 300 - 500 lux',
-    ),
-    _SensorReading(
+    );
+    // ห้ามเขียนเป็น "LPG X ppm" — ค่านี้คือ % ช่วงสัญญาณ ADC ดิบของเซนเซอร์
+    // MQ-2 ไม่ใช่ %ความเข้มข้นแก๊สจริง จนกว่าจะ calibrate เป็น ppm (แพทเทิร์น
+    // เดียวกับ teacher_aiot_lab_page.dart)
+    addIfPresent(
+      metric: 'gas_mq2_percent',
       icon: Icons.local_fire_department_rounded,
-      name: 'แก๊ส & ควัน',
-      value: 'ปกติ',
-      unit: '',
-      status: 'ปลอดภัย',
-      statusColor: AppPalette.success,
-      location: 'โรงอาหาร / ห้องแล็บ',
-      detail: 'LPG 0 ppm • ไม่พบควัน',
-    ),
-    _SensorReading(
-      icon: Icons.co2_rounded,
-      name: 'CO₂',
-      value: '720',
-      unit: 'ppm',
-      status: 'ปกติ',
-      statusColor: AppPalette.success,
-      location: 'เฉลี่ยห้องเรียน',
-      detail: 'ต่ำกว่าเกณฑ์ 1,000 ppm',
-    ),
-    _SensorReading(
+      name: 'แก๊ส/ควัน (MQ-2)',
+      formatValue: (v) => _fmt(v),
+      unit: '% สัญญาณดิบ',
+      detail: (_) => 'ยังไม่ calibrate เป็น ppm จริง',
+    );
+    addIfPresent(
+      metric: 'aqi',
       icon: Icons.air_rounded,
       name: 'คุณภาพอากาศรวม (AQI)',
-      value: '72',
+      formatValue: (v) => _fmt(v, decimals: 0),
       unit: 'AQI',
-      status: 'ปานกลาง',
-      statusColor: AppPalette.warning,
-      location: 'ทั้งโรงเรียน',
-      detail: 'กลุ่มเสี่ยงควรลดกิจกรรมกลางแจ้ง',
-    ),
-  ];
+    );
+
+    return items;
+  }
 
   final List<_ZoneAir> zones = const [
     _ZoneAir('อาคารเรียน 1', '34', '690', '30°C', 'ดี', AppPalette.success),
