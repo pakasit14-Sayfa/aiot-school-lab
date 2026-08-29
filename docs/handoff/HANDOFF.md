@@ -245,10 +245,65 @@ urgency given today's finding that this project has no real users yet,
 but worth tightening — e.g. having the RPC itself omit `otp_code` outside
 a local-only code path — before real users are on it.
 
-**Still deferred** (explicitly, discussed with the project owner):
-rotating the `DEVICE_TOKEN` that leaked into git history on the
-`gitlab/agent/publish-current-work` branch (`tools/mqtt_to_database.py`,
-commit `026803b`) — not yet rotated, not yet purged from history.
+**Update, same day**: the leaked `DEVICE_TOKEN` mentioned above **has now
+been rotated** (new token issued directly via SQL, same shape as
+`issue_device_token()` produces: `'dev_' || encode(gen_random_bytes(24),
+'hex')`) — the old leaked value in git history is now inert. Git history
+itself was **not** purged (out of scope for this session; the token
+being dead makes that lower-priority, not unnecessary).
+
+---
+
+## Real hardware ingest wired up + sensor-freshness UI (2026-08-29)
+
+**A second casualty of the same `DROP TYPE role_type CASCADE`** (see the
+incident above) was found while getting the real board
+(`เซนเซอร์ห้องทดลอง`, Adafruit Feather AIoT S3) posting straight to
+`/rest/v1/rpc/sensor_ingest`: `anon`/`authenticated` both showed
+`has_function_privilege(...) = false` for `sensor_ingest`, despite
+`20260720010000_sensor_ingest_rpc.sql` granting it — a live 401 on the
+board confirmed this wasn't just theoretical. Fixed with
+`grant execute on function public.sensor_ingest(text, jsonb) to anon,
+authenticated;`. Audited every other `SECURITY DEFINER` function in
+`public` for the same symptom (zero grants to `anon`/`authenticated`/
+`service_role`) — only `_check_threshold_violations()` matched, which is
+correctly grant-less (pg_cron-only, not API-reachable) — so this was an
+isolated second casualty, not a wider pattern still lurking.
+
+The board's actual device token also didn't match what was stored
+(`invalid_device_token`) — rather than debug which of "board has a stale
+value" vs "board has a typo" it was, just rotated the token (see the
+update above) and handed the new plaintext to the board's owner directly
+outside the repo. **Real sensor data is now flowing end-to-end into
+production** — confirmed live: `sensor_readings` receiving `pm25`,
+`aqi`, `light_lux`, `temperature`, `humidity` from the real board at
+roughly 1-second intervals (docs recommend batching to every 10–60s
+instead — flagged to the board's owner, not yet changed on the firmware
+side).
+
+**Also added**: per-metric freshness status across every place the app
+shows sensor data (`AiotWeatherSensorsCard` in both `teacher_redesign_prototype_page.dart`
+and `student_redesign_prototype/widgets/aiot_weather_sensors_card.dart`,
+the shared full `AiotDashboardPage`/`SensorGrid`/`SensorCard` in
+`widgets/sensor_card.dart`, and the compact `_SensorSnapshotCard` "AIoT
+Classroom" mini-card) — found live during this session that a
+38-day-old seeded temperature/humidity reading rendered with an
+identical green "ปกติ" badge to a genuinely-fresh PM2.5 reading on the
+same card, with zero way to tell them apart. `SensorModel` now tracks
+`metricUpdatedAt` per metric (not just one overall `updatedAt`) and
+exposes `freshnessOf()`/`relativeTimeLabel()`/`overallFreshnessOf()`
+(`packages/shared_core/lib/models/sensor_model.dart`). Each sensor tile
+shows one badge, not two: the safety level (ปกติ/ไม่ปลอดภัย) when
+live/delayed (≤10 min old), or "เซนเซอร์ไม่ทำงาน"/"ไม่มีข้อมูล" instead
+when older — never both stacked, which read as contradictory (green
+"ปกติ" next to red "เซนเซอร์ไม่ทำงาน" on the same row). The small green
+pulse dot next to each card's "ข้อมูลเซนเซอร์สภาพอากาศ AIoT" header was
+also hardcoded green regardless of data age — now reflects
+`overallFreshnessOf()` (worst-of across the 4 displayed metrics, so one
+dead sensor isn't masked by three healthy ones). Verified live by
+literally cutting power to the real board mid-session and watching all
+3 tiers transition correctly in real time: live → delayed (orange,
+2–10 min) → offline (red, >10 min, confirmed at the 12-minute mark).
 
 ---
 
