@@ -28,16 +28,25 @@ class RealtimeService {
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
-  static Stream<T> _poll<T>(Future<T> Function() fetch) async* {
-    while (true) {
-      try {
-        yield await fetch();
-      } catch (_) {
-        // Network/server hiccup: keep the last emitted snapshot on screen
-        // (StreamBuilder retains it) and retry on the next tick.
+  /// Broadcast so a single stream can back more than one live [StreamBuilder]
+  /// — e.g. a [LayoutBuilder] whose `builder` runs more than once per layout
+  /// pass (documented Flutter behavior) can otherwise attach two listeners
+  /// to what would be a single-subscription stream and crash with "Stream
+  /// has already been listened to".
+  static Stream<T> _poll<T>(Future<T> Function() fetch) {
+    Stream<T> generate() async* {
+      while (true) {
+        try {
+          yield await fetch();
+        } catch (_) {
+          // Network/server hiccup: keep the last emitted snapshot on screen
+          // (StreamBuilder retains it) and retry on the next tick.
+        }
+        await Future.delayed(_pollInterval);
       }
-      await Future.delayed(_pollInterval);
     }
+
+    return generate().asBroadcastStream();
   }
 
   /// Latest values for one room, aggregated across the devices whose
