@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'theme/app_palette.dart';
+import 'widgets/dev_ui.dart';
 
 class SuperAdminDeviceTestPage extends StatefulWidget {
   const SuperAdminDeviceTestPage({super.key});
@@ -513,53 +514,11 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     required Widget child,
     Widget? trailing,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
+    return AppPanel(title: title, trailing: trailing, child: child);
   }
 
   Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
+    return StatusBadge(label: label, color: color);
   }
 
   void _message(String message) {

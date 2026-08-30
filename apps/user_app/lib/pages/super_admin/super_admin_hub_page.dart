@@ -3,6 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import '../../widgets/app_drawer.dart';
 import 'theme/app_palette.dart';
+import 'widgets/dev_ui.dart';
 import 'super_admin_schools_page.dart';
 import 'super_admin_device_control_page.dart';
 import 'super_admin_devices_page.dart';
@@ -260,75 +261,127 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
     final name = user?.name ?? 'Super Admin';
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      constraints: const BoxConstraints(minHeight: 240),
       decoration: BoxDecoration(
-        color: AppPalette.deepBlue,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppPalette.deepBlue, Color(0xFF1676B5)],
+        ),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _badge('Super Admin Platform Hub', AppPalette.circusYellow),
-              _badge('ระบบปฏิบัติการส่วนกลาง', Colors.white.withAlpha(50)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'ยินดีต้อนรับ, $name',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'ควบคุมโรงเรียน อุปกรณ์ IoT การแจ้งเตือน และสิทธิ์ผู้ใช้ทั่วทั้งระบบจากที่เดียว',
-            style: TextStyle(
-              color: Colors.white.withAlpha(210),
-              fontSize: 13,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              FilledButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SuperAdminSchoolsPage()),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppPalette.circusYellow,
-                  foregroundColor: AppPalette.textPrimary,
-                ),
-                icon: const Icon(Icons.apartment_rounded),
-                label: const Text('จัดการโรงเรียน',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SuperAdminAlertsLogsPage()),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withAlpha(160)),
-                ),
-                icon: const Icon(Icons.notifications_active_rounded),
-                label: const Text('ดูการแจ้งเตือน'),
-              ),
-            ],
+        boxShadow: [
+          BoxShadow(
+            color: AppPalette.deepBlue.withValues(alpha: 0.28),
+            blurRadius: 30,
+            offset: const Offset(0, 16),
           ),
         ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -80,
+              right: -70,
+              child: Container(
+                width: 220,
+                height: 220,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -90,
+              left: -60,
+              child: Container(
+                width: 210,
+                height: 210,
+                decoration: BoxDecoration(
+                  color: AppPalette.circusYellow.withValues(alpha: 0.13),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      StatusBadge(
+                        label: 'Super Admin Platform Hub',
+                        color: AppPalette.circusYellow,
+                      ),
+                      StatusBadge(
+                        label: 'ระบบปฏิบัติการส่วนกลาง',
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'ยินดีต้อนรับ, $name',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'ควบคุมโรงเรียน อุปกรณ์ IoT การแจ้งเตือน และสิทธิ์ผู้ใช้ทั่วทั้งระบบจากที่เดียว',
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(210),
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const SuperAdminSchoolsPage()),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppPalette.circusYellow,
+                          foregroundColor: AppPalette.textPrimary,
+                        ),
+                        icon: const Icon(Icons.apartment_rounded),
+                        label: const Text('จัดการโรงเรียน',
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const SuperAdminAlertsLogsPage()),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: BorderSide(color: Colors.white.withAlpha(160)),
+                        ),
+                        icon: const Icon(Icons.notifications_active_rounded),
+                        label: const Text('ดูการแจ้งเตือน'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -421,51 +474,13 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   ) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(25),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: _shadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: color.withAlpha(30),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppPalette.textSecondary,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: color,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+      borderRadius: BorderRadius.circular(24),
+      child: StatCard(
+        icon: icon,
+        title: title,
+        value: value,
+        footnote: subtitle,
+        accent: color,
       ),
     );
   }
@@ -475,7 +490,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   // ===========================================================================
 
   Widget _buildQuickActionCards() {
-    return _panel(
+    return AppPanel(
       title: 'ศูนย์สั่งการหลัก (Platform Control Hub)',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
@@ -645,7 +660,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   // ===========================================================================
 
   Widget _buildSchoolMonitoringSection() {
-    return _panel(
+    return AppPanel(
       title: 'สถานะโรงเรียนในระบบ (School Overview)',
       trailing: TextButton(
         onPressed: () => Navigator.push(
@@ -711,9 +726,9 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             ],
           ),
         ),
-        _badge(
-          isActive ? 'เปิดใช้งาน' : 'ระงับ',
-          isActive ? AppPalette.gardenGreen : AppPalette.carnivalRed,
+        StatusBadge(
+          label: isActive ? 'เปิดใช้งาน' : 'ระงับ',
+          color: isActive ? AppPalette.gardenGreen : AppPalette.carnivalRed,
         ),
       ],
     );
@@ -724,7 +739,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   // ===========================================================================
 
   Widget _buildRecentAuditLogsSection() {
-    return _panel(
+    return AppPanel(
       title: 'กิจกรรมระบบล่าสุด (Recent Activity Logs)',
       trailing: TextButton(
         onPressed: () => Navigator.push(
@@ -805,60 +820,6 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   // Helpers
   // ===========================================================================
 
-  Widget _panel({
-    required String title,
-    required Widget child,
-    Widget? trailing,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
   Widget _empty(IconData icon, String title, String subtitle) {
     return Container(
       width: double.infinity,
@@ -897,12 +858,4 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
       ),
     );
   }
-
-  List<BoxShadow> get _shadow => [
-        BoxShadow(
-          color: Colors.black.withAlpha(12),
-          blurRadius: 22,
-          offset: const Offset(0, 10),
-        ),
-      ];
 }

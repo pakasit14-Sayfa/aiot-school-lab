@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/super_admin_model.dart';
 import '../models/school_building_model.dart';
+import '../models/executive_overview_model.dart' show PlatformSettings;
 import 'auth_service.dart';
 import 'school_import_service.dart' show BulkImportResult;
 
@@ -113,6 +114,33 @@ class SchoolAdminPlatformService {
     return DeviceControlDataModel.fromJson(Map<String, dynamic>.from(res as Map));
   }
 
+  /// Register a new device to a school (Super Admin). Returns
+  /// {'device_id': ..., 'device_token': ...} — the plaintext token is
+  /// only ever returned here, once, for provisioning the physical device.
+  Future<Map<String, dynamic>> registerDevice({
+    required String schoolId,
+    required String name,
+    required String type,
+    String? categoryCode,
+    String? deviceCode,
+    String? building,
+    String? room,
+  }) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('register_device_for_super_admin', params: {
+      'p_token': token,
+      'p_school_id': schoolId,
+      'p_name': name,
+      'p_type': type,
+      if (categoryCode != null) 'p_category_code': categoryCode,
+      if (deviceCode != null) 'p_device_code': deviceCode,
+      if (building != null) 'p_building': building,
+      if (room != null) 'p_room': room,
+    });
+
+    return Map<String, dynamic>.from(res as Map);
+  }
+
   /// Send device command via existing rate-limited queue_device_command RPC
   Future<String> queueDeviceCommand({
     required String deviceId,
@@ -211,6 +239,65 @@ class SchoolAdminPlatformService {
     return res
         .map((e) => SchoolAdminAuditLog.fromRow(Map<String, dynamic>.from(e as Map)))
         .toList();
+  }
+
+  /// Fetch the single platform-wide settings row (Super Admin only)
+  Future<PlatformSettings> getPlatformSettings() async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('get_platform_settings', params: {
+      'p_token': token,
+    });
+
+    return PlatformSettings.fromRow(Map<String, dynamic>.from(res as Map));
+  }
+
+  /// Update the platform-wide settings row (Super Admin only). Only
+  /// non-null params are changed; the rest keep their current value.
+  Future<PlatformSettings> updatePlatformSettings({
+    double? mq2Threshold,
+    double? pm25Threshold,
+    double? temperatureThreshold,
+    int? offlineMinutes,
+    String? mqttHost,
+    int? mqttPort,
+    bool? lineNotify,
+    bool? emailNotify,
+    bool? pushNotify,
+    bool? automaticBackup,
+    bool? maintenanceMode,
+    bool? twoFactorRequired,
+    bool? auditLogEnabled,
+    String? language,
+    String? timezone,
+    int? logRetentionDays,
+    String? backupTime,
+  }) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('update_platform_settings', params: {
+      'p_token': token,
+      if (mq2Threshold != null) 'p_mq2_threshold': mq2Threshold,
+      if (pm25Threshold != null) 'p_pm25_threshold': pm25Threshold,
+      if (temperatureThreshold != null)
+        'p_temperature_threshold': temperatureThreshold,
+      if (offlineMinutes != null) 'p_offline_minutes': offlineMinutes,
+      if (mqttHost != null) 'p_mqtt_host': mqttHost,
+      if (mqttPort != null) 'p_mqtt_port': mqttPort,
+      if (lineNotify != null) 'p_line_notify': lineNotify,
+      if (emailNotify != null) 'p_email_notify': emailNotify,
+      if (pushNotify != null) 'p_push_notify': pushNotify,
+      if (automaticBackup != null) 'p_automatic_backup': automaticBackup,
+      if (maintenanceMode != null) 'p_maintenance_mode': maintenanceMode,
+      if (twoFactorRequired != null)
+        'p_two_factor_required': twoFactorRequired,
+      if (auditLogEnabled != null) 'p_audit_log_enabled': auditLogEnabled,
+      if (language != null) 'p_language': language,
+      if (timezone != null) 'p_timezone': timezone,
+      if (logRetentionDays != null)
+        'p_log_retention_days': logRetentionDays,
+      if (backupTime != null) 'p_backup_time': backupTime,
+    });
+
+    return PlatformSettings.fromRow(Map<String, dynamic>.from(res as Map));
   }
 
   /// Bulk-import buildings (real backend write — see import_school_buildings_batch)

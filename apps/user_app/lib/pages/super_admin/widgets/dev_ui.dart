@@ -113,7 +113,7 @@ class PageIntroCard extends StatelessWidget {
               mascotAsset ?? 'assets/images/dev_mascot.png',
               fit: BoxFit.contain,
               errorBuilder:
-                  (context, error, stackTrace) => Container(
+                  (_, _, _) => Container(
                     width: 130,
                     height: 130,
                     decoration: BoxDecoration(
@@ -519,6 +519,7 @@ class SensorTestCard extends StatelessWidget {
   final String description;
   final Color color;
   final List<String> checks;
+  final VoidCallback? onRunTest;
 
   const SensorTestCard({
     super.key,
@@ -527,6 +528,7 @@ class SensorTestCard extends StatelessWidget {
     required this.description,
     required this.color,
     required this.checks,
+    this.onRunTest,
   });
 
   @override
@@ -556,11 +558,12 @@ class SensorTestCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('เริ่มทดสอบ'),
-          ),
+          if (onRunTest != null)
+            FilledButton.icon(
+              onPressed: onRunTest,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('เริ่มทดสอบ'),
+            ),
         ],
       ),
     );
@@ -592,8 +595,9 @@ class PathStep extends StatelessWidget {
 class SettingValueTile extends StatelessWidget {
   final String title;
   final String value;
+  final VoidCallback? onEdit;
 
-  const SettingValueTile(this.title, this.value, {super.key});
+  const SettingValueTile(this.title, this.value, {super.key, this.onEdit});
 
   @override
   Widget build(BuildContext context) {
@@ -601,7 +605,12 @@ class SettingValueTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       title: Text(title),
       subtitle: Text(value),
-      trailing: const Icon(Icons.edit_rounded),
+      trailing: onEdit != null
+          ? IconButton(
+              icon: const Icon(Icons.edit_rounded),
+              onPressed: onEdit,
+            )
+          : const Icon(Icons.edit_rounded),
     );
   }
 }

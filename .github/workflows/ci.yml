@@ -13,7 +13,6 @@ jobs:
       matrix:
         package:
           - apps/user_app
-          - apps/admin_app
           - packages/shared_core
     steps:
       - uses: actions/checkout@v4

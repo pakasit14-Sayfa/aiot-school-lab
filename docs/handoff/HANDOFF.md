@@ -23,12 +23,12 @@ student, parent, facility manager, executive/admin.
 Flutter monorepo (melos workspace) at `~/my_first_app`:
 
 - `apps/user_app` — the main app; all roles (teacher/student/parent/facility/
-  executive) route through here based on the logged-in user's role.
-- `apps/admin_app` — **an old, mostly-unused stub** (2 page files: a login
-  gate + a placeholder dashboard body, one working "จัดการผู้ใช้" page).
-  **This is not the real Super Admin app** — don't confuse it with the one
-  below. Kept around mainly so its `admin_login_page.dart` still works if
-  something links to it, but there's no active plan to build it out further.
+  executive/super_admin) route through here based on the logged-in user's
+  role. **`apps/admin_app` was deleted 2026-08-30** — it was an old,
+  mostly-unused stub (login gate + placeholder dashboard) that predated the
+  in-app `super_admin_hub_page.dart` route and had no real functionality of
+  its own; removed from `.gitlab-ci.yml`/`.github/workflows/ci.yml` too. If
+  you see references to it in dated docs below, that's historical.
 - `packages/shared_core` — all business logic: Supabase client setup, auth,
   and one service class per domain (see below). Both apps depend on this.
 - `packages/shared_ui` — shared widgets/design tokens.

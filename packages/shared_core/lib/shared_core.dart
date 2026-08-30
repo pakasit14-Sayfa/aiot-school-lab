@@ -54,6 +54,7 @@ export 'models/parent_portal_model.dart';
 export 'services/parent_portal_service.dart';
 export 'models/executive_overview_model.dart';
 export 'services/executive_service.dart';
+export 'services/learning_track_service.dart';
 export 'services/attendance_service.dart';
 export 'services/homeroom_service.dart';
 export 'models/device_schedule_model.dart';

@@ -21,6 +21,7 @@ import 'school_admin_device_schedule_page.dart';
 import 'school_admin_esg_page.dart';
 import 'school_admin_device_control_page.dart';
 import 'school_admin_incident_inbox_page.dart';
+import 'school_learning_tracks_page.dart';
 
 class SchoolAdminDashboardPage extends StatefulWidget {
   const SchoolAdminDashboardPage({super.key});
@@ -176,6 +177,10 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
 
     if (_selectedIndex == 19) {
       return _themed(const SchoolAdminIncidentInboxPage());
+    }
+
+    if (_selectedIndex == 20) {
+      return _themed(const SchoolLearningTracksPage());
     }
 
     return Center(
@@ -1444,6 +1449,13 @@ class _ManagementGrid extends StatelessWidget {
         icon: Icons.apartment_rounded,
         color: SchoolAdminPalette.orange,
         onTap: () => onOpenPage(5),
+      ),
+      _ManagementData(
+        title: 'สายการเรียน',
+        subtitle: 'ตั้งชื่อสายและกำหนดสายให้ห้องเรียน',
+        icon: Icons.alt_route_rounded,
+        color: SchoolAdminPalette.primary,
+        onTap: () => onOpenPage(20),
       ),
       _ManagementData(
         title: 'อุปกรณ์',

@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../utils/web_download.dart';
 import 'theme/app_palette.dart';
+import 'widgets/dev_ui.dart';
 
 class SuperAdminDevicesPage extends StatefulWidget {
   const SuperAdminDevicesPage({super.key});
@@ -315,16 +319,27 @@ class _SuperAdminDevicesPageState extends State<SuperAdminDevicesPage> {
                 runSpacing: 10,
                 children: <Widget>[
                   FilledButton.icon(
-                    onPressed: _exportDeviceRegistry,
+                    onPressed: _showRegisterDeviceDialog,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppPalette.circusYellow,
                       foregroundColor: AppPalette.textPrimary,
                     ),
-                    icon: const Icon(Icons.download_rounded),
+                    icon: const Icon(Icons.add_circle_outline_rounded),
                     label: const Text(
-                      'ส่งออกทะเบียนอุปกรณ์',
+                      'ลงทะเบียนอุปกรณ์ใหม่',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _exportDeviceRegistry,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(
+                        color: Colors.white.withAlpha(160),
+                      ),
+                    ),
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('ส่งออกทะเบียนอุปกรณ์'),
                   ),
                   OutlinedButton.icon(
                     onPressed: () => _loadDevicesData(),
@@ -1227,8 +1242,230 @@ class _SuperAdminDevicesPageState extends State<SuperAdminDevicesPage> {
     );
   }
 
+  static const Map<String, String> _deviceTypeLabels = {
+    'mini_pc': 'Mini PC',
+    'aiot_gateway': 'AIoT Gateway',
+    'pm25_sensor': 'เซนเซอร์ PM2.5',
+    'air_quality_sensor': 'เซนเซอร์คุณภาพอากาศ',
+    'light_sensor': 'เซนเซอร์แสง',
+    'energy_meter': 'มิเตอร์พลังงาน',
+    'camera': 'กล้อง',
+    'relay': 'รีเลย์',
+    'emergency_button': 'ปุ่มฉุกเฉิน',
+    'warning_light': 'ไฟแจ้งเตือน',
+  };
+
+  Future<void> _showRegisterDeviceDialog() async {
+    if (_schools.isEmpty) {
+      _message('ยังไม่มีโรงเรียนในระบบให้ลงทะเบียนอุปกรณ์');
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final buildingController = TextEditingController();
+    final roomController = TextEditingController();
+    String? schoolId = _schools.first.databaseId;
+    String type = _deviceTypeLabels.keys.first;
+    bool isSubmitting = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('ลงทะเบียนอุปกรณ์ใหม่'),
+          content: SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: schoolId,
+                    decoration: const InputDecoration(labelText: 'โรงเรียน'),
+                    items: _schools
+                        .map((s) => DropdownMenuItem(
+                              value: s.databaseId,
+                              child: Text(s.name),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => schoolId = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(labelText: 'ชื่ออุปกรณ์'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: type,
+                    decoration: const InputDecoration(labelText: 'ประเภทอุปกรณ์'),
+                    items: _deviceTypeLabels.entries
+                        .map((e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(e.value),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setDialogState(() => type = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: buildingController,
+                    decoration: const InputDecoration(labelText: 'อาคาร (ไม่บังคับ)'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: roomController,
+                    decoration: const InputDecoration(labelText: 'ห้อง (ไม่บังคับ)'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('ยกเลิก'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final name = nameController.text.trim();
+                      if (name.isEmpty || schoolId == null) {
+                        _message('กรุณากรอกชื่ออุปกรณ์และเลือกโรงเรียน');
+                        return;
+                      }
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        final result = await _service.registerDevice(
+                          schoolId: schoolId!,
+                          name: name,
+                          type: type,
+                          building: buildingController.text.trim().isEmpty
+                              ? null
+                              : buildingController.text.trim(),
+                          room: roomController.text.trim().isEmpty
+                              ? null
+                              : roomController.text.trim(),
+                        );
+                        if (!dialogContext.mounted) return;
+                        Navigator.of(dialogContext).pop();
+                        await _loadDevicesData(showLoading: false);
+                        if (!mounted) return;
+                        await _showDeviceTokenDialog(
+                          result['device_token'] as String,
+                        );
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        _message('ลงทะเบียนไม่สำเร็จ: $e');
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('ลงทะเบียน'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDeviceTokenDialog(String deviceToken) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ลงทะเบียนสำเร็จ'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'คัดลอก device token นี้ไปตั้งค่าในอุปกรณ์จริง — จะแสดงครั้งนี้ครั้งเดียวเท่านั้น',
+            ),
+            const SizedBox(height: 12),
+            SelectableText(
+              deviceToken,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: deviceToken));
+              _message('คัดลอก token แล้ว');
+            },
+            icon: const Icon(Icons.copy_rounded),
+            label: const Text('คัดลอก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('เสร็จสิ้น'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
   void _exportDeviceRegistry() {
-    _message('ส่งออกข้อมูลทะเบียนอุปกรณ์จำนวน ${_filteredDevices.length} รายการแล้ว');
+    final devices = _filteredDevices;
+    if (devices.isEmpty) {
+      _message('ไม่มีอุปกรณ์ให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+
+    final header = [
+      'device_code',
+      'name',
+      'category',
+      'school',
+      'building',
+      'room',
+      'status',
+      'updated_at',
+    ];
+    final rows = <List<String>>[
+      header,
+      for (final d in devices)
+        [
+          d.deviceCode,
+          d.name,
+          d.category,
+          d.school,
+          d.building,
+          d.room,
+          d.status,
+          d.updatedAt?.toIso8601String() ?? '',
+        ],
+    ];
+    final csv = rows
+        .map((row) => row.map(_csvField).join(','))
+        .join('\r\n');
+
+    downloadBytes(
+      filename:
+          'device_registry_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+    _message('ส่งออกข้อมูลทะเบียนอุปกรณ์จำนวน ${devices.length} รายการแล้ว');
   }
 
   IconData _categoryIcon(String code) {
@@ -1258,53 +1495,11 @@ class _SuperAdminDevicesPageState extends State<SuperAdminDevicesPage> {
     required Widget child,
     Widget? trailing,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
+    return AppPanel(title: title, trailing: trailing, child: child);
   }
 
   Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
+    return StatusBadge(label: label, color: color);
   }
 
   Widget _empty(IconData icon, String title, String subtitle) {

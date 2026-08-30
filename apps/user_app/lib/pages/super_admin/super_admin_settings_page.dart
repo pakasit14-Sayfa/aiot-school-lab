@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'theme/app_palette.dart';
+import 'widgets/dev_ui.dart';
 
 class SuperAdminSettingsPage extends StatefulWidget {
   const SuperAdminSettingsPage({super.key});
@@ -44,10 +45,48 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
   bool _isLoadingLogs = true;
   final List<SchoolAdminAuditLog> _logs = [];
 
+  bool _isLoadingSettings = true;
+  bool _isSaving = false;
+  String? _loadError;
+
   @override
   void initState() {
     super.initState();
     _loadAuditLogs();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final s = await _service.getPlatformSettings();
+      if (!mounted) return;
+      setState(() {
+        _mq2Controller.text = s.mq2Threshold.toString();
+        _pmController.text = s.pm25Threshold.toString();
+        _temperatureController.text = s.temperatureThreshold.toString();
+        _offlineMinutesController.text = s.offlineMinutes.toString();
+        _mqttHostController.text = s.mqttHost;
+        _mqttPortController.text = s.mqttPort.toString();
+        _lineNotify = s.lineNotify;
+        _emailNotify = s.emailNotify;
+        _pushNotify = s.pushNotify;
+        _automaticBackup = s.automaticBackup;
+        _maintenanceMode = s.maintenanceMode;
+        _twoFactorRequired = s.twoFactorRequired;
+        _auditLogEnabled = s.auditLogEnabled;
+        _language = s.language;
+        _timezone = s.timezone;
+        _logRetention = '${s.logRetentionDays} วัน';
+        _backupTime = s.backupTime;
+        _isLoadingSettings = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingSettings = false;
+        _loadError = e.toString();
+      });
+    }
   }
 
   @override
@@ -80,10 +119,38 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
     }
   }
 
-  void _saveSettings() {
-    _message(
-      'บันทึกการตั้งค่าแล้ว (หมายเหตุ: เป็นการจำลองบนอุปกรณ์ ข้อมูลยังไม่ถูกบันทึกจริงลงฐานข้อมูลส่วนกลาง)',
-    );
+  Future<void> _saveSettings() async {
+    setState(() => _isSaving = true);
+    try {
+      final logRetentionDays =
+          int.tryParse(_logRetention.replaceAll(RegExp(r'[^0-9]'), '')) ?? 365;
+      await _service.updatePlatformSettings(
+        mq2Threshold: double.tryParse(_mq2Controller.text),
+        pm25Threshold: double.tryParse(_pmController.text),
+        temperatureThreshold: double.tryParse(_temperatureController.text),
+        offlineMinutes: int.tryParse(_offlineMinutesController.text),
+        mqttHost: _mqttHostController.text.trim(),
+        mqttPort: int.tryParse(_mqttPortController.text),
+        lineNotify: _lineNotify,
+        emailNotify: _emailNotify,
+        pushNotify: _pushNotify,
+        automaticBackup: _automaticBackup,
+        maintenanceMode: _maintenanceMode,
+        twoFactorRequired: _twoFactorRequired,
+        auditLogEnabled: _auditLogEnabled,
+        language: _language,
+        timezone: _timezone,
+        logRetentionDays: logRetentionDays,
+        backupTime: _backupTime,
+      );
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      _message('บันทึกการตั้งค่าแล้ว');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      _message('บันทึกไม่สำเร็จ: $e');
+    }
   }
 
   void _restoreDefaults() {
@@ -130,6 +197,29 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         child: Column(
           children: [
+            if (_isLoadingSettings)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: LinearProgressIndicator(),
+              )
+            else if (_loadError != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: AppPalette.carnivalRed.withAlpha(20),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'โหลดค่าที่บันทึกไว้ไม่สำเร็จ: $_loadError (แสดงค่าเริ่มต้นแทน)',
+                  style: const TextStyle(
+                    color: AppPalette.carnivalRed,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             _buildTierBDisclosureBanner(),
             const SizedBox(height: 16),
             _buildHeroCard(),
@@ -154,21 +244,23 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3F2),
+        color: const Color(0xFFFFF9EE),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFECDCA)),
+        border: Border.all(color: const Color(0xFFFFE0B2)),
       ),
       child: const Row(
         children: [
-          Icon(Icons.info_outline_rounded, color: Color(0xFFD92D20), size: 20),
+          Icon(Icons.info_outline_rounded, color: Color(0xFFB45309), size: 20),
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'หมายเหตุ: ระบบการตั้งค่าแพลตฟอร์มส่วนกลาง การแจ้งเตือน และ Thresholds ยังไม่เชื่อมต่อระบบหลังบ้าน การแก้ไขจะไม่ถูกบันทึกจริงลงฐานข้อมูล',
+              'ค่าที่กรอกในหน้านี้ถูกบันทึกจริงแล้ว แต่ระบบยังไม่มีการบังคับใช้อัตโนมัติตามค่าเหล่านี้ '
+              '(เช่น ยังไม่ส่งแจ้งเตือนผ่านช่องทางที่เลือกจริง ยังไม่บังคับ MFA จริง) — ใช้เป็นค่าที่บันทึกไว้ '
+              'สำหรับอ้างอิง รอการเชื่อมต่อระบบจริงในแต่ละส่วนต่อไป',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.4,
-                color: Color(0xFFB42318),
+                color: Color(0xFF92400E),
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -223,12 +315,18 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
             runSpacing: 10,
             children: [
               FilledButton.icon(
-                onPressed: _saveSettings,
+                onPressed: _isSaving ? null : _saveSettings,
                 style: FilledButton.styleFrom(
                   backgroundColor: AppPalette.circusYellow,
                   foregroundColor: AppPalette.textPrimary,
                 ),
-                icon: const Icon(Icons.save_rounded),
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_rounded),
                 label: const Text('บันทึกการตั้งค่า',
                     style: TextStyle(fontWeight: FontWeight.w800)),
               ),
@@ -491,53 +589,11 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
     required Widget child,
     Widget? trailing,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              ?trailing,
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
+    return AppPanel(title: title, trailing: trailing, child: child);
   }
 
   Widget _badge(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
+    return StatusBadge(label: label, color: color);
   }
 
   Widget _empty(IconData icon, String title, String subtitle) {
