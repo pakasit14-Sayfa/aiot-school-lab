@@ -1,6 +1,0 @@
-# melos_managed_dependency_overrides: shared_core,shared_ui
-dependency_overrides:
-  shared_core:
-    path: ../../packages/shared_core
-  shared_ui:
-    path: ../../packages/shared_ui
