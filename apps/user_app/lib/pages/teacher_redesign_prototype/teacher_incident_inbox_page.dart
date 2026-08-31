@@ -73,9 +73,44 @@ String _formatDateTime(DateTime dt) {
   return '$y-$m-$d $hh:$mm น.';
 }
 
+
 // ==========================================
-// S4: หน้ารับแจ้งเหตุ (Inbox) — เชื่อมต่อ Backend จริง
+// S4: หน้ารับแจ้งเหตุ (Inbox) — เชื่อมต่อ Backend จริง (Merge กับ Emergency Events)
 // ==========================================
+
+class _EmergencyEvent {
+  final String id;
+  final String title;
+  final String type;
+  final String location;
+  final String time;
+  final String reporter;
+  final String source;
+  final String status;
+  final String priority;
+  final String description;
+  final String action;
+  final IconData icon;
+  final Color color;
+  final TeacherIncidentReport? originalIncident;
+
+  _EmergencyEvent({
+    required this.id,
+    required this.title,
+    required this.type,
+    required this.location,
+    required this.time,
+    required this.reporter,
+    required this.source,
+    required this.status,
+    required this.priority,
+    required this.description,
+    required this.action,
+    required this.icon,
+    required this.color,
+    this.originalIncident,
+  });
+}
 
 class TeacherIncidentInboxPage extends StatefulWidget {
   const TeacherIncidentInboxPage({super.key});
@@ -86,391 +121,678 @@ class TeacherIncidentInboxPage extends StatefulWidget {
 }
 
 class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
-  int _tabIndex = 0;
-  bool _isLoading = true;
-  String? _error;
-  List<TeacherIncidentReport> _reports = [];
+  String selectedFilter = 'ทั้งหมด';
+  String searchText = '';
 
+  bool _isLoadingRealData = false;
+  List<EmergencyEventItem> _realEmergencyEvents = [];
+    List<TeacherIncidentReport> _realIncidents = [];
+  
   @override
   void initState() {
     super.initState();
-    _fetchReports();
+    _loadRealData();
   }
 
-  Future<void> _fetchReports() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  Future<void> _loadRealData() async {
+    setState(() => _isLoadingRealData = true);
     try {
-      final list = await IncidentService.listTeacherIncidentReports();
-      if (mounted) {
-        setState(() {
-          _reports = list;
-          _isLoading = false;
-        });
-      }
+      final results = await Future.wait([
+        EmergencyService.listEmergencyEvents().catchError((e) {
+          debugPrint('EmergencyService.listEmergencyEvents error: $e');
+          return <EmergencyEventItem>[];
+        }),
+        IncidentService.getIncidentSummary().catchError((e) {
+          debugPrint('IncidentService.getIncidentSummary error: $e');
+          return <IncidentSummaryItem>[];
+        }),
+        IncidentService.listTeacherIncidentReports().catchError((e) {
+          debugPrint('IncidentService.listTeacherIncidentReports error: $e');
+          return <TeacherIncidentReport>[];
+        }),
+      ]);
+
+      if (!mounted) return;
+      final eventsList = results[0] as List<EmergencyEventItem>;
+            final incidents = results[2] as List<TeacherIncidentReport>;
+
+      setState(() {
+        _realEmergencyEvents = eventsList;
+                _realIncidents = incidents;
+                _isLoadingRealData = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() => _isLoadingRealData = false);
+      debugPrint('Load real data error: $e');
     }
   }
 
-  List<TeacherIncidentReport> get _newReports =>
-      _reports.where((i) => i.status == 'new').toList()..sort(_urgencySort);
-
-  List<TeacherIncidentReport> get _inProgress =>
-      _reports
-          .where((i) => i.status == 'acknowledged' || i.status == 'in_progress')
-          .toList()
-        ..sort(_urgencySort);
-
-  List<TeacherIncidentReport> get _closed => _reports
-      .where(
-        (i) =>
-            i.status == 'resolved' ||
-            i.status == 'cancelled' ||
-            i.status == 'escalated',
-      )
-      .toList();
-
-  int _urgencySort(TeacherIncidentReport a, TeacherIncidentReport b) {
-    if (a.category != b.category) {
-      return a.category == IncidentCategory.sos ? -1 : 1;
-    }
-    return a.createdAt.compareTo(b.createdAt);
-  }
-
-  Future<void> _openDetail(TeacherIncidentReport incident) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TeacherIncidentDetailPage(incident: incident),
-      ),
+  _EmergencyEvent _convertIncident(TeacherIncidentReport inc) {
+    final localTime = inc.createdAt.toLocal();
+    final timeStr = 'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final statusDisplay = inc.status == 'new'
+        ? 'รอตรวจสอบ'
+        : (inc.status == 'acknowledged'
+            ? 'รับเรื่องแล้ว'
+            : (inc.status == 'resolved' || inc.status == 'cancelled'
+                ? 'ปิดเหตุแล้ว'
+                : 'กำลังช่วยเหลือ'));
+    final isSos = inc.category == IncidentCategory.sos;
+    return _EmergencyEvent(
+      id: inc.id,
+      title: inc.reason != null && inc.reason!.isNotEmpty
+          ? inc.reason!
+          : (isSos ? 'SOS จากนักเรียน' : 'แจ้งเหตุผิดปกติ'),
+      type: isSos ? 'SOS' : 'เหตุผิดปกติ',
+      location: inc.room != null && inc.room!.isNotEmpty
+          ? 'ห้อง ${inc.room}'
+          : 'ภายในโรงเรียน',
+      time: timeStr,
+      reporter: inc.reporterName.isNotEmpty ? inc.reporterName : 'นักเรียน',
+      source: 'แอปนักเรียน (SOS)',
+      status: statusDisplay,
+      priority: isSos ? 'เร่งด่วน' : 'สูง',
+      description: inc.reason ?? (isSos ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือเร่งด่วน' : 'นักเรียนรายงานเหตุผิดปกติ'),
+      action: 'ตรวจสอบและให้ความช่วยเหลือ',
+      icon: isSos ? Icons.notifications_active_rounded : Icons.warning_amber_rounded,
+      color: isSos ? TeacherPalette.red : TeacherPalette.orange,
+      originalIncident: inc,
     );
-    if (mounted) _fetchReports();
+  }
+
+  _EmergencyEvent _convertEmergencyEvent(EmergencyEventItem evt) {
+    final localTime = evt.triggeredAt.toLocal();
+    final timeStr = 'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final statusDisplay = evt.status == 'new'
+        ? 'รอตรวจสอบ'
+        : (evt.status == 'acknowledged' ? 'รับเรื่องแล้ว' : 'ปิดเหตุแล้ว');
+    return _EmergencyEvent(
+      id: evt.id,
+      title: 'เหตุฉุกเฉินจาก ${evt.deviceName}',
+      type: 'ปุ่มฉุกเฉิน',
+      location: evt.location,
+      time: timeStr,
+      reporter: 'IoT Sensor',
+      source: evt.deviceName,
+      status: statusDisplay,
+      priority: 'เร่งด่วน',
+      description: 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${evt.location}',
+      action: 'เข้าตรวจสอบพื้นที่ทันที',
+      icon: Icons.emergency_rounded,
+      color: TeacherPalette.red,
+    );
+  }
+
+  List<_EmergencyEvent> get _allDisplayEvents {
+    final list = <_EmergencyEvent>[];
+    for (final inc in _realIncidents) {
+      list.add(_convertIncident(inc));
+    }
+    for (final evt in _realEmergencyEvents) {
+      list.add(_convertEmergencyEvent(evt));
+    }
+    // Sort by most urgent / newest
+    list.sort((a, b) {
+      if (a.priority != b.priority) {
+        return a.priority == 'เร่งด่วน' ? -1 : 1;
+      }
+      return b.time.compareTo(a.time); // simple string sort for time
+    });
+    return list;
+  }
+
+  List<_EmergencyEvent> _filteredEvents() {
+    final query = searchText.trim().toLowerCase();
+    final allEvents = _allDisplayEvents;
+
+    return allEvents.where((item) {
+      final matchesSearch = query.isEmpty ||
+          item.title.toLowerCase().contains(query) ||
+          item.location.toLowerCase().contains(query) ||
+          item.type.toLowerCase().contains(query) ||
+          item.reporter.toLowerCase().contains(query);
+
+      final matchesFilter = selectedFilter == 'ทั้งหมด' ||
+          item.status == selectedFilter;
+
+      return matchesSearch && matchesFilter;
+    }).toList();
+  }
+
+  Future<void> _openDetail(_EmergencyEvent event) async {
+    if (event.originalIncident != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherIncidentDetailPage(incident: event.originalIncident!),
+        ),
+      );
+      if (mounted) _loadRealData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เป็นเหตุจาก Hardware SOS กรุณาใช้อุปกรณ์จัดการ')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final tabs = [_newReports, _inProgress, _closed];
-    final items = _tabIndex < tabs.length
-        ? tabs[_tabIndex]
-        : <TeacherIncidentReport>[];
+    final filtered = _filteredEvents();
 
     return TeacherMockPageShell(
       title: 'รับแจ้งเหตุฉุกเฉิน',
       activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded),
-          tooltip: 'รีเฟรช',
-          onPressed: _fetchReports,
-        ),
-        IconButton(
-          icon: const Icon(Icons.history_rounded),
-          tooltip: 'ประวัติเหตุทั้งหมด',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TeacherIncidentHistoryPage(),
-              ),
-            );
-          },
-        ),
-      ],
       builder: (context, isDesktop) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF86EFAC)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline_rounded,
-                    size: 16,
-                    color: Color(0xFF15803D),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ระบบเชื่อมต่อแจ้งเหตุจริงเรียบร้อยแล้ว — แสดงเฉพาะเหตุในวิชา/ห้องที่ครูสอนตามสิทธิ์ RLS',
-                      style: TextStyle(
-                        color: Color(0xFF15803D),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
+        return RefreshIndicator(
+          onRefresh: _loadRealData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _tabChip('ใหม่ (${_newReports.length})', 0),
-                const SizedBox(width: 8),
-                _tabChip('กำลังดำเนินการ (${_inProgress.length})', 1),
-                const SizedBox(width: 8),
-                _tabChip('ปิดแล้ว (${_closed.length})', 2),
+                _emergencyHeader(),
+                const SizedBox(height: 14),
+                _summaryCards(),
+                const SizedBox(height: 16),
+                _eventHistoryCard(filtered),
               ],
             ),
-            const SizedBox(height: 16),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_error != null)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFFCA5A5)),
-                ),
-                child: Text(
-                  'เกิดข้อผิดพลาดในการโหลดข้อมูล: $_error',
-                  style: const TextStyle(color: Color(0xFFB91C1C)),
-                ),
-              )
-            else if (items.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: TeacherPalette.border),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.verified_user_outlined,
-                      size: 44,
-                      color: TeacherPalette.muted.withValues(alpha: 0.4),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'ไม่มีเหตุในหมวดนี้',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              LayoutBuilder(
-                builder: (context, cons) {
-                  final columns = cons.maxWidth >= 1180
-                      ? 3
-                      : (cons.maxWidth >= 620 ? 2 : 1);
-                  final cardWidth = columns == 1
-                      ? cons.maxWidth
-                      : (cons.maxWidth - 14 * (columns - 1)) / columns;
-                  return Wrap(
-                    spacing: 14,
-                    runSpacing: 14,
-                    children: [
-                      for (final incident in items)
-                        SizedBox(
-                          width: cardWidth,
-                          child: _IncidentCard(
-                            incident: incident,
-                            onTap: () => _openDetail(incident),
-                          ),
-                        ),
-                    ],
-                  );
-                },
-              ),
-          ],
+          ),
         );
       },
     );
   }
 
-  Widget _tabChip(String label, int index) {
-    final isActive = _tabIndex == index;
-    return InkWell(
-      onTap: () => setState(() => _tabIndex = index),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? TeacherPalette.primary : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? TeacherPalette.primary : TeacherPalette.border,
+  Widget _emergencyHeader() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 650;
+        final titleBlock = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              'รับแจ้งเหตุฉุกเฉิน (Inbox)',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: TeacherPalette.ink,
+                letterSpacing: -0.4,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'รับแจ้ง SOS เฝ้าระวังความปลอดภัย และติดตามเหตุการณ์ในวิชา/ห้องที่สอน',
+              style: TextStyle(
+                fontSize: 10.8,
+                color: TeacherPalette.muted,
+              ),
+            ),
+          ],
+        );
+
+        final statusBadge = Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (_isLoadingRealData)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2, color: TeacherPalette.primary),
+              ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6F7ED),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF059669),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  const Text(
+                    'เชื่อมต่อระบบจริง',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF047857),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: _isLoadingRealData ? null : _loadRealData,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: TeacherPalette.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.refresh_rounded, size: 13, color: TeacherPalette.muted),
+                    SizedBox(width: 4),
+                    Text(
+                      'รีเฟรช',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: TeacherPalette.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [titleBlock, const SizedBox(height: 8), statusBadge],
+          );
+        }
+        return Row(
+          children: [Expanded(child: titleBlock), const SizedBox(width: 10), statusBadge],
+        );
+      },
+    );
+  }
+
+  Widget _summaryCards() {
+    final int realSosPending = _realIncidents
+            .where((i) => i.category == IncidentCategory.sos && (i.status == 'new' || i.status == 'acknowledged'))
+            .length +
+        _realEmergencyEvents.where((e) => e.status == 'new' || e.status == 'acknowledged').length;
+
+    final int realClosed = _realIncidents
+            .where((i) => i.status == 'resolved' || i.status == 'cancelled')
+            .length +
+        _realEmergencyEvents.where((e) => e.status == 'closed').length;
+
+    final int realActive = _realIncidents
+            .where((i) =>
+                i.category != IncidentCategory.sos &&
+                i.status != 'resolved' &&
+                i.status != 'cancelled')
+            .length +
+        _realEmergencyEvents.where((e) => e.status == 'acknowledged').length;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 700;
+        final children = [
+          _buildStatCard(
+            title: 'SOS รอตรวจสอบ',
+            value: '$realSosPending',
+            icon: Icons.notifications_active_rounded,
+            color: TeacherPalette.red,
+            bgColor: const Color(0xFFFFE4E6), // light red
           ),
+          _buildStatCard(
+            title: 'เหตุที่กำลังติดตาม',
+            value: '$realActive',
+            icon: Icons.warning_amber_rounded,
+            color: TeacherPalette.orange,
+            bgColor: const Color(0xFFFEF3C7), // light orange
+          ),
+          _buildStatCard(
+            title: 'จัดการเสร็จสิ้น',
+            value: '$realClosed',
+            icon: Icons.verified_rounded,
+            color: TeacherPalette.green,
+            bgColor: const Color(0xFFDCFCE7), // light green
+          ),
+        ];
+
+        if (compact) {
+          return Column(
+            children: children.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)).toList(),
+          );
+        }
+        return Row(
+          children: children.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: c))).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: TeacherPalette.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x040F172A),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: bgColor,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: TeacherPalette.muted,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: TeacherPalette.ink,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _eventHistoryCard(List<_EmergencyEvent> events) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: TeacherPalette.border),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x060F172A),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: TeacherPalette.skyVivid,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.history_rounded, size: 18, color: TeacherPalette.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'ประวัติเหตุการณ์ทั้งหมด',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: TeacherPalette.ink,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      Text(
+                        'รายการเหตุฉุกเฉินและอุบัติเหตุที่เกิดขึ้น',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: TeacherPalette.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: TeacherPalette.border),
+          _buildFilterBar(),
+          const Divider(height: 1, color: TeacherPalette.border),
+          if (events.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(40),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded, size: 48, color: TeacherPalette.green),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'ไม่มีเหตุการณ์ในขณะนี้',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: TeacherPalette.muted),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: events.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, color: TeacherPalette.border),
+              itemBuilder: (context, index) {
+                final evt = events[index];
+                return _buildEventListItem(evt);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: 200,
+            height: 36,
+            child: TextField(
+              onChanged: (val) => setState(() => searchText = val),
+              style: const TextStyle(fontSize: 12.5),
+              decoration: InputDecoration(
+                hintText: 'ค้นหาเหตุการณ์...',
+                hintStyle: const TextStyle(color: TeacherPalette.muted, fontSize: 12.5),
+                prefixIcon: const Icon(Icons.search_rounded, size: 16, color: TeacherPalette.muted),
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                contentPadding: EdgeInsets.zero,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: const BorderSide(color: TeacherPalette.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: const BorderSide(color: TeacherPalette.border),
+                ),
+              ),
+            ),
+          ),
+          _filterChip('ทั้งหมด'),
+          _filterChip('รอตรวจสอบ'),
+          _filterChip('รับเรื่องแล้ว'),
+          _filterChip('ปิดเหตุแล้ว'),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChip(String label) {
+    final isSelected = selectedFilter == label;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => setState(() => selectedFilter = label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? TeacherPalette.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSelected ? TeacherPalette.primary : TeacherPalette.border),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isActive ? Colors.white : TeacherPalette.ink,
-            fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 13,
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected ? Colors.white : TeacherPalette.muted,
           ),
         ),
       ),
     );
   }
-}
 
-class _IncidentCard extends StatelessWidget {
-  const _IncidentCard({required this.incident, required this.onTap});
-
-  final TeacherIncidentReport incident;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = _categoryColor(incident.category);
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: TeacherPalette.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: accent,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
-                  ),
-                ),
+  Widget _buildEventListItem(_EmergencyEvent evt) {
+    return InkWell(
+      onTap: () => _openDetail(evt),
+      hoverColor: const Color(0xFFF8FAFC),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: evt.color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+              child: Icon(evt.icon, size: 20, color: evt.color),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        evt.title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: TeacherPalette.ink,
+                        ),
                       ),
-                      child: Icon(
-                        incident.category == IncidentCategory.sos
-                            ? Icons.emergency_rounded
-                            : Icons.warning_amber_rounded,
-                        color: accent,
-                        size: 20,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: evt.color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: evt.color.withValues(alpha: 0.2)),
+                        ),
+                        child: Text(
+                          evt.priority,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: evt.color,
+                          ),
+                        ),
                       ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green.withValues(alpha: 0.3) : TeacherPalette.border),
+                        ),
+                        child: Text(
+                          evt.status,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green : TeacherPalette.muted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '${evt.type} • ${evt.location} • รายงานโดย ${evt.reporter}',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: TeacherPalette.ink,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Wrap(
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  spacing: 6,
-                                  runSpacing: 4,
-                                  children: [
-                                    Text(
-                                      _categoryLabel(incident.category),
-                                      style: TextStyle(
-                                        color: accent,
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    _buildSeverityBadge(incident.severity),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _timeAgo(incident.createdAt),
-                                style: const TextStyle(
-                                  color: TeacherPalette.muted,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'ห้อง ${incident.room ?? "ไม่ระบุ"} · แจ้งโดย ${incident.reporterName}',
-                            style: const TextStyle(
-                              color: TeacherPalette.ink,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (incident.reason != null &&
-                              incident.reason!.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'เหตุผล: ${incident.reason}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: TeacherPalette.ink,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          TeacherStatusChip(
-                            label: _statusLabel(incident.status),
-                            color: _statusColor(incident.status),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    evt.description,
+                    style: const TextStyle(
+                      fontSize: 11,
                       color: TeacherPalette.muted,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    evt.time,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(Icons.chevron_right_rounded, color: TeacherPalette.border),
+          ],
         ),
       ),
     );
@@ -1084,206 +1406,3 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
 // S4b: ประวัติเหตุทั้งหมด
 // ==========================================
 
-class TeacherIncidentHistoryPage extends StatefulWidget {
-  const TeacherIncidentHistoryPage({super.key});
-
-  @override
-  State<TeacherIncidentHistoryPage> createState() =>
-      _TeacherIncidentHistoryPageState();
-}
-
-class _TeacherIncidentHistoryPageState
-    extends State<TeacherIncidentHistoryPage> {
-  String _statusFilter = 'ทั้งหมด';
-  String _categoryFilter = 'ทั้งหมด';
-  bool _isLoading = true;
-  List<TeacherIncidentReport> _reports = [];
-
-  static const _statusOptions = [
-    'ทั้งหมด',
-    'รอตรวจสอบ',
-    'กำลังดำเนินการ',
-    'ปิดแล้ว',
-  ];
-  static const _categoryOptions = ['ทั้งหมด', 'SOS', 'ผิดปกติ'];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetch();
-  }
-
-  Future<void> _fetch() async {
-    setState(() => _isLoading = true);
-    try {
-      final list = await IncidentService.listTeacherIncidentReports();
-      if (mounted) setState(() => _reports = list);
-    } catch (_) {}
-    if (mounted) setState(() => _isLoading = false);
-  }
-
-  bool _matchesStatus(TeacherIncidentReport i) {
-    switch (_statusFilter) {
-      case 'รอตรวจสอบ':
-        return i.status == 'new';
-      case 'กำลังดำเนินการ':
-        return i.status == 'acknowledged' || i.status == 'in_progress';
-      case 'ปิดแล้ว':
-        return i.status == 'resolved' ||
-            i.status == 'cancelled' ||
-            i.status == 'escalated';
-      default:
-        return true;
-    }
-  }
-
-  bool _matchesCategory(TeacherIncidentReport i) {
-    if (_categoryFilter == 'ทั้งหมด') return true;
-    final wantSos = _categoryFilter == 'SOS';
-    return (i.category == IncidentCategory.sos) == wantSos;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final items =
-        _reports.where((i) => _matchesStatus(i) && _matchesCategory(i)).toList()
-          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    return TeacherMockPageShell(
-      title: 'ประวัติเหตุทั้งหมด',
-      activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
-      actions: [
-        IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _fetch),
-      ],
-      builder: (context, isDesktop) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'สถานะ',
-              style: TextStyle(
-                color: TeacherPalette.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final s in _statusOptions) ...[
-                    _filterChip(
-                      s,
-                      _statusFilter == s,
-                      () => setState(() => _statusFilter = s),
-                    ),
-                    const SizedBox(width: 6),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'ประเภทเหตุ',
-              style: TextStyle(
-                color: TeacherPalette.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                for (final c in _categoryOptions) ...[
-                  _filterChip(
-                    c,
-                    _categoryFilter == c,
-                    () => setState(() => _categoryFilter = c),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'พบ ${items.length} รายการ',
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
-                color: TeacherPalette.ink,
-              ),
-            ),
-            const SizedBox(height: 10),
-            if (_isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (items.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: TeacherPalette.border),
-                ),
-                child: const Center(
-                  child: Text(
-                    'ไม่พบเหตุตามเงื่อนไขที่กรอง',
-                    style: TextStyle(
-                      color: TeacherPalette.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              )
-            else
-              ...items.map(
-                (incident) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _IncidentCard(
-                    incident: incident,
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              TeacherIncidentDetailPage(incident: incident),
-                        ),
-                      );
-                      if (mounted) _fetch();
-                    },
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? TeacherPalette.primary : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? TeacherPalette.primary : TeacherPalette.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : TeacherPalette.ink,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            fontSize: 12.5,
-          ),
-        ),
-      ),
-    );
-  }
-}

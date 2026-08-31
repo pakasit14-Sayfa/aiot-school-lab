@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import 'teacher_aiot_dashboard_page.dart' show TeacherAiotDashboardPage;
-import 'teacher_emergency_events_page.dart' show TeacherEmergencyEventsPage;
+
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_incident_inbox_page.dart' show TeacherIncidentInboxPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
@@ -135,7 +135,7 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
     if (notif.targetRoute == 'emergency') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const TeacherEmergencyEventsPage()),
+        MaterialPageRoute(builder: (_) => const TeacherIncidentInboxPage()),
       );
     } else if (notif.targetRoute == 'incident_report' ||
         notif.targetRoute == 'incident') {
