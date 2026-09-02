@@ -11,6 +11,7 @@ import 'package:shared_core/shared_core.dart';
 import 'teacher_aiot_dashboard_page.dart';
 import 'teacher_aiot_lab_page.dart';
 import 'teacher_attendance_page.dart';
+import 'teacher_leave_approval_page.dart';
 import 'teacher_courses_page.dart';
 import 'teacher_grades_page.dart';
 import 'teacher_grading_page.dart';
@@ -3311,7 +3312,11 @@ class _AiotSensorRow extends StatelessWidget {
       iconColor = const Color(0xFFE11D48);
     }
 
-    final isNoData = level == 'ไม่มีข้อมูล';
+    // "ดิบ" (raw/uncalibrated, e.g. MQ-2) ใช้โทนสีเทาเป็นกลางเดียวกับ
+    // "ไม่มีข้อมูล" — ไม่ใช่เพราะไม่มีข้อมูลจริง แต่เพราะยังไม่มีเกณฑ์
+    // calibrate มาตัดสินว่า "ปกติ/ปานกลาง/เกิน" ได้ ไม่ควรฟันธงเป็นสีแดง/
+    // เขียวลอยๆ
+    final isNoData = level == 'ไม่มีข้อมูล' || level == 'ดิบ';
     final Color badgeBgColor;
     final Color badgeTextColor;
     final Color badgeDotColor;
@@ -4591,41 +4596,28 @@ class _AiotWeatherSensorsCard extends StatefulWidget {
 }
 
 class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
-  SensorModel? _sensor;
-  Set<String> _availableMetrics = const {};
+  // ต้อง cache stream ไว้ครั้งเดียวใน initState ห้ามเรียก
+  // RealtimeService.sensorStream(...)/rawReadingsStream() แบบ inline ใน
+  // builder: ของ StreamBuilder — เพราะ builder: ของ StreamBuilder ชั้นนอก
+  // (rawReadingsStream) จะถูกเรียกซ้ำทุก ~5 วินาทีตาม poll tick ของมันเอง
+  // ถ้า sensorStream(...) อยู่ inline ข้างในนั้น จะได้ Stream object ใหม่
+  // ทุกครั้ง ทำให้ StreamBuilder ชั้นในตัด connection เดิมทิ้งแล้วต่อใหม่
+  // ทุก 5 วินาทีวนไปเรื่อยๆ ไม่มีทางได้ข้อมูลจริงมาแสดงเลย (บั๊กเดียวกับที่
+  // เจอในหน้านักเรียน — director_overview_page.dart ทำถูกอยู่แล้วด้วย
+  // pattern นี้ ใช้เป็นต้นแบบ)
+  late final Stream<List<Map<String, dynamic>>> _rawStream;
+  late final Stream<SensorModel?> _sensorStream;
 
   @override
   void initState() {
     super.initState();
-    _loadRealSensor();
-  }
-
-  Future<void> _loadRealSensor() async {
-    try {
-      // Empty room/building = aggregate across every device in the school
-      // (see RealtimeService.modelForRoom — an empty room string skips the
-      // location filter and returns the newest value per metric school-wide).
-      final results = await Future.wait([
-        RealtimeService.getSensorOnce(
-          schoolId: '',
-          building: '',
-          floor: '',
-          room: '',
-        ),
-        RealtimeService.getWeatherMetricsWithData(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _sensor = results[0] as SensorModel?;
-        // SensorModel defaults an absent metric to 0, indistinguishable
-        // from a real 0 — only trust a metric this card shows if it was
-        // actually present in the raw readings, not just "some device
-        // reported something."
-        _availableMetrics = results[1] as Set<String>;
-      });
-    } catch (_) {
-      // Keep the honest "no data" state on error.
-    }
+    _rawStream = RealtimeService.rawReadingsStream();
+    _sensorStream = RealtimeService.sensorStream(
+      schoolId: '',
+      building: '',
+      floor: '',
+      room: '',
+    );
   }
 
   String _levelLabel(SensorLevel level) => switch (level) {
@@ -4634,143 +4626,321 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
     SensorLevel.danger => 'ไม่ปลอดภัย',
   };
 
+  // Confirmed with the board's firmware author (2026-08-31): the "aqi"
+  // metric is the ENS160 (ScioSense) gas sensor's own AQI-UBA index — a
+  // 1-5 scale from the German Federal Environmental Agency (UBA)
+  // guideline, derived internally by the chip from its TVOC signal. This
+  // is NOT the 0-500 US EPA / Thai PCD Air Quality Index most people
+  // expect from the term "AQI" — do not convert it 1:1 to that scale.
+  String _aqiUbaLabel(double value) {
+    switch (value.round()) {
+      case 1:
+        return 'ดีมาก';
+      case 2:
+        return 'ดี';
+      case 3:
+        return 'ปานกลาง';
+      case 4:
+        return 'แย่';
+      case 5:
+        return 'ไม่ปลอดภัย';
+      default:
+        return 'ไม่ทราบระดับ';
+    }
+  }
+
+  static ({double value, DateTime? ts})? _latestValueOf(
+    List<Map<String, dynamic>> rows,
+    String metric,
+  ) {
+    Map<String, dynamic>? latest;
+    DateTime? latestTs;
+    for (final r in rows) {
+      if (r['metric'] != metric) continue;
+      final ts = DateTime.tryParse(r['ts'] as String? ?? '');
+      if (latest == null ||
+          (ts != null && (latestTs == null || ts.isAfter(latestTs)))) {
+        latest = r;
+        latestTs = ts;
+      }
+    }
+    final v = latest?['value'];
+    if (v is! num) return null;
+    return (value: v.toDouble(), ts: latestTs);
+  }
+
+  static SensorFreshness _freshnessOf(DateTime? ts) {
+    if (ts == null) return SensorFreshness.noData;
+    final age = DateTime.now().toUtc().difference(ts.toUtc());
+    if (age <= const Duration(minutes: 2)) return SensorFreshness.live;
+    if (age <= const Duration(minutes: 10)) return SensorFreshness.delayed;
+    return SensorFreshness.offline;
+  }
+
+  static String _relativeTimeLabel(DateTime? ts) {
+    if (ts == null) return 'ไม่มีข้อมูล';
+    final age = DateTime.now().toUtc().difference(ts.toUtc());
+    if (age.inSeconds < 60) return 'เมื่อสักครู่';
+    if (age.inMinutes < 60) return '${age.inMinutes} นาทีที่แล้ว';
+    if (age.inHours < 24) return '${age.inHours} ชม.ที่แล้ว';
+    return '${age.inDays} วันที่แล้ว';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final sensor = _sensor;
-    final headerFreshness =
-        sensor?.overallFreshnessOf(const [
-          'pm25',
-          'temperature',
-          'humidity',
-          'light_lux',
-        ]) ??
-        SensorFreshness.noData;
-    return _GlassCard(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              _StatusPulseDot(color: headerFreshness.color),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text(
-                  'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
-                  style: TextStyle(
-                    color: TeacherPalette.ink,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w900,
+    // เดิมโค้ดนี้ดึงข้อมูลแค่ครั้งเดียวตอน initState แล้วไม่รีเฟรชอีกเลย —
+    // บั๊กเดียวกับที่เจอในหน้านักเรียน/ผู้บริหาร (ค่าค้าง เวลานับถอยหลัง
+    // เดินต่อจนดูเหมือนเซนเซอร์หลุดทั้งที่จริงยังส่งข้อมูลอยู่) เปลี่ยนเป็น
+    // poll ต่อเนื่องเหมือนหน้าอื่นแทน
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _rawStream,
+      builder: (context, rawSnapshot) {
+        final rawRows = rawSnapshot.data ?? const <Map<String, dynamic>>[];
+        final aqi = _latestValueOf(rawRows, 'aqi');
+        final gas = _latestValueOf(rawRows, 'gas_mq2_percent');
+
+        return StreamBuilder<SensorModel?>(
+          stream: _sensorStream,
+          builder: (context, snapshot) {
+            final sensor = snapshot.data;
+            final headerFreshness =
+                sensor?.overallFreshnessOf(const [
+                  'pm25',
+                  'temperature',
+                  'humidity',
+                  'light_lux',
+                ]) ??
+                SensorFreshness.noData;
+            final bool hasPm25 =
+                sensor?.metricUpdatedAt.containsKey('pm25') ?? false;
+            final bool hasTemp =
+                sensor?.metricUpdatedAt.containsKey('temperature') ?? false;
+            final bool hasHumidity =
+                sensor?.metricUpdatedAt.containsKey('humidity') ?? false;
+            final bool hasLux =
+                sensor?.metricUpdatedAt.containsKey('light_lux') ?? false;
+            final bool hasCo2 =
+                sensor?.metricUpdatedAt.containsKey('co2') ?? false;
+            final bool hasTvoc =
+                sensor?.metricUpdatedAt.containsKey('tvoc') ?? false;
+
+            return _GlassCard(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _StatusPulseDot(color: headerFreshness.color),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'ข้อมูลเซนเซอร์สภาพอากาศ AIoT',
+                          style: TextStyle(
+                            color: TeacherPalette.ink,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  _AiotSensorRow(
+                    icon: Icons.air_rounded,
+                    title: 'ฝุ่น PM2.5 (ห้องเรียนปลอดภัย)',
+                    value: hasPm25 ? '${sensor!.pm25.toInt()}' : '-',
+                    unit: 'µg/m³',
+                    subtitle: hasPm25
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: hasPm25
+                        ? _levelLabel(sensor!.pm25Level)
+                        : 'ไม่มีข้อมูล',
+                    freshness:
+                        sensor?.freshnessOf('pm25') ?? SensorFreshness.noData,
+                    timeLabel: sensor?.relativeTimeLabel('pm25'),
+                    showDivider: true,
+                  ),
+                  _AiotSensorRow(
+                    icon: Icons.thermostat_rounded,
+                    title: 'อุณหภูมิห้องเรียน',
+                    value: hasTemp
+                        ? sensor!.temperature.toStringAsFixed(1)
+                        : '-',
+                    unit: '°C',
+                    subtitle: hasTemp
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: hasTemp
+                        ? _levelLabel(sensor!.tempLevel)
+                        : 'ไม่มีข้อมูล',
+                    freshness:
+                        sensor?.freshnessOf('temperature') ??
+                        SensorFreshness.noData,
+                    timeLabel: sensor?.relativeTimeLabel('temperature'),
+                    showDivider: true,
+                  ),
+                  _AiotSensorRow(
+                    icon: Icons.water_drop_rounded,
+                    title: 'ความชื้นสัมพัทธ์',
+                    value: hasHumidity
+                        ? sensor!.humidity.toStringAsFixed(1)
+                        : '-',
+                    unit: '%RH',
+                    subtitle: hasHumidity
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: hasHumidity
+                        ? _levelLabel(sensor!.humidityLevel)
+                        : 'ไม่มีข้อมูล',
+                    freshness:
+                        sensor?.freshnessOf('humidity') ??
+                        SensorFreshness.noData,
+                    timeLabel: sensor?.relativeTimeLabel('humidity'),
+                    showDivider: true,
+                  ),
+                  _AiotSensorRow(
+                    icon: Icons.wb_sunny_rounded,
+                    title: 'ความเข้มแสง',
+                    value: hasLux ? '${sensor!.lux.toInt()}' : '-',
+                    unit: 'lux',
+                    subtitle: hasLux
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: hasLux
+                        ? _levelLabel(sensor!.luxLevel)
+                        : 'ไม่มีข้อมูล',
+                    freshness:
+                        sensor?.freshnessOf('light_lux') ??
+                        SensorFreshness.noData,
+                    timeLabel: sensor?.relativeTimeLabel('light_lux'),
+                    showDivider: true,
+                  ),
+                  // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): นี่คือดัชนี
+                  // AQI-UBA ของชิป ENS160 สเกล 1-5 (ตาม German UBA) ไม่ใช่
+                  // AQI มาตรฐาน 0-500 ของ US EPA/กรมควบคุมมลพิษไทย
+                  _AiotSensorRow(
+                    icon: Icons.eco_rounded,
+                    title: 'AQI-UBA (ENS160)',
+                    value: aqi != null ? aqi.value.toStringAsFixed(0) : '-',
+                    subtitle: aqi != null
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: aqi != null
+                        ? _aqiUbaLabel(aqi.value)
+                        : 'ไม่มีข้อมูล',
+                    freshness: _freshnessOf(aqi?.ts),
+                    timeLabel: aqi != null
+                        ? _relativeTimeLabel(aqi.ts)
+                        : null,
+                    showDivider: true,
+                  ),
+                  // MQ-2 ตอบสนองต่อทั้งแก๊สติดไฟและควันจริงตามสเปกชิป แต่
+                  // ส่งออกมาเป็นสัญญาณตัวเลขเดียวรวมกัน แยกไม่ออกว่าเกิดจาก
+                  // แก๊สหรือควัน — ห้ามเขียนค่าเป็น "แก๊ส/ควัน X%" เฉยๆ
+                  // (จะดูเหมือนความเข้มข้นที่ calibrate แล้ว) ต้องกำกับ
+                  // "(ดิบ)" เสมอจนกว่าจะ calibrate เป็น ppm จริง — ไม่มีสี
+                  // ระดับ (ปกติ/ปานกลาง/เกิน) เพราะไม่มีเกณฑ์ calibrate จริง
+                  _AiotSensorRow(
+                    icon: Icons.local_fire_department_rounded,
+                    title: 'แก๊ส/ควัน (MQ-2)',
+                    value: gas != null
+                        ? '${gas.value.toStringAsFixed(0)}%'
+                        : '-',
+                    subtitle: gas != null
+                        ? 'สัญญาณดิบ ยังไม่ calibrate เป็น ppm'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: gas != null ? 'ดิบ' : 'ไม่มีข้อมูล',
+                    freshness: _freshnessOf(gas?.ts),
+                    timeLabel: gas != null
+                        ? _relativeTimeLabel(gas.ts)
+                        : null,
+                    showDivider: true,
+                  ),
+                  // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): บอร์ดใช้ชิป
+                  // แก๊ส ENS160 (ScioSense, MOX multi-gas) ค่า "co2" ที่ส่ง
+                  // เข้าระบบคือ eCO2 (Equivalent CO2) ที่ชิปคำนวณจาก
+                  // VOCs/hydrogen ภายใน ไม่ใช่การวัด CO2 ตรงแบบเซนเซอร์
+                  // NDIR — ต้องเขียนกำกับว่า "ประมาณการ" เสมอ
+                  _AiotSensorRow(
+                    icon: Icons.cloud_outlined,
+                    title: 'eCO2 (ประมาณการ)',
+                    value: hasCo2 ? sensor!.co2.toStringAsFixed(0) : '-',
+                    unit: 'ppm',
+                    subtitle: hasCo2
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: hasCo2
+                        ? _levelLabel(sensor!.co2Level)
+                        : 'ไม่มีข้อมูล',
+                    freshness:
+                        sensor?.freshnessOf('co2') ?? SensorFreshness.noData,
+                    timeLabel: sensor?.relativeTimeLabel('co2'),
+                    showDivider: true,
+                  ),
+                  // ใช้เกณฑ์ SensorModel.tvocLevel ที่มีอยู่แล้วใน
+                  // widgets/sensor_card.dart — แต่ยังไม่ยืนยัน 100% ว่าหน่วย
+                  // ที่ ENS160 ส่งมาคือ ppb (ตามที่แสดงไว้) หรือ mg/m³ (ตามที่
+                  // sensor_card.dart กำกับหน่วยไว้) ถ้าคลาดเคลื่อน ระดับ
+                  // ตรงนี้อาจผิดไปด้วย — ควรยืนยันหน่วยกับผู้ทำ firmware
+                  // อีกครั้ง
+                  _AiotSensorRow(
+                    icon: Icons.science_outlined,
+                    title: 'TVOC',
+                    value: hasTvoc ? sensor!.tvoc.toStringAsFixed(0) : '-',
+                    unit: 'ppb',
+                    subtitle: hasTvoc
+                        ? 'ค่าล่าสุดจากเซนเซอร์จริง'
+                        : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
+                    level: hasTvoc
+                        ? _levelLabel(sensor!.tvocLevel)
+                        : 'ไม่มีข้อมูล',
+                    freshness:
+                        sensor?.freshnessOf('tvoc') ?? SensorFreshness.noData,
+                    timeLabel: sensor?.relativeTimeLabel('tvoc'),
+                    showDivider: false,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const TeacherAiotDashboardPage(),
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      label: const Text(
+                        'ไปหน้า AIoT Dashboard',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF9333EA),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        minimumSize: const Size(0, 42),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          _AiotSensorRow(
-            icon: Icons.air_rounded,
-            title: 'ฝุ่น PM2.5 (ห้องเรียนปลอดภัย)',
-            value: _availableMetrics.contains('pm25')
-                ? '${sensor!.pm25.toInt()}'
-                : '-',
-            unit: 'µg/m³',
-            subtitle: _availableMetrics.contains('pm25')
-                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
-                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
-            level: _availableMetrics.contains('pm25')
-                ? _levelLabel(sensor!.pm25Level)
-                : 'ไม่มีข้อมูล',
-            freshness: sensor?.freshnessOf('pm25') ?? SensorFreshness.noData,
-            timeLabel: sensor?.relativeTimeLabel('pm25'),
-            showDivider: true,
-          ),
-          _AiotSensorRow(
-            icon: Icons.thermostat_rounded,
-            title: 'อุณหภูมิห้องเรียน',
-            value: _availableMetrics.contains('temperature')
-                ? sensor!.temperature.toStringAsFixed(1)
-                : '-',
-            unit: '°C',
-            subtitle: _availableMetrics.contains('temperature')
-                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
-                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
-            level: _availableMetrics.contains('temperature')
-                ? _levelLabel(sensor!.tempLevel)
-                : 'ไม่มีข้อมูล',
-            freshness:
-                sensor?.freshnessOf('temperature') ?? SensorFreshness.noData,
-            timeLabel: sensor?.relativeTimeLabel('temperature'),
-            showDivider: true,
-          ),
-          _AiotSensorRow(
-            icon: Icons.water_drop_rounded,
-            title: 'ความชื้นสัมพัทธ์',
-            value: _availableMetrics.contains('humidity')
-                ? sensor!.humidity.toStringAsFixed(1)
-                : '-',
-            unit: '%RH',
-            subtitle: _availableMetrics.contains('humidity')
-                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
-                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
-            level: _availableMetrics.contains('humidity')
-                ? _levelLabel(sensor!.humidityLevel)
-                : 'ไม่มีข้อมูล',
-            freshness:
-                sensor?.freshnessOf('humidity') ?? SensorFreshness.noData,
-            timeLabel: sensor?.relativeTimeLabel('humidity'),
-            showDivider: true,
-          ),
-          _AiotSensorRow(
-            icon: Icons.wb_sunny_rounded,
-            title: 'ความเข้มแสง',
-            value: _availableMetrics.contains('light_lux')
-                ? '${sensor!.lux.toInt()}'
-                : '-',
-            unit: 'lux',
-            subtitle: _availableMetrics.contains('light_lux')
-                ? 'ค่าล่าสุดจากเซนเซอร์จริง'
-                : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
-            level: _availableMetrics.contains('light_lux')
-                ? _levelLabel(sensor!.luxLevel)
-                : 'ไม่มีข้อมูล',
-            freshness:
-                sensor?.freshnessOf('light_lux') ?? SensorFreshness.noData,
-            timeLabel: sensor?.relativeTimeLabel('light_lux'),
-            showDivider: false,
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 42,
-            child: FilledButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const TeacherAiotDashboardPage(),
-                ),
-              ),
-              icon: const Icon(
-                Icons.arrow_forward_rounded,
-                color: Colors.white,
-                size: 16,
-              ),
-              label: const Text(
-                'ไปหน้า AIoT Dashboard',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF9333EA),
-                foregroundColor: Colors.white,
-                elevation: 0,
-                minimumSize: const Size(0, 42),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -5727,6 +5897,7 @@ class TeacherMock {
     _MenuItem('คลังความรู้', Icons.folder_special_rounded),
     _MenuItem('นักเรียน', Icons.groups_2_rounded),
     _MenuItem('เช็คชื่อ', Icons.checklist_rounded),
+    _MenuItem('อนุมัติใบลา', Icons.event_available_rounded),
     _MenuItem('ตรวจงาน', Icons.assignment_turned_in_rounded),
     _MenuItem('คะแนน', Icons.bar_chart_rounded),
     _MenuItem('ยืนยัน G-Score', Icons.verified_rounded),
@@ -6710,6 +6881,11 @@ void _openTeacherMenuItem(BuildContext context, String label) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const TeacherAttendancePage()),
+      );
+    case 'อนุมัติใบลา':
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherLeaveApprovalPage()),
       );
     case 'ตรวจงาน':
       Navigator.push(

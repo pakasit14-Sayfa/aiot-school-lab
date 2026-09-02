@@ -17,6 +17,13 @@ class IncidentService {
     return MyStudentRoom.fromRow(rows.first as Map<String, dynamic>);
   }
 
+  static Stream<List<Map<String, dynamic>>> streamIncidentReports() {
+    return supabase
+        .from('incident_reports')
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false);
+  }
+
   static Future<String> createIncidentReport({
     required IncidentCategory category,
     String? room,

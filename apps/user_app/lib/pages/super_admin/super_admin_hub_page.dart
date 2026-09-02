@@ -11,9 +11,18 @@ import 'super_admin_device_test_page.dart';
 import 'super_admin_permissions_page.dart';
 import 'super_admin_alerts_logs_page.dart';
 import 'super_admin_settings_page.dart';
+import 'super_admin_scan_page.dart';
+import 'super_admin_learning_overview_page.dart';
 
 class SuperAdminHubPage extends StatefulWidget {
-  const SuperAdminHubPage({super.key});
+  const SuperAdminHubPage({super.key, this.embedded = false});
+
+  /// True when embedded as index 0 of [SuperAdminNavigationShell]'s
+  /// desktop sidebar layout — suppresses this page's own drawer since
+  /// the persistent sidebar replaces it. False (default) reproduces the
+  /// original standalone behavior (own drawer, Navigator.push to the
+  /// other 7 pages), used as the mobile fallback.
+  final bool embedded;
 
   @override
   State<SuperAdminHubPage> createState() => _SuperAdminHubPageState();
@@ -102,20 +111,22 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const Text(
-          'ศูนย์ควบคุมภาพรวม (Platform Hub)',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'รีเฟรชข้อมูล',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadDashboardData(),
-          ),
-        ],
-      ),
-      drawer: AppDrawer(
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'ศูนย์ควบคุมภาพรวม (Platform Hub)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'รีเฟรชข้อมูล',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () => _loadDashboardData(),
+                ),
+              ],
+            ),
+      drawer: widget.embedded ? null : AppDrawer(
         items: [
           DrawerItem(
             icon: Icons.account_balance_rounded,
@@ -185,6 +196,26 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             title: 'จัดการผู้ใช้ (User Management)',
             color: Colors.blueGrey,
             onTap: (ctx) => Navigator.pushNamed(ctx, '/users'),
+          ),
+          DrawerItem(
+            icon: Icons.qr_code_scanner_rounded,
+            title: 'สแกนอุปกรณ์ (Device Scan)',
+            color: const Color(0xFF7C3AED),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(builder: (_) => const SuperAdminScanPage()),
+            ),
+          ),
+          DrawerItem(
+            icon: Icons.school_rounded,
+            title: 'แพลตฟอร์มการเรียนรู้ (Learning Overview)',
+            color: const Color(0xFF059669),
+            onTap: (ctx) => Navigator.push(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => const SuperAdminLearningOverviewPage(),
+              ),
+            ),
           ),
         ],
       ),
@@ -513,7 +544,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             ),
             _actionCard(
               icon: Icons.toggle_on_rounded,
-              title: 'ควบคุมอุปกรณ์ (Device Control)',
+              title: 'ควบคุมและอนุมัติอุปกรณ์ (Device Control)',
               description: 'สั่งการเปิด/ปิด, ตรวจสอบสถานะ และอนุมัติคำสั่งอุปกรณ์',
               color: const Color(0xFF1E88E5),
               onTap: () => Navigator.push(
@@ -524,7 +555,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             ),
             _actionCard(
               icon: Icons.qr_code_2_rounded,
-              title: 'ทะเบียน & QR Code (Devices & QR)',
+              title: 'ทะเบียนและ QR Code (Devices & QR)',
               description: 'ค้นหารหัสกำกับอุปกรณ์, สร้างและพิมพ์ QR Code สติกเกอร์',
               color: const Color(0xFF028090),
               onTap: () => Navigator.push(
@@ -546,7 +577,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             ),
             _actionCard(
               icon: Icons.admin_panel_settings_rounded,
-              title: 'จัดการสิทธิ์ (Permissions)',
+              title: 'กำหนดสิทธิ์และบทบาท (Permissions)',
               description: 'กำหนดบทบาท RBAC, จัดการคำเชิญ และบัญชีผู้ใช้ข้ามโรงเรียน',
               color: const Color(0xFFB0232B),
               onTap: () => Navigator.push(
@@ -557,7 +588,7 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             ),
             _actionCard(
               icon: Icons.notifications_active_rounded,
-              title: 'การแจ้งเตือน (Alerts & Logs)',
+              title: 'การแจ้งเตือนและประวัติ (Alerts & Logs)',
               description: 'มอนิเตอร์เซนเซอร์ผิดปกติ, รับทราบเหตุ และดู Audit Log',
               color: const Color(0xFFF18701),
               onTap: () => Navigator.push(
@@ -579,10 +610,32 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
             ),
             _actionCard(
               icon: Icons.people_alt_rounded,
-              title: 'รายชื่อผู้ใช้ (Users)',
+              title: 'จัดการผู้ใช้ (User Management)',
               description: 'ค้นหาและตรวจสอบสถานะผู้ใช้งานทั้งหมดในแพลตฟอร์ม',
               color: Colors.blueGrey,
               onTap: () => Navigator.pushNamed(context, '/users'),
+            ),
+            _actionCard(
+              icon: Icons.qr_code_scanner_rounded,
+              title: 'สแกนอุปกรณ์ (Device Scan)',
+              description: 'สแกน QR Code เพื่อค้นหาข้อมูลอุปกรณ์จริงในระบบ',
+              color: const Color(0xFF7C3AED),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SuperAdminScanPage()),
+              ),
+            ),
+            _actionCard(
+              icon: Icons.school_rounded,
+              title: 'แพลตฟอร์มการเรียนรู้ (Learning Overview)',
+              description: 'ภาพรวมจำนวนคอร์สและบทเรียนจริงแยกตามโรงเรียน',
+              color: const Color(0xFF059669),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SuperAdminLearningOverviewPage(),
+                ),
+              ),
             ),
           ];
 

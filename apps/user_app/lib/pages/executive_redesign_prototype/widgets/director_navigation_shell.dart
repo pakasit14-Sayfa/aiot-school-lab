@@ -26,8 +26,6 @@ class DirectorNavigationShell extends StatefulWidget {
 class _DirectorNavigationShellState extends State<DirectorNavigationShell> {
   int selectedIndex = 0;
 
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-
   // ทางลัดสำหรับแถบนำทางด้านล่าง (มือถือ) — ชี้ไปยัง index ของ menuItems
   final List<_BottomShortcut> bottomShortcuts = const [
     _BottomShortcut('ภาพรวม', Icons.home_rounded, 0),
@@ -57,7 +55,6 @@ class _DirectorNavigationShellState extends State<DirectorNavigationShell> {
     final isDesktop = width >= 1050;
 
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: AppPalette.pageBg,
       drawer: isDesktop
           ? null
@@ -313,7 +310,7 @@ class _DirectorNavigationShellState extends State<DirectorNavigationShell> {
           Expanded(
             child: ListView.separated(
               itemCount: menuItems.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final item = menuItems[index];
                 final selected = selectedIndex == index;

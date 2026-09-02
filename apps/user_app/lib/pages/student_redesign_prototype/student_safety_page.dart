@@ -29,6 +29,7 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
   bool _loading = true;
   String? _room;
   List<MyIncidentReport> _myIncidents = [];
+  StreamSubscription? _incidentSub;
 
   bool get _hasOpenIncident => _myIncidents.any((i) => i.isOpen);
 
@@ -36,6 +37,15 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
   void initState() {
     super.initState();
     _load();
+    _incidentSub = IncidentService.streamIncidentReports().listen((_) {
+      if (mounted) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _incidentSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {

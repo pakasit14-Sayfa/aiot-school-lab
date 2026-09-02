@@ -1,11 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../utils/web_download.dart';
 import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminAlertsLogsPage extends StatefulWidget {
-  const SuperAdminAlertsLogsPage({super.key});
+  const SuperAdminAlertsLogsPage({super.key, this.embedded = false});
+
+  /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
+  /// layout — suppresses this page's own AppBar since the sidebar
+  /// already shows which page is selected.
+  final bool embedded;
 
   @override
   State<SuperAdminAlertsLogsPage> createState() =>
@@ -82,8 +90,9 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
 
         final mins = DateTime.now().difference(a.triggeredAt).inMinutes;
 
+        final String idSuffix = a.id.replaceAll('-', '').toUpperCase();
         loadedAlerts.add(_AlertViewModel(
-          id: 'ALT-${(i + 1).toString().padLeft(4, '0')}',
+          id: 'ALT-${idSuffix.substring(idSuffix.length - 6)}',
           rawRecord: a,
           title: '${a.metric} เกินเกณฑ์ (${a.value.toStringAsFixed(1)})',
           message:
@@ -249,19 +258,21 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const Text(
-          'การแจ้งเตือนและประวัติระบบ (Alerts & Logs)',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'รีเฟรชข้อมูล',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadAllData(),
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'การแจ้งเตือนและประวัติระบบ (Alerts & Logs)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'รีเฟรชข้อมูล',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () => _loadAllData(),
+                ),
+              ],
+            ),
       body: _buildBody(),
     );
   }
@@ -1211,7 +1222,7 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
     return _panel(
       title: 'ประวัติกิจกรรมและการสั่งการระบบ (Audit Logs)',
       trailing: TextButton.icon(
-        onPressed: () => _message('ส่งออกประวัติ Audit Logs เรียบร้อย'),
+        onPressed: _exportActivityLogs,
         icon: const Icon(Icons.download_rounded),
         label: const Text('ส่งออก Log'),
       ),
@@ -1546,8 +1557,92 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
     );
   }
 
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
   void _exportAlerts() {
-    _message('ส่งออกรายงานสรุปเหตุแจ้งเตือนจำนวน ${_filteredAlerts.length} รายการแล้ว');
+    final List<_AlertViewModel> alerts = _filteredAlerts;
+    if (alerts.isEmpty) {
+      _message('ไม่มีเหตุแจ้งเตือนให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+
+    final List<String> header = <String>[
+      'id',
+      'school',
+      'device',
+      'device_code',
+      'metric',
+      'value',
+      'severity',
+      'status',
+      'triggered_at',
+      'acknowledged_by',
+    ];
+    final List<List<String>> rows = <List<String>>[
+      header,
+      for (final _AlertViewModel a in alerts)
+        <String>[
+          a.id,
+          a.school,
+          a.device,
+          a.deviceCode,
+          a.metric,
+          '${a.value}',
+          a.severity.name,
+          a.status.name,
+          a.triggeredAt.toIso8601String(),
+          a.acknowledgedBy,
+        ],
+    ];
+    final String csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    downloadBytes(
+      filename: 'alerts_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    _message('ส่งออกรายงานเหตุแจ้งเตือน ${alerts.length} รายการแล้ว');
+  }
+
+  void _exportActivityLogs() {
+    if (_activityLogs.isEmpty) {
+      _message('ไม่มีประวัติกิจกรรมให้ส่งออก');
+      return;
+    }
+
+    final List<String> header = <String>[
+      'action',
+      'actor',
+      'target',
+      'detail',
+      'created_at',
+    ];
+    final List<List<String>> rows = <List<String>>[
+      header,
+      for (final SchoolAdminAuditLog log in _activityLogs)
+        <String>[
+          log.action,
+          log.actorName,
+          log.target,
+          log.detail,
+          log.createdAt.toIso8601String(),
+        ],
+    ];
+    final String csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    downloadBytes(
+      filename: 'activity_logs_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    _message('ส่งออกประวัติกิจกรรม ${_activityLogs.length} รายการแล้ว');
   }
 
   Color _severityColor(_AlertSeverity sev) {

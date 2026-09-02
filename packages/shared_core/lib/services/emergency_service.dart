@@ -3,6 +3,13 @@ import 'auth_service.dart';
 import 'supabase_config.dart';
 
 class EmergencyService {
+  static Stream<List<Map<String, dynamic>>> streamEmergencyEvents() {
+    return supabase
+        .from('emergency_events')
+        .stream(primaryKey: ['id'])
+        .order('triggered_at', ascending: false);
+  }
+
   static Future<List<EmergencyEventItem>> listEmergencyEvents({
     String? status,
   }) async {

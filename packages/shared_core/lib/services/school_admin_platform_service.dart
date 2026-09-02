@@ -1,7 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/super_admin_model.dart';
 import '../models/school_building_model.dart';
-import '../models/executive_overview_model.dart' show PlatformSettings;
+import '../models/executive_overview_model.dart'
+    show PlatformSettings, CourseOverviewRecord;
 import 'auth_service.dart';
 import 'school_import_service.dart' show BulkImportResult;
 
@@ -298,6 +299,20 @@ class SchoolAdminPlatformService {
     });
 
     return PlatformSettings.fromRow(Map<String, dynamic>.from(res as Map));
+  }
+
+  /// Cross-school course/lesson counts (Super Admin oversight only —
+  /// editing stays with teachers via CourseService/LessonService)
+  Future<List<CourseOverviewRecord>> getCoursesOverview() async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('list_courses_for_super_admin', params: {
+      'p_token': token,
+    });
+
+    if (res is! List) return [];
+    return res
+        .map((e) => CourseOverviewRecord.fromRow(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   /// Bulk-import buildings (real backend write — see import_school_buildings_batch)

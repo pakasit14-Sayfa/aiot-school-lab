@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -655,7 +656,7 @@ class _DirectorNotificationsPageState
                   child: Text(
                     item.title,
                     style: const TextStyle(
-                      fontSize: 11.2,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -669,9 +670,9 @@ class _DirectorNotificationsPageState
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 9,
-                height: 1.4,
-                color: AppPalette.textMuted,
+                fontSize: 11.5,
+                height: 1.45,
+                color: Color(0xFF475569),
               ),
             ),
             const SizedBox(height: 9),
@@ -679,7 +680,7 @@ class _DirectorNotificationsPageState
               children: [
                 const Icon(
                   Icons.place_rounded,
-                  size: 13,
+                  size: 14,
                   color: AppPalette.textMuted,
                 ),
                 const SizedBox(width: 4),
@@ -687,7 +688,7 @@ class _DirectorNotificationsPageState
                   child: Text(
                     item.location,
                     style: const TextStyle(
-                      fontSize: 8.4,
+                      fontSize: 10.5,
                       color: AppPalette.textMuted,
                     ),
                   ),
@@ -695,7 +696,7 @@ class _DirectorNotificationsPageState
                 Text(
                   item.createdAt,
                   style: const TextStyle(
-                    fontSize: 8.2,
+                    fontSize: 10,
                     color: AppPalette.textMuted,
                   ),
                 ),
@@ -1058,7 +1059,7 @@ class _DirectorNotificationsPageState
                   Text(
                     '${item.location} • ${item.createdAt}',
                     style: const TextStyle(
-                      fontSize: 8.4,
+                      fontSize: 10.5,
                       color: AppPalette.textMuted,
                     ),
                   ),
@@ -1098,8 +1099,8 @@ class _DirectorNotificationsPageState
                 const SizedBox(width: 7),
                 if (item.isUnread)
                   Container(
-                    width: 8,
-                    height: 8,
+                    width: 9,
+                    height: 9,
                     decoration: BoxDecoration(
                       color: item.color,
                       shape: BoxShape.circle,
@@ -1123,8 +1124,8 @@ class _DirectorNotificationsPageState
       width: 42,
       height: 42,
       decoration: BoxDecoration(
-        color: AppPalette.tint(item.color, 0.10),
-        borderRadius: BorderRadius.circular(12),
+        color: AppPalette.tint(item.color, 0.11),
+        borderRadius: BorderRadius.circular(13),
       ),
       child: Icon(
         item.icon,
@@ -1145,7 +1146,7 @@ class _DirectorNotificationsPageState
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 10.8,
+            fontSize: 13.5,
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -1155,9 +1156,9 @@ class _DirectorNotificationsPageState
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 8.7,
-            height: 1.35,
-            color: AppPalette.textMuted,
+            fontSize: 11.5,
+            height: 1.4,
+            color: Color(0xFF475569),
           ),
         ),
         const SizedBox(height: 3),
@@ -1166,7 +1167,7 @@ class _DirectorNotificationsPageState
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            fontSize: 8,
+            fontSize: 10.5,
             color: AppPalette.textMuted,
           ),
         ),
@@ -1180,7 +1181,7 @@ class _DirectorNotificationsPageState
         Text(
           title,
           style: const TextStyle(
-            fontSize: 8,
+            fontSize: 9.5,
             color: AppPalette.textMuted,
           ),
         ),
@@ -1191,7 +1192,7 @@ class _DirectorNotificationsPageState
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 8.6,
+            fontSize: 11,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1341,235 +1342,314 @@ class _DirectorNotificationsPageState
         ? notifications[index]
         : item;
 
-    showDialog<void>(
+    showGeneralDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            _NotificationData dialogItem = current;
+      barrierDismissible: true,
+      barrierLabel: 'NotificationDetailModal',
+      barrierColor: Colors.black.withValues(alpha: 0.15),
+      transitionDuration: const Duration(milliseconds: 240),
+      transitionBuilder: (context, anim, secondaryAnim, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
+          child: FadeTransition(opacity: curved, child: child),
+        );
+      },
+      pageBuilder: (dialogContext, anim, secondaryAnim) {
+        return Center(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+            child: StatefulBuilder(
+              builder: (context, setDialogState) {
+                _NotificationData dialogItem = current;
 
-            void updateStatus(String status) {
-              final actualIndex = notifications.indexWhere(
-                (element) =>
-                    element.id == dialogItem.id,
-              );
+                void updateStatus(String status) {
+                  final actualIndex = notifications.indexWhere(
+                    (element) => element.id == dialogItem.id,
+                  );
 
-              if (actualIndex < 0) return;
+                  if (actualIndex < 0) return;
 
-              setState(() {
-                notifications[actualIndex] =
-                    notifications[actualIndex]
-                        .copyWith(status: status);
-              });
+                  setState(() {
+                    notifications[actualIndex] =
+                        notifications[actualIndex].copyWith(status: status);
+                  });
 
-              dialogItem = notifications[actualIndex];
-              setDialogState(() {});
-            }
+                  dialogItem = notifications[actualIndex];
+                  setDialogState(() {});
+                }
 
-            return Dialog(
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 20,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: 720,
-                  maxHeight: 790,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                return Dialog(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  insetPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
+                  child: Container(
+                    constraints: const BoxConstraints(
+                      maxWidth: 640,
+                      maxHeight: 780,
+                    ),
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: const Color(0xFFE2E8F0),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.14),
+                          blurRadius: 36,
+                          offset: const Offset(0, 14),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // Header Banner with category accent tint
                           Container(
-                            width: 46,
-                            height: 46,
+                            padding: const EdgeInsets.fromLTRB(18, 16, 16, 14),
                             decoration: BoxDecoration(
-                              color: AppPalette.tint(
-                                dialogItem.color,
-                                0.10,
+                              color: dialogItem.color.withValues(alpha: 0.08),
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: dialogItem.color.withValues(alpha: 0.15),
+                                  width: 1,
+                                ),
                               ),
-                              borderRadius:
-                                  BorderRadius.circular(14),
                             ),
-                            child: Icon(
-                              dialogItem.icon,
-                              color: dialogItem.color,
-                              size: 23,
-                            ),
-                          ),
-                          const SizedBox(width: 11),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                            child: Row(
                               children: [
-                                Text(
-                                  dialogItem.title,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight:
-                                        FontWeight.w800,
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: dialogItem.color.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    dialogItem.icon,
+                                    color: dialogItem.color,
+                                    size: 22,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  '${dialogItem.createdAt} • ${dialogItem.id}',
-                                  style: const TextStyle(
-                                    fontSize: 9,
-                                    color:
-                                        AppPalette.textMuted,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        dialogItem.title,
+                                        style: const TextStyle(
+                                          fontSize: 16.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF0F172A),
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'เวลา ${dialogItem.createdAt} • รหัส: ${dialogItem.id}',
+                                        style: const TextStyle(
+                                          fontSize: 10.5,
+                                          color: AppPalette.textMuted,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.pop(dialogContext),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    color: Color(0xFF64748B),
+                                    size: 22,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          IconButton(
-                            onPressed: () =>
-                                Navigator.pop(
-                              dialogContext,
+
+                          // Scrollable Body
+                          Flexible(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(18),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 7,
+                                    runSpacing: 7,
+                                    children: [
+                                      _smallTag(
+                                        dialogItem.category,
+                                        dialogItem.color,
+                                      ),
+                                      _priorityTag(
+                                        dialogItem.priority,
+                                      ),
+                                      _statusTag(
+                                        dialogItem.status,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _detailSectionTitle('รายละเอียดเหตุการณ์'),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(13),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    ),
+                                    child: Text(
+                                      dialogItem.detail,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        height: 1.5,
+                                        color: Color(0xFF1E293B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _detailSectionTitle('ข้อมูลการแจ้งเตือน'),
+                                  const SizedBox(height: 8),
+                                  LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final isCompact = constraints.maxWidth < 450;
+                                      final tileWidth = isCompact ? constraints.maxWidth : (constraints.maxWidth - 10) / 2;
+                                      return Wrap(
+                                        spacing: 10,
+                                        runSpacing: 8,
+                                        children: [
+                                          _detailTile(
+                                            width: tileWidth,
+                                            icon: Icons.place_rounded,
+                                            title: 'สถานที่',
+                                            value: dialogItem.location,
+                                            color: dialogItem.color,
+                                          ),
+                                          _detailTile(
+                                            width: tileWidth,
+                                            icon: Icons.sensors_rounded,
+                                            title: 'แหล่งที่มา',
+                                            value: dialogItem.source,
+                                            color: const Color(0xFF2563EB),
+                                          ),
+                                          _detailTile(
+                                            width: tileWidth,
+                                            icon: Icons.person_rounded,
+                                            title: 'ผู้รับผิดชอบ',
+                                            value: dialogItem.responsible,
+                                            color: const Color(0xFF059669),
+                                          ),
+                                          _detailTile(
+                                            width: tileWidth,
+                                            icon: Icons.category_rounded,
+                                            title: 'หมวดหมู่ & ระดับ',
+                                            value: '${dialogItem.category} • ${dialogItem.priority}',
+                                            color: const Color(0xFF7C3AED),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _detailSectionTitle('สิ่งที่ควรดำเนินการ'),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: dialogItem.color.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: dialogItem.color.withValues(alpha: 0.25),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.assignment_turned_in_rounded,
+                                          size: 18,
+                                          color: dialogItem.color,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            dialogItem.action,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              height: 1.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: dialogItem.color,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _detailSectionTitle('ลำดับการติดตาม'),
+                                  const SizedBox(height: 8),
+                                  _timelineItem(
+                                    'ระบบสร้างการแจ้งเตือน',
+                                    dialogItem.createdAt,
+                                    true,
+                                  ),
+                                  _timelineItem(
+                                    'ส่งให้ ${dialogItem.responsible}',
+                                    'ส่งอัตโนมัติเรียบร้อย',
+                                    true,
+                                  ),
+                                  _timelineItem(
+                                    dialogItem.status == 'แก้ไขแล้ว'
+                                        ? 'ปิดเหตุการณ์แล้ว'
+                                        : dialogItem.status,
+                                    dialogItem.status == 'ใหม่'
+                                        ? 'รอดำเนินการ'
+                                        : 'อัปเดตล่าสุด',
+                                    dialogItem.status != 'ใหม่',
+                                  ),
+                                ],
+                              ),
                             ),
-                            icon: const Icon(
-                              Icons.close_rounded,
+                          ),
+
+                          // Footer Actions Bar
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              border: Border(
+                                top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                              ),
+                            ),
+                            child: _detailActions(
+                              dialogItem,
+                              updateStatus,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 7,
-                        runSpacing: 7,
-                        children: [
-                          _smallTag(
-                            dialogItem.category,
-                            dialogItem.color,
-                          ),
-                          _priorityTag(
-                            dialogItem.priority,
-                          ),
-                          _statusTag(
-                            dialogItem.status,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 15),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              _detailSectionTitle(
-                                'รายละเอียดเหตุการณ์',
-                              ),
-                              Text(
-                                dialogItem.detail,
-                                style: const TextStyle(
-                                  fontSize: 9.8,
-                                  height: 1.5,
-                                  color:
-                                      AppPalette.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              _detailSectionTitle(
-                                'ข้อมูลการแจ้งเตือน',
-                              ),
-                              _detailRow(
-                                'หมวด',
-                                dialogItem.category,
-                              ),
-                              _detailRow(
-                                'ระดับ',
-                                dialogItem.priority,
-                              ),
-                              _detailRow(
-                                'สถานที่',
-                                dialogItem.location,
-                              ),
-                              _detailRow(
-                                'แหล่งที่มา',
-                                dialogItem.source,
-                              ),
-                              _detailRow(
-                                'ผู้รับผิดชอบ',
-                                dialogItem.responsible,
-                              ),
-                              const SizedBox(height: 14),
-                              _detailSectionTitle(
-                                'สิ่งที่ควรดำเนินการ',
-                              ),
-                              Container(
-                                width: double.infinity,
-                                padding:
-                                    const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppPalette.tint(
-                                    dialogItem.color,
-                                    0.06,
-                                  ),
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                    14,
-                                  ),
-                                ),
-                                child: Text(
-                                  dialogItem.action,
-                                  style: const TextStyle(
-                                    fontSize: 9.7,
-                                    height: 1.5,
-                                    color:
-                                        AppPalette.textMuted,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              _detailSectionTitle(
-                                'ลำดับการติดตาม',
-                              ),
-                              _timelineItem(
-                                'ระบบสร้างการแจ้งเตือน',
-                                dialogItem.createdAt,
-                                true,
-                              ),
-                              _timelineItem(
-                                'ส่งให้ ${dialogItem.responsible}',
-                                'ส่งอัตโนมัติ',
-                                true,
-                              ),
-                              _timelineItem(
-                                dialogItem.status ==
-                                        'แก้ไขแล้ว'
-                                    ? 'ปิดเหตุการณ์แล้ว'
-                                    : dialogItem.status,
-                                dialogItem.status ==
-                                        'ใหม่'
-                                    ? 'รอดำเนินการ'
-                                    : 'อัปเดตล่าสุด',
-                                dialogItem.status !=
-                                    'ใหม่',
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _detailActions(
-                        dialogItem,
-                        updateStatus,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
+                );
+              },
+            ),
+          ),
         );
       },
     );
@@ -1674,30 +1754,58 @@ class _DirectorNotificationsPageState
     );
   }
 
-  Widget _detailRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+
+
+  Widget _detailTile({
+    required double width,
+    required IconData icon,
+    required String title,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 9.2,
-                color: AppPalette.textMuted,
-              ),
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(9),
             ),
+            child: Icon(icon, size: 16, color: color),
           ),
+          const SizedBox(width: 9),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 9.8,
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

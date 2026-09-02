@@ -441,11 +441,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
 
         final scoreCardHeight = width >= 1100 ? 238.0 : 232.0;
         final encouragementCardHeight = width >= 1100 ? 192.0 : 186.0;
-        // +16 กันการ์ดซ้าย (4 แถวเซนเซอร์ + ปุ่ม) overflow เล็กน้อย — แต่ละ
-        // แถวมีบรรทัด "อัปเดต ... ที่แล้ว" เพิ่มมาแล้ว (freshness caption)
-        // ทำให้สูงกว่าตอนคำนวณสูตรนี้ครั้งแรกนิดหน่อย
+        // +90 กันการ์ดซ้าย overflow — ตอนนี้เป็น grid 4 แถว 8 ช่อง (PM2.5/
+        // แสง/อุณหภูมิ/ความชื้น/AQI/แก๊ส/eCO2/TVOC) แต่ละช่องมีบรรทัด
+        // "ออนไลน์ • ... ที่แล้ว" (freshness caption) เพิ่มมาด้วย ทำให้สูงกว่า
+        // ตอนคำนวณสูตรนี้ครั้งแรก (ตอนนั้นยังเป็น list 4 แถวไม่มี freshness)
         final sensorCardHeight =
-            scoreCardHeight + encouragementCardHeight + columnGap + 16;
+            scoreCardHeight + encouragementCardHeight + columnGap + 90;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -648,7 +649,8 @@ class AcademyLearningScoreCard extends StatelessWidget {
     required this.gradedCourseCount,
   });
 
-  /// Opens the full "คะแนน" page — still mock/out of scope this pass.
+  /// Opens the full "คะแนน" page (StudentScorePage — real GradeService/
+  /// G-Score data).
   final VoidCallback? onTap;
 
   /// Real average from GradeService.listMyGrades(). G-Score/GPA/badges have

@@ -10,3 +10,7 @@ node_modules/
 บัญชีทดสอบระบบ.md
 env.json
 supabase/functions/.env
+tools/run_mqtt_bridge_local.py
+__pycache__/
+*.pyc
+*.orig

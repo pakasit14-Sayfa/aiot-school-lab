@@ -5,7 +5,12 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminDeviceTestPage extends StatefulWidget {
-  const SuperAdminDeviceTestPage({super.key});
+  const SuperAdminDeviceTestPage({super.key, this.embedded = false});
+
+  /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
+  /// layout — suppresses this page's own AppBar since the sidebar
+  /// already shows which page is selected.
+  final bool embedded;
 
   @override
   State<SuperAdminDeviceTestPage> createState() =>
@@ -26,6 +31,11 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
 
   String? _selectedSchoolId;
   String? _selectedDeviceId;
+
+  List<DeviceControlItemRecord> get _devicesForSelectedSchool =>
+      _selectedSchoolId == null
+          ? _devices
+          : _devices.where((d) => d.schoolId == _selectedSchoolId).toList();
 
   final List<_DiagnosticCheck> _checks = [
     _DiagnosticCheck(
@@ -55,6 +65,13 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
       status: _CheckStatus.idle,
       latencyMs: null,
       detail: 'ยังไม่สามารถวัดได้ (ยังไม่มีการเชื่อมต่อกับ Local Gateway Hardware)',
+    ),
+    _DiagnosticCheck(
+      name: 'อุปกรณ์ที่เลือก: ข้อมูลเซนเซอร์ล่าสุด',
+      target: 'Selected Device Telemetry',
+      status: _CheckStatus.idle,
+      latencyMs: null,
+      detail: 'ยังไม่ได้ทดสอบ (เลือกอุปกรณ์ด้านบนแล้วกด "เริ่มทดสอบระบบ")',
     ),
   ];
 
@@ -90,8 +107,12 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
           _selectedSchoolId = _schools.first.databaseId;
         }
 
-        if (_devices.isNotEmpty && _selectedDeviceId == null) {
-          _selectedDeviceId = _devices.first.databaseId;
+        if (_selectedDeviceId == null) {
+          final List<DeviceControlItemRecord> devicesInSchool =
+              _devicesForSelectedSchool;
+          if (devicesInSchool.isNotEmpty) {
+            _selectedDeviceId = devicesInSchool.first.databaseId;
+          }
         }
 
         _isLoading = false;
@@ -163,6 +184,40 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     _checks[3].latencyMs = null;
     _checks[3].detail = 'ยังไม่สามารถวัดได้ (ยังไม่มีการเชื่อมต่อกับ Local Gateway Hardware)';
 
+    // 5. Check 4: Real check scoped to the device picked in the selector
+    // above — reads that specific device's latest sensor_readings row
+    // (via reading_metric/reading_value/reading_ts, added by
+    // 20260830030000_device_control_latest_reading.sql) instead of the
+    // account-wide checks above, so the dropdowns actually feed the
+    // diagnostics instead of sitting there unused.
+    final DeviceControlItemRecord? selected = _selectedDeviceId == null
+        ? null
+        : _devices.cast<DeviceControlItemRecord?>().firstWhere(
+              (d) => d?.databaseId == _selectedDeviceId,
+              orElse: () => null,
+            );
+
+    if (selected == null) {
+      _checks[4].status = _CheckStatus.idle;
+      _checks[4].latencyMs = null;
+      _checks[4].detail = 'ไม่มีอุปกรณ์ให้ทดสอบ (ยังไม่มีอุปกรณ์ลงทะเบียนในระบบ)';
+    } else if (selected.readingAt == null) {
+      _checks[4].status = _CheckStatus.warning;
+      _checks[4].latencyMs = null;
+      _checks[4].detail =
+          '${selected.name} (${selected.deviceCode}) ยังไม่เคยส่งค่าเซนเซอร์เข้าระบบ';
+    } else {
+      final Duration age = DateTime.now().difference(selected.readingAt!);
+      final bool fresh = age.inHours < 24;
+      _checks[4].status = fresh ? _CheckStatus.passed : _CheckStatus.warning;
+      _checks[4].latencyMs = null;
+      _checks[4].detail = fresh
+          ? '${selected.name} (${selected.deviceCode}) ส่งค่าล่าสุด ${selected.readingLabel} '
+              '(${age.inMinutes} นาทีที่แล้ว)'
+          : '${selected.name} (${selected.deviceCode}) ไม่มีค่าใหม่ในช่วง 24 ชม.ที่ผ่านมา '
+              '(ล่าสุด ${selected.readingLabel})';
+    }
+
     if (mounted) {
       setState(() {
         _isRunningTests = false;
@@ -175,19 +230,21 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const Text(
-          'ทดสอบอุปกรณ์และระบบ (Device Diagnostics)',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'รีเฟรชข้อมูล',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadDevicesAndSchools(),
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'ทดสอบอุปกรณ์และระบบ (Device Diagnostics)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'รีเฟรชข้อมูล',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () => _loadDevicesAndSchools(),
+                ),
+              ],
+            ),
       body: _buildBody(),
     );
   }
@@ -367,17 +424,28 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
             onChanged: (String? value) {
               setState(() {
                 _selectedSchoolId = value;
+                final List<DeviceControlItemRecord> devicesInSchool =
+                    _devicesForSelectedSchool;
+                _selectedDeviceId = devicesInSchool.any(
+                        (d) => d.databaseId == _selectedDeviceId)
+                    ? _selectedDeviceId
+                    : (devicesInSchool.isEmpty
+                        ? null
+                        : devicesInSchool.first.databaseId);
               });
             },
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _selectedDeviceId,
+            value: _devicesForSelectedSchool
+                    .any((d) => d.databaseId == _selectedDeviceId)
+                ? _selectedDeviceId
+                : null,
             decoration: const InputDecoration(
               labelText: 'อุปกรณ์',
               prefixIcon: Icon(Icons.memory_rounded),
             ),
-            items: _devices
+            items: _devicesForSelectedSchool
                 .map(
                   (d) => DropdownMenuItem<String>(
                     value: d.databaseId,

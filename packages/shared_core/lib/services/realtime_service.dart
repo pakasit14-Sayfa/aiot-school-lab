@@ -130,6 +130,8 @@ class RealtimeService {
       temperature: values['temperature'] ?? 0,
       humidity: values['humidity'] ?? 0,
       lux: values['light_lux'] ?? 0,
+      co2: values['co2'] ?? 0,
+      tvoc: values['tvoc'] ?? 0,
       updatedAt: updatedAt,
       metricUpdatedAt: metricUpdatedAt,
     );
@@ -148,6 +150,19 @@ class RealtimeService {
     required String room,
   }) {
     return _poll(() async => modelForRoom(await _fetchLatest(), room));
+  }
+
+  /// Raw sensor_latest rows, polled the same way as [sensorStream] — for
+  /// metrics that aren't tracked fields on [SensorModel] (aqi,
+  /// gas_mq2_percent). Fixes a real bug: callers that fetched these once
+  /// via [AiotLabService.getLatestSensorReadings] in initState and never
+  /// again showed a permanently stale snapshot from whenever the page
+  /// first loaded, while the header's freshness dot (computed live from
+  /// the stale row's own timestamp) correctly — but misleadingly — kept
+  /// counting up ("1 วันที่แล้ว" and climbing) as if the whole app were
+  /// broken, when only these two metrics were never being refetched.
+  static Stream<List<Map<String, dynamic>>> rawReadingsStream() {
+    return _poll(_fetchLatest);
   }
 
   static Future<SensorModel?> getSensorOnce({

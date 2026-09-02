@@ -160,47 +160,68 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildNotificationList() {
-    // Demo Notification Items if backend array is empty
-    final displayItems = notifications.isNotEmpty
-        ? notifications
-        : _getDemoNotifications();
-
-    if (displayItems.isEmpty) {
+    if (notifications.isEmpty) {
       return _buildEmptyState();
     }
 
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
-      itemCount: displayItems.length,
+      itemCount: notifications.length,
       itemBuilder: (context, index) {
-        final item = displayItems[index];
+        final item = notifications[index];
         return _buildNotificationCardItem(item);
       },
     );
   }
 
-  Widget _buildNotificationCardItem(dynamic item) {
-    String title = '';
-    String body = '';
-    DateTime time = DateTime.now();
-    bool isUnread = false;
-    IconData icon = Icons.notifications_rounded;
-    Color iconBg = const Color(0xFF0284C7);
-
-    if (item is AppNotification) {
-      title = item.title;
-      body = item.body ?? '';
-      time = item.createdAt;
-      isUnread = item.isUnread;
-    } else if (item is Map<String, dynamic>) {
-      title = item['title'] ?? '';
-      body = item['body'] ?? '';
-      time = item['time'] ?? DateTime.now();
-      isUnread = item['unread'] ?? false;
-      icon = item['icon'] ?? Icons.notifications_rounded;
-      iconBg = item['bg'] ?? const Color(0xFF0284C7);
+  IconData _iconForNotification(String type) {
+    switch (type) {
+      case 'incident_report':
+      case 'incident':
+        return Icons.warning_amber_rounded;
+      case 'assignment':
+      case 'homework':
+        return Icons.assignment_rounded;
+      case 'grade':
+      case 'score':
+        return Icons.emoji_events_rounded;
+      case 'announcement':
+        return Icons.campaign_rounded;
+      case 'material':
+        return Icons.folder_special_rounded;
+      default:
+        return Icons.notifications_rounded;
     }
+  }
+
+  Color _colorForNotification(String type) {
+    switch (type) {
+      case 'incident_report':
+      case 'incident':
+        return const Color(0xFFE11D48);
+      case 'assignment':
+      case 'homework':
+        return const Color(0xFF0284C7);
+      case 'grade':
+      case 'score':
+        return const Color(0xFFD97706);
+      case 'announcement':
+        return const Color(0xFF059669);
+      case 'material':
+        return const Color(0xFF8B5CF6);
+      default:
+        return const Color(0xFF0284C7);
+    }
+  }
+
+  Widget _buildNotificationCardItem(AppNotification item) {
+    final String title = item.title;
+    final String body = item.body ?? '';
+    final DateTime time = item.createdAt;
+    final bool isUnread = item.isUnread;
+    final IconData icon = _iconForNotification(item.type);
+    final Color iconBg = _colorForNotification(item.type);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -226,11 +247,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            if (item is AppNotification) {
-              openNotification(item);
-            }
-          },
+          onTap: () => openNotification(item),
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Row(
@@ -368,40 +385,4 @@ class _NotificationsPageState extends State<NotificationsPage> {
     );
   }
 
-  List<Map<String, dynamic>> _getDemoNotifications() {
-    return [
-      {
-        'title': 'การบ้านบทเรียนที่ 4 ครบกำหนดส่งพรุ่งนี้',
-        'body': 'วิชา AIoT สมาร์ตแล็บ • ม.5/1 (อย่าลืมส่งก่อนเวลา 23:59 น.)',
-        'time': DateTime.now().subtract(const Duration(minutes: 10)),
-        'unread': true,
-        'icon': Icons.assignment_rounded,
-        'bg': const Color(0xFF0284C7),
-      },
-      {
-        'title': 'บันทึกคะแนนสอบกลางภาควิชา AIoT สำเร็จ',
-        'body': 'คุณได้รับคะแนน 92/100 (ระดับดีเยี่ยม) ยินดีด้วย!',
-        'time': DateTime.now().subtract(const Duration(hours: 2)),
-        'unread': true,
-        'icon': Icons.emoji_events_rounded,
-        'bg': const Color(0xFFD97706),
-      },
-      {
-        'title': 'แจ้งกำหนดการสอบประเมินสมรรถนะดิจิทัล',
-        'body': 'โรงเรียนวิทยาศาสตร์ประจำภูมิภาค ขอให้นักเรียนเตรียมความพร้อม',
-        'time': DateTime.now().subtract(const Duration(days: 1)),
-        'unread': false,
-        'icon': Icons.campaign_rounded,
-        'bg': const Color.fromARGB(255, 28, 127, 70),
-      },
-      {
-        'title': 'ครูสมชาย ได้อัปเดตสื่อการเรียนรู้ใหม่',
-        'body': 'เพิ่มเอกสารประกอบการสอน สไลด์บทเรียนที่ 5 เรียบร้อยแล้ว',
-        'time': DateTime.now().subtract(const Duration(days: 2)),
-        'unread': false,
-        'icon': Icons.folder_special_rounded,
-        'bg': const Color(0xFF8B5CF6),
-      },
-    ];
-  }
 }

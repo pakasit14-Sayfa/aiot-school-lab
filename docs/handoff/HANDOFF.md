@@ -633,6 +633,59 @@ not. Parent is partially wired (home page only).
 `teacher_profile_page.dart`'s hardcoded stat fallbacks, both previously
 listed here, were fixed and independently live-verified 2026-08-27 —
 see `docs/handoff/WORK_LOG.md`.)*
+- **Super Admin RedTeam data-connectivity/UI-parity fixes (2026-08-31) —
+  not yet click-tested in a real browser.** User asked for a RedTeam-style
+  check of the whole Super Admin section ("เชื่อมครบหรือยัง...
+  เหมือนต้นแบบไหม"). Two parallel audit passes found and fixed: a critical
+  false security claim (device-control approval dialog claimed to verify
+  a password "against Supabase Auth" — this app doesn't use Supabase Auth
+  at all per the hard rules above; removed, replaced with an honest
+  confirm dialog), a mislabeled privilege grant ("ตั้งเป็น Operator"
+  actually granted full `school_admin`, relabeled to say so), several
+  hardcoded/fake display fields (`reading: '-'` now wired to the real
+  latest `sensor_readings` row via new migration
+  `20260830030000_device_control_latest_reading.sql`, `success: true`
+  on every log row replaced with a real heuristic, a "no MFA" priority
+  alert removed because it was mathematically always 0 given how the
+  underlying flag is computed, unused `lastActiveMinutes`/`createdAt`
+  fields removed), ~8 fake-success SnackBar-only buttons (password
+  reset, user/school/alert/audit-log CSV exports, a "Support Mode"
+  impersonation feature that falsely claimed access was logged) rewired
+  to real RPCs / real CSV export (`downloadBytes` pattern from
+  `super_admin_devices_page.dart`), and 2 dead dropdowns on the device-
+  diagnostics page now actually scope a new per-device telemetry check.
+  Nav shell (`widgets/super_admin_navigation_shell.dart`) restyled to
+  match the `aiot_dev_dashboard` prototype's sidebar (rounded content
+  pane, unified selection color scheme, icon-state swap, 2 icon fixes:
+  Schools → `apartment_rounded`, Devices & QR → `memory_rounded`).
+  Followed by a second, **full-file** re-read (not excerpt-sampled like
+  the first audit pass) of all 11 Super Admin files specifically to
+  close whatever gap the excerpt-based audit could have missed on large
+  files (`super_admin_device_control_page.dart` is ~3,600 lines,
+  `super_admin_permissions_page.dart` ~2,900) — found only one further
+  issue, a stale comment literally saying "Model ข้อมูลจำลอง" (mock data
+  model) on a class that in fact already pulls entirely real data;
+  fixed the comment. `flutter analyze` clean project-wide and full
+  `flutter build web` succeeds throughout. **What's not done**: none of
+  this has been click-tested in a real running browser session — only
+  static analysis + successful compiles. Do that before fully trusting
+  it end-to-end.
+  - **Separate, unrelated bug found and fixed the same session**:
+    `director_emergency_page.dart` (executive/`director` role, not
+    Super Admin) had a duplicated closing `}` right after
+    `_eventHistoryTile()` that prematurely closed the whole `State`
+    class, orphaning every method after it (`_acceptSos`, the SOS
+    accept/resolve buttons, `_showMessage`, etc. — all surfaced as
+    "undefined name" errors for fields that are actually declared
+    normally). Predates this session's changes. **Surfaced only via
+    `flutter run`'s frontend-server compiler — `flutter analyze` and
+    `flutter build web` both reported clean despite the real syntax
+    error being present**, both before and after a `flutter clean`.
+    Worth remembering as a second compiler blind spot alongside the
+    existing "`flutter analyze` misses `shared_core` import breaks" one
+    documented elsewhere in the vault — don't fully trust either
+    `analyze` or `build web` alone to catch every parse-level error;
+    `flutter run`'s error output caught this one when neither did.
 - **`file_picker` 8.3.7's web `pickFiles()` is unreliable under browser
   automation (found 2026-08-27)**: its web implementation
   (`_internal/file_picker_web.dart`) removes the trigger

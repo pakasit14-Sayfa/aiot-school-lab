@@ -10,6 +10,10 @@ class SensorCard extends StatelessWidget {
   final SensorFreshness freshness;
   final String? timeLabel;
   final VoidCallback? onTap;
+  // MQ-2 ไม่มีเกณฑ์ calibrate จริง — ห้ามฟันธงเป็น SensorLevel (ปกติ/
+  // ปานกลาง/เกิน) ลอยๆ ใช้ override นี้แทนเพื่อโชว์ป้าย "ดิบ" สีเทากลาง
+  final String? badgeLabelOverride;
+  final Color? badgeColorOverride;
 
   const SensorCard({
     super.key,
@@ -21,6 +25,8 @@ class SensorCard extends StatelessWidget {
     this.freshness = SensorFreshness.noData,
     this.timeLabel,
     this.onTap,
+    this.badgeLabelOverride,
+    this.badgeColorOverride,
   });
 
   @override
@@ -30,9 +36,12 @@ class SensorCard extends StatelessWidget {
     final showLevelBadge =
         freshness == SensorFreshness.live ||
         freshness == SensorFreshness.delayed;
-    final badgeColor = showLevelBadge ? level.color : freshness.color;
-    final badgeLabel = showLevelBadge ? level.label : freshness.label;
-    final color = level.color;
+    final resolvedColor = badgeColorOverride ?? level.color;
+    final badgeColor = showLevelBadge ? resolvedColor : freshness.color;
+    final badgeLabel = showLevelBadge
+        ? (badgeLabelOverride ?? level.label)
+        : freshness.label;
+    final color = resolvedColor;
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -119,11 +128,76 @@ class SensorCard extends StatelessWidget {
 
 class SensorGrid extends StatelessWidget {
   final SensorModel sensor;
+  // aqi/gas_mq2_percent ไม่ใช่ field บน SensorModel (มาจาก sensor_latest
+  // แบบ raw row ต่างหาก) — ส่งเข้ามาจากหน้าที่ query แยกไว้แล้ว (ดู
+  // aiot_dashboard_page.dart)
+  final ({double value, DateTime? ts})? aqiReading;
+  final ({double value, DateTime? ts})? gasReading;
 
-  const SensorGrid({super.key, required this.sensor});
+  const SensorGrid({
+    super.key,
+    required this.sensor,
+    this.aqiReading,
+    this.gasReading,
+  });
+
+  // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): นี่คือดัชนี AQI-UBA ของชิป
+  // ENS160 สเกล 1-5 (ตาม German UBA) ไม่ใช่ AQI มาตรฐาน 0-500 ของ US EPA/
+  // กรมควบคุมมลพิษไทย
+  static String _aqiUbaLabel(double value) {
+    switch (value.round()) {
+      case 1:
+        return 'ดีมาก';
+      case 2:
+        return 'ดี';
+      case 3:
+        return 'ปานกลาง';
+      case 4:
+        return 'แย่';
+      case 5:
+        return 'ไม่ปลอดภัย';
+      default:
+        return 'ไม่ทราบระดับ';
+    }
+  }
+
+  static SensorLevel _aqiUbaSensorLevel(double value) {
+    final rounded = value.round();
+    if (rounded <= 2) return SensorLevel.good;
+    if (rounded == 3) return SensorLevel.moderate;
+    return SensorLevel.danger;
+  }
+
+  static SensorFreshness _rawFreshnessOf(DateTime? ts) {
+    if (ts == null) return SensorFreshness.noData;
+    final age = DateTime.now().toUtc().difference(ts.toUtc());
+    if (age <= const Duration(minutes: 2)) return SensorFreshness.live;
+    if (age <= const Duration(minutes: 10)) return SensorFreshness.delayed;
+    return SensorFreshness.offline;
+  }
+
+  static String _rawRelativeTimeLabel(DateTime? ts) {
+    if (ts == null) return 'ไม่มีข้อมูล';
+    final age = DateTime.now().toUtc().difference(ts.toUtc());
+    if (age.inSeconds < 60) return 'เมื่อสักครู่';
+    if (age.inMinutes < 60) return '${age.inMinutes} นาทีที่แล้ว';
+    if (age.inHours < 24) return '${age.inHours} ชม.ที่แล้ว';
+    return '${age.inDays} วันที่แล้ว';
+  }
 
   @override
   Widget build(BuildContext context) {
+    // SensorModel defaults an absent metric to 0, indistinguishable from
+    // a real 0 reading — check metricUpdatedAt per metric before trusting
+    // the value (same fix as director_overview_page.dart /
+    // aiot_weather_sensors_card.dart's identical bug).
+    final hasPm25 = sensor.metricUpdatedAt.containsKey('pm25');
+    final hasCo2 = sensor.metricUpdatedAt.containsKey('co2');
+    final hasTemp = sensor.metricUpdatedAt.containsKey('temperature');
+    final hasHumidity = sensor.metricUpdatedAt.containsKey('humidity');
+    final hasTvoc = sensor.metricUpdatedAt.containsKey('tvoc');
+    final hasLux = sensor.metricUpdatedAt.containsKey('light_lux');
+
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -134,7 +208,7 @@ class SensorGrid extends StatelessWidget {
       children: [
         SensorCard(
           label: 'PM2.5',
-          value: sensor.pm25.toStringAsFixed(1),
+          value: hasPm25 ? sensor.pm25.toStringAsFixed(1) : '-',
           unit: 'µg/m³',
           icon: Icons.blur_on,
           level: sensor.pm25Level,
@@ -142,8 +216,12 @@ class SensorGrid extends StatelessWidget {
           timeLabel: sensor.relativeTimeLabel('pm25'),
         ),
         SensorCard(
-          label: 'CO₂',
-          value: sensor.co2.toStringAsFixed(0),
+          // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): บอร์ดใช้ชิปแก๊ส
+          // ENS160 ค่า "co2" ที่ส่งเข้าระบบคือ eCO2 (Equivalent CO2) ที่
+          // ชิปคำนวณจาก VOCs/hydrogen ภายใน ไม่ใช่การวัด CO2 ตรงแบบ
+          // เซนเซอร์ NDIR
+          label: 'eCO2 (ประมาณการ)',
+          value: hasCo2 ? sensor.co2.toStringAsFixed(0) : '-',
           unit: 'ppm',
           icon: Icons.co2,
           level: sensor.co2Level,
@@ -152,7 +230,7 @@ class SensorGrid extends StatelessWidget {
         ),
         SensorCard(
           label: 'อุณหภูมิ',
-          value: sensor.temperature.toStringAsFixed(1),
+          value: hasTemp ? sensor.temperature.toStringAsFixed(1) : '-',
           unit: '°C',
           icon: Icons.thermostat,
           level: sensor.tempLevel,
@@ -161,7 +239,7 @@ class SensorGrid extends StatelessWidget {
         ),
         SensorCard(
           label: 'ความชื้น',
-          value: sensor.humidity.toStringAsFixed(0),
+          value: hasHumidity ? sensor.humidity.toStringAsFixed(0) : '-',
           unit: '%',
           icon: Icons.water_drop,
           level: sensor.humidityLevel,
@@ -169,8 +247,12 @@ class SensorGrid extends StatelessWidget {
           timeLabel: sensor.relativeTimeLabel('humidity'),
         ),
         SensorCard(
+          // ใช้เกณฑ์ SensorModel.tvocLevel ที่มีอยู่แล้ว — แต่ยังไม่ยืนยัน
+          // 100% ว่าหน่วยที่ ENS160 ส่งมาคือ ppb หรือ mg/m³ ตามที่กำกับไว้
+          // ที่นี่ ถ้าคลาดเคลื่อน ระดับอาจผิดไปด้วย — ควรยืนยันหน่วยกับ
+          // ผู้ทำ firmware อีกครั้ง
           label: 'TVOC',
-          value: sensor.tvoc.toStringAsFixed(2),
+          value: hasTvoc ? sensor.tvoc.toStringAsFixed(2) : '-',
           unit: 'mg/m³',
           icon: Icons.science,
           level: sensor.tvocLevel,
@@ -179,12 +261,49 @@ class SensorGrid extends StatelessWidget {
         ),
         SensorCard(
           label: 'แสงสว่าง',
-          value: sensor.lux.toStringAsFixed(0),
+          value: hasLux ? sensor.lux.toStringAsFixed(0) : '-',
           unit: 'lux',
           icon: Icons.light_mode,
           level: sensor.luxLevel,
           freshness: sensor.freshnessOf('light_lux'),
           timeLabel: sensor.relativeTimeLabel('light_lux'),
+        ),
+        SensorCard(
+          label: 'AQI-UBA (ENS160)',
+          value: aqiReading != null
+              ? aqiReading!.value.toStringAsFixed(0)
+              : '-',
+          unit: aqiReading != null ? _aqiUbaLabel(aqiReading!.value) : '',
+          icon: Icons.eco,
+          level: aqiReading != null
+              ? _aqiUbaSensorLevel(aqiReading!.value)
+              : SensorLevel.good,
+          freshness: _rawFreshnessOf(aqiReading?.ts),
+          timeLabel: aqiReading != null
+              ? _rawRelativeTimeLabel(aqiReading!.ts)
+              : null,
+        ),
+        SensorCard(
+          // MQ-2 ตอบสนองต่อทั้งแก๊สติดไฟและควันจริงตามสเปกชิป แต่ส่งออกมา
+          // เป็นสัญญาณตัวเลขเดียวรวมกัน แยกไม่ออกว่าเกิดจากแก๊สหรือควัน —
+          // ห้ามเขียนค่าเป็น "แก๊ส/ควัน X%" เฉยๆ ต้องกำกับ "(ดิบ)" เสมอ
+          // จนกว่าจะ calibrate เป็น ppm จริง — ไม่มีสีระดับ (ปกติ/ปานกลาง/
+          // เกิน) เพราะไม่มีเกณฑ์ calibrate จริง
+          label: 'แก๊ส/ควัน (MQ-2)',
+          value: gasReading != null
+              ? gasReading!.value.toStringAsFixed(0)
+              : '-',
+          unit: '% (ดิบ)',
+          icon: Icons.local_fire_department,
+          level: SensorLevel.good,
+          badgeLabelOverride: gasReading != null ? 'ดิบ' : null,
+          badgeColorOverride: gasReading != null
+              ? const Color(0xFF64748B)
+              : null,
+          freshness: _rawFreshnessOf(gasReading?.ts),
+          timeLabel: gasReading != null
+              ? _rawRelativeTimeLabel(gasReading!.ts)
+              : null,
         ),
       ],
     );

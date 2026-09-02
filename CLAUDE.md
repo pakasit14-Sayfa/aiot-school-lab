@@ -27,7 +27,11 @@ schema (every table, every RPC function signature): **[docs/handoff/DATABASE_SCH
 its actual status: [docs/handoff/WORK_LOG.md](docs/handoff/WORK_LOG.md)**
 — `docs/handoff/` has ~30 individual brief files with no other way to see
 at a glance which are done vs still open; check this before re-reading
-briefs one by one or re-doing work that's already finished.
+briefs one by one or re-doing work that's already finished. **Before
+auditing a page for fake data, wiring something new to the backend, or
+verifying a "done" claim, read [docs/handoff/DATA_CONNECTION_METHODOLOGY.md](docs/handoff/DATA_CONNECTION_METHODOLOGY.md)**
+— process/methodology (not architecture), with concrete anti-pattern
+checklists and worked examples from real bugs found this way.
 
 There is also a separate Obsidian vault at `~/Documents/AIoT-School-Lab-Vault/`
 covering product design, decisions, and the 173 use-case specs — that's

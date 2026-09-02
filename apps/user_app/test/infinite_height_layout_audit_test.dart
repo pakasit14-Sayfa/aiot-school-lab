@@ -38,9 +38,21 @@ void main() {
 
   group('Executive Prototype Layout Audit (Desktop & Mobile)', () {
     testWidgets('DirectorOverviewPage (Desktop & Mobile)', (tester) async {
-      await tester.pumpWidget(createTestWidget(DirectorOverviewPage(onNavigate: (_) {}), desktopSize));
+      await tester.pumpWidget(createTestWidget(
+        DirectorOverviewPage(
+          onNavigate: (_) {},
+          sensorStreamOverride: const Stream.empty(),
+        ),
+        desktopSize,
+      ));
       await tester.pump();
-      await tester.pumpWidget(createTestWidget(DirectorOverviewPage(onNavigate: (_) {}), mobileSize));
+      await tester.pumpWidget(createTestWidget(
+        DirectorOverviewPage(
+          onNavigate: (_) {},
+          sensorStreamOverride: const Stream.empty(),
+        ),
+        mobileSize,
+      ));
       await tester.pump();
     });
 

@@ -10,7 +10,12 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminDevicesPage extends StatefulWidget {
-  const SuperAdminDevicesPage({super.key});
+  const SuperAdminDevicesPage({super.key, this.embedded = false});
+
+  /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
+  /// layout — suppresses this page's own AppBar since the sidebar
+  /// already shows which page is selected.
+  final bool embedded;
 
   @override
   State<SuperAdminDevicesPage> createState() => _SuperAdminDevicesPageState();
@@ -182,19 +187,21 @@ class _SuperAdminDevicesPageState extends State<SuperAdminDevicesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const Text(
-          'ทะเบียนและรหัสอุปกรณ์ (Devices & QR)',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'รีเฟรชข้อมูล',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadDevicesData(),
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'ทะเบียนและรหัสอุปกรณ์ (Devices & QR)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'รีเฟรชข้อมูล',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () => _loadDevicesData(),
+                ),
+              ],
+            ),
       body: _buildBody(),
     );
   }

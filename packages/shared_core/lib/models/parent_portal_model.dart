@@ -137,3 +137,26 @@ class StudentAttendanceItem {
   }
 }
 
+
+class SchoolEventItem {
+  final String eventId;
+  final String title;
+  final String? location;
+  final DateTime startDate;
+
+  SchoolEventItem({
+    required this.eventId,
+    required this.title,
+    this.location,
+    required this.startDate,
+  });
+
+  factory SchoolEventItem.fromRow(Map<String, dynamic> row) {
+    return SchoolEventItem(
+      eventId: row['event_id'] as String,
+      title: row['title'] as String,
+      location: row['location'] as String?,
+      startDate: DateTime.parse(row['start_date'] as String),
+    );
+  }
+}

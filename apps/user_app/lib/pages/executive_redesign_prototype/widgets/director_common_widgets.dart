@@ -7,12 +7,12 @@ BoxDecoration directorWhiteCard() {
   return BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(24),
-    border: Border.all(color: AppPalette.border),
-    boxShadow: [
+    border: Border.all(color: const Color(0xFFE5E5EA), width: 0.8),
+    boxShadow: const [
       BoxShadow(
-        color: AppPalette.tint(Colors.black, 0.025),
-        blurRadius: 16,
-        offset: const Offset(0, 6),
+        color: Color(0x08000000),
+        blurRadius: 20,
+        offset: Offset(0, 6),
       ),
     ],
   );

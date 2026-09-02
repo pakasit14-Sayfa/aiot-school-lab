@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../utils/web_download.dart';
 import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
@@ -825,7 +828,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                             ),
                             label: Text(
                               school.reminderSent
-                                  ? 'ส่งอีเมลแล้ว'
+                                  ? 'เปิดอีเมลแล้ว'
                                   : 'ส่งอีเมลแจ้งเตือน',
                               style: const TextStyle(
                                 fontSize: 10.5,
@@ -1219,8 +1222,6 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                     _openSchoolForm(school: school);
                   } else if (action == 'toggle') {
                     _confirmToggleSchoolStatus(school);
-                  } else if (action == 'support') {
-                    _openSupportMode(school);
                   }
                 },
                 itemBuilder:
@@ -1231,14 +1232,6 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                           contentPadding: EdgeInsets.zero,
                           leading: Icon(Icons.edit_rounded),
                           title: Text('แก้ไขข้อมูล'),
-                        ),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'support',
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(Icons.support_agent_rounded),
-                          title: Text('เข้าโหมดช่วยเหลือ'),
                         ),
                       ),
                       PopupMenuItem<String>(
@@ -1336,27 +1329,16 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
             ),
           ),
           const SizedBox(height: 15),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _showSchoolDetails(school),
-                  icon: const Icon(Icons.visibility_rounded, size: 18),
-                  label: const Text('ดูรายละเอียด'),
-                ),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _showSchoolDetails(school),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.deepBlue,
               ),
-              const SizedBox(width: 9),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _openSupportMode(school),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppPalette.deepBlue,
-                  ),
-                  icon: const Icon(Icons.support_agent_rounded, size: 18),
-                  label: const Text('ช่วยเหลือ'),
-                ),
-              ),
-            ],
+              icon: const Icon(Icons.visibility_rounded, size: 18),
+              label: const Text('ดูรายละเอียด'),
+            ),
           ),
         ],
       ),
@@ -2008,44 +1990,6 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
     }
   }
 
-  Future<void> _openSupportMode(_SchoolData school) async {
-    final String? mode = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('เลือกโหมดการเข้าถึง'),
-          content: Text(
-            'กำลังเข้าสู่โรงเรียน ${school.name}\n'
-            'ทุกการเข้าถึงควรถูกบันทึกลง Log ของระบบ',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('ยกเลิก'),
-            ),
-            OutlinedButton.icon(
-              onPressed:
-                  () => Navigator.of(dialogContext).pop('อ่านอย่างเดียว'),
-              icon: const Icon(Icons.visibility_rounded),
-              label: const Text('อ่านอย่างเดียว'),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.of(dialogContext).pop('ช่วยเหลือ'),
-              icon: const Icon(Icons.support_agent_rounded),
-              label: const Text('โหมดช่วยเหลือ'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (mode == null || !mounted) {
-      return;
-    }
-
-    _showMessage('เปิด $mode สำหรับ ${school.name} แล้ว');
-  }
-
   void _showSchoolDetails(_SchoolData school) {
     showModalBottomSheet<void>(
       context: context,
@@ -2160,30 +2104,16 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _openSchoolForm(school: school);
-                          },
-                          icon: const Icon(Icons.edit_rounded),
-                          label: const Text('แก้ไขข้อมูล'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _openSupportMode(school);
-                          },
-                          icon: const Icon(Icons.support_agent_rounded),
-                          label: const Text('ช่วยเหลือ'),
-                        ),
-                      ),
-                    ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(sheetContext).pop();
+                        _openSchoolForm(school: school);
+                      },
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text('แก้ไขข้อมูล'),
+                    ),
                   ),
                 ],
               ),
@@ -2257,8 +2187,65 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
     );
   }
 
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
   void _exportSchoolReport() {
-    _showMessage('สร้างคำขอส่งออกรายงานโรงเรียนแล้ว');
+    final List<_SchoolData> schools = _filteredSchools;
+    if (schools.isEmpty) {
+      _showMessage('ไม่มีโรงเรียนให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+
+    final List<String> header = <String>[
+      'school_id',
+      'name',
+      'province',
+      'admin_email',
+      'package',
+      'users',
+      'max_users',
+      'devices_online',
+      'devices_total',
+      'buildings',
+      'rooms',
+      'open_alerts',
+      'license_days_left',
+      'status',
+    ];
+    final List<List<String>> rows = <List<String>>[
+      header,
+      for (final _SchoolData s in schools)
+        <String>[
+          s.id,
+          s.name,
+          s.province,
+          s.adminEmail,
+          s.packageName,
+          '${s.users}',
+          '${s.maxUsers}',
+          '${s.devicesOnline}',
+          '${s.devicesTotal}',
+          '${s.buildings}',
+          '${s.rooms}',
+          '${s.alerts}',
+          '${s.licenseDaysLeft}',
+          s.status.name,
+        ],
+    ];
+    final String csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    downloadBytes(
+      filename: 'schools_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    _showMessage('ส่งออกรายงานโรงเรียน ${schools.length} รายการแล้ว');
   }
 
   void _showMessage(String message) {
@@ -2397,7 +2384,7 @@ class _EmptyState extends StatelessWidget {
 }
 
 // =============================================================================
-// Model ข้อมูลจำลอง
+// View models (populated from SchoolPlatformRecord, see _SchoolData.fromRecord)
 // =============================================================================
 
 enum _SchoolStatus { active, suspended }

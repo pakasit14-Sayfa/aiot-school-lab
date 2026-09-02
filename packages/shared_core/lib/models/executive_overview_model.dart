@@ -144,6 +144,38 @@ class PlatformSettings {
   }
 }
 
+class CourseOverviewRecord {
+  final String schoolId;
+  final String schoolName;
+  final int coursesTotal;
+  final int coursesActive;
+  final int lessonsTotal;
+  final int lessonsPublished;
+  final int lessonsDraft;
+
+  const CourseOverviewRecord({
+    required this.schoolId,
+    required this.schoolName,
+    required this.coursesTotal,
+    required this.coursesActive,
+    required this.lessonsTotal,
+    required this.lessonsPublished,
+    required this.lessonsDraft,
+  });
+
+  factory CourseOverviewRecord.fromRow(Map<String, dynamic> row) {
+    return CourseOverviewRecord(
+      schoolId: row['school_id'] as String,
+      schoolName: row['school_name'] as String? ?? '',
+      coursesTotal: (row['courses_total'] as num?)?.toInt() ?? 0,
+      coursesActive: (row['courses_active'] as num?)?.toInt() ?? 0,
+      lessonsTotal: (row['lessons_total'] as num?)?.toInt() ?? 0,
+      lessonsPublished: (row['lessons_published'] as num?)?.toInt() ?? 0,
+      lessonsDraft: (row['lessons_draft'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class ClassroomsOverviewItem {
   final int roomCount;
   final int courseCount;

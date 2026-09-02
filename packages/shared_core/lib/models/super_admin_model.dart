@@ -132,6 +132,9 @@ class DeviceControlItemRecord {
     required this.online,
     required this.metadata,
     this.updatedAt,
+    this.readingMetric,
+    this.readingValue,
+    this.readingAt,
   });
 
   final String databaseId;
@@ -146,6 +149,14 @@ class DeviceControlItemRecord {
   final bool online;
   final Map<String, dynamic> metadata;
   final DateTime? updatedAt;
+  final String? readingMetric;
+  final num? readingValue;
+  final DateTime? readingAt;
+
+  String get readingLabel {
+    if (readingMetric == null || readingValue == null) return '-';
+    return '$readingValue $readingMetric';
+  }
 
   bool get isPoweredOn {
     final power = metadata['power'] ?? metadata['power_status'] ?? metadata['relay_state'];
@@ -176,6 +187,13 @@ class DeviceControlItemRecord {
           : <String, dynamic>{},
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'].toString())?.toLocal()
+          : null,
+      readingMetric: json['reading_metric']?.toString(),
+      readingValue: json['reading_value'] is num
+          ? json['reading_value'] as num
+          : num.tryParse(json['reading_value']?.toString() ?? ''),
+      readingAt: json['reading_ts'] != null
+          ? DateTime.tryParse(json['reading_ts'].toString())?.toLocal()
           : null,
     );
   }

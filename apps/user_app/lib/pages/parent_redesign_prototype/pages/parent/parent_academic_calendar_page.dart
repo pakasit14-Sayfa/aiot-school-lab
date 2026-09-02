@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
@@ -27,34 +28,73 @@ class _ParentAcademicCalendarPageState
 
   Future<void> _loadData() async {
     try {
-      final students = await ParentPortalService.listMyLinkedStudents();
-      if (!mounted || students.isEmpty) return;
-      await ParentPortalService.listMyStudentSchedule(students.first.studentId);
-    } catch (_) {}
+      final response = await Supabase.instance.client
+          .from('calendar_events')
+          .select()
+          .order('start_date', ascending: true);
+          
+      if (mounted) {
+        setState(() {
+          events = (response as List).map((row) => _AcademicEvent(
+            date: DateTime.parse(row['start_date']),
+            endDate: row['end_date'] != null ? DateTime.parse(row['end_date']) : null,
+            title: row['title'],
+            description: row['description'] ?? '',
+            type: _parseEventType(row['event_type']),
+            icon: _getEventIcon(_parseEventType(row['event_type'])),
+          )).toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading calendar events: $e');
+    }
   }
 
   final List<String> filters = const [
     'ทั้งหมด',
     'วันสอบ',
     'กิจกรรม',
-    'วันหยุด',
-    'กำหนดส่ง',
+    'วันหยุดโรงเรียน',
+    'วันหยุดนักขัตฤกษ์',
   ];
 
-  final List<_AcademicEvent> events = [
+  List<_AcademicEvent> events = [];
+  
+  _AcademicEventType _parseEventType(String type) {
+    return switch (type) {
+      'exam' => _AcademicEventType.exam,
+      'activity' => _AcademicEventType.activity,
+      'holiday' => _AcademicEventType.holiday,
+      'public_holiday' => _AcademicEventType.publicHoliday,
+      _ => _AcademicEventType.study,
+    };
+  }
+  
+  IconData _getEventIcon(_AcademicEventType type) {
+    return switch (type) {
+      _AcademicEventType.exam => Icons.edit_note_rounded,
+      _AcademicEventType.activity => Icons.celebration_rounded,
+      _AcademicEventType.holiday => Icons.beach_access_rounded,
+      _AcademicEventType.publicHoliday => Icons.flag_rounded,
+      _AcademicEventType.study => Icons.menu_book_rounded,
+    };
+  }
+
+  /*
+  final List<_AcademicEvent> _mockEvents = [
+    _AcademicEvent(
+      date: DateTime(2026, 8, 12),
+      title: 'วันแม่แห่งชาติ',
+      description: 'วันหยุดนักขัตฤกษ์',
+      type: _AcademicEventType.publicHoliday,
+      icon: Icons.beach_access_rounded,
+    ),
     _AcademicEvent(
       date: DateTime(2026, 8, 21),
       title: 'เรียนตามตารางปกติ',
       description: 'เรียนตามตารางประจำวัน',
       type: _AcademicEventType.study,
       icon: Icons.menu_book_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 8, 22),
-      title: 'ส่งแบบฝึกหัดคณิตศาสตร์',
-      description: 'บทที่ 5 · ภายใน 16:00 น.',
-      type: _AcademicEventType.deadline,
-      icon: Icons.assignment_rounded,
     ),
     _AcademicEvent(
       date: DateTime(2026, 8, 25),
@@ -69,13 +109,6 @@ class _ParentAcademicCalendarPageState
       description: 'Google Meet · 18:30 น.',
       type: _AcademicEventType.activity,
       icon: Icons.groups_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 8, 31),
-      title: 'ส่งโครงงานวิทยาศาสตร์',
-      description: 'กำหนดส่งวันสุดท้าย',
-      type: _AcademicEventType.deadline,
-      icon: Icons.task_alt_rounded,
     ),
     _AcademicEvent(
       date: DateTime(2026, 9, 7),
@@ -122,6 +155,7 @@ class _ParentAcademicCalendarPageState
       icon: Icons.event_available_rounded,
     ),
   ];
+  */
 
   List<_AcademicEvent> get filteredEvents {
     return events.where((event) {
@@ -447,7 +481,7 @@ class _ParentAcademicCalendarPageState
         value: '10 วัน',
         subtitle: 'กลางภาค + ปลายภาค',
         icon: Icons.edit_note_rounded,
-        color: Color(0xFFDB5962),
+        color: Color(0xFFF09A37),
       ),
       _CalendarSummaryData(
         title: 'กิจกรรม',
@@ -457,18 +491,18 @@ class _ParentAcademicCalendarPageState
         color: Color(0xFF8A65C7),
       ),
       _CalendarSummaryData(
-        title: 'วันหยุด',
-        value: '2',
-        subtitle: 'ตามปฏิทินภาคเรียน',
+        title: 'หยุดโรงเรียน',
+        value: '2 วัน',
+        subtitle: 'ปิดภาคเรียน/หยุดพิเศษ',
         icon: Icons.beach_access_rounded,
         color: Color(0xFF18A06F),
       ),
       _CalendarSummaryData(
-        title: 'กำหนดส่ง',
-        value: '2 งาน',
-        subtitle: 'ภายในเดือนนี้',
-        icon: Icons.assignment_rounded,
-        color: Color(0xFFF09A37),
+        title: 'หยุดนักขัตฤกษ์',
+        value: '1 วัน',
+        subtitle: 'ตามประกาศรัฐบาล',
+        icon: Icons.flag_rounded,
+        color: Color(0xFFDB5962),
       ),
     ];
 
@@ -609,19 +643,19 @@ class _ParentAcademicCalendarPageState
             children: [
               _CalendarLegend(
                 label: 'วันสอบ',
-                color: Color(0xFFDB5962),
+                color: Color(0xFFF09A37),
               ),
               _CalendarLegend(
                 label: 'กิจกรรม',
                 color: Color(0xFF8A65C7),
               ),
               _CalendarLegend(
-                label: 'วันหยุด',
+                label: 'วันหยุดโรงเรียน',
                 color: Color(0xFF18A06F),
               ),
               _CalendarLegend(
-                label: 'กำหนดส่ง',
-                color: Color(0xFFF09A37),
+                label: 'วันหยุดนักขัตฤกษ์',
+                color: Color(0xFFDB5962),
               ),
             ],
           ),
@@ -874,18 +908,18 @@ class _ParentAcademicCalendarPageState
     return switch (type) {
       _AcademicEventType.exam => 'วันสอบ',
       _AcademicEventType.activity => 'กิจกรรม',
-      _AcademicEventType.holiday => 'วันหยุด',
-      _AcademicEventType.deadline => 'กำหนดส่ง',
+      _AcademicEventType.holiday => 'วันหยุดโรงเรียน',
+      _AcademicEventType.publicHoliday => 'วันหยุดนักขัตฤกษ์',
       _AcademicEventType.study => 'ทั้งหมด',
     };
   }
 
   static Color _eventColor(_AcademicEventType type) {
     return switch (type) {
-      _AcademicEventType.exam => const Color(0xFFDB5962),
+      _AcademicEventType.exam => const Color(0xFFF09A37),
       _AcademicEventType.activity => const Color(0xFF8A65C7),
       _AcademicEventType.holiday => const Color(0xFF18A06F),
-      _AcademicEventType.deadline => const Color(0xFFF09A37),
+      _AcademicEventType.publicHoliday => const Color(0xFFDB5962),
       _AcademicEventType.study => const Color(0xFF2E83C5),
     };
   }
@@ -941,13 +975,6 @@ class _UpcomingAcademicEventsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      _UpcomingItem(
-        date: '22 ส.ค.',
-        title: 'ส่งแบบฝึกหัดคณิตศาสตร์',
-        detail: 'กำหนดส่ง 16:00 น.',
-        icon: Icons.assignment_rounded,
-        color: Color(0xFFF09A37),
-      ),
       _UpcomingItem(
         date: '25 ส.ค.',
         title: 'กิจกรรมวันวิทยาศาสตร์',
@@ -1153,10 +1180,10 @@ class _ParentReminderCard extends StatelessWidget {
 
               const items = [
                 _ReminderItem(
-                  icon: Icons.assignment_rounded,
-                  title: 'พรุ่งนี้มีงานครบกำหนด',
-                  detail: 'แบบฝึกหัดคณิตศาสตร์ บทที่ 5',
-                  color: Color(0xFFF09A37),
+                  icon: Icons.science_rounded,
+                  title: 'กิจกรรมวันวิทยาศาสตร์',
+                  detail: 'สัปดาห์หน้า วันอังคาร 25 ส.ค.',
+                  color: Color(0xFF18A06F),
                 ),
                 _ReminderItem(
                   icon: Icons.groups_rounded,
@@ -1168,7 +1195,7 @@ class _ParentReminderCard extends StatelessWidget {
                   icon: Icons.edit_note_rounded,
                   title: 'สอบกลางภาค',
                   detail: 'เหลืออีกประมาณ 2 สัปดาห์',
-                  color: Color(0xFFDB5962),
+                  color: Color(0xFFF09A37),
                 ),
               ];
 
@@ -1549,7 +1576,7 @@ enum _AcademicEventType {
   exam,
   activity,
   holiday,
-  deadline,
+  publicHoliday,
   study,
 }
 

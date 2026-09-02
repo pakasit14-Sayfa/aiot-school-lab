@@ -1,3 +1,4 @@
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:shared_ui/shared_ui.dart';
@@ -51,6 +52,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'USER APP',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('th', 'TH'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('th', 'TH'),
       theme: AppTheme.lightTheme,
       home: isPrototypeMode
           ? _buildPrototypeHome(initialUri)

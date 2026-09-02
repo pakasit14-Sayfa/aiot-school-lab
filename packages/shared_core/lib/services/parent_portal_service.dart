@@ -84,5 +84,77 @@ class ParentPortalService {
         .map((row) => StudentAttendanceItem.fromRow(row as Map<String, dynamic>))
         .toList();
   }
-}
 
+  static Future<List<Map<String, dynamic>>> listMyStudentAssignments(
+    String studentId,
+  ) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+
+    final rows =
+        await supabase.rpc('list_my_student_assignments', params: {
+      'p_token': token,
+      'p_student_id': studentId,
+    }) as List;
+    return List<Map<String, dynamic>>.from(rows);
+  }
+
+  static Future<List<SchoolEventItem>> listSchoolEvents() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    try {
+      final rows = await supabase.rpc('list_school_events', params: {
+        'p_token': token,
+      }) as List;
+      return rows
+          .map((row) => SchoolEventItem.fromRow(row as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      // Return empty list on error (e.g. RPC missing)
+      return const [];
+    }
+  }
+
+  static Future<void> submitLeaveRequest({
+    required String studentId,
+    required String leaveType,
+    required DateTime startDate,
+    required DateTime endDate,
+    required String reason,
+    dynamic attachmentFile, // Use dynamic to avoid importing dart:io in shared_core if it causes issues, but we can type check
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+
+    String? attachmentUrl;
+
+    // Handle file upload if present
+    if (attachmentFile != null) {
+      try {
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${studentId}.jpg';
+        // Check if the object has a readAsBytes method (works for XFile or dart:io File)
+        final bytes = await attachmentFile.readAsBytes();
+        
+        await supabase.storage.from('leave_attachments').uploadBinary(
+          fileName,
+          bytes,
+          fileOptions: const FileOptions(contentType: 'image/jpeg'),
+        );
+        attachmentUrl = supabase.storage.from('leave_attachments').getPublicUrl(fileName);
+      } catch (e) {
+        print('Error uploading file: $e');
+        // Continue even if upload fails, or throw. For now, continue but maybe log.
+      }
+    }
+
+    await supabase.rpc('submit_leave_request', params: {
+      'p_token': token,
+      'p_student_id': studentId,
+      'p_leave_type': leaveType,
+      'p_start_date': '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}',
+      'p_end_date': '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}',
+      'p_reason': reason,
+      'p_attachment_url': attachmentUrl,
+    });
+  }
+}

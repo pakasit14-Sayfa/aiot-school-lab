@@ -5,7 +5,12 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminSettingsPage extends StatefulWidget {
-  const SuperAdminSettingsPage({super.key});
+  const SuperAdminSettingsPage({super.key, this.embedded = false});
+
+  /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
+  /// layout — suppresses this page's own AppBar since the sidebar
+  /// already shows which page is selected.
+  final bool embedded;
 
   @override
   State<SuperAdminSettingsPage> createState() => _SuperAdminSettingsPageState();
@@ -153,7 +158,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
     }
   }
 
-  void _restoreDefaults() {
+  Future<void> _restoreDefaults() async {
     setState(() {
       _mq2Controller.text = '2.2';
       _pmController.text = '35';
@@ -173,26 +178,28 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
       _logRetention = '365 วัน';
       _backupTime = '02:00 น.';
     });
-    _message('เรียกคืนค่าเริ่มต้นสำเร็จ');
+    await _saveSettings();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const Text(
-          'ตั้งค่าระบบส่วนกลาง (Platform Settings)',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'รีเฟรชประวัติ Log',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadAuditLogs(),
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'ตั้งค่าระบบส่วนกลาง (Platform Settings)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'รีเฟรชประวัติ Log',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () => _loadAuditLogs(),
+                ),
+              ],
+            ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         child: Column(

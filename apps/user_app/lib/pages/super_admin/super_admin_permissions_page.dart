@@ -1,11 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../utils/web_download.dart';
 import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminPermissionsPage extends StatefulWidget {
-  const SuperAdminPermissionsPage({super.key});
+  const SuperAdminPermissionsPage({super.key, this.embedded = false});
+
+  /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
+  /// layout — suppresses this page's own AppBar since the sidebar
+  /// already shows which page is selected.
+  final bool embedded;
 
   @override
   State<SuperAdminPermissionsPage> createState() =>
@@ -31,7 +39,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
   String _roleFilter = 'ทุกบทบาท';
   String _schoolFilter = 'ทุกโรงเรียน';
   String _statusFilter = 'ทุกสถานะ';
-  String _sortMode = 'ใช้งานล่าสุด';
+  String _sortMode = 'บทบาทสำคัญก่อน';
 
   @override
   void initState() {
@@ -106,9 +114,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
               : 'ทุกโรงเรียนและทุกอุปกรณ์',
           status: isActive ? _UserStatus.active : _UserStatus.suspended,
           mfaEnabled: isMfa,
-          lastActive: isActive ? 'ออนไลน์อยู่' : 'ระงับการใช้งาน',
-          lastActiveMinutes: 0,
-          createdAt: '2569',
+          lastActive: isActive ? 'ใช้งานได้' : 'ระงับการใช้งาน',
           permissions: _defaultPermissionsForRole(displayRole),
         ));
       }
@@ -188,14 +194,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       .where((item) => item.hasRole(UserRole.superAdmin) || item.hasRole(UserRole.schoolAdmin))
       .length;
 
-  int get _noMfaCount => _users
-      .where((item) =>
-          item.status == _UserStatus.active &&
-          !item.mfaEnabled &&
-          item.role != 'Student' &&
-          item.role != 'Parent')
-      .length;
-
   List<String> get _schoolOptions => <String>[
         'ทุกโรงเรียน',
         ...(_schools.map((s) => s.name).toSet().toList()..sort()),
@@ -241,8 +239,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     } else if (_sortMode == 'ยังไม่เปิด MFA ก่อน') {
       result.sort(
           (a, b) => a.mfaEnabled == b.mfaEnabled ? 0 : (a.mfaEnabled ? 1 : -1));
-    } else {
-      result.sort((a, b) => a.lastActiveMinutes.compareTo(b.lastActiveMinutes));
     }
 
     return result;
@@ -252,19 +248,21 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppPalette.background,
-      appBar: AppBar(
-        title: const Text(
-          'กำหนดสิทธิ์และบทบาท (Permissions)',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'รีเฟรชข้อมูล',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: () => _loadAllData(),
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text(
+                'กำหนดสิทธิ์และบทบาท (Permissions)',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'รีเฟรชข้อมูล',
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () => _loadAllData(),
+                ),
+              ],
+            ),
       body: _buildBody(),
     );
   }
@@ -589,13 +587,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
             AppPalette.deepBlue,
           ),
           _summaryCard(
-            Icons.shield_outlined,
-            'ยังไม่เปิด MFA',
-            '$_noMfaCount',
-            'บัญชีสำคัญที่ควรเพิ่มความปลอดภัย',
-            AppPalette.circusYellow,
-          ),
-          _summaryCard(
             Icons.block_rounded,
             'ระงับใช้งาน',
             '$_suspendedCount',
@@ -681,22 +672,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     final List<_PriorityItem> priorities = <_PriorityItem>[];
 
     for (final _UserAccount user in _users) {
-      if (user.status == _UserStatus.active &&
-          !user.mfaEnabled &&
-          user.role != 'Student' &&
-          user.role != 'Parent') {
-        priorities.add(
-          _PriorityItem(
-            icon: Icons.shield_outlined,
-            title: '${user.name} ยังไม่เปิด MFA',
-            subtitle: '${user.email} • ${user.role}',
-            detail: 'ควรเปิดการยืนยันตัวตนสองขั้นตอนสำหรับบัญชีนี้',
-            color: AppPalette.circusYellow,
-            onTap: () => _showUserDetails(user),
-          ),
-        );
-      }
-
       if (user.status == _UserStatus.suspended) {
         priorities.add(
           _PriorityItem(
@@ -927,9 +902,8 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                       icon: Icons.sort_rounded,
                       value: _sortMode,
                       items: const <String>[
-                        'ใช้งานล่าสุด',
-                        'ชื่อผู้ใช้',
                         'บทบาทสำคัญก่อน',
+                        'ชื่อผู้ใช้',
                         'ยังไม่เปิด MFA ก่อน',
                       ],
                       onChanged: (String value) {
@@ -986,7 +960,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       _roleFilter = 'ทุกบทบาท';
       _schoolFilter = 'ทุกโรงเรียน';
       _statusFilter = 'ทุกสถานะ';
-      _sortMode = 'ใช้งานล่าสุด';
+      _sortMode = 'บทบาทสำคัญก่อน';
     });
   }
 
@@ -1723,7 +1697,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     return _panel(
       title: 'ประวัติการเข้าใช้งานและการเปลี่ยนสิทธิ์ (Audit Logs)',
       trailing: TextButton.icon(
-        onPressed: () => _message('ส่งออกประวัติ Audit Log เรียบร้อย'),
+        onPressed: _exportAuditLogs,
         icon: const Icon(Icons.download_rounded),
         label: const Text('ส่งออก Log'),
       ),
@@ -2629,15 +2603,98 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     }
   }
 
-  void _resetPassword(_UserAccount user) {
-    _message('ส่งคำขอรีเซ็ตรหัสผ่านไปยัง ${user.email} เรียบร้อยแล้ว');
+  Future<void> _resetPassword(_UserAccount user) async {
+    try {
+      await PasswordResetService.resetPassword(user.email);
+      if (!mounted) return;
+      _message('ส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${user.email} แล้ว');
+    } catch (e) {
+      if (!mounted) return;
+      _message('ส่งลิงก์รีเซ็ตรหัสผ่านไม่สำเร็จ: $e');
+    }
+  }
+
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
   }
 
   void _exportUsers() {
-    _message('ส่งออกรายชื่อผู้ใช้ทั้งหมด $filteredUserCount รายการแล้ว');
+    final List<_UserAccount> users = _filteredUsers;
+    if (users.isEmpty) {
+      _message('ไม่มีผู้ใช้ให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+
+    final List<String> header = <String>[
+      'user_id',
+      'name',
+      'email',
+      'role',
+      'school',
+      'status',
+      'mfa',
+    ];
+    final List<List<String>> rows = <List<String>>[
+      header,
+      for (final _UserAccount u in users)
+        <String>[
+          u.id,
+          u.name,
+          u.email,
+          u.role,
+          u.school,
+          u.status == _UserStatus.active ? 'active' : 'suspended',
+          u.mfaEnabled ? 'yes' : 'no',
+        ],
+    ];
+    final String csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    downloadBytes(
+      filename: 'users_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    _message('ส่งออกรายชื่อผู้ใช้ ${users.length} รายการแล้ว');
   }
 
-  int get filteredUserCount => _filteredUsers.length;
+  void _exportAuditLogs() {
+    if (_logs.isEmpty) {
+      _message('ไม่มีประวัติการเข้าใช้งานให้ส่งออก');
+      return;
+    }
+
+    final List<String> header = <String>[
+      'action',
+      'actor',
+      'target',
+      'detail',
+      'created_at',
+    ];
+    final List<List<String>> rows = <List<String>>[
+      header,
+      for (final SchoolAdminAuditLog log in _logs)
+        <String>[
+          log.action,
+          log.actorName,
+          log.target,
+          log.detail,
+          log.createdAt.toIso8601String(),
+        ],
+    ];
+    final String csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    downloadBytes(
+      filename: 'audit_logs_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    _message('ส่งออก Audit Log ${_logs.length} รายการแล้ว');
+  }
 
   _PermissionSet _defaultPermissionsForRole(String role) {
     if (role == 'Super Admin') {
@@ -2781,7 +2838,6 @@ class _UserAccount {
   final String id;
   final String? dbId;
   final String email;
-  final String createdAt;
 
   String name;
   String role;
@@ -2793,7 +2849,6 @@ class _UserAccount {
   _UserStatus status;
   bool mfaEnabled;
   String lastActive;
-  int lastActiveMinutes;
   _PermissionSet permissions;
 
   _UserAccount({
@@ -2810,8 +2865,6 @@ class _UserAccount {
     required this.status,
     required this.mfaEnabled,
     required this.lastActive,
-    required this.lastActiveMinutes,
-    required this.createdAt,
     required this.permissions,
   });
 

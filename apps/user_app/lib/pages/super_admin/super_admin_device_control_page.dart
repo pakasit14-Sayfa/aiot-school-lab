@@ -100,7 +100,9 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                 callback: _handleRealtimeChange,
               )
               .subscribe();
-    } catch (_) {}
+    } catch (error) {
+      debugPrint('super_admin_device_control_page: realtime subscribe failed: $error');
+    }
   }
 
   void _handleRealtimeChange(PostgresChangePayload payload) {
@@ -1887,104 +1889,51 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     }
   }
 
+  /// RedTeam fix (2026-08-31): this dialog used to have a password field
+  /// with a caption claiming the password would be "sent to Supabase
+  /// Auth for verification" — the app doesn't use Supabase Auth at all
+  /// (custom p_token session system per CLAUDE.md), and the field was
+  /// only ever checked for non-emptiness, so any single character
+  /// approved a real device-control action. Removed the false claim
+  /// entirely rather than build a new re-auth RPC for this pass — this
+  /// is now an honest plain confirmation, not fake security theater.
   Future<void> _approveWithPassword(_ApprovalItem item) async {
-    final TextEditingController passwordController = TextEditingController();
-
-    bool obscure = true;
-    String? dialogError;
-
     final bool? approved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              icon: const Icon(
-                Icons.admin_panel_settings_rounded,
-                color: AppPalette.deepBlue,
-                size: 42,
-              ),
-              title: const Text('แอดมินยืนยันการอนุมัติ'),
-              content: SizedBox(
-                width: 440,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      '${item.turnOn ? 'เปิด' : 'ปิด'} '
-                      '${item.scopeLabel}\n'
-                      '${item.schoolName} • '
-                      '${item.targetCount} อุปกรณ์',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: obscure,
-                      autofocus: true,
-                      onSubmitted: (_) {},
-                      decoration: InputDecoration(
-                        labelText: 'รหัสผ่านบัญชีแอดมิน',
-                        prefixIcon: const Icon(Icons.lock_rounded),
-                        suffixIcon: IconButton(
-                          onPressed: () {
-                            setDialogState(() {
-                              obscure = !obscure;
-                            });
-                          },
-                          icon: Icon(
-                            obscure
-                                ? Icons.visibility_rounded
-                                : Icons.visibility_off_rounded,
-                          ),
-                        ),
-                        errorText: dialogError,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'รหัสผ่านจะถูกส่งไปตรวจสอบกับ Supabase Auth '
-                      'และจะไม่ถูกเก็บไว้ในตารางคำขอ',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 10,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('ยกเลิก'),
-                ),
-                FilledButton.icon(
-                  onPressed: () async {
-                    final String password = passwordController.text.trim();
-
-                    if (password.isEmpty) {
-                      setDialogState(() {
-                        dialogError = 'กรุณากรอกรหัสผ่านยืนยัน';
-                      });
-                      return;
-                    }
-
-                    Navigator.of(dialogContext).pop(true);
-                  },
-                  icon: const Icon(Icons.verified_rounded),
-                  label: const Text('อนุมัติคำสั่ง'),
-                ),
-              ],
-            );
-          },
+        return AlertDialog(
+          icon: const Icon(
+            Icons.admin_panel_settings_rounded,
+            color: AppPalette.deepBlue,
+            size: 42,
+          ),
+          title: const Text('ยืนยันการอนุมัติ'),
+          content: SizedBox(
+            width: 440,
+            child: Text(
+              '${item.turnOn ? 'เปิด' : 'ปิด'} '
+              '${item.scopeLabel}\n'
+              '${item.schoolName} • '
+              '${item.targetCount} อุปกรณ์\n\n'
+              'คุณแน่ใจหรือไม่ที่จะอนุมัติคำสั่งนี้?',
+              textAlign: TextAlign.center,
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('ยกเลิก'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.verified_rounded),
+              label: const Text('อนุมัติคำสั่ง'),
+            ),
+          ],
         );
       },
     );
-
-    passwordController.dispose();
 
     if (approved != true || !mounted) {
       return;
@@ -2706,10 +2655,6 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
 
         final Widget logs = _panel(
           title: 'ประวัติคำสั่งล่าสุด',
-          trailing: TextButton(
-            onPressed: () => _message('เปิดประวัติคำสั่งทั้งหมด'),
-            child: const Text('ดูทั้งหมด'),
-          ),
           child:
               _logs.isEmpty
                   ? _empty(
@@ -2779,10 +2724,6 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
               ),
             ],
           ),
-        ),
-        IconButton(
-          onPressed: () => _message('เปิดแก้ไขสิทธิ์ของ $email'),
-          icon: const Icon(Icons.edit_rounded),
         ),
       ],
     );
@@ -3002,8 +2943,9 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               const Text(
-                'บัญชีต้องถูกสร้างใน Supabase Authentication '
-                'และมีข้อมูลในตาราง profiles แล้ว',
+                'บัญชีต้องมีอยู่แล้วในระบบ การกดยืนยันจะให้สิทธิ์ '
+                '"ผู้ดูแลโรงเรียน (School Admin)" แก่บัญชีนี้ — '
+                'สิทธิ์เต็มระดับโรงเรียน ไม่ใช่สิทธิ์จำกัดเฉพาะอุปกรณ์',
                 style: TextStyle(color: AppPalette.textSecondary, fontSize: 11),
               ),
               const SizedBox(height: 14),
@@ -3033,7 +2975,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
 
                 Navigator.of(dialogContext).pop(true);
               },
-              child: const Text('กำหนดเป็น Operator'),
+              child: const Text('ตั้งเป็นผู้ดูแลโรงเรียน (School Admin)'),
             ),
           ],
         );
@@ -3071,8 +3013,8 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
 
       _message(
         updated
-            ? 'เพิ่มสิทธิ์ควบคุมให้ $email แล้ว'
-            : 'ไม่พบบัญชี $email ในตาราง profiles',
+            ? 'ตั้ง $email เป็นผู้ดูแลโรงเรียน (School Admin) แล้ว'
+            : 'ไม่พบบัญชี $email ในระบบ',
       );
     } on PostgrestException catch (error) {
       if (!mounted) {
@@ -3497,7 +3439,7 @@ class _DeviceItem {
       online: record.online,
       isOn: record.isPoweredOn,
       autoMode: record.controlMode == 'auto',
-      reading: '-',
+      reading: record.readingLabel,
       updated: updatedStr,
       commandStatus: 'idle',
       metadata: Map<String, dynamic>.from(record.metadata),
@@ -3534,12 +3476,18 @@ class _ActionLog {
         ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
         : '-';
 
+    final String eventTypeLower = record.eventType.toLowerCase();
+    final bool looksFailed = eventTypeLower.contains('fail') ||
+        eventTypeLower.contains('error') ||
+        eventTypeLower.contains('denied') ||
+        eventTypeLower.contains('reject');
+
     return _ActionLog(
       title: record.eventType,
       detail: record.message,
       time: timeStr,
       actor: 'ระบบ',
-      success: true,
+      success: !looksFailed,
     );
   }
 }

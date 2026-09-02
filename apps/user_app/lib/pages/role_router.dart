@@ -5,7 +5,7 @@ import 'student_redesign_prototype/widgets/student_navigation_prototype.dart';
 import 'teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
 import 'school_admin/school_admin_dashboard_page.dart';
 import 'executive_redesign_prototype/widgets/director_navigation_shell.dart';
-import 'super_admin/super_admin_hub_page.dart';
+import 'super_admin/widgets/super_admin_navigation_shell.dart';
 import 'parent_redesign_prototype/widgets/parent_navigation_shell.dart';
 
 /// RoleRouter routes authenticated users to their respective dashboard/shells
@@ -28,7 +28,7 @@ class RoleRouter extends StatelessWidget {
       case UserRole.executive:
         return const DirectorNavigationShell();
       case UserRole.superAdmin:
-        return const SuperAdminHubPage();
+        return const SuperAdminNavigationShell();
       case UserRole.parent:
         return const ParentNavigationShell();
     }

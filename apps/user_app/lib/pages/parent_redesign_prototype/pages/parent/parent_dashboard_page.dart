@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
+import 'leave_request_dialog.dart';
 
 class ParentDashboardPage extends StatefulWidget {
   const ParentDashboardPage({super.key});
@@ -16,7 +17,11 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
   static const String mascotAsset = 'assets/images/mascot_parent.png';
 
   LinkedStudentItem? _selectedStudent;
-  List<StudentGradeItem> _grades = [];
+  List<Map<String, dynamic>> _assignments = [];
+  List<StudentAttendanceItem> _attendanceList = [];
+  List<StudentScheduleItem> _scheduleList = [];
+  List<Map<String, dynamic>> _sensorReadings = [];
+  List<SchoolEventItem> _eventsList = [];
 
   @override
   void initState() {
@@ -30,25 +35,143 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
       if (!mounted) return;
       if (students.isNotEmpty) {
         final firstStudent = students.first;
-        final grades = await ParentPortalService.listMyStudentGrades(
+        final assignments = await ParentPortalService.listMyStudentAssignments(
           firstStudent.studentId,
         );
-        if (!mounted) return;
-        setState(() {
-          _selectedStudent = firstStudent;
-          _grades = grades;
-        });
+        final attendance = await ParentPortalService.listMyStudentAttendance(
+          firstStudent.studentId,
+          dateFrom: DateTime.now().subtract(const Duration(days: 90)), // Last 3 months approx
+          dateTo: DateTime.now(),
+        );
+        final schedule = await ParentPortalService.listMyStudentSchedule(
+          firstStudent.studentId,
+        );
+        
+        List<Map<String, dynamic>> sensors = [];
+        try {
+          // Attempt to fetch school sensors
+          sensors = await AiotLabService.getLatestSensorReadings();
+        } catch (e) {
+          sensors = [];
+        }
+
+        final events = await ParentPortalService.listSchoolEvents();
+
+        if (mounted) {
+          setState(() {
+            _selectedStudent = firstStudent;
+            _assignments = assignments;
+            _attendanceList = attendance;
+            _scheduleList = schedule;
+            _sensorReadings = sensors;
+            _eventsList = events;
+          });
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error loading parent dashboard data: $e');
+    }
   }
 
-  String get _gpaDisplay {
-    if (_grades.isEmpty) return '3.62';
-    final total = _grades.fold<double>(0, (sum, g) => sum + g.percentage);
-    final avg = total / _grades.length;
-    // Map average percentage (0-100) to standard 4.0 scale
-    final gpa = (avg / 25).clamp(0.0, 4.0);
-    return gpa.toStringAsFixed(2);
+  int get _pendingAssignmentsCount {
+    return _assignments.where((a) => a['status'] == 'pending' || a['status'] == 'returned').length;
+  }
+
+  String get _todayAttendanceTime {
+    final today = DateTime.now();
+    final todayRecords = _attendanceList.where((a) => 
+      a.classDate.year == today.year && 
+      a.classDate.month == today.month && 
+      a.classDate.day == today.day
+    ).toList();
+    if (todayRecords.isEmpty) return 'ยังไม่มีข้อมูล';
+    todayRecords.sort((a, b) => a.markedAt.compareTo(b.markedAt));
+    final firstScan = todayRecords.first.markedAt.toLocal();
+    return '${firstScan.hour.toString().padLeft(2, '0')}:${firstScan.minute.toString().padLeft(2, '0')} น.';
+  }
+
+  double get _attendanceRateValue {
+    if (_attendanceList.isEmpty) return 0;
+    final presentOrLate = _attendanceList.where((a) => a.status == 'present' || a.status == 'late').length;
+    return presentOrLate / _attendanceList.length;
+  }
+
+  String get _attendanceRate {
+    if (_attendanceList.isEmpty) return 'ยังไม่มีข้อมูล';
+    return '${(_attendanceRateValue * 100).toStringAsFixed(0)}%';
+  }
+  
+  int get _presentCount => _attendanceList.where((a) => a.status == 'present').length;
+  int get _lateCount => _attendanceList.where((a) => a.status == 'late').length;
+  int get _excusedCount => _attendanceList.where((a) => a.status == 'excused').length;
+
+  String get _currentSubject {
+    if (_scheduleList.isEmpty) return 'ไม่มีเรียน';
+    final now = DateTime.now();
+    final today = now.weekday; // 1 = Monday, 7 = Sunday
+    final todaySchedule = _scheduleList.where((s) => s.dayOfWeek == today).toList();
+    if (todaySchedule.isEmpty) return 'ไม่มีเรียน';
+    
+    for (var s in todaySchedule) {
+      // Parse HH:mm from s.startTime and s.endTime
+      try {
+        final startParts = s.startTime.split(':');
+        final endParts = s.endTime.split(':');
+        final start = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
+        final end = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
+        if (now.isAfter(start) && now.isBefore(end)) {
+          return 'กำลังเรียน${s.subjectName}';
+        }
+      } catch (_) {}
+    }
+    return 'พัก / ว่าง';
+  }
+
+  String get _currentRoom {
+    if (_scheduleList.isEmpty) return 'อยู่ในโรงเรียน';
+    final now = DateTime.now();
+    final today = now.weekday;
+    final todaySchedule = _scheduleList.where((s) => s.dayOfWeek == today).toList();
+    for (var s in todaySchedule) {
+      try {
+        final startParts = s.startTime.split(':');
+        final endParts = s.endTime.split(':');
+        final start = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
+        final end = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
+        if (now.isAfter(start) && now.isBefore(end)) {
+          return 'อยู่ที่ห้อง ${s.room ?? "เรียน"}';
+        }
+      } catch (_) {}
+    }
+    return 'อยู่ในโรงเรียน';
+  }
+
+  String get _envTemp {
+    if (_sensorReadings.isEmpty) return 'N/A';
+    final temp = _sensorReadings.where((s) => s['metric'] == 'temperature').firstOrNull;
+    if (temp != null) return (temp['value'] as num).toStringAsFixed(1);
+    return 'N/A';
+  }
+
+  String get _envPm25 {
+    if (_sensorReadings.isEmpty) return 'N/A';
+    final pm25 = _sensorReadings.where((s) => s['metric'] == 'pm25').firstOrNull;
+    if (pm25 != null) return (pm25['value'] as num).toStringAsFixed(0);
+    return 'N/A';
+  }
+
+  String get _envLux {
+    if (_sensorReadings.isEmpty) return 'N/A';
+    final lux = _sensorReadings.where((s) => s['metric'] == 'light_lux').firstOrNull;
+    if (lux != null) return (lux['value'] as num).toStringAsFixed(0);
+    return 'N/A';
+  }
+
+  String get _envAqi {
+    if (_sensorReadings.isEmpty) return 'N/A';
+    final aqi = _sensorReadings.where((s) => s['metric'] == 'aqi').firstOrNull;
+    if (aqi != null) return (aqi['value'] as num).toStringAsFixed(0);
+    return 'ปกติ'; // default fallback for smoke/gas card if no aqi
   }
 
   String get _studentNameDisplay {
@@ -85,6 +208,13 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   _buildHeroCard(context),
 
                   const SizedBox(height: 16),
+                  
+                  // ----------------------------------------------------------
+                  // QUICK ACTIONS (เมนูด่วนแบบ App UI)
+                  // ----------------------------------------------------------
+                  _buildQuickActions(context),
+
+                  const SizedBox(height: 16),
 
                   // ----------------------------------------------------------
                   // QUICK STATUS
@@ -92,7 +222,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final columns = constraints.maxWidth >= 1180
-                          ? 4
+                          ? 3
                           : constraints.maxWidth >= 760
                               ? 3
                               : constraints.maxWidth >= 500
@@ -110,44 +240,32 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                         children: [
                           SizedBox(
                             width: width,
-                            child: const _StatusMetricCard(
+                            child: _StatusMetricCard(
                               title: 'มาเรียนวันนี้',
-                              value: '07:41 น.',
-                              subtitle: 'เข้าประตูโรงเรียนแล้ว',
+                              value: _todayAttendanceTime,
+                              subtitle: _todayAttendanceTime == 'ยังไม่มีข้อมูล' ? 'ยังไม่ได้เช็คชื่อ' : 'เช็คชื่อเรียบร้อยแล้ว',
                               icon: Icons.login_rounded,
-                              color: Color(0xFF18A06F),
-                            ),
-                          ),
-                          SizedBox(
-                            width: width,
-                            child: const _StatusMetricCard(
-                              title: 'อัตรามาเรียน',
-                              value: '96%',
-                              subtitle: 'ภาคเรียน 1/2569',
-                              icon: Icons.fact_check_rounded,
-                              color: Color(0xFF2E83C5),
+                              color: const Color(0xFF18A06F),
                             ),
                           ),
                           SizedBox(
                             width: width,
                             child: _StatusMetricCard(
-                              title: 'GPA ล่าสุด',
-                              value: _gpaDisplay,
-                              subtitle: _grades.isNotEmpty
-                                  ? 'ผลการเรียนยืนยัน ${_grades.length} วิชา'
-                                  : 'ผลการเรียนดีมาก',
-                              icon: Icons.star_rounded,
-                              color: const Color(0xFFF0A03B),
+                              title: 'อัตรามาเรียน',
+                              value: _attendanceRate,
+                              subtitle: 'อิงจากรายวิชาทั้งหมด',
+                              icon: Icons.fact_check_rounded,
+                              color: const Color(0xFF2E83C5),
                             ),
                           ),
                           SizedBox(
                             width: width,
-                            child: const _StatusMetricCard(
+                            child: _StatusMetricCard(
                               title: 'งานที่ต้องทำ',
-                              value: '2 งาน',
-                              subtitle: '1 งานครบกำหนดพรุ่งนี้',
+                              value: '$_pendingAssignmentsCount งาน',
+                              subtitle: 'งานค้างทั้งหมด',
                               icon: Icons.assignment_rounded,
-                              color: Color(0xFF8A65C7),
+                              color: const Color(0xFF8A65C7),
                             ),
                           ),
                         ],
@@ -162,7 +280,12 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   // Desktop: 4 ค่าเรียงแนวนอน
                   // Mobile: 2 คอลัมน์ x 2 แถว
                   // ----------------------------------------------------------
-                  const _EnvironmentSensorCard(),
+                  _EnvironmentSensorCard(
+                    temp: _envTemp,
+                    pm25: _envPm25,
+                    lux: _envLux,
+                    aqi: _envAqi,
+                  ),
 
                   const SizedBox(height: 16),
 
@@ -172,26 +295,38 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth < 760) {
-                        return const Column(
+                        return Column(
                           children: [
-                            _TodayStatusCard(),
-                            SizedBox(height: 14),
-                            _AttendanceSummaryCard(),
+                            const _TodayStatusCard(),
+                            const SizedBox(height: 14),
+                            _AttendanceSummaryCard(
+                              rate: _attendanceRate,
+                              rateValue: _attendanceRateValue,
+                              presentCount: _presentCount,
+                              lateCount: _lateCount,
+                              excusedCount: _excusedCount,
+                            ),
                           ],
                         );
                       }
 
-                      return const Row(
+                      return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
+                          const Expanded(
                             flex: 6,
                             child: _TodayStatusCard(),
                           ),
-                          SizedBox(width: 14),
+                          const SizedBox(width: 14),
                           Expanded(
                             flex: 4,
-                            child: _AttendanceSummaryCard(),
+                            child: _AttendanceSummaryCard(
+                              rate: _attendanceRate,
+                              rateValue: _attendanceRateValue,
+                              presentCount: _presentCount,
+                              lateCount: _lateCount,
+                              excusedCount: _excusedCount,
+                            ),
                           ),
                         ],
                       );
@@ -206,27 +341,27 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth < 900) {
-                        return const Column(
+                        return Column(
                           children: [
-                            _LearningOverviewCard(),
-                            SizedBox(height: 14),
-                            _ScheduleCard(),
+                            _HomeworkCard(assignments: _assignments),
+                            const SizedBox(height: 14),
+                            _ScheduleCard(schedule: _scheduleList),
                           ],
                         );
                       }
 
-                      return const IntrinsicHeight(
+                      return IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
-                              flex: 7,
-                              child: _LearningOverviewCard(),
+                              flex: 5,
+                              child: _HomeworkCard(assignments: _assignments),
                             ),
-                            SizedBox(width: 14),
+                            const SizedBox(width: 14),
                             Expanded(
                               flex: 5,
-                              child: _ScheduleCard(),
+                              child: _ScheduleCard(schedule: _scheduleList),
                             ),
                           ],
                         ),
@@ -242,34 +377,27 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth < 980) {
-                        return const Column(
+                        return Column(
                           children: [
-                            _HomeworkCard(),
-                            SizedBox(height: 14),
-                            _SchoolMessageCard(),
-                            SizedBox(height: 14),
-                            _UpcomingActivityCard(),
+                            const _SchoolMessageCard(),
+                            const SizedBox(height: 14),
+                            _UpcomingActivityCard(events: _eventsList),
                           ],
                         );
                       }
 
-                      return const IntrinsicHeight(
+                      return IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(child: _HomeworkCard()),
-                            SizedBox(width: 14),
-                            Expanded(child: _SchoolMessageCard()),
-                            SizedBox(width: 14),
-                            Expanded(child: _UpcomingActivityCard()),
+                            const Expanded(child: _SchoolMessageCard()),
+                            const SizedBox(width: 14),
+                            Expanded(child: _UpcomingActivityCard(events: _eventsList)),
                           ],
                         ),
                       );
                     },
                   ),
-
-                  const SizedBox(height: 16),
-                  _buildQuickActions(context),
                 ],
               ),
             ),
@@ -486,18 +614,18 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: const [
+          children: [
             _HeroBadge(
               icon: Icons.login_rounded,
-              text: 'เข้าโรงเรียน 07:41 น.',
+              text: _todayAttendanceTime == 'ยังไม่มีข้อมูล' ? 'ยังไม่ได้เช็คชื่อ' : 'เข้าโรงเรียน $_todayAttendanceTime',
             ),
             _HeroBadge(
               icon: Icons.location_on_rounded,
-              text: 'อยู่ในอาคารเรียน ม.2',
+              text: _todayAttendanceTime == 'ยังไม่มีข้อมูล' ? 'ยังไม่ถึงโรงเรียน' : _currentRoom,
             ),
             _HeroBadge(
               icon: Icons.menu_book_rounded,
-              text: 'กำลังเรียนคณิตศาสตร์',
+              text: _todayAttendanceTime == 'ยังไม่มีข้อมูล' ? 'รอก่อนเข้าเรียน' : _currentSubject,
             ),
           ],
         ),
@@ -531,55 +659,52 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
     );
   }
 
-  Widget _mascot({required double height}) {
-    return SizedBox(
+  Widget _mascot({double height = 200}) {
+    return Image.asset(
+      'assets/images/mascot_lion_clean.png',
       height: height,
-      child: Image.asset(
-        mascotAsset,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          // ถ้ายังไม่ได้ใส่ไฟล์มาสคอต จะมีตัวสำรอง ไม่ทำให้หน้าแดง
-          return Container(
-            width: height * .78,
-            height: height,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(30),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  Icons.family_restroom_rounded,
-                  color: Colors.white.withValues(alpha: 0.92),
-                  size: height * .42,
-                ),
-                Positioned(
-                  bottom: 14,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'MASCOT',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                      ),
+      fit: BoxFit.contain,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: height * .78,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                Icons.family_restroom_rounded,
+                color: Colors.white.withValues(alpha: 0.92),
+                size: height * .42,
+              ),
+              Positioned(
+                bottom: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'MASCOT',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -588,25 +713,21 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
       (
         Icons.edit_note_rounded,
         'แจ้งลาเรียน',
-        'แจ้งการลาและเหตุผล',
         const Color(0xFF2D82C4)
       ),
       (
         Icons.support_agent_rounded,
         'ติดต่อครู',
-        'ส่งข้อความถึงครูประจำชั้น',
         const Color(0xFF17A06F)
       ),
       (
         Icons.draw_rounded,
         'เอกสารยินยอม',
-        'ตรวจเอกสารที่รอการยืนยัน',
         const Color(0xFF8A65C7)
       ),
       (
         Icons.directions_car_rounded,
         'แจ้งรับกลับ',
-        'แจ้งบุคคลหรือรถที่มารับ',
         const Color(0xFFF09A37)
       ),
     ];
@@ -616,41 +737,31 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _SectionTitle(
-            icon: Icons.flash_on_rounded,
-            title: 'เมนูด่วนสำหรับผู้ปกครอง',
-            subtitle: 'จัดการเรื่องสำคัญได้จากหน้าแรก',
+            icon: Icons.apps_rounded,
+            title: 'เมนูด่วน (Quick Apps)',
+            subtitle: 'รวมบริการบ่อยสำหรับผู้ปกครอง',
           ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 4
-                  : constraints.maxWidth >= 500
-                      ? 2
-                      : 1;
-              const gap = 10.0;
-              final width =
-                  (constraints.maxWidth - gap * (columns - 1)) / columns;
-
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final action in actions)
-                    SizedBox(
-                      width: width,
-                      child: _QuickActionTile(
-                        icon: action.$1,
-                        title: action.$2,
-                        subtitle: action.$3,
-                        color: action.$4,
-                        onTap: () =>
-                            _showMessage(context, 'เปิดเมนู ${action.$2}'),
-                      ),
-                    ),
-                ],
-              );
-            },
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final action in actions)
+                Expanded(
+                  child: _QuickActionAppTile(
+                    icon: action.$1,
+                    title: action.$2,
+                    color: action.$3,
+                    onTap: () {
+                      if (action.$2 == 'แจ้งลาเรียน') {
+                        _showLeaveRequestForm(context);
+                      } else {
+                        _showMessage(context, 'เปิดเมนู ${action.$2}');
+                      }
+                    },
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -663,6 +774,24 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         content: Text(message),
         behavior: SnackBarBehavior.floating,
       ),
+    );
+  }
+
+  void _showLeaveRequestForm(BuildContext context) {
+    if (_selectedStudent == null) {
+      _showMessage(context, 'ไม่พบข้อมูลนักเรียน (Mock Mode: ทดสอบ UI เปิดได้ปกติแต่บันทึกไม่ได้)');
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return LeaveRequestFormDialog(
+          studentId: _selectedStudent?.studentId,
+          onSubmitted: () {
+            _showMessage(context, 'ส่งใบลาเรียบร้อยแล้ว รอครูประจำชั้นอนุมัติ');
+          },
+        );
+      },
     );
   }
 }
@@ -861,46 +990,56 @@ class _StatusMetricCard extends StatelessWidget {
 // ============================================================================
 
 class _EnvironmentSensorCard extends StatelessWidget {
-  const _EnvironmentSensorCard();
+  final String temp;
+  final String pm25;
+  final String lux;
+  final String aqi;
+
+  const _EnvironmentSensorCard({
+    this.temp = 'N/A',
+    this.pm25 = 'N/A',
+    this.lux = 'N/A',
+    this.aqi = 'ปกติ',
+  });
 
   @override
   Widget build(BuildContext context) {
-    const sensors = [
+    final sensors = [
       _SensorData(
         icon: Icons.thermostat_rounded,
         title: 'อุณหภูมิ',
-        value: '29.8',
+        value: temp,
         unit: '°C',
-        status: 'ปกติ',
-        statusColor: Color(0xFF18A06F),
-        iconColor: Color(0xFFF09A37),
+        status: temp == 'N/A' ? 'ไม่มีข้อมูล' : 'ปกติ',
+        statusColor: temp == 'N/A' ? const Color(0xFF8A94A5) : const Color(0xFF18A06F),
+        iconColor: const Color(0xFFF09A37),
       ),
       _SensorData(
         icon: Icons.blur_on_rounded,
         title: 'ฝุ่น PM2.5',
-        value: '18',
+        value: pm25,
         unit: 'µg/m³',
-        status: 'อากาศดี',
-        statusColor: Color(0xFF18A06F),
-        iconColor: Color(0xFF2E83C5),
+        status: pm25 == 'N/A' ? 'ไม่มีข้อมูล' : 'อากาศดี',
+        statusColor: pm25 == 'N/A' ? const Color(0xFF8A94A5) : const Color(0xFF18A06F),
+        iconColor: const Color(0xFF2E83C5),
       ),
       _SensorData(
         icon: Icons.light_mode_rounded,
         title: 'ความเข้มแสง',
-        value: '620',
+        value: lux,
         unit: 'lux',
-        status: 'เหมาะสม',
-        statusColor: Color(0xFF18A06F),
-        iconColor: Color(0xFFE5A52A),
+        status: lux == 'N/A' ? 'ไม่มีข้อมูล' : 'เหมาะสม',
+        statusColor: lux == 'N/A' ? const Color(0xFF8A94A5) : const Color(0xFF18A06F),
+        iconColor: const Color(0xFFE5A52A),
       ),
       _SensorData(
         icon: Icons.air_rounded,
         title: 'แก๊สและควัน',
-        value: 'ปกติ',
+        value: aqi == 'N/A' ? 'ไม่มีข้อมูล' : 'ปกติ',
         unit: '',
-        status: 'ไม่พบความผิดปกติ',
-        statusColor: Color(0xFF18A06F),
-        iconColor: Color(0xFF8A65C7),
+        status: aqi == 'N/A' ? 'ไม่มีข้อมูล' : 'ไม่พบความผิดปกติ',
+        statusColor: aqi == 'N/A' ? const Color(0xFF8A94A5) : const Color(0xFF18A06F),
+        iconColor: const Color(0xFF8B5CF6),
       ),
     ];
 
@@ -1336,7 +1475,19 @@ class _TodayStatusCard extends StatelessWidget {
 // ============================================================================
 
 class _AttendanceSummaryCard extends StatelessWidget {
-  const _AttendanceSummaryCard();
+  final String rate;
+  final double rateValue;
+  final int presentCount;
+  final int lateCount;
+  final int excusedCount;
+
+  const _AttendanceSummaryCard({
+    this.rate = 'ยังไม่มีข้อมูล',
+    this.rateValue = 0,
+    this.presentCount = 0,
+    this.lateCount = 0,
+    this.excusedCount = 0,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1353,74 +1504,81 @@ class _AttendanceSummaryCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                '96%',
-                style: TextStyle(
-                  fontSize: 31,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF18996C),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 5),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF8F2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'ปกติ',
-                    style: TextStyle(
-                      color: Color(0xFF169A6E),
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
+              Expanded(
+                child: FittedBox(
+                  alignment: Alignment.centerLeft,
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    rate,
+                    style: const TextStyle(
+                      fontSize: 31,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF18996C),
                     ),
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              if (rateValue >= 0.8)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF8F2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'ปกติ',
+                      style: TextStyle(
+                        color: Color(0xFF169A6E),
+                        fontSize: 8,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 11),
           ClipRRect(
             borderRadius: BorderRadius.circular(30),
-            child: const LinearProgressIndicator(
-              value: .96,
+            child: LinearProgressIndicator(
+              value: rateValue.isNaN ? 0 : rateValue,
               minHeight: 9,
-              backgroundColor: Color(0xFFEDF0F5),
-              valueColor: AlwaysStoppedAnimation(
+              backgroundColor: const Color(0xFFEDF0F5),
+              valueColor: const AlwaysStoppedAnimation(
                 Color(0xFF2B8FC2),
               ),
             ),
           ),
           const SizedBox(height: 15),
-          const Row(
+          Row(
             children: [
               Expanded(
                 child: _AttendanceBox(
-                  value: '48',
+                  value: presentCount.toString(),
                   label: 'มาเรียน',
-                  color: Color(0xFF18A06F),
+                  color: const Color(0xFF18A06F),
                 ),
               ),
-              SizedBox(width: 7),
+              const SizedBox(width: 7),
               Expanded(
                 child: _AttendanceBox(
-                  value: '2',
+                  value: excusedCount.toString(),
                   label: 'ลา',
-                  color: Color(0xFFF09A37),
+                  color: const Color(0xFFF09A37),
                 ),
               ),
-              SizedBox(width: 7),
+              const SizedBox(width: 7),
               Expanded(
                 child: _AttendanceBox(
-                  value: '0',
+                  value: lateCount.toString(),
                   label: 'สาย',
-                  color: Color(0xFFDA5961),
+                  color: const Color(0xFFDA5961),
                 ),
               ),
             ],
@@ -1612,96 +1770,138 @@ class _LearningOverviewCard extends StatelessWidget {
 // ============================================================================
 
 class _ScheduleCard extends StatelessWidget {
-  const _ScheduleCard();
+  final List<StudentScheduleItem> schedule;
+  const _ScheduleCard({this.schedule = const []});
+
+  String _formatDateThai(DateTime date) {
+    final days = [
+      'อาทิตย์',
+      'จันทร์',
+      'อังคาร',
+      'พุธ',
+      'พฤหัสบดี',
+      'ศุกร์',
+      'เสาร์'
+    ];
+    final months = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    ];
+    return '${days[date.weekday % 7]} ${date.day} ${months[date.month - 1]} ${date.year + 543}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    const lessons = [
-      ('08:30', 'ภาษาไทย', 'ครูศิริพร', false),
-      ('09:30', 'คณิตศาสตร์', 'ครูอนุชา', true),
-      ('10:30', 'วิทยาศาสตร์', 'ครูปวีณา · Lab 2', false),
-      ('13:00', 'ภาษาอังกฤษ', 'Teacher Anna', false),
-      ('14:00', 'สังคมศึกษา', 'ครูสมชาย', false),
-    ];
+    final now = DateTime.now();
+    final today = now.weekday;
+    final todaySchedule = schedule.where((s) => s.dayOfWeek == today).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionTitle(
+          _SectionTitle(
             icon: Icons.schedule_rounded,
             title: 'ตารางเรียนวันนี้',
-            subtitle: 'ศุกร์ 21 สิงหาคม 2569',
+            subtitle: _formatDateThai(now),
           ),
           const SizedBox(height: 13),
-          for (final lesson in lessons)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 43,
-                    child: Text(
-                      lesson.$1,
-                      style: const TextStyle(
-                        color: Color(0xFF8993A4),
-                        fontSize: 8.7,
+          if (todaySchedule.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'ไม่มีตารางเรียนวันนี้',
+                  style: TextStyle(
+                    color: Color(0xFF8993A4),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            )
+          else
+            for (final lesson in todaySchedule)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 43,
+                      child: Text(
+                        lesson.startTime.substring(0, 5),
+                        style: const TextStyle(
+                          color: Color(0xFF8993A4),
+                          fontSize: 8.7,
+                        ),
                       ),
                     ),
-                  ),
-                  Container(
-                    width: 4,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: lesson.$4
-                          ? const Color(0xFFFF9B3D)
-                          : const Color(0xFF63A0DA),
-                      borderRadius: BorderRadius.circular(10),
+                    Container(
+                      width: 4,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _isCurrentLesson(lesson, now)
+                            ? const Color(0xFFFF9B3D)
+                            : const Color(0xFF63A0DA),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                lesson.$2,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  lesson.subjectName,
+                                  style: const TextStyle(
+                                    color: Color(0xFF333E52),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (lesson.$4) ...[
-                              const SizedBox(width: 6),
-                              const _SmallChip(
-                                text: 'กำลังเรียน',
-                                orange: true,
-                              ),
+                              if (_isCurrentLesson(lesson, now)) ...[
+                                const SizedBox(width: 6),
+                                const _SmallChip(
+                                  text: 'กำลังเรียน',
+                                  orange: true,
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          lesson.$3,
-                          style: const TextStyle(
-                            fontSize: 8.5,
-                            color: Color(0xFF8993A4),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 2),
+                          Text(
+                            lesson.room ?? 'ห้องเรียนปกติ',
+                            style: const TextStyle(
+                              color: Color(0xFF8993A4),
+                              fontSize: 8.3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
         ],
       ),
     );
+  }
+
+  bool _isCurrentLesson(StudentScheduleItem lesson, DateTime now) {
+    try {
+      final startParts = lesson.startTime.split(':');
+      final endParts = lesson.endTime.split(':');
+      final start = DateTime(now.year, now.month, now.day, int.parse(startParts[0]), int.parse(startParts[1]));
+      final end = DateTime(now.year, now.month, now.day, int.parse(endParts[0]), int.parse(endParts[1]));
+      return now.isAfter(start) && now.isBefore(end);
+    } catch (_) {
+      return false;
+    }
   }
 }
 
@@ -1710,107 +1910,116 @@ class _ScheduleCard extends StatelessWidget {
 // ============================================================================
 
 class _HomeworkCard extends StatelessWidget {
-  const _HomeworkCard();
+  final List<Map<String, dynamic>> assignments;
+  const _HomeworkCard({required this.assignments});
 
   @override
   Widget build(BuildContext context) {
-    const tasks = [
-      (
-        'แบบฝึกหัดคณิตศาสตร์ บทที่ 5',
-        'ส่งพรุ่งนี้ 16:00',
-        'ใกล้ถึงกำหนด',
-        Color(0xFFF09A37)
-      ),
-      (
-        'รายงานวิทยาศาสตร์',
-        'ส่ง 25 ส.ค.',
-        'ทำแล้ว',
-        Color(0xFF18A06F)
-      ),
-      (
-        'อ่านบทความภาษาอังกฤษ',
-        'ส่ง 27 ส.ค.',
-        'รอดำเนินการ',
-        Color(0xFF5E8CC4)
-      ),
-    ];
-
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _SectionTitle(
             icon: Icons.assignment_rounded,
-            title: 'งานและการบ้าน',
-            subtitle: 'รายการที่ต้องติดตาม',
+            title: 'ภาระงานและการบ้าน',
+            subtitle: 'รายการงานค้างและกำหนดส่งของแต่ละรายวิชา',
           ),
           const SizedBox(height: 12),
-          for (final task in tasks)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: Color(0xFFEDF0F4),
-                  ),
+          if (assignments.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'ไม่มีภาระงานค้าง',
+                  style: TextStyle(color: Color(0xFF8A94A5), fontSize: 10.5),
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: task.$4,
-                      shape: BoxShape.circle,
+            )
+          else
+            ...assignments.map((assignment) {
+              final title = assignment['title'] as String? ?? 'ไม่มีชื่อ';
+              final courseName = assignment['course_name'] as String? ?? '';
+              final dueAtStr = assignment['due_at'] as String?;
+              final status = assignment['status'] as String? ?? 'pending';
+              
+              String dueDisplay = 'ไม่มีกำหนด';
+              if (dueAtStr != null) {
+                final d = DateTime.tryParse(dueAtStr)?.toLocal();
+                if (d != null) {
+                  dueDisplay = 'ส่ง ${d.day}/${d.month} เวลา ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')} น.';
+                }
+              }
+
+              final isDone = status != 'pending';
+              final color = isDone ? const Color(0xFF18A06F) : const Color(0xFFF09A37);
+              final statusText = isDone ? 'ส่งแล้ว' : 'รอส่ง';
+
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Color(0xFFEDF0F4),
                     ),
                   ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          task.$1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          task.$2,
-                          style: const TextStyle(
-                            fontSize: 8.2,
-                            color: Color(0xFF8A94A5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: task.$4.withValues(alpha: .09),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      task.$3,
-                      style: TextStyle(
-                        color: task.$4,
-                        fontSize: 7.5,
-                        fontWeight: FontWeight.w700,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$courseName: $title',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            dueDisplay,
+                            style: const TextStyle(
+                              fontSize: 8.2,
+                              color: Color(0xFF8A94A5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: .09),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                         statusText,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: 7.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
         ],
       ),
     );
@@ -1911,16 +2120,19 @@ class _SchoolMessageCard extends StatelessWidget {
 // ============================================================================
 
 class _UpcomingActivityCard extends StatelessWidget {
-  const _UpcomingActivityCard();
+  final List<SchoolEventItem> events;
+  const _UpcomingActivityCard({this.events = const []});
+
+  String _formatShortDate(DateTime date) {
+    final months = [
+      'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+      'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+    ];
+    return '${date.day} ${months[date.month - 1]}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    const activities = [
-      ('25 ส.ค.', 'กิจกรรมวันวิทยาศาสตร์', 'หอประชุมใหญ่'),
-      ('28 ส.ค.', 'ประชุมผู้ปกครองออนไลน์', 'Google Meet'),
-      ('7 ก.ย.', 'เริ่มสอบกลางภาค', 'ตามตารางสอบ'),
-    ];
-
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1931,55 +2143,69 @@ class _UpcomingActivityCard extends StatelessWidget {
             subtitle: 'สิ่งที่ผู้ปกครองควรทราบล่วงหน้า',
           ),
           const SizedBox(height: 12),
-          for (final activity in activities)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 11),
-              child: Row(
-                children: [
-                  Container(
-                    width: 54,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5FA),
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Text(
-                      activity.$1,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF4A607A),
+          if (events.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'ยังไม่มีกำหนดการใหม่',
+                  style: TextStyle(
+                    color: Color(0xFF8993A4),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            )
+          else
+            for (final event in events)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 11),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F7FB),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _formatShortDate(event.startDate),
+                        style: const TextStyle(
+                          color: Color(0xFF173B69), // Navy color
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          activity.$2,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event.title,
+                            style: const TextStyle(
+                              color: Color(0xFF333E52),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        Text(
-                          activity.$3,
-                          style: const TextStyle(
-                            fontSize: 8.5,
-                            color: Color(0xFF8993A4),
+                          const SizedBox(height: 2),
+                          Text(
+                            event.location ?? 'ไม่ระบุสถานที่',
+                            style: const TextStyle(
+                              color: Color(0xFF8993A4),
+                              fontSize: 8.5,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
         ],
       ),
     );
@@ -2080,6 +2306,59 @@ class _SmallChip extends StatelessWidget {
           fontSize: 7.8,
           fontWeight: FontWeight.w800,
         ),
+      ),
+    );
+  }
+}
+
+class _QuickActionAppTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickActionAppTile({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              icon,
+              size: 26,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF333E52),
+              height: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }
