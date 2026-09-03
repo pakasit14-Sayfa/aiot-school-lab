@@ -162,7 +162,7 @@ class ParentPortalService {
       'p_start_date': '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}',
       'p_end_date': '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}',
       'p_reason': reason,
-      'p_attachment_path': attachmentPath,
+      'p_attachment_url': attachmentPath,
     });
   }
 }
