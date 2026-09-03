@@ -42,6 +42,10 @@ void main() {
 
     expect(find.text('นักเรียน ทดสอบ (บุตร)'), findsOneWidget);
     expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
+    expect(
+      find.text('ยังไม่มีข้อมูลการเข้าเรียนประจำคาบในวันนี้'),
+      findsNothing,
+    );
     expect(find.text('100%'), findsNothing);
     expect(find.text('96%'), findsNothing);
     expect(find.text('98%'), findsNothing);

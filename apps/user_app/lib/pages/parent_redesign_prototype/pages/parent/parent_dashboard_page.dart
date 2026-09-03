@@ -525,7 +525,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
           const _SectionTitle(
             icon: Icons.sensors_rounded,
             title: 'สภาพแวดล้อมโรงเรียน',
-            subtitle: 'ค่าล่าสุดจากเซนเซอร์ของโรงเรียน',
+            subtitle: 'ค่าเฉลี่ยจากค่าล่าสุดของเซนเซอร์โรงเรียน',
           ),
           const SizedBox(height: 14),
           if (_sensorError != null)

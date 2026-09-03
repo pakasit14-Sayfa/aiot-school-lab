@@ -71,10 +71,6 @@ DECLARE
 BEGIN
   SELECT * INTO v_actor FROM get_session_actor(p_token);
   IF NOT FOUND THEN RAISE EXCEPTION 'invalid_session'; END IF;
-  IF v_actor.role <> 'parent' THEN
-    RAISE EXCEPTION 'forbidden';
-  END IF;
-
 
   -- Ensure actor is an approved parent of this student
   IF NOT EXISTS (
@@ -89,7 +85,7 @@ BEGIN
   RETURN QUERY
   SELECT
     a.id AS assignment_id,
-    c.subject_name::varchar AS course_name,
+    c.name::varchar AS course_name,
     a.title::text,
     a.due_at,
     COALESCE(s.status::text, 'pending') AS status
@@ -102,6 +98,3 @@ BEGIN
   ORDER BY a.due_at ASC NULLS LAST;
 END;
 $func$;
-
-REVOKE ALL ON FUNCTION list_my_student_assignments(text, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION list_my_student_assignments(text, uuid) TO anon, authenticated;

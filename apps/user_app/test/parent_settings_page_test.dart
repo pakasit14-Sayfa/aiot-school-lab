@@ -35,6 +35,7 @@ void main() {
 
     expect(find.text('ผู้ปกครอง ทดสอบ'), findsOneWidget);
     expect(find.text('parent@example.com'), findsOneWidget);
+    expect(find.text('ยังไม่ได้เชื่อมโยงนักเรียน'), findsOneWidget);
     expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
     expect(find.text('น้องมะลิ'), findsNothing);
   });

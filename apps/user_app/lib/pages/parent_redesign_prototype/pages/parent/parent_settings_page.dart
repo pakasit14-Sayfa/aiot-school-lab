@@ -222,6 +222,12 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
         ),
       );
     }
+    if (_students.isEmpty) {
+      return const _StateCard(
+        icon: Icons.link_off_rounded,
+        message: 'ยังไม่ได้เชื่อมโยงนักเรียน',
+      );
+    }
     return const SizedBox.shrink();
   }
 

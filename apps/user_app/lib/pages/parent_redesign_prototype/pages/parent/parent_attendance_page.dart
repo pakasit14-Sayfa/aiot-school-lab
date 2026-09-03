@@ -852,7 +852,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
               ),
               child: const Center(
                 child: Text(
-                  'ยังไม่มีข้อมูลการเข้าเรียนประจำคาบในวันนี้',
+                  'ยังไม่มีข้อมูล',
                   style: TextStyle(
                     fontSize: 11.5,
                     color: Color(0xFF718096),
