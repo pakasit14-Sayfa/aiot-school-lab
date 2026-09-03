@@ -426,6 +426,15 @@ reference, but don't trust its per-role claims over this summary.
   consuming page; `student_score_page.dart` now shows it for real, see
   2026-08-27 in WORK_LOG.md.)
 
+  Parent verification update (2026-09-03): all 7 active Parent pages now
+  read real scoped data and use the exact empty-card text `ยังไม่มีข้อมูล`.
+  Fresh installs now bootstrap `school_events` in additive migration
+  `20260903005000_school_events_bootstrap.sql`; historical migration files
+  remain unchanged. `20260903030000_parent_portal_rpc_hardening.sql` closes the
+  selected-child/RLS/grant/audit gaps. Final verification passed 26/26
+  focused tests, scoped analysis, web build, fresh database reset, all 8
+  Parent-facing REST reads, and the leave submit/approve/audit/attendance flow.
+
 - **`school_admin`'s "นำเข้าข้อมูล" (bulk import) is now real, all 5 data
   types, as of 2026-08-26** — was previously a facade (fake file picker,
   hardcoded preview rows) that, for นักเรียน/ครูและบุคลากร, actually wrote
@@ -633,6 +642,12 @@ not. Parent is partially wired (home page only).
 `teacher_profile_page.dart`'s hardcoded stat fallbacks, both previously
 listed here, were fixed and independently live-verified 2026-08-27 —
 see `docs/handoff/WORK_LOG.md`.)*
+
+- **Parent academic calendar multi-child selection:** the RPC authorizes and
+  scopes the requested linked student correctly, but the current page supplies
+  the first linked student's id and has no child switcher. This is safe (no
+  cross-child or cross-school leak) but is a remaining UX limitation for parents
+  linked to more than one student.
 - **Super Admin RedTeam data-connectivity/UI-parity fixes (2026-08-31) —
   not yet click-tested in a real browser.** User asked for a RedTeam-style
   check of the whole Super Admin section ("เชื่อมครบหรือยัง...
