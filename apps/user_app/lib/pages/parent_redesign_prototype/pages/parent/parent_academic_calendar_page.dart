@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
 import '../../widgets/parent_common_widgets.dart';
 
+typedef ParentCalendarLoader = Future<List<CalendarEventItem>> Function();
+
 class ParentAcademicCalendarPage extends StatefulWidget {
-  const ParentAcademicCalendarPage({super.key});
+  final ParentCalendarLoader? eventsLoader;
+  final DateTime Function()? now;
+
+  const ParentAcademicCalendarPage({super.key, this.eventsLoader, this.now});
 
   @override
   State<ParentAcademicCalendarPage> createState() =>
@@ -12,121 +18,88 @@ class ParentAcademicCalendarPage extends StatefulWidget {
 
 class _ParentAcademicCalendarPageState
     extends State<ParentAcademicCalendarPage> {
-  static const Color _bg = Color(0xFFF5F7FB);
-  static const Color _primary = Color(0xFF2867B2);
+  static const _bg = Color(0xFFF5F7FB);
+  static const _primary = Color(0xFF2867B2);
+  static const _empty = 'ยังไม่มีข้อมูล';
 
-  DateTime selectedMonth = DateTime(2026, 8);
-  DateTime? selectedDate = DateTime(2026, 8, 21);
-  String selectedFilter = 'ทั้งหมด';
+  late DateTime _selectedMonth;
+  late DateTime _selectedDate;
+  String _selectedFilter = 'ทั้งหมด';
+  List<CalendarEventItem> _events = const [];
+  bool _loading = true;
+  bool _unauthenticated = false;
+  Object? _loadError;
+
+  DateTime get _now => (widget.now ?? DateTime.now)();
 
   @override
   void initState() {
     super.initState();
+    final today = _dateOnly(_now);
+    _selectedMonth = DateTime(today.year, today.month);
+    _selectedDate = today;
     _loadData();
   }
-
-  bool _loading = true;
-  String? _loadError;
 
   Future<void> _loadData() async {
     setState(() {
       _loading = true;
+      _unauthenticated = false;
       _loadError = null;
     });
-    try {
-      final items = await ParentPortalService.listCalendarEvents();
-      if (!mounted) return;
+    if (widget.eventsLoader == null && AuthService.sessionToken == null) {
       setState(() {
-        events = items
-            .map((row) => _AcademicEvent(
-                  date: row.startDate,
-                  endDate: row.endDate,
-                  title: row.title,
-                  description: row.description ?? '',
-                  type: _parseEventType(row.eventType),
-                  icon: _getEventIcon(_parseEventType(row.eventType)),
-                ))
-            .toList();
+        _loading = false;
+        _unauthenticated = true;
+      });
+      return;
+    }
+    try {
+      final items = [
+        ...await (widget.eventsLoader ??
+            ParentPortalService.listCalendarEvents)(),
+      ];
+      if (!mounted) return;
+      items.sort((a, b) => a.startDate.compareTo(b.startDate));
+      setState(() {
+        _events = items;
         _loading = false;
       });
-    } catch (e) {
+    } catch (error, stackTrace) {
+      debugPrint('ParentAcademicCalendarPage load failed: $error\n$stackTrace');
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดปฏิทินไม่สำเร็จ: $e';
+        _events = const [];
+        _loadError = error;
         _loading = false;
       });
     }
   }
 
-  final List<String> filters = const [
-    'ทั้งหมด',
-    'วันสอบ',
-    'กิจกรรม',
-    'วันหยุดโรงเรียน',
-    'วันหยุดนักขัตฤกษ์',
-  ];
+  List<CalendarEventItem> get _filteredEvents => _events.where((event) {
+    return _selectedFilter == 'ทั้งหมด' ||
+        _filterName(event.eventType) == _selectedFilter;
+  }).toList();
 
-  List<_AcademicEvent> events = [];
-  
-  _AcademicEventType _parseEventType(String type) {
-    return switch (type) {
-      'exam' => _AcademicEventType.exam,
-      'activity' => _AcademicEventType.activity,
-      'holiday' => _AcademicEventType.holiday,
-      'public_holiday' => _AcademicEventType.publicHoliday,
-      _ => _AcademicEventType.study,
-    };
-  }
-  
-  IconData _getEventIcon(_AcademicEventType type) {
-    return switch (type) {
-      _AcademicEventType.exam => Icons.edit_note_rounded,
-      _AcademicEventType.activity => Icons.celebration_rounded,
-      _AcademicEventType.holiday => Icons.beach_access_rounded,
-      _AcademicEventType.publicHoliday => Icons.flag_rounded,
-      _AcademicEventType.study => Icons.menu_book_rounded,
-    };
-  }
-
-  List<_AcademicEvent> get filteredEvents {
-    return events.where((event) {
-      final matchesFilter = selectedFilter == 'ทั้งหมด' ||
-          _filterName(event.type) == selectedFilter;
-      return matchesFilter;
+  List<CalendarEventItem> _eventsForDate(DateTime date) {
+    final target = _dateOnly(date);
+    return _filteredEvents.where((event) {
+      final start = _dateOnly(event.startDate);
+      final end = _dateOnly(event.endDate ?? event.startDate);
+      return !target.isBefore(start) && !target.isAfter(end);
     }).toList();
   }
 
-  List<_AcademicEvent> eventsForDate(DateTime date) {
-    return filteredEvents.where((event) {
-      final end = event.endDate ?? event.date;
-      final target = DateTime(date.year, date.month, date.day);
-      final start = DateTime(
-        event.date.year,
-        event.date.month,
-        event.date.day,
-      );
-      final endDay = DateTime(
-        end.year,
-        end.month,
-        end.day,
-      );
+  List<CalendarEventItem> get _upcomingEvents => _filteredEvents
+      .where(
+        (event) => !_dateOnly(
+          event.endDate ?? event.startDate,
+        ).isBefore(_dateOnly(_now)),
+      )
+      .toList();
 
-      return !target.isBefore(start) && !target.isAfter(endDay);
-    }).toList();
-  }
-
-  List<_AcademicEvent> get selectedDateEvents {
-    if (selectedDate == null) return const [];
-    return eventsForDate(selectedDate!);
-  }
-
-  List<_AcademicEvent> get upcomingEvents {
-    final today = DateTime(2026, 8, 21);
-    return filteredEvents
-        .where((event) => !event.date.isBefore(today))
-        .take(6)
-        .toList();
-  }
+  CalendarEventItem? get _nextEvent =>
+      _upcomingEvents.isEmpty ? null : _upcomingEvents.first;
 
   @override
   Widget build(BuildContext context) {
@@ -141,141 +114,70 @@ class _ParentAcademicCalendarPageState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ParentPageHeader(
+                  const ParentPageHeader(
                     title: 'ปฏิทินวิชาการ',
                     subtitle:
-                        'ติดตามวันสอบ วันหยุด กิจกรรม และกำหนดการสำคัญของบุตรหลาน',
+                        'ติดตามวันสอบ วันหยุด กิจกรรม และกำหนดการของโรงเรียน',
                     icon: Icons.calendar_month_rounded,
-                    trailing: _buildChildBadge(),
+                    trailing: _SchoolCalendarBadge(),
                   ),
                   const SizedBox(height: 18),
-
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: _primary,
-                          strokeWidth: 2.5,
-                        ),
-                      ),
-                    )
-                  else if (_loadError != null)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      margin: const EdgeInsets.only(bottom: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFFCA5A5)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline_rounded,
-                              color: Color(0xFFDC2626), size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _loadError!,
-                              style: const TextStyle(
-                                color: Color(0xFFB91C1C),
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _loadData,
-                            child: const Text('ลองใหม่'),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                  _buildTermHero(),
-
+                  _loadState(),
                   const SizedBox(height: 16),
-
-                  _buildSummaryCards(),
-
+                  _hero(),
                   const SizedBox(height: 16),
-
-                  _buildFilterBar(),
-
+                  _summaryCards(),
                   const SizedBox(height: 16),
-
+                  _filterBar(),
+                  const SizedBox(height: 16),
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth < 980) {
                         return Column(
                           children: [
-                            _buildCalendarCard(),
+                            _calendarCard(),
                             const SizedBox(height: 14),
-                            _buildSelectedDayCard(),
+                            _selectedDayCard(),
                           ],
                         );
                       }
-
-                      // ห้ามใช้ IntrinsicHeight ตรงนี้ เพราะด้านใน
-                      // _buildCalendarCard() มี LayoutBuilder
-                      // ซึ่งจะเกิด runtime error บน Flutter Web
                       return SizedBox(
                         height: 610,
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Expanded(
-                              flex: 7,
-                              child: _buildCalendarCard(),
-                            ),
+                            Expanded(flex: 7, child: _calendarCard()),
                             const SizedBox(width: 14),
-                            Expanded(
-                              flex: 4,
-                              child: _buildSelectedDayCard(),
-                            ),
+                            Expanded(flex: 4, child: _selectedDayCard()),
                           ],
                         ),
                       );
                     },
                   ),
-
                   const SizedBox(height: 16),
-
                   LayoutBuilder(
                     builder: (context, constraints) {
                       if (constraints.maxWidth < 900) {
-                        return const Column(
+                        return Column(
                           children: [
-                            _UpcomingAcademicEventsCard(),
-                            SizedBox(height: 14),
-                            _ImportantAcademicDatesCard(),
+                            _upcomingCard(),
+                            const SizedBox(height: 14),
+                            _importantDatesCard(),
                           ],
                         );
                       }
-
-                      return const IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              flex: 6,
-                              child: _UpcomingAcademicEventsCard(),
-                            ),
-                            SizedBox(width: 14),
-                            Expanded(
-                              flex: 5,
-                              child: _ImportantAcademicDatesCard(),
-                            ),
-                          ],
-                        ),
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(flex: 6, child: _upcomingCard()),
+                          const SizedBox(width: 14),
+                          Expanded(flex: 5, child: _importantDatesCard()),
+                        ],
                       );
                     },
                   ),
-
                   const SizedBox(height: 16),
-
-                  const _ParentReminderCard(),
+                  _reminderCard(),
                 ],
               ),
             ),
@@ -285,162 +187,118 @@ class _ParentAcademicCalendarPageState
     );
   }
 
-  Widget _buildChildBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 11,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: const Color(0xFFE1E6EE),
+  Widget _loadState() {
+    if (_loading) {
+      return const _StateCard(
+        icon: Icons.sync_rounded,
+        message: 'กำลังโหลดข้อมูล',
+      );
+    }
+    if (_unauthenticated) {
+      return const _StateCard(
+        icon: Icons.lock_outline_rounded,
+        message: 'กรุณาเข้าสู่ระบบเพื่อดูข้อมูล',
+      );
+    }
+    if (_loadError != null) {
+      return _StateCard(
+        icon: Icons.error_outline_rounded,
+        message: 'ไม่สามารถโหลดข้อมูลได้',
+        action: TextButton(
+          onPressed: _loadData,
+          child: const Text('ลองอีกครั้ง'),
         ),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.face_rounded,
-            color: _primary,
-            size: 18,
-          ),
-          SizedBox(width: 7),
-          Text(
-            'น้องมะลิ · ม.2/1',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
+      );
+    }
+    return const SizedBox.shrink();
   }
 
-  Widget _buildTermHero() {
+  Widget _hero() {
+    final next = _nextEvent;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF1C5790),
-            Color(0xFF2D83C5),
-          ],
+          colors: [Color(0xFF1C5790), Color(0xFF2D83C5)],
         ),
         borderRadius: BorderRadius.circular(22),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final mobile = constraints.maxWidth < 720;
-
           final left = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ภาคเรียนปัจจุบัน',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: .76),
-                  fontSize: 9.5,
-                ),
+                'ปฏิทินโรงเรียน',
+                style: TextStyle(color: Colors.white.withValues(alpha: .76)),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'ภาคเรียนที่ 1 / 2569',
-                style: TextStyle(
+              Text(
+                _events.isEmpty ? _empty : _thaiMonthYear(_selectedMonth),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 6),
-              Text(
-                'เปิดเรียน 18 พฤษภาคม 2569 · ปิดภาคเรียน 17 ตุลาคม 2569',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: .78),
-                  fontSize: 9.5,
-                ),
-              ),
               const SizedBox(height: 14),
-              const Wrap(
+              Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  _AcademicHeroBadge(
+                  _HeroBadge(
                     icon: Icons.today_rounded,
-                    text: 'วันนี้ 21 ส.ค. 2569',
+                    text: 'วันนี้ ${_formatDate(_now)}',
                   ),
-                  _AcademicHeroBadge(
-                    icon: Icons.edit_note_rounded,
-                    text: 'กลางภาค 7–11 ก.ย.',
-                  ),
-                  _AcademicHeroBadge(
+                  _HeroBadge(
                     icon: Icons.event_available_rounded,
-                    text: 'ปลายภาค 12–16 ต.ค.',
+                    text: _events.isEmpty
+                        ? _empty
+                        : '${_upcomingEvents.length} กำหนดการถัดไป',
                   ),
                 ],
               ),
             ],
           );
-
           final right = Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: .12),
               borderRadius: BorderRadius.circular(17),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'กำหนดการถัดไป',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 8.5,
-                  ),
+                  style: TextStyle(color: Colors.white70),
                 ),
-                SizedBox(height: 5),
+                const SizedBox(height: 5),
                 Text(
-                  '22 ส.ค.',
-                  style: TextStyle(
+                  next == null ? _empty : _formatDate(next.startDate),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                Text(
-                  'ส่งแบบฝึกหัดคณิตศาสตร์',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                if (next != null)
+                  Text(next.title, style: const TextStyle(color: Colors.white)),
               ],
             ),
           );
-
-          if (mobile) {
+          if (constraints.maxWidth < 720) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                left,
-                const SizedBox(height: 15),
-                right,
-              ],
+              children: [left, const SizedBox(height: 15), right],
             );
           }
-
           return Row(
             children: [
               Expanded(child: left),
               const SizedBox(width: 20),
-              SizedBox(
-                width: 220,
-                child: right,
-              ),
+              SizedBox(width: 240, child: right),
             ],
           );
         },
@@ -448,282 +306,201 @@ class _ParentAcademicCalendarPageState
     );
   }
 
-  Widget _buildSummaryCards() {
-    const items = [
-      _CalendarSummaryData(
-        title: 'วันสอบ',
-        value: '10 วัน',
-        subtitle: 'กลางภาค + ปลายภาค',
-        icon: Icons.edit_note_rounded,
-        color: Color(0xFFF09A37),
+  Widget _summaryCards() {
+    final cards = [
+      ('วันสอบ', 'exam', Icons.edit_note_rounded, const Color(0xFFF09A37)),
+      (
+        'กิจกรรม',
+        'activity',
+        Icons.celebration_rounded,
+        const Color(0xFF8A65C7),
       ),
-      _CalendarSummaryData(
-        title: 'กิจกรรม',
-        value: '3',
-        subtitle: 'กิจกรรมที่กำลังจะถึง',
-        icon: Icons.celebration_rounded,
-        color: Color(0xFF8A65C7),
+      (
+        'หยุดโรงเรียน',
+        'holiday',
+        Icons.beach_access_rounded,
+        const Color(0xFF18A06F),
       ),
-      _CalendarSummaryData(
-        title: 'หยุดโรงเรียน',
-        value: '2 วัน',
-        subtitle: 'ปิดภาคเรียน/หยุดพิเศษ',
-        icon: Icons.beach_access_rounded,
-        color: Color(0xFF18A06F),
-      ),
-      _CalendarSummaryData(
-        title: 'หยุดนักขัตฤกษ์',
-        value: '1 วัน',
-        subtitle: 'ตามประกาศรัฐบาล',
-        icon: Icons.flag_rounded,
-        color: Color(0xFFDB5962),
+      (
+        'หยุดนักขัตฤกษ์',
+        'public_holiday',
+        Icons.flag_rounded,
+        const Color(0xFFDB5962),
       ),
     ];
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final columns = constraints.maxWidth >= 1000
             ? 4
             : constraints.maxWidth >= 600
-                ? 2
-                : 1;
-
+            ? 2
+            : 1;
         const gap = 12.0;
-        final width =
-            (constraints.maxWidth - gap * (columns - 1)) / columns;
-
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
-          children: [
-            for (final item in items)
-              SizedBox(
-                width: width,
-                child: _CalendarSummaryTile(data: item),
+          children: cards.map((item) {
+            final count = _events
+                .where((event) => event.eventType == item.$2)
+                .length;
+            return SizedBox(
+              width: width,
+              child: _MetricCard(
+                title: item.$1,
+                value: _events.isEmpty ? _empty : '$count',
+                icon: item.$3,
+                color: item.$4,
               ),
-          ],
+            );
+          }).toList(),
         );
       },
     );
   }
 
-  Widget _buildFilterBar() {
-    return ParentCard(
-      padding: const EdgeInsets.all(13),
-      child: Wrap(
-        spacing: 7,
-        runSpacing: 7,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(right: 4),
-            child: Text(
-              'แสดง',
-              style: TextStyle(
-                fontSize: 9,
-                color: Color(0xFF7F899A),
+  Widget _filterBar() => ParentCard(
+    padding: const EdgeInsets.all(13),
+    child: Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Text('แสดง'),
+        ...[
+          'ทั้งหมด',
+          'วันสอบ',
+          'กิจกรรม',
+          'วันหยุดโรงเรียน',
+          'วันหยุดนักขัตฤกษ์',
+        ].map(
+          (filter) => ChoiceChip(
+            label: Text(filter),
+            selected: _selectedFilter == filter,
+            onSelected: (_) => setState(() => _selectedFilter = filter),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _calendarCard() => ParentCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: _SectionTitle(
+                icon: Icons.calendar_month_rounded,
+                title: 'ปฏิทินรายเดือน',
+                subtitle: 'เลือกวันที่เพื่อดูรายละเอียด',
               ),
             ),
-          ),
-          for (final filter in filters)
-            ChoiceChip(
-              label: Text(
-                filter,
-                style: const TextStyle(fontSize: 9),
+            IconButton(
+              tooltip: 'เดือนก่อนหน้า',
+              onPressed: () => setState(
+                () => _selectedMonth = DateTime(
+                  _selectedMonth.year,
+                  _selectedMonth.month - 1,
+                ),
               ),
-              selected: selectedFilter == filter,
-              onSelected: (_) {
-                setState(() {
-                  selectedFilter = filter;
-                });
-              },
+              icon: const Icon(Icons.chevron_left_rounded),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalendarCard() {
-    return ParentCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: _AcademicSectionTitle(
-                  icon: Icons.calendar_month_rounded,
-                  title: 'ปฏิทินรายเดือน',
-                  subtitle: 'เลือกวันที่เพื่อดูรายละเอียด',
+            Text(
+              _thaiMonthYear(_selectedMonth),
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            IconButton(
+              tooltip: 'เดือนถัดไป',
+              onPressed: () => setState(
+                () => _selectedMonth = DateTime(
+                  _selectedMonth.year,
+                  _selectedMonth.month + 1,
                 ),
               ),
-              IconButton(
-                tooltip: 'เดือนก่อนหน้า',
-                onPressed: () {
-                  setState(() {
-                    selectedMonth = DateTime(
-                      selectedMonth.year,
-                      selectedMonth.month - 1,
-                    );
-                  });
-                },
-                icon: const Icon(
-                  Icons.chevron_left_rounded,
-                  size: 20,
-                ),
-              ),
-              Text(
-                _thaiMonthYear(selectedMonth),
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              IconButton(
-                tooltip: 'เดือนถัดไป',
-                onPressed: () {
-                  setState(() {
-                    selectedMonth = DateTime(
-                      selectedMonth.year,
-                      selectedMonth.month + 1,
-                    );
-                  });
-                },
-                icon: const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 13),
-          const Row(
-            children: [
-              _WeekHeader('อา.'),
-              _WeekHeader('จ.'),
-              _WeekHeader('อ.'),
-              _WeekHeader('พ.'),
-              _WeekHeader('พฤ.'),
-              _WeekHeader('ศ.'),
-              _WeekHeader('ส.'),
-            ],
-          ),
-          const SizedBox(height: 7),
-          _buildMonthGrid(),
-          const SizedBox(height: 12),
-          const Wrap(
-            spacing: 12,
-            runSpacing: 7,
-            children: [
-              _CalendarLegend(
-                label: 'วันสอบ',
-                color: Color(0xFFF09A37),
-              ),
-              _CalendarLegend(
-                label: 'กิจกรรม',
-                color: Color(0xFF8A65C7),
-              ),
-              _CalendarLegend(
-                label: 'วันหยุดโรงเรียน',
-                color: Color(0xFF18A06F),
-              ),
-              _CalendarLegend(
-                label: 'วันหยุดนักขัตฤกษ์',
-                color: Color(0xFFDB5962),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+              icon: const Icon(Icons.chevron_right_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 13),
+        const Row(
+          children: [
+            _WeekHeader('อา.'),
+            _WeekHeader('จ.'),
+            _WeekHeader('อ.'),
+            _WeekHeader('พ.'),
+            _WeekHeader('พฤ.'),
+            _WeekHeader('ศ.'),
+            _WeekHeader('ส.'),
+          ],
+        ),
+        const SizedBox(height: 7),
+        _monthGrid(),
+        const SizedBox(height: 12),
+        const Wrap(
+          spacing: 12,
+          runSpacing: 7,
+          children: [
+            _Legend(label: 'วันสอบ', color: Color(0xFFF09A37)),
+            _Legend(label: 'กิจกรรม', color: Color(0xFF8A65C7)),
+            _Legend(label: 'วันหยุดโรงเรียน', color: Color(0xFF18A06F)),
+            _Legend(label: 'วันหยุดนักขัตฤกษ์', color: Color(0xFFDB5962)),
+          ],
+        ),
+      ],
+    ),
+  );
 
-  Widget _buildMonthGrid() {
-    final firstDay = DateTime(
-      selectedMonth.year,
-      selectedMonth.month,
-      1,
-    );
-    final daysInMonth = DateTime(
-      selectedMonth.year,
-      selectedMonth.month + 1,
-      0,
-    ).day;
-
-    final leadingEmpty = firstDay.weekday % 7;
-    final totalCells = leadingEmpty + daysInMonth;
-    final rows = (totalCells / 7).ceil();
-    final cellCount = rows * 7;
-
+  Widget _monthGrid() {
+    final first = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final days = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final leading = first.weekday % 7;
+    final cells = ((leading + days) / 7).ceil() * 7;
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 5.0;
-        final cellWidth =
-            (constraints.maxWidth - (gap * 6)) / 7;
-
+        final width = (constraints.maxWidth - gap * 6) / 7;
         return Wrap(
           spacing: gap,
           runSpacing: gap,
-          children: [
-            for (int index = 0; index < cellCount; index++)
-              SizedBox(
-                width: cellWidth,
-                height: constraints.maxWidth < 650 ? 60 : 68,
-                child: _buildCalendarCell(
-                  index: index,
-                  leadingEmpty: leadingEmpty,
-                  daysInMonth: daysInMonth,
-                ),
-              ),
-          ],
+          children: List.generate(cells, (index) {
+            final day = index - leading + 1;
+            if (day < 1 || day > days) {
+              return SizedBox(width: width, height: 68);
+            }
+            final date = DateTime(
+              _selectedMonth.year,
+              _selectedMonth.month,
+              day,
+            );
+            return SizedBox(
+              width: width,
+              height: 68,
+              child: _calendarCell(date),
+            );
+          }),
         );
       },
     );
   }
 
-  Widget _buildCalendarCell({
-    required int index,
-    required int leadingEmpty,
-    required int daysInMonth,
-  }) {
-    final day = index - leadingEmpty + 1;
-
-    if (day < 1 || day > daysInMonth) {
-      return const SizedBox();
-    }
-
-    final date = DateTime(
-      selectedMonth.year,
-      selectedMonth.month,
-      day,
-    );
-
-    final dayEvents = eventsForDate(date);
-    final isSelected = selectedDate != null &&
-        _sameDay(date, selectedDate!);
-    final isToday = _sameDay(
-      date,
-      DateTime(2026, 8, 21),
-    );
-
+  Widget _calendarCell(DateTime date) {
+    final items = _eventsForDate(date);
+    final selected = _sameDay(date, _selectedDate);
+    final today = _sameDay(date, _now);
     return Material(
-      color: isSelected
-          ? const Color(0xFFEAF3FF)
-          : const Color(0xFFF9FAFC),
+      color: selected ? const Color(0xFFEAF3FF) : const Color(0xFFF9FAFC),
       borderRadius: BorderRadius.circular(11),
       child: InkWell(
         borderRadius: BorderRadius.circular(11),
-        onTap: () {
-          setState(() {
-            selectedDate = date;
-          });
-        },
+        onTap: () => setState(() => _selectedDate = date),
         child: Container(
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(11),
             border: Border.all(
-              color: isSelected
+              color: selected
                   ? const Color(0xFF7EAFE1)
                   : const Color(0xFFE9ECF1),
             ),
@@ -731,47 +508,39 @@ class _ParentAcademicCalendarPageState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 23,
-                    height: 23,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isToday
-                          ? _primary
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      '$day',
-                      style: TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        color: isToday
-                            ? Colors.white
-                            : const Color(0xFF3F4B5C),
-                      ),
-                    ),
+              Container(
+                width: 23,
+                height: 23,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: today ? _primary : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    color: today ? Colors.white : const Color(0xFF3F4B5C),
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
+                ),
               ),
               const Spacer(),
-              if (dayEvents.isNotEmpty)
+              if (items.isNotEmpty)
                 Wrap(
                   spacing: 3,
-                  runSpacing: 3,
-                  children: [
-                    for (final event in dayEvents.take(3))
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: _eventColor(event.type),
-                          shape: BoxShape.circle,
+                  children: items
+                      .take(3)
+                      .map(
+                        (event) => Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: _eventColor(event.eventType),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                  ],
+                      )
+                      .toList(),
                 ),
             ],
           ),
@@ -780,21 +549,18 @@ class _ParentAcademicCalendarPageState
     );
   }
 
-  Widget _buildSelectedDayCard() {
-    final date = selectedDate ?? DateTime(2026, 8, 21);
-    final items = selectedDateEvents;
-
+  Widget _selectedDayCard() {
+    final items = _eventsForDate(_selectedDate);
     return ParentCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _AcademicSectionTitle(
+          const _SectionTitle(
             icon: Icons.event_note_rounded,
             title: 'รายละเอียดวันที่เลือก',
             subtitle: 'กำหนดการของวัน',
           ),
           const SizedBox(height: 14),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(13),
@@ -802,737 +568,272 @@ class _ParentAcademicCalendarPageState
               color: const Color(0xFFF0F6FF),
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _primary,
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Text(
-                    '${date.day}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _fullThaiDate(date),
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              _fullThaiDate(_selectedDate),
+              style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
-
           const SizedBox(height: 14),
-
           if (items.isEmpty)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFC),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: const Column(
-                children: [
-                  Icon(
-                    Icons.event_available_rounded,
-                    color: Color(0xFF8A94A5),
-                    size: 30,
-                  ),
-                  SizedBox(height: 7),
-                  Text(
-                    'ไม่มีกำหนดการพิเศษ',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  Text(
-                    'เรียนตามตารางปกติ',
-                    style: TextStyle(
-                      fontSize: 8,
-                      color: Color(0xFF8993A4),
-                    ),
-                  ),
-                ],
-              ),
-            )
+            const _EmptyState()
           else
-            for (final item in items)
-              _SelectedEventTile(event: item),
+            ...items.map((event) => _EventTile(event: event)),
         ],
       ),
     );
   }
 
-  String _filterName(_AcademicEventType type) {
-    return switch (type) {
-      _AcademicEventType.exam => 'วันสอบ',
-      _AcademicEventType.activity => 'กิจกรรม',
-      _AcademicEventType.holiday => 'วันหยุดโรงเรียน',
-      _AcademicEventType.publicHoliday => 'วันหยุดนักขัตฤกษ์',
-      _AcademicEventType.study => 'ทั้งหมด',
-    };
-  }
+  Widget _upcomingCard() => _EventListCard(
+    icon: Icons.upcoming_rounded,
+    title: 'กำหนดการที่กำลังจะถึง',
+    subtitle: 'รายการสำคัญที่ผู้ปกครองควรทราบ',
+    items: _upcomingEvents.take(6).toList(),
+  );
 
-  static Color _eventColor(_AcademicEventType type) {
-    return switch (type) {
-      _AcademicEventType.exam => const Color(0xFFF09A37),
-      _AcademicEventType.activity => const Color(0xFF8A65C7),
-      _AcademicEventType.holiday => const Color(0xFF18A06F),
-      _AcademicEventType.publicHoliday => const Color(0xFFDB5962),
-      _AcademicEventType.study => const Color(0xFF2E83C5),
-    };
-  }
+  Widget _importantDatesCard() => _EventListCard(
+    icon: Icons.flag_rounded,
+    title: 'วันสำคัญ',
+    subtitle: 'วันสอบและวันหยุดที่บันทึกในระบบ',
+    items: _filteredEvents
+        .where(
+          (event) => const {
+            'exam',
+            'holiday',
+            'public_holiday',
+          }.contains(event.eventType),
+        )
+        .take(6)
+        .toList(),
+  );
 
-  static bool _sameDay(DateTime a, DateTime b) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
-  }
+  Widget _reminderCard() => _EventListCard(
+    icon: Icons.notifications_active_rounded,
+    title: 'แจ้งเตือนสำหรับผู้ปกครอง',
+    subtitle: 'สามกำหนดการถัดไปจากปฏิทินโรงเรียน',
+    items: _upcomingEvents.take(3).toList(),
+    horizontal: true,
+  );
 
-  String _thaiMonthYear(DateTime date) {
-    const months = [
-      'มกราคม',
-      'กุมภาพันธ์',
-      'มีนาคม',
-      'เมษายน',
-      'พฤษภาคม',
-      'มิถุนายน',
-      'กรกฎาคม',
-      'สิงหาคม',
-      'กันยายน',
-      'ตุลาคม',
-      'พฤศจิกายน',
-      'ธันวาคม',
-    ];
-
-    return '${months[date.month - 1]} ${date.year + 543}';
-  }
-
-  String _fullThaiDate(DateTime date) {
-    const weekdays = [
-      'จันทร์',
-      'อังคาร',
-      'พุธ',
-      'พฤหัสบดี',
-      'ศุกร์',
-      'เสาร์',
-      'อาทิตย์',
-    ];
-
-    return '${weekdays[date.weekday - 1]} ${date.day} '
-        '${_thaiMonthYear(date)}';
-  }
+  String _filterName(String type) => switch (type) {
+    'exam' => 'วันสอบ',
+    'activity' => 'กิจกรรม',
+    'holiday' => 'วันหยุดโรงเรียน',
+    'public_holiday' => 'วันหยุดนักขัตฤกษ์',
+    _ => 'ทั้งหมด',
+  };
 }
 
-// ============================================================================
-// UPCOMING EVENTS
-// ============================================================================
-
-class _UpcomingAcademicEventsCard extends StatelessWidget {
-  const _UpcomingAcademicEventsCard();
-
+class _SchoolCalendarBadge extends StatelessWidget {
+  const _SchoolCalendarBadge();
   @override
-  Widget build(BuildContext context) {
-    const items = [
-      _UpcomingItem(
-        date: '25 ส.ค.',
-        title: 'กิจกรรมวันวิทยาศาสตร์',
-        detail: 'หอประชุมใหญ่ · 09:00 น.',
-        icon: Icons.science_rounded,
-        color: Color(0xFF8A65C7),
-      ),
-      _UpcomingItem(
-        date: '28 ส.ค.',
-        title: 'ประชุมผู้ปกครองออนไลน์',
-        detail: 'Google Meet · 18:30 น.',
-        icon: Icons.groups_rounded,
-        color: Color(0xFF2E83C5),
-      ),
-      _UpcomingItem(
-        date: '7–11 ก.ย.',
-        title: 'สอบกลางภาค',
-        detail: 'สอบตามตารางรายวิชา',
-        icon: Icons.edit_note_rounded,
-        color: Color(0xFFDB5962),
-      ),
-    ];
-
-    return ParentCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _AcademicSectionTitle(
-            icon: Icons.upcoming_rounded,
-            title: 'กำหนดการที่กำลังจะถึง',
-            subtitle: 'รายการสำคัญที่ผู้ปกครองควรทราบ',
-          ),
-          const SizedBox(height: 14),
-          for (final item in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 62,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: .08),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Text(
-                        item.date,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: item.color,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: .08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 17,
-                      color: item.color,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Text(
-                          item.detail,
-                          style: const TextStyle(
-                            fontSize: 8.2,
-                            color: Color(0xFF8993A4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(13),
+      border: Border.all(color: const Color(0xFFE1E6EE)),
+    ),
+    child: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.school_rounded, color: Color(0xFF2867B2), size: 18),
+        SizedBox(width: 7),
+        Text('ปฏิทินโรงเรียน', style: TextStyle(fontWeight: FontWeight.w800)),
+      ],
+    ),
+  );
 }
 
-// ============================================================================
-// IMPORTANT DATES
-// ============================================================================
-
-class _ImportantAcademicDatesCard extends StatelessWidget {
-  const _ImportantAcademicDatesCard();
-
-  @override
-  Widget build(BuildContext context) {
-    const items = [
-      ('18 พ.ค. 2569', 'เปิดภาคเรียน', Color(0xFF18A06F)),
-      ('7–11 ก.ย. 2569', 'สอบกลางภาค', Color(0xFFDB5962)),
-      ('9 ต.ค. 2569', 'วันเรียนวันสุดท้าย', Color(0xFF2E83C5)),
-      ('12–16 ต.ค. 2569', 'สอบปลายภาค', Color(0xFFDB5962)),
-      ('17 ต.ค. 2569', 'ปิดภาคเรียน', Color(0xFF8A65C7)),
-    ];
-
-    return ParentCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _AcademicSectionTitle(
-            icon: Icons.flag_rounded,
-            title: 'วันสำคัญของภาคเรียน',
-            subtitle: 'กำหนดการหลักของปีการศึกษา',
-          ),
-          const SizedBox(height: 14),
-          for (final item in items)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 11),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: item.$3,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 9),
-                  Expanded(
-                    child: Text(
-                      item.$2,
-                      style: const TextStyle(
-                        fontSize: 9.2,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    item.$1,
-                    style: const TextStyle(
-                      fontSize: 8.3,
-                      color: Color(0xFF7F899A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// REMINDER
-// ============================================================================
-
-class _ParentReminderCard extends StatelessWidget {
-  const _ParentReminderCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return ParentCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _AcademicSectionTitle(
-            icon: Icons.notifications_active_rounded,
-            title: 'แจ้งเตือนสำหรับผู้ปกครอง',
-            subtitle: 'สิ่งที่ควรเตรียมล่วงหน้า',
-          ),
-          const SizedBox(height: 13),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 900
-                  ? 3
-                  : constraints.maxWidth >= 550
-                      ? 2
-                      : 1;
-              const gap = 10.0;
-              final width =
-                  (constraints.maxWidth - gap * (columns - 1)) /
-                      columns;
-
-              const items = [
-                _ReminderItem(
-                  icon: Icons.science_rounded,
-                  title: 'กิจกรรมวันวิทยาศาสตร์',
-                  detail: 'สัปดาห์หน้า วันอังคาร 25 ส.ค.',
-                  color: Color(0xFF18A06F),
-                ),
-                _ReminderItem(
-                  icon: Icons.groups_rounded,
-                  title: 'ประชุมผู้ปกครอง',
-                  detail: '28 ส.ค. เวลา 18:30 น.',
-                  color: Color(0xFF2E83C5),
-                ),
-                _ReminderItem(
-                  icon: Icons.edit_note_rounded,
-                  title: 'สอบกลางภาค',
-                  detail: 'เหลืออีกประมาณ 2 สัปดาห์',
-                  color: Color(0xFFF09A37),
-                ),
-              ];
-
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (final item in items)
-                    SizedBox(
-                      width: width,
-                      child: item,
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// SMALL WIDGETS
-// ============================================================================
-
-class _AcademicHeroBadge extends StatelessWidget {
+class _StateCard extends StatelessWidget {
   final IconData icon;
-  final String text;
-
-  const _AcademicHeroBadge({
-    required this.icon,
-    required this.text,
-  });
-
+  final String message;
+  final Widget? action;
+  const _StateCard({required this.icon, required this.message, this.action});
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: .13),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: 14,
-            color: Colors.white,
-          ),
-          const SizedBox(width: 5),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 8.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => ParentCard(
+    padding: const EdgeInsets.all(14),
+    child: Row(
+      children: [
+        Icon(icon, color: const Color(0xFF2867B2)),
+        const SizedBox(width: 10),
+        Expanded(child: Text(message)),
+        ?action,
+      ],
+    ),
+  );
 }
 
-class _AcademicSectionTitle extends StatelessWidget {
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+  @override
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.symmetric(vertical: 22),
+    child: Center(
+      child: Text('ยังไม่มีข้อมูล', style: TextStyle(color: Color(0xFF8A94A5))),
+    ),
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-
-  const _AcademicSectionTitle({
+  const _SectionTitle({
     required this.icon,
     required this.title,
     required this.subtitle,
   });
-
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF3FF),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(
-            icon,
-            size: 17,
-            color: const Color(0xFF2867B2),
-          ),
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF3FF),
+          borderRadius: BorderRadius.circular(10),
         ),
-        const SizedBox(width: 9),
+        child: Icon(icon, color: const Color(0xFF2867B2), size: 17),
+      ),
+      const SizedBox(width: 9),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w900)),
+            Text(subtitle, style: const TextStyle(color: Color(0xFF8993A4))),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _HeroBadge extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _HeroBadge({required this.icon, required this.text});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: .12),
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white, size: 14),
+        const SizedBox(width: 5),
+        Text(text, style: const TextStyle(color: Colors.white)),
+      ],
+    ),
+  );
+}
+
+class _MetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color color;
+  const _MetricCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+  @override
+  Widget build(BuildContext context) => ParentCard(
+    padding: const EdgeInsets.all(15),
+    child: Row(
+      children: [
+        Icon(icon, color: color, size: 26),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(title, style: const TextStyle(color: Color(0xFF7F899A))),
               Text(
-                title,
+                value,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 8.3,
-                  color: Color(0xFF8993A4),
                 ),
               ),
             ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _CalendarSummaryTile extends StatelessWidget {
-  final _CalendarSummaryData data;
-
-  const _CalendarSummaryTile({
-    required this.data,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ParentCard(
-      padding: const EdgeInsets.all(15),
-      child: Row(
-        children: [
-          Container(
-            width: 43,
-            height: 43,
-            decoration: BoxDecoration(
-              color: data.color.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Icon(
-              data.icon,
-              size: 21,
-              color: data.color,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data.title,
-                  style: const TextStyle(
-                    fontSize: 8.5,
-                    color: Color(0xFF7F899A),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  data.value,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  data.subtitle,
-                  style: const TextStyle(
-                    fontSize: 7.8,
-                    color: Color(0xFF8C95A5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }
 
 class _WeekHeader extends StatelessWidget {
   final String text;
-
   const _WeekHeader(this.text);
-
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 8.5,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF758092),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Expanded(
+    child: Center(
+      child: Text(text, style: const TextStyle(color: Color(0xFF7F899A))),
+    ),
+  );
 }
 
-class _CalendarLegend extends StatelessWidget {
+class _Legend extends StatelessWidget {
   final String label;
   final Color color;
-
-  const _CalendarLegend({
-    required this.label,
-    required this.color,
-  });
-
+  const _Legend({required this.label, required this.color});
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 5),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 8,
-            color: Color(0xFF7D8798),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(label),
+    ],
+  );
 }
 
-class _SelectedEventTile extends StatelessWidget {
-  final _AcademicEvent event;
-
-  const _SelectedEventTile({
-    required this.event,
-  });
-
+class _EventTile extends StatelessWidget {
+  final CalendarEventItem event;
+  const _EventTile({required this.event});
   @override
   Widget build(BuildContext context) {
-    final color = _ParentAcademicCalendarPageState._eventColor(
-      event.type,
-    );
-
+    final color = _eventColor(event.eventType);
     return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(11),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: .07),
+        color: color.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            event.icon,
-            size: 18,
-            color: color,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  event.description,
-                  style: const TextStyle(
-                    fontSize: 8.3,
-                    color: Color(0xFF677386),
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReminderItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String detail;
-  final Color color;
-
-  const _ReminderItem({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .07),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: color.withValues(alpha: .12),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              icon,
-              size: 19,
-              color: color,
-            ),
-          ),
+          Icon(_eventIcon(event.eventType), color: color),
           const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  event.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-                Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 8,
-                    color: Color(0xFF7F899A),
+                if (event.description != null && event.description!.isNotEmpty)
+                  Text(event.description!),
+                if (event.location != null && event.location!.isNotEmpty)
+                  Text(
+                    event.location!,
+                    style: const TextStyle(color: Color(0xFF8993A4)),
                   ),
-                ),
               ],
             ),
           ),
@@ -1542,64 +843,135 @@ class _ReminderItem extends StatelessWidget {
   }
 }
 
-// ============================================================================
-// DATA
-// ============================================================================
-
-enum _AcademicEventType {
-  exam,
-  activity,
-  holiday,
-  publicHoliday,
-  study,
-}
-
-class _AcademicEvent {
-  final DateTime date;
-  final DateTime? endDate;
-  final String title;
-  final String description;
-  final _AcademicEventType type;
+class _EventListCard extends StatelessWidget {
   final IconData icon;
-
-  const _AcademicEvent({
-    required this.date,
-    this.endDate,
-    required this.title,
-    required this.description,
-    required this.type,
-    required this.icon,
-  });
-}
-
-class _CalendarSummaryData {
   final String title;
-  final String value;
   final String subtitle;
-  final IconData icon;
-  final Color color;
-
-  const _CalendarSummaryData({
-    required this.title,
-    required this.value,
-    required this.subtitle,
+  final List<CalendarEventItem> items;
+  final bool horizontal;
+  const _EventListCard({
     required this.icon,
-    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.items,
+    this.horizontal = false,
   });
+  @override
+  Widget build(BuildContext context) => ParentCard(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(icon: icon, title: title, subtitle: subtitle),
+        const SizedBox(height: 14),
+        if (items.isEmpty)
+          const _EmptyState()
+        else if (horizontal)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 900
+                  ? 3
+                  : constraints.maxWidth >= 550
+                  ? 2
+                  : 1;
+              const gap = 10.0;
+              final width =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: items
+                    .map(
+                      (event) => SizedBox(
+                        width: width,
+                        child: _EventTile(event: event),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
+          )
+        else
+          ...items.map(
+            (event) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 88, child: Text(_formatDate(event.startDate))),
+                Expanded(child: _EventTile(event: event)),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
-class _UpcomingItem {
-  final String date;
-  final String title;
-  final String detail;
-  final IconData icon;
-  final Color color;
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
-  const _UpcomingItem({
-    required this.date,
-    required this.title,
-    required this.detail,
-    required this.icon,
-    required this.color,
-  });
+Color _eventColor(String type) => switch (type) {
+  'exam' => const Color(0xFFF09A37),
+  'activity' => const Color(0xFF8A65C7),
+  'holiday' => const Color(0xFF18A06F),
+  'public_holiday' => const Color(0xFFDB5962),
+  _ => const Color(0xFF2E83C5),
+};
+
+IconData _eventIcon(String type) => switch (type) {
+  'exam' => Icons.edit_note_rounded,
+  'activity' => Icons.celebration_rounded,
+  'holiday' => Icons.beach_access_rounded,
+  'public_holiday' => Icons.flag_rounded,
+  _ => Icons.menu_book_rounded,
+};
+
+String _formatDate(DateTime value) {
+  const months = [
+    'ม.ค.',
+    'ก.พ.',
+    'มี.ค.',
+    'เม.ย.',
+    'พ.ค.',
+    'มิ.ย.',
+    'ก.ค.',
+    'ส.ค.',
+    'ก.ย.',
+    'ต.ค.',
+    'พ.ย.',
+    'ธ.ค.',
+  ];
+  final local = value.toLocal();
+  return '${local.day} ${months[local.month - 1]} ${local.year + 543}';
+}
+
+String _thaiMonthYear(DateTime value) {
+  const months = [
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
+  ];
+  return '${months[value.month - 1]} ${value.year + 543}';
+}
+
+String _fullThaiDate(DateTime value) {
+  const weekdays = [
+    'จันทร์',
+    'อังคาร',
+    'พุธ',
+    'พฤหัสบดี',
+    'ศุกร์',
+    'เสาร์',
+    'อาทิตย์',
+  ];
+  return '${weekdays[value.weekday - 1]} ${_formatDate(value)}';
 }

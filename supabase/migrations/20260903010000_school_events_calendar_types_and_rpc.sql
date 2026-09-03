@@ -17,6 +17,24 @@
 
 set search_path = public, extensions;
 
+-- Bootstrap a table that previously existed only through an undocumented
+-- production-side SQL change. This is idempotent for existing deployments.
+create table if not exists school_events (
+  id uuid primary key default gen_random_uuid(),
+  school_id uuid not null references schools(id) on delete cascade,
+  title varchar not null,
+  location varchar,
+  start_date date not null,
+  end_date date not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_school_events_school_start_date
+  on school_events (school_id, start_date);
+
+alter table school_events enable row level security;
+revoke all on table school_events from public, anon, authenticated;
+
 alter table school_events
   add column if not exists event_type text not null default 'activity'
     check (event_type in ('holiday', 'public_holiday', 'exam', 'activity', 'study')),
@@ -48,6 +66,52 @@ where not exists (
 );
 
 -- ---------------------------------------------------------------------
+-- The parent dashboard already calls this compact upcoming-events RPC.
+-- Define it here as well so fresh databases match the deployed schema.
+create or replace function list_school_events(p_token text)
+returns table (
+  event_id uuid,
+  title varchar,
+  location varchar,
+  start_date date
+)
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_actor record;
+  v_school_id uuid;
+begin
+  select * into v_actor from get_session_actor(p_token);
+  if not found then raise exception 'invalid_session'; end if;
+
+  if v_actor.role = 'parent' then
+    select u.school_id into v_school_id
+    from parent_links pl
+    join users u on u.id = pl.student_id
+    where pl.parent_id = v_actor.user_id
+      and pl.status = 'approved'
+    order by pl.requested_at asc
+    limit 1;
+  else
+    v_school_id := v_actor.school_id;
+  end if;
+
+  if v_school_id is null then return; end if;
+
+  return query
+    select e.id, e.title, e.location, e.start_date
+    from school_events e
+    where e.school_id = v_school_id
+      and e.end_date >= current_date
+    order by e.start_date asc
+    limit 5;
+end;
+$$;
+
+grant execute on function list_school_events(text) to anon, authenticated;
+
 -- Full calendar read (no date/limit restriction, unlike
 -- list_school_events which is a "next 5 upcoming" widget query — left
 -- untouched so the dashboard card doesn't change behavior).

@@ -97,6 +97,34 @@ class StudentScheduleItem {
   }
 }
 
+class StudentAssignmentItem {
+  final String assignmentId;
+  final String courseName;
+  final String title;
+  final DateTime? dueAt;
+  final String status;
+
+  const StudentAssignmentItem({
+    required this.assignmentId,
+    required this.courseName,
+    required this.title,
+    this.dueAt,
+    required this.status,
+  });
+
+  factory StudentAssignmentItem.fromRow(Map<String, dynamic> row) {
+    return StudentAssignmentItem(
+      assignmentId: row['assignment_id'] as String,
+      courseName: row['course_name'] as String? ?? '',
+      title: row['title'] as String? ?? '',
+      dueAt: row['due_at'] != null
+          ? DateTime.tryParse(row['due_at'] as String)
+          : null,
+      status: row['status'] as String? ?? 'pending',
+    );
+  }
+}
+
 class StudentAttendanceItem {
   final String recordId;
   final String courseId;
@@ -136,7 +164,6 @@ class StudentAttendanceItem {
     );
   }
 }
-
 
 class SchoolEventItem {
   final String eventId;
