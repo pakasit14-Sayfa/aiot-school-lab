@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_core/shared_core.dart';
 import '../../widgets/parent_common_widgets.dart';
 
@@ -26,27 +25,36 @@ class _ParentAcademicCalendarPageState
     _loadData();
   }
 
+  bool _loading = true;
+  String? _loadError;
+
   Future<void> _loadData() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
     try {
-      final response = await Supabase.instance.client
-          .from('calendar_events')
-          .select()
-          .order('start_date', ascending: true);
-          
-      if (mounted) {
-        setState(() {
-          events = (response as List).map((row) => _AcademicEvent(
-            date: DateTime.parse(row['start_date']),
-            endDate: row['end_date'] != null ? DateTime.parse(row['end_date']) : null,
-            title: row['title'],
-            description: row['description'] ?? '',
-            type: _parseEventType(row['event_type']),
-            icon: _getEventIcon(_parseEventType(row['event_type'])),
-          )).toList();
-        });
-      }
+      final items = await ParentPortalService.listCalendarEvents();
+      if (!mounted) return;
+      setState(() {
+        events = items
+            .map((row) => _AcademicEvent(
+                  date: row.startDate,
+                  endDate: row.endDate,
+                  title: row.title,
+                  description: row.description ?? '',
+                  type: _parseEventType(row.eventType),
+                  icon: _getEventIcon(_parseEventType(row.eventType)),
+                ))
+            .toList();
+        _loading = false;
+      });
     } catch (e) {
-      print('Error loading calendar events: $e');
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดปฏิทินไม่สำเร็จ: $e';
+        _loading = false;
+      });
     }
   }
 
@@ -79,83 +87,6 @@ class _ParentAcademicCalendarPageState
       _AcademicEventType.study => Icons.menu_book_rounded,
     };
   }
-
-  /*
-  final List<_AcademicEvent> _mockEvents = [
-    _AcademicEvent(
-      date: DateTime(2026, 8, 12),
-      title: 'วันแม่แห่งชาติ',
-      description: 'วันหยุดนักขัตฤกษ์',
-      type: _AcademicEventType.publicHoliday,
-      icon: Icons.beach_access_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 8, 21),
-      title: 'เรียนตามตารางปกติ',
-      description: 'เรียนตามตารางประจำวัน',
-      type: _AcademicEventType.study,
-      icon: Icons.menu_book_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 8, 25),
-      title: 'กิจกรรมวันวิทยาศาสตร์',
-      description: 'หอประชุมใหญ่ · 09:00–15:00 น.',
-      type: _AcademicEventType.activity,
-      icon: Icons.science_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 8, 28),
-      title: 'ประชุมผู้ปกครองออนไลน์',
-      description: 'Google Meet · 18:30 น.',
-      type: _AcademicEventType.activity,
-      icon: Icons.groups_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 9, 7),
-      endDate: DateTime(2026, 9, 11),
-      title: 'สอบกลางภาค',
-      description: 'สอบตามตารางรายวิชา',
-      type: _AcademicEventType.exam,
-      icon: Icons.edit_note_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 9, 14),
-      title: 'วันหยุดหลังสอบกลางภาค',
-      description: 'ไม่มีการเรียนการสอน',
-      type: _AcademicEventType.holiday,
-      icon: Icons.beach_access_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 9, 18),
-      title: 'กิจกรรมแนะแนวการศึกษา',
-      description: 'ห้องประชุมอาคาร 2',
-      type: _AcademicEventType.activity,
-      icon: Icons.explore_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 10, 9),
-      title: 'วันเรียนวันสุดท้ายของภาคเรียน',
-      description: 'ก่อนเข้าสู่ช่วงสอบปลายภาค',
-      type: _AcademicEventType.study,
-      icon: Icons.school_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 10, 12),
-      endDate: DateTime(2026, 10, 16),
-      title: 'สอบปลายภาค',
-      description: 'สอบปลายภาคเรียนที่ 1/2569',
-      type: _AcademicEventType.exam,
-      icon: Icons.fact_check_rounded,
-    ),
-    _AcademicEvent(
-      date: DateTime(2026, 10, 17),
-      title: 'ปิดภาคเรียน',
-      description: 'เริ่มช่วงปิดภาคเรียน',
-      type: _AcademicEventType.holiday,
-      icon: Icons.event_available_rounded,
-    ),
-  ];
-  */
 
   List<_AcademicEvent> get filteredEvents {
     return events.where((event) {
@@ -218,6 +149,49 @@ class _ParentAcademicCalendarPageState
                     trailing: _buildChildBadge(),
                   ),
                   const SizedBox(height: 18),
+
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: _primary,
+                          strokeWidth: 2.5,
+                        ),
+                      ),
+                    )
+                  else if (_loadError != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      margin: const EdgeInsets.only(bottom: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline_rounded,
+                              color: Color(0xFFDC2626), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _loadError!,
+                              style: const TextStyle(
+                                color: Color(0xFFB91C1C),
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _loadData,
+                            child: const Text('ลองใหม่'),
+                          ),
+                        ],
+                      ),
+                    ),
 
                   _buildTermHero(),
 

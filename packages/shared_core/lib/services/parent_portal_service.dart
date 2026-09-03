@@ -115,6 +115,19 @@ class ParentPortalService {
     }
   }
 
+  static Future<List<CalendarEventItem>> listCalendarEvents() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+
+    final rows =
+        await supabase.rpc('list_calendar_events', params: {
+      'p_token': token,
+    }) as List;
+    return rows
+        .map((row) => CalendarEventItem.fromRow(row as Map<String, dynamic>))
+        .toList();
+  }
+
   static Future<void> submitLeaveRequest({
     required String studentId,
     required String leaveType,

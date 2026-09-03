@@ -160,3 +160,37 @@ class SchoolEventItem {
     );
   }
 }
+
+class CalendarEventItem {
+  final String eventId;
+  final String title;
+  final String? description;
+  final String? location;
+  final DateTime startDate;
+  final DateTime? endDate;
+  final String eventType;
+
+  CalendarEventItem({
+    required this.eventId,
+    required this.title,
+    this.description,
+    this.location,
+    required this.startDate,
+    this.endDate,
+    required this.eventType,
+  });
+
+  factory CalendarEventItem.fromRow(Map<String, dynamic> row) {
+    return CalendarEventItem(
+      eventId: row['event_id'] as String,
+      title: row['title'] as String,
+      description: row['description'] as String?,
+      location: row['location'] as String?,
+      startDate: DateTime.parse(row['start_date'] as String),
+      endDate: row['end_date'] != null
+          ? DateTime.parse(row['end_date'] as String)
+          : null,
+      eventType: row['event_type'] as String? ?? 'activity',
+    );
+  }
+}
