@@ -120,6 +120,9 @@ begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
   if v_actor.role not in ('school_admin', 'super_admin') then raise exception 'forbidden'; end if;
+  if v_actor.school_id is null then
+    raise exception 'no_active_school';
+  end if;
   if p_event_type not in ('holiday', 'public_holiday', 'exam', 'activity', 'study') then
     raise exception 'invalid_event_type';
   end if;
