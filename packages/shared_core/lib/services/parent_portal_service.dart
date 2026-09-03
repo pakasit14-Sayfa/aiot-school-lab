@@ -1,5 +1,6 @@
 import '../models/parent_portal_model.dart';
 import 'auth_service.dart';
+import 'leave_service.dart';
 import 'supabase_config.dart';
 
 class ParentPortalService {
@@ -139,25 +140,19 @@ class ParentPortalService {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
 
-    String? attachmentUrl;
+    String? attachmentPath;
 
-    // Handle file upload if present
+    // Handle file upload if present — goes through the signed-URL Edge
+    // Function (leave_attachments is a private bucket), never a direct
+    // client storage call.
     if (attachmentFile != null) {
-      try {
-        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${studentId}.jpg';
-        // Check if the object has a readAsBytes method (works for XFile or dart:io File)
-        final bytes = await attachmentFile.readAsBytes();
-        
-        await supabase.storage.from('leave_attachments').uploadBinary(
-          fileName,
-          bytes,
-          fileOptions: const FileOptions(contentType: 'image/jpeg'),
-        );
-        attachmentUrl = supabase.storage.from('leave_attachments').getPublicUrl(fileName);
-      } catch (e) {
-        print('Error uploading file: $e');
-        // Continue even if upload fails, or throw. For now, continue but maybe log.
-      }
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_$studentId.jpg';
+      // Works for both XFile (image_picker) and dart:io File.
+      final bytes = await attachmentFile.readAsBytes();
+      attachmentPath = await LeaveService.uploadLeaveAttachment(
+        fileName: fileName,
+        bytes: bytes,
+      );
     }
 
     await supabase.rpc('submit_leave_request', params: {
@@ -167,7 +162,7 @@ class ParentPortalService {
       'p_start_date': '${startDate.year}-${startDate.month.toString().padLeft(2, '0')}-${startDate.day.toString().padLeft(2, '0')}',
       'p_end_date': '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}',
       'p_reason': reason,
-      'p_attachment_url': attachmentUrl,
+      'p_attachment_path': attachmentPath,
     });
   }
 }

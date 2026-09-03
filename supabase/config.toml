@@ -140,6 +140,10 @@ file_size_limit = "50MiB"
 public = false
 file_size_limit = "50MiB"
 
+[storage.buckets.leave_attachments]
+public = false
+file_size_limit = "50MiB"
+
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
 enabled = true

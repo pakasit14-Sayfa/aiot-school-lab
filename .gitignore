@@ -14,3 +14,4 @@ tools/run_mqtt_bridge_local.py
 __pycache__/
 *.pyc
 *.orig
+.claude/worktrees/

@@ -12,7 +12,8 @@ class TeacherLeaveApprovalPage extends StatefulWidget {
 
 class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
   bool _isLoading = true;
-  List<Map<String, dynamic>> _requests = [];
+  String? _loadError;
+  List<LeaveRequestForReview> _requests = [];
 
   @override
   void initState() {
@@ -21,88 +22,93 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
   }
 
   Future<void> _fetchRequests() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
-      // 1. Get current user's school
-      final token = AuthService.sessionToken;
-      if (token == null) throw Exception('No session token');
-      
-      // Directly query the DB (if we have permissions, wait, teachers can read leave_requests in their school per RLS)
-      // We will do a simple query to leave_requests joined with users (for student name)
-      
-      final res = await supabase
-          .from('leave_requests')
-          .select('''
-            id,
-            leave_type,
-            start_date,
-            end_date,
-            reason,
-            attachment_url,
-            status,
-            created_at,
-            users!leave_requests_student_id_fkey(
-              first_name,
-              last_name,
-              avatar_url
-            )
-          ''')
-          .eq('status', 'pending')
-          .order('created_at', ascending: false);
-
+      final items = await LeaveService.listPendingLeaveRequests();
+      if (!mounted) return;
       setState(() {
-        _requests = List<Map<String, dynamic>>.from(res);
+        _requests = items;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching leave requests: $e');
-      setState(() => _isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        _loadError = 'โหลดคำขอลาไม่สำเร็จ: $e';
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _reviewRequest(String leaveId, String status) async {
     try {
-      final token = AuthService.sessionToken;
-      if (token == null) throw Exception('No session token');
+      await LeaveService.reviewLeaveRequest(
+        leaveId: leaveId,
+        status: status,
+        reviewNote: status == 'approved' ? 'อนุมัติผ่านแอป' : 'ไม่อนุมัติผ่านแอป',
+      );
 
-      // Call the RPC
-      await supabase.rpc('review_leave_request', params: {
-        'p_token': token,
-        'p_leave_id': leaveId,
-        'p_status': status,
-        'p_review_note': 'Approve via App',
-      });
-      
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(status == 'approved' ? 'อนุมัติการลาเรียบร้อย' : 'ปฏิเสธการลาเรียบร้อย')),
       );
-      
+
       _fetchRequests();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
       );
     }
   }
 
-  Widget _buildRequestCard(Map<String, dynamic> req) {
-    final student = req['users'];
-    final studentName = student != null 
-        ? '${student['first_name']} ${student['last_name']}'
-        : 'ไม่ทราบชื่อ';
-    
-    final isSick = req['leave_type'] == 'sick';
-    final typeText = isSick ? 'ลาป่วย' : (req['leave_type'] == 'personal' ? 'ลากิจ' : 'อื่นๆ');
+  Future<void> _viewAttachment(String leaveId) async {
+    try {
+      final url = await LeaveService.getAttachmentDownloadUrl(leaveId);
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          child: Stack(
+            children: [
+              Image.network(url),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.black54),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e')),
+      );
+    }
+  }
+
+  Widget _buildRequestCard(LeaveRequestForReview req) {
+    final studentName = req.studentName;
+
+    final isSick = req.leaveType == 'sick';
+    final typeText = isSick ? 'ลาป่วย' : (req.leaveType == 'personal' ? 'ลากิจ' : 'อื่นๆ');
     final typeColor = isSick ? Colors.red : Colors.orange;
-    
-    final startDate = DateTime.parse(req['start_date']);
-    final endDate = DateTime.parse(req['end_date']);
-    
+
+    final startDate = req.startDate;
+    final endDate = req.endDate;
+
     final dateStr = (startDate.day == endDate.day && startDate.month == endDate.month)
         ? '${startDate.day}/${startDate.month}/${startDate.year}'
         : '${startDate.day}/${startDate.month} - ${endDate.day}/${endDate.month}/${endDate.year}';
-        
-    final attachmentUrl = req['attachment_url'];
+
+    final hasAttachment = req.attachmentPath != null;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -120,12 +126,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
               children: [
                 CircleAvatar(
                   backgroundColor: TeacherPalette.primary.withValues(alpha: 0.1),
-                  backgroundImage: (student?['avatar_url'] != null)
-                      ? NetworkImage(student!['avatar_url'])
-                      : null,
-                  child: (student?['avatar_url'] == null)
-                      ? const Icon(Icons.person, color: TeacherPalette.primary)
-                      : null,
+                  child: const Icon(Icons.person, color: TeacherPalette.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -137,7 +138,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       Text(
-                        'วันที่ยื่น: ${DateTime.parse(req['created_at']).toLocal().toString().split(' ')[0]}',
+                        'วันที่ยื่น: ${req.createdAt.toLocal().toString().split(' ')[0]}',
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                       ),
                     ],
@@ -174,39 +175,26 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('เหตุผล: ${req['reason']}'),
-                  if (attachmentUrl != null) ...[
+                  Text('เหตุผล: ${req.reason ?? '-'}'),
+                  if (hasAttachment) ...[
                     const SizedBox(height: 12),
                     InkWell(
-                      onTap: () {
-                        // Open full image
-                        showDialog(
-                          context: context,
-                          builder: (_) => Dialog(
-                            child: Stack(
-                              children: [
-                                Image.network(attachmentUrl),
-                                Positioned(
-                                  top: 8, right: 8,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.close, color: Colors.black54),
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                      onTap: () => _viewAttachment(req.leaveId),
                       child: Container(
-                        height: 100,
+                        height: 44,
                         width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
-                          image: DecorationImage(
-                            image: NetworkImage(attachmentUrl),
-                            fit: BoxFit.cover,
-                          ),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.attach_file_rounded, size: 18, color: TeacherPalette.primary),
+                            SizedBox(width: 8),
+                            Text('ดูไฟล์แนบ', style: TextStyle(fontWeight: FontWeight.w600)),
+                          ],
                         ),
                       ),
                     ),
@@ -219,7 +207,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => _reviewRequest(req['id'], 'rejected'),
+                    onPressed: () => _reviewRequest(req.leaveId, 'rejected'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
@@ -231,7 +219,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _reviewRequest(req['id'], 'approved'),
+                    onPressed: () => _reviewRequest(req.leaveId, 'approved'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -257,6 +245,23 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
       builder: (context, isDesktop) {
         if (_isLoading) {
           return const Center(child: CircularProgressIndicator());
+        }
+        if (_loadError != null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade300),
+                  const SizedBox(height: 12),
+                  Text(_loadError!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
+                  const SizedBox(height: 12),
+                  TextButton(onPressed: _fetchRequests, child: const Text('ลองใหม่')),
+                ],
+              ),
+            ),
+          );
         }
         if (_requests.isEmpty) {
           return Center(
