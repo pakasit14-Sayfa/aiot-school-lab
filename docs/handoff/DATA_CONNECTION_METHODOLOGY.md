@@ -132,6 +132,24 @@ That's normal and expected here, but it means discipline matters:
   values ('<timestamp>', '<name>') on conflict (version) do nothing;`
   — matching the migration file's own name. Skipping this desyncs the
   migration history from what's actually live.
+- **For any RPC the Flutter app actually calls, do the final verification
+  via the real REST path — `curl` with named JSON params against
+  `/rest/v1/rpc/<name>` — not just raw positional SQL
+  (`select my_rpc(a, b, c)`).** Found the hard way (2026-09-03, the
+  leave-request feature): raw SQL calls resolve by position and don't
+  exercise PostgREST's parameter-name matching or function-overload
+  resolution at all. A `create or replace function` with a parameter
+  type that doesn't exactly match an existing same-named function
+  **creates a silent second overload** instead of erroring — SQL calls
+  keep working fine (Postgres just picks one), but the real app's named-
+  JSON-parameter calls get `PGRST203` ("could not choose the best
+  candidate") because PostgREST can't disambiguate. Similarly, a Dart
+  service file with a stale parameter name (`p_foo` vs a since-renamed
+  `p_bar`) passes any raw-SQL test using the new name, but fails 404
+  from the real app every time. Both bugs shipped past a "live-verified
+  end to end" claim in this exact incident because verification used
+  SQL only — always close the loop with the actual client-facing call
+  shape before calling something done.
 
 ## 6. `flutter analyze` / `flutter build web` are necessary, not sufficient
 
