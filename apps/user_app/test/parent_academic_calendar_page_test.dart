@@ -3,9 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/parent_redesign_prototype/pages/parent/parent_academic_calendar_page.dart';
 import 'package:shared_core/shared_core.dart';
 
-Widget _app(ParentCalendarLoader loader) => MaterialApp(
+const _student = LinkedStudentItem(
+  studentId: 'student-1',
+  firstName: 'นักเรียน',
+  lastName: 'ทดสอบ',
+  schoolId: 'school-1',
+);
+
+Widget _app(
+  ParentCalendarLoader loader, {
+  ParentCalendarStudentsLoader? studentsLoader,
+}) => MaterialApp(
   home: ParentAcademicCalendarPage(
     eventsLoader: loader,
+    studentsLoader: studentsLoader ?? () async => const [_student],
     now: () => DateTime(2026, 9, 3, 10),
   ),
 );
@@ -15,7 +26,7 @@ void main() {
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1800));
-    await tester.pumpWidget(_app(() async => const []));
+    await tester.pumpWidget(_app((_) async => const []));
     await tester.pumpAndSettle();
 
     expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
@@ -26,11 +37,27 @@ void main() {
 
   testWidgets('keeps failures distinct from empty data', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 900));
-    await tester.pumpWidget(_app(() async => throw Exception('network_error')));
+    await tester.pumpWidget(
+      _app((_) async => throw Exception('network_error')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('ไม่สามารถโหลดข้อมูลได้'), findsOneWidget);
     expect(find.text('ลองอีกครั้ง'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
+  });
+
+  testWidgets('distinguishes no linked student from an empty calendar', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    await tester.pumpWidget(
+      _app((_) async => const [], studentsLoader: () async => const []),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่มีนักเรียนที่เชื่อมกับบัญชีนี้'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
   });
 
   testWidgets('derives summary upcoming and selected-day cards from events', (
@@ -53,7 +80,7 @@ void main() {
       ),
     ];
     await tester.binding.setSurfaceSize(const Size(1200, 2000));
-    await tester.pumpWidget(_app(() async => events));
+    await tester.pumpWidget(_app((_) async => events));
     await tester.pumpAndSettle();
 
     expect(find.text('สอบวิทยาศาสตร์'), findsWidgets);

@@ -3,13 +3,22 @@ import 'package:shared_core/shared_core.dart';
 
 import '../../widgets/parent_common_widgets.dart';
 
-typedef ParentCalendarLoader = Future<List<CalendarEventItem>> Function();
+typedef ParentCalendarLoader =
+    Future<List<CalendarEventItem>> Function(String studentId);
+typedef ParentCalendarStudentsLoader =
+    Future<List<LinkedStudentItem>> Function();
 
 class ParentAcademicCalendarPage extends StatefulWidget {
   final ParentCalendarLoader? eventsLoader;
+  final ParentCalendarStudentsLoader? studentsLoader;
   final DateTime Function()? now;
 
-  const ParentAcademicCalendarPage({super.key, this.eventsLoader, this.now});
+  const ParentAcademicCalendarPage({
+    super.key,
+    this.eventsLoader,
+    this.studentsLoader,
+    this.now,
+  });
 
   @override
   State<ParentAcademicCalendarPage> createState() =>
@@ -28,6 +37,7 @@ class _ParentAcademicCalendarPageState
   List<CalendarEventItem> _events = const [];
   bool _loading = true;
   bool _unauthenticated = false;
+  bool _hasLinkedStudent = false;
   Object? _loadError;
 
   DateTime get _now => (widget.now ?? DateTime.now)();
@@ -45,6 +55,7 @@ class _ParentAcademicCalendarPageState
     setState(() {
       _loading = true;
       _unauthenticated = false;
+      _hasLinkedStudent = false;
       _loadError = null;
     });
     if (widget.eventsLoader == null && AuthService.sessionToken == null) {
@@ -55,13 +66,26 @@ class _ParentAcademicCalendarPageState
       return;
     }
     try {
+      final students =
+          await (widget.studentsLoader ??
+              ParentPortalService.listMyLinkedStudents)();
+      if (!mounted) return;
+      if (students.isEmpty) {
+        setState(() {
+          _hasLinkedStudent = false;
+          _events = const [];
+          _loading = false;
+        });
+        return;
+      }
       final items = [
         ...await (widget.eventsLoader ??
-            ParentPortalService.listCalendarEvents)(),
+            ParentPortalService.listCalendarEvents)(students.first.studentId),
       ];
       if (!mounted) return;
       items.sort((a, b) => a.startDate.compareTo(b.startDate));
       setState(() {
+        _hasLinkedStudent = true;
         _events = items;
         _loading = false;
       });
@@ -70,6 +94,7 @@ class _ParentAcademicCalendarPageState
       if (!mounted) return;
       setState(() {
         _events = const [];
+        _hasLinkedStudent = false;
         _loadError = error;
         _loading = false;
       });
@@ -123,61 +148,66 @@ class _ParentAcademicCalendarPageState
                   ),
                   const SizedBox(height: 18),
                   _loadState(),
-                  const SizedBox(height: 16),
-                  _hero(),
-                  const SizedBox(height: 16),
-                  _summaryCards(),
-                  const SizedBox(height: 16),
-                  _filterBar(),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 980) {
-                        return Column(
-                          children: [
-                            _calendarCard(),
-                            const SizedBox(height: 14),
-                            _selectedDayCard(),
-                          ],
+                  if (!(_loading ||
+                      _unauthenticated ||
+                      _loadError != null ||
+                      !_hasLinkedStudent)) ...[
+                    const SizedBox(height: 16),
+                    _hero(),
+                    const SizedBox(height: 16),
+                    _summaryCards(),
+                    const SizedBox(height: 16),
+                    _filterBar(),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 980) {
+                          return Column(
+                            children: [
+                              _calendarCard(),
+                              const SizedBox(height: 14),
+                              _selectedDayCard(),
+                            ],
+                          );
+                        }
+                        return SizedBox(
+                          height: 610,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 7, child: _calendarCard()),
+                              const SizedBox(width: 14),
+                              Expanded(flex: 4, child: _selectedDayCard()),
+                            ],
+                          ),
                         );
-                      }
-                      return SizedBox(
-                        height: 610,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 900) {
+                          return Column(
+                            children: [
+                              _upcomingCard(),
+                              const SizedBox(height: 14),
+                              _importantDatesCard(),
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(flex: 7, child: _calendarCard()),
+                            Expanded(flex: 6, child: _upcomingCard()),
                             const SizedBox(width: 14),
-                            Expanded(flex: 4, child: _selectedDayCard()),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 900) {
-                        return Column(
-                          children: [
-                            _upcomingCard(),
-                            const SizedBox(height: 14),
-                            _importantDatesCard(),
+                            Expanded(flex: 5, child: _importantDatesCard()),
                           ],
                         );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 6, child: _upcomingCard()),
-                          const SizedBox(width: 14),
-                          Expanded(flex: 5, child: _importantDatesCard()),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _reminderCard(),
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _reminderCard(),
+                  ],
                 ],
               ),
             ),
@@ -208,6 +238,12 @@ class _ParentAcademicCalendarPageState
           onPressed: _loadData,
           child: const Text('ลองอีกครั้ง'),
         ),
+      );
+    }
+    if (!_hasLinkedStudent) {
+      return const _StateCard(
+        icon: Icons.person_off_outlined,
+        message: 'ยังไม่มีนักเรียนที่เชื่อมกับบัญชีนี้',
       );
     }
     return const SizedBox.shrink();

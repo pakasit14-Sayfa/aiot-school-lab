@@ -35,7 +35,6 @@ void main() {
 
     expect(find.text('ผู้ปกครอง ทดสอบ'), findsOneWidget);
     expect(find.text('parent@example.com'), findsOneWidget);
-    expect(find.text('ยังไม่มีนักเรียนที่เชื่อมกับบัญชีนี้'), findsOneWidget);
     expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
     expect(find.text('น้องมะลิ'), findsNothing);
   });
@@ -49,6 +48,7 @@ void main() {
 
     expect(find.text('ไม่สามารถโหลดข้อมูลได้'), findsOneWidget);
     expect(find.text('ลองอีกครั้ง'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
   });
 
   testWidgets('renders linked students and persists profile name update', (

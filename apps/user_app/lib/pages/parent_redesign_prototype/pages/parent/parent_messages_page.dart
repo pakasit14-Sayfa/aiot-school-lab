@@ -135,12 +135,16 @@ class _ParentMessagesPageState extends State<ParentMessagesPage> {
                   ),
                   const SizedBox(height: 18),
                   _loadState(),
-                  const SizedBox(height: 14),
-                  _summary(unread),
-                  const SizedBox(height: 14),
-                  _filters(),
-                  const SizedBox(height: 14),
-                  _messageList(),
+                  if (!(_loading ||
+                      _unauthenticated ||
+                      _loadError != null)) ...[
+                    const SizedBox(height: 14),
+                    _summary(unread),
+                    const SizedBox(height: 14),
+                    _filters(),
+                    const SizedBox(height: 14),
+                    _messageList(),
+                  ],
                 ],
               ),
             ),

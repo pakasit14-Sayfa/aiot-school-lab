@@ -35,6 +35,7 @@ void main() {
 
     expect(find.text('ไม่สามารถโหลดข้อมูลได้'), findsOneWidget);
     expect(find.text('ลองอีกครั้ง'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
   });
 
   testWidgets('renders notifications and marks unread notification as read', (

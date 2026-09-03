@@ -166,7 +166,13 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                     subtitle:
                         'ติดตามการเข้า–ออกโรงเรียน การเข้าเรียนแต่ละคาบ การลา และการมาสาย',
                     icon: Icons.fact_check_rounded,
-                    trailing: _buildChildBadge(),
+                    trailing:
+                        _isLoading ||
+                            _unauthenticated ||
+                            _loadError != null ||
+                            _selectedStudent == null
+                        ? null
+                        : _buildChildBadge(),
                   ),
                   const SizedBox(height: 18),
 
@@ -179,131 +185,136 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                   else if (_selectedStudent == null)
                     _buildPageStateCard('ยังไม่มีข้อมูลนักเรียนที่เชื่อมบัญชี'),
 
-                  _buildTodayHero(),
+                  if (!(_isLoading ||
+                      _unauthenticated ||
+                      _loadError != null ||
+                      _selectedStudent == null)) ...[
+                    _buildTodayHero(),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  _buildPeriodFilter(),
+                    _buildPeriodFilter(),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  _buildSummaryCards(),
+                    _buildSummaryCards(),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  // ----------------------------------------------------------
-                  // ROW 1: ไทม์ไลน์วันนี้ + แนวโน้มการมาเรียน
-                  // Desktop = แนวนอนและสูงเท่ากัน
-                  // Mobile = เรียงลงแนวตั้ง
-                  // ----------------------------------------------------------
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 950) {
-                        return Column(
-                          children: [
-                            _buildTodayTimeline(),
-                            const SizedBox(height: 14),
-                            _AttendanceTrendCard(
-                              records: _visibleAttendanceRecords,
-                            ),
-                          ],
-                        );
-                      }
-
-                      return IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(flex: 1, child: _buildTodayTimeline()),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              flex: 1,
-                              child: _AttendanceTrendCard(
+                    // ----------------------------------------------------------
+                    // ROW 1: ไทม์ไลน์วันนี้ + แนวโน้มการมาเรียน
+                    // Desktop = แนวนอนและสูงเท่ากัน
+                    // Mobile = เรียงลงแนวตั้ง
+                    // ----------------------------------------------------------
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 950) {
+                          return Column(
+                            children: [
+                              _buildTodayTimeline(),
+                              const SizedBox(height: 14),
+                              _AttendanceTrendCard(
                                 records: _visibleAttendanceRecords,
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                            ],
+                          );
+                        }
 
-                  const SizedBox(height: 16),
-
-                  // ----------------------------------------------------------
-                  // ROW 2: การเข้าเรียนแต่ละคาบวันนี้ + Attendance Insight
-                  // Desktop = แนวนอนและสูงเท่ากัน
-                  // Mobile = เรียงลงแนวตั้ง
-                  // ----------------------------------------------------------
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 950) {
-                        return Column(
-                          children: [
-                            _buildClassAttendanceCard(),
-                            const SizedBox(height: 14),
-                            _AttendanceInsightCard(
-                              records: _visibleAttendanceRecords,
-                            ),
-                          ],
-                        );
-                      }
-
-                      return IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              flex: 1,
-                              child: _buildClassAttendanceCard(),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              flex: 1,
-                              child: _AttendanceInsightCard(
-                                records: _visibleAttendanceRecords,
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 1, child: _buildTodayTimeline()),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                flex: 1,
+                                child: _AttendanceTrendCard(
+                                  records: _visibleAttendanceRecords,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  _buildHistoryCard(),
-
-                  const SizedBox(height: 16),
-
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 850) {
-                        return Column(
-                          children: [
-                            _LeaveSummaryCard(
-                              records: _visibleAttendanceRecords,
-                            ),
-                            SizedBox(height: 14),
-                            _AttendanceRuleCard(),
-                          ],
-                        );
-                      }
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _LeaveSummaryCard(
-                              records: _visibleAttendanceRecords,
-                            ),
+                            ],
                           ),
-                          SizedBox(width: 14),
-                          Expanded(child: _AttendanceRuleCard()),
-                        ],
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ----------------------------------------------------------
+                    // ROW 2: การเข้าเรียนแต่ละคาบวันนี้ + Attendance Insight
+                    // Desktop = แนวนอนและสูงเท่ากัน
+                    // Mobile = เรียงลงแนวตั้ง
+                    // ----------------------------------------------------------
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 950) {
+                          return Column(
+                            children: [
+                              _buildClassAttendanceCard(),
+                              const SizedBox(height: 14),
+                              _AttendanceInsightCard(
+                                records: _visibleAttendanceRecords,
+                              ),
+                            ],
+                          );
+                        }
+
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                flex: 1,
+                                child: _buildClassAttendanceCard(),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                flex: 1,
+                                child: _AttendanceInsightCard(
+                                  records: _visibleAttendanceRecords,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    _buildHistoryCard(),
+
+                    const SizedBox(height: 16),
+
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 850) {
+                          return Column(
+                            children: [
+                              _LeaveSummaryCard(
+                                records: _visibleAttendanceRecords,
+                              ),
+                              SizedBox(height: 14),
+                              _AttendanceRuleCard(),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: _LeaveSummaryCard(
+                                records: _visibleAttendanceRecords,
+                              ),
+                            ),
+                            SizedBox(width: 14),
+                            Expanded(child: _AttendanceRuleCard()),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),

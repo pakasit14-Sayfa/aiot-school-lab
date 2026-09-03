@@ -59,6 +59,18 @@ void main() {
 
     expect(find.text('ไม่สามารถโหลดข้อมูลได้'), findsOneWidget);
     expect(find.text('ลองอีกครั้ง'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
+  });
+
+  testWidgets('shows unauthenticated state without empty data cards', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    await tester.pumpWidget(const MaterialApp(home: ParentSchedulePage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('กรุณาเข้าสู่ระบบอีกครั้ง'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
   });
 
   testWidgets('derives schedule and assignment summaries from loader data', (

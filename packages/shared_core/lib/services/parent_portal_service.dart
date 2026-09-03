@@ -101,22 +101,28 @@ class ParentPortalService {
     return rows.map(StudentAssignmentItem.fromRow).toList();
   }
 
-  static Future<List<SchoolEventItem>> listSchoolEvents() async {
+  static Future<List<SchoolEventItem>> listSchoolEvents(
+      String studentId) async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
-    final rows = await supabase
-        .rpc('list_school_events', params: {'p_token': token}) as List;
+    final rows = await supabase.rpc(
+      'list_school_events',
+      params: {'p_token': token, 'p_student_id': studentId},
+    ) as List;
     return rows
         .map((row) => SchoolEventItem.fromRow(row as Map<String, dynamic>))
         .toList();
   }
 
-  static Future<List<CalendarEventItem>> listCalendarEvents() async {
+  static Future<List<CalendarEventItem>> listCalendarEvents(
+      String studentId) async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
 
-    final rows = await supabase
-        .rpc('list_calendar_events', params: {'p_token': token}) as List;
+    final rows = await supabase.rpc(
+      'list_calendar_events',
+      params: {'p_token': token, 'p_student_id': studentId},
+    ) as List;
     return rows
         .map((row) => CalendarEventItem.fromRow(row as Map<String, dynamic>))
         .toList();

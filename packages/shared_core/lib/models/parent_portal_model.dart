@@ -115,12 +115,12 @@ class StudentAssignmentItem {
   factory StudentAssignmentItem.fromRow(Map<String, dynamic> row) {
     return StudentAssignmentItem(
       assignmentId: row['assignment_id'] as String,
-      courseName: row['course_name'] as String? ?? '',
-      title: row['title'] as String? ?? '',
+      courseName: row['course_name'] as String,
+      title: row['title'] as String,
       dueAt: row['due_at'] != null
           ? DateTime.tryParse(row['due_at'] as String)
           : null,
-      status: row['status'] as String? ?? 'pending',
+      status: row['status'] as String,
     );
   }
 }

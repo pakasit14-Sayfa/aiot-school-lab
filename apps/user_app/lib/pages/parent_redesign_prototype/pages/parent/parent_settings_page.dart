@@ -178,14 +178,18 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
                   ),
                   const SizedBox(height: 20),
                   _loadState(),
-                  const SizedBox(height: 14),
-                  _accountCard(user, name),
-                  const SizedBox(height: 14),
-                  _studentsCard(),
-                  const SizedBox(height: 14),
-                  _notificationSettingsCard(),
-                  const SizedBox(height: 14),
-                  _securityCard(user),
+                  if (!(_loading ||
+                      _unauthenticated ||
+                      _loadError != null)) ...[
+                    const SizedBox(height: 14),
+                    _accountCard(user, name),
+                    const SizedBox(height: 14),
+                    _studentsCard(),
+                    const SizedBox(height: 14),
+                    _notificationSettingsCard(),
+                    const SizedBox(height: 14),
+                    _securityCard(user),
+                  ],
                 ],
               ),
             ),
@@ -216,12 +220,6 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
           onPressed: _loadData,
           child: const Text('ลองอีกครั้ง'),
         ),
-      );
-    }
-    if (_students.isEmpty) {
-      return const _StateCard(
-        icon: Icons.person_off_outlined,
-        message: 'ยังไม่มีนักเรียนที่เชื่อมกับบัญชีนี้',
       );
     }
     return const SizedBox.shrink();

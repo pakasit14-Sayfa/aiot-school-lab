@@ -1,4 +1,4 @@
--- Seed Grades and Assignments for mock testing
+-- Seed Grades and Assignments for local development
 DO $$
 DECLARE
   v_student_id uuid;
@@ -6,7 +6,11 @@ DECLARE
   v_course_id_math uuid;
   v_course_id_science uuid;
 BEGIN
-  -- Get the mock student
+  -- Deprecated: development fixtures belong in supabase/seed.sql, which
+  -- runs after migrations and already seeds canonical learning data.
+  RETURN;
+
+  -- Get the seeded development student
   SELECT id, school_id INTO v_student_id, v_school_id 
   FROM users 
   WHERE email = 'student@aiot-school-lab.local' LIMIT 1;
@@ -24,10 +28,20 @@ BEGIN
       
       -- Seed Assignments for Math
       INSERT INTO assignments (id, school_id, course_id, teacher_id, title, due_at)
-      VALUES 
-        (gen_random_uuid(), v_school_id, v_course_id_math, (SELECT teacher_id FROM courses WHERE id = v_course_id_math), 'แบบฝึกหัดบทที่ 5', now() - interval '1 day'),
-        (gen_random_uuid(), v_school_id, v_course_id_math, (SELECT teacher_id FROM courses WHERE id = v_course_id_math), 'รายงานเรื่องพีทาโกรัส', now() + interval '2 days')
-      ON CONFLICT DO NOTHING;
+      SELECT gen_random_uuid(), v_school_id, v_course_id_math, teacher_id, 'แบบฝึกหัดบทที่ 5', now() - interval '1 day'
+      FROM courses WHERE id = v_course_id_math
+      AND NOT EXISTS (
+        SELECT 1 FROM assignments
+        WHERE school_id = v_school_id AND course_id = v_course_id_math AND title = 'แบบฝึกหัดบทที่ 5'
+      );
+
+      INSERT INTO assignments (id, school_id, course_id, teacher_id, title, due_at)
+      SELECT gen_random_uuid(), v_school_id, v_course_id_math, teacher_id, 'รายงานเรื่องพีทาโกรัส', now() + interval '2 days'
+      FROM courses WHERE id = v_course_id_math
+      AND NOT EXISTS (
+        SELECT 1 FROM assignments
+        WHERE school_id = v_school_id AND course_id = v_course_id_math AND title = 'รายงานเรื่องพีทาโกรัส'
+      );
     END IF;
     
     IF v_course_id_science IS NOT NULL THEN

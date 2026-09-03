@@ -202,60 +202,68 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
                   ),
                   const SizedBox(height: 18),
                   _buildLoadState(),
-                  const SizedBox(height: 16),
-                  _buildTodayHero(),
-                  const SizedBox(height: 16),
-                  _buildSummaryCards(),
-                  const SizedBox(height: 16),
-                  _buildDaySelector(),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth >= 950) {
+                  if (!(_isLoading ||
+                      _unauthenticated ||
+                      _loadError != null ||
+                      _selectedStudent == null)) ...[
+                    const SizedBox(height: 16),
+                    _buildTodayHero(),
+                    const SizedBox(height: 16),
+                    _buildSummaryCards(),
+                    const SizedBox(height: 16),
+                    _buildDaySelector(),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth >= 950) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(flex: 7, child: _buildScheduleCard()),
+                              const SizedBox(width: 14),
+                              Expanded(flex: 4, child: _buildNextClassCard()),
+                            ],
+                          );
+                        }
+                        return Column(
+                          children: [
+                            _buildScheduleCard(),
+                            const SizedBox(height: 14),
+                            _buildNextClassCard(),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _buildHomeworkFilter(),
+                    const SizedBox(height: 12),
+                    _buildHomeworkCard(),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth < 900) {
+                          return Column(
+                            children: [
+                              _buildWeeklyWorkloadCard(),
+                              const SizedBox(height: 14),
+                              _buildInsightCard(),
+                            ],
+                          );
+                        }
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(flex: 7, child: _buildScheduleCard()),
+                            Expanded(
+                              flex: 6,
+                              child: _buildWeeklyWorkloadCard(),
+                            ),
                             const SizedBox(width: 14),
-                            Expanded(flex: 4, child: _buildNextClassCard()),
+                            Expanded(flex: 5, child: _buildInsightCard()),
                           ],
                         );
-                      }
-                      return Column(
-                        children: [
-                          _buildScheduleCard(),
-                          const SizedBox(height: 14),
-                          _buildNextClassCard(),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _buildHomeworkFilter(),
-                  const SizedBox(height: 12),
-                  _buildHomeworkCard(),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      if (constraints.maxWidth < 900) {
-                        return Column(
-                          children: [
-                            _buildWeeklyWorkloadCard(),
-                            const SizedBox(height: 14),
-                            _buildInsightCard(),
-                          ],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 6, child: _buildWeeklyWorkloadCard()),
-                          const SizedBox(width: 14),
-                          Expanded(flex: 5, child: _buildInsightCard()),
-                        ],
-                      );
-                    },
-                  ),
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -272,13 +280,13 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
         message: 'กำลังโหลดข้อมูล',
       );
     }
+    if (_unauthenticated) {
+      return const _StateCard(
+        icon: Icons.lock_outline_rounded,
+        message: 'กรุณาเข้าสู่ระบบอีกครั้ง',
+      );
+    }
     if (_loadError != null) {
-      if (_unauthenticated) {
-        return const _StateCard(
-          icon: Icons.lock_outline_rounded,
-          message: 'กรุณาเข้าสู่ระบบอีกครั้ง',
-        );
-      }
       return _StateCard(
         icon: Icons.error_outline_rounded,
         message: 'ไม่สามารถโหลดข้อมูลได้',

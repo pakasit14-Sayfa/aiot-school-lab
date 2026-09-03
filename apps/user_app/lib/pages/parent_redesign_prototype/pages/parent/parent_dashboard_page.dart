@@ -16,7 +16,10 @@ typedef ParentDashboardScheduleLoader =
     Future<List<StudentScheduleItem>> Function(String studentId);
 typedef ParentDashboardSensorsLoader =
     Future<List<Map<String, dynamic>>> Function();
-typedef ParentDashboardEventsLoader = Future<List<SchoolEventItem>> Function();
+typedef ParentDashboardEventsLoader =
+    Future<List<SchoolEventItem>> Function(String studentId);
+typedef ParentDashboardNotificationsLoader =
+    Future<List<AppNotification>> Function();
 
 class ParentDashboardPage extends StatefulWidget {
   final ParentDashboardStudentsLoader? studentsLoader;
@@ -26,6 +29,7 @@ class ParentDashboardPage extends StatefulWidget {
   final ParentDashboardScheduleLoader? scheduleLoader;
   final ParentDashboardSensorsLoader? sensorsLoader;
   final ParentDashboardEventsLoader? eventsLoader;
+  final ParentDashboardNotificationsLoader? notificationsLoader;
   final DateTime Function()? now;
 
   const ParentDashboardPage({
@@ -37,6 +41,7 @@ class ParentDashboardPage extends StatefulWidget {
     this.scheduleLoader,
     this.sensorsLoader,
     this.eventsLoader,
+    this.notificationsLoader,
     this.now,
   });
 
@@ -56,6 +61,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
   List<StudentScheduleItem> _schedule = const [];
   List<Map<String, dynamic>> _sensors = const [];
   List<SchoolEventItem> _events = const [];
+  List<AppNotification> _notifications = const [];
   bool _loading = true;
   bool _unauthenticated = false;
   Object? _loadError;
@@ -114,7 +120,11 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         (widget.scheduleLoader ?? ParentPortalService.listMyStudentSchedule)(
           selected.studentId,
         ),
-        (widget.eventsLoader ?? ParentPortalService.listSchoolEvents)(),
+        (widget.eventsLoader ?? ParentPortalService.listSchoolEvents)(
+          selected.studentId,
+        ),
+        (widget.notificationsLoader ??
+            NotificationService.listMyNotifications)(),
       ]);
       List<Map<String, dynamic>> sensors = const [];
       Object? sensorError;
@@ -134,6 +144,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
         _attendance = core[2] as List<StudentAttendanceItem>;
         _schedule = core[3] as List<StudentScheduleItem>;
         _events = core[4] as List<SchoolEventItem>;
+        _notifications = core[5] as List<AppNotification>;
         _sensors = sensors;
         _sensorError = sensorError;
         _loading = false;
@@ -156,6 +167,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
     _schedule = const [];
     _sensors = const [];
     _events = const [];
+    _notifications = const [];
   }
 
   bool _isSubmitted(StudentAssignmentItem item) =>
@@ -195,12 +207,16 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
   }
 
   String _sensorValue(String metric, {int fractionDigits = 0}) {
-    for (final reading in _sensors) {
-      if (reading['metric'] == metric && reading['value'] is num) {
-        return (reading['value'] as num).toStringAsFixed(fractionDigits);
-      }
-    }
-    return _empty;
+    final values = _sensors
+        .where(
+          (reading) => reading['metric'] == metric && reading['value'] is num,
+        )
+        .map((reading) => (reading['value'] as num).toDouble())
+        .toList();
+    if (values.isEmpty) return _empty;
+    final average =
+        values.fold<double>(0, (sum, value) => sum + value) / values.length;
+    return average.toStringAsFixed(fractionDigits);
   }
 
   int _timeMinutes(String value) {
@@ -247,85 +263,90 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
                   ),
                   const SizedBox(height: 18),
                   _loadState(),
-                  const SizedBox(height: 16),
-                  _hero(),
-                  const SizedBox(height: 16),
-                  _quickActions(),
-                  const SizedBox(height: 16),
-                  _metrics(pending),
-                  const SizedBox(height: 16),
-                  _environmentCard(),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cards = [_todayStatusCard(), _attendanceCard()];
-                      if (constraints.maxWidth < 760) {
-                        return Column(
+                  if (!(_loading ||
+                      _unauthenticated ||
+                      _loadError != null ||
+                      _selectedStudent == null)) ...[
+                    const SizedBox(height: 16),
+                    _hero(),
+                    const SizedBox(height: 16),
+                    _quickActions(),
+                    const SizedBox(height: 16),
+                    _metrics(pending),
+                    const SizedBox(height: 16),
+                    _environmentCard(),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cards = [_todayStatusCard(), _attendanceCard()];
+                        if (constraints.maxWidth < 760) {
+                          return Column(
+                            children: [
+                              cards[0],
+                              const SizedBox(height: 14),
+                              cards[1],
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            cards[0],
-                            const SizedBox(height: 14),
-                            cards[1],
+                            Expanded(flex: 6, child: cards[0]),
+                            const SizedBox(width: 14),
+                            Expanded(flex: 4, child: cards[1]),
                           ],
                         );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 6, child: cards[0]),
-                          const SizedBox(width: 14),
-                          Expanded(flex: 4, child: cards[1]),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cards = [_learningCard(), _scheduleCard()];
-                      if (constraints.maxWidth < 900) {
-                        return Column(
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cards = [_learningCard(), _scheduleCard()];
+                        if (constraints.maxWidth < 900) {
+                          return Column(
+                            children: [
+                              cards[0],
+                              const SizedBox(height: 14),
+                              cards[1],
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            cards[0],
-                            const SizedBox(height: 14),
-                            cards[1],
+                            Expanded(child: cards[0]),
+                            const SizedBox(width: 14),
+                            Expanded(child: cards[1]),
                           ],
                         );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: cards[0]),
-                          const SizedBox(width: 14),
-                          Expanded(child: cards[1]),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final cards = [_homeworkCard(), _eventsCard()];
-                      if (constraints.maxWidth < 900) {
-                        return Column(
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cards = [_homeworkCard(), _eventsCard()];
+                        if (constraints.maxWidth < 900) {
+                          return Column(
+                            children: [
+                              cards[0],
+                              const SizedBox(height: 14),
+                              cards[1],
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            cards[0],
-                            const SizedBox(height: 14),
-                            cards[1],
+                            Expanded(child: cards[0]),
+                            const SizedBox(width: 14),
+                            Expanded(child: cards[1]),
                           ],
                         );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: cards[0]),
-                          const SizedBox(width: 14),
-                          Expanded(child: cards[1]),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  _schoolMessagesCard(),
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _schoolMessagesCard(),
+                  ],
                 ],
               ),
             ),
@@ -693,13 +714,32 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
     );
   }
 
-  Widget _schoolMessagesCard() => const _ContentCard(
-    icon: Icons.chat_bubble_rounded,
-    title: 'ข้อความจากโรงเรียน',
-    subtitle: 'ยังไม่มีแหล่งข้อมูลประกาศสำหรับหน้านี้',
-    empty: true,
-    children: [],
-  );
+  Widget _schoolMessagesCard() {
+    final items = [..._notifications]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return _ContentCard(
+      icon: Icons.chat_bubble_rounded,
+      title: 'ข้อความจากโรงเรียน',
+      subtitle: 'การแจ้งเตือนล่าสุดที่ส่งถึงบัญชีนี้',
+      empty: items.isEmpty,
+      children: items.isEmpty
+          ? const []
+          : items
+                .take(3)
+                .map(
+                  (notification) => _TimelineRow(
+                    time: _formatDate(notification.createdAt),
+                    title: notification.title,
+                    detail: notification.body?.isEmpty ?? true
+                        ? _empty
+                        : notification.body!,
+                    icon: Icons.notifications_rounded,
+                  ),
+                )
+                .toList(),
+    );
+  }
 }
 
 class _StateCard extends StatelessWidget {

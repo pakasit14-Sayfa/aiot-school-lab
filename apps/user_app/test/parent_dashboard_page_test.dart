@@ -17,6 +17,7 @@ Widget _app({
   ParentDashboardAttendanceLoader? attendance,
   ParentDashboardScheduleLoader? schedule,
   ParentDashboardSensorsLoader? sensors,
+  ParentDashboardNotificationsLoader? notifications,
   ParentDashboardEventsLoader? events,
 }) => MaterialApp(
   home: ParentDashboardPage(
@@ -26,7 +27,8 @@ Widget _app({
     attendanceLoader: attendance ?? (_) async => const [],
     scheduleLoader: schedule ?? (_) async => const [],
     sensorsLoader: sensors ?? () async => const [],
-    eventsLoader: events ?? () async => const [],
+    eventsLoader: events ?? (_) async => const [],
+    notificationsLoader: notifications ?? () async => const [],
     now: () => DateTime(2026, 9, 3, 10),
   ),
 );
@@ -55,6 +57,7 @@ void main() {
 
     expect(find.text('ไม่สามารถโหลดข้อมูลได้'), findsOneWidget);
     expect(find.text('ลองอีกครั้ง'), findsOneWidget);
+    expect(find.text('ยังไม่มีข้อมูล'), findsNothing);
   });
 
   testWidgets('renders core metrics from service data', (tester) async {
@@ -107,12 +110,21 @@ void main() {
         sensors: () async => [
           {'metric': 'temperature', 'value': 27.5},
         ],
-        events: () async => [
+        events: (_) async => [
           SchoolEventItem(
             eventId: 'e1',
             title: 'วันวิทยาศาสตร์',
             location: 'หอประชุม',
             startDate: DateTime(2026, 9, 5),
+          ),
+        ],
+        notifications: () async => [
+          AppNotification(
+            id: 'n1',
+            type: 'announcement',
+            title: 'ประกาศประชุมผู้ปกครอง',
+            body: 'วันศุกร์ เวลา 15:00 น.',
+            createdAt: now,
           ),
         ],
       ),
@@ -125,5 +137,6 @@ void main() {
     expect(find.text('รายงานการทดลอง'), findsOneWidget);
     expect(find.text('27.5 °C'), findsOneWidget);
     expect(find.text('วันวิทยาศาสตร์'), findsOneWidget);
+    expect(find.text('ประกาศประชุมผู้ปกครอง'), findsOneWidget);
   });
 }

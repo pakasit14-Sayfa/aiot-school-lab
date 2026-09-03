@@ -68,7 +68,11 @@ where not exists (
 -- ---------------------------------------------------------------------
 -- The parent dashboard already calls this compact upcoming-events RPC.
 -- Define it here as well so fresh databases match the deployed schema.
-create or replace function list_school_events(p_token text)
+drop function if exists list_school_events(text);
+create or replace function list_school_events(
+  p_token text,
+  p_student_id uuid default null
+)
 returns table (
   event_id uuid,
   title varchar,
@@ -85,6 +89,10 @@ declare
 begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
+  if v_actor.role not in ('super_admin', 'school_admin', 'executive', 'teacher', 'student', 'parent') then
+    raise exception 'forbidden';
+  end if;
+
 
   if v_actor.role = 'parent' then
     select u.school_id into v_school_id
@@ -92,6 +100,7 @@ begin
     join users u on u.id = pl.student_id
     where pl.parent_id = v_actor.user_id
       and pl.status = 'approved'
+      and (p_student_id is null or pl.student_id = p_student_id)
     order by pl.requested_at asc
     limit 1;
   else
@@ -110,7 +119,7 @@ begin
 end;
 $$;
 
-grant execute on function list_school_events(text) to anon, authenticated;
+grant execute on function list_school_events(text, uuid) to anon, authenticated;
 
 -- Full calendar read (no date/limit restriction, unlike
 -- list_school_events which is a "next 5 upcoming" widget query — left
@@ -136,6 +145,10 @@ declare
 begin
   select * into v_actor from get_session_actor(p_token);
   if not found then raise exception 'invalid_session'; end if;
+
+  if v_actor.role not in ('super_admin', 'school_admin', 'executive', 'teacher', 'student', 'parent') then
+    raise exception 'forbidden';
+  end if;
 
   if v_actor.role = 'parent' then
     select u.school_id into v_school_id
