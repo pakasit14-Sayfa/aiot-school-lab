@@ -10,6 +10,14 @@ every table's columns, foreign keys, and every RPC function's signature,
 generated directly from the running local database (not hand-written, so it
 can't drift from reality the way a hand-maintained doc would).
 
+## Current School Admin data-connection pass (2026-09-04)
+
+The master implementation map is `task_plan.md`. Work proceeds page by page, and every newly connected page must rerun its own tests plus every previously connected School Admin regression test.
+
+The Alerts vertical slice is implemented and ready for commit. `school_alerts_page.dart` now uses a small injectable controller over the existing RPC-backed `IncidentService`: acknowledge/resolve refetch canonical data and only report success when the backend status confirms the write. Loading, empty, error, and data states are distinct; audit-log failures are visible; all empty cards use `ยังไม่มีข้อมูล`. Fabricated automation/delivery records and unsupported fake-success bulk/export/checking actions were removed or marked truthfully unavailable.
+
+Verification: scoped Dart analyzer clean, focused state/connection tests 13/13, cumulative School Admin regression 38/38, and targeted alert/threshold pgTAP 11/11. Known unrelated failures outside this slice: one CCTV date-sensitive assertion and eight screenshot tests that reference a stale absolute `/Users/sayfa/...` artifact path. Next page is CCTV; after it is connected, rerun Alerts and the entire prior ledger again.
+
 ## What this is
 
 AIoT School Lab — a school management app (Thai-language UI) covering
