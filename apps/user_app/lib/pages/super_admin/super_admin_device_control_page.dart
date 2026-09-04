@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import 'models/device_control_models.dart';
 import 'theme/app_palette.dart';
-import 'widgets/dev_ui.dart';
+import 'widgets/device_control_sections.dart';
+import 'widgets/device_control_widgets.dart';
 
 class SuperAdminDeviceControlPage extends StatefulWidget {
   const SuperAdminDeviceControlPage({super.key, this.onOpenSchools, this.onOpenDevices});
@@ -33,12 +35,12 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
   String _room = 'ทุกห้อง';
   String _status = 'ทุกสถานะ';
 
-  final List<_SchoolItem> _schools = <_SchoolItem>[];
-  final List<_DeviceItem> _devices = <_DeviceItem>[];
-  final List<_ActionLog> _logs = <_ActionLog>[];
-  final List<_ControlPermission> _permissions = <_ControlPermission>[];
+  final List<SchoolItem> _schools = <SchoolItem>[];
+  final List<DeviceItem> _devices = <DeviceItem>[];
+  final List<ActionLog> _logs = <ActionLog>[];
+  final List<ControlPermission> _permissions = <ControlPermission>[];
 
-  final List<_ApprovalItem> _approvals = <_ApprovalItem>[];
+  final List<ApprovalItem> _approvals = <ApprovalItem>[];
 
   String _currentRole = 'viewer';
 
@@ -135,30 +137,30 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
       setState(() {
         _schools
           ..clear()
-          ..addAll(data.schools.map(_SchoolItem.fromRecord));
+          ..addAll(data.schools.map(SchoolItem.fromRecord));
 
         _devices
           ..clear()
-          ..addAll(data.devices.map(_DeviceItem.fromRecord));
+          ..addAll(data.devices.map(DeviceItem.fromRecord));
 
         _logs
           ..clear()
-          ..addAll(data.logs.map(_ActionLog.fromRecord));
+          ..addAll(data.logs.map(ActionLog.fromRecord));
 
         _permissions
           ..clear()
-          ..addAll(data.permissions.map(_ControlPermission.fromRecord));
+          ..addAll(data.permissions.map(ControlPermission.fromRecord));
 
         _approvals
           ..clear()
-          ..addAll(data.approvals.map(_ApprovalItem.fromRecord));
+          ..addAll(data.approvals.map(ApprovalItem.fromRecord));
 
         _currentRole = data.currentRole;
 
         if (_selectedSchoolId != 'ALL') {
-          _SchoolItem? selected;
+          SchoolItem? selected;
 
-          for (final _SchoolItem item in _schools) {
+          for (final SchoolItem item in _schools) {
             if (item.databaseId == _selectedSchoolId) {
               selected = item;
               break;
@@ -220,39 +222,39 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     super.dispose();
   }
 
-  List<_DeviceItem> get _schoolDevices {
+  List<DeviceItem> get _schoolDevices {
     if (_selectedSchoolId == 'ALL') {
       return _devices;
     }
 
     return _devices
-        .where((_DeviceItem item) => item.schoolId == _selectedSchoolId)
+        .where((DeviceItem item) => item.schoolId == _selectedSchoolId)
         .toList(growable: false);
   }
 
   int get _onlineCount =>
-      _schoolDevices.where((_DeviceItem item) => item.online).length;
+      _schoolDevices.where((DeviceItem item) => item.online).length;
 
   int get _offlineCount =>
-      _schoolDevices.where((_DeviceItem item) => !item.online).length;
+      _schoolDevices.where((DeviceItem item) => !item.online).length;
 
   int get _onCount =>
       _schoolDevices
-          .where((_DeviceItem item) => item.online && item.isOn)
+          .where((DeviceItem item) => item.online && item.isOn)
           .length;
 
   int get _autoCount =>
-      _schoolDevices.where((_DeviceItem item) => item.autoMode).length;
+      _schoolDevices.where((DeviceItem item) => item.autoMode).length;
 
   bool get _canApproveRequests =>
       <String>{'super_admin', 'school_admin'}.contains(_currentRole);
 
-  List<_ApprovalItem> get _visibleApprovals {
-    final Iterable<_ApprovalItem> filtered =
+  List<ApprovalItem> get _visibleApprovals {
+    final Iterable<ApprovalItem> filtered =
         _selectedSchoolId == 'ALL'
             ? _approvals
             : _approvals.where(
-              (_ApprovalItem item) => item.schoolId == _selectedSchoolId,
+              (ApprovalItem item) => item.schoolId == _selectedSchoolId,
             );
 
     return filtered.take(12).toList(growable: false);
@@ -265,15 +267,15 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
 
   List<String> get _schoolOptions => <String>[
     'ทุกโรงเรียน',
-    ..._schools.map((_SchoolItem item) => item.name),
+    ..._schools.map((SchoolItem item) => item.name),
   ];
 
-  _SchoolItem? get _selectedSchoolItem {
+  SchoolItem? get _selectedSchoolItem {
     if (_selectedSchoolId == 'ALL') {
       return null;
     }
 
-    for (final _SchoolItem item in _schools) {
+    for (final SchoolItem item in _schools) {
       if (item.databaseId == _selectedSchoolId) {
         return item;
       }
@@ -292,7 +294,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     });
   }
 
-  void _selectSchool(_SchoolItem school) {
+  void _selectSchool(SchoolItem school) {
     setState(() {
       _selectedSchoolId = school.databaseId;
       _school = school.name;
@@ -308,7 +310,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
       return;
     }
 
-    for (final _SchoolItem item in _schools) {
+    for (final SchoolItem item in _schools) {
       if (item.name == schoolName) {
         _selectSchool(item);
         return;
@@ -321,11 +323,11 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     ..._unique(
       _devices
           .where(
-            (_DeviceItem item) =>
+            (DeviceItem item) =>
                 _selectedSchoolId == 'ALL' ||
                 item.schoolId == _selectedSchoolId,
           )
-          .map((_DeviceItem item) => item.building),
+          .map((DeviceItem item) => item.building),
     ),
   ];
 
@@ -334,19 +336,19 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     ..._unique(
       _devices
           .where(
-            (_DeviceItem item) =>
+            (DeviceItem item) =>
                 (_selectedSchoolId == 'ALL' ||
                     item.schoolId == _selectedSchoolId) &&
                 (_building == 'ทุกอาคาร' || item.building == _building),
           )
-          .map((_DeviceItem item) => item.room),
+          .map((DeviceItem item) => item.room),
     ),
   ];
 
-  List<_DeviceItem> get _filteredDevices {
+  List<DeviceItem> get _filteredDevices {
     final String query = _searchController.text.trim().toLowerCase();
 
-    return _devices.where((_DeviceItem item) {
+    return _devices.where((DeviceItem item) {
       final bool matchesText =
           query.isEmpty ||
           item.id.toLowerCase().contains(query) ||
@@ -413,7 +415,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(26),
-                boxShadow: _shadow,
+                boxShadow: deviceControlCardShadow,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -456,7 +458,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
       );
     }
 
-    final List<_DeviceItem> filtered = _filteredDevices;
+    final List<DeviceItem> filtered = _filteredDevices;
 
     return ColoredBox(
       color: AppPalette.background,
@@ -527,7 +529,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
   }
 
   Widget _buildSchoolSelector() {
-    final _SchoolItem? selected = _selectedSchoolItem;
+    final SchoolItem? selected = _selectedSchoolItem;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -535,7 +537,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: AppPalette.softBeige),
-        boxShadow: _shadow,
+        boxShadow: deviceControlCardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,17 +720,17 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                       spacing: 8,
                       runSpacing: 8,
                       children: <Widget>[
-                        _schoolMiniStat(
+                        deviceControlSchoolMiniStat(
                           '${selected.totalDevices}',
                           'อุปกรณ์',
                           Icons.memory_rounded,
                         ),
-                        _schoolMiniStat(
+                        deviceControlSchoolMiniStat(
                           '${selected.onlineDevices}',
                           'ออนไลน์',
                           Icons.wifi_tethering_rounded,
                         ),
-                        _schoolMiniStat(
+                        deviceControlSchoolMiniStat(
                           '${selected.openAlerts}',
                           'แจ้งเตือน',
                           Icons.notifications_active_rounded,
@@ -794,45 +796,6 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
               ],
             ],
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _schoolMiniStat(String value, String label, IconData icon) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 92),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.softBeige),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, color: AppPalette.deepBlue, size: 18),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                value,
-                style: const TextStyle(
-                  color: AppPalette.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppPalette.textSecondary,
-                  fontSize: 9,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -968,7 +931,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                   children: <Widget>[
                     SizedBox(
                       width: width,
-                      child: _metric(
+                      child: deviceControlMetric(
                         Icons.wifi_tethering_rounded,
                         '$_onlineCount',
                         'ออนไลน์',
@@ -976,7 +939,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                     ),
                     SizedBox(
                       width: width,
-                      child: _metric(
+                      child: deviceControlMetric(
                         Icons.power_rounded,
                         '$_onCount',
                         'กำลังเปิด',
@@ -984,7 +947,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                     ),
                     SizedBox(
                       width: width,
-                      child: _metric(
+                      child: deviceControlMetric(
                         Icons.auto_mode_rounded,
                         '$_autoCount',
                         'อัตโนมัติ',
@@ -992,7 +955,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                     ),
                     SizedBox(
                       width: width,
-                      child: _metric(
+                      child: deviceControlMetric(
                         Icons.portable_wifi_off_rounded,
                         '$_offlineCount',
                         'ออฟไลน์',
@@ -1023,55 +986,6 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     );
   }
 
-  Widget _metric(IconData icon, String value, String label) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 116),
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F8FC),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppPalette.deepBlue.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppPalette.circusYellow.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppPalette.deepBlue, size: 19),
-          ),
-          const SizedBox(height: 11),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppPalette.deepBlue,
-              fontSize: 25,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppPalette.textSecondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSummary() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -1081,28 +995,28 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
             (constraints.maxWidth - (gap * (columns - 1))) / columns;
 
         final List<Widget> cards = <Widget>[
-          _summaryCard(
+          deviceControlSummaryCard(
             Icons.devices_rounded,
             'อุปกรณ์ทั้งหมด',
             '${_devices.length}',
             'ลงทะเบียนในระบบควบคุม',
             AppPalette.deepBlue,
           ),
-          _summaryCard(
+          deviceControlSummaryCard(
             Icons.toggle_on_rounded,
             'กำลังเปิด',
             '$_onCount',
             'เปิดอยู่และเชื่อมต่อปกติ',
             AppPalette.gardenGreen,
           ),
-          _summaryCard(
+          deviceControlSummaryCard(
             Icons.auto_mode_rounded,
             'โหมดอัตโนมัติ',
             '$_autoCount',
             'ทำงานตามเงื่อนไขระบบ',
             AppPalette.circusYellow,
           ),
-          _summaryCard(
+          deviceControlSummaryCard(
             Icons.error_outline_rounded,
             'ต้องตรวจสอบ',
             '$_offlineCount',
@@ -1123,81 +1037,23 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     );
   }
 
-  Widget _summaryCard(
-    IconData icon,
-    String title,
-    String value,
-    String detail,
-    Color color,
-  ) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 165),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          CircleAvatar(
-            radius: 21,
-            backgroundColor: color.withValues(alpha: 0.12),
-            child: Icon(icon, color: color, size: 21),
-          ),
-          const SizedBox(height: 22),
-          Text(
-            title,
-            style: const TextStyle(
-              color: AppPalette.textPrimary,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppPalette.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w900,
-              height: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            detail,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: 9.8,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildUnifiedScopeControls() {
-    final List<_ProtectedScope> scopes = <_ProtectedScope>[
-      _ProtectedScope(
+    final List<ProtectedScope> scopes = <ProtectedScope>[
+      ProtectedScope(
         code: 'main',
         title: 'อุปกรณ์หลัก',
         subtitle: 'บอร์ดควบคุมและ Gateway ส่วนกลาง',
         icon: Icons.hub_rounded,
         color: AppPalette.deepBlue,
       ),
-      _ProtectedScope(
+      ProtectedScope(
         code: 'electricity',
         title: 'ระบบไฟฟ้า',
         subtitle: 'แหล่งจ่ายไฟและรีเลย์ไฟฟ้า',
         icon: Icons.electric_bolt_rounded,
         color: AppPalette.circusYellow,
       ),
-      _ProtectedScope(
+      ProtectedScope(
         code: 'water',
         title: 'ระบบน้ำ',
         subtitle: 'ปั๊มน้ำ วาล์ว และอุปกรณ์น้ำ',
@@ -1341,16 +1197,16 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
               spacing: gap,
               runSpacing: gap,
               children: scopes
-                  .map((_ProtectedScope scope) {
-                    final List<_DeviceItem> targets = _devicesForScope(
+                  .map((ProtectedScope scope) {
+                    final List<DeviceItem> targets = _devicesForScope(
                       scope.code,
                     );
 
                     final int onCount =
-                        targets.where((_DeviceItem item) => item.isOn).length;
+                        targets.where((DeviceItem item) => item.isOn).length;
 
                     final int onlineCount =
-                        targets.where((_DeviceItem item) => item.online).length;
+                        targets.where((DeviceItem item) => item.online).length;
 
                     final bool canRequest =
                         _selectedSchoolId != 'ALL' && targets.isNotEmpty;
@@ -1496,9 +1352,9 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
   }
 
   Widget _buildApprovalRequestsPanel() {
-    final List<_ApprovalItem> approvals = _visibleApprovals;
+    final List<ApprovalItem> approvals = _visibleApprovals;
 
-    return _panel(
+    return deviceControlPanel(
       title: 'คำขออนุมัติการเปิด–ปิด',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1510,7 +1366,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              '${approvals.where((_ApprovalItem item) => item.status == 'pending').length} รออนุมัติ',
+              '${approvals.where((ApprovalItem item) => item.status == 'pending').length} รออนุมัติ',
               style: const TextStyle(
                 color: AppPalette.deepBlue,
                 fontSize: 10,
@@ -1528,205 +1384,34 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
       ),
       child:
           approvals.isEmpty
-              ? _empty(
+              ? deviceControlEmpty(
                 Icons.approval_outlined,
                 'ยังไม่มีคำขออนุมัติ',
                 'เมื่อผู้ใช้ขอเปิดหรือปิดระบบ คำขอจะปรากฏที่นี่',
               )
               : Column(
                 children: approvals
-                    .map(_buildApprovalTile)
+                    .map(
+                      (ApprovalItem item) => DeviceControlApprovalTile(
+                        item: item,
+                        canDecide:
+                            _canApproveRequests && item.status == 'pending',
+                        onReject: _rejectApproval,
+                        onApprove: _approveWithPassword,
+                      ),
+                    )
                     .toList(growable: false),
               ),
     );
   }
 
-  Widget _buildApprovalTile(_ApprovalItem item) {
-    final Color statusColor = switch (item.status) {
-      'approved' => AppPalette.gardenGreen,
-      'rejected' => AppPalette.carnivalRed,
-      'expired' => AppPalette.textSecondary,
-      _ => AppPalette.circusYellow,
-    };
-
-    final String statusLabel = switch (item.status) {
-      'approved' => 'อนุมัติแล้ว',
-      'rejected' => 'ไม่อนุมัติ',
-      'expired' => 'หมดเวลา',
-      _ => 'รออนุมัติ',
-    };
-
-    final bool canDecide = _canApproveRequests && item.status == 'pending';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: AppPalette.background,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: statusColor.withValues(alpha: 0.25)),
-      ),
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          final Widget information = Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Icon(
-                  item.turnOn
-                      ? Icons.power_settings_new_rounded
-                      : Icons.power_off_rounded,
-                  color: statusColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      '${item.turnOn ? 'ขอเปิด' : 'ขอปิด'} '
-                      '${item.scopeLabel}',
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '${item.schoolName} • '
-                      '${item.targetCount} อุปกรณ์',
-                      style: const TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'ผู้ขอ: ${item.requesterName} • '
-                      '${item.requestedLabel}',
-                      style: const TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 10,
-                      ),
-                    ),
-                    if (item.reason.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 5),
-                      Text(
-                        'เหตุผล: ${item.reason}',
-                        style: const TextStyle(
-                          color: AppPalette.textPrimary,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    if (item.approverName != null) ...<Widget>[
-                      const SizedBox(height: 5),
-                      Text(
-                        'ผู้พิจารณา: ${item.approverName}',
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          );
-
-          final Widget actions = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              if (canDecide) ...<Widget>[
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () => _rejectApproval(item),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppPalette.carnivalRed,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  child: const Text('ไม่อนุมัติ'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: () => _approveWithPassword(item),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppPalette.gardenGreen,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.password_rounded, size: 17),
-                  label: const Text('ยืนยันด้วยรหัสผ่าน'),
-                ),
-              ],
-            ],
-          );
-
-          if (constraints.maxWidth < 820) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                information,
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: actions,
-                  ),
-                ),
-              ],
-            );
-          }
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(child: information),
-              const SizedBox(width: 14),
-              actions,
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  List<_DeviceItem> _devicesForScope(String scope) {
+  List<DeviceItem> _devicesForScope(String scope) {
     if (_selectedSchoolId == 'ALL') {
-      return <_DeviceItem>[];
+      return <DeviceItem>[];
     }
 
     return _devices
-        .where((_DeviceItem item) {
+        .where((DeviceItem item) {
           if (item.schoolId != _selectedSchoolId) {
             return false;
           }
@@ -1736,7 +1421,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
         .toList(growable: false);
   }
 
-  String _scopeForDevice(_DeviceItem item) {
+  String _scopeForDevice(DeviceItem item) {
     final String explicit =
         item.metadata['control_group']?.toString().trim().toLowerCase() ?? '';
 
@@ -1771,7 +1456,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     required String scope,
     required String scopeLabel,
     required bool turnOn,
-    required List<_DeviceItem> devices,
+    required List<DeviceItem> devices,
     String? customTitle,
   }) async {
     if (_selectedSchoolId == 'ALL') {
@@ -1897,7 +1582,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
   /// approved a real device-control action. Removed the false claim
   /// entirely rather than build a new re-auth RPC for this pass — this
   /// is now an honest plain confirmation, not fake security theater.
-  Future<void> _approveWithPassword(_ApprovalItem item) async {
+  Future<void> _approveWithPassword(ApprovalItem item) async {
     final bool? approved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -1980,7 +1665,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     }
   }
 
-  Future<void> _rejectApproval(_ApprovalItem item) async {
+  Future<void> _rejectApproval(ApprovalItem item) async {
     final TextEditingController reasonController = TextEditingController();
 
     final bool? confirmed = await showDialog<bool>(
@@ -2060,18 +1745,18 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
   }
 
   Widget _buildPriority() {
-    final List<_DeviceItem> offline =
-        _devices.where((_DeviceItem item) => !item.online).toList();
+    final List<DeviceItem> offline =
+        _devices.where((DeviceItem item) => !item.online).toList();
 
-    return _panel(
+    return deviceControlPanel(
       title: 'รายการที่ควรจัดการก่อน',
-      trailing: _badge(
+      trailing: deviceControlBadge(
         '${offline.length} รายการ',
         offline.isEmpty ? AppPalette.gardenGreen : AppPalette.carnivalRed,
       ),
       child:
           offline.isEmpty
-              ? _empty(
+              ? deviceControlEmpty(
                 Icons.task_alt_rounded,
                 'ไม่มีอุปกรณ์ที่ต้องตรวจสอบ',
                 'อุปกรณ์ทั้งหมดเชื่อมต่อและทำงานได้ตามปกติ',
@@ -2191,7 +1876,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
               children: <Widget>[
                 SizedBox(
                   width: width,
-                  child: _dropdown(
+                  child: deviceControlDropdown(
                     'โรงเรียน',
                     Icons.apartment_rounded,
                     _schoolOptions.contains(_school) ? _school : 'ทุกโรงเรียน',
@@ -2201,7 +1886,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                 ),
                 SizedBox(
                   width: width,
-                  child: _dropdown(
+                  child: deviceControlDropdown(
                     'อาคาร',
                     Icons.location_city_rounded,
                     _buildingOptions.contains(_building)
@@ -2218,7 +1903,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                 ),
                 SizedBox(
                   width: width,
-                  child: _dropdown(
+                  child: deviceControlDropdown(
                     'ห้อง',
                     Icons.meeting_room_rounded,
                     _roomOptions.contains(_room) ? _room : 'ทุกห้อง',
@@ -2232,7 +1917,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                 ),
                 SizedBox(
                   width: width,
-                  child: _dropdown(
+                  child: deviceControlDropdown(
                     'สถานะ',
                     Icons.filter_alt_rounded,
                     _status,
@@ -2258,38 +1943,6 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     );
   }
 
-  Widget _dropdown(
-    String label,
-    IconData icon,
-    String value,
-    List<String> items,
-    ValueChanged<String> onChanged,
-  ) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
-      items:
-          items
-              .map(
-                (String item) => DropdownMenuItem<String>(
-                  value: item,
-                  child: Text(
-                    item,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-      onChanged: (String? value) {
-        if (value != null) {
-          onChanged(value);
-        }
-      },
-    );
-  }
-
   void _clearFilters() {
     _searchController.clear();
 
@@ -2302,8 +1955,8 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     });
   }
 
-  Widget _buildDevicePanel(List<_DeviceItem> filtered) {
-    return _panel(
+  Widget _buildDevicePanel(List<DeviceItem> filtered) {
+    return deviceControlPanel(
       title: 'ควบคุมอุปกรณ์',
       trailing: Text(
         'พบ ${filtered.length} อุปกรณ์',
@@ -2383,7 +2036,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
           ),
           const SizedBox(height: 14),
           if (filtered.isEmpty)
-            _empty(
+            deviceControlEmpty(
               Icons.search_off_rounded,
               'ไม่พบอุปกรณ์',
               _selectedSchoolId == 'ALL'
@@ -2405,8 +2058,15 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                   runSpacing: gap,
                   children: filtered
                       .map(
-                        (_DeviceItem item) =>
-                            SizedBox(width: width, child: _deviceCard(item)),
+                        (DeviceItem item) => SizedBox(
+                          width: width,
+                          child: DeviceControlDeviceCard(
+                            item: item,
+                            onShowDetails: _showDetails,
+                            onChangeMode: _changeMode,
+                            onToggle: _confirmToggle,
+                          ),
+                        ),
                       )
                       .toList(growable: false),
                 );
@@ -2417,210 +2077,11 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     );
   }
 
-  Widget _deviceCard(_DeviceItem item) {
-    final Color stateColor =
-        !item.online
-            ? AppPalette.carnivalRed
-            : item.isOn
-            ? AppPalette.gardenGreen
-            : AppPalette.deepBlue;
-
-    return Container(
-      padding: const EdgeInsets.all(17),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(
-          color:
-              item.online
-                  ? AppPalette.softBeige.withValues(alpha: 0.7)
-                  : AppPalette.carnivalRed.withValues(alpha: 0.5),
-        ),
-        boxShadow: _shadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 49,
-                height: 49,
-                decoration: BoxDecoration(
-                  color: stateColor.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(17),
-                ),
-                child: Icon(item.icon, color: stateColor),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      item.name,
-                      style: const TextStyle(
-                        color: AppPalette.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '${item.id} • ${item.type}',
-                      style: const TextStyle(
-                        color: AppPalette.textSecondary,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'ดูรายละเอียด',
-                onPressed: () => _showDetails(item),
-                icon: const Icon(Icons.more_vert_rounded),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: <Widget>[
-              _badge(
-                item.online ? 'ออนไลน์' : 'ออฟไลน์',
-                item.online ? AppPalette.gardenGreen : AppPalette.carnivalRed,
-              ),
-              _badge(
-                item.isOn ? 'กำลังเปิด' : 'ปิดอยู่',
-                item.isOn ? AppPalette.gardenGreen : AppPalette.deepBlue,
-              ),
-              _badge(
-                item.autoMode ? 'อัตโนมัติ' : 'ควบคุมเอง',
-                item.autoMode ? AppPalette.circusYellow : AppPalette.deepBlue,
-              ),
-              if (item.commandPending)
-                _badge('รออุปกรณ์รับคำสั่ง', AppPalette.circusYellow),
-            ],
-          ),
-          const SizedBox(height: 15),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(13),
-            decoration: BoxDecoration(
-              color: AppPalette.softBeige.withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  '${item.school} • ${item.building} • ${item.room}',
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  item.reading,
-                  style: const TextStyle(
-                    color: AppPalette.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  item.updated,
-                  style: TextStyle(
-                    color:
-                        item.online
-                            ? AppPalette.textSecondary
-                            : AppPalette.carnivalRed,
-                    fontSize: 10,
-                  ),
-                ),
-                if (!item.online) ...<Widget>[
-                  const SizedBox(height: 6),
-                  const Text(
-                    'ยังส่งคำขอเปิด–ปิดได้ โดยคำสั่งจะรอ '
-                    'จนกว่า MiniPC หรือ Gateway จะเชื่อมต่อ',
-                    style: TextStyle(
-                      color: AppPalette.textSecondary,
-                      fontSize: 9.5,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: item.autoMode ? 'อัตโนมัติ' : 'ควบคุมเอง',
-                  decoration: const InputDecoration(
-                    labelText: 'โหมดทำงาน',
-                    prefixIcon: Icon(Icons.tune_rounded),
-                  ),
-                  items: const <DropdownMenuItem<String>>[
-                    DropdownMenuItem<String>(
-                      value: 'อัตโนมัติ',
-                      child: Text('อัตโนมัติ'),
-                    ),
-                    DropdownMenuItem<String>(
-                      value: 'ควบคุมเอง',
-                      child: Text('ควบคุมเอง'),
-                    ),
-                  ],
-                  onChanged:
-                      item.commandPending
-                          ? null
-                          : (String? value) {
-                            if (value == null) {
-                              return;
-                            }
-
-                            _changeMode(item, value == 'อัตโนมัติ');
-                          },
-                ),
-              ),
-              const SizedBox(width: 10),
-              Column(
-                children: <Widget>[
-                  Text(
-                    item.isOn ? 'เปิด' : 'ปิด',
-                    style: TextStyle(
-                      color: stateColor,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Switch.adaptive(
-                    value: item.isOn,
-                    onChanged:
-                        item.commandPending
-                            ? null
-                            : (bool value) => _confirmToggle(item, value),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildBottomPanels() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final Widget permission = _panel(
+        final Widget permission = deviceControlPanel(
           title: 'สิทธิ์ควบคุมอุปกรณ์',
           trailing: IconButton(
             tooltip: 'เพิ่มสิทธิ์',
@@ -2629,7 +2090,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
           ),
           child:
               _permissions.isEmpty
-                  ? _empty(
+                  ? deviceControlEmpty(
                     Icons.manage_accounts_outlined,
                     'ยังไม่มีผู้ใช้ที่ควบคุมอุปกรณ์',
                     'เพิ่มสิทธิ์ให้บัญชีที่ลงทะเบียนใน Supabase',
@@ -2641,7 +2102,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                         index < _permissions.length;
                         index++
                       ) ...<Widget>[
-                        _permissionRow(
+                        deviceControlPermissionRow(
                           _permissions[index].email,
                           _permissions[index].detail,
                           _permissions[index].color,
@@ -2653,11 +2114,11 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                   ),
         );
 
-        final Widget logs = _panel(
+        final Widget logs = deviceControlPanel(
           title: 'ประวัติคำสั่งล่าสุด',
           child:
               _logs.isEmpty
-                  ? _empty(
+                  ? deviceControlEmpty(
                     Icons.history_rounded,
                     'ยังไม่มีประวัติคำสั่ง',
                     'คำสั่งเปิด–ปิดและเปลี่ยนโหมดจะแสดงที่นี่',
@@ -2669,7 +2130,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                         index < _logs.length;
                         index++
                       ) ...<Widget>[
-                        _logRow(_logs[index]),
+                        deviceControlLogRow(_logs[index]),
                         if (index < _logs.length - 1) const Divider(height: 24),
                       ],
                     ],
@@ -2694,110 +2155,19 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     );
   }
 
-  Widget _permissionRow(String email, String detail, Color color) {
-    return Row(
-      children: <Widget>[
-        CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.12),
-          child: Icon(Icons.person_rounded, color: color),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                email,
-                style: const TextStyle(
-                  color: AppPalette.textPrimary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                detail,
-                style: const TextStyle(
-                  color: AppPalette.textSecondary,
-                  fontSize: 10.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _logRow(_ActionLog log) {
-    final Color color =
-        log.success ? AppPalette.gardenGreen : AppPalette.carnivalRed;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Container(
-          width: 43,
-          height: 43,
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Icon(
-            log.success ? Icons.check_rounded : Icons.close_rounded,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                log.title,
-                style: const TextStyle(
-                  color: AppPalette.textPrimary,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                log.detail,
-                style: const TextStyle(
-                  color: AppPalette.textSecondary,
-                  fontSize: 10.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '${log.actor} • ${log.time}',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _confirmToggle(_DeviceItem item, bool value) async {
+  Future<void> _confirmToggle(DeviceItem item, bool value) async {
     final String scope = _scopeForDevice(item);
 
     await _requestProtectedControl(
       scope: scope,
       scopeLabel: _scopeLabel(scope),
       turnOn: value,
-      devices: <_DeviceItem>[item],
+      devices: <DeviceItem>[item],
       customTitle: '${value ? 'เปิด' : 'ปิด'} ${item.name}',
     );
   }
 
-  Future<void> _changeMode(_DeviceItem item, bool autoMode) async {
+  Future<void> _changeMode(DeviceItem item, bool autoMode) async {
     setState(() {
       _isSaving = true;
     });
@@ -2843,8 +2213,8 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
   }
 
   Future<void> _emergencyStop() async {
-    final List<_DeviceItem> targets = _devices
-        .where((_DeviceItem item) => item.online && item.isOn)
+    final List<DeviceItem> targets = _devices
+        .where((DeviceItem item) => item.online && item.isOn)
         .toList(growable: false);
 
     if (targets.isEmpty) {
@@ -3037,7 +2407,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     }
   }
 
-  void _showDetails(_DeviceItem item) {
+  void _showDetails(DeviceItem item) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -3103,47 +2473,17 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
                   ],
                 ),
                 const SizedBox(height: 18),
-                _detailRow('โรงเรียน', item.school),
-                _detailRow('อาคาร', item.building),
-                _detailRow('ห้อง', item.room),
-                _detailRow('สถานะ', item.online ? 'ออนไลน์' : 'ออฟไลน์'),
-                _detailRow('ค่าปัจจุบัน', item.reading),
-                _detailRow('อัปเดตล่าสุด', item.updated),
+                deviceControlDetailRow('โรงเรียน', item.school),
+                deviceControlDetailRow('อาคาร', item.building),
+                deviceControlDetailRow('ห้อง', item.room),
+                deviceControlDetailRow('สถานะ', item.online ? 'ออนไลน์' : 'ออฟไลน์'),
+                deviceControlDetailRow('ค่าปัจจุบัน', item.reading),
+                deviceControlDetailRow('อัปเดตล่าสุด', item.updated),
               ],
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _detailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                color: AppPalette.textSecondary,
-                fontSize: 11.5,
-              ),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: AppPalette.textPrimary,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -3155,377 +2495,4 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
       );
   }
 
-  Widget _panel({
-    required String title,
-    required Widget child,
-    Widget? trailing,
-  }) {
-    return AppPanel(title: title, trailing: trailing, child: child);
-  }
-
-  Widget _badge(String label, Color color) {
-    return StatusBadge(label: label, color: color);
-  }
-
-  Widget _empty(IconData icon, String title, String subtitle) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
-      decoration: BoxDecoration(
-        color: AppPalette.softBeige.withValues(alpha: 0.22),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        children: <Widget>[
-          CircleAvatar(
-            radius: 27,
-            backgroundColor: AppPalette.deepBlue.withValues(alpha: 0.1),
-            child: Icon(icon, color: AppPalette.deepBlue),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppPalette.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppPalette.textSecondary,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<BoxShadow> get _shadow => <BoxShadow>[
-    BoxShadow(
-      color: Colors.black.withValues(alpha: 0.045),
-      blurRadius: 22,
-      offset: const Offset(0, 10),
-    ),
-  ];
-}
-
-class _SchoolItem {
-  const _SchoolItem({
-    required this.databaseId,
-    required this.schoolCode,
-    required this.name,
-    required this.province,
-    required this.packageName,
-    required this.status,
-    required this.totalDevices,
-    required this.onlineDevices,
-    required this.openAlerts,
-  });
-
-  final String databaseId;
-  final String schoolCode;
-  final String name;
-  final String province;
-  final String packageName;
-  final String status;
-  final int totalDevices;
-  final int onlineDevices;
-  final int openAlerts;
-
-  factory _SchoolItem.fromRecord(DeviceControlSchoolRecord record) {
-    return _SchoolItem(
-      databaseId: record.databaseId,
-      schoolCode: record.schoolCode,
-      name: record.name,
-      province: record.province,
-      packageName: record.packageName,
-      status: record.status,
-      totalDevices: record.totalDevices,
-      onlineDevices: record.onlineDevices,
-      openAlerts: record.openAlerts,
-    );
-  }
-}
-
-class _ProtectedScope {
-  const _ProtectedScope({
-    required this.code,
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-  });
-
-  final String code;
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-}
-
-class _ApprovalItem {
-  const _ApprovalItem({
-    required this.databaseId,
-    required this.schoolId,
-    required this.schoolName,
-    required this.scope,
-    required this.action,
-    required this.reason,
-    required this.targetCount,
-    required this.status,
-    required this.requestedBy,
-    required this.requesterName,
-    required this.requestedAt,
-    required this.expiresAt,
-    required this.approverName,
-    required this.decisionNote,
-  });
-
-  final String databaseId;
-  final String schoolId;
-  final String schoolName;
-  final String scope;
-  final String action;
-  final String reason;
-  final int targetCount;
-  final String status;
-  final String requestedBy;
-  final String requesterName;
-  final DateTime? requestedAt;
-  final DateTime? expiresAt;
-  final String? approverName;
-  final String decisionNote;
-
-  factory _ApprovalItem.fromRecord(DeviceControlApprovalRecord record) {
-    return _ApprovalItem(
-      databaseId: record.id,
-      schoolId: record.schoolId,
-      schoolName: record.schoolName,
-      scope: record.command.contains('building')
-          ? 'building'
-          : (record.command.contains('school') ? 'school' : 'main'),
-      action: record.command,
-      reason: record.notes ?? '',
-      targetCount: 1,
-      status: record.status,
-      requestedBy: record.requestedBy,
-      requesterName: record.requesterName,
-      requestedAt: record.createdAt,
-      expiresAt: record.createdAt?.add(const Duration(hours: 24)),
-      approverName: record.reviewerName,
-      decisionNote: record.notes ?? '',
-    );
-  }
-
-  bool get turnOn => action == 'power_on';
-
-  String get scopeLabel {
-    switch (scope) {
-      case 'water':
-        return 'ระบบน้ำ';
-      case 'electricity':
-        return 'ระบบไฟฟ้า';
-      case 'main':
-      default:
-        return 'อุปกรณ์หลัก';
-    }
-  }
-
-  String get requestedLabel {
-    final DateTime? value = requestedAt;
-
-    if (value == null) {
-      return '-';
-    }
-
-    final String hour = value.hour.toString().padLeft(2, '0');
-    final String minute = value.minute.toString().padLeft(2, '0');
-
-    return '${value.day}/${value.month}/${value.year + 543} '
-        '$hour:$minute น.';
-  }
-}
-
-class _DeviceItem {
-  final String databaseId;
-  final String schoolId;
-  final String id;
-  final String name;
-  final String school;
-  final String building;
-  final String room;
-  final String type;
-  final String categoryCode;
-  final IconData icon;
-  final bool online;
-  final String reading;
-  final String updated;
-  final String commandStatus;
-  final Map<String, dynamic> metadata;
-
-  bool isOn;
-  bool autoMode;
-
-  _DeviceItem({
-    required this.databaseId,
-    required this.schoolId,
-    required this.id,
-    required this.name,
-    required this.school,
-    required this.building,
-    required this.room,
-    required this.type,
-    required this.categoryCode,
-    required this.icon,
-    required this.online,
-    required this.isOn,
-    required this.autoMode,
-    required this.reading,
-    required this.updated,
-    required this.commandStatus,
-    required this.metadata,
-  });
-
-  factory _DeviceItem.fromRecord(DeviceControlItemRecord record) {
-    IconData icon;
-
-    switch (record.categoryCode) {
-      case 'SEN':
-        icon = Icons.sensors_rounded;
-        break;
-      case 'CAM':
-        icon = Icons.videocam_rounded;
-        break;
-      case 'RLY':
-        icon = Icons.electrical_services_rounded;
-        break;
-      case 'WTR':
-        icon = Icons.water_drop_rounded;
-        break;
-      case 'PWR':
-        icon = Icons.power_rounded;
-        break;
-      case 'GTW':
-        icon = Icons.router_rounded;
-        break;
-      case 'CTL':
-      default:
-        icon = Icons.developer_board_rounded;
-        break;
-    }
-
-    final DateTime? updatedDt = record.updatedAt;
-    final String updatedStr = updatedDt != null
-        ? '${updatedDt.day}/${updatedDt.month} ${updatedDt.hour.toString().padLeft(2, '0')}:${updatedDt.minute.toString().padLeft(2, '0')}'
-        : '-';
-
-    return _DeviceItem(
-      databaseId: record.databaseId,
-      schoolId: record.schoolId,
-      id: record.deviceCode,
-      name: record.name,
-      school: record.schoolName,
-      building: record.building,
-      room: record.room,
-      type: record.categoryCode,
-      categoryCode: record.categoryCode,
-      icon: icon,
-      online: record.online,
-      isOn: record.isPoweredOn,
-      autoMode: record.controlMode == 'auto',
-      reading: record.readingLabel,
-      updated: updatedStr,
-      commandStatus: 'idle',
-      metadata: Map<String, dynamic>.from(record.metadata),
-    );
-  }
-
-  bool get commandPending {
-    return <String>{
-      'pending',
-      'processing',
-      'queued',
-    }.contains(commandStatus.toLowerCase());
-  }
-}
-
-class _ActionLog {
-  final String title;
-  final String detail;
-  final String time;
-  final String actor;
-  final bool success;
-
-  const _ActionLog({
-    required this.title,
-    required this.detail,
-    required this.time,
-    required this.actor,
-    required this.success,
-  });
-
-  factory _ActionLog.fromRecord(DeviceControlLogRecord record) {
-    final DateTime? dt = record.createdAt;
-    final String timeStr = dt != null
-        ? '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
-        : '-';
-
-    final String eventTypeLower = record.eventType.toLowerCase();
-    final bool looksFailed = eventTypeLower.contains('fail') ||
-        eventTypeLower.contains('error') ||
-        eventTypeLower.contains('denied') ||
-        eventTypeLower.contains('reject');
-
-    return _ActionLog(
-      title: record.eventType,
-      detail: record.message,
-      time: timeStr,
-      actor: 'ระบบ',
-      success: !looksFailed,
-    );
-  }
-}
-
-class _ControlPermission {
-  final String email;
-  final String detail;
-  final Color color;
-
-  const _ControlPermission({
-    required this.email,
-    required this.detail,
-    required this.color,
-  });
-
-  factory _ControlPermission.fromRecord(DeviceControlPermissionRecord record) {
-    Color color;
-
-    switch (record.role) {
-      case 'super_admin':
-        color = AppPalette.deepBlue;
-        break;
-      case 'support':
-        color = AppPalette.gardenGreen;
-        break;
-      case 'school_admin':
-        color = AppPalette.circusYellow;
-        break;
-      case 'operator':
-      default:
-        color = const Color(0xFF1676B5);
-        break;
-    }
-
-    return _ControlPermission(
-      email: record.email,
-      detail: '${record.fullName} (${record.schoolName ?? "ทุกโรงเรียน"})',
-      color: color,
-    );
-  }
 }
