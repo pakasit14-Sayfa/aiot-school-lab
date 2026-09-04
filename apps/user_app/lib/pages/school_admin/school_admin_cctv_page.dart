@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import 'controllers/school_admin_async_state.dart';
+import 'controllers/school_admin_cctv_controller.dart';
 import '../../theme/school_admin_palette.dart';
 
 class SchoolAdminCctvPage extends StatefulWidget {
   const SchoolAdminCctvPage({
     super.key,
+    this.controller,
     this.initialGrants,
     this.initialUsers,
   });
 
+  final SchoolAdminCctvController? controller;
   final List<CameraAccessGrantItem>? initialGrants;
   final List<UserModel>? initialUsers;
 
@@ -18,18 +22,46 @@ class SchoolAdminCctvPage extends StatefulWidget {
 }
 
 class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
+  late final SchoolAdminCctvController _controller;
+  late final bool _ownsController;
+
   List<CameraAccessGrantItem> _grants = [];
   bool _isLoading = true;
+  String? _loadError;
   List<UserModel> _users = [];
   String _searchQuery = '';
   String _statusFilter = 'ทั้งหมด'; // ทั้งหมด, ใช้งานอยู่, หมดอายุ, เพิกถอนแล้ว
 
+  static List<UserModel> _eligibleUsers(Iterable<UserModel> users) {
+    return users
+        .where(
+          (user) =>
+              user.status == 'active' &&
+              (user.hasRole(UserRole.teacher) ||
+                  user.hasRole(UserRole.schoolAdmin) ||
+                  user.hasRole(UserRole.executive) ||
+                  user.hasRole(UserRole.superAdmin)),
+        )
+        .toList(growable: false);
+  }
+
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        SchoolAdminCctvController(
+          loadGrants: ExecutiveService.listCameraAccessGrants,
+          loadUsers: () async =>
+              _eligibleUsers(await UserAdminService.getAllUsers()),
+          grantAccess: ExecutiveService.grantCameraAccess,
+          revokeAccess: ExecutiveService.revokeCameraAccess,
+        );
+    _controller.addListener(_syncFromController);
     if (widget.initialGrants != null) {
       _grants = widget.initialGrants!;
-      _users = widget.initialUsers ?? [];
+      _users = _eligibleUsers(widget.initialUsers ?? const <UserModel>[]);
       _isLoading = false;
     } else {
       _loadData();
@@ -38,29 +70,55 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
 
   Future<void> _loadData() async {
     if (widget.initialGrants != null) return;
-    setState(() => _isLoading = true);
-    try {
-      final results = await Future.wait([
-        ExecutiveService.listCameraAccessGrants(),
-        UserAdminService.getAllUsers(),
-      ]);
+    await _controller.load();
+  }
 
-      if (mounted) {
-        setState(() {
-          _grants = results[0] as List<CameraAccessGrantItem>;
-          _users = results[1] as List<UserModel>;
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+  void _syncFromController() {
+    if (!mounted) return;
+    final state = _controller.state;
+    SchoolAdminCctvSnapshot? snapshot;
+    var isLoading = false;
+    String? loadError;
+
+    if (state is SchoolAdminData<SchoolAdminCctvSnapshot>) {
+      snapshot = state.value;
+    } else if (state is SchoolAdminLoading<SchoolAdminCctvSnapshot>) {
+      snapshot = state.previousData;
+      isLoading = state.previousData == null;
+    } else if (state is SchoolAdminError<SchoolAdminCctvSnapshot>) {
+      snapshot = state.previousData;
+      loadError = state.message;
     }
+
+    setState(() {
+      _isLoading = isLoading;
+      _loadError = loadError;
+      if (snapshot != null) {
+        _grants = snapshot.grants;
+        _users = snapshot.users;
+      }
+    });
+  }
+
+  String _mutationError(String fallback) {
+    final state = _controller.state;
+    return state is SchoolAdminError<SchoolAdminCctvSnapshot>
+        ? state.message
+        : fallback;
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_syncFromController);
+    if (_ownsController) _controller.dispose();
+    super.dispose();
   }
 
   List<CameraAccessGrantItem> get _filteredGrants {
     return _grants.where((g) {
       final query = _searchQuery.trim().toLowerCase();
-      final matchQuery = query.isEmpty ||
+      final matchQuery =
+          query.isEmpty ||
           g.userName.toLowerCase().contains(query) ||
           g.userEmail.toLowerCase().contains(query) ||
           g.reason.toLowerCase().contains(query) ||
@@ -80,19 +138,19 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
     }).toList();
   }
 
-  int get _activeCount =>
-      _grants.where((g) => g.isActive && g.validUntil.isAfter(DateTime.now())).length;
+  int get _activeCount => _grants
+      .where((g) => g.isActive && g.validUntil.isAfter(DateTime.now()))
+      .length;
 
-  int get _expiredCount =>
-      _grants.where((g) => g.validUntil.isBefore(DateTime.now()) && g.isActive).length;
+  int get _expiredCount => _grants
+      .where((g) => g.validUntil.isBefore(DateTime.now()) && g.isActive)
+      .length;
 
   int get _revokedCount => _grants.where((g) => !g.isActive).length;
 
   void _showGrantDialog() {
     String? selectedUserId = _users.isNotEmpty ? _users.first.uid : null;
-    final reasonController = TextEditingController(
-      text: 'เฝ้าระวังความปลอดภัยและกิจกรรมการเรียนการสอน',
-    );
+    final reasonController = TextEditingController();
     int validDays = 7;
 
     showDialog<void>(
@@ -164,7 +222,7 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: selectedUserId,
+                        initialValue: selectedUserId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           filled: true,
@@ -175,11 +233,15 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                         items: _users.map((u) {
@@ -192,7 +254,8 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                             ),
                           );
                         }).toList(),
-                        onChanged: (v) => setDialogState(() => selectedUserId = v),
+                        onChanged: (v) =>
+                            setDialogState(() => selectedUserId = v),
                       ),
                       const SizedBox(height: 16),
                       const Text(
@@ -217,11 +280,15 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                       ),
@@ -236,7 +303,8 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<int>(
-                        value: validDays,
+                        initialValue: validDays,
+                        isExpanded: true,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
@@ -246,11 +314,15 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                         items: const [
@@ -271,7 +343,8 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                             child: Text('90 วัน (1 ภาคการศึกษา)'),
                           ),
                         ],
-                        onChanged: (v) => setDialogState(() => validDays = v ?? 7),
+                        onChanged: (v) =>
+                            setDialogState(() => validDays = v ?? 7),
                       ),
                     ],
                   ),
@@ -280,7 +353,10 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
+                  child: const Text(
+                    'ยกเลิก',
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  ),
                 ),
                 FilledButton.icon(
                   onPressed: selectedUserId == null
@@ -288,25 +364,44 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       : () async {
                           final messenger = ScaffoldMessenger.of(context);
                           final nav = Navigator.of(dialogContext);
+                          final reason = reasonController.text.trim();
+                          if (reason.isEmpty) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('กรุณาระบุเหตุผลความจำเป็น'),
+                              ),
+                            );
+                            return;
+                          }
                           final validUntil = DateTime.now().add(
                             Duration(days: validDays),
                           );
-                          await ExecutiveService.grantCameraAccess(
+                          final succeeded = await _controller.grant(
                             userId: selectedUserId!,
-                            reason: reasonController.text.trim(),
+                            reason: reason,
                             validUntil: validUntil,
                           );
-
-                          nav.pop();
                           if (!mounted) return;
-                          _loadData();
-
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('บันทึกการอนุญาตสิทธิ์เข้าถึงกล้อง CCTV เรียบร้อยแล้ว'),
-                              backgroundColor: Color(0xFF16A34A),
-                            ),
-                          );
+                          if (succeeded) {
+                            nav.pop();
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'บันทึกการอนุญาตสิทธิ์เข้าถึงกล้อง CCTV เรียบร้อยแล้ว',
+                                ),
+                                backgroundColor: Color(0xFF16A34A),
+                              ),
+                            );
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  _mutationError('บันทึกสิทธิ์ไม่สำเร็จ'),
+                                ),
+                                backgroundColor: const Color(0xFFDC2626),
+                              ),
+                            );
+                          }
                         },
                   icon: const Icon(Icons.check_rounded, size: 16),
                   label: const Text('ยืนยันอนุญาตสิทธิ์'),
@@ -336,7 +431,11 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
           ),
           title: const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFDC2626),
+                size: 24,
+              ),
               SizedBox(width: 10),
               Text(
                 'ยืนยันเพิกถอนสิทธิ์',
@@ -355,24 +454,33 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
+              child: const Text(
+                'ยกเลิก',
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
             ),
             FilledButton.icon(
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 final nav = Navigator.of(dialogContext);
-                await ExecutiveService.revokeCameraAccess(grant.grantId);
-
-                nav.pop();
+                final succeeded = await _controller.revoke(grant.grantId);
                 if (!mounted) return;
-                _loadData();
-
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('เพิกถอนสิทธิ์เรียบร้อยแล้ว'),
-                    backgroundColor: Color(0xFFDC2626),
-                  ),
-                );
+                if (succeeded) {
+                  nav.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('เพิกถอนสิทธิ์เรียบร้อยแล้ว'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(_mutationError('เพิกถอนสิทธิ์ไม่สำเร็จ')),
+                      backgroundColor: const Color(0xFFDC2626),
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.lock_person_rounded, size: 16),
               label: const Text('เพิกถอนสิทธิ์'),
@@ -405,6 +513,10 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                   _buildKpiSummaryGrid(),
                   const SizedBox(height: 16),
                   _buildNoticeBanner(),
+                  if (_loadError != null) ...[
+                    const SizedBox(height: 16),
+                    _buildLoadErrorBanner(),
+                  ],
                   const SizedBox(height: 16),
                   _buildFilterBar(),
                   const SizedBox(height: 16),
@@ -414,6 +526,38 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _loadError!,
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _controller.isMutating ? null : _loadData,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('ลองใหม่'),
+          ),
+        ],
       ),
     );
   }
@@ -469,7 +613,10 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(20),
@@ -505,19 +652,27 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                onPressed: _loadData,
+                onPressed: _controller.isMutating ? null : _loadData,
                 tooltip: 'รีเฟรชข้อมูล',
-                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF64748B)),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: Color(0xFF64748B),
+                ),
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
-                onPressed: _showGrantDialog,
+                onPressed: _users.isEmpty || _controller.isMutating
+                    ? null
+                    : _showGrantDialog,
                 icon: const Icon(Icons.add_moderator_rounded, size: 16),
                 label: const Text('อนุญาตสิทธิ์ใหม่'),
                 style: FilledButton.styleFrom(
                   backgroundColor: SchoolAdminPalette.primaryDark,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -529,11 +684,7 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
           if (constraints.maxWidth < 750) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleArea,
-                const SizedBox(height: 14),
-                actionButtons,
-              ],
+              children: [titleArea, const SizedBox(height: 14), actionButtons],
             );
           }
 
@@ -566,7 +717,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               color: const Color(0xFF16A34A),
               bgColor: const Color(0xFFF0FDF4),
               borderColor: const Color(0xFFBBF7D0),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'สิทธิ์ที่หมดอายุ',
@@ -576,7 +729,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               color: const Color(0xFFD97706),
               bgColor: const Color(0xFFFFFBEB),
               borderColor: const Color(0xFFFDE68A),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'เพิกถอนสิทธิ์แล้ว',
@@ -586,7 +741,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               color: const Color(0xFFDC2626),
               bgColor: const Color(0xFFFEF2F2),
               borderColor: const Color(0xFFFECACA),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'ผู้ใช้งานในระบบ',
@@ -596,7 +753,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               color: const Color(0xFF2563EB),
               bgColor: const Color(0xFFEFF6FF),
               borderColor: const Color(0xFFBFDBFE),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
           ],
         );
@@ -737,12 +896,22 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: InputDecoration(
                 hintText: 'ค้นหาชื่อผู้รับสิทธิ์, อีเมล หรือเหตุผล...',
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF94A3B8),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: Color(0xFF94A3B8),
+                ),
                 isDense: true,
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -765,11 +934,18 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               ),
               child: DropdownButton<String>(
                 value: _statusFilter,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
-                items: ['ทั้งหมด', 'ใช้งานอยู่', 'หมดอายุ', 'เพิกถอนแล้ว'].map((s) {
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
+                items: ['ทั้งหมด', 'ใช้งานอยู่', 'หมดอายุ', 'เพิกถอนแล้ว'].map((
+                  s,
+                ) {
                   return DropdownMenuItem(value: s, child: Text(s));
                 }).toList(),
-                onChanged: (v) => setState(() => _statusFilter = v ?? 'ทั้งหมด'),
+                onChanged: (v) =>
+                    setState(() => _statusFilter = v ?? 'ทั้งหมด'),
               ),
             ),
           ),
@@ -786,6 +962,10 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
           child: CircularProgressIndicator(),
         ),
       );
+    }
+
+    if (_loadError != null && _grants.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     final filtered = _filteredGrants;
@@ -814,7 +994,7 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
             ),
             const SizedBox(height: 14),
             const Text(
-              'ไม่พบรายการสิทธิ์ที่ตรงกับเงื่อนไข',
+              'ยังไม่มีข้อมูล',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -822,9 +1002,11 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'กดปุ่ม "อนุญาตสิทธิ์ใหม่" เพื่อเพิ่มผู้มีสิทธิ์เข้าชมกล้องวงจรปิด',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            Text(
+              _grants.isEmpty
+                  ? 'ยังไม่มีรายการสิทธิ์กล้อง CCTV'
+                  : 'ไม่พบรายการสิทธิ์ที่ตรงกับตัวกรอง',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           ],
         ),
@@ -893,7 +1075,9 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
             radius: 22,
             child: Icon(
               isActive ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-              color: isActive ? SchoolAdminPalette.primaryDark : const Color(0xFF94A3B8),
+              color: isActive
+                  ? SchoolAdminPalette.primaryDark
+                  : const Color(0xFF94A3B8),
               size: 22,
             ),
           ),
@@ -910,13 +1094,20 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: isActive ? const Color(0xFF0F172A) : const Color(0xFF64748B),
-                          decoration: isActive ? null : TextDecoration.lineThrough,
+                          color: isActive
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF64748B),
+                          decoration: isActive
+                              ? null
+                              : TextDecoration.lineThrough,
                         ),
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusBgColor,
                         borderRadius: BorderRadius.circular(20),
@@ -944,7 +1135,10 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                 ),
                 const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
@@ -961,11 +1155,18 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.event_outlined, size: 14, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      Icons.event_outlined,
+                      size: 14,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'หมดอายุ: ${grant.validUntil.day}/${grant.validUntil.month}/${grant.validUntil.year}',
-                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ],
                 ),
@@ -975,7 +1176,10 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
           if (grant.isActive && !isExpired) ...[
             const SizedBox(width: 10),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFDC2626),
+              ),
               tooltip: 'เพิกถอนสิทธิ์',
               onPressed: () => _confirmRevokeGrant(grant),
             ),

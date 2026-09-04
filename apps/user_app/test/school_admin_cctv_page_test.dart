@@ -15,7 +15,7 @@ void main() {
       'user_role': 'teacher',
       'reason': 'ดูแลความปลอดภัย',
       'valid_from': '2026-08-20T00:00:00.000Z',
-      'valid_until': '2026-08-30T00:00:00.000Z',
+      'valid_until': '2030-08-30T00:00:00.000Z',
       'granted_at': '2026-08-20T00:00:00.000Z',
       'granted_by_name': 'แอดมิน',
       'is_active': true,
@@ -33,7 +33,7 @@ void main() {
       'user_role': 'staff',
       'reason': 'ซ่อมบำรุงระบบ',
       'valid_from': '2026-08-20T00:00:00.000Z',
-      'valid_until': '2026-08-30T00:00:00.000Z', // valid date in future
+      'valid_until': '2030-08-30T00:00:00.000Z',
       'granted_at': '2026-08-20T00:00:00.000Z',
       'granted_by_name': 'แอดมิน',
       'is_active': false, // revoked
@@ -44,6 +44,6 @@ void main() {
 
     expect(activeGrant.isActive, isTrue);
     expect(revokedGrant.isActive, isFalse);
-    expect(revokedGrant.validUntil.isAfter(DateTime.now()), isTrue);
+    expect(revokedGrant.validUntil, DateTime.utc(2030, 8, 30));
   });
 }

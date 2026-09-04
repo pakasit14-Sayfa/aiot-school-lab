@@ -259,7 +259,7 @@ Maintain this table during implementation. A slice is not complete until its row
 |---:|---|---|---|---|---|---|---|
 | 1 | Truthful UI baseline | [ ] | [ ] | [ ] | n/a | [ ] | |
 | 2 | Alerts | [x] | [x] | [x] | [x] | [x] | analyzer clean; focused 13/13; cumulative 38/38; pgTAP 11/11 |
-| 3 | CCTV | [ ] | [ ] | [ ] | [ ] | [ ] | |
+| 3 | CCTV | [x] | [x] | [x] | [x] | [x] | analyzer clean; CCTV 9/9; cumulative Alerts + CCTV 47/47 |
 | 4 | Device schedules | [ ] | [ ] | [ ] | [ ] | [ ] | |
 | 5 | Incident inbox | [ ] | [ ] | [ ] | [ ] | [ ] | |
 | 6 | Learning tracks | [ ] | [ ] | [ ] | [ ] | [ ] | |
@@ -310,4 +310,4 @@ Done means all visible data is real or explicitly empty, every enabled write per
 - Added the reusable async-state contract and a tested Alerts controller. Alert acknowledgement/resolution now calls the existing `IncidentService` RPC wrappers, refetches canonical backend state, and refuses to report success until the returned status confirms the mutation.
 - Connected `school_alerts_page.dart` to that controller. Loading, empty, and error states are distinct; empty cards use the exact text `ยังไม่มีข้อมูล`; audit-log errors are visible; fabricated rule/delivery data and fake-success bulk/export/checking actions were removed or explicitly marked unavailable.
 - Verification after the Alerts slice: scoped `dart analyze` has no issues; focused data-state tests pass 13/13; cumulative School Admin regression tests pass 38/38. One unrelated CCTV date-sensitive assertion and eight screenshot tests with a hardcoded nonexistent `/Users/sayfa/...` artifact path remain pre-existing failures outside this slice.
-- Ollama/Aider remains suitable for bounded files only. Every generated change was reviewed; invalid first drafts and whole-file rewrites were rejected. Next implementation target: CCTV, followed by a rerun of Alerts + all earlier regression tests.
+- Ollama/Aider remains suitable for bounded files only. Every generated change is reviewed; a hallucinated CCTV test draft was rejected before application. CCTV now uses an injectable controller, shows visible load/mutation failures, filters eligible active roles, requires backend-confirmed grant/revoke state after refetch, and renders empty data as `ยังไม่มีข้อมูล`. Scoped analyzer is clean, CCTV tests pass 9/9, and cumulative Alerts + CCTV regression passes 47/47. Next implementation target: Device schedules.
