@@ -14,9 +14,9 @@ can't drift from reality the way a hand-maintained doc would).
 
 The master implementation map is `task_plan.md`. Work proceeds page by page, and every newly connected page must rerun its own tests plus every previously connected School Admin regression test.
 
-Alerts is committed as `c8346ff`. CCTV is implemented and ready for commit. Both pages use small injectable controllers over existing RPC-backed services. Alerts acknowledge/resolve and CCTV grant/revoke refetch canonical data and only report success when backend state confirms the write. CCTV now treats a null grant ID or false revoke result as failure, exposes load/mutation errors with retry, offers only active eligible roles, and removes the fabricated default reason. Empty cards use `ยังไม่มีข้อมูล`.
+Alerts is committed as `c8346ff` and CCTV as `830e20a`. Device schedules is implemented and ready for commit. All three pages use small injectable controllers over existing RPC-backed services. Device schedule create/toggle/delete refetch canonical data and only report success after the backend confirms the write; load/mutation errors are visible and retryable, the fabricated label default is removed, and empty cards use `ยังไม่มีข้อมูล`.
 
-Verification: scoped Dart analyzer clean, CCTV tests 9/9, cumulative Alerts + CCTV/School Admin regression 47/47, and targeted alert/threshold pgTAP 11/11. The old CCTV date-sensitive assertion is now deterministic. Eight screenshot tests still reference a stale absolute `/Users/sayfa/...` artifact path and remain outside this slice. Next page is Device schedules; after it is connected, rerun Alerts, CCTV, and the entire prior ledger again.
+Verification: scoped Dart analyzer clean, Device schedules tests 15/15, cumulative School Admin regression 62/62, device-schedule pgTAP 14/14, and prior alert/threshold pgTAP 11/11. Progress is 3/20 pages (15%). The old CCTV date-sensitive assertion remains deterministic. Eight screenshot tests still reference a stale absolute `/Users/sayfa/...` artifact path and remain outside this slice. Next page is Incident inbox; after it is connected, rerun Alerts, CCTV, Device schedules, and the entire prior ledger again.
 
 ## What this is
 

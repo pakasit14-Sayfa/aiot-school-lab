@@ -2,14 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../../theme/school_admin_palette.dart';
+import 'controllers/school_admin_async_state.dart';
+import 'controllers/school_admin_device_schedule_controller.dart';
 
 class SchoolAdminDeviceSchedulePage extends StatefulWidget {
   const SchoolAdminDeviceSchedulePage({
     super.key,
+    this.controller,
     this.initialSchedules,
     this.initialDevices,
   });
 
+  final SchoolAdminDeviceScheduleController? controller;
   final List<DeviceSchedule>? initialSchedules;
   final List<DeviceOption>? initialDevices;
 
@@ -20,15 +24,29 @@ class SchoolAdminDeviceSchedulePage extends StatefulWidget {
 
 class _SchoolAdminDeviceSchedulePageState
     extends State<SchoolAdminDeviceSchedulePage> {
+  late final SchoolAdminDeviceScheduleController _controller;
+  late final bool _ownsController;
   List<DeviceSchedule> _schedules = [];
   List<DeviceOption> _devices = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  String? _loadError;
   String _actionFilter = 'ทั้งหมด'; // ทั้งหมด, เปิดเครื่อง, ปิดเครื่อง
 
   @override
   void initState() {
     super.initState();
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        SchoolAdminDeviceScheduleController(
+          loadSchedules: DeviceScheduleService.listSchedules,
+          loadDevices: LessonService.listSchoolDevices,
+          createSchedule: DeviceScheduleService.createSchedule,
+          toggleSchedule: DeviceScheduleService.toggleSchedule,
+          deleteSchedule: DeviceScheduleService.deleteSchedule,
+        );
+    _controller.addListener(_syncFromController);
     if (widget.initialSchedules != null) {
       _schedules = widget.initialSchedules!;
       _devices = widget.initialDevices ?? [];
@@ -40,29 +58,55 @@ class _SchoolAdminDeviceSchedulePageState
 
   Future<void> _loadData() async {
     if (widget.initialSchedules != null) return;
-    setState(() => _isLoading = true);
-    try {
-      final results = await Future.wait([
-        DeviceScheduleService.listSchedules(),
-        LessonService.listSchoolDevices(),
-      ]);
+    await _controller.load();
+  }
 
-      if (mounted) {
-        setState(() {
-          _schedules = results[0] as List<DeviceSchedule>;
-          _devices = results[1] as List<DeviceOption>;
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+  void _syncFromController() {
+    if (!mounted) return;
+    final state = _controller.state;
+    SchoolAdminDeviceScheduleSnapshot? snapshot;
+    var isLoading = false;
+    String? loadError;
+
+    if (state is SchoolAdminData<SchoolAdminDeviceScheduleSnapshot>) {
+      snapshot = state.value;
+    } else if (state is SchoolAdminLoading<SchoolAdminDeviceScheduleSnapshot>) {
+      snapshot = state.previousData;
+      isLoading = state.previousData == null;
+    } else if (state is SchoolAdminError<SchoolAdminDeviceScheduleSnapshot>) {
+      snapshot = state.previousData;
+      loadError = state.message;
     }
+
+    setState(() {
+      _isLoading = isLoading;
+      _loadError = loadError;
+      if (snapshot != null) {
+        _schedules = snapshot.schedules;
+        _devices = snapshot.devices;
+      }
+    });
+  }
+
+  String _mutationError(String fallback) {
+    final state = _controller.state;
+    return state is SchoolAdminError<SchoolAdminDeviceScheduleSnapshot>
+        ? state.message
+        : fallback;
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_syncFromController);
+    if (_ownsController) _controller.dispose();
+    super.dispose();
   }
 
   List<DeviceSchedule> get _filteredSchedules {
     return _schedules.where((s) {
       final query = _searchQuery.trim().toLowerCase();
-      final matchQuery = query.isEmpty ||
+      final matchQuery =
+          query.isEmpty ||
           s.label.toLowerCase().contains(query) ||
           s.deviceName.toLowerCase().contains(query) ||
           s.deviceLocation.toLowerCase().contains(query);
@@ -97,9 +141,7 @@ class _SchoolAdminDeviceSchedulePageState
     }
 
     String selectedDeviceId = _devices.first.id;
-    final labelController = TextEditingController(
-      text: 'เปิดแอร์ก่อนเริ่มเรียน',
-    );
+    final labelController = TextEditingController();
     String selectedAction = 'on';
     TimeOfDay selectedTime = const TimeOfDay(hour: 8, minute: 0);
     List<int> selectedDays = [1, 2, 3, 4, 5]; // Mon-Fri
@@ -176,7 +218,7 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: selectedDeviceId,
+                        initialValue: selectedDeviceId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           filled: true,
@@ -187,11 +229,15 @@ class _SchoolAdminDeviceSchedulePageState
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                         items: _devices.map((d) {
@@ -204,8 +250,9 @@ class _SchoolAdminDeviceSchedulePageState
                             ),
                           );
                         }).toList(),
-                        onChanged: (v) =>
-                            setDialogState(() => selectedDeviceId = v ?? selectedDeviceId),
+                        onChanged: (v) => setDialogState(
+                          () => selectedDeviceId = v ?? selectedDeviceId,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       const Text(
@@ -229,11 +276,15 @@ class _SchoolAdminDeviceSchedulePageState
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                       ),
@@ -248,7 +299,7 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        value: selectedAction,
+                        initialValue: selectedAction,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
@@ -258,11 +309,15 @@ class _SchoolAdminDeviceSchedulePageState
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                            ),
                           ),
                         ),
                         items: const [
@@ -270,7 +325,11 @@ class _SchoolAdminDeviceSchedulePageState
                             value: 'on',
                             child: Row(
                               children: [
-                                Icon(Icons.power_rounded, color: Color(0xFF16A34A), size: 18),
+                                Icon(
+                                  Icons.power_rounded,
+                                  color: Color(0xFF16A34A),
+                                  size: 18,
+                                ),
                                 SizedBox(width: 8),
                                 Text('เปิดเครื่อง (Power ON)'),
                               ],
@@ -280,7 +339,11 @@ class _SchoolAdminDeviceSchedulePageState
                             value: 'off',
                             child: Row(
                               children: [
-                                Icon(Icons.power_off_rounded, color: Color(0xFFDC2626), size: 18),
+                                Icon(
+                                  Icons.power_off_rounded,
+                                  color: Color(0xFFDC2626),
+                                  size: 18,
+                                ),
                                 SizedBox(width: 8),
                                 Text('ปิดเครื่อง (Power OFF)'),
                               ],
@@ -359,7 +422,10 @@ class _SchoolAdminDeviceSchedulePageState
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
+                  child: const Text(
+                    'ยกเลิก',
+                    style: TextStyle(color: Color(0xFF64748B)),
+                  ),
                 ),
                 FilledButton.icon(
                   onPressed: selectedDays.isEmpty
@@ -367,27 +433,46 @@ class _SchoolAdminDeviceSchedulePageState
                       : () async {
                           final messenger = ScaffoldMessenger.of(context);
                           final nav = Navigator.of(dialogContext);
+                          final label = labelController.text.trim();
+                          if (label.isEmpty) {
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('กรุณาระบุชื่อรายการ'),
+                              ),
+                            );
+                            return;
+                          }
                           final timeStr =
                               '${selectedTime.hour.toString().padLeft(2, '0')}:${selectedTime.minute.toString().padLeft(2, '0')}';
 
-                          await DeviceScheduleService.createSchedule(
+                          final succeeded = await _controller.create(
                             deviceId: selectedDeviceId,
-                            label: labelController.text.trim(),
+                            label: label,
                             command: {'action': selectedAction},
                             daysOfWeek: selectedDays,
                             timeOfDay: timeStr,
                           );
-
-                          nav.pop();
                           if (!mounted) return;
-                          _loadData();
-
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('บันทึกการตั้งเวลาอัตโนมัติสำเร็จ'),
-                              backgroundColor: Color(0xFF16A34A),
-                            ),
-                          );
+                          if (succeeded) {
+                            nav.pop();
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'บันทึกการตั้งเวลาอัตโนมัติสำเร็จ',
+                                ),
+                                backgroundColor: Color(0xFF16A34A),
+                              ),
+                            );
+                          } else {
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  _mutationError('บันทึกตารางเวลาไม่สำเร็จ'),
+                                ),
+                                backgroundColor: const Color(0xFFDC2626),
+                              ),
+                            );
+                          }
                         },
                   icon: const Icon(Icons.check_rounded, size: 16),
                   label: const Text('บันทึกตารางเวลา'),
@@ -425,7 +510,9 @@ class _SchoolAdminDeviceSchedulePageState
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(
-          color: isSelected ? SchoolAdminPalette.primaryDark : const Color(0xFFE2E8F0),
+          color: isSelected
+              ? SchoolAdminPalette.primaryDark
+              : const Color(0xFFE2E8F0),
         ),
       ),
       onSelected: (selected) {
@@ -453,7 +540,11 @@ class _SchoolAdminDeviceSchedulePageState
           ),
           title: const Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 24),
+              Icon(
+                Icons.warning_amber_rounded,
+                color: Color(0xFFDC2626),
+                size: 24,
+              ),
               SizedBox(width: 10),
               Text(
                 'ยืนยันลบตารางเวลา',
@@ -472,26 +563,33 @@ class _SchoolAdminDeviceSchedulePageState
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
+              child: const Text(
+                'ยกเลิก',
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
             ),
             FilledButton.icon(
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 final nav = Navigator.of(dialogContext);
-                await DeviceScheduleService.deleteSchedule(
-                  scheduleId: schedule.id,
-                );
-
-                nav.pop();
+                final succeeded = await _controller.delete(schedule.id);
                 if (!mounted) return;
-                _loadData();
-
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('ลบตารางเวลาเรียบร้อยแล้ว'),
-                    backgroundColor: Color(0xFFDC2626),
-                  ),
-                );
+                if (succeeded) {
+                  nav.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('ลบตารางเวลาเรียบร้อยแล้ว'),
+                      backgroundColor: Color(0xFF16A34A),
+                    ),
+                  );
+                } else {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(_mutationError('ลบตารางเวลาไม่สำเร็จ')),
+                      backgroundColor: const Color(0xFFDC2626),
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.delete_rounded, size: 16),
               label: const Text('ลบตาราง'),
@@ -525,6 +623,10 @@ class _SchoolAdminDeviceSchedulePageState
                   const SizedBox(height: 16),
                   _buildCronInfoBanner(),
                   const SizedBox(height: 16),
+                  if (_loadError != null) ...[
+                    const SizedBox(height: 16),
+                    _buildLoadErrorBanner(),
+                  ],
                   _buildFilterBar(),
                   const SizedBox(height: 16),
                   _buildSchedulesList(),
@@ -533,6 +635,38 @@ class _SchoolAdminDeviceSchedulePageState
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _loadError!,
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _controller.isMutating ? null : _loadData,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('ลองใหม่'),
+          ),
+        ],
       ),
     );
   }
@@ -588,7 +722,10 @@ class _SchoolAdminDeviceSchedulePageState
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF3E8FF),
                             borderRadius: BorderRadius.circular(20),
@@ -624,19 +761,27 @@ class _SchoolAdminDeviceSchedulePageState
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                onPressed: _loadData,
+                onPressed: _controller.isMutating ? null : _loadData,
                 tooltip: 'รีเฟรชข้อมูล',
-                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF64748B)),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: Color(0xFF64748B),
+                ),
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
-                onPressed: _showAddScheduleDialog,
+                onPressed: _devices.isEmpty || _controller.isMutating
+                    ? null
+                    : _showAddScheduleDialog,
                 icon: const Icon(Icons.alarm_add_rounded, size: 16),
                 label: const Text('เพิ่มเวลาอัตโนมัติ'),
                 style: FilledButton.styleFrom(
                   backgroundColor: SchoolAdminPalette.primaryDark,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -648,11 +793,7 @@ class _SchoolAdminDeviceSchedulePageState
           if (constraints.maxWidth < 750) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleArea,
-                const SizedBox(height: 14),
-                actionButtons,
-              ],
+              children: [titleArea, const SizedBox(height: 14), actionButtons],
             );
           }
 
@@ -685,7 +826,9 @@ class _SchoolAdminDeviceSchedulePageState
               color: const Color(0xFF7E22CE),
               bgColor: const Color(0xFFFAF5FF),
               borderColor: const Color(0xFFF3E8FF),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'ตารางสั่งเปิดเครื่อง',
@@ -695,7 +838,9 @@ class _SchoolAdminDeviceSchedulePageState
               color: const Color(0xFF16A34A),
               bgColor: const Color(0xFFF0FDF4),
               borderColor: const Color(0xFFBBF7D0),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'ตารางสั่งปิดเครื่อง',
@@ -705,7 +850,9 @@ class _SchoolAdminDeviceSchedulePageState
               color: const Color(0xFFDC2626),
               bgColor: const Color(0xFFFEF2F2),
               borderColor: const Color(0xFFFECACA),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'อุปกรณ์ที่ควบคุมได้',
@@ -715,7 +862,9 @@ class _SchoolAdminDeviceSchedulePageState
               color: const Color(0xFF2563EB),
               bgColor: const Color(0xFFEFF6FF),
               borderColor: const Color(0xFFBFDBFE),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
           ],
         );
@@ -856,12 +1005,22 @@ class _SchoolAdminDeviceSchedulePageState
               onChanged: (v) => setState(() => _searchQuery = v),
               decoration: InputDecoration(
                 hintText: 'ค้นหาชื่อรายการ, อุปกรณ์ หรือตำแหน่งที่ตั้ง...',
-                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF94A3B8)),
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF94A3B8),
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 18,
+                  color: Color(0xFF94A3B8),
+                ),
                 isDense: true,
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -884,11 +1043,16 @@ class _SchoolAdminDeviceSchedulePageState
               ),
               child: DropdownButton<String>(
                 value: _actionFilter,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
                 items: ['ทั้งหมด', 'เปิดเครื่อง', 'ปิดเครื่อง'].map((s) {
                   return DropdownMenuItem(value: s, child: Text(s));
                 }).toList(),
-                onChanged: (v) => setState(() => _actionFilter = v ?? 'ทั้งหมด'),
+                onChanged: (v) =>
+                    setState(() => _actionFilter = v ?? 'ทั้งหมด'),
               ),
             ),
           ),
@@ -905,6 +1069,10 @@ class _SchoolAdminDeviceSchedulePageState
           child: CircularProgressIndicator(),
         ),
       );
+    }
+
+    if (_loadError != null && _schedules.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     final filtered = _filteredSchedules;
@@ -933,7 +1101,7 @@ class _SchoolAdminDeviceSchedulePageState
             ),
             const SizedBox(height: 14),
             const Text(
-              'ไม่พบตารางเวลาที่ตรงกับเงื่อนไข',
+              'ยังไม่มีข้อมูล',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -941,9 +1109,11 @@ class _SchoolAdminDeviceSchedulePageState
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'กดปุ่ม "เพิ่มเวลาอัตโนมัติ" เพื่อสร้างตารางเปิด-ปิดอุปกรณ์',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            Text(
+              _schedules.isEmpty
+                  ? 'กดปุ่ม "เพิ่มเวลาอัตโนมัติ" เพื่อสร้างตารางเปิด-ปิดอุปกรณ์'
+                  : 'ไม่พบรายการที่ตรงกับคำค้นหาหรือตัวกรอง',
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
             ),
           ],
         ),
@@ -1002,7 +1172,9 @@ class _SchoolAdminDeviceSchedulePageState
                   children: [
                     Expanded(
                       child: Text(
-                        schedule.label.isNotEmpty ? schedule.label : schedule.deviceName,
+                        schedule.label.isNotEmpty
+                            ? schedule.label
+                            : schedule.deviceName,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -1011,12 +1183,19 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
-                        color: isOn ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                        color: isOn
+                            ? const Color(0xFFF0FDF4)
+                            : const Color(0xFFFEF2F2),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isOn ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+                          color: isOn
+                              ? const Color(0xFFBBF7D0)
+                              : const Color(0xFFFECACA),
                         ),
                       ),
                       child: Text(
@@ -1024,7 +1203,9 @@ class _SchoolAdminDeviceSchedulePageState
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: isOn ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                          color: isOn
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFDC2626),
                         ),
                       ),
                     ),
@@ -1043,7 +1224,10 @@ class _SchoolAdminDeviceSchedulePageState
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(8),
@@ -1051,7 +1235,11 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF475569)),
+                          const Icon(
+                            Icons.access_time_rounded,
+                            size: 14,
+                            color: Color(0xFF475569),
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             schedule.timeOfDay,
@@ -1086,10 +1274,44 @@ class _SchoolAdminDeviceSchedulePageState
             ),
           ),
           const SizedBox(width: 10),
+          Switch.adaptive(
+            value: schedule.enabled,
+            onChanged: _controller.isMutating
+                ? null
+                : (enabled) async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    final succeeded = await _controller.toggle(
+                      schedule.id,
+                      enabled,
+                    );
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          succeeded
+                              ? (enabled
+                                    ? 'เปิดใช้งานตารางเวลาแล้ว'
+                                    : 'ปิดใช้งานตารางเวลาแล้ว')
+                              : _mutationError(
+                                  'เปลี่ยนสถานะตารางเวลาไม่สำเร็จ',
+                                ),
+                        ),
+                        backgroundColor: succeeded
+                            ? const Color(0xFF16A34A)
+                            : const Color(0xFFDC2626),
+                      ),
+                    );
+                  },
+          ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626)),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              color: Color(0xFFDC2626),
+            ),
             tooltip: 'ลบตารางเวลา',
-            onPressed: () => _confirmDeleteSchedule(schedule),
+            onPressed: _controller.isMutating
+                ? null
+                : () => _confirmDeleteSchedule(schedule),
           ),
         ],
       ),
@@ -1101,7 +1323,9 @@ class _SchoolAdminDeviceSchedulePageState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: active ? SchoolAdminPalette.primaryDark : const Color(0xFFF1F5F9),
+        color: active
+            ? SchoolAdminPalette.primaryDark
+            : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
