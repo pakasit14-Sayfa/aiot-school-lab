@@ -1,6 +1,6 @@
 # Database Schema
 
-_Live dump from local Supabase, regenerated 2026-09-03 after applying all migrations through 20260903030000_parent_portal_rpc_hardening.sql._
+_Live dump from local Supabase, regenerated 2026-09-04 after applying all migrations through `20260904010200_incident_inbox_service_role_acl.sql`._
 
 Total relations: 93 (91 tables, 2 views/materialized views)
 
@@ -8,7 +8,7 @@ RLS and direct grants must still be evaluated together. The main app uses custom
 
 ## academic_years
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -37,7 +37,7 @@ Foreign keys:
 
 ## assignment_sensor_datasets
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -50,12 +50,12 @@ RLS enabled: **true**
 | label | character varying | YES |  |
 
 Foreign keys:
-- device_id -> devices.id
 - assignment_id -> assignments.id
+- device_id -> devices.id
 
 ## assignments
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -73,12 +73,12 @@ RLS enabled: **true**
 
 Foreign keys:
 - course_id -> courses.id
-- rubric_id -> rubrics.id
 - created_by -> users.id
+- rubric_id -> rubrics.id
 
 ## attendance_records
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -92,13 +92,13 @@ RLS enabled: **true**
 | note | text | YES |  |
 
 Foreign keys:
-- student_id -> users.id
-- marked_by -> users.id
 - course_id -> courses.id
+- marked_by -> users.id
+- student_id -> users.id
 
 ## audit_logs
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -114,12 +114,12 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
-- user_id -> users.id
 - school_id -> schools.id
+- user_id -> users.id
 
 ## auth_login_ip_rate_limits
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -131,7 +131,7 @@ RLS enabled: **true**
 
 ## auth_login_rate_limits
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -143,7 +143,7 @@ RLS enabled: **true**
 
 ## auth_security_constants
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -152,7 +152,7 @@ RLS enabled: **true**
 
 ## buildings
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -172,7 +172,7 @@ Foreign keys:
 
 ## camera_access_grants
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -188,14 +188,14 @@ RLS enabled: **true**
 | revoked_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- user_id -> users.id
+- camera_device_id -> devices.id
 - granted_by -> users.id
 - school_id -> schools.id
-- camera_device_id -> devices.id
+- user_id -> users.id
 
 ## charts
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -214,13 +214,13 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
-- device_id -> devices.id
 - course_id -> courses.id
 - created_by -> users.id
+- device_id -> devices.id
 
 ## class_schedules
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -234,12 +234,12 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- created_by -> users.id
 - course_id -> courses.id
+- created_by -> users.id
 
 ## consent_events
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -252,13 +252,13 @@ RLS enabled: **true**
 | occurred_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
+- actor_id -> users.id
 - consent_id -> consents.id
 - policy_id -> consent_policies.id
-- actor_id -> users.id
 
 ## consent_policies
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -274,12 +274,12 @@ RLS enabled: **true**
 | is_required | boolean | NO | false |
 
 Foreign keys:
-- school_id -> schools.id
 - created_by -> users.id
+- school_id -> schools.id
 
 ## consents
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -300,7 +300,7 @@ Foreign keys:
 
 ## control_approval_requests
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -317,13 +317,13 @@ RLS enabled: **true**
 
 Foreign keys:
 - device_id -> devices.id
-- school_id -> schools.id
-- reviewed_by -> users.id
 - requested_by -> users.id
+- reviewed_by -> users.id
+- school_id -> schools.id
 
 ## course_files
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -336,12 +336,12 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- uploaded_by -> users.id
 - course_id -> courses.id
+- uploaded_by -> users.id
 
 ## course_post_replies
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -357,7 +357,7 @@ Foreign keys:
 
 ## course_posts
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -374,7 +374,7 @@ Foreign keys:
 
 ## course_students
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -385,13 +385,13 @@ RLS enabled: **true**
 | enrolled_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
-- enrolled_by -> users.id
 - course_id -> courses.id
+- enrolled_by -> users.id
 - student_id -> users.id
 
 ## course_teachers
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -406,7 +406,7 @@ Foreign keys:
 
 ## courses
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -424,13 +424,13 @@ RLS enabled: **true**
 | join_code | character varying | YES |  |
 
 Foreign keys:
+- created_by -> users.id
 - school_id -> schools.id
 - term_id -> terms.id
-- created_by -> users.id
 
 ## device_categories
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -443,7 +443,7 @@ RLS enabled: **true**
 
 ## device_command_rate_limits
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -457,7 +457,7 @@ Foreign keys:
 
 ## device_commands
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -476,7 +476,7 @@ Foreign keys:
 
 ## device_heartbeats
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -491,7 +491,7 @@ Foreign keys:
 
 ## device_logs
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -509,7 +509,7 @@ Foreign keys:
 
 ## device_relay_states
 
-RLS enabled: **false**
+RLS enabled: **f**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -520,12 +520,12 @@ RLS enabled: **false**
 | updated_by_command_id | uuid | YES |  |
 
 Foreign keys:
-- updated_by_command_id -> device_commands.id
 - device_id -> devices.id
+- updated_by_command_id -> device_commands.id
 
 ## device_schedules
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -542,13 +542,13 @@ RLS enabled: **true**
 | last_triggered_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- school_id -> schools.id
 - created_by -> users.id
 - device_id -> devices.id
+- school_id -> schools.id
 
 ## devices
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -580,12 +580,12 @@ RLS enabled: **true**
 Foreign keys:
 - course_id -> courses.id
 - parent_device_id -> devices.id
-- school_id -> schools.id
 - registered_by -> users.id
+- school_id -> schools.id
 
 ## emergency_events
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -603,12 +603,12 @@ RLS enabled: **true**
 
 Foreign keys:
 - acknowledged_by -> users.id
-- school_id -> schools.id
 - source_device_id -> devices.id
+- school_id -> schools.id
 
 ## feedbacks
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -624,7 +624,7 @@ Foreign keys:
 
 ## g_score_entries
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -640,13 +640,13 @@ RLS enabled: **true**
 | confirmed_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- student_id -> users.id
-- course_id -> courses.id
 - confirmed_by -> users.id
+- course_id -> courses.id
+- student_id -> users.id
 
 ## gateway_request_nonces
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -659,7 +659,7 @@ Foreign keys:
 
 ## grade_criterion_scores
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -675,7 +675,7 @@ Foreign keys:
 
 ## grades
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -700,18 +700,18 @@ RLS enabled: **true**
 | assignment_id | uuid | YES |  |
 
 Foreign keys:
-- student_id -> users.id
-- course_id -> courses.id
-- submission_id -> submissions.id
-- quiz_attempt_id -> quiz_attempts.id
-- graded_by -> users.id
 - coi_reviewed_by -> users.id
 - confirmed_by -> users.id
+- course_id -> courses.id
+- graded_by -> users.id
+- quiz_attempt_id -> quiz_attempts.id
+- student_id -> users.id
+- submission_id -> submissions.id
 - assignment_id -> assignments.id
 
 ## group_members
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -725,7 +725,7 @@ Foreign keys:
 
 ## homeroom_assignments
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -739,14 +739,14 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- school_id -> schools.id
 - academic_year_id -> academic_years.id
 - created_by -> users.id
+- school_id -> schools.id
 - teacher_id -> users.id
 
 ## homeroom_attendance_records
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -768,7 +768,7 @@ Foreign keys:
 
 ## incident_actions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -785,7 +785,7 @@ Foreign keys:
 
 ## incident_reports
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -808,16 +808,16 @@ RLS enabled: **true**
 | severity | text | YES |  |
 
 Foreign keys:
-- reporter_student_id -> users.id
-- assigned_to -> users.id
-- escalated_to_emergency_event_id -> emergency_events.id
-- closed_by -> users.id
-- school_id -> schools.id
 - acknowledged_by -> users.id
+- assigned_to -> users.id
+- closed_by -> users.id
+- escalated_to_emergency_event_id -> emergency_events.id
+- reporter_student_id -> users.id
+- school_id -> schools.id
 
 ## learning_items
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -842,7 +842,7 @@ Foreign keys:
 
 ## learning_simulators
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -861,7 +861,7 @@ Foreign keys:
 
 ## learning_track_room_assignments
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -875,14 +875,14 @@ RLS enabled: **true**
 | assigned_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- school_id -> schools.id
 - academic_year_id -> academic_years.id
 - assigned_by -> users.id
+- school_id -> schools.id
 - track_id -> learning_tracks.id
 
 ## learning_tracks
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -900,7 +900,7 @@ Foreign keys:
 
 ## leave_requests
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -920,14 +920,14 @@ RLS enabled: **true**
 | updated_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
+- parent_id -> users.id
 - reviewed_by -> users.id
 - school_id -> schools.id
 - student_id -> users.id
-- parent_id -> users.id
 
 ## lesson_materials
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -943,7 +943,7 @@ Foreign keys:
 
 ## lesson_progress
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -956,12 +956,12 @@ RLS enabled: **true**
 | updated_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- student_id -> users.id
 - lesson_id -> lessons.id
+- student_id -> users.id
 
 ## lesson_sensor_links
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -974,12 +974,12 @@ RLS enabled: **true**
 | caption | character varying | YES |  |
 
 Foreign keys:
-- lesson_id -> lessons.id
 - device_id -> devices.id
+- lesson_id -> lessons.id
 
 ## lessons
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -998,7 +998,7 @@ Foreign keys:
 
 ## notifications
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1016,7 +1016,7 @@ Foreign keys:
 
 ## operational_alerts
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1029,7 +1029,7 @@ RLS enabled: **true**
 
 ## otp_codes
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1057,7 +1057,7 @@ Foreign keys:
 
 ## packages
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1070,7 +1070,7 @@ RLS enabled: **true**
 
 ## parent_binding_codes
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1090,15 +1090,15 @@ RLS enabled: **true**
 | revoke_reason | text | YES |  |
 
 Foreign keys:
-- student_id -> users.id
-- school_id -> schools.id
-- revoked_by -> users.id
-- redeemed_by -> users.id
 - issued_by -> users.id
+- redeemed_by -> users.id
+- revoked_by -> users.id
+- school_id -> schools.id
+- student_id -> users.id
 
 ## parent_links
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1122,17 +1122,17 @@ RLS enabled: **true**
 | second_approved_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- student_id -> users.id
-- binding_code_id -> parent_binding_codes.id
-- second_approved_by -> users.id
-- rejected_by -> users.id
-- first_reviewed_by -> users.id
 - approved_by -> users.id
+- binding_code_id -> parent_binding_codes.id
+- first_reviewed_by -> users.id
 - parent_id -> users.id
+- rejected_by -> users.id
+- second_approved_by -> users.id
+- student_id -> users.id
 
 ## platform_settings
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1175,7 +1175,7 @@ Foreign keys:
 
 ## quiz_answers
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1192,7 +1192,7 @@ Foreign keys:
 
 ## quiz_attempts
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1204,12 +1204,12 @@ RLS enabled: **true**
 | auto_score | numeric | YES |  |
 
 Foreign keys:
-- student_id -> users.id
 - quiz_id -> quizzes.id
+- student_id -> users.id
 
 ## quiz_choices
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1224,7 +1224,7 @@ Foreign keys:
 
 ## quiz_question_attachments
 
-RLS enabled: **false**
+RLS enabled: **f**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1241,7 +1241,7 @@ Foreign keys:
 
 ## quiz_questions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1257,7 +1257,7 @@ Foreign keys:
 
 ## quizzes
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1271,13 +1271,13 @@ RLS enabled: **true**
 | created_by | uuid | NO |  |
 
 Foreign keys:
-- lesson_id -> lessons.id
-- created_by -> users.id
 - course_id -> courses.id
+- created_by -> users.id
+- lesson_id -> lessons.id
 
 ## role_selection_challenges
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1292,7 +1292,7 @@ Foreign keys:
 
 ## rooms
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1315,7 +1315,7 @@ Foreign keys:
 
 ## rubric_criteria
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1332,7 +1332,7 @@ Foreign keys:
 
 ## rubrics
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1343,12 +1343,12 @@ RLS enabled: **true**
 | created_by | uuid | NO |  |
 
 Foreign keys:
-- school_id -> schools.id
 - created_by -> users.id
+- school_id -> schools.id
 
 ## school_events
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1367,7 +1367,7 @@ Foreign keys:
 
 ## school_settings
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1381,12 +1381,12 @@ RLS enabled: **true**
 | water_rate_thb | numeric | YES |  |
 
 Foreign keys:
-- school_id -> schools.id
 - pdpa_camera_approved_by -> users.id
+- school_id -> schools.id
 
 ## schools
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1413,7 +1413,7 @@ Foreign keys:
 
 ## security_events
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1433,12 +1433,12 @@ RLS enabled: **true**
 
 Foreign keys:
 - camera_device_id -> devices.id
-- school_id -> schools.id
 - reviewed_by -> users.id
+- school_id -> schools.id
 
 ## sensor_alerts
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1453,13 +1453,13 @@ RLS enabled: **true**
 | acknowledged_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- threshold_id -> thresholds.id
-- device_id -> devices.id
 - acknowledged_by -> users.id
+- device_id -> devices.id
+- threshold_id -> thresholds.id
 
 ## sensor_readings
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1473,7 +1473,7 @@ Foreign keys:
 
 ## sessions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1489,12 +1489,12 @@ RLS enabled: **true**
 | revoked_at | timestamp with time zone | YES |  |
 
 Foreign keys:
-- user_id -> users.id
 - active_school_id -> schools.id
+- user_id -> users.id
 
 ## student_groups
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1506,13 +1506,13 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
-- created_by -> users.id
 - assignment_id -> assignments.id
 - course_id -> courses.id
+- created_by -> users.id
 
 ## student_personal_tasks
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1530,7 +1530,7 @@ Foreign keys:
 
 ## student_profiles
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1543,13 +1543,13 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
+- academic_year_id -> academic_years.id
 - created_by -> users.id
 - student_id -> users.id
-- academic_year_id -> academic_years.id
 
 ## student_support_cases
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1568,13 +1568,13 @@ RLS enabled: **true**
 
 Foreign keys:
 - course_id -> courses.id
-- school_id -> schools.id
 - created_by -> users.id
+- school_id -> schools.id
 - student_id -> users.id
 
 ## student_support_interventions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1591,7 +1591,7 @@ Foreign keys:
 
 ## submission_attachments
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1604,13 +1604,13 @@ RLS enabled: **true**
 | file_name | character varying | YES |  |
 
 Foreign keys:
+- chart_id -> charts.id
 - dataset_id -> assignment_sensor_datasets.id
 - submission_version_id -> submission_versions.id
-- chart_id -> charts.id
 
 ## submission_versions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1627,7 +1627,7 @@ Foreign keys:
 
 ## submissions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1640,13 +1640,13 @@ RLS enabled: **true**
 | submitted_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
-- student_id -> users.id
 - assignment_id -> assignments.id
 - group_id -> student_groups.id
+- student_id -> users.id
 
 ## terminal_pairing_sessions
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1664,7 +1664,7 @@ Foreign keys:
 
 ## terms
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1679,7 +1679,7 @@ Foreign keys:
 
 ## thresholds
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1693,13 +1693,13 @@ RLS enabled: **true**
 | created_by | uuid | NO |  |
 
 Foreign keys:
-- school_id -> schools.id
-- device_id -> devices.id
 - created_by -> users.id
+- device_id -> devices.id
+- school_id -> schools.id
 
 ## trusted_devices
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1719,7 +1719,7 @@ Foreign keys:
 
 ## user_invitations
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1738,13 +1738,13 @@ RLS enabled: **true**
 | created_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- school_id -> schools.id
-- invited_by -> users.id
 - accepted_by -> users.id
+- invited_by -> users.id
+- school_id -> schools.id
 
 ## user_roles
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1756,13 +1756,13 @@ RLS enabled: **true**
 | granted_at | timestamp with time zone | YES | now() |
 
 Foreign keys:
-- user_id -> users.id
 - granted_by -> users.id
 - school_id -> schools.id
+- user_id -> users.id
 
 ## users
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1780,12 +1780,12 @@ RLS enabled: **true**
 | building | character varying | YES |  |
 
 Foreign keys:
-- school_id -> schools.id
 - created_by -> users.id
+- school_id -> schools.id
 
 ## wiring_group_members
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1795,12 +1795,12 @@ RLS enabled: **true**
 | added_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- student_id -> users.id
 - group_id -> wiring_groups.id
+- student_id -> users.id
 
 ## wiring_groups
 
-RLS enabled: **true**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1817,8 +1817,8 @@ RLS enabled: **true**
 | updated_at | timestamp with time zone | NO | now() |
 
 Foreign keys:
-- created_by -> users.id
 - course_id -> courses.id
+- created_by -> users.id
 - inspected_by -> users.id
 
 ## RPC and function signatures
@@ -2002,6 +2002,8 @@ Foreign keys:
 ### get_energy_usage_trend(p_token text, p_days integer) -> TABLE(day date, total_kwh numeric) (SECURITY DEFINER, plpgsql)
 
 ### get_incident_report(p_token text, p_id uuid) -> TABLE(id uuid, category incident_category, room character varying, status incident_status, resolution_type incident_resolution_type, resolution_note text, created_at timestamp with time zone, acknowledged_at timestamp with time zone, closed_at timestamp with time zone, reason text, severity text) (SECURITY DEFINER, plpgsql)
+
+### get_incident_report_for_staff(p_token text, p_id uuid) -> TABLE(id uuid, category incident_category, room character varying, status incident_status, resolution_type incident_resolution_type, resolution_note text, created_at timestamp with time zone, acknowledged_at timestamp with time zone, closed_at timestamp with time zone, reason text, severity text) (SECURITY DEFINER, plpgsql)
 
 ### get_incident_summary(p_token text) -> TABLE(category incident_category, total_count integer, avg_response_seconds numeric) (SECURITY DEFINER, plpgsql)
 
@@ -2354,3 +2356,4 @@ Foreign keys:
 ### verify_gateway_request(p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_path text, p_body_hash text) -> boolean (SECURITY DEFINER, plpgsql)
 
 ### withdraw_parent_consent(p_token text, p_consent_id uuid, p_reason text) -> void (SECURITY DEFINER, plpgsql)
+

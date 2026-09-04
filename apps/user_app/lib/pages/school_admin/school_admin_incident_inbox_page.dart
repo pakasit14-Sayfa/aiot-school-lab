@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import 'controllers/school_admin_async_state.dart';
+import 'controllers/school_admin_incident_inbox_controller.dart';
 import '../../theme/school_admin_palette.dart';
 
 class SchoolAdminIncidentInboxPage extends StatefulWidget {
-  const SchoolAdminIncidentInboxPage({super.key, this.initialIncidents});
+  const SchoolAdminIncidentInboxPage({
+    super.key,
+    this.initialIncidents,
+    this.controller,
+  });
 
   final List<TeacherIncidentReport>? initialIncidents;
+  final SchoolAdminIncidentInboxController? controller;
 
   @override
   State<SchoolAdminIncidentInboxPage> createState() =>
@@ -17,10 +24,9 @@ class _SchoolAdminIncidentInboxPageState
     extends State<SchoolAdminIncidentInboxPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late SchoolAdminIncidentInboxController _controller;
+  late bool _ownsController;
 
-  bool _loading = true;
-  String? _loadError;
-  List<TeacherIncidentReport> _incidents = [];
   String _searchQuery = '';
 
   @override
@@ -31,41 +37,51 @@ class _SchoolAdminIncidentInboxPageState
       if (mounted) setState(() {});
     });
 
-    if (widget.initialIncidents != null) {
-      _incidents = widget.initialIncidents!;
-      _loading = false;
-    } else {
-      _load();
-    }
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        SchoolAdminIncidentInboxController(
+          loadIncidents: IncidentService.listStaffIncidentReports,
+          loadDetail: IncidentService.getIncidentReportForStaff,
+          acknowledgeIncident: IncidentService.acknowledgeIncidentReport,
+          closeIncident:
+              ({
+                required id,
+                required resolutionType,
+                required resolutionNote,
+              }) => IncidentService.closeIncidentReport(
+                id,
+                resolutionType: resolutionType,
+                resolutionNote: resolutionNote,
+              ),
+          initialIncidents: widget.initialIncidents,
+        );
+    _controller.addListener(_onControllerChanged);
+    _load();
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_onControllerChanged);
+    if (_ownsController) _controller.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    if (widget.initialIncidents != null) return;
-    setState(() {
-      _loading = true;
-      _loadError = null;
-    });
-    try {
-      final reports = await IncidentService.listTeacherIncidentReports();
-      if (!mounted) return;
-      setState(() {
-        _incidents = reports;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loadError = 'โหลดรายการเหตุการณ์ไม่สำเร็จ: $e';
-        _loading = false;
-      });
-    }
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
+
+  Future<void> _load() => _controller.load();
+
+  List<TeacherIncidentReport> get _incidents => switch (_controller.state) {
+    SchoolAdminData<List<TeacherIncidentReport>>(value: final value) => value,
+    SchoolAdminLoading<List<TeacherIncidentReport>>(previousData: final value) =>
+      value ?? const <TeacherIncidentReport>[],
+    SchoolAdminError<List<TeacherIncidentReport>>(previousData: final value) =>
+      value ?? const <TeacherIncidentReport>[],
+    _ => const <TeacherIncidentReport>[],
+  };
 
   List<TeacherIncidentReport> _filterByTab(int tabIdx) {
     List<TeacherIncidentReport> base;
@@ -126,23 +142,25 @@ class _SchoolAdminIncidentInboxPageState
   }
 
   Future<void> _acknowledge(TeacherIncidentReport report) async {
-    try {
-      await IncidentService.acknowledgeIncidentReport(report.id);
-      if (!mounted) return;
+    final succeeded = await _controller.acknowledge(report.id);
+    if (!mounted) return;
+    if (succeeded) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('รับเรื่องเหตุการณ์ ${report.id.substring(0, 8)}... เรียบร้อยแล้ว'),
+          content: Text(
+            'รับเรื่องเหตุการณ์ ${report.id.substring(0, 8)}... เรียบร้อยแล้ว',
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: const Color(0xFF2563EB),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
-      _load();
-    } catch (e) {
-      if (!mounted) return;
+    } else {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('รับเรื่องไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('รับเรื่องเหตุการณ์ไม่สำเร็จ')));
     }
   }
 
@@ -226,47 +244,67 @@ class _SchoolAdminIncidentInboxPageState
               onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('ยกเลิก', style: TextStyle(color: Color(0xFF64748B))),
             ),
-            FilledButton.icon(
-              onPressed: () async {
-                final note = noteController.text.trim();
-                if (note.isEmpty) {
-                  ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                    const SnackBar(content: Text('กรุณากรอกสรุปผลการแก้ไข')),
-                  );
-                  return;
-                }
-                Navigator.pop(dialogCtx);
-                try {
-                  await IncidentService.closeIncidentReport(
-                    report.id,
-                    resolutionType: 'resolved',
-                    resolutionNote: note,
-                  );
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text('ปิดเหตุการณ์เรียบร้อยแล้ว'),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: const Color(0xFF16A34A),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  );
-                  _load();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('ปิดเหตุการณ์ไม่สำเร็จ: $e')),
-                  );
-                }
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final isSubmitting = _controller.isMutating(report.id);
+                return FilledButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final note = noteController.text.trim();
+                          if (note.isEmpty) {
+                            ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                              const SnackBar(
+                                content: Text('กรุณากรอกสรุปผลการแก้ไข'),
+                              ),
+                            );
+                            return;
+                          }
+                          final succeeded = await _controller.close(
+                            report.id,
+                            note,
+                          );
+                          if (!mounted || !dialogCtx.mounted) return;
+                          if (succeeded) {
+                            Navigator.pop(dialogCtx);
+                            final messenger = ScaffoldMessenger.of(context);
+                            messenger.hideCurrentSnackBar();
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: const Text('ปิดเหตุการณ์เรียบร้อยแล้ว'),
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: const Color(0xFF16A34A),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'ปิดเหตุการณ์ไม่สำเร็จ กรุณาตรวจสอบแล้วลองใหม่',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  icon: isSubmitting
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_circle_rounded, size: 16),
+                  label: Text(
+                    isSubmitting ? 'กำลังบันทึก...' : 'ยืนยันปิดเหตุการณ์',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF16A34A),
+                    foregroundColor: Colors.white,
+                  ),
+                );
               },
-              icon: const Icon(Icons.check_circle_rounded, size: 16),
-              label: const Text('ยืนยันปิดเหตุการณ์'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
-                foregroundColor: Colors.white,
-              ),
             ),
           ],
         );
@@ -274,14 +312,17 @@ class _SchoolAdminIncidentInboxPageState
     );
   }
 
-  void _showDetailDialog(TeacherIncidentReport report) async {
+  void _showDetailDialog(TeacherIncidentReport report) {
+    _controller.loadDetail(report.id);
     showDialog<void>(
       context: context,
       builder: (dialogCtx) {
-        return FutureBuilder<IncidentReportDetail>(
-          future: IncidentService.getIncidentReport(report.id),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        return AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final detailState = _controller.detailStateFor(report.id);
+            if (detailState == null ||
+                detailState is SchoolAdminLoading<IncidentReportDetail>) {
               return const Dialog(
                 backgroundColor: Colors.white,
                 surfaceTintColor: Colors.transparent,
@@ -298,21 +339,27 @@ class _SchoolAdminIncidentInboxPageState
                 ),
               );
             }
-            if (snapshot.hasError) {
+            if (detailState is SchoolAdminError<IncidentReportDetail>) {
               return AlertDialog(
                 backgroundColor: Colors.white,
                 title: const Text('เกิดข้อผิดพลาด'),
-                content: Text('ไม่สามารถโหลดรายละเอียดได้: ${snapshot.error}'),
+                content: Text(detailState.message),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(dialogCtx),
                     child: const Text('ปิด'),
                   ),
+                  FilledButton.icon(
+                    onPressed: () => _controller.loadDetail(report.id),
+                    icon: const Icon(Icons.refresh_rounded, size: 16),
+                    label: const Text('ลองใหม่'),
+                  ),
                 ],
               );
             }
 
-            final detail = snapshot.data!;
+            final detail =
+                (detailState as SchoolAdminData<IncidentReportDetail>).value;
             final isSos = report.category == IncidentCategory.sos;
 
             return Dialog(
@@ -332,8 +379,9 @@ class _SchoolAdminIncidentInboxPageState
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
+                        Expanded(
+                          child: Row(
+                            children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
@@ -347,15 +395,20 @@ class _SchoolAdminIncidentInboxPageState
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Text(
-                              'รายละเอียดเหตุการณ์ (${isSos ? "SOS ฉุกเฉิน" : "เหตุทั่วไป"})',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
+                              Expanded(
+                                child: Text(
+                                  'รายละเอียดเหตุการณ์ (${isSos ? "SOS ฉุกเฉิน" : "เหตุทั่วไป"})',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(dialogCtx),
@@ -437,13 +490,27 @@ class _SchoolAdminIncidentInboxPageState
 
   @override
   Widget build(BuildContext context) {
+    final state = _controller.state;
+    final isBlockingLoad =
+        state is SchoolAdminLoading<List<TeacherIncidentReport>> &&
+        state.previousData == null;
+    final blockingError =
+        state is SchoolAdminError<List<TeacherIncidentReport>> &&
+        state.previousData == null
+        ? state
+        : null;
+    final inlineError =
+        state is SchoolAdminError<List<TeacherIncidentReport>> &&
+        state.previousData != null
+        ? state
+        : null;
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _loading
+        child: isBlockingLoad
             ? const Center(child: CircularProgressIndicator())
-            : _loadError != null
-                ? _buildErrorView()
+            : blockingError != null
+                ? _buildErrorView(blockingError)
                 : SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
                     child: Center(
@@ -452,6 +519,10 @@ class _SchoolAdminIncidentInboxPageState
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (inlineError != null) ...[
+                              _buildInlineError(inlineError),
+                              const SizedBox(height: 16),
+                            ],
                             _buildHeader(),
                             const SizedBox(height: 16),
                             _buildKpiSummaryGrid(),
@@ -468,7 +539,9 @@ class _SchoolAdminIncidentInboxPageState
     );
   }
 
-  Widget _buildErrorView() {
+  Widget _buildErrorView(
+    SchoolAdminError<List<TeacherIncidentReport>> error,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -478,7 +551,7 @@ class _SchoolAdminIncidentInboxPageState
             const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 48),
             const SizedBox(height: 14),
             Text(
-              _loadError!,
+              error.message,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Color(0xFFDC2626),
@@ -498,6 +571,43 @@ class _SchoolAdminIncidentInboxPageState
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildInlineError(
+    SchoolAdminError<List<TeacherIncidentReport>> error,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Color(0xFFDC2626),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              error.message,
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          TextButton.icon(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('ลองใหม่'),
+          ),
+        ],
       ),
     );
   }
@@ -791,6 +901,7 @@ class _SchoolAdminIncidentInboxPageState
   Widget _buildIncidentList() {
     final list = _filterByTab(_tabController.index);
     if (list.isEmpty) {
+      final isDatabaseEmpty = _incidents.isEmpty;
       return Container(
         padding: const EdgeInsets.all(48),
         alignment: Alignment.center,
@@ -799,17 +910,28 @@ class _SchoolAdminIncidentInboxPageState
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
-        child: const Column(
+        child: Column(
           children: [
-            Icon(Icons.inbox_outlined, size: 40, color: Color(0xFF94A3B8)),
-            SizedBox(height: 14),
-            Text(
-              'ไม่มีรายการเหตุการณ์ในหมวดนี้',
+            const Icon(
+              Icons.inbox_outlined,
+              size: 40,
+              color: Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'ยังไม่มีข้อมูล',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF0F172A),
               ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isDatabaseEmpty
+                  ? 'ยังไม่มีเหตุการณ์จากฐานข้อมูล'
+                  : 'ไม่มีรายการที่ตรงกับตัวกรองหรือคำค้นหา',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
           ],
         ),
@@ -832,6 +954,7 @@ class _SchoolAdminIncidentInboxPageState
     final isSos = report.category == IncidentCategory.sos;
     final isNew = report.status == 'new';
     final isClosed = report.status == 'resolved' || report.status == 'cancelled';
+    final isMutating = _controller.isMutating(report.id);
 
     Color statusColor = const Color(0xFF16A34A);
     Color statusBg = const Color(0xFFF0FDF4);
@@ -948,7 +1071,7 @@ class _SchoolAdminIncidentInboxPageState
                   children: [
                     if (isNew)
                       FilledButton.icon(
-                        onPressed: () => _acknowledge(report),
+                        onPressed: isMutating ? null : () => _acknowledge(report),
                         icon: const Icon(Icons.check_rounded, size: 14),
                         label: const Text('รับเรื่อง'),
                         style: FilledButton.styleFrom(
@@ -960,7 +1083,9 @@ class _SchoolAdminIncidentInboxPageState
                       ),
                     if (!isClosed)
                       OutlinedButton.icon(
-                        onPressed: () => _showCloseDialog(report),
+                        onPressed: isMutating
+                            ? null
+                            : () => _showCloseDialog(report),
                         icon: const Icon(Icons.task_alt_rounded, size: 14),
                         label: const Text('ปิดเหตุการณ์'),
                         style: OutlinedButton.styleFrom(

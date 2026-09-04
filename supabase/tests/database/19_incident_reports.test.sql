@@ -93,11 +93,11 @@ select throws_ok(
   'a student cannot call list_incident_reports'
 );
 
--- 5. the out-of-scope teacher (doesn't teach this room) sees zero
+-- 5. broadcast policy lets every teacher in the school see the incident
 select is(
   (select count(*)::integer from list_incident_reports('inc-teacher-outscope-token', null)),
-  0,
-  'a teacher outside the room scope sees no incident reports'
+  1,
+  'every teacher in the school sees the broadcast incident'
 );
 
 -- 6. the in-scope teacher sees the report
@@ -107,15 +107,13 @@ select is(
   'a teacher in the room scope sees the incident report'
 );
 
--- 7. the out-of-scope teacher cannot acknowledge it either (genuinely filtered, not just hidden)
-select throws_ok(
+-- 7. any teacher in the school can acknowledge the broadcast incident
+select lives_ok(
   $$select acknowledge_incident_report('inc-teacher-outscope-token', (select incident_id from created_incident))$$,
-  'P0001', 'not_found',
-  'a teacher outside scope cannot acknowledge the report — filtered at query level'
+  'any teacher in the school can acknowledge the broadcast incident'
 );
 
--- 8. the in-scope teacher acknowledges successfully
-select acknowledge_incident_report('inc-teacher-scope-token', (select incident_id from created_incident));
+-- 8. the acknowledgement is persisted
 select is(
   (select status from list_my_incident_reports('inc-student-a-token') limit 1),
   'acknowledged',
@@ -144,11 +142,14 @@ select is(
   'escalating creates a real emergency_events row'
 );
 
--- 12. escalated is terminal — closing it afterwards is rejected
-select throws_ok(
-  $$select close_incident_report('inc-teacher-scope-token', (select incident_id from created_incident), 'resolved', 'สรุปผล')$$,
-  'P0001', 'incident_already_closed',
-  'an escalated incident cannot be closed afterwards — terminal state'
+-- 12. closing an escalated incident closes its emergency and resolves it
+select close_incident_report(
+  'inc-teacher-scope-token', (select incident_id from created_incident), 'resolved', 'สรุปผล'
+);
+select is(
+  (select status from list_my_incident_reports('inc-student-a-token') limit 1),
+  'resolved',
+  'closing an escalated incident resolves the linked report'
 );
 
 -- 13. the aggregate summary has no PII — just category/count/avg-response

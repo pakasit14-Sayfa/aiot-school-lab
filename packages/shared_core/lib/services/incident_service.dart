@@ -10,9 +10,8 @@ class IncidentService {
   static Future<MyStudentRoom?> getMyStudentRoom() async {
     final token = AuthService.sessionToken;
     if (token == null) return null;
-    final rows =
-        await supabase.rpc('get_my_student_room', params: {'p_token': token})
-            as List;
+    final rows = await supabase
+        .rpc('get_my_student_room', params: {'p_token': token}) as List;
     if (rows.isEmpty) return null;
     return MyStudentRoom.fromRow(rows.first as Map<String, dynamic>);
   }
@@ -20,8 +19,7 @@ class IncidentService {
   static Stream<List<Map<String, dynamic>>> streamIncidentReports() {
     return supabase
         .from('incident_reports')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false);
+        .stream(primaryKey: ['id']).order('created_at', ascending: false);
   }
 
   static Future<String> createIncidentReport({
@@ -32,30 +30,26 @@ class IncidentService {
   }) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
-    final rows =
-        await supabase.rpc(
-              'create_incident_report',
-              params: {
-                'p_token': token,
-                'p_category': incidentCategoryToDb(category),
-                'p_room': room,
-                'p_reason': reason,
-                'p_severity': severity,
-              },
-            )
-            as List;
+    final rows = await supabase.rpc(
+      'create_incident_report',
+      params: {
+        'p_token': token,
+        'p_category': incidentCategoryToDb(category),
+        'p_room': room,
+        'p_reason': reason,
+        'p_severity': severity,
+      },
+    ) as List;
     return (rows.first as Map<String, dynamic>)['incident_id'] as String;
   }
 
   static Future<List<MyIncidentReport>> listMyIncidentReports() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
-    final rows =
-        await supabase.rpc(
-              'list_my_incident_reports',
-              params: {'p_token': token},
-            )
-            as List;
+    final rows = await supabase.rpc(
+      'list_my_incident_reports',
+      params: {'p_token': token},
+    ) as List;
     return rows
         .map((row) => MyIncidentReport.fromRow(row as Map<String, dynamic>))
         .toList();
@@ -66,13 +60,31 @@ class IncidentService {
   ) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
-    final rows =
-        await supabase.rpc(
-              'get_incident_report',
-              params: {'p_token': token, 'p_id': incidentId},
-            )
-            as List;
+    final rows = await supabase.rpc(
+      'get_incident_report',
+      params: {'p_token': token, 'p_id': incidentId},
+    ) as List;
     return IncidentReportDetail.fromRow(rows.first as Map<String, dynamic>);
+  }
+
+  static Future<IncidentReportDetail> getIncidentReportForStaff(
+    String incidentId,
+  ) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    final rows = await supabase.rpc(
+      'get_incident_report_for_staff',
+      params: {'p_token': token, 'p_id': incidentId},
+    ) as List;
+    if (rows.isEmpty) throw Exception('not_found');
+    return IncidentReportDetail.fromRow(rows.first as Map<String, dynamic>);
+  }
+
+  static Future<List<TeacherIncidentReport>> listStaffIncidentReports() {
+    if (AuthService.sessionToken == null) {
+      throw Exception('not_signed_in');
+    }
+    return listTeacherIncidentReports();
   }
 
   static Future<List<TeacherIncidentReport>> listTeacherIncidentReports({
@@ -148,9 +160,8 @@ class IncidentService {
   static Future<List<IncidentSummaryItem>> getIncidentSummary() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
-    final rows =
-        await supabase.rpc('get_incident_summary', params: {'p_token': token})
-            as List;
+    final rows = await supabase
+        .rpc('get_incident_summary', params: {'p_token': token}) as List;
     return rows
         .map((row) => IncidentSummaryItem.fromRow(row as Map<String, dynamic>))
         .toList();
@@ -167,7 +178,8 @@ class IncidentService {
     final rows =
         await supabase.rpc('list_school_alerts', params: params) as List;
     return rows
-        .map((row) => SchoolSensorAlertRecord.fromRow(row as Map<String, dynamic>))
+        .map((row) =>
+            SchoolSensorAlertRecord.fromRow(row as Map<String, dynamic>))
         .toList();
   }
 
@@ -201,4 +213,3 @@ class IncidentService {
     );
   }
 }
-
