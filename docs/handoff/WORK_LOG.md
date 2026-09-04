@@ -13,6 +13,28 @@ don't assume it's done, check the brief file itself and grep recent
 commits before trusting either way. **"🔄 In progress"** means it's the
 active/current work as of this writing.
 
+## ⚠️ Known live security hole — reopened on purpose, must close before real students use the system
+
+**`redeem_parent_binding_code` execute grant to `anon`/`authenticated` was
+deliberately re-added on 2026-09-04**, on the project owner's explicit
+instruction, to unblock active development/testing (this legacy path
+skips OTP verification — see the closed entry below for the full
+writeup of what it does and why it's risky). **This is live on the
+production-linked project (`smqoknnftgjyhrnzugar`), not a throwaway
+dev database.**
+
+**Must revoke again before onboarding any real student/parent**, by
+re-running:
+```sql
+revoke execute on function redeem_parent_binding_code(text, text, text, text, text, text) from anon, authenticated;
+```
+(the same statement is already in
+`supabase/migrations/20260904000000_fix_redeem_parent_binding_code_ambiguous_email.sql`
+— re-applying that file also closes it again). Any session that notices
+this task still open should ask the project owner directly rather than
+assume it's safe to leave — don't let this silently ride along into a
+real deployment.
+
 ## In progress
 
 | Brief | Topic |
