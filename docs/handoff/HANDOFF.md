@@ -656,10 +656,9 @@ see `docs/handoff/WORK_LOG.md`.)*
   layout, and the complete Parent regression suite: 33/33 tests passed, scoped
   analyzer is clean, and the final web build succeeded. Empty cards retain the
   established empty-state copy with distinct loading/error/no-linked-student states.
-- Authenticated browser click-through remains pending: the Windows computer-use
-  helper exited twice before any browser window/session could be inspected. The
-  automated real-widget journey uses injected loaders and does not claim live RPC
-  verification; the 8 Parent RPCs were already live-verified in the prior pass.
+- **Authenticated browser click-through completed 2026-09-04** (closing the gap above): served the existing `flutter build web` output over a local static server (not `flutter run`, to stay light on RAM) against the already-running local Supabase, logged in as `parent@aiot-school-lab.local` via Claude-in-Chrome, and clicked through all 7 pages (Dashboard, Learning, Attendance, Academic Calendar, Schedule, Messages, Settings) plus the leave-request dialog. Confirmed real scoped data stayed consistent across pages, leave-request submission persisted in DB as expected and was cleaned up, and no console errors were observed.
+- **Multi-child switching click-through completed, same session, 2026-09-04.** A local runtime fixture supplied the second linked child. It was prepared through a privileged maintenance use of legacy `redeem_parent_binding_code`, not through the supported signup interface. Ordered migration review found a real ACL regression: `20260721020100_parent_binding.sql` revoked this no-OTP legacy RPC, but `20260826000000_merge_technician_facility_manager.sql` accidentally granted it back to `anon` and `authenticated`. `20260904000000_fix_redeem_parent_binding_code_ambiguous_email.sql` qualifies its ambiguous lookups and revokes it again without changing the active `request_parent_binding_otp` + `confirm_parent_binding` flow. Local pgTAP covers the ACL and current OTP interface; linked-project deployment/schema regeneration remain pending because this checkout has no linked project. Browser verification itself is valid: both children appear, all five scoped pages update in both directions, and switching back restores the first child's real data.
+- **Mobile/narrow-width coverage status:** not fully click-through verified yet; automated widget tests cover narrow viewport flows.
 
 ### Known issues not yet fixed
 - **Super Admin RedTeam data-connectivity/UI-parity fixes (2026-08-31) —

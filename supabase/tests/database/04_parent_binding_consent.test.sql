@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(19);
 
 insert into packages (id, name, license_type) values
   ('12000000-0000-0000-0000-000000000001', 'Parent test package', 'perpetual');
@@ -72,6 +72,74 @@ select matches(
   (select verification_token from parent_verification),
   '^pv_',
   'the client receives an opaque verification token'
+);
+
+select is(
+  has_function_privilege(
+    'anon',
+    'public.redeem_parent_binding_code(text, text, text, text, text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  false,
+  'legacy redeem_parent_binding_code is not executable by anon'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.redeem_parent_binding_code(text, text, text, text, text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  false,
+  'legacy redeem_parent_binding_code is not executable by authenticated'
+);
+
+select is(
+  has_function_privilege(
+    'anon',
+    'public.request_parent_binding_otp(text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  false,
+  'request_parent_binding_otp is not directly executable by anon'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.request_parent_binding_otp(text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  false,
+  'request_parent_binding_otp is not directly executable by authenticated'
+);
+select is(
+  has_function_privilege(
+    'service_role',
+    'public.request_parent_binding_otp(text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  true,
+  'request_parent_binding_otp remains executable by service_role'
+);
+select is(
+  has_function_privilege(
+    'anon',
+    'public.confirm_parent_binding(text, text, text, text, text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  true,
+  'confirm_parent_binding is executable by anon'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'public.confirm_parent_binding(text, text, text, text, text, text)'::regprocedure,
+    'EXECUTE'
+  ),
+  true,
+  'confirm_parent_binding is executable by authenticated'
 );
 
 do $$
