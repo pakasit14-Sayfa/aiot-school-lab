@@ -40,7 +40,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('นักเรียน ทดสอบ (บุตร)'), findsOneWidget);
+    expect(find.text('นักเรียน ทดสอบ'), findsOneWidget);
+    expect(find.text('บุตร'), findsOneWidget);
     expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
     expect(
       find.text('ยังไม่มีข้อมูลการเข้าเรียนประจำคาบในวันนี้'),

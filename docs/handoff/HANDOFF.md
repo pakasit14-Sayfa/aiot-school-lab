@@ -636,18 +636,32 @@ not. Parent is partially wired (home page only).
 - Replaced raw 500 error string in `student_lesson_view_page.dart` with user-friendly Thai message.
 - Verified 100% via SQL probes (positive token, negative fake token, update round-trip preserving content body) and automated tests (53/53 `user_app`, 45/45 `shared_core`).
 
-### Known issues not yet fixed
-
 *(`teacher_exam_builder_page.dart`'s image/video attachments and
 `teacher_profile_page.dart`'s hardcoded stat fallbacks, both previously
 listed here, were fixed and independently live-verified 2026-08-27 —
 see `docs/handoff/WORK_LOG.md`.)*
 
-- **Parent academic calendar multi-child selection:** the RPC authorizes and
-  scopes the requested linked student correctly, but the current page supplies
-  the first linked student's id and has no child switcher. This is safe (no
-  cross-child or cross-school leak) but is a remaining UX limitation for parents
-  linked to more than one student.
+### Parent portal shared child selection (completed 2026-09-04)
+
+- `ParentNavigationShell` now owns one selected linked student and shares it
+  across Dashboard, Learning, Attendance, Academic Calendar, and Schedule.
+  Selecting a child from any of those pages updates all five pages; Messages and
+  Settings remain unscoped as intended.
+- The shared selector uses a popup menu on desktop and a height-constrained,
+  scrollable bottom sheet on mobile. Every student-scoped page reloads through
+  its existing injected RPC loader and ignores stale responses from an older
+  selection. No database or RPC signature changed.
+- Automated verification covers the real five-page navigation journey, desktop
+  selection, mobile selection with a 20-student scrollable list, narrow-header
+  layout, and the complete Parent regression suite: 33/33 tests passed, scoped
+  analyzer is clean, and the final web build succeeded. Empty cards retain the
+  established empty-state copy with distinct loading/error/no-linked-student states.
+- Authenticated browser click-through remains pending: the Windows computer-use
+  helper exited twice before any browser window/session could be inspected. The
+  automated real-widget journey uses injected loaders and does not claim live RPC
+  verification; the 8 Parent RPCs were already live-verified in the prior pass.
+
+### Known issues not yet fixed
 - **Super Admin RedTeam data-connectivity/UI-parity fixes (2026-08-31) —
   not yet click-tested in a real browser.** User asked for a RedTeam-style
   check of the whole Super Admin section ("เชื่อมครบหรือยัง...

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../pages/parent/parent_dashboard_page.dart';
 import '../pages/parent/parent_learning_page.dart';
@@ -8,27 +9,64 @@ import '../pages/parent/parent_schedule_page.dart';
 import '../pages/parent/parent_messages_page.dart';
 import '../pages/parent/parent_settings_page.dart';
 
+typedef ParentPagesBuilder =
+    List<Widget> Function(
+      String? selectedStudentId,
+      ValueChanged<LinkedStudentItem> onStudentSelected,
+    );
+
 class ParentNavigationShell extends StatefulWidget {
-  const ParentNavigationShell({super.key});
+  final ParentPagesBuilder? pagesBuilder;
+
+  const ParentNavigationShell({super.key, this.pagesBuilder});
 
   @override
-  State<ParentNavigationShell> createState() =>
-      _ParentNavigationShellState();
+  State<ParentNavigationShell> createState() => _ParentNavigationShellState();
 }
 
-class _ParentNavigationShellState
-    extends State<ParentNavigationShell> {
+class _ParentNavigationShellState extends State<ParentNavigationShell> {
   int selectedIndex = 0;
+  LinkedStudentItem? _selectedStudent;
 
-  final pages = const [
-    ParentDashboardPage(),
-    ParentLearningPage(),
-    ParentAttendancePage(),
-    ParentAcademicCalendarPage(),
-    ParentSchedulePage(),
-    ParentMessagesPage(),
-    ParentSettingsPage(),
-  ];
+  List<Widget> get pages {
+    final customPages = widget.pagesBuilder?.call(
+      _selectedStudent?.studentId,
+      _selectStudent,
+    );
+    if (customPages != null) {
+      assert(customPages.length == 7);
+      return customPages;
+    }
+    return [
+      ParentDashboardPage(
+        selectedStudentId: _selectedStudent?.studentId,
+        onStudentSelected: _selectStudent,
+      ),
+      ParentLearningPage(
+        selectedStudentId: _selectedStudent?.studentId,
+        onStudentSelected: _selectStudent,
+      ),
+      ParentAttendancePage(
+        selectedStudentId: _selectedStudent?.studentId,
+        onStudentSelected: _selectStudent,
+      ),
+      ParentAcademicCalendarPage(
+        selectedStudentId: _selectedStudent?.studentId,
+        onStudentSelected: _selectStudent,
+      ),
+      ParentSchedulePage(
+        selectedStudentId: _selectedStudent?.studentId,
+        onStudentSelected: _selectStudent,
+      ),
+      const ParentMessagesPage(),
+      const ParentSettingsPage(),
+    ];
+  }
+
+  void _selectStudent(LinkedStudentItem student) {
+    if (student.studentId == _selectedStudent?.studentId) return;
+    setState(() => _selectedStudent = student);
+  }
 
   final items = const [
     _NavItem('ภาพรวม', Icons.dashboard_rounded),
@@ -112,10 +150,7 @@ class _ParentNavigationShellState
                   ),
                   const Text(
                     'Parent Portal',
-                    style: TextStyle(
-                      color: Color(0xFF8A94A6),
-                      fontSize: 8.5,
-                    ),
+                    style: TextStyle(color: Color(0xFF8A94A6), fontSize: 8.5),
                   ),
                 ],
               ),
@@ -167,10 +202,7 @@ class _ParentNavigationShellState
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
-          child: Container(
-            height: 1,
-            color: const Color(0xFFE8EBF1),
-          ),
+          child: Container(height: 1, color: const Color(0xFFE8EBF1)),
         ),
       ),
       body: pages[selectedIndex],
@@ -228,19 +260,10 @@ class _ParentNavigationShellState
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                18,
-                18,
-                18,
-                16,
-              ),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
               decoration: const BoxDecoration(
                 color: Color(0xFFF5F8FD),
-                border: Border(
-                  bottom: BorderSide(
-                    color: Color(0xFFE7EBF2),
-                  ),
-                ),
+                border: Border(bottom: BorderSide(color: Color(0xFFE7EBF2))),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,10 +275,7 @@ class _ParentNavigationShellState
                         height: 48,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFFFA23A),
-                              Color(0xFFFF7436),
-                            ],
+                            colors: [Color(0xFFFFA23A), Color(0xFFFF7436)],
                           ),
                           borderRadius: BorderRadius.circular(15),
                         ),
@@ -297,11 +317,9 @@ class _ParentNavigationShellState
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color(0xFFE5EAF1),
-                      ),
+                      border: Border.all(color: const Color(0xFFE5EAF1)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         CircleAvatar(
                           radius: 19,
@@ -317,14 +335,16 @@ class _ParentNavigationShellState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'น้องมะลิ',
+                                _selectedStudent?.fullName ??
+                                    'ยังไม่ได้เลือกนักเรียน',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
                               Text(
-                                'ม.2/1 · เลขที่ 18',
+                                _selectedStudent?.relationship ??
+                                    'เลือกจากหน้าข้อมูลนักเรียน',
                                 style: TextStyle(
                                   fontSize: 8.5,
                                   color: Color(0xFF8A94A6),
@@ -341,15 +361,9 @@ class _ParentNavigationShellState
             ),
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(
-                  12,
-                  15,
-                  12,
-                  15,
-                ),
+                padding: const EdgeInsets.fromLTRB(12, 15, 12, 15),
                 itemCount: items.length,
-                separatorBuilder: (_, __) =>
-                    const SizedBox(height: 4),
+                separatorBuilder: (_, _) => const SizedBox(height: 4),
                 itemBuilder: (context, index) {
                   final item = items[index];
                   final active = selectedIndex == index;
@@ -381,8 +395,7 @@ class _ParentNavigationShellState
                                 color: active
                                     ? const Color(0xFFD9EAFE)
                                     : const Color(0xFFF3F5F8),
-                                borderRadius:
-                                    BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 item.icon,
@@ -438,9 +451,7 @@ class _ParentNavigationShellState
               children: [
                 const SizedBox(height: 24),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
                   child: Row(
                     children: [
                       Container(
@@ -448,10 +459,7 @@ class _ParentNavigationShellState
                         height: 46,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFFFFA23A),
-                              Color(0xFFFF7436),
-                            ],
+                            colors: [Color(0xFFFFA23A), Color(0xFFFF7436)],
                           ),
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -463,8 +471,7 @@ class _ParentNavigationShellState
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Parent Portal',
@@ -489,9 +496,7 @@ class _ParentNavigationShellState
                 const SizedBox(height: 24),
                 Expanded(
                   child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemBuilder: (context, index) {
                       final item = items[index];
                       final active = selectedIndex == index;
@@ -523,16 +528,20 @@ class _ParentNavigationShellState
                                       : const Color(0xFF788497),
                                 ),
                                 const SizedBox(width: 12),
-                                Text(
-                                  item.title,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: active
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
-                                    color: active
-                                        ? const Color(0xFF2867B2)
-                                        : const Color(0xFF566173),
+                                Expanded(
+                                  child: Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: active
+                                          ? FontWeight.w800
+                                          : FontWeight.w600,
+                                      color: active
+                                          ? const Color(0xFF2867B2)
+                                          : const Color(0xFF566173),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -541,8 +550,7 @@ class _ParentNavigationShellState
                         ),
                       );
                     },
-                    separatorBuilder: (_, __) =>
-                        const SizedBox(height: 5),
+                    separatorBuilder: (_, _) => const SizedBox(height: 5),
                     itemCount: items.length,
                   ),
                 ),
@@ -554,7 +562,7 @@ class _ParentNavigationShellState
                       color: const Color(0xFFF5F7FB),
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
                         CircleAvatar(
                           backgroundColor: Color(0xFFE3ECF8),
@@ -566,8 +574,7 @@ class _ParentNavigationShellState
                         SizedBox(width: 10),
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'ผู้ปกครอง',
@@ -577,7 +584,8 @@ class _ParentNavigationShellState
                                 ),
                               ),
                               Text(
-                                'น้องมะลิ · ม.2/1',
+                                _selectedStudent?.fullName ??
+                                    'ยังไม่ได้เลือกนักเรียน',
                                 style: TextStyle(
                                   color: Color(0xFF8A94A6),
                                   fontSize: 10,
@@ -593,13 +601,8 @@ class _ParentNavigationShellState
               ],
             ),
           ),
-          Container(
-            width: 1,
-            color: const Color(0xFFE7EAF0),
-          ),
-          Expanded(
-            child: pages[selectedIndex],
-          ),
+          Container(width: 1, color: const Color(0xFFE7EAF0)),
+          Expanded(child: pages[selectedIndex]),
         ],
       ),
     );
@@ -611,20 +614,11 @@ class _ParentNavigationShellState
       showDragHandle: true,
       backgroundColor: Colors.white,
       builder: (context) {
-        final moreIndexes = [
-          4,
-          5,
-          6,
-        ];
+        final moreIndexes = [4, 5, 6];
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              12,
-              0,
-              12,
-              20,
-            ),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -677,8 +671,5 @@ class _NavItem {
   final String title;
   final IconData icon;
 
-  const _NavItem(
-    this.title,
-    this.icon,
-  );
+  const _NavItem(this.title, this.icon);
 }

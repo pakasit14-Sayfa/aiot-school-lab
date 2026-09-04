@@ -14,6 +14,8 @@ class ParentSchedulePage extends StatefulWidget {
   final ParentScheduleStudentsLoader? studentsLoader;
   final ParentScheduleLoader? scheduleLoader;
   final ParentAssignmentsLoader? assignmentsLoader;
+  final String? selectedStudentId;
+  final ValueChanged<LinkedStudentItem>? onStudentSelected;
   final DateTime Function()? now;
 
   const ParentSchedulePage({
@@ -21,6 +23,8 @@ class ParentSchedulePage extends StatefulWidget {
     this.studentsLoader,
     this.scheduleLoader,
     this.assignmentsLoader,
+    this.selectedStudentId,
+    this.onStudentSelected,
     this.now,
   });
 
@@ -41,16 +45,27 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
   bool _isLoading = true;
   Object? _loadError;
   bool _unauthenticated = false;
+  int _loadGeneration = 0;
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadData(studentId: widget.selectedStudentId);
+  }
+
+  @override
+  void didUpdateWidget(covariant ParentSchedulePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedStudentId != oldWidget.selectedStudentId &&
+        widget.selectedStudentId != _selectedStudent?.studentId) {
+      _loadData(studentId: widget.selectedStudentId);
+    }
   }
 
   Future<void> _loadData({String? studentId}) async {
+    final loadGeneration = ++_loadGeneration;
     setState(() {
       _isLoading = true;
       _loadError = null;
@@ -68,7 +83,7 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
       final students =
           await (widget.studentsLoader ??
               ParentPortalService.listMyLinkedStudents)();
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       if (students.isEmpty) {
         setState(() {
           _students = const [];
@@ -80,8 +95,10 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
         return;
       }
 
+      final targetStudentId =
+          studentId ?? widget.selectedStudentId ?? _selectedStudent?.studentId;
       final selected = students.firstWhere(
-        (student) => student.studentId == studentId,
+        (student) => student.studentId == targetStudentId,
         orElse: () => students.first,
       );
       final results = await Future.wait<Object>([
@@ -93,7 +110,7 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
           selected.studentId,
         ),
       ]);
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         _students = students;
         _selectedStudent = selected;
@@ -101,9 +118,12 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
         _assignments = results[1] as List<StudentAssignmentItem>;
         _isLoading = false;
       });
+      if (selected.studentId != widget.selectedStudentId) {
+        widget.onStudentSelected?.call(selected);
+      }
     } catch (error, stackTrace) {
       debugPrint('ParentSchedulePage load failed: $error\n$stackTrace');
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         _schedule = const [];
         _assignments = const [];
@@ -177,6 +197,13 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
 
   Future<void> _selectStudent(String studentId) async {
     if (studentId == _selectedStudent?.studentId) return;
+    final selected = _students.firstWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (widget.onStudentSelected != null) {
+      widget.onStudentSelected!(selected);
+      return;
+    }
     await _loadData(studentId: studentId);
   }
 
@@ -305,23 +332,11 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildChildBadge() {
-    if (_students.length > 1 && _selectedStudent != null) {
-      return PopupMenuButton<String>(
-        onSelected: _selectStudent,
-        itemBuilder: (context) => _students
-            .map(
-              (student) => PopupMenuItem(
-                value: student.studentId,
-                child: Text(student.fullName),
-              ),
-            )
-            .toList(),
-        child: _ChildBadge(name: _selectedStudent!.fullName),
-      );
-    }
-    return _ChildBadge(name: _selectedStudent?.fullName);
-  }
+  Widget _buildChildBadge() => ParentStudentSwitcher(
+    students: _students,
+    selectedStudent: _selectedStudent,
+    onSelected: _selectStudent,
+  );
 
   Widget _buildTodayHero() {
     final next = _nextClass;
@@ -710,34 +725,6 @@ class _ParentSchedulePageState extends State<ParentSchedulePage> {
               color: const Color(0xFF18A06F),
             ),
           ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ChildBadge extends StatelessWidget {
-  final String? name;
-  const _ChildBadge({this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFFE1E6EE)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.face_rounded, color: Color(0xFF2867B2), size: 18),
-          const SizedBox(width: 7),
-          Text(
-            name == null || name!.isEmpty ? 'ยังไม่เลือกนักเรียน' : name!,
-            style: const TextStyle(fontWeight: FontWeight.w800),
-          ),
         ],
       ),
     );

@@ -17,6 +17,8 @@ class ParentLearningPage extends StatefulWidget {
   final ParentGradesLoader? gradesLoader;
   final ParentLearningAttendanceLoader? attendanceLoader;
   final ParentLearningAssignmentsLoader? assignmentsLoader;
+  final String? selectedStudentId;
+  final ValueChanged<LinkedStudentItem>? onStudentSelected;
   final DateTime Function()? now;
 
   const ParentLearningPage({
@@ -25,6 +27,8 @@ class ParentLearningPage extends StatefulWidget {
     this.gradesLoader,
     this.attendanceLoader,
     this.assignmentsLoader,
+    this.selectedStudentId,
+    this.onStudentSelected,
     this.now,
   });
 
@@ -52,16 +56,27 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
   bool _isLoading = true;
   bool _unauthenticated = false;
   Object? _loadError;
+  int _loadGeneration = 0;
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadData(studentId: widget.selectedStudentId);
+  }
+
+  @override
+  void didUpdateWidget(covariant ParentLearningPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedStudentId != oldWidget.selectedStudentId &&
+        widget.selectedStudentId != _selectedStudent?.studentId) {
+      _loadData(studentId: widget.selectedStudentId);
+    }
   }
 
   Future<void> _loadData({String? studentId}) async {
+    final loadGeneration = ++_loadGeneration;
     setState(() {
       _isLoading = true;
       _unauthenticated = false;
@@ -78,7 +93,7 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
       final students =
           await (widget.studentsLoader ??
               ParentPortalService.listMyLinkedStudents)();
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       if (students.isEmpty) {
         setState(() {
           _students = const [];
@@ -90,8 +105,10 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
         });
         return;
       }
+      final targetStudentId =
+          studentId ?? widget.selectedStudentId ?? _selectedStudent?.studentId;
       final selected = students.firstWhere(
-        (student) => student.studentId == studentId,
+        (student) => student.studentId == targetStudentId,
         orElse: () => students.first,
       );
       final result = await Future.wait<Object>([
@@ -105,7 +122,7 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
           selected.studentId,
         ),
       ]);
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         _students = students;
         _selectedStudent = selected;
@@ -114,9 +131,12 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
         _assignments = result[2] as List<StudentAssignmentItem>;
         _isLoading = false;
       });
+      if (selected.studentId != widget.selectedStudentId) {
+        widget.onStudentSelected?.call(selected);
+      }
     } catch (error, stackTrace) {
       debugPrint('ParentLearningPage load failed: $error\n$stackTrace');
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         _grades = const [];
         _attendance = const [];
@@ -223,6 +243,13 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
 
   Future<void> _selectStudent(String studentId) async {
     if (studentId == _selectedStudent?.studentId) return;
+    final selected = _students.firstWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (widget.onStudentSelected != null) {
+      widget.onStudentSelected!(selected);
+      return;
+    }
     await _loadData(studentId: studentId);
   }
 
@@ -306,22 +333,11 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
     return const SizedBox.shrink();
   }
 
-  Widget _childBadge() {
-    final badge = _ChildBadge(name: _selectedStudent?.fullName);
-    if (_students.length < 2 || _selectedStudent == null) return badge;
-    return PopupMenuButton<String>(
-      onSelected: _selectStudent,
-      itemBuilder: (context) => _students
-          .map(
-            (student) => PopupMenuItem(
-              value: student.studentId,
-              child: Text(student.fullName),
-            ),
-          )
-          .toList(),
-      child: badge,
-    );
-  }
+  Widget _childBadge() => ParentStudentSwitcher(
+    students: _students,
+    selectedStudent: _selectedStudent,
+    onSelected: _selectStudent,
+  );
 
   Widget _filterBar() {
     final subjects = _subjects;
@@ -641,32 +657,6 @@ class _StateCard extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(child: Text(message)),
         ?action,
-      ],
-    ),
-  );
-}
-
-class _ChildBadge extends StatelessWidget {
-  final String? name;
-  const _ChildBadge({this.name});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(13),
-      border: Border.all(color: const Color(0xFFE1E6EE)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.face_rounded, color: Color(0xFF2867B2), size: 18),
-        const SizedBox(width: 7),
-        Text(
-          name == null || name!.isEmpty ? 'ยังไม่เลือกนักเรียน' : name!,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
       ],
     ),
   );

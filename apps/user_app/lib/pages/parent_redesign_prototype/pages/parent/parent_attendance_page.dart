@@ -9,11 +9,15 @@ typedef ParentAttendanceLoader =
 class ParentAttendancePage extends StatefulWidget {
   final ParentStudentsLoader? loadStudents;
   final ParentAttendanceLoader? loadAttendance;
+  final String? selectedStudentId;
+  final ValueChanged<LinkedStudentItem>? onStudentSelected;
 
   const ParentAttendancePage({
     super.key,
     this.loadStudents,
     this.loadAttendance,
+    this.selectedStudentId,
+    this.onStudentSelected,
   });
 
   @override
@@ -29,6 +33,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   bool _isLoading = true;
   String? _loadError;
   bool _unauthenticated = false;
+  int _loadGeneration = 0;
 
   String selectedPeriod = 'เดือนนี้';
 
@@ -42,10 +47,20 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadData(studentId: widget.selectedStudentId);
+  }
+
+  @override
+  void didUpdateWidget(covariant ParentAttendancePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedStudentId != oldWidget.selectedStudentId &&
+        widget.selectedStudentId != _selectedStudent?.studentId) {
+      _loadData(studentId: widget.selectedStudentId);
+    }
   }
 
   Future<void> _loadData({String? studentId}) async {
+    final loadGeneration = ++_loadGeneration;
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -66,7 +81,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
       final students =
           await (widget.loadStudents?.call() ??
               ParentPortalService.listMyLinkedStudents());
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       if (students.isEmpty) {
         setState(() {
@@ -78,14 +93,16 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
         return;
       }
 
+      final targetStudentId =
+          studentId ?? widget.selectedStudentId ?? _selectedStudent?.studentId;
       final selected = students.firstWhere(
-        (student) => student.studentId == studentId,
+        (student) => student.studentId == targetStudentId,
         orElse: () => students.first,
       );
       final records =
           await (widget.loadAttendance?.call(selected.studentId) ??
               ParentPortalService.listMyStudentAttendance(selected.studentId));
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
 
       setState(() {
         _students = students;
@@ -93,9 +110,12 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
         _attendanceRecords = records;
         _isLoading = false;
       });
+      if (selected.studentId != widget.selectedStudentId) {
+        widget.onStudentSelected?.call(selected);
+      }
     } catch (error) {
       debugPrint('Error loading parent attendance: $error');
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         _attendanceRecords = const [];
         _isLoading = false;
@@ -105,7 +125,14 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   }
 
   Future<void> _selectStudent(String studentId) async {
-    if (_selectedStudent?.studentId == studentId) return;
+    if (studentId == _selectedStudent?.studentId) return;
+    final selected = _students.firstWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (widget.onStudentSelected != null) {
+      widget.onStudentSelected!(selected);
+      return;
+    }
     await _loadData(studentId: studentId);
   }
 
@@ -354,63 +381,11 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
     );
   }
 
-  Widget _buildChildBadge() {
-    final selected = _selectedStudent;
-    final relationship = selected?.relationship;
-    final name = selected == null
-        ? 'ยังไม่มีข้อมูล'
-        : selected.fullName + (relationship != null ? ' ($relationship)' : '');
-
-    final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(color: const Color(0xFFE1E6EE)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.only(right: 6),
-              child: SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(strokeWidth: 1.5),
-              ),
-            )
-          else
-            const Icon(Icons.face_rounded, color: Color(0xFF2867B2), size: 18),
-          const SizedBox(width: 7),
-          Text(
-            name,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
-          ),
-          if (_students.length > 1) ...[
-            const SizedBox(width: 5),
-            const Icon(Icons.expand_more_rounded, size: 16),
-          ],
-        ],
-      ),
-    );
-
-    if (_students.length < 2) return badge;
-    return PopupMenuButton<String>(
-      tooltip: 'เลือกนักเรียน',
-      onSelected: _selectStudent,
-      itemBuilder: (context) => _students
-          .map(
-            (student) => PopupMenuItem<String>(
-              value: student.studentId,
-              child: Text(student.fullName),
-            ),
-          )
-          .toList(),
-      child: badge,
-    );
-  }
-
+  Widget _buildChildBadge() => ParentStudentSwitcher(
+    students: _students,
+    selectedStudent: _selectedStudent,
+    onSelected: _selectStudent,
+  );
   Widget _buildTodayHero() {
     final studentName = _selectedStudent?.fullName ?? 'ยังไม่มีข้อมูล';
     final latestRecord = _visibleAttendanceRecords.isNotEmpty

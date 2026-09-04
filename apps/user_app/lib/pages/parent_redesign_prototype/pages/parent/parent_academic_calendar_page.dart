@@ -11,12 +11,16 @@ typedef ParentCalendarStudentsLoader =
 class ParentAcademicCalendarPage extends StatefulWidget {
   final ParentCalendarLoader? eventsLoader;
   final ParentCalendarStudentsLoader? studentsLoader;
+  final String? selectedStudentId;
+  final ValueChanged<LinkedStudentItem>? onStudentSelected;
   final DateTime Function()? now;
 
   const ParentAcademicCalendarPage({
     super.key,
     this.eventsLoader,
     this.studentsLoader,
+    this.selectedStudentId,
+    this.onStudentSelected,
     this.now,
   });
 
@@ -34,11 +38,14 @@ class _ParentAcademicCalendarPageState
   late DateTime _selectedMonth;
   late DateTime _selectedDate;
   String _selectedFilter = 'ทั้งหมด';
+  List<LinkedStudentItem> _students = const [];
+  LinkedStudentItem? _selectedStudent;
   List<CalendarEventItem> _events = const [];
   bool _loading = true;
   bool _unauthenticated = false;
   bool _hasLinkedStudent = false;
   Object? _loadError;
+  int _loadGeneration = 0;
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
@@ -48,10 +55,20 @@ class _ParentAcademicCalendarPageState
     final today = _dateOnly(_now);
     _selectedMonth = DateTime(today.year, today.month);
     _selectedDate = today;
-    _loadData();
+    _loadData(studentId: widget.selectedStudentId);
   }
 
-  Future<void> _loadData() async {
+  @override
+  void didUpdateWidget(covariant ParentAcademicCalendarPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedStudentId != oldWidget.selectedStudentId &&
+        widget.selectedStudentId != _selectedStudent?.studentId) {
+      _loadData(studentId: widget.selectedStudentId);
+    }
+  }
+
+  Future<void> _loadData({String? studentId}) async {
+    final loadGeneration = ++_loadGeneration;
     setState(() {
       _loading = true;
       _unauthenticated = false;
@@ -69,29 +86,42 @@ class _ParentAcademicCalendarPageState
       final students =
           await (widget.studentsLoader ??
               ParentPortalService.listMyLinkedStudents)();
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       if (students.isEmpty) {
         setState(() {
+          _students = const [];
+          _selectedStudent = null;
           _hasLinkedStudent = false;
           _events = const [];
           _loading = false;
         });
         return;
       }
+      final targetStudentId =
+          studentId ?? widget.selectedStudentId ?? _selectedStudent?.studentId;
+      final selected = students.firstWhere(
+        (student) => student.studentId == targetStudentId,
+        orElse: () => students.first,
+      );
       final items = [
         ...await (widget.eventsLoader ??
-            ParentPortalService.listCalendarEvents)(students.first.studentId),
+            ParentPortalService.listCalendarEvents)(selected.studentId),
       ];
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       items.sort((a, b) => a.startDate.compareTo(b.startDate));
       setState(() {
+        _students = students;
+        _selectedStudent = selected;
         _hasLinkedStudent = true;
         _events = items;
         _loading = false;
       });
+      if (selected.studentId != widget.selectedStudentId) {
+        widget.onStudentSelected?.call(selected);
+      }
     } catch (error, stackTrace) {
       debugPrint('ParentAcademicCalendarPage load failed: $error\n$stackTrace');
-      if (!mounted) return;
+      if (!mounted || loadGeneration != _loadGeneration) return;
       setState(() {
         _events = const [];
         _hasLinkedStudent = false;
@@ -99,6 +129,18 @@ class _ParentAcademicCalendarPageState
         _loading = false;
       });
     }
+  }
+
+  Future<void> _selectStudent(String studentId) async {
+    if (studentId == _selectedStudent?.studentId) return;
+    final selected = _students.firstWhere(
+      (student) => student.studentId == studentId,
+    );
+    if (widget.onStudentSelected != null) {
+      widget.onStudentSelected!(selected);
+      return;
+    }
+    await _loadData(studentId: studentId);
   }
 
   List<CalendarEventItem> get _filteredEvents => _events.where((event) {
@@ -139,12 +181,22 @@ class _ParentAcademicCalendarPageState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const ParentPageHeader(
+                  ParentPageHeader(
                     title: 'ปฏิทินวิชาการ',
                     subtitle:
                         'ติดตามวันสอบ วันหยุด กิจกรรม และกำหนดการของโรงเรียน',
                     icon: Icons.calendar_month_rounded,
-                    trailing: _SchoolCalendarBadge(),
+                    trailing:
+                        _loading ||
+                            _unauthenticated ||
+                            _loadError != null ||
+                            _selectedStudent == null
+                        ? null
+                        : ParentStudentSwitcher(
+                            students: _students,
+                            selectedStudent: _selectedStudent,
+                            onSelected: _selectStudent,
+                          ),
                   ),
                   const SizedBox(height: 18),
                   _loadState(),
@@ -657,27 +709,6 @@ class _ParentAcademicCalendarPageState
     'public_holiday' => 'วันหยุดนักขัตฤกษ์',
     _ => 'ทั้งหมด',
   };
-}
-
-class _SchoolCalendarBadge extends StatelessWidget {
-  const _SchoolCalendarBadge();
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(13),
-      border: Border.all(color: const Color(0xFFE1E6EE)),
-    ),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.school_rounded, color: Color(0xFF2867B2), size: 18),
-        SizedBox(width: 7),
-        Text('ปฏิทินโรงเรียน', style: TextStyle(fontWeight: FontWeight.w800)),
-      ],
-    ),
-  );
 }
 
 class _StateCard extends StatelessWidget {
