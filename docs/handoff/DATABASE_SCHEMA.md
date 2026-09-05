@@ -1,6 +1,6 @@
 # Database Schema
 
-_Live dump from local Supabase, regenerated 2026-09-04 after applying all migrations through `20260904010200_incident_inbox_service_role_acl.sql`._
+_Live dump from local Supabase, regenerated 2026-09-05 after applying all migrations through `20260904010200_incident_inbox_service_role_acl.sql`._
 
 Total relations: 93 (91 tables, 2 views/materialized views)
 
@@ -2356,4 +2356,3 @@ Foreign keys:
 ### verify_gateway_request(p_gateway_id uuid, p_timestamp bigint, p_nonce text, p_signature text, p_method text, p_path text, p_body_hash text) -> boolean (SECURITY DEFINER, plpgsql)
 
 ### withdraw_parent_consent(p_token text, p_consent_id uuid, p_reason text) -> void (SECURITY DEFINER, plpgsql)
-

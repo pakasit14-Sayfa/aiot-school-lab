@@ -19,7 +19,8 @@ class IncidentService {
   static Stream<List<Map<String, dynamic>>> streamIncidentReports() {
     return supabase
         .from('incident_reports')
-        .stream(primaryKey: ['id']).order('created_at', ascending: false);
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false);
   }
 
   static Future<String> createIncidentReport({

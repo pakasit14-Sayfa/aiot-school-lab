@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(50);
 
 insert into packages (id, name, license_type)
 values ('98100000-0000-0000-0000-000000000001', 'Incident inbox test package', 'perpetual');
@@ -162,6 +162,12 @@ select throws_ok(
 );
 
 select throws_ok(
+  $$select list_incident_reports(null, null)$$,
+  'P0001', 'invalid_session',
+  'incident list rejects a missing session token'
+);
+
+select throws_ok(
   $$
     select get_incident_report_for_staff(
       'inbox-student-a-token',
@@ -192,6 +198,17 @@ select throws_ok(
   $$,
   'P0001', 'invalid_session',
   'invalid session is rejected by the staff detail RPC'
+);
+
+select throws_ok(
+  $$
+    select get_incident_report_for_staff(
+      null,
+      (select incident_id from regular_incident)
+    )
+  $$,
+  'P0001', 'invalid_session',
+  'staff detail rejects a missing session token'
 );
 
 select lives_ok(
@@ -235,9 +252,49 @@ select throws_ok(
 );
 
 select throws_ok(
+  $$select acknowledge_incident_report(null, (select incident_id from regular_incident))$$,
+  'P0001', 'invalid_session',
+  'acknowledge rejects a missing session token'
+);
+
+select throws_ok(
   $$select acknowledge_incident_report('inbox-super-admin-token', (select incident_id from regular_incident))$$,
   'P0001', 'forbidden',
   'super admin is not widened into acknowledge'
+);
+
+select throws_ok(
+  $$select acknowledge_incident_report('inbox-null-school-token', (select incident_id from other_school_incident))$$,
+  'P0001', 'not_found',
+  'acknowledge fails closed when the active school is null'
+);
+
+select is(
+  (
+    select status::text from incident_reports
+    where id = (select incident_id from other_school_incident)
+  ),
+  'new',
+  'acknowledge with a null active school leaves incident status unchanged'
+);
+
+select is(
+  (
+    select count(*)::integer from incident_actions
+    where incident_report_id = (select incident_id from other_school_incident)
+  ),
+  0,
+  'acknowledge with a null active school writes no incident action'
+);
+
+select is(
+  (
+    select count(*)::integer from audit_logs
+    where action = 'incident.acknowledge'
+      and entity_id = (select incident_id::text from other_school_incident)
+  ),
+  0,
+  'acknowledge with a null active school writes no audit log'
 );
 
 select is(
@@ -334,9 +391,49 @@ select throws_ok(
 );
 
 select throws_ok(
+  $$select close_incident_report(null, (select incident_id from regular_incident), 'resolved', 'missing token')$$,
+  'P0001', 'invalid_session',
+  'close rejects a missing session token'
+);
+
+select throws_ok(
   $$select close_incident_report('inbox-super-admin-token', (select incident_id from regular_incident), 'resolved', 'not widened')$$,
   'P0001', 'forbidden',
   'super admin is not widened into close'
+);
+
+select throws_ok(
+  $$select close_incident_report('inbox-null-school-token', (select incident_id from other_school_incident), 'resolved', 'null active school')$$,
+  'P0001', 'not_found',
+  'close fails closed when the active school is null'
+);
+
+select is(
+  (
+    select status::text from incident_reports
+    where id = (select incident_id from other_school_incident)
+  ),
+  'new',
+  'close with a null active school leaves incident status unchanged'
+);
+
+select is(
+  (
+    select count(*)::integer from incident_actions
+    where incident_report_id = (select incident_id from other_school_incident)
+  ),
+  0,
+  'close with a null active school writes no incident action'
+);
+
+select is(
+  (
+    select count(*)::integer from audit_logs
+    where action = 'incident.close'
+      and entity_id = (select incident_id::text from other_school_incident)
+  ),
+  0,
+  'close with a null active school writes no audit log'
 );
 
 select throws_ok(
