@@ -1,0 +1,267 @@
+# Audit ทั้งระบบ + แผนงานรวม — 2026-09-06
+
+อ่านทุกสิทธิ์ ทุกหน้า สกัดหลักฐานตามเช็คลิสต์ `DATA_CONNECTION_METHODOLOGY.md` §2
+เอกสารนี้แทนที่ตัวเลขทุกอันที่เคยประเมินไว้ก่อนหน้า (ซึ่งผิด — ดู §0)
+
+## 0. ความน่าเชื่อถือของ audit นี้
+
+**เครื่องมือนับผิด 3 รอบระหว่างทาง** และทุกรอบเจอเพราะเอาผลไปเทียบกับไฟล์ที่เปิดอ่านจริง:
+
+| รอบ | บั๊ก | ผลเสียถ้าเชื่อ |
+|---|---|---|
+| 1 | regex `Service\.` จับ `_service.` ไม่ได้ | สรุปผิดว่า Super Admin 5 หน้าไม่ต่อ backend |
+| 2 | จับ `Service().method()` ไม่ได้ | สรุปผิดว่า School Admin 5 หน้าไม่ต่อ |
+| 3 | นับ `children:` ของ Widget เป็นข้อมูลปลอม | ทุกหน้าดูเหมือนมี mock |
+
+**สัญญาณที่เชื่อได้แน่นอน:** `import 'package:shared_core/...'` — ทุก service อยู่ใน
+`shared_core` ตาม hard rule ข้อ 4 ⇒ *ไม่ import = แตะ backend ไม่ได้ 100%*
+
+**สิ่งที่ audit นี้ยังไม่ทำ:** อ่านทีละบรรทัดในหน้าที่ต่อ backend แล้ว ว่าต่อครบ
+*ทุกการ์ด/ทุกปุ่ม* หรือไม่ — ต้องอ่านเต็มตอนลงมือทำจริงทีละหน้า
+
+---
+
+## 1. ปัญหาที่พบ แยกตามความรุนแรง
+
+### 🔴 A. ช่องโหว่ความปลอดภัยบน production (2 จุด)
+
+| จุด | สภาพ |
+|---|---|
+| `redeem_parent_binding_code` | เปิดให้ `anon` เรียกได้ — ข้าม OTP ผูก parent↔student เปิดค้างตั้งแต่ 2026-09-04 |
+| audit-log null-school leak | แก้แล้วแต่ **apply แค่ local** — เช็คเอาต์นี้ไม่มี linked project |
+
+### 🔴 B. งานยังไม่ push — 6 commits อยู่บนเครื่องเดียว
+
+### 🟠 C. Executive — สิทธิ์ที่แย่ที่สุด (13 หน้าใช้งานได้จริง)
+
+**C1. ต่อ backend ไม่ได้เลย 6 หน้า (~11,530 บรรทัด)**
+
+| ไฟล์ | บรรทัด | ข้อมูลปลอมที่ฝังอยู่ |
+|---|---:|---|
+| `director_learning_page` | 2,815 | `programs`(46) `gradeData`(85) `urgentStudents`(37) `followUps`(41) |
+| `director_meetings_page` | 2,216 | `meetings`(127) `requests`(37) — **ไม่มีตารางใน DB รองรับเลย** |
+| `director_teachers_page` | 1,927 | `personnel`(151) `departmentData`(67) `subjectGroups`(9) |
+| `director_settings_page` | 1,790 | — |
+| `director_reports_page` | 1,705 | `reports`(191) `pendingReports`(31) |
+| `director_scan_page` | 1,082 | `teachers`(25) `kits`(25) `recent`(7) |
+
+**C2. ต่อบางส่วน แต่ยังแสดงตารางปลอมทับข้อมูลจริง — 5 หน้า** (อันตรายกว่า C1 เพราะดูเหมือนใช้ได้)
+
+| ไฟล์ | โหลดจริง | แต่ยัง hardcode |
+|---|---|---|
+| `director_classrooms_page` | `getClassroomsOverview` | **`classrooms`(205)** `greenScores`(17) `supportItems`(33) |
+| `director_cctv_page` | `listCameraAccessGrants` `revokeCameraAccess` | **`cameras`(105)** `alerts`(31) |
+| `director_emergency_page` | 9 RPC จริง | `events`(86) `teams`(29) |
+| `director_environment_page` | 7 RPC จริง | `electricityBreakdown` `waterBreakdown` `recommendations` `zones` |
+| `director_academic_calendar_page` | `listAllSchoolSchedules` | `alerts`(33) |
+
+**C3. สะอาด 2 หน้า:** `director_overview_page` ✅ · `director_notifications_page` (โหลดจริง ไม่มี hardcode)
+
+### 🟠 D. School Admin (20 หน้า)
+
+- **ผ่านเกณฑ์เต็มแล้ว 5 หน้า** ✅ Alerts · CCTV · Device schedule · Incident inbox · Learning tracks
+- **ต่อ backend ไม่ได้ 1 หน้า** ❌ `school_scan_page` (851) — มีแค่กล้อง ไม่มีการค้นหาอุปกรณ์จริง
+- **ต่อแล้วแต่ยังมีตารางปลอม 4 หน้า:** `reports`(data×3) `resources`(`buildings` 71) `permissions`(`rows` 50) `dashboard`(data×2)
+- **ขาด `ยังไม่มีข้อมูล` 13 หน้า** · **ไม่แยก loading/error 6 หน้า**
+- 🔴 **Blocker ความปลอดภัย:** `school_import_page` สร้างผู้ใช้ด้วยรหัส `Test1234!` และไม่บังคับเปลี่ยน
+
+### 🟡 E. Super Admin (10 หน้า) — ดีกว่าที่เคยประเมินมาก
+
+**ทุกหน้าต่อ backend จริง มี service call จริง — `HANDOFF.md` ถูก**
+ช่องว่างเป็นเรื่องคุณภาพ ไม่ใช่การเชื่อมต่อ:
+- ขาด `ยังไม่มีข้อมูล` **9/10 หน้า**
+- ไม่แยก loading/error 3 หน้า
+- hardcode 2 จุดเล็ก (`_checks` ใน device_test, `cards` ใน schools)
+
+### 🟡 F. Teacher / Student / Parent — ใกล้เสร็จ
+
+- `teacher_courses_page` (5,158) — fake button ×1 + hardcode ×2
+- `teacher_profile_page` — fake button ×2
+- `teacher_redesign_prototype_page` (6,993) — hardcode ×8 (เคย audit แล้วรอบหนึ่ง ต้องเช็คว่าเป็นของเหลือหรือ false positive)
+- `student_profile_page` — fake ×1 + hardcode ×1
+- Parent สะอาดเกือบหมด (`cards` ที่เจอเป็น UI config ไม่ใช่ข้อมูล)
+
+### 🟢 G. Dead code — ลบได้เลย
+
+| ไฟล์ | บรรทัด |
+|---|---:|
+| `executive_redesign_prototype/pages/director_dashboard.dart` | 2,110 |
+| `dashboard/` (school_admin, super_admin, student, parent, executive) | 1,186 |
+| `student/student_main_nav.dart`, `student_home_page_model.dart`, `parent_palette.dart` | 189 |
+| **รวม** | **3,485** |
+
+*(`teacher_storybook_page` 8,227 + `teacher_design_system_page` 849 ถูกอ้างจาก `main.dart`
+เฉพาะโหมด dev-preview — ผู้ใช้จริงเข้าไม่ถึง ตัดสินใจแยกว่าจะเก็บหรือลบ)*
+
+### 🟡 H. ปัญหาข้ามระบบ
+
+1. **`ยังไม่มีข้อมูล` หายไปเกือบทั้งระบบ** — มีครบเฉพาะ 5 หน้าของ School Admin ที่ทำตาม DoD
+2. **loading/error ไม่แยกจากกัน** ในหน้าส่วนใหญ่นอก 5 หน้านั้น
+3. **Test debt:** Flutter fail 16 + pgTAP fail 6 (ตีตรา pre-existing มานาน)
+4. **fixture dual-role ไม่อยู่ใน `seed.sql`** — หายทุกครั้งที่ `db reset`
+
+---
+
+## 2. แนวทางทำงาน (ใช้กับทุกหน้า)
+
+จาก 5 หน้าที่ทำสำเร็จแล้ว รูปแบบที่ได้ผลคือ:
+
+```
+Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (shared_core)  →  RPC
+```
+
+**ต่อ 1 หน้า ทำตามนี้:**
+1. อ่านทั้งไฟล์ ทำรายการทุกการ์ด/ทุกปุ่ม ว่าอันไหนจริง อันไหนปลอม
+2. หา RPC ที่มีอยู่แล้วก่อน (มี **207 ตัว**, whitelist `executive` ไว้แล้ว **56 จุด**) — อย่ารีบเขียนใหม่
+3. เขียน pgTAP ให้ fail ก่อน (token หาย/role ผิด/ข้ามโรงเรียน/school_id null)
+4. เพิ่ม migration แบบ append-only — **ต้อง `revoke service_role` ด้วยเสมอ** (เจอ leak แบบนี้มาแล้ว 3 ครั้ง)
+5. ต่อ controller + widget test (loading/data/empty/error/mutation สำเร็จ/mutation ล้มเหลว)
+6. mutation ต้อง **write → re-read canonical → ค่อยบอกว่าสำเร็จ**
+7. รัน regression ของหน้าที่ทำไปแล้วทั้งหมดซ้ำ
+8. คลิกจริงในเบราว์เซอร์
+9. อัปเดตเอกสารในเซสชันเดียวกัน
+
+---
+
+## 3. แผนการทำงาน (ticket ที่ติดตามได้)
+
+**วิธีใช้:** ทำจากบนลงล่างตาม `ต้องทำหลัง` · ทำเสร็จ 1 ticket = 1 commit ·
+เปลี่ยน `[ ]` เป็น `[x]` พร้อมใส่ commit hash · **ห้ามติ๊กจากรายงาน ต้อง verify เอง**
+
+**เกณฑ์จบงาน (DoD) ใช้กับทุก ticket ที่แตะหน้าจอ:**
+`ข้อมูลจริงหรือ ยังไม่มีข้อมูล` · `แยก loading/data/empty/error` · `เขียนจริงรอด reload` ·
+`ปุ่มที่ไม่มี backend = disable` · `RPC fail closed 4 เคส` · `pgTAP + widget test` ·
+`regression หน้าที่ทำแล้วทั้งหมด` · `คลิกจริงในเบราว์เซอร์` · `อัปเดตเอกสารในเซสชันเดียวกัน`
+
+---
+
+### PHASE 0 — ความปลอดภัย + กันงานหาย · 1 เซสชัน · ไม่มี prerequisite
+
+| | ID | งาน | ต้องทำหลัง | จบเมื่อ |
+|---|---|---|---|---|
+| [ ] | 0.1 | `git push` 6 commits ขึ้น gitlab | — | `git status` บอก up to date |
+| [ ] | 0.2 | 🔐 ปิด `redeem_parent_binding_code` บน production | 0.1 + **ผู้ใช้อนุญาต** | REST เรียกแล้วได้ `42501` และ `has_function_privilege`=false |
+| [ ] | 0.3 | 🔐 apply `20260905040000` (audit-log leak) ขึ้น production | 0.2 | school_admin จริงอ่าน log null-school ไม่ได้ + บันทึกใน `schema_migrations` |
+| [ ] | 0.4 | ตรวจ migration ทุกตัวว่าขึ้น production ครบ | 0.3 | `migration list` local ตรงกับ remote ทุกแถว |
+| [ ] | 0.5 | ใส่ fixture dual-role ลง `seed.sql` | — | `db reset` แล้ว teacher ยังมี 2 role |
+| [ ] | 0.6 | ลบ dead code 3,485 บรรทัด (9 ไฟล์ ดู §1-G) | — | `flutter analyze` + `build web` ยังผ่าน |
+
+---
+
+### PHASE 1 — ปิด Teacher / Student / Parent · 2–3 เซสชัน
+
+| | ID | งาน | ต้องทำหลัง | จบเมื่อ |
+|---|---|---|---|---|
+| [ ] | 1.1 | แก้ fake button: `teacher_courses`×1 `teacher_profile`×2 `student_profile`×1 | 0.6 | กดแล้วเขียน DB จริง หรือ disable พร้อมเหตุผล |
+| [ ] | 1.2 | ตรวจ hardcode 8 จุดใน `teacher_redesign_prototype_page` (6,993 บรรทัด) | 0.6 | แต่ละจุดสรุปได้ว่า จริง / ปลอม-แก้แล้ว / false positive |
+| [ ] | 1.3 | เคลียร์ test debt: Flutter fail 16 + pgTAP fail 6 | — | ทุกตัวถูก แก้ / ลบ / ขึ้นทะเบียน known พร้อมเหตุผล |
+| [ ] | 1.4 | ทดสอบเคสลบข้ามโรงเรียนในเบราว์เซอร์ | 0.5 | ครูโรงเรียน B เปิด SOS โรงเรียน A ไม่ได้ (เห็นกับตา) |
+| [ ] | 1.5 | Parent regression ซ้ำหลัง merge | 1.1 | 7 หน้าผ่าน + สลับลูกได้ 2 ทาง |
+
+---
+
+### PHASE 2 — School Admin 15 หน้า · 16–18 เซสชัน · **สายที่ 1**
+
+ทำทีละ ticket ตามลำดับ แต่ละอันจบด้วย DoD เต็ม
+
+| | ID | หน้า | หมายเหตุจาก audit | เซสชัน |
+|---|---|---|---|---:|
+| [ ] | 2.1 | Permissions | hardcode `roles`(29) `rows`(50) · ไม่มี empty-state | 1 |
+| [ ] | 2.2 | Dashboard + Resources + Energy + ESG | ทำรวดเดียว ใช้ Utility snapshot ร่วมกัน · `resources` hardcode `buildings`(71) | 2.5 |
+| [ ] | 2.3 | Device control | ต้องแยก `queued`/`acknowledged`/`applied` ห้ามบอกว่าสำเร็จตอนแค่ queue | 1.5 |
+| [ ] | 2.4 | Reports | hardcode `data`×3 · export ทำได้เฉพาะจากแถวจริง | 1.5 |
+| [ ] | 2.5 | Buildings + Rooms | อ่านจริงแล้ว แต่ CRUD ยังปลอม — RPC บางส่วนมีแล้วจาก bulk-import | 2 |
+| [ ] | 2.6 | Students + Teachers | ต้องเขียน RPC mutation ใหม่ · homeroom ต้อง atomic | 2 |
+| [ ] | 2.7 | Devices | | 1.5 |
+| [ ] | 2.8 | Settings + Profile | ต้องนิยาม schema settings ระดับโรงเรียน | 1.5 |
+| [ ] | 2.9 | **Scan** | ❌ ไม่ import shared_core เลย — ต่อจากศูนย์ | 2 |
+| [ ] | 2.10 | 🔐 **Import + credential lifecycle** | **blocker**: สร้างผู้ใช้ด้วย `Test1234!` ไม่บังคับเปลี่ยน — ต้องแก้ก่อนเปิดใช้ import | 2 |
+
+---
+
+### PHASE 3 — Executive 13 หน้า · 15–19 เซสชัน · **สายที่ 2 (ทำขนานกับ Phase 2 ได้)**
+
+| | ID | งาน | หมายเหตุ | เซสชัน |
+|---|---|---|---|---:|
+| [ ] | 3.0 | **สำรวจ backend ก่อนเขียนโค้ดใดๆ** | 6 หน้าที่ตัดขาดต้องใช้ข้อมูลอะไร · มี RPC ใน 207 ตัวรองรับกี่หน้า · `executive` ถูก whitelist แล้ว 56 จุด | 1 |
+| [ ] | 3.1 | ⚠️ **ลบตารางปลอมใน 5 หน้าที่ต่อครึ่งเดียว** | `classrooms`(205) `cameras`(105) `events`(86) `teams`(29) `alerts` ฯลฯ — **ทำก่อน** เพราะอันตรายกว่าหน้าที่ตัดขาด (ดูเหมือนใช้ได้) | 3 |
+| [ ] | 3.2 | `director_teachers` (1,927) | ปลอม `personnel`(151) — น่าจะ reuse `getAllUsers` ได้ | 2 |
+| [ ] | 3.3 | `director_reports` (1,705) | ปลอม `reports`(191) | 2 |
+| [ ] | 3.4 | `director_scan` (1,082) | ปลอม `teachers`/`kits`/`recent` | 1.5 |
+| [ ] | 3.5 | `director_learning` (2,815) | ปลอม `gradeData`(85) `urgentStudents`(37) `followUps`(41) | 2.5 |
+| [ ] | 3.6 | `director_settings` (1,790) | | 1.5 |
+| [ ] | 3.7 | ❓ **`director_meetings` (2,216)** | **ต้องตัดสินใจก่อน:** ไม่มีตารางใน DB เลย → สร้างใหม่ (+3–4) หรือ disable (0.3) | 0.3–4 |
+| [ ] | 3.8 | verify `director_overview` + `director_notifications` | 2 หน้าที่สะอาดแล้ว เหลือคลิกจริง | 1 |
+
+---
+
+### PHASE 4 — Super Admin 10 หน้า · 6–8 เซสชัน
+
+**ไม่ต้องต่อใหม่** — ทุกหน้าต่อ backend จริงแล้ว งานคือตรวจสอบ + เติมสิ่งที่ขาด
+
+| | ID | งาน | เซสชัน |
+|---|---|---|---:|
+| [ ] | 4.1 | อ่านเต็มทั้ง 10 หน้า ระบุว่าต่อครบทุกการ์ด/ปุ่มไหม | 2 |
+| [ ] | 4.2 | เติม `ยังไม่มีข้อมูล` (ขาด 9/10 หน้า) + แยก loading/error (ขาด 3 หน้า) | 2 |
+| [ ] | 4.3 | ลบ hardcode `_checks`(device_test) `cards`(schools) | 0.5 |
+| [ ] | 4.4 | ตรวจ scope ข้ามโรงเรียนของทุก RPC ที่ super_admin เรียก | 1.5 |
+| [ ] | 4.5 | คลิกจริงทั้ง 10 หน้า | 1 |
+
+---
+
+### PHASE 5 — รวมระบบ + release · 3 เซสชัน
+
+| | ID | งาน |
+|---|---|---|
+| [ ] | 5.1 | `flutter analyze` + `build web` + test suite ทั้งหมด |
+| [ ] | 5.2 | คลิกจริง 6 role ทั้ง desktop และ mobile width |
+| [ ] | 5.3 | audit ความปลอดภัย/tenant รอบสุดท้าย |
+| [ ] | 5.4 | regenerate `DATABASE_SCHEMA.md` + อัปเดต HANDOFF/WORK_LOG/CLAUDE.md |
+| [ ] | 5.5 | ล้าง fixture ทดสอบ + ทำทะเบียน known-issue |
+| [ ] | 5.6 | 🔐 deploy production (ขออนุญาตแยก) |
+
+---
+
+## 4. การตัดสินใจที่ค้างอยู่ (บล็อกงานข้างล่าง)
+
+| # | เรื่อง | บล็อก | ตัวเลือก |
+|---|---|---|---|
+| D1 | อนุญาตให้เขียน production ไหม | 0.2 · 0.3 · 0.4 · 5.6 | อนุญาต / ทำเองโดยเจ้าของ |
+| D2 | `director_meetings` เอายังไง | 3.7 | สร้างใหม่ (+3–4 เซสชัน) / disable (0.3) / ลบทิ้ง |
+| D3 | Super Admin ใช้เกณฑ์ไหน | Phase 4 ทั้งหมด | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |
+| D4 | เก็บ `teacher_storybook`(8,227) + `design_system`(849) ไหม | 0.6 | เก็บไว้เป็น dev tool / ลบ |
+
+---
+
+## 5. เวลา
+
+| Phase | เซสชัน |
+|---|---:|
+| 0 | 1 |
+| 1 | 2–3 |
+| 2 | 16–18 |
+| 3 | 15–19 |
+| 4 | 6–8 |
+| 5 | 3 |
+| **รวม เรียงลำดับ** | **43–52** |
+| **ขนาน 2 สาย** (Phase 2 ‖ Phase 3 — คนละโฟลเดอร์ ไม่ชนกัน) | **28–34** |
+
+1 เซสชัน ≈ 2–3 ชม. (รวมเวลารัน test/build/db reset และคลิกทดสอบจริง)
+⇒ **~70–100 ชม. งาน AI** ถ้าทำขนาน 2 สาย
+
+| ดูแลได้วันละ | เสร็จใน |
+|---|---|
+| 6–8 ชม. | ~2–3 สัปดาห์ |
+| 3–4 ชม. | ~4–6 สัปดาห์ |
+| 1–2 ชม. | ~10–14 สัปดาห์ |
+| เสาร์-อาทิตย์ | ~3–4 เดือน |
+
+**คอขวดคือเวลารีวิว/อนุมัติของเจ้าของโปรเจกต์ ไม่ใช่ความเร็ว AI**
+
+### กติกาที่ห้ามลด
+
+1. ห้ามติ๊ก `[x]` จากรายงานของ agent — ต้อง verify เอง (2026-09-06 agent รายงาน regression ผิด 2 ใน 4 เรื่อง)
+2. `grep` บอกได้แค่ "ไม่ต่อแน่ๆ" — ต้องอ่านทั้งไฟล์ก่อนสรุปว่าต่อครบ
+3. migration แก้แล้วต้อง **apply จริง** + บันทึกใน `schema_migrations`
+4. ทุก migration ที่แตะ grant ต้อง `revoke service_role` ด้วย (เจอ leak แบบนี้ 3 ครั้งแล้ว)
+5. อัปเดตเอกสารในเซสชันเดียวกับที่ทำงาน
