@@ -1,5 +1,51 @@
 # Work Log — index of every agy brief, one place to check status
 
+## ✅ Closed 2026-09-05 — production login/MFA blocker (`teacher@aiot-school-lab.local` missing + edge function false alarm)
+
+Earlier this session, `auth-verify-otp` (the edge function the real app calls to
+complete login 2FA) returned `{"message":"name resolution failed"}` on
+production for `teacher@aiot-school-lab.local`, raising a serious concern that
+**no MFA-gated role (teacher/school_admin/executive/super_admin) could log in
+to production at all.**
+
+Root-caused properly instead of guessing: the seeded test account
+`teacher@aiot-school-lab.local` was **completely missing from `users` on
+production** (`select * from users where email = 'teacher@aiot-school-lab.local'`
+returned zero rows) — every other standard seeded account
+(`admin`/`schooladmin`/`executive`/`parent`/`student`/two dashboard accounts)
+was present and unaffected. No audit-log trace of a deletion exists (raw/direct
+deletes aren't audit-logged); cause of the disappearance is unknown — it existed
+earlier in this same session (confirmed via an earlier successful
+`auth_state: mfa_required` response) and was gone by the time this was
+investigated further. **Not a `db reset`** — every other account survived.
+
+**Recreated for real, through the supported flow — no raw insert**:
+logged in as `schooladmin@aiot-school-lab.local` (itself MFA-gated; completed
+via a direct REST call to `auth_verify_login_otp`, bypassing the edge function
+entirely, since that RPC has always been directly grantable to
+`anon`/`authenticated`), called `create_staff_invitation(p_token, p_email:
+'teacher@aiot-school-lab.local', p_role: 'teacher')` to get a real invitation
+token, then `accept_staff_invitation(invitation_token, 'Teacher', 'Demo',
+'Test1234!')` to actually create the `users`/`user_roles` rows. Verified via a
+direct read query: `role = 'teacher'`, `status = 'active'`, `school_id`
+matches the inviting school_admin's school.
+
+**The edge function itself turned out not to be broken** — re-tested
+end-to-end through the real `auth-verify-otp` edge function (not the RPC
+shortcut) for both `teacher@aiot-school-lab.local` and
+`schooladmin@aiot-school-lab.local`: both return a real `session_token` with
+the correct role now. The original `"name resolution failed"` was most likely
+transient (a cold-start/DNS blip on the edge runtime, or possibly some
+indirect effect of the missing account) rather than a standing defect — it did
+not reproduce on repeated testing after the account was restored. If it
+recurs, retry once before assuming it's structural; there is no known
+persistent cause.
+
+**Verified working now, end-to-end, through the actual client-facing path**:
+`auth_sign_in` → `auth-verify-otp` edge function → real `session_token`, for
+both a `teacher` and a `school_admin` account, on production
+(`smqoknnftgjyhrnzugar`). Login is not currently blocked for any role.
+
 ## Teacher/student WIP handoff — 2026-09-05
 
 See [Claude continuation handoff](./CLAUDE_TEACHER_STUDENT_HANDOFF.md) for the partial SOS/notification implementation and ordered remaining work. Targeted Flutter: 13/13; notification DB: 15/15. Full Flutter: **196 passed, 26 failed (222 total)**, not yet baseline-classified. Teacher detail actions, broader regression, schema regeneration, REST and browser acceptance remain pending. Applied migration is local only. Ownership transfers to Claude on the receiving machine; this is not production-ready or a completed teacher/student rollout.
