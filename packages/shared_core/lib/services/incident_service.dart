@@ -131,6 +131,26 @@ class IncidentService {
     );
   }
 
+  /// Canonical read for the "save progress note" seam: the exact incident's
+  /// action timeline, newest first — lets the client confirm a note was
+  /// actually persisted instead of trusting [addIncidentAction]'s void
+  /// return alone.
+  static Future<List<IncidentActionEntry>> listIncidentActions(
+    String id,
+  ) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    final rows = await supabase.rpc(
+      'list_incident_actions',
+      params: {'p_token': token, 'p_id': id},
+    ) as List;
+    return rows
+        .map(
+          (row) => IncidentActionEntry.fromRow(row as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   static Future<void> escalateIncidentReport(String id) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');

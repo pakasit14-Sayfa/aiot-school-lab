@@ -10,6 +10,8 @@ void main() {
     Future<String?> Function(StaffEmergencySource, String)? read,
     Future<void> Function(String, String)? close,
     Future<void> Function(String, String, String)? closeIncident,
+    Future<void> Function(String, String)? saveNote,
+    Future<String?> Function(String)? readLatestNote,
   }) => StaffEmergencyActions(
     acknowledgeIncident: incident ?? (_) async {},
     acknowledgeHardware: hardware ?? (_) async {},
@@ -17,6 +19,8 @@ void main() {
     closeIncident: closeIncident ?? (id, note, __) => (close ?? (_, __) async {})(id, note),
     closeHardware: close ?? (_, __) async {},
     readStatus: read ?? (_, __) async => 'acknowledged',
+    saveIncidentNote: saveNote ?? (_, __) async {},
+    readLatestIncidentNote: readLatestNote ?? (_) async => null,
   );
 
   test('rejected acknowledge never confirms success', () async {
@@ -126,6 +130,81 @@ void main() {
       StaffEmergencyResult.confirmed,
     );
     expect(capturedType, 'cancelled');
+  });
+
+  test('addNote confirms only when the canonical latest note matches exactly', () async {
+    final a = actions(
+      saveNote: (_, __) async {},
+      readLatestNote: (_) async => 'ตรวจสอบแล้ว',
+    );
+    expect(await a.addNote('a', ' ตรวจสอบแล้ว '), StaffEmergencyResult.confirmed);
+    a.dispose();
+  });
+
+  test('addNote is unconfirmed when the canonical read does not match the written text', () async {
+    final a = actions(
+      saveNote: (_, __) async {},
+      readLatestNote: (_) async => 'a different note entirely',
+    );
+    expect(await a.addNote('a', 'ตรวจสอบแล้ว'), StaffEmergencyResult.unconfirmed);
+    a.dispose();
+  });
+
+  test('addNote rejection is a failure, never a false success', () async {
+    final a = actions(saveNote: (_, __) async => throw StateError('rejected'));
+    expect(await a.addNote('a', 'note'), StaffEmergencyResult.failed);
+    a.dispose();
+  });
+
+  test('a blank note is rejected before any write is attempted', () async {
+    var writes = 0;
+    final a = actions(saveNote: (_, __) async => writes++);
+    expect(await a.addNote('a', '   '), StaffEmergencyResult.failed);
+    expect(writes, 0);
+    a.dispose();
+  });
+
+  test('a read failure after a successful note write is unconfirmed, not failed', () async {
+    final a = actions(
+      saveNote: (_, __) async {},
+      readLatestNote: (_) async => throw StateError('offline'),
+    );
+    expect(await a.addNote('a', 'note'), StaffEmergencyResult.unconfirmed);
+    a.dispose();
+  });
+
+  test('a duplicate addNote submission for the same incident is blocked while one is pending', () async {
+    final response = Completer<String?>();
+    var writes = 0;
+    final a = actions(
+      saveNote: (_, __) async => writes++,
+      readLatestNote: (_) => response.future,
+    );
+    final first = a.addNote('a', 'note');
+    expect(a.isBusy, true);
+    expect(await a.addNote('a', 'note'), StaffEmergencyResult.busy);
+    response.complete('note');
+    expect(await first, StaffEmergencyResult.confirmed);
+    expect(writes, 1);
+    a.dispose();
+  });
+
+  test('addNote and acknowledge on the same incident do not share a busy key', () async {
+    // Progress notes and status actions are tracked separately, but the
+    // page's own _isSubmitting flag is what actually keeps their controls
+    // mutually exclusive in the UI — this only pins the controller-level
+    // contract so a future page refactor cannot silently rely on this
+    // union blocking both at once.
+    final a = actions(
+      saveNote: (_, __) async {},
+      readLatestNote: (_) async => 'note',
+    );
+    final noteResult = a.addNote('shared-id', 'note');
+    expect(a.isBusy, true);
+    final ackResult = await a.acknowledge(StaffEmergencySource.incident, 'shared-id');
+    expect(ackResult, StaffEmergencyResult.confirmed);
+    expect(await noteResult, StaffEmergencyResult.confirmed);
+    a.dispose();
   });
 
   test('dispose during request produces no late notifications', () async {

@@ -13,6 +13,8 @@ class StaffEmergencyActions extends ChangeNotifier {
     required this.closeIncident,
     required this.closeHardware,
     required this.readStatus,
+    required this.saveIncidentNote,
+    required this.readLatestIncidentNote,
   });
 
   final Future<void> Function(String id) acknowledgeIncident;
@@ -22,6 +24,13 @@ class StaffEmergencyActions extends ChangeNotifier {
       closeIncident;
   final Future<void> Function(String id, String note) closeHardware;
   final Future<String?> Function(StaffEmergencySource source, String id) readStatus;
+
+  /// Progress notes only apply to incident_reports — there is no equivalent
+  /// timeline for a hardware emergency_events row — so neither of these
+  /// takes a [StaffEmergencySource].
+  final Future<void> Function(String id, String note) saveIncidentNote;
+  final Future<String?> Function(String id) readLatestIncidentNote;
+
   final Set<String> _pending = {};
   bool _disposed = false;
 
@@ -49,6 +58,37 @@ class StaffEmergencyActions extends ChangeNotifier {
             : closeHardware(id, note.trim()),
         source == StaffEmergencySource.incident
             ? {resolutionType} : const {'closed'});
+  }
+
+  /// A progress note is a write followed by a fresh canonical read of the
+  /// exact incident's most recent note — the same "write, then re-read the
+  /// exact ID" shape as acknowledge/escalate/close, but the confirmation is
+  /// an exact-text match against the timeline rather than a status set.
+  Future<StaffEmergencyResult> addNote(String id, String note) async {
+    final trimmed = note.trim();
+    if (trimmed.isEmpty) return StaffEmergencyResult.failed;
+    if (_disposed || id.trim().isEmpty) return StaffEmergencyResult.failed;
+    final key = 'note:$id';
+    if (!_pending.add(key)) return StaffEmergencyResult.busy;
+    notifyListeners();
+    try {
+      try {
+        await saveIncidentNote(id, trimmed);
+      } catch (_) {
+        return StaffEmergencyResult.failed;
+      }
+      try {
+        final latest = await readLatestIncidentNote(id);
+        return latest == trimmed
+            ? StaffEmergencyResult.confirmed
+            : StaffEmergencyResult.unconfirmed;
+      } catch (_) {
+        return StaffEmergencyResult.unconfirmed;
+      }
+    } finally {
+      _pending.remove(key);
+      if (!_disposed) notifyListeners();
+    }
   }
 
   Future<StaffEmergencyResult> _run(StaffEmergencySource source, String id,
