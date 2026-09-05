@@ -146,6 +146,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     return rows.where((row) => row.id == id).firstOrNull?.status;
   }
 
+  /// The canonical read `StaffEmergencyActions.addNote` confirms a saved
+  /// progress note against — the most recent `note`-type timeline entry for
+  /// this exact incident, skipping any interleaved status_change rows
+  /// (e.g. an acknowledge or escalation) that may sort above it.
+  Future<String?> _readLatestIncidentNote(String id) async {
+    final rows = await IncidentService.listIncidentActions(id);
+    return rows.where((row) => row.actionType == 'note').firstOrNull?.note;
+  }
+
   Future<void> _performAction(_EmergencyEvent event, {bool close = false}) async {
     if (_actions.isBusy) return;
     final source = event.originalIncident != null
@@ -193,6 +202,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       closeHardware: (id, note) => EmergencyService.closeEmergencyEvent(
         eventId: id, reviewNote: note),
       readStatus: _readEventStatus,
+      saveIncidentNote: IncidentService.addIncidentAction,
+      readLatestIncidentNote: _readLatestIncidentNote,
     )..addListener(_actionsChanged);
     _loadRealData();
     _incidentSub = IncidentService.streamIncidentReports().listen((_) {
@@ -2085,28 +2096,22 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
 
   Future<void> _saveNote() async {
     final text = _noteCtrl.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || widget.actions.isBusy) return;
     setState(() => _isSubmitting = true);
     try {
-      await IncidentService.addIncidentAction(widget.incident.id, text);
-      _noteCtrl.clear();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('บันทึกความคืบหน้าเรียบร้อยแล้ว'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.pop(context);
+      final result = await widget.actions.addNote(widget.incident.id, text);
+      if (result == StaffEmergencyResult.confirmed && mounted) {
+        _noteCtrl.clear();
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ไม่สามารถบันทึกได้: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      _showResultMessage(
+        result,
+        confirmedText: 'บันทึกความคืบหน้าเรียบร้อยแล้ว',
+        unconfirmedText:
+            'ส่งคำขอแล้ว แต่ยังยืนยันการบันทึกไม่ได้ กรุณารีเฟรชก่อนดำเนินการอีกครั้ง',
+        failedText: 'ไม่สามารถบันทึกได้ กรุณาลองใหม่',
+      );
+      if (mounted && result == StaffEmergencyResult.confirmed) {
+        Navigator.pop(context);
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -2177,7 +2182,14 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
     // dialog call, not just one builder pass: the dialog stays open across
     // the async close call (popped only on confirmed success), so a failed
     // attempt keeps the typed note and selection intact for a retry instead
-    // of forcing the user to reopen the dialog and retype it.
+    // of forcing the user to reopen the dialog and retype it. Deliberately
+    // never disposed (see the `finally` block below) — the dialog's own pop
+    // is still mid-exit-transition in the shared Overlay right after
+    // showDialog's future resolves, and a rebuild during that transition
+    // can still touch this TextField, so disposing it here throws "A
+    // TextEditingController was used after being disposed" (the same bug
+    // already found once in school_admin_incident_inbox_page.dart's own
+    // close dialog and fixed the same way there).
     final noteCtrl = TextEditingController();
     var isRealIncident = true;
     var isDialogSubmitting = false;
@@ -2307,7 +2319,7 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
         ),
       );
     } finally {
-      noteCtrl.dispose();
+      // Not noteCtrl.dispose() — see the comment where noteCtrl is created.
     }
     if (!mounted || !closedSuccessfully) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -2495,20 +2507,23 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Row(
+                                          Row(
                                             children: [
-                                              Icon(
+                                              const Icon(
                                                 Icons.info_outline_rounded,
                                                 size: 15,
                                                 color: Color(0xFFDC2626),
                                               ),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                'เหตุผล / สิ่งที่พบเห็น (แจ้งจากนักเรียน):',
-                                                style: TextStyle(
-                                                  fontSize: 11.5,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Color(0xFF991B1B),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  'เหตุผล / สิ่งที่พบเห็น (แจ้งจากนักเรียน):',
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 11.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Color(0xFF991B1B),
+                                                  ),
                                                 ),
                                               ),
                                             ],

@@ -107,6 +107,34 @@ class IncidentReportDetail {
       );
 }
 
+/// One row of an incident's action timeline (note | assign | status_change),
+/// as returned by `list_incident_actions` — the canonical read a staff
+/// member's progress-note save is confirmed against.
+class IncidentActionEntry {
+  const IncidentActionEntry({
+    required this.id,
+    required this.actionType,
+    required this.note,
+    required this.actorName,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String actionType;
+  final String? note;
+  final String actorName;
+  final DateTime createdAt;
+
+  factory IncidentActionEntry.fromRow(Map<String, dynamic> row) =>
+      IncidentActionEntry(
+        id: row['id'] as String,
+        actionType: row['action_type'] as String,
+        note: row['note'] as String?,
+        actorName: row['actor_name'] as String? ?? '',
+        createdAt: DateTime.parse(row['created_at'] as String).toUtc(),
+      );
+}
+
 class MyStudentRoom {
   const MyStudentRoom({required this.room, required this.gradeLevel});
 
