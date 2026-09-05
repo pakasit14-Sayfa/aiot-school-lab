@@ -87,7 +87,7 @@ void main() {
       await _pumpPushed(tester, _incident(), actions);
 
       expect(find.text('open detail'), findsNothing);
-      await tester.tap(find.widgetWithText(ElevatedButton, 'รับเรื่อง'));
+      await tester.tap(find.text('รับเรื่อง'));
       await tester.pumpAndSettle();
       expect(find.text('open detail'), findsOneWidget);
       expect(find.text('รับเรื่องเรียบร้อยแล้ว'), findsOneWidget);
@@ -100,13 +100,13 @@ void main() {
         acknowledgeIncident: (_) async => throw StateError('secret backend detail'),
       );
       await _pumpPushed(tester, _incident(), actions);
-      await tester.tap(find.widgetWithText(ElevatedButton, 'รับเรื่อง'));
+      await tester.tap(find.text('รับเรื่อง'));
       await tester.pumpAndSettle();
 
       expect(find.text('open detail'), findsNothing, reason: 'page stays open on failure');
       expect(find.text('ไม่สามารถรับเรื่องได้ กรุณาลองใหม่'), findsOneWidget);
       expect(find.textContaining('secret backend detail'), findsNothing);
-      expect(find.widgetWithText(ElevatedButton, 'รับเรื่อง'), findsOneWidget);
+      expect(find.text('รับเรื่อง'), findsOneWidget);
     });
 
     testWidgets('a write that succeeds but does not canonically confirm is unconfirmed, never a false success', (
@@ -117,7 +117,7 @@ void main() {
         readStatus: (_, __) async => 'new',
       );
       await _pumpPushed(tester, _incident(), actions);
-      await tester.tap(find.widgetWithText(ElevatedButton, 'รับเรื่อง'));
+      await tester.tap(find.text('รับเรื่อง'));
       await tester.pumpAndSettle();
 
       expect(find.text('open detail'), findsNothing);
@@ -139,11 +139,11 @@ void main() {
         },
       );
       await _pumpPushed(tester, _incident(), actions);
-      await tester.tap(find.widgetWithText(ElevatedButton, 'รับเรื่อง'));
+      await tester.tap(find.text('รับเรื่อง'));
       await tester.pump();
 
       expect(
-        find.widgetWithText(ElevatedButton, 'รับเรื่อง'),
+        find.text('รับเรื่อง'),
         findsNothing,
         reason: 'buttons are replaced by a spinner while a request is in flight',
       );
@@ -165,7 +165,7 @@ void main() {
       );
       await _pumpPushed(tester, _incident(), actions);
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'ยกระดับเหตุ'));
+      await tester.tap(find.text('ยกระดับเหตุ'));
       await tester.pumpAndSettle();
       expect(
         find.text('open detail'),
@@ -185,7 +185,7 @@ void main() {
       final actions = _controller(escalateIncident: (_) async => writes++);
       await _pumpPushed(tester, _incident(), actions);
 
-      await tester.tap(find.widgetWithText(ElevatedButton, 'ยกระดับเหตุ'));
+      await tester.tap(find.text('ยกระดับเหตุ'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('ยกเลิก'));
       await tester.pumpAndSettle();
@@ -201,7 +201,7 @@ void main() {
         escalateIncident: (_) async => throw StateError('forbidden'),
       );
       await _pumpPushed(tester, _incident(), actions);
-      await tester.tap(find.widgetWithText(ElevatedButton, 'ยกระดับเหตุ'));
+      await tester.tap(find.text('ยกระดับเหตุ'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'ยกระดับเหตุ'));
       await tester.pumpAndSettle();
@@ -228,7 +228,7 @@ void main() {
       );
       await _pumpPushed(tester, _incident(status: 'acknowledged'), actions);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'ปิดเหตุ (เสร็จสิ้น)'));
+      await tester.tap(find.text('ปิดเหตุ (เสร็จสิ้น)'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('แจ้งเท็จ/กดพลาด'));
       await tester.pumpAndSettle();
@@ -262,7 +262,7 @@ void main() {
       final actions = _controller(closeIncident: (_, __, ___) async => writes++);
       await _pumpPushed(tester, _incident(status: 'acknowledged'), actions);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'ปิดเหตุ (เสร็จสิ้น)'));
+      await tester.tap(find.text('ปิดเหตุ (เสร็จสิ้น)'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(ElevatedButton, 'ปิดเหตุ'));
       await tester.pumpAndSettle();
@@ -279,7 +279,7 @@ void main() {
       );
       await _pumpPushed(tester, _incident(status: 'acknowledged'), actions);
 
-      await tester.tap(find.widgetWithText(OutlinedButton, 'ปิดเหตุ (เสร็จสิ้น)'));
+      await tester.tap(find.text('ปิดเหตุ (เสร็จสิ้น)'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.descendant(
@@ -310,7 +310,7 @@ void main() {
         final actions = _controller();
         await _pumpPushed(tester, _incident(status: 'escalated'), actions);
 
-        expect(find.widgetWithText(OutlinedButton, 'ปิดเหตุ (เสร็จสิ้น)'), findsNothing);
+        expect(find.text('ปิดเหตุ (เสร็จสิ้น)'), findsNothing);
         expect(
           find.textContaining('ถูกยกระดับไปยังผู้บริหารแล้ว'),
           findsOneWidget,
@@ -396,8 +396,8 @@ void main() {
       final actions = _controller();
       await _pumpPushed(tester, _incident(status: 'resolved'), actions);
 
-      expect(find.widgetWithText(ElevatedButton, 'รับเรื่อง'), findsNothing);
-      expect(find.widgetWithText(OutlinedButton, 'ปิดเหตุ (เสร็จสิ้น)'), findsNothing);
+      expect(find.text('รับเรื่อง'), findsNothing);
+      expect(find.text('ปิดเหตุ (เสร็จสิ้น)'), findsNothing);
       expect(find.byType(TextField), findsNothing);
       expect(find.textContaining('ถูกปิดหรือยกเลิกไปแล้ว'), findsOneWidget);
     });
