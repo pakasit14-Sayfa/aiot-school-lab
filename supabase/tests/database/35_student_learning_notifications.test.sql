@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(32);
 
 insert into packages (id, name, license_type)
 values ('49100000-0000-0000-0000-000000000001', 'Assignments test package', 'perpetual');
@@ -147,6 +147,7 @@ select is((select count(*)::int from list_my_notifications('asg-student-a1-token
 -- Security: missing/invalid token cannot mark notifications read
 select throws_ok($q$select mark_notification_read(null,(select id from list_my_notifications('asg-student-a1-token') where type='grade_confirmed'))$q$,'P0001','invalid_session','missing token cannot mark notifications read');
 select throws_ok($q$select mark_notification_read('not-a-real-token',(select id from list_my_notifications('asg-student-a1-token') where type='grade_confirmed'))$q$,'P0001','invalid_session','invalid token cannot mark notifications read');
+select throws_ok($q$select * from list_my_notifications('not-a-real-token')$q$,'P0001','invalid_session','invalid non-null token is rejected the same as a missing one for list_my_notifications');
 
 -- Security: a null active_school_id session still reads its own notifications (no unintended school-scoping to bypass)
 update sessions set active_school_id = null where user_id = '49500000-0000-0000-0000-000000000002';
