@@ -230,6 +230,7 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 | D2 | `director_meetings` เอายังไง | 3.7 | สร้างใหม่ (+3–4 เซสชัน) / disable (0.3) / ลบทิ้ง |
 | D3 | Super Admin ใช้เกณฑ์ไหน | Phase 4 ทั้งหมด | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |
 | D4 | เก็บ `teacher_storybook`(8,227) + `design_system`(849) ไหม | 0.6 | เก็บไว้เป็น dev tool / ลบ |
+| D5 | โควต้า GitLab CI หมด (`ci_quota_exceeded`) — **ไม่ใช่ปัญหาโค้ด** | CI ทั้งหมด | ต่อโควต้า / ติดตั้ง self-hosted runner / ใช้ GitHub Actions อย่างเดียว |
 
 ---
 
@@ -265,3 +266,45 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 3. migration แก้แล้วต้อง **apply จริง** + บันทึกใน `schema_migrations`
 4. ทุก migration ที่แตะ grant ต้อง `revoke service_role` ด้วย (เจอ leak แบบนี้ 3 ครั้งแล้ว)
 5. อัปเดตเอกสารในเซสชันเดียวกับที่ทำงาน
+
+---
+
+## ภาคผนวก A — ช่องว่างรายหน้าของ School Admin
+
+ยกมาจาก `task_plan.md` (2026-09-04) ก่อนลบไฟล์นั้น เพื่อรวมไว้ที่เดียว
+ใช้ประกอบ Phase 2 — ยังไม่ได้ re-verify ทุกบรรทัด ให้ถือเป็นจุดตั้งต้นในการอ่านไฟล์จริง
+
+| หน้า | สภาพตอนสำรวจ | สิ่งที่ต้องทำ |
+|---|---|---|
+| `school_admin_dashboard_page` | summary/assignments/alerts/logs จริง แต่ตัวเลขทรัพยากร hardcode | ลบตัวเลข hardcode หรือแทนด้วย UtilityService + เพิ่ม error/empty |
+| `school_alerts_page` | ✅ ทำแล้ว (`c8346ff`) | — |
+| `school_buildings_page` | อ่านอาคาร/ห้องจริง แต่ CRUD ปลอม | เพิ่ม RPC scoped แล้วต่อ mutation + refetch |
+| `school_devices_page` | อ่านอุปกรณ์จริง แต่รายละเอียดที่โชว์ปลอม + ปุ่มทั้งหมดปลอม | โชว์เฉพาะฟิลด์ที่ backend คืนมา · ปุ่มที่ไม่มี RPC ให้ disable |
+| `school_resources_page` | ดึง utility rate มาแล้ว **แต่ทิ้ง** · กราฟ/อาคาร/KPI hardcode · `IoT Live Sync` เป็น true ตลอด | โหลด summary/trend/rate จริง ห้าม fallback เป็นตัวอย่าง |
+| `school_admin_energy_page` | อ่าน utility 6 จุดจริง | แทน null ด้วย empty state · เอา fallback ปลอมออก · export ที่ยังไม่เสร็จให้ disable |
+| `school_admin_esg_page` | อ่าน utility 4 จุดจริง | แยกเนื้อหานโยบาย (static ได้) ออกจากตัวเลขวัดผล (ต้องจริง) |
+| `school_admin_cctv_page` | ✅ ทำแล้ว (`830e20a`) | — |
+| `school_admin_incident_inbox_page` | ✅ ทำแล้ว (`866d774`) | — |
+| `school_admin_device_control_page` | อ่าน + queue command จริง แต่ UI เริ่มที่ OFF และแสดง queue เหมือนสำเร็จแล้ว | แสดงสถานะที่สังเกตได้จริง · แยก queued/acknowledged ให้ชัด |
+| `school_admin_device_schedule_page` | ✅ ทำแล้ว (`b27f843`) | — |
+| `school_students_page` | อ่าน user จริง แต่โชว์นักเรียนปลอมเมื่อผลลัพธ์ว่าง · ฟิลด์/mutation แต่งขึ้น | ลบ fallback ปลอม · ใช้เฉพาะฟิลด์จริง · ปุ่มที่ไม่มี contract ให้ disable |
+| `school_teachers_page` | user/homeroom จริง · homeroom write จริง แต่ไม่ atomic | รวมการแทนที่ homeroom เป็น RPC เดียว · ลบฟิลด์/ปุ่มที่แต่งขึ้น |
+| `school_permissions_page` | user/log/role/status write จริง · add-user และหลายฟิลด์ปลอม · error ถูกกลืน | จำกัดตัวแก้ไขเฉพาะฟิลด์ที่บันทึกจริง · เปิดเผย error · refetch |
+| `school_import_page` | import 5 ชนิดจริง · ประวัติอยู่ในหน่วยความจำ · **รหัสผ่านคาดเดาได้** | 🔐 แก้ credential lifecycle ก่อน · ใช้ audit log จริงแทนประวัติในหน่วยความจำ |
+| `school_learning_tracks_page` | ✅ ทำแล้ว (`8a6b4f8`) | — |
+| `school_reports_page` | อ่าน summary/audit จริง · filter/กราฟ/insight/export ปลอม | สร้าง view model จากข้อมูลจริงเท่านั้น · export ทำได้เฉพาะจากแถวจริง |
+| `school_scan_page` | กล้อง/คลิปบอร์ดจริง · ค้นหาอุปกรณ์/ประวัติ/นำทาง ปลอม | ❌ ไม่ import shared_core — ต่อจากศูนย์ |
+| `school_settings_page` | ชื่อ/รหัสโรงเรียน + audit log จริง · setting/save/reset/backup ปลอม | นิยาม settings ระดับโรงเรียนเฉพาะฟิลด์ที่มีใน schema · ปุ่มอันตรายที่ยังไม่รองรับให้ disable |
+| `school_admin_profile_page` | ชื่อ/อีเมล + audit log จริง · ฟิลด์อื่น/save/password/notification ปลอม | ใช้ flow เดิมที่มีอยู่ · ห้ามรายงานว่าเปลี่ยนรหัสผ่านสำเร็จทั้งที่ไม่ได้เปลี่ยน |
+
+## ภาคผนวก B — งานที่เคยอยู่ใน backlog เก่า และตรวจแล้วว่าเสร็จ
+
+ตรวจกับ DB จริง 2026-09-06 ก่อนลบ `agy-brief-full-remaining-backlog-2026-08-24.md`:
+
+| รายการ | ผลตรวจ |
+|---|---|
+| `grades.assignment_id` | ✅ มีคอลัมน์แล้ว |
+| `create_assignment` รับ `p_rubric_id` | ✅ มีพารามิเตอร์แล้ว |
+| `auth_sign_out_all` + test | ✅ มีฟังก์ชัน และครอบใน `03_auth_session_rate_limit.test.sql` |
+| Facility Manager 9 หน้า | ⚫ ล้าสมัย — role ถูกยุบรวมเข้า `school_admin` เมื่อ 2026-08-25 |
+| Parent portal · Student G-Score · teacher_profile · exam_builder | ✅ ปิดแล้วตาม WORK_LOG |

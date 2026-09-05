@@ -118,7 +118,19 @@ this task still open should ask the project owner directly rather than
 assume it's safe to leave — don't let this silently ride along into a
 real deployment.
 
-## In progress
+## ⚠️ อ่านก่อน — เอกสารนี้เป็นประวัติอย่างเดียวแล้ว (ตั้งแต่ 2026-09-06)
+
+แผนงานปัจจุบันอยู่ที่ `MASTER_PLAN_2026-09-06.md` · สถานะที่ตรวจสอบแล้วอยู่ที่
+`STATUS_VERIFIED_2026-09-06.md` · ไฟล์ `agy-brief-*.md` ทั้ง 30 ไฟล์ถูกลบเมื่อ
+2026-09-06 หลังตรวจยืนยันว่าปิดครบทุกไฟล์ (ยังกู้ได้จาก git history)
+
+**หัวข้อ "In progress" ข้างล่างนี้ล้าสมัย** — ตรวจเมื่อ 2026-09-06 พบว่า **เสร็จทั้งคู่**:
+`emergency-hero-card-cover-panic-button` (hero รองรับเหตุปุ่มฮาร์ดแวร์แล้วทั้งฝั่งครูและ
+director · ปุ่ม fake-success แก้แล้ว · ป้าย real/demo ผูกเงื่อนไขถูกต้อง) และ
+`student-notifications-phase1` (merge แล้ว `7bf64a4` · verify ในเบราว์เซอร์จริง 2026-09-06)
+เก็บข้อความเดิมไว้เป็นประวัติเท่านั้น
+
+## In progress (ล้าสมัย — ดูหมายเหตุข้างบน)
 
 | Brief | Topic |
 |---|---|

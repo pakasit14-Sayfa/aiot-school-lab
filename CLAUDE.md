@@ -23,11 +23,22 @@ Full architecture writeup, "how to run," current status, and known issues:
 **[docs/handoff/HANDOFF.md](docs/handoff/HANDOFF.md)**. Full live database
 schema (every table, every RPC function signature): **[docs/handoff/DATABASE_SCHEMA.md](docs/handoff/DATABASE_SCHEMA.md)**
 — regenerate this from the running local DB rather than hand-editing it (see
-"Keeping this current" below). **Index of every `agy-brief-*.md` task and
-its actual status: [docs/handoff/WORK_LOG.md](docs/handoff/WORK_LOG.md)**
-— `docs/handoff/` has ~30 individual brief files with no other way to see
-at a glance which are done vs still open; check this before re-reading
-briefs one by one or re-doing work that's already finished. **Before
+"Keeping this current" below).
+
+**Start here for what to do next: [docs/handoff/MASTER_PLAN_2026-09-06.md](docs/handoff/MASTER_PLAN_2026-09-06.md)**
+— the single plan (41 trackable tickets), and
+**[docs/handoff/STATUS_VERIFIED_2026-09-06.md](docs/handoff/STATUS_VERIFIED_2026-09-06.md)**
+— what is actually done vs not, each claim checked against real code/DB/git
+rather than trusted from the docs. These two replace the ~37 per-task brief
+and per-agent plan files that used to live in `docs/handoff/` (deleted
+2026-09-06 after verifying every one of them was closed — recoverable from
+git history if ever needed). Having six overlapping "what to do next"
+documents was itself a documented cause of a session reading the project's
+status completely wrong; keep it to these two.
+[docs/handoff/WORK_LOG.md](docs/handoff/WORK_LOG.md) is now **history only**
+— a dated record of what happened, not a plan.
+
+**Before
 auditing a page for fake data, wiring something new to the backend, or
 verifying a "done" claim, read [docs/handoff/DATA_CONNECTION_METHODOLOGY.md](docs/handoff/DATA_CONNECTION_METHODOLOGY.md)**
 — process/methodology (not architecture), with concrete anti-pattern
@@ -145,12 +156,15 @@ separate follow-up someone else does later.
 - `docs/handoff/HANDOFF.md` — update the "Current status" / "Known issues"
   sections when they materially change; don't let it rot into another stale
   NOTES.md.
-- `docs/handoff/WORK_LOG.md` — the index of every `agy-brief-*.md` file
-  and its status. When you finish a brief, move it from "In progress" to
-  "Done" here **with the commit hash**, in the same commit/session as the
-  work itself. When you start a new one, add it to "In progress" first.
-  This file is the only reason someone doesn't have to open all ~30
-  brief files one by one to know what's already done — keep it honest.
+- `docs/handoff/MASTER_PLAN_2026-09-06.md` — tick a ticket `[x]` **with the
+  commit hash** the moment it's genuinely done. **Never tick from an agent's
+  report or a commit message alone — verify it yourself** (on 2026-09-06 a
+  subagent reported 2 of 4 regression findings wrongly).
+- `docs/handoff/STATUS_VERIFIED_2026-09-06.md` — move items between
+  ✅ done / ⚠️ partial / ❌ not started as reality changes, and record the
+  evidence that justified the move.
+- `docs/handoff/WORK_LOG.md` — append-only history of what happened, with
+  commit hashes. Not a plan; don't put "next steps" here.
 - `docs/handoff/DATABASE_SCHEMA.md` — regenerate, don't hand-edit, after any
   migration. It was generated with:
   ```bash
