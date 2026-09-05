@@ -4,6 +4,7 @@ import 'package:shared_core/shared_core.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
+import 'controllers/staff_emergency_actions.dart';
 
 Color _categoryColor(IncidentCategory c) => c == IncidentCategory.sos
     ? const Color(0xFFDC2626)
@@ -128,6 +129,41 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   bool _isLoadingRealData = false;
   bool sosResolved = true;
   bool sosAccepted = false;
+  String? _loadError;
+  int _loadGeneration = 0;
+  late final StaffEmergencyActions _actions;
+
+  void _actionsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<String?> _readEventStatus(StaffEmergencySource source, String id) async {
+    if (source == StaffEmergencySource.incident) {
+      final rows = await IncidentService.listStaffIncidentReports();
+      return rows.where((row) => row.id == id).firstOrNull?.status;
+    }
+    final rows = await EmergencyService.listEmergencyEvents();
+    return rows.where((row) => row.id == id).firstOrNull?.status;
+  }
+
+  Future<void> _performAction(_EmergencyEvent event, {bool close = false}) async {
+    if (_actions.isBusy) return;
+    final source = event.originalIncident != null
+        ? StaffEmergencySource.incident : StaffEmergencySource.hardware;
+    final result = close
+        ? await _actions.close(source, event.id, 'ครูตรวจสอบและระงับเหตุเรียบร้อย')
+        : await _actions.acknowledge(source, event.id);
+    if (!mounted || result == StaffEmergencyResult.busy) return;
+    if (result == StaffEmergencyResult.confirmed) {
+      await _loadRealData();
+      if (!mounted) return;
+      _showMessage(close ? 'ปิดเหตุเรียบร้อยแล้ว' : 'รับเรื่องเรียบร้อยแล้ว');
+    } else {
+      _showMessage(result == StaffEmergencyResult.unconfirmed
+          ? 'ส่งคำขอแล้ว แต่ยังยืนยันสถานะล่าสุดไม่ได้ กรุณารีเฟรชก่อนดำเนินการอีกครั้ง'
+          : close ? 'ปิดเหตุไม่สำเร็จ กรุณาลองใหม่' : 'รับเหตุไม่สำเร็จ กรุณาลองใหม่');
+    }
+  }
 
   EmergencyEventItem? get _activeRealEmergencyEvent {
     if (_realEmergencyEvents.isEmpty) return null;
@@ -148,6 +184,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   @override
   void initState() {
     super.initState();
+    _actions = StaffEmergencyActions(
+      acknowledgeIncident: IncidentService.acknowledgeIncidentReport,
+      acknowledgeHardware: EmergencyService.acknowledgeEmergencyEvent,
+      closeIncident: (id, note) => IncidentService.closeIncidentReport(
+        id, resolutionType: 'resolved', resolutionNote: note),
+      closeHardware: (id, note) => EmergencyService.closeEmergencyEvent(
+        eventId: id, reviewNote: note),
+      readStatus: _readEventStatus,
+    )..addListener(_actionsChanged);
     _loadRealData();
     _incidentSub = IncidentService.streamIncidentReports().listen((_) {
       if (mounted) _loadRealData();
@@ -159,65 +204,43 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
   @override
   void dispose() {
+    _actions.removeListener(_actionsChanged);
+    _actions.dispose();
     _incidentSub?.cancel();
     _emergencySub?.cancel();
     super.dispose();
   }
 
   Future<void> _loadRealData() async {
-    setState(() => _isLoadingRealData = true);
+    if (!mounted) return;
+    final generation = ++_loadGeneration;
+    setState(() { _isLoadingRealData = true; _loadError = null; });
     try {
-      final results = await Future.wait([
-        EmergencyService.listEmergencyEvents().catchError((e) {
-          debugPrint('EmergencyService.listEmergencyEvents error: $e');
-          return <EmergencyEventItem>[];
-        }),
-        IncidentService.getIncidentSummary().catchError((e) {
-          debugPrint('IncidentService.getIncidentSummary error: $e');
-          return <IncidentSummaryItem>[];
-        }),
-        IncidentService.listTeacherIncidentReports().catchError((e) {
-          debugPrint('IncidentService.listTeacherIncidentReports error: $e');
-          return <TeacherIncidentReport>[];
-        }),
+      final results = await Future.wait<dynamic>([
+        EmergencyService.listEmergencyEvents(),
+        IncidentService.listStaffIncidentReports(),
       ]);
-
-      if (!mounted) return;
-      final eventsList = results[0] as List<EmergencyEventItem>;
-            final incidents = results[2] as List<TeacherIncidentReport>;
-
-      
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
-        _realEmergencyEvents = eventsList;
-        _realIncidents = incidents;
+        _realEmergencyEvents = results[0] as List<EmergencyEventItem>;
+        _realIncidents = results[1] as List<TeacherIncidentReport>;
         _isLoadingRealData = false;
-
-        final activeSos = _activeSosIncident;
-        final activeEvt = eventsList.where((e) => e.status != 'closed').firstOrNull;
-
-        // เก็บ SOS ที่ปิดไปล่าสุด เพื่อแสดงข้อมูลจริงในการ์ด "ปิดเหตุแล้ว"
-        final resolvedSos = incidents
-            .where((i) =>
-                i.category == IncidentCategory.sos &&
-                (i.status == 'resolved' || i.status == 'cancelled'))
-            .firstOrNull;
-        if (resolvedSos != null) _lastResolvedSosIncident = resolvedSos;
-
-        if (activeSos != null) {
-          sosResolved = false;
-          sosAccepted = activeSos.status == 'acknowledged' || activeSos.status == 'in_progress';
-        } else if (activeEvt != null) {
-          sosResolved = false;
-          sosAccepted = activeEvt.status == 'acknowledged';
-        } else if (incidents.any((i) => i.category == IncidentCategory.sos)) {
-          sosResolved = true;
-        }
+        final inc = _activeSosIncident;
+        final evt = _activeRealEmergencyEvent;
+        _lastResolvedSosIncident = _realIncidents.where((i) =>
+            i.category == IncidentCategory.sos &&
+            (i.status == 'resolved' || i.status == 'cancelled')).firstOrNull;
+        sosResolved = inc == null && evt == null;
+        sosAccepted = inc != null
+            ? inc.status == 'acknowledged' || inc.status == 'in_progress'
+            : evt?.status == 'acknowledged';
       });
-
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingRealData = false);
-      debugPrint('Load real data error: $e');
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _isLoadingRealData = false;
+        _loadError = 'โหลดเหตุฉุกเฉินไม่สำเร็จ ข้อมูลที่แสดงอาจยังไม่เป็นปัจจุบัน';
+      });
     }
   }
 
@@ -364,16 +387,22 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
   Future<void> _acceptSos() async {
     final inc = _activeSosIncident;
+    final evt = _activeRealEmergencyEvent;
     if (inc != null) {
-      try {
-        await IncidentService.acknowledgeIncidentReport(inc.id);
-      } catch (e) {
-        debugPrint('Error accepting incident: $e');
-      }
+      await _performAction(_convertIncident(inc));
+    } else if (evt != null) {
+      await _performAction(_convertEmergencyEvent(evt));
     }
-    setState(() => sosAccepted = true);
-    _showMessage('🚨 รับแจ้งเหตุและกำลังดำเนินการ');
-    await _loadRealData();
+  }
+
+  Future<void> _closeActiveSos() async {
+    final inc = _activeSosIncident;
+    final evt = _activeRealEmergencyEvent;
+    if (inc != null) {
+      await _quickClose(_convertIncident(inc));
+    } else if (evt != null) {
+      await _quickClose(_convertEmergencyEvent(evt));
+    }
   }
 
   void _showSosDetail() {
@@ -417,7 +446,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         ),
       );
     } else {
-      _showMessage('นี่คือข้อมูลจำลองของเหตุการณ์ (Hardware SOS)');
+      _showMessage('ยังไม่มีเหตุฉุกเฉินที่กำลังดำเนินการ');
     }
   }
 
@@ -1263,7 +1292,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: sosAccepted ? _showSosDetail : _acceptSos,
+                        onPressed: _actions.isBusy ? null : (sosAccepted ? _showSosDetail : _acceptSos),
                         icon: Icon(
                           sosAccepted ? Icons.check_circle_rounded : Icons.crisis_alert_rounded,
                           size: 18,
@@ -1292,33 +1321,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: () async {
-                            final inc = _activeSosIncident;
-                            final evt = _activeRealEmergencyEvent;
-                            if (inc != null) {
-                              try {
-                                await IncidentService.closeIncidentReport(
-                                  inc.id,
-                                  resolutionType: 'resolved',
-                                  resolutionNote: 'ครูรับเรื่องและระงับเหตุเรียบร้อย',
-                                );
-                              } catch (e) {
-                                debugPrint('Error closing incident: $e');
-                              }
-                            } else if (evt != null) {
-                              try {
-                                await EmergencyService.closeEmergencyEvent(
-                                  eventId: evt.id,
-                                  reviewNote: 'ครูรับเรื่องและระงับเหตุเรียบร้อย',
-                                );
-                              } catch (e) {
-                                debugPrint('Error closing emergency event: $e');
-                              }
-                            }
-                            setState(() => sosResolved = true);
-                            _showMessage('✓ ปิดเหตุการณ์ SOS เรียบร้อยแล้ว');
-                            await _loadRealData();
-                          },
+                          onPressed: _actions.isBusy ? null : _closeActiveSos,
                           icon: const Icon(Icons.task_alt_rounded, size: 16),
                           label: const Text(
                             'ปิดเหตุการณ์ (เสร็จสิ้น)',
@@ -1424,6 +1427,13 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _emergencyHeader(),
+                if (_loadError != null)
+                  MaterialBanner(
+                    content: Text(_loadError!),
+                    actions: [TextButton(
+                      onPressed: _isLoadingRealData ? null : _loadRealData,
+                      child: const Text('ลองใหม่'))],
+                  ),
                 const SizedBox(height: 16),
                 _sosPanel(),
                 const SizedBox(height: 16),
@@ -1824,28 +1834,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       ),
     );
   }
-  Future<void> _quickAcknowledge(_EmergencyEvent evt) async {
-    final inc = evt.originalIncident;
-    try {
-      if (inc != null) {
-        await IncidentService.acknowledgeIncidentReport(inc.id);
-      } else {
-        await EmergencyService.acknowledgeEmergencyEvent(evt.id);
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('รับเรื่องเรียบร้อยแล้ว'), backgroundColor: Color(0xFF059669)));
-        _loadRealData();
-      }
-    } catch (e) {
-      if (mounted) {
-        final msg = e.toString().contains('incident_already_closed') || e.toString().contains('already_acknowledged')
-            ? 'เหตุการณ์นี้มีผู้ดำเนินการไปแล้ว'
-            : 'เกิดข้อผิดพลาด: $e';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
-        _loadRealData();
-      }
-    }
-  }
+  Future<void> _quickAcknowledge(_EmergencyEvent evt) =>
+      _performAction(evt);
 
   Future<void> _quickClose(_EmergencyEvent evt) async {
     final confirmed = await showDialog<bool>(
@@ -1865,26 +1855,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     );
     if (confirmed != true) return;
 
-    final inc = evt.originalIncident;
-    try {
-      if (inc != null) {
-        await IncidentService.closeIncidentReport(inc.id, resolutionType: 'resolved', resolutionNote: 'ครูรับเรื่องและปิดเหตุเรียบร้อยจากหน้ารวม');
-      } else {
-        await EmergencyService.closeEmergencyEvent(eventId: evt.id, reviewNote: 'ครูรับเรื่องและปิดเหตุเรียบร้อยจากหน้ารวม');
-      }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ปิดเหตุเรียบร้อยแล้ว'), backgroundColor: Color(0xFF059669)));
-        _loadRealData();
-      }
-    } catch (e) {
-      if (mounted) {
-        final msg = e.toString().contains('incident_already_closed')
-            ? 'เหตุการณ์นี้ถูกปิดไปแล้ว'
-            : 'เกิดข้อผิดพลาด: $e';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
-        _loadRealData();
-      }
-    }
+    if (!mounted) return;
+    await _performAction(evt, close: true);
   }
 
   Widget _buildEventListItem(_EmergencyEvent evt) {
@@ -2000,7 +1972,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            onPressed: () => _quickAcknowledge(evt),
+                            onPressed: _actions.isBusy ? null : () => _quickAcknowledge(evt),
                             icon: const Icon(Icons.check_rounded, size: 14),
                             label: const Text('รับเรื่อง', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
@@ -2014,7 +1986,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          onPressed: () => _quickClose(evt),
+                          onPressed: _actions.isBusy ? null : () => _quickClose(evt),
                           icon: const Icon(Icons.task_alt_rounded, size: 14),
                           label: const Text('ปิดเหตุ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                         ),

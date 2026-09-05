@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 class NotificationsPage extends StatefulWidget {
-  const NotificationsPage({super.key});
+  const NotificationsPage({super.key, this.load, this.markRead});
+  final Future<List<AppNotification>> Function()? load;
+  final Future<void> Function(String)? markRead;
 
   @override
   State<NotificationsPage> createState() => _NotificationsPageState();
@@ -11,6 +13,9 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   List<AppNotification> notifications = [];
   bool isLoading = true;
+  String? _error;
+  final Set<String> _marking = {};
+  int _loadGeneration = 0;
   int _selectedFilterIndex = 0;
 
   final List<String> _filters = [
@@ -28,21 +33,51 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Future<void> loadNotifications() async {
-    setState(() => isLoading = true);
+    final generation = ++_loadGeneration;
+    setState(() { isLoading = true; _error = null; });
     try {
-      final result = await NotificationService.listMyNotifications();
-      if (mounted) setState(() => notifications = result);
+      final result = await (widget.load ?? NotificationService.listMyNotifications)();
+      if (mounted && generation == _loadGeneration) {
+        setState(() => notifications = result);
+      }
+    } catch (_) {
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _error = 'โหลดการแจ้งเตือนไม่สำเร็จ กรุณาลองใหม่');
+      }
     } finally {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted && generation == _loadGeneration) setState(() => isLoading = false);
     }
   }
 
   Future<void> openNotification(AppNotification notification) async {
-    if (notification.isUnread) {
-      await NotificationService.markNotificationRead(notification.id);
+    if (!notification.isUnread || !_marking.add(notification.id)) return;
+    setState(() {});
+    try {
+      await (widget.markRead ?? NotificationService.markNotificationRead)(notification.id);
+      if (!mounted) return;
       await loadNotifications();
+      if (!mounted) return;
+      if (_error == null && !notifications.any(
+          (n) => n.id == notification.id && !n.isUnread)) {
+        setState(() => _error = 'ยังยืนยันสถานะอ่านไม่ได้ กรุณาลองโหลดข้อมูลใหม่');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = 'บันทึกสถานะอ่านไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      _marking.remove(notification.id);
+      if (mounted) setState(() {});
     }
   }
+
+  List<AppNotification> get _filteredNotifications => notifications.where((item) {
+    switch (_selectedFilterIndex) {
+      case 1: return item.isUnread;
+      case 2: return const {'assignment', 'homework', 'assignment_published'}.contains(item.type);
+      case 3: return const {'grade', 'score', 'grade_confirmed'}.contains(item.type);
+      case 4: return const {'announcement', 'material', 'lesson_published'}.contains(item.type);
+      default: return true;
+    }
+  }).toList();
 
   String _formatTime(DateTime dt) {
     final now = DateTime.now();
@@ -142,9 +177,16 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
             ),
             const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            if (_error != null)
+              MaterialBanner(
+                content: Text(_error!),
+                actions: [TextButton(
+                  onPressed: isLoading ? null : loadNotifications,
+                  child: const Text('ลองใหม่'))],
+              ),
             // Body Content
             Expanded(
-              child: isLoading
+              child: isLoading && notifications.isEmpty
                   ? const Center(
                       child: CircularProgressIndicator(
                         color: Color.fromARGB(255, 28, 127, 70),
@@ -160,16 +202,18 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   Widget _buildNotificationList() {
-    if (notifications.isEmpty) {
+    final visible = _filteredNotifications;
+    if (visible.isEmpty) {
+      if (_error != null && notifications.isEmpty) return const SizedBox.shrink();
       return _buildEmptyState();
     }
 
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
-      itemCount: notifications.length,
+      itemCount: visible.length,
       itemBuilder: (context, index) {
-        final item = notifications[index];
+        final item = visible[index];
         return _buildNotificationCardItem(item);
       },
     );
@@ -180,14 +224,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'incident_report':
       case 'incident':
         return Icons.warning_amber_rounded;
+      case 'assignment_published':
       case 'assignment':
       case 'homework':
         return Icons.assignment_rounded;
+      case 'grade_confirmed':
       case 'grade':
       case 'score':
         return Icons.emoji_events_rounded;
       case 'announcement':
         return Icons.campaign_rounded;
+      case 'lesson_published':
       case 'material':
         return Icons.folder_special_rounded;
       default:
@@ -200,14 +247,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
       case 'incident_report':
       case 'incident':
         return const Color(0xFFE11D48);
+      case 'assignment_published':
       case 'assignment':
       case 'homework':
         return const Color(0xFF0284C7);
+      case 'grade_confirmed':
       case 'grade':
       case 'score':
         return const Color(0xFFD97706);
       case 'announcement':
         return const Color(0xFF059669);
+      case 'lesson_published':
       case 'material':
         return const Color(0xFF8B5CF6);
       default:
@@ -362,7 +412,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ),
             const SizedBox(height: 16),
             const Text(
-              'ไม่มีการแจ้งเตือนค้างอยู่',
+              'ยังไม่มีข้อมูล',
               style: TextStyle(
                 color: Color(0xFF0F172A),
                 fontSize: 17,
@@ -370,8 +420,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'คุณอัปเดตการแจ้งเตือนทั้งหมดแล้ว เรียบร้อยดีมาก!',
+            Text(
+              notifications.isEmpty ? 'ยังไม่มีการแจ้งเตือน' : 'ไม่พบการแจ้งเตือนตามตัวกรองที่เลือก',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Color(0xFF64748B),
@@ -386,3 +436,4 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
 }
+
