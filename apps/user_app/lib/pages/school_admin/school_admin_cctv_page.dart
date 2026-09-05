@@ -222,7 +222,7 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        initialValue: selectedUserId,
+                        value: selectedUserId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           filled: true,
@@ -303,7 +303,7 @@ class _SchoolAdminCctvPageState extends State<SchoolAdminCctvPage> {
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<int>(
-                        initialValue: validDays,
+                        value: validDays,
                         isExpanded: true,
                         decoration: InputDecoration(
                           filled: true,

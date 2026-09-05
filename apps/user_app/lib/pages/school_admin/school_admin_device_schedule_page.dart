@@ -218,7 +218,7 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        initialValue: selectedDeviceId,
+                        value: selectedDeviceId,
                         isExpanded: true,
                         decoration: InputDecoration(
                           filled: true,
@@ -299,7 +299,7 @@ class _SchoolAdminDeviceSchedulePageState
                       ),
                       const SizedBox(height: 6),
                       DropdownButtonFormField<String>(
-                        initialValue: selectedAction,
+                        value: selectedAction,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
