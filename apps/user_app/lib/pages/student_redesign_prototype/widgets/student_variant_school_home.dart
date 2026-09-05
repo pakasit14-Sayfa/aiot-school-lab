@@ -11,12 +11,33 @@ import 'academy_tasks_due_card.dart';
 import 'learning_progress_card.dart';
 
 class StudentVariantSchoolHome extends StatefulWidget {
-  const StudentVariantSchoolHome({super.key, this.onViewScore});
+  const StudentVariantSchoolHome({
+    super.key,
+    this.onViewScore,
+    this.loadCourses,
+    this.loadGrades,
+    this.loadNotifications,
+    this.loadLessons,
+    this.loadAssignments,
+    this.loadSubmissionVersions,
+  });
 
   /// Lets the G-Score summary card open the full "คะแนน" page — the score
   /// snapshot lives on the home page since it updates daily, while the full
   /// breakdown is one tap away instead of living in the main nav.
   final VoidCallback? onViewScore;
+
+  // Injectable seams so widget tests can control every data dependency of
+  // _loadRealData() without initializing a real Supabase client. Each
+  // defaults to the real service call used in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<CourseGrade>> Function()? loadGrades;
+  final Future<List<AppNotification>> Function()? loadNotifications;
+  final Future<List<LessonSummary>> Function(String courseId)? loadLessons;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignments;
+  final Future<List<SubmissionVersion>> Function(String assignmentId)?
+  loadSubmissionVersions;
 
   @override
   State<StudentVariantSchoolHome> createState() =>
@@ -52,10 +73,21 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
       _error = null;
     });
     try {
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadGrades = widget.loadGrades ?? GradeService.listMyGrades;
+      final loadNotifications =
+          widget.loadNotifications ?? NotificationService.listMyNotifications;
+      final loadLessons = widget.loadLessons ?? LessonService.listLessons;
+      final loadAssignments =
+          widget.loadAssignments ?? AssignmentService.listAssignments;
+      final loadSubmissionVersions =
+          widget.loadSubmissionVersions ??
+          AssignmentService.listMySubmissionVersions;
+
       final results = await Future.wait([
-        CourseService.listMyCourses(),
-        GradeService.listMyGrades(),
-        NotificationService.listMyNotifications(),
+        loadCourses(),
+        loadGrades(),
+        loadNotifications(),
       ]);
       final courses = (results[0] as List<CourseSummary>)
           .where((c) => c.isActive)
@@ -64,10 +96,10 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
       final notifications = results[2] as List<AppNotification>;
 
       final lessonLists = await Future.wait(
-        courses.map((c) => LessonService.listLessons(c.id)),
+        courses.map((c) => loadLessons(c.id)),
       );
       final assignmentLists = await Future.wait(
-        courses.map((c) => AssignmentService.listAssignments(c.id)),
+        courses.map((c) => loadAssignments(c.id)),
       );
 
       var lessonCount = 0;
@@ -108,9 +140,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
       }
 
       final submissionChecks = await Future.wait(
-        publishedAssignments.map(
-          (e) => AssignmentService.listMySubmissionVersions(e.$1.id),
-        ),
+        publishedAssignments.map((e) => loadSubmissionVersions(e.$1.id)),
       );
 
       var submittedCount = 0;
@@ -213,7 +243,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                     SizedBox(height: sectionGap),
                     AcademyTasksDueCard(tasks: _upcomingTasks),
                     SizedBox(height: sectionGap),
-                    _buildAnnouncementsCard(context),
+                    SchoolAnnouncementsCard(
+                      notification: _latestNotification,
+                      onViewed: () {
+                        if (mounted) _loadRealData();
+                      },
+                    ),
                     const SizedBox(height: 24),
                   ],
                 ),
@@ -492,6 +527,27 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
     );
   }
 
+}
+
+/// The "ข่าวสารประกาศโรงเรียน" section: header "ดูทั้งหมด" button and the
+/// latest-announcement card, both of which open the real [NotificationsPage]
+/// and report back via [onViewed] so the parent can run its own canonical
+/// reload. Extracted into its own widget (instead of living inline on
+/// StudentVariantSchoolHome's state) so both entry points are testable
+/// without mounting the page's other real-time/device cards.
+class SchoolAnnouncementsCard extends StatelessWidget {
+  const SchoolAnnouncementsCard({
+    super.key,
+    required this.notification,
+    required this.onViewed,
+  });
+
+  final AppNotification? notification;
+
+  /// Called after the pushed [NotificationsPage] route has been popped —
+  /// i.e. only once navigation has actually completed, never optimistically.
+  final VoidCallback onViewed;
+
   static String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return 'เมื่อสักครู่';
@@ -500,8 +556,16 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
     return '${diff.inDays} วันที่แล้ว';
   }
 
-  Widget _buildAnnouncementsCard(BuildContext context) {
-    final notification = _latestNotification;
+  Future<void> _openInbox(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsPage()),
+    );
+    onViewed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -518,13 +582,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               ),
             ),
             TextButton(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NotificationsPage()),
-                );
-                if (mounted) _loadRealData();
-              },
+              onPressed: () => _openInbox(context),
               style: TextButton.styleFrom(
                 foregroundColor: SchoolPalette.green,
                 padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -559,13 +617,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
         else
           InkWell(
             borderRadius: BorderRadius.circular(24),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationsPage()),
-              );
-              if (mounted) _loadRealData();
-            },
+            onTap: () => _openInbox(context),
             child: SoftCard(
               child: Row(
                 children: [
@@ -598,7 +650,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                           children: [
                             Expanded(
                               child: Text(
-                                notification.title,
+                                notification!.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -609,7 +661,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                               ),
                             ),
                             Text(
-                              _timeAgo(notification.createdAt),
+                              _timeAgo(notification!.createdAt),
                               style: const TextStyle(
                                 color: SchoolPalette.muted,
                                 fontSize: 11,
@@ -618,10 +670,10 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                             ),
                           ],
                         ),
-                        if (notification.body != null) ...[
+                        if (notification!.body != null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            notification.body!,
+                            notification!.body!,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(

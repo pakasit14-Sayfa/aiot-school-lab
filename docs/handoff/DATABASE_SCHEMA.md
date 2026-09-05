@@ -1,6 +1,6 @@
 # Database Schema
 
-_Live dump from local Supabase, regenerated 2026-09-05 after applying all migrations through `20260904010200_incident_inbox_service_role_acl.sql`._
+_Live dump from local Supabase, regenerated 2026-09-05 after applying all migrations through `20260905020000_enable_rls_device_relay_quiz_attachments.sql`._
 
 Total relations: 93 (91 tables, 2 views/materialized views)
 
@@ -509,7 +509,7 @@ Foreign keys:
 
 ## device_relay_states
 
-RLS enabled: **f**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -603,8 +603,8 @@ RLS enabled: **t**
 
 Foreign keys:
 - acknowledged_by -> users.id
-- source_device_id -> devices.id
 - school_id -> schools.id
+- source_device_id -> devices.id
 
 ## feedbacks
 
@@ -700,6 +700,7 @@ RLS enabled: **t**
 | assignment_id | uuid | YES |  |
 
 Foreign keys:
+- assignment_id -> assignments.id
 - coi_reviewed_by -> users.id
 - confirmed_by -> users.id
 - course_id -> courses.id
@@ -707,7 +708,6 @@ Foreign keys:
 - quiz_attempt_id -> quiz_attempts.id
 - student_id -> users.id
 - submission_id -> submissions.id
-- assignment_id -> assignments.id
 
 ## group_members
 
@@ -1224,7 +1224,7 @@ Foreign keys:
 
 ## quiz_question_attachments
 
-RLS enabled: **f**
+RLS enabled: **t**
 
 | column | type | nullable | default |
 |---|---|---|---|
@@ -1832,6 +1832,8 @@ Foreign keys:
 ### _check_threshold_violations() -> void (SECURITY DEFINER, plpgsql)
 
 ### _current_academic_year_id(p_school_id uuid) -> uuid (SECURITY INVOKER, sql)
+
+### _notify_learning_status_change() -> trigger (SECURITY DEFINER, plpgsql)
 
 ### _run_due_device_schedules() -> void (SECURITY DEFINER, plpgsql)
 

@@ -14,7 +14,12 @@ import 'student_qr_login_page.dart';
 import '../student_safety_page.dart';
 
 class StudentNavigationPrototype extends StatefulWidget {
-  const StudentNavigationPrototype({super.key});
+  const StudentNavigationPrototype({super.key, this.loadNotifications});
+
+  /// Injectable seam so widget tests can control the unread badge and the
+  /// notification-preview modal without initializing a real Supabase
+  /// client. Defaults to the real service call used in production.
+  final Future<List<AppNotification>> Function()? loadNotifications;
 
   @override
   State<StudentNavigationPrototype> createState() =>
@@ -25,7 +30,6 @@ class _StudentNavigationPrototypeState
     extends State<StudentNavigationPrototype> {
   int _currentIndex = 0;
   bool _isSidebarCollapsed = false;
-  bool _hasUnreadNotifications = false;
   String? _gradeLevel;
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
@@ -33,20 +37,7 @@ class _StudentNavigationPrototypeState
   @override
   void initState() {
     super.initState();
-    _loadUnreadStatus();
     _loadGradeLevel();
-  }
-
-  Future<void> _loadUnreadStatus() async {
-    try {
-      final notifications = await NotificationService.listMyNotifications();
-      if (!mounted) return;
-      setState(
-        () => _hasUnreadNotifications = notifications.any((n) => n.isUnread),
-      );
-    } catch (_) {
-      // ไม่ต้องโชว์ error แค่จุดแดงเล็กๆ ไม่ใช่ข้อมูลหลักของหน้า
-    }
   }
 
   Future<void> _loadGradeLevel() async {
@@ -81,288 +72,14 @@ class _StudentNavigationPrototypeState
     'ข้อมูลส่วนตัวนักเรียน',
   ];
 
-  static IconData _iconForNotification(String type) {
-    switch (type) {
-      case 'incident':
-      case 'device_alert':
-        return Icons.warning_amber_rounded;
-      case 'device_command':
-        return Icons.check_circle_rounded;
-      default:
-        return Icons.campaign_rounded;
-    }
-  }
-
-  static String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'เมื่อสักครู่';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
-    if (diff.inHours < 24) return '${diff.inHours} ชม.';
-    return '${diff.inDays} วัน';
-  }
-
   void _openInPlaceSearchDialog() {
     _showGlobalGlassSearchDialog(context);
-  }
-
-  void _openGlassNotificationModal() {
-    _showGlassNotificationModal(context);
   }
 
   void _openScorePage() {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const StudentScorePage()));
-  }
-
-  Future<void> _showGlassNotificationModal(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.38),
-      builder: (dialogContext) {
-        return Dialog(
-          alignment: Alignment.topCenter,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          insetPadding: const EdgeInsets.only(
-            left: 14,
-            right: 14,
-            top: 44,
-            bottom: 20,
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(36),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xF7FFFFFF),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: const Color(0x1F0F172A),
-                    width: 1.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0F172A).withValues(alpha: 0.10),
-                      blurRadius: 40,
-                      offset: const Offset(0, 14),
-                    ),
-                  ],
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'การแจ้งเตือน',
-                                style: TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: -0.6,
-                                ),
-                              ),
-                            ),
-                            Material(
-                              color: const Color(0xFFF1F5F9),
-                              shape: const CircleBorder(),
-                              child: InkWell(
-                                customBorder: const CircleBorder(),
-                                onTap: () => Navigator.of(dialogContext).pop(),
-                                child: const SizedBox(
-                                  width: 34,
-                                  height: 34,
-                                  child: Icon(
-                                    Icons.close_rounded,
-                                    size: 18,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        FutureBuilder<List<AppNotification>>(
-                          future: NotificationService.listMyNotifications(),
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 20),
-                                child: Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
-                            }
-                            final items = snapshot.data!.take(3).toList();
-                            if (items.isEmpty) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Text(
-                                  'ยังไม่มีการแจ้งเตือน',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                              );
-                            }
-                            return Column(
-                              children: [
-                                for (var i = 0; i < items.length; i++) ...[
-                                  if (i > 0) const SizedBox(height: 10),
-                                  _buildGlassNotificationTile(
-                                    icon: _iconForNotification(items[i].type),
-                                    iconBg: const Color(0xFF2F8F5B),
-                                    title: items[i].title,
-                                    subtitle: items[i].body ?? '',
-                                    time: _timeAgo(items[i].createdAt),
-                                  ),
-                                ],
-                              ],
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 44,
-                          child: FilledButton(
-                            onPressed: () async {
-                              Navigator.of(dialogContext).pop();
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const NotificationsPage(),
-                                ),
-                              );
-                              if (mounted) _loadUnreadStatus();
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFFF3F4F6),
-                              foregroundColor: const Color(0xFF0F172A),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                side: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                  width: 1.0,
-                                ),
-                              ),
-                            ),
-                            child: const Text(
-                              'ดูการแจ้งเตือนทั้งหมด',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 13.5,
-                                color: Color(0xFF0F172A),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGlassNotificationTile({
-    required IconData icon,
-    required Color iconBg,
-    required String title,
-    required String subtitle,
-    required String time,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8EDF3), width: 1.0),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: iconBg.withValues(alpha: 0.18),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      time,
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showGlobalGlassSearchDialog(BuildContext context) async {
@@ -629,35 +346,7 @@ class _StudentNavigationPrototypeState
                 tooltip: 'ค้นหารายวิชาและบทเรียน',
                 onPressed: _openInPlaceSearchDialog,
               ),
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: SchoolPalette.ink,
-                      size: 24,
-                    ),
-                    onPressed: _openGlassNotificationModal,
-                  ),
-                  // White ring makes the dot read clearly as "attached to
-                  // the bell" instead of a stray mark floating beside it.
-                  if (_hasUnreadNotifications)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE11D48),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              StudentNotificationBell(loadNotifications: widget.loadNotifications),
               const SizedBox(width: 6),
             ],
           ),
@@ -940,10 +629,9 @@ class _StudentNavigationPrototypeState
             onTap: _openInPlaceSearchDialog,
           ),
           const SizedBox(width: 10),
-          _buildDesktopAction(
-            icon: Icons.notifications_none_rounded,
-            badge: _hasUnreadNotifications,
-            onTap: _openGlassNotificationModal,
+          StudentNotificationBell(
+            loadNotifications: widget.loadNotifications,
+            decorated: true,
           ),
           const SizedBox(width: 10),
           _buildDesktopAction(
@@ -1316,6 +1004,380 @@ class _StudentNavigationPrototypeState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The notification bell shown in both the mobile app bar and the desktop
+/// top bar: unread-badge dot, tap-to-preview modal, and the canonical
+/// refresh after returning from the real [NotificationsPage]. Extracted
+/// into its own widget (instead of living inline on the nav shell state)
+/// so it can be tested in isolation without mounting every other tab.
+class StudentNotificationBell extends StatefulWidget {
+  const StudentNotificationBell({
+    super.key,
+    this.loadNotifications,
+    this.decorated = false,
+  });
+
+  /// Injectable seam so widget tests can control the unread badge and the
+  /// notification-preview modal without initializing a real Supabase
+  /// client. Defaults to the real service call used in production.
+  final Future<List<AppNotification>> Function()? loadNotifications;
+
+  /// True for the desktop top bar's circular chrome (matches the other
+  /// desktop action icons); false for the mobile app bar's bare icon.
+  final bool decorated;
+
+  @override
+  State<StudentNotificationBell> createState() =>
+      _StudentNotificationBellState();
+}
+
+class _StudentNotificationBellState extends State<StudentNotificationBell> {
+  bool _hasUnread = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUnreadStatus();
+  }
+
+  Future<void> _loadUnreadStatus() async {
+    try {
+      final notifications =
+          await (widget.loadNotifications ??
+              NotificationService.listMyNotifications)();
+      if (!mounted) return;
+      setState(() => _hasUnread = notifications.any((n) => n.isUnread));
+    } catch (_) {
+      // ไม่ต้องโชว์ error แค่จุดแดงเล็กๆ ไม่ใช่ข้อมูลหลักของหน้า
+    }
+  }
+
+  static IconData _iconForNotification(String type) {
+    switch (type) {
+      case 'incident':
+      case 'device_alert':
+        return Icons.warning_amber_rounded;
+      case 'device_command':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.campaign_rounded;
+    }
+  }
+
+  static String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'เมื่อสักครู่';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
+    if (diff.inHours < 24) return '${diff.inHours} ชม.';
+    return '${diff.inDays} วัน';
+  }
+
+  Widget _buildGlassNotificationTile({
+    required IconData icon,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    required String time,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8EDF3), width: 1.0),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconBg,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: iconBg.withValues(alpha: 0.18),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openModal() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.38),
+      builder: (dialogContext) {
+        return Dialog(
+          alignment: Alignment.topCenter,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          insetPadding: const EdgeInsets.only(
+            left: 14,
+            right: 14,
+            top: 44,
+            bottom: 20,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xF7FFFFFF),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(
+                    color: const Color(0x1F0F172A),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.10),
+                      blurRadius: 40,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'การแจ้งเตือน',
+                                style: TextStyle(
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                            ),
+                            Material(
+                              color: const Color(0xFFF1F5F9),
+                              shape: const CircleBorder(),
+                              child: InkWell(
+                                customBorder: const CircleBorder(),
+                                onTap: () => Navigator.of(dialogContext).pop(),
+                                child: const SizedBox(
+                                  width: 34,
+                                  height: 34,
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        FutureBuilder<List<AppNotification>>(
+                          future:
+                              (widget.loadNotifications ??
+                                  NotificationService.listMyNotifications)(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 20),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+                            }
+                            final items = snapshot.data!.take(3).toList();
+                            if (items.isEmpty) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 12),
+                                child: Text(
+                                  'ยังไม่มีการแจ้งเตือน',
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              );
+                            }
+                            return Column(
+                              children: [
+                                for (var i = 0; i < items.length; i++) ...[
+                                  if (i > 0) const SizedBox(height: 10),
+                                  _buildGlassNotificationTile(
+                                    icon: _iconForNotification(items[i].type),
+                                    iconBg: const Color(0xFF2F8F5B),
+                                    title: items[i].title,
+                                    subtitle: items[i].body ?? '',
+                                    time: _timeAgo(items[i].createdAt),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: FilledButton(
+                            onPressed: () async {
+                              Navigator.of(dialogContext).pop();
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const NotificationsPage(),
+                                ),
+                              );
+                              if (mounted) _loadUnreadStatus();
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFFF3F4F6),
+                              foregroundColor: const Color(0xFF0F172A),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                side: const BorderSide(
+                                  color: Color(0xFFE5E7EB),
+                                  width: 1.0,
+                                ),
+                              ),
+                            ),
+                            child: const Text(
+                              'ดูการแจ้งเตือนทั้งหมด',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13.5,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(
+      Icons.notifications_none_rounded,
+      color: SchoolPalette.ink,
+      size: widget.decorated ? 22 : 24,
+    );
+    final bellButton = widget.decorated
+        ? Material(
+            color: const Color(0xFFF8FAFC),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _openModal,
+              child: Container(
+                width: 42,
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: icon,
+              ),
+            ),
+          )
+        : IconButton(icon: icon, onPressed: _openModal);
+
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        bellButton,
+        // White ring makes the dot read clearly as "attached to the bell"
+        // instead of a stray mark floating beside it.
+        if (_hasUnread)
+          Positioned(
+            right: widget.decorated ? 1 : 8,
+            top: widget.decorated ? 1 : 8,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE11D48),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
