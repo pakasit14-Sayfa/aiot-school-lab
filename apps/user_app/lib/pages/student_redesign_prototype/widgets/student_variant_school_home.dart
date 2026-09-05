@@ -518,11 +518,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const NotificationsPage()),
                 );
+                if (mounted) _loadRealData();
               },
               style: TextButton.styleFrom(
                 foregroundColor: SchoolPalette.green,
@@ -558,11 +559,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
         else
           InkWell(
             borderRadius: BorderRadius.circular(24),
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const NotificationsPage()),
               );
+              if (mounted) _loadRealData();
             },
             child: SoftCard(
               child: Row(

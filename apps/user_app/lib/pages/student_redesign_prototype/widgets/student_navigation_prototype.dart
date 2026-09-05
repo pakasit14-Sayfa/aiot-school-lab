@@ -237,14 +237,15 @@ class _StudentNavigationPrototypeState
                           width: double.infinity,
                           height: 44,
                           child: FilledButton(
-                            onPressed: () {
+                            onPressed: () async {
                               Navigator.of(dialogContext).pop();
-                              Navigator.push(
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => const NotificationsPage(),
                                 ),
                               );
+                              if (mounted) _loadUnreadStatus();
                             },
                             style: FilledButton.styleFrom(
                               backgroundColor: const Color(0xFFF3F4F6),

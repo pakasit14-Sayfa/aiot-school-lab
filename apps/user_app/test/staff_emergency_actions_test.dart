@@ -6,12 +6,15 @@ void main() {
   StaffEmergencyActions actions({
     Future<void> Function(String)? incident,
     Future<void> Function(String)? hardware,
+    Future<void> Function(String)? escalate,
     Future<String?> Function(StaffEmergencySource, String)? read,
     Future<void> Function(String, String)? close,
+    Future<void> Function(String, String, String)? closeIncident,
   }) => StaffEmergencyActions(
     acknowledgeIncident: incident ?? (_) async {},
     acknowledgeHardware: hardware ?? (_) async {},
-    closeIncident: close ?? (_, __) async {},
+    escalateIncident: escalate ?? (_) async {},
+    closeIncident: closeIncident ?? (id, note, __) => (close ?? (_, __) async {})(id, note),
     closeHardware: close ?? (_, __) async {},
     readStatus: read ?? (_, __) async => 'acknowledged',
   );
@@ -89,6 +92,40 @@ void main() {
     expect(writes, 1);
     expect(a.isBusy, false);
     a.dispose();
+  });
+
+  test('escalate confirms only when status becomes escalated', () async {
+    var status = 'new';
+    final a = actions(
+      escalate: (_) async { status = 'escalated'; },
+      read: (_, __) async => status,
+    );
+    expect(await a.escalate('a'), StaffEmergencyResult.confirmed);
+    a.dispose();
+  });
+
+  test('escalate rejection is distinct from unconfirmed', () async {
+    final a = actions(escalate: (_) async => throw StateError('forbidden'));
+    expect(await a.escalate('a'), StaffEmergencyResult.failed);
+    a.dispose();
+  });
+
+  test('close passes the chosen resolution type through and confirms on match', () async {
+    var status = 'escalated';
+    String? capturedType;
+    final a = actions(
+      closeIncident: (id, note, resolutionType) async {
+        capturedType = resolutionType;
+        status = resolutionType;
+      },
+      read: (_, __) async => status,
+    );
+    expect(
+      await a.close(StaffEmergencySource.incident, 'a', 'ตรวจสอบแล้ว',
+          resolutionType: 'cancelled'),
+      StaffEmergencyResult.confirmed,
+    );
+    expect(capturedType, 'cancelled');
   });
 
   test('dispose during request produces no late notifications', () async {

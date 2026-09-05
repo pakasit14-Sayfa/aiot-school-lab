@@ -187,8 +187,9 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     _actions = StaffEmergencyActions(
       acknowledgeIncident: IncidentService.acknowledgeIncidentReport,
       acknowledgeHardware: EmergencyService.acknowledgeEmergencyEvent,
-      closeIncident: (id, note) => IncidentService.closeIncidentReport(
-        id, resolutionType: 'resolved', resolutionNote: note),
+      escalateIncident: IncidentService.escalateIncidentReport,
+      closeIncident: (id, note, resolutionType) => IncidentService.closeIncidentReport(
+        id, resolutionType: resolutionType, resolutionNote: note),
       closeHardware: (id, note) => EmergencyService.closeEmergencyEvent(
         eventId: id, reviewNote: note),
       readStatus: _readEventStatus,
@@ -341,7 +342,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => TeacherIncidentDetailPage(incident: event.originalIncident!),
+          builder: (_) => TeacherIncidentDetailPage(
+            incident: event.originalIncident!, actions: _actions),
         ),
       );
       if (mounted) _loadRealData();
@@ -412,7 +414,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => TeacherIncidentDetailPage(incident: inc),
+          builder: (_) => TeacherIncidentDetailPage(incident: inc, actions: _actions),
         ),
       ).then((_) => _loadRealData());
     } else if (evt != null) {
@@ -2010,9 +2012,14 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 // ==========================================
 
 class TeacherIncidentDetailPage extends StatefulWidget {
-  const TeacherIncidentDetailPage({super.key, required this.incident});
+  const TeacherIncidentDetailPage({
+    super.key,
+    required this.incident,
+    required this.actions,
+  });
 
   final TeacherIncidentReport incident;
+  final StaffEmergencyActions actions;
 
   @override
   State<TeacherIncidentDetailPage> createState() =>
@@ -2029,7 +2036,25 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
     super.dispose();
   }
 
+  void _showResultMessage(StaffEmergencyResult result,
+      {required String confirmedText,
+      required String unconfirmedText,
+      required String failedText}) {
+    if (!mounted) return;
+    final text = switch (result) {
+      StaffEmergencyResult.confirmed => confirmedText,
+      StaffEmergencyResult.unconfirmed => unconfirmedText,
+      StaffEmergencyResult.failed => failedText,
+      StaffEmergencyResult.busy => null,
+    };
+    if (text == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), behavior: SnackBarBehavior.floating),
+    );
+  }
+
   Future<void> _acknowledge() async {
+    if (widget.actions.isBusy) return;
     if (widget.incident.status != 'new') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -2041,24 +2066,17 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
     }
     setState(() => _isSubmitting = true);
     try {
-      await IncidentService.acknowledgeIncidentReport(widget.incident.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('รับเรื่องเรียบร้อยแล้ว'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      final result = await widget.actions
+          .acknowledge(StaffEmergencySource.incident, widget.incident.id);
+      _showResultMessage(
+        result,
+        confirmedText: 'รับเรื่องเรียบร้อยแล้ว',
+        unconfirmedText:
+            'ส่งคำขอแล้ว แต่ยังยืนยันสถานะล่าสุดไม่ได้ กรุณารีเฟรชก่อนดำเนินการอีกครั้ง',
+        failedText: 'ไม่สามารถรับเรื่องได้ กรุณาลองใหม่',
+      );
+      if (mounted && result == StaffEmergencyResult.confirmed) {
         Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ไม่สามารถรับเรื่องได้: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -2134,26 +2152,19 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
       ),
     );
     if (confirmed != true) return;
+    if (widget.actions.isBusy) return;
     setState(() => _isSubmitting = true);
     try {
-      await IncidentService.escalateIncidentReport(widget.incident.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ยกระดับเป็นเหตุฉุกเฉินเรียบร้อยแล้ว'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      final result = await widget.actions.escalate(widget.incident.id);
+      _showResultMessage(
+        result,
+        confirmedText: 'ยกระดับเป็นเหตุฉุกเฉินเรียบร้อยแล้ว',
+        unconfirmedText:
+            'ส่งคำขอแล้ว แต่ยังยืนยันสถานะล่าสุดไม่ได้ กรุณารีเฟรชก่อนดำเนินการอีกครั้ง',
+        failedText: 'ไม่สามารถยกระดับได้ กรุณาลองใหม่',
+      );
+      if (mounted && result == StaffEmergencyResult.confirmed) {
         Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ไม่สามารถยกระดับได้: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -2161,111 +2172,151 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
   }
 
   Future<void> _close() async {
+    if (widget.actions.isBusy) return;
+    // The note controller and choice state live for the lifetime of this
+    // dialog call, not just one builder pass: the dialog stays open across
+    // the async close call (popped only on confirmed success), so a failed
+    // attempt keeps the typed note and selection intact for a retry instead
+    // of forcing the user to reopen the dialog and retype it.
     final noteCtrl = TextEditingController();
     var isRealIncident = true;
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Text(
-            'ยืนยันปิดเหตุ',
-            style: TextStyle(fontWeight: FontWeight.w900),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _closeChoiceTile(
-                      label: 'เหตุจริง',
-                      selected: isRealIncident,
-                      color: const Color(0xFF059669),
-                      onTap: () => setModalState(() => isRealIncident = true),
+    var isDialogSubmitting = false;
+    var closedSuccessfully = false;
+    final isEscalated = widget.incident.status == 'escalated';
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, setModalState) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text(
+              'ยืนยันปิดเหตุ',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _closeChoiceTile(
+                        label: 'เหตุจริง',
+                        selected: isRealIncident,
+                        color: const Color(0xFF059669),
+                        onTap: isDialogSubmitting
+                            ? () {}
+                            : () => setModalState(() => isRealIncident = true),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _closeChoiceTile(
-                      label: 'แจ้งเท็จ/กดพลาด',
-                      selected: !isRealIncident,
-                      color: TeacherPalette.muted,
-                      onTap: () => setModalState(() => isRealIncident = false),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _closeChoiceTile(
+                        label: 'แจ้งเท็จ/กดพลาด',
+                        selected: !isRealIncident,
+                        color: TeacherPalette.muted,
+                        onTap: (isDialogSubmitting || isEscalated)
+                            ? () {}
+                            : () => setModalState(() => isRealIncident = false),
+                      ),
                     ),
+                  ],
+                ),
+                if (isEscalated) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'เหตุนี้ถูกยกระดับเป็นเหตุฉุกเฉินแล้ว การปิดเหตุจะถูกบันทึกเป็น "เหตุจริง" เสมอ',
+                    style: TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
                   ),
                 ],
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: noteCtrl,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: 'สรุปผล *',
-                  hintText: 'บันทึกสรุปผลการดำเนินการ',
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: noteCtrl,
+                  maxLines: 3,
+                  enabled: !isDialogSubmitting,
+                  decoration: InputDecoration(
+                    labelText: 'สรุปผล *',
+                    hintText: 'บันทึกสรุปผลการดำเนินการ',
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: isDialogSubmitting
+                    ? null
+                    : () => Navigator.pop(dialogContext),
+                child: const Text('ยกเลิก'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size.zero,
+                  backgroundColor: TeacherPalette.primary,
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: isDialogSubmitting
+                    ? null
+                    : () async {
+                        final note = noteCtrl.text.trim();
+                        if (note.isEmpty) return;
+                        setModalState(() => isDialogSubmitting = true);
+                        final resType =
+                            isRealIncident ? 'resolved' : 'cancelled';
+                        final result = await widget.actions.close(
+                          StaffEmergencySource.incident,
+                          widget.incident.id,
+                          note,
+                          resolutionType: resType,
+                        );
+                        if (!dialogContext.mounted) return;
+                        if (result == StaffEmergencyResult.confirmed) {
+                          closedSuccessfully = true;
+                          Navigator.pop(dialogContext);
+                        } else {
+                          setModalState(() => isDialogSubmitting = false);
+                          _showResultMessage(
+                            result,
+                            confirmedText: 'ปิดเหตุเรียบร้อยแล้ว',
+                            unconfirmedText:
+                                'ส่งคำขอแล้ว แต่ยังยืนยันสถานะล่าสุดไม่ได้ '
+                                'กรุณารีเฟรชก่อนดำเนินการอีกครั้ง',
+                            failedText: 'ไม่สามารถปิดเหตุได้ กรุณาลองใหม่',
+                          );
+                        }
+                      },
+                child: isDialogSubmitting
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('ปิดเหตุ'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size.zero,
-                backgroundColor: TeacherPalette.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (noteCtrl.text.trim().isEmpty) return;
-                Navigator.pop(context, true);
-              },
-              child: const Text('ปิดเหตุ'),
-            ),
-          ],
         ),
+      );
+    } finally {
+      noteCtrl.dispose();
+    }
+    if (!mounted || !closedSuccessfully) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('ปิดเหตุเรียบร้อยแล้ว'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
-    if (result != true) return;
-    setState(() => _isSubmitting = true);
-    try {
-      final resType = isRealIncident ? 'resolved' : 'cancelled';
-      await IncidentService.closeIncidentReport(
-        widget.incident.id,
-        resolutionType: resType,
-        resolutionNote: noteCtrl.text.trim(),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('ปิดเหตุเรียบร้อยแล้ว'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ไม่สามารถปิดเหตุได้: $e'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
+    Navigator.pop(context);
   }
 
   Widget _closeChoiceTile({
