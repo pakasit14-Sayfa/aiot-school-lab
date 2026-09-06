@@ -30,3 +30,12 @@ class StaffInvitation {
 
   bool get isPending => status == 'pending';
 }
+
+/// Result of `create_staff_invitation`. The token is shown to the admin once
+/// so it can be relayed manually — there is no invitation email infra.
+class StaffInvitationTicket {
+  const StaffInvitationTicket({required this.token, required this.expiresAt});
+
+  final String token;
+  final DateTime? expiresAt;
+}

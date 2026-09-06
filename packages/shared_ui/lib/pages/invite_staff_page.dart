@@ -73,7 +73,7 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
     setState(() => isSending = true);
 
     try {
-      final token = await InvitationService.createInvitation(
+      final ticket = await InvitationService.createInvitation(
         email: emailController.text.trim(),
         role: selectedRole,
       );
@@ -82,7 +82,7 @@ class _InviteStaffPageState extends State<InviteStaffPage> {
       await loadInvitations();
 
       if (!mounted) return;
-      showTokenDialog(token);
+      showTokenDialog(ticket.token);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

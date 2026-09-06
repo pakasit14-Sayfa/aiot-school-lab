@@ -3,6 +3,9 @@ import 'auth_service.dart';
 import 'supabase_config.dart';
 
 /// School Admin / super_admin actions on other users' accounts.
+/// Staff invitations are NOT here — they live in InvitationService, which
+/// already owns `create_staff_invitation` / `list_school_invitations` /
+/// `revoke_staff_invitation` (one service class per domain).
 /// Editing the signed-in user's own profile stays in AuthService because it
 /// mutates the shared currentUserModel/authStateChanges state.
 class UserAdminService {
@@ -53,6 +56,10 @@ class UserAdminService {
       params: {'p_token': AuthService.sessionToken, 'p_target_user_id': uid},
     );
   }
+
+  /// Same RPC as [deleteUser] under the name it actually performs — the
+  /// account is suspended (`users.status = 'suspended'`), never deleted.
+  static Future<void> suspendUser(String uid) => deleteUser(uid);
 
   static Future<void> reactivateUser(String uid) async {
     await supabase.rpc(
