@@ -240,3 +240,42 @@ Done from a report alone.
 - **Teacher UI:** สร้าง `teacher_leave_approval_page.dart` ในรูปแบบ Inbox พร้อมดึงข้อมูลชื่อนักเรียนจากฐานข้อมูลจริง และอัปเดตสิทธิ์ `binding_code_id` ให้สามารถจับคู่ Parent-Student ได้แบบ 1-to-1
 - Brief: docs/handoff/agy-brief-parent-teacher-leave-request-feature.md
 
+
+## 2026-09-06 — School Admin: energy + esg ต่อข้อมูลจริงและปิดของปลอม
+
+**สำรวจก่อน:** `docs/handoff/SCHOOL_ADMIN_BACKEND_SURVEY.md` (ไล่ทั้ง 15 หน้าที่เหลือ
+เทียบกับ RPC ที่มีอยู่จริงในฐานข้อมูลที่รันอยู่ ไม่ใช่แค่ไฟล์ migration)
+
+**ข้อค้นพบระดับสถาปัตยกรรม:** `archive_school_device` / `archive_school_user` /
+`admin_update_user_profile` **ไม่มี `p_token`** และใช้ `is_super_admin()`/`has_role()`
+ซึ่งอิง `auth.uid()` — เป็น RPC ของ `aiot_dev_dashboard` เรียกจาก `my_first_app`
+ไม่ได้ (hard rule 1) ต่อไปนี้ต้องเช็ค `p_token` ในลายเซ็นก่อนเสมอ ไม่ใช่ดูแค่ชื่อ
+
+**แก้ bug ที่ทำ build พังทั้ง repo:** งานค้างเขียน `StaffInvitation` +
+เมธอด invitation ซ้ำใน `user_admin_service.dart` ทั้งที่ `invitation_model.dart` และ
+`invitation_service.dart` มีอยู่แล้ว → export ชนกัน คอมไพล์ไม่ผ่าน (test fail 51)
+รวมเป็นตัวเดียว + `InvitationService.createInvitation` คืน `StaffInvitationTicket`
+(เดิมคืนแค่ `String` ทำให้ข้อมูลวันหมดอายุหาย) · บทเรียน: `flutter analyze` ใน
+`apps/user_app` **ไม่ครอบ `packages/shared_ui`** ต้อง analyze ทั้ง 3 แพ็กเกจ
+
+**`school_admin_energy_page`:** ลบ fallback ปลอม 10 ตัว (ลอกมาจากไฟล์ screenshot test),
+ลบบล็อกรายอาคาร hardcode, เปลี่ยน insights ที่อ้างว่า "ตรวจพบเครื่องปรับอากาศเปิดเกิน
+8 ชม." เป็นการเทียบช่วงเวลาจริง, เอา `disclaimer`/`isRateDefault`/`deviceCount` ที่
+backend ส่งมาแล้วถูกทิ้งมาแสดง, disable ปุ่มส่งออก, เพิ่ม error state
+
+**`school_admin_esg_page`:** คะแนนรวมเดิม `?? 0.0` ทำให้โรงเรียนที่ไม่มีมิเตอร์ได้
+**0/100 "ต้องปรับปรุง" สีแดง** → เฉลี่ยเฉพาะด้านที่มีคะแนนจริง · แก้ป้าย "ลดคาร์บอน"
+ที่ความหมายกลับด้าน (สูตรคำนวณคาร์บอนที่ปล่อย ไม่ใช่ที่ลด) · ผูกมาตรการ
+"ตัดไฟอัตโนมัติ" กับ `device_schedules` จริง · ลบมาตรการที่ไม่มีตารางรองรับ 2 ข้อ
+
+**เจอเฉพาะตอนเปิดเบราว์เซอร์จริง:** RPC utility รวมยอดด้วย `coalesce(sum(...),0)`
+โรงเรียนที่ไม่มีมิเตอร์เลยจึงได้ `0.0 kWh` ซึ่งอ่านเป็น "ใช้ไฟศูนย์หน่วย" →
+ใช้ `deviceCount > 0` แยก "วัดแล้วได้ศูนย์" ออกจาก "ไม่มีอะไรวัด"
+
+**test:** เพิ่ม 21 ชุด (energy 9, esg 12) ครอบ loading/data/empty/error/retry และ
+ล็อกตัวเลขปลอมเดิมไว้ว่าห้ามกลับมา · แก้ `school_admin_empty_and_error_states_test`
+ที่ยืนยัน empty state ทั้งที่ขับด้วย error path จริง
+**baseline test ที่เชื่อถือได้: `+239 -17`** (เอกสารเก่าบอก 16 — ของจริง 17 และ
+ไม่มีตัวไหนอยู่ใน School Admin เลย ทั้งหมดเป็น Executive prototype + Super Admin)
+
+**ยืนยันในเบราว์เซอร์จริง:** login `schooladmin@aiot-school-lab.local` → เปิดทั้งสองหน้า

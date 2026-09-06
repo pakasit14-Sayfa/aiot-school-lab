@@ -1,0 +1,153 @@
+# คำสั่งปิดช่องโหว่บน production (ticket 0.2–0.4)
+
+Claude ถูกระบบความปลอดภัยบล็อกไม่ให้ link/เขียน production จึงเตรียมคำสั่งไว้ให้รันเอง
+รันตามลำดับ **1 → 2 → 3** และหยุดทันทีถ้าขั้นไหนผลไม่ตรงกับที่คาด
+
+> โปรเจกต์ production: `smqoknnftgjyhrnzugar` (`aiot-school-lab-cli`)
+> เช็คเอาต์นี้ยัง `linked: false` — ต้อง link ก่อน
+
+---
+
+## ขั้นที่ 0 — เชื่อมต่อ production
+
+```bash
+cd ~/my_first_app
+npx supabase link --project-ref smqoknnftgjyhrnzugar
+```
+
+(อาจถามรหัสผ่านฐานข้อมูล — เป็นรหัสของ project ไม่ใช่รหัสบัญชี Supabase)
+
+---
+
+## ขั้นที่ 1 — ดูสถานะก่อนแก้ (อ่านอย่างเดียว ยังไม่เปลี่ยนอะไร)
+
+```bash
+npx supabase db query --linked "
+select
+  has_function_privilege('anon','redeem_parent_binding_code(text,text,text,text,text,text)','execute') as anon_ยังเรียกได้,
+  has_function_privilege('authenticated','redeem_parent_binding_code(text,text,text,text,text,text)','execute') as auth_ยังเรียกได้;
+"
+```
+
+**คาดว่าจะได้ `t | t`** = ช่องโหว่ยังเปิดอยู่จริง
+ถ้าได้ `f | f` แปลว่ามีคนปิดไปแล้ว — **ข้ามขั้นที่ 2 ไปเลย**
+
+---
+
+## ขั้นที่ 2 — 🔐 ปิดช่องโหว่ `redeem_parent_binding_code`
+
+ช่องโหว่นี้คืออะไร: เป็น endpoint รุ่นเก่าที่ผูกบัญชีผู้ปกครองเข้ากับนักเรียน
+**โดยข้ามขั้นตอนยืนยัน OTP** ถูกเปิดค้างไว้ตั้งแต่ 2026-09-04 เพื่อความสะดวกตอนพัฒนา
+ระบบจริงใช้ `request_parent_binding_otp` + `confirm_parent_binding` ซึ่งไม่กระทบ
+
+```bash
+npx supabase db query --linked "
+revoke execute on function redeem_parent_binding_code(text,text,text,text,text,text)
+  from anon, authenticated;
+"
+```
+
+**ตรวจผลทันที:**
+
+```bash
+npx supabase db query --linked "
+select
+  has_function_privilege('anon','redeem_parent_binding_code(text,text,text,text,text,text)','execute') as anon_ยังเรียกได้,
+  has_function_privilege('authenticated','redeem_parent_binding_code(text,text,text,text,text,text)','execute') as auth_ยังเรียกได้;
+"
+```
+
+**ต้องได้ `f | f`** ถ้ายังเป็น `t` แปลว่า revoke ไม่ติด อย่าไปต่อ
+
+---
+
+## ขั้นที่ 3 — 🔐 ปิด audit-log รั่วข้ามโรงเรียน
+
+ปัญหา: `list_school_admin_audit_logs` มีเงื่อนไข `OR al.school_id IS NULL`
+ทำให้ผู้ดูแลโรงเรียนเห็น log ที่ไม่ผูกกับโรงเรียนไหนเลย (เช่น การรีเซ็ตรหัสผ่าน,
+เหตุการณ์ login/2FA ของทั้งระบบ) ทั้งที่ควรเห็นเฉพาะของโรงเรียนตัวเอง
+migration นี้แก้แล้วและทดสอบผ่าน 9/9 บนเครื่อง local แต่ยังไม่เคยขึ้น production
+
+```bash
+npx supabase db query --linked \
+  --file supabase/migrations/20260905040000_harden_school_admin_audit_scope.sql
+```
+
+**บันทึกลงประวัติ migration** (ถ้าไม่ทำ ประวัติจะไม่ตรงกับของจริง — เป็นปัญหาที่เกิดซ้ำในโปรเจกต์นี้):
+
+```bash
+npx supabase db query --linked "
+insert into supabase_migrations.schema_migrations (version, name)
+values ('20260905040000','harden_school_admin_audit_scope')
+on conflict (version) do nothing;
+"
+```
+
+**ตรวจผล:**
+
+```bash
+npx supabase db query --linked "
+select
+  pg_get_functiondef(oid) like '%school_id IS NULL%' as ยังรั่วอยู่ไหม,
+  has_function_privilege('service_role','list_school_admin_audit_logs(text,integer)','execute') as service_role_ยังเรียกได้
+from pg_proc where proname = 'list_school_admin_audit_logs';
+"
+```
+
+**ต้องได้ `f | f`** (ไม่รั่วแล้ว และ `service_role` ถูก revoke แล้ว)
+
+---
+
+## ขั้นที่ 4 — ตรวจว่า migration ทุกตัวขึ้น production ครบ
+
+โปรเจกต์นี้มีประวัติ **"ไฟล์ migration มีอยู่ แต่ไม่เคยถูกรันจริง"** ซ้ำหลายรอบ
+รวมถึงครั้งที่ production ค้างอยู่ที่ snapshot เก่ากว่าเดือนโดยไม่มีใครรู้
+
+```bash
+npx supabase migration list --linked
+```
+
+ดูคอลัมน์ `Local | Remote` — **ทุกแถวต้องมีเลขทั้งสองฝั่ง**
+แถวไหนมีแค่ฝั่ง Local = ยังไม่เคยขึ้น production ให้รันทีละไฟล์:
+
+```bash
+npx supabase db query --linked --file supabase/migrations/<ชื่อไฟล์>.sql
+npx supabase db query --linked "
+insert into supabase_migrations.schema_migrations (version, name)
+values ('<timestamp>','<ชื่อ_ไม่รวม_timestamp>') on conflict (version) do nothing;
+"
+```
+
+---
+
+## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้
+
+```bash
+curl -s -X POST "https://smqoknnftgjyhrnzugar.supabase.co/rest/v1/rpc/auth_sign_in" \
+  -H "apikey: <ANON_KEY_ของ_production>" \
+  -H "Content-Type: application/json" \
+  -d '{"p_email":"schooladmin@aiot-school-lab.local","p_password":"Test1234!"}'
+```
+
+**ต้องได้ `auth_state: "mfa_required"`** = ระบบล็อกอินยังทำงานปกติ ไม่พังจากการแก้
+
+---
+
+## ถ้ามีอะไรผิดพลาด — วิธีย้อนกลับ
+
+ขั้นที่ 2 (ถ้าจำเป็นต้องเปิดชั่วคราวอีกครั้ง — **ไม่แนะนำ**):
+```sql
+grant execute on function redeem_parent_binding_code(text,text,text,text,text,text)
+  to anon, authenticated;
+```
+
+ขั้นที่ 3 คือ `create or replace function` — ย้อนได้โดยรัน migration ตัวก่อนหน้า
+`supabase/migrations/20260826140000_super_admin_audit_logs_scope.sql`
+(แต่การย้อนจะเปิดช่องรั่วกลับมา)
+
+---
+
+## เสร็จแล้วบอก Claude
+
+ส่งผลลัพธ์ของขั้นที่ 2, 3, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
+ใน `MASTER_PLAN_2026-09-06.md` ให้ — **จะไม่ติ๊กจนกว่าจะเห็นผลลัพธ์จริง**
