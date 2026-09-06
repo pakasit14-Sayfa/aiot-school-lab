@@ -4,111 +4,78 @@ import 'package:shared_core/shared_core.dart';
 import 'school_import_page.dart';
 import 'theme/school_admin_palette.dart';
 
+/// หน้าจัดการนักเรียนของ School Admin
+///
+/// ประวัติ (2026-09-06): เดิมหน้านี้เรียก `UserAdminService.getAllUsers()`
+/// จริงก็จริง แต่แล้ว **แต่งค่าที่ backend ไม่เคยคืนมาขึ้นเองเกือบทั้งแถว** —
+/// `list_school_users` คืนแค่ user_id / first_name / last_name / email /
+/// active_role / all_roles / active_school_id / status เท่านั้น ส่วน
+/// รหัสนักเรียน ระดับชั้น ห้อง เลขที่ ชื่อผู้ปกครอง เบอร์ผู้ปกครอง การมาเรียน
+/// และ "เข้าใช้ล่าสุด" ถูกสร้างจากดัชนีของแถว (`idx % 3`, `081-234-567$idx`)
+/// นอกจากนี้ยังมีรายชื่อปลอม 3 คน (สมชาย ใจดี ฯลฯ) ที่โผล่มาเมื่อไม่มีนักเรียน
+/// และ `catch (_) {}` ที่กลืน error ทั้งก้อน ทำให้ "โหลดล้มเหลว" กับ
+/// "ไม่มีข้อมูล" หน้าตาเหมือนกันเป๊ะ
+///
+/// ตอนนี้ทุกช่องมาจาก RPC จริงเท่านั้น:
+///   list_school_users        → ชื่อ อีเมล สถานะบัญชี บทบาททั้งหมด
+///   list_homeroom_assignments + list_homeroom_roster
+///                            → ระดับชั้น / ห้อง / รหัสนักเรียน (เท่าที่ถูก
+///                              จัดห้องแล้วจริง)
+///   suspend_user / reactivate_user → ระงับ/เปิดบัญชี
+///   update_user_profile      → แก้ชื่อ–นามสกุล
+/// ช่องที่ไม่มี RPC รองรับ (ผู้ปกครอง การมาเรียนรายวัน เข้าใช้ล่าสุด เลขที่)
+/// ถูกถอดออกทั้งหมด ไม่ได้แทนที่ด้วยค่าเดา
 class SchoolStudentsPage extends StatefulWidget {
-  const SchoolStudentsPage({super.key});
+  const SchoolStudentsPage({
+    super.key,
+    this.loadUsers,
+    this.loadHomerooms,
+    this.loadRoster,
+    this.suspendUser,
+    this.reactivateUser,
+    this.updateName,
+  });
+
+  /// Injectable seams — production ปล่อยว่างแล้วใช้ service จริง เทสต์ส่งเข้ามา
+  /// เพื่อไล่สถานะ loading / data / empty / error / mutation ได้โดยไม่ต้องมี
+  /// Supabase จริง (รูปแบบเดียวกับ school_resources_page / cctv page)
+  final Future<List<UserModel>> Function()? loadUsers;
+  final Future<List<HomeroomAssignment>> Function()? loadHomerooms;
+  final Future<List<HomeroomRosterItem>> Function(String gradeLevel, String room)?
+      loadRoster;
+  final Future<void> Function(String uid)? suspendUser;
+  final Future<void> Function(String uid)? reactivateUser;
+  final Future<void> Function(String uid, String name)? updateName;
 
   @override
   State<SchoolStudentsPage> createState() => _SchoolStudentsPageState();
 }
 
 class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
+  static const String kNoData = 'ยังไม่มีข้อมูล';
+  static const String kUnplaced = 'ยังไม่ได้จัดห้องเรียน';
+  static const String kAllLevels = 'ทุกระดับชั้น';
+  static const String kAllRooms = 'ทุกห้อง';
+  static const String kAllStatus = 'ทุกสถานะ';
+  static const String kActive = 'ใช้งาน';
+  static const String kSuspended = 'ระงับ';
+
   final TextEditingController _searchController = TextEditingController();
 
-  String _selectedLevel = 'ทุกระดับชั้น';
-  String _selectedRoom = 'ทุกห้อง';
-  String _selectedStatus = 'ทุกสถานะ';
-  bool _filterIssuesOnly = false;
+  String _selectedLevel = kAllLevels;
+  String _selectedRoom = kAllRooms;
+  String _selectedStatus = kAllStatus;
+  bool _filterSuspendedOnly = false;
 
-  List<_StudentRecord> _students = [];
+  List<_StudentRecord> _students = const [];
+  bool _isLoading = true;
+  bool _loadFailed = false;
+  final Set<String> _busyIds = <String>{};
 
   @override
   void initState() {
     super.initState();
     _loadStudents();
-  }
-
-  Future<void> _loadStudents() async {
-    try {
-      final users = await UserAdminService.getAllUsers();
-      final studentUsers = users
-          .where((u) => u.hasRole(UserRole.student))
-          .toList();
-      if (mounted) {
-        setState(() {
-          if (studentUsers.isNotEmpty) {
-            _students = studentUsers.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final u = entry.value;
-              return _StudentRecord(
-                id: u.uid,
-                studentCode: 'ST-${u.email.split('@').first.toUpperCase()}',
-                fullName: u.name,
-                level: u.building.isNotEmpty ? u.building : 'ม.1',
-                room: u.room.isNotEmpty ? u.room : '1',
-                number: idx + 1,
-                email: u.email,
-                guardianName: 'ผู้ปกครอง ${u.name}',
-                guardianPhone: '081-234-567${idx % 10}',
-                attendance: idx % 3 == 0 ? 'มาเรียน' : (idx % 3 == 1 ? 'มาสาย' : 'ขาดเรียน'),
-                accountStatus: u.status == 'active'
-                    ? (idx % 4 == 1 ? 'รอตรวจสอบ' : 'ใช้งาน')
-                    : 'ระงับ',
-                lastLogin: '-',
-                note: 'ปกติ',
-              );
-            }).toList();
-          } else {
-            _students = [
-              const _StudentRecord(
-                id: 'st-01',
-                studentCode: 'ST-2569-001',
-                fullName: 'สมชาย ใจดี',
-                level: 'ม.1',
-                room: '1',
-                number: 1,
-                email: 'somchai@school.ac.th',
-                guardianName: 'นายสมศักดิ์ ใจดี',
-                guardianPhone: '081-234-5678',
-                attendance: 'มาเรียน',
-                accountStatus: 'ใช้งาน',
-                lastLogin: 'วันนี้ 08:30',
-                note: 'ปกติ',
-              ),
-              const _StudentRecord(
-                id: 'st-02',
-                studentCode: 'ST-2569-002',
-                fullName: 'วิภาดา รัตนกุล',
-                level: 'ม.1',
-                room: '1',
-                number: 2,
-                email: 'vipada@school.ac.th',
-                guardianName: 'นางกาญจนา รัตนกุล',
-                guardianPhone: '089-876-5432',
-                attendance: 'ขาดเรียน',
-                accountStatus: 'รอตรวจสอบ',
-                lastLogin: '3 วันที่แล้ว',
-                note: 'รอเอกสารมอบตัว',
-              ),
-              const _StudentRecord(
-                id: 'st-03',
-                studentCode: 'ST-2569-003',
-                fullName: 'ธนกร สุขเจริญ',
-                level: 'ม.2',
-                room: '2',
-                number: 5,
-                email: 'thanakorn@school.ac.th',
-                guardianName: 'นายธนา สุขเจริญ',
-                guardianPhone: '086-555-1234',
-                attendance: 'มาเรียน',
-                accountStatus: 'ระงับ',
-                lastLogin: '1 สัปดาห์ที่แล้ว',
-                note: 'พักการใช้งานชั่วคราว',
-              ),
-            ];
-          }
-        });
-      }
-    } catch (_) {}
   }
 
   @override
@@ -117,668 +84,321 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
     super.dispose();
   }
 
+  Future<List<UserModel>> _fetchUsers() =>
+      widget.loadUsers?.call() ?? UserAdminService.getAllUsers();
+
+  /// อ่านการจัดห้องเรียนจริงจาก homeroom_assignments + roster ของแต่ละห้อง
+  /// นี่คือแหล่งเดียวที่ระบบรู้ระดับชั้น/ห้อง/รหัสนักเรียนของนักเรียนแต่ละคน
+  /// (`users.building` / `users.room` ไม่เคยถูกเซ็ตจากฝั่งนี้ — ของเดิมอ่าน
+  /// สองช่องนั้นแล้วตกไปที่ค่าคงที่ 'ม.1' / '1' เสมอ)
+  Future<Map<String, _Placement>> _fetchPlacements() async {
+    final assignments =
+        await (widget.loadHomerooms?.call() ??
+            HomeroomService.listHomeroomAssignments());
+    final Map<String, _Placement> placements = <String, _Placement>{};
+    for (final HomeroomAssignment a in assignments) {
+      final roster =
+          await (widget.loadRoster?.call(a.gradeLevel, a.room) ??
+              HomeroomService.listHomeroomRoster(
+                gradeLevel: a.gradeLevel,
+                room: a.room,
+              ));
+      for (final HomeroomRosterItem item in roster) {
+        placements[item.studentId] = _Placement(
+          gradeLevel: a.gradeLevel.trim().isEmpty ? null : a.gradeLevel.trim(),
+          room: a.room.trim().isEmpty ? null : a.room.trim(),
+          studentCode:
+              item.studentCode.trim().isEmpty ? null : item.studentCode.trim(),
+        );
+      }
+    }
+    return placements;
+  }
+
+  List<_StudentRecord> _toRecords(
+    List<UserModel> users,
+    Map<String, _Placement> placements,
+  ) {
+    // ⚠️ ต้องกรองด้วย hasRole (เช็ค all_roles) ไม่ใช่ role == student
+    // บัญชีหนึ่งถือได้หลายบทบาท และ active_role คือบทบาทที่ถูก grant ล่าสุด
+    // เท่านั้น การเทียบเท่ากับบทบาทเดียวเคยทำให้คนหายจากรายการมาแล้ว
+    return users
+        .where((UserModel u) => u.hasRole(UserRole.student))
+        .map((UserModel u) {
+          final _Placement? p = placements[u.uid];
+          return _StudentRecord(
+            id: u.uid,
+            fullName: u.name.trim(),
+            email: u.email,
+            suspended: u.status == 'suspended',
+            gradeLevel: p?.gradeLevel,
+            room: p?.room,
+            studentCode: p?.studentCode,
+          );
+        })
+        .toList();
+  }
+
+  Future<void> _loadStudents() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadFailed = false;
+      });
+    }
+    try {
+      final users = await _fetchUsers();
+      final placements = await _fetchPlacements();
+      if (!mounted) return;
+      setState(() {
+        _students = _toRecords(users, placements);
+        _isLoading = false;
+        _loadFailed = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolStudentsPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _students = const [];
+        _isLoading = false;
+        _loadFailed = true;
+      });
+    }
+  }
+
+  // ── ตัวเลือกใน filter สร้างจากข้อมูลที่โหลดมาจริง ──────────────────────
+
+  List<String> get _levelItems {
+    final Set<String> levels = <String>{
+      for (final _StudentRecord s in _students)
+        if (s.gradeLevel != null) s.gradeLevel!,
+    };
+    final List<String> sorted = levels.toList()..sort();
+    return <String>[
+      kAllLevels,
+      ...sorted,
+      if (_students.any((_StudentRecord s) => s.gradeLevel == null)) kUnplaced,
+    ];
+  }
+
+  List<String> get _roomItems {
+    final Set<String> rooms = <String>{
+      for (final _StudentRecord s in _students)
+        if (s.room != null) s.room!,
+    };
+    final List<String> sorted = rooms.toList()..sort();
+    return <String>[kAllRooms, ...sorted];
+  }
+
+  List<String> get _statusItems {
+    final Set<String> statuses = <String>{
+      for (final _StudentRecord s in _students) s.statusLabel,
+    };
+    final List<String> sorted = statuses.toList()..sort();
+    return <String>[kAllStatus, ...sorted];
+  }
+
+  String _valid(String selected, List<String> items) =>
+      items.contains(selected) ? selected : items.first;
+
   List<_StudentRecord> get _filteredStudents {
     final String keyword = _searchController.text.trim().toLowerCase();
+    final String level = _valid(_selectedLevel, _levelItems);
+    final String room = _valid(_selectedRoom, _roomItems);
+    final String status = _valid(_selectedStatus, _statusItems);
 
-    return _students.where((_StudentRecord student) {
+    return _students.where((_StudentRecord s) {
       final bool matchesSearch =
           keyword.isEmpty ||
-          student.fullName.toLowerCase().contains(keyword) ||
-          student.studentCode.toLowerCase().contains(keyword) ||
-          student.email.toLowerCase().contains(keyword) ||
-          student.guardianName.toLowerCase().contains(keyword) ||
-          student.guardianPhone.toLowerCase().contains(keyword);
+          s.fullName.toLowerCase().contains(keyword) ||
+          s.email.toLowerCase().contains(keyword) ||
+          (s.studentCode ?? '').toLowerCase().contains(keyword);
 
-      final bool matchesLevel =
-          _selectedLevel == 'ทุกระดับชั้น' || student.level == _selectedLevel;
+      final bool matchesLevel = level == kAllLevels
+          ? true
+          : (level == kUnplaced
+                ? s.gradeLevel == null
+                : s.gradeLevel == level);
 
-      final bool matchesRoom =
-          _selectedRoom == 'ทุกห้อง' || student.room == _selectedRoom;
+      final bool matchesRoom = room == kAllRooms || s.room == room;
 
-      final bool matchesStatus;
-      if (_filterIssuesOnly) {
-        matchesStatus = student.accountStatus == 'รอตรวจสอบ' ||
-            student.accountStatus == 'ระงับ' ||
-            student.attendance == 'ขาดเรียน' ||
-            student.attendance == 'มาสาย';
-      } else {
-        matchesStatus =
-            _selectedStatus == 'ทุกสถานะ' ||
-            student.accountStatus == _selectedStatus;
-      }
+      final bool matchesStatus = _filterSuspendedOnly
+          ? s.suspended
+          : (status == kAllStatus || s.statusLabel == status);
 
       return matchesSearch && matchesLevel && matchesRoom && matchesStatus;
     }).toList();
   }
 
   int get _activeCount =>
-      _students.where((s) => s.accountStatus == 'ใช้งาน').length;
+      _students.where((_StudentRecord s) => !s.suspended).length;
 
-  int get _pendingCount =>
-      _students.where((s) => s.accountStatus == 'รอตรวจสอบ').length;
+  int get _suspendedCount =>
+      _students.where((_StudentRecord s) => s.suspended).length;
 
-  int get _attentionCount => _students.where((s) {
-    return s.attendance == 'ขาดเรียน' ||
-        s.attendance == 'มาสาย' ||
-        s.accountStatus == 'รอตรวจสอบ' ||
-        s.accountStatus == 'ระงับ';
-  }).length;
+  int get _unplacedCount =>
+      _students.where((_StudentRecord s) => s.gradeLevel == null).length;
 
   void _clearFilters() {
     setState(() {
       _searchController.clear();
-      _selectedLevel = 'ทุกระดับชั้น';
-      _selectedRoom = 'ทุกห้อง';
-      _selectedStatus = 'ทุกสถานะ';
-      _filterIssuesOnly = false;
+      _selectedLevel = kAllLevels;
+      _selectedRoom = kAllRooms;
+      _selectedStatus = kAllStatus;
+      _filterSuspendedOnly = false;
     });
   }
 
   void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _openStudentForm({_StudentRecord? student}) async {
-    final bool editing = student != null;
+  // ── Mutations: เขียน → อ่าน canonical กลับ → ตรวจว่าเจอจริง → ค่อยบอกสำเร็จ ──
 
-    final TextEditingController codeController = TextEditingController(
-      text: student?.studentCode ?? '',
-    );
-    final TextEditingController nameController = TextEditingController(
-      text: student?.fullName ?? '',
-    );
-    final TextEditingController emailController = TextEditingController(
-      text: student?.email ?? '',
-    );
-    final TextEditingController guardianController = TextEditingController(
-      text: student?.guardianName ?? '',
-    );
-    final TextEditingController phoneController = TextEditingController(
-      text: student?.guardianPhone ?? '',
-    );
-    final TextEditingController numberController = TextEditingController(
-      text: student?.number.toString() ?? '',
-    );
+  _StudentRecord? _find(List<_StudentRecord> list, String id) {
+    for (final _StudentRecord s in list) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
 
-    String level = student?.level ?? 'ม.1';
-    String room = student?.room ?? '1';
-    String attendance = student?.attendance ?? 'มาเรียน';
-    String accountStatus = student?.accountStatus ?? 'ใช้งาน';
+  /// อ่านสถานะ canonical กลับมาแล้วคืนรายการที่สร้างใหม่ทั้งชุด
+  /// โยน `backend_change_not_confirmed` ถ้า backend ไม่ยืนยันการเปลี่ยนแปลง
+  Future<List<_StudentRecord>> _refetchAndConfirm(
+    bool Function(_StudentRecord fresh) confirmed,
+    String targetId,
+  ) async {
+    final users = await _fetchUsers();
+    final placements = await _fetchPlacements();
+    final List<_StudentRecord> fresh = _toRecords(users, placements);
+    final _StudentRecord? target = _find(fresh, targetId);
+    if (target == null || !confirmed(target)) {
+      throw StateError('backend_change_not_confirmed');
+    }
+    return fresh;
+  }
 
-    final _StudentRecord? result = await showDialog<_StudentRecord>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              insetPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 24,
-              ),
-              child: Container(
-                width: 760,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              gradient: SchoolAdminPalette.heroGradient,
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x20A45C23),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              editing
-                                  ? Icons.edit_note_rounded
-                                  : Icons.person_add_rounded,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  editing
-                                      ? 'แก้ไขข้อมูลนักเรียน'
-                                      : 'เพิ่มนักเรียนใหม่',
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  editing
-                                      ? 'แก้ไขข้อมูลประวัตินักเรียนและสถานะการเรียน'
-                                      : 'กรอกข้อมูลนักเรียนเพื่อลงทะเบียนเข้าสู่ระบบโรงเรียน',
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: Color(0xFF64748B),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Color(0xFF64748B),
-                              size: 22,
-                            ),
-                            tooltip: 'ปิด',
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-                    // Scrollable form content
-                    Flexible(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(24, 18, 24, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Section 1: ข้อมูลนักเรียน
-                            _buildDialogSectionHeader(
-                              'ข้อมูลประจำตัวนักเรียน',
-                              Icons.badge_rounded,
-                            ),
-                            const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final bool singleCol =
-                                    constraints.maxWidth < 560;
-                                final double fieldWidth = singleCol
-                                    ? constraints.maxWidth
-                                    : (constraints.maxWidth - 12) / 2;
-
-                                return Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: [
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _buildDialogField(
-                                        label: 'รหัสนักเรียน',
-                                        hint: 'เช่น ST-2569-0013',
-                                        icon: Icons.badge_outlined,
-                                        controller: codeController,
-                                        required: true,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _buildDialogField(
-                                        label: 'ชื่อ–นามสกุล',
-                                        hint: 'เช่น สมชาย ใจดี',
-                                        icon: Icons.person_outline_rounded,
-                                        controller: nameController,
-                                        required: true,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _buildDialogField(
-                                        label: 'อีเมล',
-                                        hint: 'เช่น student@school.ac.th',
-                                        icon: Icons.email_outlined,
-                                        controller: emailController,
-                                        keyboardType:
-                                            TextInputType.emailAddress,
-                                        required: true,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _buildDialogField(
-                                        label: 'เลขที่',
-                                        hint: 'เช่น 15',
-                                        icon: Icons
-                                            .format_list_numbered_rounded,
-                                        controller: numberController,
-                                        keyboardType: TextInputType.number,
-                                        required: true,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _DialogDropdown(
-                                        label: 'ระดับชั้น',
-                                        icon: Icons.layers_outlined,
-                                        value: level,
-                                        items: const [
-                                          'ม.1',
-                                          'ม.2',
-                                          'ม.3',
-                                          'ม.4',
-                                          'ม.5',
-                                          'ม.6',
-                                        ],
-                                        onChanged: (String value) {
-                                          setDialogState(() => level = value);
-                                        },
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _DialogDropdown(
-                                        label: 'ห้อง',
-                                        icon: Icons.meeting_room_outlined,
-                                        value: room,
-                                        items: const [
-                                          '1',
-                                          '2',
-                                          '3',
-                                          '4',
-                                          '5',
-                                          '6',
-                                        ],
-                                        onChanged: (String value) {
-                                          setDialogState(() => room = value);
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Section 2: ข้อมูลผู้ปกครอง
-                            _buildDialogSectionHeader(
-                              'ข้อมูลผู้ปกครอง',
-                              Icons.supervisor_account_rounded,
-                            ),
-                            const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final bool singleCol =
-                                    constraints.maxWidth < 560;
-                                final double fieldWidth = singleCol
-                                    ? constraints.maxWidth
-                                    : (constraints.maxWidth - 12) / 2;
-
-                                return Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: [
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _buildDialogField(
-                                        label: 'ชื่อผู้ปกครอง',
-                                        hint: 'เช่น นายสมศักดิ์ ใจดี',
-                                        icon: Icons.family_restroom_rounded,
-                                        controller: guardianController,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _buildDialogField(
-                                        label: 'เบอร์โทรศัพท์ผู้ปกครอง',
-                                        hint: 'เช่น 081-234-5678',
-                                        icon: Icons.phone_outlined,
-                                        controller: phoneController,
-                                        keyboardType: TextInputType.phone,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Section 3: สถานะบัญชี
-                            _buildDialogSectionHeader(
-                              'สถานะบัญชีในระบบ',
-                              Icons.verified_user_outlined,
-                            ),
-                            const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final bool singleCol =
-                                    constraints.maxWidth < 560;
-                                final double fieldWidth = singleCol
-                                    ? constraints.maxWidth
-                                    : (constraints.maxWidth - 12) / 2;
-
-                                return Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: [
-                                    SizedBox(
-                                      width: fieldWidth,
-                                      child: _DialogDropdown(
-                                        label: 'สถานะบัญชีผู้ใช้',
-                                        icon: Icons.security_rounded,
-                                        value: accountStatus,
-                                        items: const [
-                                          'ใช้งาน',
-                                          'รอตรวจสอบ',
-                                          'ระงับ',
-                                        ],
-                                        onChanged: (String value) {
-                                          setDialogState(
-                                            () => accountStatus = value,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-                    // Actions Footer
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 14, 24, 18),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF64748B),
-                              side: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 12,
-                              ),
-                            ),
-                            child: const Text(
-                              'ยกเลิก',
-                              style: TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          FilledButton.icon(
-                            onPressed: () {
-                              final String code = codeController.text.trim();
-                              final String name = nameController.text.trim();
-                              final String email = emailController.text.trim();
-                              final int number =
-                                  int.tryParse(
-                                    numberController.text.trim(),
-                                  ) ??
-                                  0;
-
-                              if (code.isEmpty ||
-                                  name.isEmpty ||
-                                  email.isEmpty ||
-                                  number <= 0) {
-                                _showMessage(
-                                  'กรุณากรอกรหัส ชื่อ อีเมล และเลขที่ให้ครบ',
-                                );
-                                return;
-                              }
-
-                              Navigator.of(dialogContext).pop(
-                                _StudentRecord(
-                                  id:
-                                      student?.id ??
-                                      'student-${DateTime.now().millisecondsSinceEpoch}',
-                                  studentCode: code,
-                                  fullName: name,
-                                  level: level,
-                                  room: room,
-                                  number: number,
-                                  email: email,
-                                  guardianName: guardianController.text.trim(),
-                                  guardianPhone: phoneController.text.trim(),
-                                  attendance: attendance,
-                                  accountStatus: accountStatus,
-                                  lastLogin:
-                                      student?.lastLogin ?? 'ยังไม่เคยเข้าใช้',
-                                  note: student?.note ?? 'ปกติ',
-                                ),
-                              );
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: SchoolAdminPalette.primary,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 13,
-                              ),
-                            ),
-                            icon: Icon(
-                              editing
-                                  ? Icons.save_rounded
-                                  : Icons.person_add_rounded,
-                              size: 18,
-                            ),
-                            label: Text(
-                              editing ? 'บันทึกการแก้ไข' : 'เพิ่มนักเรียนใหม่',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    codeController.dispose();
-    nameController.dispose();
-    emailController.dispose();
-    guardianController.dispose();
-    phoneController.dispose();
-    numberController.dispose();
-
-    if (result == null || !mounted) return;
-
-    setState(() {
-      if (editing) {
-        final int index = _students.indexWhere((s) => s.id == result.id);
-        if (index >= 0) _students[index] = result;
+  Future<void> _toggleAccount(_StudentRecord student) async {
+    if (_busyIds.contains(student.id)) return;
+    final bool wantSuspend = !student.suspended;
+    setState(() => _busyIds.add(student.id));
+    try {
+      if (wantSuspend) {
+        await (widget.suspendUser?.call(student.id) ??
+            UserAdminService.suspendUser(student.id));
       } else {
-        _students.insert(0, result);
+        await (widget.reactivateUser?.call(student.id) ??
+            UserAdminService.reactivateUser(student.id));
       }
-    });
-
-    _showMessage(
-      editing
-          ? 'บันทึกข้อมูลนักเรียนเรียบร้อยแล้ว'
-          : 'เพิ่มนักเรียนเรียบร้อยแล้ว',
-    );
+      final List<_StudentRecord> fresh = await _refetchAndConfirm(
+        (_StudentRecord s) => s.suspended == wantSuspend,
+        student.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _students = fresh;
+        _loadFailed = false;
+      });
+      _showMessage(
+        wantSuspend
+            ? 'ระงับบัญชี ${student.fullName} แล้ว (ยืนยันกับระบบเรียบร้อย)'
+            : 'เปิดใช้งานบัญชี ${student.fullName} แล้ว (ยืนยันกับระบบเรียบร้อย)',
+      );
+    } catch (e) {
+      debugPrint('toggle student account failed: $e');
+      _showMessage(
+        'ปรับสถานะบัญชีไม่สำเร็จ ระบบยังไม่ยืนยันการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง',
+      );
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(student.id));
+    }
   }
 
-  Widget _buildDialogSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: SchoolAdminPalette.primary),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Divider(
-            height: 1,
-            color: Color(0xFFF1F5F9),
-          ),
-        ),
-      ],
+  /// ฟอร์มแก้ไขเหลือเฉพาะช่องที่มี RPC รองรับจริง — `update_user_profile`
+  /// แก้ได้แค่ first_name/last_name ช่องอื่นในฟอร์มเดิม (รหัสนักเรียน อีเมล
+  /// เลขที่ ระดับชั้น ห้อง ผู้ปกครอง เบอร์โทร การมาเรียน สถานะ) ไม่มี endpoint
+  /// ให้เขียนเลย กดบันทึกแล้วค่าหายทันทีที่รีเฟรช
+  Future<void> _editStudentName(_StudentRecord student) async {
+    final TextEditingController nameController = TextEditingController(
+      text: student.fullName,
     );
-  }
-
-  Widget _buildDialogField({
-    required String label,
-    required String hint,
-    required IconData icon,
-    required TextEditingController controller,
-    TextInputType keyboardType = TextInputType.text,
-    bool required = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF334155),
-            ),
-            children: required
-                ? const [
-                    TextSpan(
-                      text: ' *',
-                      style: TextStyle(
-                        color: Color(0xFFEF4444),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ]
-                : null,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          style: const TextStyle(fontSize: 13.5, color: Color(0xFF0F172A)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-            prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 19),
-            filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: SchoolAdminPalette.primary,
-                width: 1.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _deleteStudent(_StudentRecord student) async {
-    final bool? confirmed = await showDialog<bool>(
+    final String? newName = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('ลบนักเรียน'),
-          content: Text('ต้องการลบ ${student.fullName} ออกจากรายการหรือไม่'),
+          title: const Text('แก้ไขชื่อ–นามสกุลนักเรียน'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'ชื่อ–นามสกุล',
+                  prefixIcon: Icon(Icons.person_outline_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'ระบบรองรับการแก้ไขเฉพาะชื่อ–นามสกุลเท่านั้น '
+                'รหัสนักเรียน ระดับชั้น ห้อง และอีเมล ยังไม่มีช่องทางแก้ไขจากหน้านี้',
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            ],
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('ยกเลิก'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: SchoolAdminPalette.red,
-              ),
-              child: const Text('ยืนยันลบ'),
+              onPressed: () =>
+                  Navigator.of(dialogContext).pop(nameController.text.trim()),
+              child: const Text('บันทึก'),
             ),
           ],
         );
       },
     );
+    nameController.dispose();
 
-    if (confirmed != true || !mounted) return;
+    if (newName == null || !mounted) return;
+    if (newName.isEmpty) {
+      _showMessage('กรุณากรอกชื่อ–นามสกุล');
+      return;
+    }
+    if (newName == student.fullName) return;
 
-    setState(() {
-      _students.removeWhere((s) => s.id == student.id);
-    });
-
-    _showMessage('ลบนักเรียนออกจากรายการแล้ว');
-  }
-
-  void _toggleAccount(_StudentRecord student) {
-    final int index = _students.indexWhere((s) => s.id == student.id);
-    if (index < 0) return;
-
-    final String nextStatus = student.accountStatus == 'ระงับ'
-        ? 'ใช้งาน'
-        : 'ระงับ';
-
-    setState(() {
-      _students[index] = student.copyWith(accountStatus: nextStatus);
-    });
-
-    _showMessage(
-      nextStatus == 'ระงับ'
-          ? 'ระงับบัญชี ${student.fullName} แล้ว'
-          : 'เปิดใช้งานบัญชี ${student.fullName} แล้ว',
-    );
+    setState(() => _busyIds.add(student.id));
+    try {
+      await (widget.updateName?.call(student.id, newName) ??
+          AuthService.updateProfile(uid: student.id, name: newName));
+      final List<_StudentRecord> fresh = await _refetchAndConfirm(
+        (_StudentRecord s) => s.fullName == newName,
+        student.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _students = fresh;
+        _loadFailed = false;
+      });
+      _showMessage('บันทึกชื่อนักเรียนแล้ว (ยืนยันกับระบบเรียบร้อย)');
+    } catch (e) {
+      debugPrint('update student name failed: $e');
+      _showMessage(
+        'บันทึกชื่อไม่สำเร็จ ระบบยังไม่ยืนยันการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง',
+      );
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(student.id));
+    }
   }
 
   void _showStudentDetail(_StudentRecord student) {
@@ -821,7 +441,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                                   ),
                                 ),
                                 Text(
-                                  '${student.studentCode} • ${student.level}/${student.room} • เลขที่ ${student.number}',
+                                  student.classLabel ?? kUnplaced,
                                   style: const TextStyle(
                                     fontSize: 12.5,
                                     color: SchoolAdminPalette.textSecondary,
@@ -843,34 +463,29 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                         value: student.email,
                       ),
                       _DetailRow(
-                        icon: Icons.supervisor_account_rounded,
-                        label: 'ผู้ปกครอง',
-                        value: student.guardianName,
+                        icon: Icons.badge_outlined,
+                        label: 'รหัสนักเรียน',
+                        value: student.studentCode ?? kNoData,
                       ),
                       _DetailRow(
-                        icon: Icons.phone_rounded,
-                        label: 'เบอร์ติดต่อ',
-                        value: student.guardianPhone,
-                      ),
-                      _DetailRow(
-                        icon: Icons.fact_check_rounded,
-                        label: 'การมาเรียนวันนี้',
-                        value: student.attendance,
+                        icon: Icons.layers_outlined,
+                        label: 'ระดับชั้น / ห้อง',
+                        value: student.classLabel ?? kNoData,
                       ),
                       _DetailRow(
                         icon: Icons.verified_user_rounded,
                         label: 'สถานะบัญชี',
-                        value: student.accountStatus,
+                        value: student.statusLabel,
                       ),
-                      _DetailRow(
-                        icon: Icons.schedule_rounded,
-                        label: 'เข้าใช้ล่าสุด',
-                        value: student.lastLogin,
-                      ),
-                      _DetailRow(
-                        icon: Icons.notes_rounded,
-                        label: 'หมายเหตุ',
-                        value: student.note,
+                      const SizedBox(height: 8),
+                      const Text(
+                        'ข้อมูลผู้ปกครอง การมาเรียนรายวัน และเวลาเข้าใช้ล่าสุด '
+                        'ยังไม่มีช่องทางอ่านจากระบบหลังบ้าน จึงไม่แสดงในหน้านี้',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          height: 1.45,
+                          color: SchoolAdminPalette.textSecondary,
+                        ),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
@@ -878,10 +493,10 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                         child: FilledButton.icon(
                           onPressed: () {
                             Navigator.of(sheetContext).pop();
-                            _openStudentForm(student: student);
+                            _editStudentName(student);
                           },
                           icon: const Icon(Icons.edit_rounded),
-                          label: const Text('แก้ไขข้อมูล'),
+                          label: const Text('แก้ไขชื่อ–นามสกุล'),
                         ),
                       ),
                     ],
@@ -910,6 +525,10 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(),
+                  if (_loadFailed) ...[
+                    const SizedBox(height: 14),
+                    _ErrorBanner(onRetry: _loadStudents),
+                  ],
                   const SizedBox(height: 14),
                   _buildSummary(),
                   const SizedBox(height: 14),
@@ -919,7 +538,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                   const SizedBox(height: 14),
                   _buildStudentList(students),
                   const SizedBox(height: 14),
-                  _buildBottomOverview(),
+                  _buildLevelOverview(),
                 ],
               ),
             ),
@@ -937,7 +556,8 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
           padding: const EdgeInsets.all(20),
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints constraints) {
-              final Widget title = const Row(
+              const Widget title = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
                     radius: 25,
@@ -962,7 +582,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'ดูรายชื่อ เพิ่มข้อมูล แก้ไขห้องเรียน ติดต่อผู้ปกครอง และตรวจสอบบัญชีนักเรียน',
+                          'ดูรายชื่อนักเรียน ตรวจสอบสถานะบัญชี แก้ไขชื่อ และระงับหรือเปิดใช้งานบัญชี',
                           style: TextStyle(
                             fontSize: 12.5,
                             height: 1.45,
@@ -980,18 +600,21 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 runSpacing: 8,
                 children: [
                   OutlinedButton.icon(
+                    onPressed: _isLoading ? null : _loadStudents,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('รีเฟรช'),
+                  ),
+                  FilledButton.icon(
                     onPressed: () {
-                      _showMessage(
-                        'ไปที่เมนู “นำเข้าข้อมูล” เพื่อเพิ่มรายชื่อจากไฟล์',
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SchoolImportPage(),
+                        ),
                       );
                     },
                     icon: const Icon(Icons.upload_file_rounded),
                     label: const Text('นำเข้ารายชื่อ'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: () => _openStudentForm(),
-                    icon: const Icon(Icons.person_add_alt_1_rounded),
-                    label: const Text('เพิ่มนักเรียน'),
                   ),
                 ],
               );
@@ -1005,7 +628,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
 
               return Row(
                 children: [
-                  Expanded(child: title),
+                  const Expanded(child: title),
                   const SizedBox(width: 14),
                   actions,
                 ],
@@ -1018,34 +641,39 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   }
 
   Widget _buildSummary() {
+    final String stateNote = _isLoading ? 'กำลังโหลด…' : 'โหลดไม่สำเร็จ';
+    final bool unknown = _isLoading || _loadFailed;
+
+    // ⚠️ ช่องตัวเลขใหญ่ต้องสั้นเสมอ — เคยใส่ 'ยังไม่มีข้อมูล' ลงไปแล้วการ์ด
+    // overflow 24px ข้อความอธิบายไปอยู่บรรทัดรองแทน
     final List<_SummaryItem> items = [
       _SummaryItem(
         title: 'นักเรียนทั้งหมด',
-        value: '${_students.length}',
-        detail: 'รายชื่อในโรงเรียน',
+        value: unknown ? '—' : '${_students.length}',
+        detail: unknown ? stateNote : 'รายชื่อในโรงเรียน',
         icon: Icons.groups_rounded,
         color: SchoolAdminPalette.primary,
       ),
       _SummaryItem(
         title: 'บัญชีใช้งานปกติ',
-        value: '$_activeCount',
-        detail: 'พร้อมเข้าใช้งาน',
+        value: unknown ? '—' : '$_activeCount',
+        detail: unknown ? stateNote : 'พร้อมเข้าใช้งาน',
         icon: Icons.verified_rounded,
         color: SchoolAdminPalette.green,
       ),
       _SummaryItem(
-        title: 'รอตรวจสอบ',
-        value: '$_pendingCount',
-        detail: 'ควรตรวจข้อมูลให้ครบ',
-        icon: Icons.hourglass_top_rounded,
-        color: SchoolAdminPalette.secondary,
+        title: 'บัญชีถูกระงับ',
+        value: unknown ? '—' : '$_suspendedCount',
+        detail: unknown ? stateNote : 'เข้าใช้งานไม่ได้',
+        icon: Icons.block_rounded,
+        color: SchoolAdminPalette.red,
       ),
       _SummaryItem(
-        title: 'ควรติดตาม',
-        value: '$_attentionCount',
-        detail: 'ขาด มาสาย หรือบัญชีมีปัญหา',
-        icon: Icons.notifications_active_rounded,
-        color: SchoolAdminPalette.red,
+        title: 'ยังไม่ได้จัดห้องเรียน',
+        value: unknown ? '—' : '$_unplacedCount',
+        detail: unknown ? stateNote : 'ยังไม่อยู่ในห้องเรียนใด',
+        icon: Icons.help_outline_rounded,
+        color: SchoolAdminPalette.secondary,
       ),
     ];
 
@@ -1063,208 +691,8 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
           spacing: spacing,
           runSpacing: spacing,
           children: items.map((_SummaryItem item) {
-            return SizedBox(
-              width: width,
-              child: _SummaryCard(item: item),
-            );
+            return SizedBox(width: width, child: _SummaryCard(item: item));
           }).toList(),
-        );
-      },
-    );
-  }
-
-  void _showExportDialog() {
-    String format = 'CSV (.csv)';
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Container(
-                width: 440,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            gradient: SchoolAdminPalette.heroGradient,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.download_rounded,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'ส่งออกรายชื่อนักเรียน',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'ดาวน์โหลดไฟล์ข้อมูลนักเรียนในระบบ',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline_rounded,
-                            color: SchoolAdminPalette.primary,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'จะส่งออกข้อมูลนักเรียนจำนวน ${_filteredStudents.length} รายการ ตามตัวกรองปัจจุบัน',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: Color(0xFF334155),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'เลือกรูปแบบไฟล์',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF334155),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: format,
-                          isExpanded: true,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF0F172A),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'CSV (.csv)',
-                              child: Text(
-                                'ไฟล์ CSV (.csv) สำหรับ Excel หรือโปรแกรมทั่วไป',
-                              ),
-                            ),
-                            DropdownMenuItem(
-                              value: 'Excel (.xlsx)',
-                              child: Text('ไฟล์ Microsoft Excel (.xlsx)'),
-                            ),
-                          ],
-                          onChanged: (String? val) {
-                            if (val != null) {
-                              setDialogState(() => format = val);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF64748B),
-                            side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 11,
-                            ),
-                          ),
-                          child: const Text(
-                            'ยกเลิก',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        FilledButton.icon(
-                          onPressed: () {
-                            Navigator.of(dialogContext).pop();
-                            _showMessage(
-                              'ส่งออกข้อมูลนักเรียน ${_filteredStudents.length} รายการเป็นไฟล์ $format สำเร็จแล้ว',
-                            );
-                          },
-                          style: FilledButton.styleFrom(
-                            backgroundColor: SchoolAdminPalette.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.file_download_outlined,
-                            size: 18,
-                          ),
-                          label: const Text(
-                            'ดาวน์โหลดไฟล์',
-                            style: TextStyle(fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
         );
       },
     );
@@ -1273,55 +701,52 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   Widget _buildQuickActions() {
     return _SectionCard(
       title: 'จัดการได้อย่างรวดเร็ว',
-      subtitle: 'รวมงานที่ใช้บ่อยไว้ในจุดเดียว',
+      subtitle: 'ปุ่มที่ยังไม่มีระบบหลังบ้านรองรับจะถูกปิดไว้พร้อมเหตุผล',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final List<_QuickActionData> actions = [
             _QuickActionData(
-              title: 'เพิ่มนักเรียน',
-              subtitle: 'เพิ่มรายชื่อใหม่',
-              icon: Icons.person_add_alt_1_rounded,
-              onTap: () => _openStudentForm(),
-            ),
-            _QuickActionData(
               title: 'นำเข้ารายชื่อ',
-              subtitle: 'เพิ่มหลายคนพร้อมกัน',
+              subtitle: 'เพิ่มนักเรียนหลายคนจากไฟล์',
               icon: Icons.upload_file_rounded,
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
+                  MaterialPageRoute<void>(
                     builder: (_) => const SchoolImportPage(),
                   ),
                 );
               },
             ),
             _QuickActionData(
-              title: 'ส่งออกรายชื่อ',
-              subtitle: 'เตรียมข้อมูลเป็นไฟล์',
-              icon: Icons.download_rounded,
-              onTap: () => _showExportDialog(),
-            ),
-            _QuickActionData(
-              title: 'ดูบัญชีที่มีปัญหา',
-              subtitle: _filterIssuesOnly
+              title: 'ดูบัญชีที่ถูกระงับ',
+              subtitle: _filterSuspendedOnly
                   ? 'กำลังกรอง (กดเพื่อยกเลิก)'
-                  : 'รอตรวจสอบหรือถูกระงับ',
+                  : 'กรองเฉพาะบัญชีที่ถูกระงับ',
               icon: Icons.warning_amber_rounded,
-              isActive: _filterIssuesOnly,
+              isActive: _filterSuspendedOnly,
               onTap: () {
                 setState(() {
-                  _filterIssuesOnly = !_filterIssuesOnly;
-                  if (_filterIssuesOnly) {
-                    _selectedStatus = 'ทุกสถานะ';
-                  }
+                  _filterSuspendedOnly = !_filterSuspendedOnly;
+                  if (_filterSuspendedOnly) _selectedStatus = kAllStatus;
                 });
-                _showMessage(
-                  _filterIssuesOnly
-                      ? 'กรองแสดงเฉพาะบัญชีที่มีปัญหา (พบ ${_filteredStudents.length} รายการ)'
-                      : 'แสดงนักเรียนทุกสถานะ (ทั้งหมด ${_students.length} รายการ)',
-                );
               },
+            ),
+            // ไม่มี RPC สร้างบัญชีนักเรียนรายคนที่แอปนี้เรียกได้
+            // (`admin_update_user_profile` เป็นของ aiot_dev_dashboard ไม่มี
+            // p_token, `create_staff_invitation` เป็นการเชิญบุคลากร ไม่ใช่
+            // นักเรียน) ทางเดียวที่ใช้ได้จริงคือ import_school_users_batch
+            const _QuickActionData(
+              title: 'เพิ่มนักเรียนรายคน',
+              subtitle: 'ยังไม่มีระบบหลังบ้านรองรับ ใช้ "นำเข้ารายชื่อ" แทน',
+              icon: Icons.person_add_alt_1_rounded,
+              onTap: null,
+            ),
+            const _QuickActionData(
+              title: 'ส่งออกรายชื่อ',
+              subtitle: 'ยังไม่มีระบบหลังบ้านรองรับการส่งออกไฟล์',
+              icon: Icons.download_rounded,
+              onTap: null,
             ),
           ];
 
@@ -1337,10 +762,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
             spacing: spacing,
             runSpacing: spacing,
             children: actions.map((_QuickActionData item) {
-              return SizedBox(
-                width: width,
-                child: _QuickActionCard(data: item),
-              );
+              return SizedBox(width: width, child: _QuickActionCard(data: item));
             }).toList(),
           );
         },
@@ -1349,16 +771,20 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   }
 
   Widget _buildFilters() {
+    final List<String> levelItems = _levelItems;
+    final List<String> roomItems = _roomItems;
+    final List<String> statusItems = _statusItems;
+
     return _SectionCard(
       title: 'ค้นหาและกรองรายชื่อ',
-      subtitle: 'เลือกเฉพาะข้อมูลที่ต้องการดู',
+      subtitle: 'ตัวเลือกทั้งหมดสร้างจากข้อมูลที่โหลดมาจริง',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final Widget search = TextField(
             controller: _searchController,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              hintText: 'ค้นหาชื่อ รหัส อีเมล ผู้ปกครอง หรือเบอร์โทร',
+              hintText: 'ค้นหาชื่อ อีเมล หรือรหัสนักเรียน',
               prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: _searchController.text.isEmpty
                   ? null
@@ -1374,37 +800,25 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
 
           final Widget level = _FilterDropdown(
             label: 'ระดับชั้น',
-            value: _selectedLevel,
-            items: const [
-              'ทุกระดับชั้น',
-              'ม.1',
-              'ม.2',
-              'ม.3',
-              'ม.4',
-              'ม.5',
-              'ม.6',
-            ],
-            onChanged: (String value) {
-              setState(() => _selectedLevel = value);
-            },
+            value: _valid(_selectedLevel, levelItems),
+            items: levelItems,
+            onChanged: (String value) =>
+                setState(() => _selectedLevel = value),
           );
 
           final Widget room = _FilterDropdown(
             label: 'ห้อง',
-            value: _selectedRoom,
-            items: const ['ทุกห้อง', '1', '2', '3', '4', '5', '6'],
-            onChanged: (String value) {
-              setState(() => _selectedRoom = value);
-            },
+            value: _valid(_selectedRoom, roomItems),
+            items: roomItems,
+            onChanged: (String value) => setState(() => _selectedRoom = value),
           );
 
           final Widget status = _FilterDropdown(
             label: 'สถานะบัญชี',
-            value: _selectedStatus,
-            items: const ['ทุกสถานะ', 'ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
-            onChanged: (String value) {
-              setState(() => _selectedStatus = value);
-            },
+            value: _valid(_selectedStatus, statusItems),
+            items: statusItems,
+            onChanged: (String value) =>
+                setState(() => _selectedStatus = value),
           );
 
           final Widget clear = OutlinedButton.icon(
@@ -1427,11 +841,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 ),
                 const SizedBox(height: 10),
                 Row(
-                  children: [
-                    Expanded(child: status),
-                    const SizedBox(width: 10),
-                    clear,
-                  ],
+                  children: [Expanded(child: status), const SizedBox(width: 10), clear],
                 ),
               ],
             );
@@ -1456,179 +866,292 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   }
 
   Widget _buildStudentList(List<_StudentRecord> students) {
+    final Widget body;
+    if (_isLoading) {
+      body = const _StateBlock(
+        icon: Icons.hourglass_top_rounded,
+        title: 'กำลังโหลดรายชื่อนักเรียน…',
+        detail: 'กำลังอ่านข้อมูลจากระบบ',
+        showSpinner: true,
+      );
+    } else if (_loadFailed) {
+      body = _StateBlock(
+        icon: Icons.cloud_off_rounded,
+        title: 'โหลดรายชื่อนักเรียนไม่สำเร็จ',
+        detail: 'ตรวจสอบการเชื่อมต่อแล้วกดลองใหม่อีกครั้ง',
+        onRetry: _loadStudents,
+      );
+    } else if (_students.isEmpty) {
+      body = const _StateBlock(
+        icon: Icons.inbox_rounded,
+        title: kNoData,
+        detail: 'ยังไม่มีบัญชีนักเรียนในโรงเรียนนี้',
+      );
+    } else if (students.isEmpty) {
+      body = const _StateBlock(
+        icon: Icons.search_off_rounded,
+        title: 'ไม่พบรายชื่อนักเรียนตามเงื่อนไข',
+        detail: 'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
+      );
+    } else {
+      body = LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          if (constraints.maxWidth >= 1050) {
+            return _DesktopStudentTable(
+              students: students,
+              busyIds: _busyIds,
+              onView: _showStudentDetail,
+              onEdit: _editStudentName,
+              onToggleAccount: _toggleAccount,
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: students.map((_StudentRecord student) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _MobileStudentCard(
+                    student: student,
+                    busy: _busyIds.contains(student.id),
+                    onView: () => _showStudentDetail(student),
+                    onEdit: () => _editStudentName(student),
+                    onToggle: () => _toggleAccount(student),
+                  ),
+                );
+              }).toList(),
+            ),
+          );
+        },
+      );
+    }
+
     return _SectionCard(
       title: 'รายชื่อนักเรียน',
-      subtitle: _filterIssuesOnly
-          ? 'พบ ${students.length} รายการ (กำลังกรองเฉพาะบัญชีที่มีปัญหา: รอตรวจสอบ / ระงับ / ขาด-สาย)'
-          : 'พบ ${students.length} รายการ',
+      subtitle: _isLoading
+          ? 'กำลังโหลด…'
+          : (_loadFailed
+                ? 'โหลดไม่สำเร็จ'
+                : 'พบ ${students.length} รายการ'
+                      '${_filterSuspendedOnly ? ' (กำลังกรองเฉพาะบัญชีที่ถูกระงับ)' : ''}'),
       padding: EdgeInsets.zero,
-      action: _filterIssuesOnly
+      action: _filterSuspendedOnly
           ? TextButton.icon(
               onPressed: _clearFilters,
               icon: const Icon(Icons.close_rounded, size: 16),
               label: const Text('ยกเลิกการกรอง'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFD97706),
-                backgroundColor: const Color(0xFFFEF3C7),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              ),
             )
           : null,
-      child: students.isEmpty
-          ? const _EmptyState()
-          : LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                if (constraints.maxWidth >= 1050) {
-                  return _DesktopStudentTable(
-                    students: students,
-                    onView: _showStudentDetail,
-                    onEdit: (student) => _openStudentForm(student: student),
-                    onToggleAccount: _toggleAccount,
-                    onDelete: _deleteStudent,
-                    onResetPassword: (student) {
-                      _showMessage(
-                        'ส่งคำขอตั้งรหัสผ่านใหม่ให้ ${student.fullName} แล้ว',
-                      );
-                    },
-                  );
-                }
-
-                return Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    children: students.map((_StudentRecord student) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _MobileStudentCard(
-                          student: student,
-                          onView: () => _showStudentDetail(student),
-                          onEdit: () => _openStudentForm(student: student),
-                          onToggle: () => _toggleAccount(student),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
+      child: body,
     );
   }
 
-  Widget _buildBottomOverview() {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final Widget levels = _SectionCard(
-          title: 'จำนวนนักเรียนแต่ละระดับชั้น',
-          subtitle: 'ช่วยดูภาพรวมการกระจายของนักเรียน',
-          child: LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints levelConstraints) {
-              int columns = 3;
+  Widget _buildLevelOverview() {
+    return _SectionCard(
+      title: 'จำนวนนักเรียนแต่ละระดับชั้น',
+      subtitle: 'นับจากการจัดห้องเรียนจริงใน homeroom_assignments',
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          if (_isLoading) {
+            return const Text(
+              'กำลังโหลด…',
+              style: TextStyle(
+                fontSize: 13,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            );
+          }
+          if (_loadFailed) {
+            return const Text(
+              'โหลดไม่สำเร็จ',
+              style: TextStyle(fontSize: 13, color: SchoolAdminPalette.red),
+            );
+          }
 
-              if (levelConstraints.maxWidth < 520) {
-                columns = 2;
-              }
+          final Map<String, int> counts = <String, int>{};
+          for (final _StudentRecord s in _students) {
+            final String key = s.gradeLevel ?? kUnplaced;
+            counts[key] = (counts[key] ?? 0) + 1;
+          }
+          if (counts.isEmpty) {
+            return const Text(
+              kNoData,
+              style: TextStyle(
+                fontSize: 13,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            );
+          }
 
-              if (levelConstraints.maxWidth < 260) {
-                columns = 1;
-              }
+          final List<String> keys = counts.keys.toList()
+            ..sort((String a, String b) {
+              if (a == kUnplaced) return 1;
+              if (b == kUnplaced) return -1;
+              return a.compareTo(b);
+            });
 
-              const double spacing = 8;
-              final double cardWidth =
-                  (levelConstraints.maxWidth - ((columns - 1) * spacing)) /
-                  columns;
+          int columns = 3;
+          if (constraints.maxWidth < 520) columns = 2;
+          if (constraints.maxWidth < 260) columns = 1;
+          const double spacing = 8;
+          final double cardWidth =
+              (constraints.maxWidth - ((columns - 1) * spacing)) / columns;
 
-              const List<String> levelOrder = [
-                'ม.1',
-                'ม.2',
-                'ม.3',
-                'ม.4',
-                'ม.5',
-                'ม.6',
-              ];
-              final Map<String, int> counts = {};
-              for (final _StudentRecord s in _students) {
-                counts[s.level] = (counts[s.level] ?? 0) + 1;
-              }
-              final List<String> orderedLevels = [
-                ...levelOrder.where(counts.containsKey),
-                ...counts.keys.where((l) => !levelOrder.contains(l)),
-              ];
-              final List<_LevelCountData> levels = orderedLevels
-                  .map(
-                    (l) => _LevelCountData(level: l, value: '${counts[l]} คน'),
-                  )
-                  .toList();
-
-              if (levels.isEmpty) {
-                return const Text(
-                  'ยังไม่มีนักเรียนในระบบ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                );
-              }
-
-              return Wrap(
-                spacing: spacing,
-                runSpacing: spacing,
-                children: levels.map((_LevelCountData item) {
-                  return SizedBox(
-                    width: cardWidth,
-                    child: _LevelCountCard(
-                      level: item.level,
-                      value: item.value,
-                    ),
-                  );
-                }).toList(),
-              );
-            },
-          ),
-        );
-
-        final List<_StudentRecord> attention = _students
-            .where((s) {
-              return s.attendance == 'ขาดเรียน' ||
-                  s.accountStatus == 'ระงับ' ||
-                  s.accountStatus == 'รอตรวจสอบ';
-            })
-            .take(4)
-            .toList();
-
-        final Widget attentionCard = _SectionCard(
-          title: 'รายการที่ควรตรวจสอบ',
-          subtitle: 'รวมรายการสำคัญที่ควรจัดการก่อน',
-          child: Column(
-            children: attention.map((_StudentRecord student) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _AttentionRow(
-                  student: student,
-                  onTap: () => _showStudentDetail(student),
+          return Wrap(
+            spacing: spacing,
+            runSpacing: spacing,
+            children: keys.map((String level) {
+              return SizedBox(
+                width: cardWidth,
+                child: _LevelCountCard(
+                  level: level,
+                  value: '${counts[level]} คน',
                 ),
               );
             }).toList(),
-          ),
-        );
-
-        if (constraints.maxWidth < 900) {
-          return Column(
-            children: [levels, const SizedBox(height: 14), attentionCard],
           );
-        }
+        },
+      ),
+    );
+  }
+}
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+class _Placement {
+  const _Placement({this.gradeLevel, this.room, this.studentCode});
+
+  final String? gradeLevel;
+  final String? room;
+  final String? studentCode;
+}
+
+class _StudentRecord {
+  const _StudentRecord({
+    required this.id,
+    required this.fullName,
+    required this.email,
+    required this.suspended,
+    this.gradeLevel,
+    this.room,
+    this.studentCode,
+  });
+
+  final String id;
+  final String fullName;
+  final String email;
+  final bool suspended;
+
+  /// null = backend ไม่ได้คืนค่านี้มา ต้องแสดง `ยังไม่มีข้อมูล` ไม่ใช่ค่าเดา
+  final String? gradeLevel;
+  final String? room;
+  final String? studentCode;
+
+  String get statusLabel => suspended
+      ? _SchoolStudentsPageState.kSuspended
+      : _SchoolStudentsPageState.kActive;
+
+  String? get classLabel {
+    if (gradeLevel == null) return null;
+    if (room == null || room == gradeLevel) return gradeLevel;
+    return '$gradeLevel/$room';
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูลนักเรียนไม่สำเร็จ ตัวเลขและรายชื่อทั้งหมดจึงยังไม่แสดง',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          FilledButton.tonal(onPressed: onRetry, child: const Text('ลองใหม่')),
+        ],
+      ),
+    );
+  }
+}
+
+class _StateBlock extends StatelessWidget {
+  const _StateBlock({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    this.onRetry,
+    this.showSpinner = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final VoidCallback? onRetry;
+  final bool showSpinner;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 42, horizontal: 16),
+      child: Center(
+        child: Column(
           children: [
-            Expanded(flex: 5, child: levels),
-            const SizedBox(width: 14),
-            Expanded(flex: 3, child: attentionCard),
+            if (showSpinner)
+              const SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              )
+            else
+              Icon(icon, size: 46, color: SchoolAdminPalette.textMuted),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: SchoolAdminPalette.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 12),
+              FilledButton.tonal(
+                onPressed: onRetry,
+                child: const Text('ลองใหม่'),
+              ),
+            ],
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -1667,6 +1190,8 @@ class _SummaryCard extends StatelessWidget {
               SizedBox(height: compact ? 9 : 12),
               Text(
                 item.value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: compact ? 24 : 28,
                   fontWeight: FontWeight.w900,
@@ -1786,111 +1311,108 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: data.isActive ? const Color(0xFFFFFBEB) : Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: data.onTap,
+    final bool enabled = data.onTap != null;
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: data.isActive ? const Color(0xFFFFFBEB) : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: data.isActive ? const Color(0xFFFFFBEB) : Colors.white,
-            border: Border.all(
+        child: InkWell(
+          onTap: data.onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
               color: data.isActive
-                  ? const Color(0xFFF59E0B)
-                  : const Color(0xFFE2E8F0),
-              width: data.isActive ? 1.5 : 1.0,
-            ),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 19,
-                backgroundColor: data.isActive
-                    ? const Color(0xFFFDE68A)
-                    : const Color(0xFFF1F5F9),
-                child: Icon(
-                  data.icon,
-                  color: data.isActive
-                      ? const Color(0xFFB45309)
-                      : SchoolAdminPalette.primary,
-                  size: 20,
-                ),
+                  ? const Color(0xFFFFFBEB)
+                  : (enabled ? Colors.white : const Color(0xFFF8FAFC)),
+              border: Border.all(
+                color: data.isActive
+                    ? const Color(0xFFF59E0B)
+                    : const Color(0xFFE2E8F0),
+                width: data.isActive ? 1.5 : 1.0,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            data.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w900,
-                              color: data.isActive
-                                  ? const Color(0xFF92400E)
-                                  : const Color(0xFF0F172A),
-                            ),
-                          ),
-                        ),
-                        if (data.isActive) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF59E0B),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'กำลังกรอง',
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 19,
+                  backgroundColor: data.isActive
+                      ? const Color(0xFFFDE68A)
+                      : const Color(0xFFF1F5F9),
+                  child: Icon(
+                    data.icon,
+                    color: data.isActive
+                        ? const Color(0xFFB45309)
+                        : SchoolAdminPalette.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              data.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w900,
+                                color: data.isActive
+                                    ? const Color(0xFF92400E)
+                                    : const Color(0xFF0F172A),
                               ),
                             ),
                           ),
+                          if (!enabled) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                'ปิดใช้งาน',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      data.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: data.isActive
-                            ? const Color(0xFFB45309)
-                            : const Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 1),
+                      Text(
+                        data.subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: data.isActive
+                              ? const Color(0xFFB45309)
+                              : const Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(
-                data.isActive
-                    ? Icons.close_rounded
-                    : Icons.arrow_forward_ios_rounded,
-                size: data.isActive ? 16 : 13,
-                color: data.isActive
-                    ? const Color(0xFFB45309)
-                    : const Color(0xFF94A3B8),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1935,98 +1457,20 @@ class _FilterDropdown extends StatelessWidget {
   }
 }
 
-class _DialogDropdown extends StatelessWidget {
-  const _DialogDropdown({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  final String label;
-  final IconData icon;
-  final String value;
-  final List<String> items;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF334155),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: Color(0xFF64748B),
-                size: 20,
-              ),
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
-              ),
-              items: items.map((String item) {
-                return DropdownMenuItem<String>(
-                  value: item,
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 18, color: const Color(0xFF64748B)),
-                      const SizedBox(width: 10),
-                      Text(item),
-                    ],
-                  ),
-                );
-              }).toList(),
-              onChanged: (String? newValue) {
-                if (newValue != null) onChanged(newValue);
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _DesktopStudentTable extends StatelessWidget {
   const _DesktopStudentTable({
     required this.students,
+    required this.busyIds,
     required this.onView,
     required this.onEdit,
     required this.onToggleAccount,
-    required this.onDelete,
-    required this.onResetPassword,
   });
 
   final List<_StudentRecord> students;
+  final Set<String> busyIds;
   final ValueChanged<_StudentRecord> onView;
   final ValueChanged<_StudentRecord> onEdit;
   final ValueChanged<_StudentRecord> onToggleAccount;
-  final ValueChanged<_StudentRecord> onDelete;
-  final ValueChanged<_StudentRecord> onResetPassword;
 
   @override
   Widget build(BuildContext context) {
@@ -2038,12 +1482,9 @@ class _DesktopStudentTable extends StatelessWidget {
       columnWidths: const {
         0: FlexColumnWidth(2.8),
         1: FlexColumnWidth(1.3),
-        2: FlexColumnWidth(1.0),
-        3: FlexColumnWidth(0.7),
-        4: FlexColumnWidth(1.25),
-        5: FlexColumnWidth(1.25),
-        6: FlexColumnWidth(1.1),
-        7: FlexColumnWidth(0.85),
+        2: FlexColumnWidth(1.2),
+        3: FlexColumnWidth(1.25),
+        4: FlexColumnWidth(0.85),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
@@ -2058,14 +1499,12 @@ class _DesktopStudentTable extends StatelessWidget {
             _StudentTableHeader(text: 'นักเรียน', align: TextAlign.left),
             _StudentTableHeader(text: 'รหัสนักเรียน'),
             _StudentTableHeader(text: 'ชั้น/ห้อง'),
-            _StudentTableHeader(text: 'เลขที่'),
-            _StudentTableHeader(text: 'การมาเรียน'),
             _StudentTableHeader(text: 'สถานะบัญชี'),
-            _StudentTableHeader(text: 'เข้าใช้ล่าสุด'),
             _StudentTableHeader(text: 'จัดการ'),
           ],
         ),
         ...students.map((_StudentRecord student) {
+          final bool busy = busyIds.contains(student.id);
           return TableRow(
             children: [
               _StudentTableNameCell(
@@ -2073,192 +1512,88 @@ class _DesktopStudentTable extends StatelessWidget {
                 onTap: () => onView(student),
               ),
               _StudentTableCell(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    student.studentCode,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF334155),
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-              ),
-              _StudentTableCell(
                 child: Text(
-                  '${student.level}/${student.room}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-              ),
-              _StudentTableCell(
-                child: Text(
-                  '${student.number}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334155),
-                  ),
-                ),
-              ),
-              _StudentTableCell(
-                child: _AttendanceBadge(value: student.attendance),
-              ),
-              _StudentTableCell(
-                child: _AccountBadge(value: student.accountStatus),
-              ),
-              _StudentTableCell(
-                child: Text(
-                  student.lastLogin,
+                  student.studentCode ?? _SchoolStudentsPageState.kNoData,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w700,
+                    color: student.studentCode == null
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF334155),
                   ),
                 ),
               ),
               _StudentTableCell(
-                child: PopupMenuButton<String>(
-                  tooltip: 'ตัวเลือกจัดการ',
-                  color: Colors.white,
-                  surfaceTintColor: Colors.transparent,
-                  icon: const Icon(
-                    Icons.more_horiz_rounded,
-                    color: Color(0xFF64748B),
-                    size: 20,
+                child: Text(
+                  student.classLabel ?? _SchoolStudentsPageState.kNoData,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: student.classLabel == null
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF0F172A),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  elevation: 6,
-                  shadowColor: const Color(0x1A000000),
-                  onSelected: (String value) {
-                    switch (value) {
-                      case 'view':
-                        onView(student);
-                        break;
-                      case 'edit':
-                        onEdit(student);
-                        break;
-                      case 'password':
-                        onResetPassword(student);
-                        break;
-                      case 'toggle':
-                        onToggleAccount(student);
-                        break;
-                      case 'delete':
-                        onDelete(student);
-                        break;
-                    }
-                  },
-                  itemBuilder: (BuildContext context) {
-                    return [
-                      const PopupMenuItem(
-                        value: 'view',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.visibility_outlined,
-                              size: 18,
-                              color: Color(0xFF475569),
-                            ),
-                            SizedBox(width: 10),
-                            Text('ดูรายละเอียด'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.edit_outlined,
-                              size: 18,
-                              color: Color(0xFF475569),
-                            ),
-                            SizedBox(width: 10),
-                            Text('แก้ไขข้อมูล'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'password',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.lock_reset_rounded,
-                              size: 18,
-                              color: Color(0xFF475569),
-                            ),
-                            SizedBox(width: 10),
-                            Text('ตั้งรหัสผ่านใหม่'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'toggle',
-                        child: Row(
-                          children: [
-                            Icon(
-                              student.accountStatus == 'ระงับ'
-                                  ? Icons.check_circle_outline_rounded
-                                  : Icons.block_rounded,
-                              size: 18,
-                              color: student.accountStatus == 'ระงับ'
-                                  ? const Color(0xFF16A34A)
-                                  : const Color(0xFFD97706),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              student.accountStatus == 'ระงับ'
-                                  ? 'เปิดใช้งานบัญชี'
-                                  : 'ระงับบัญชีชั่วคราว',
-                            ),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.delete_outline_rounded,
-                              size: 18,
-                              color: Color(0xFFEF4444),
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'ลบรายชื่อ',
-                              style: TextStyle(color: Color(0xFFEF4444)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ];
-                  },
                 ),
+              ),
+              _StudentTableCell(
+                child: _AccountBadge(value: student.statusLabel),
+              ),
+              _StudentTableCell(
+                child: busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : PopupMenuButton<String>(
+                        tooltip: 'ตัวเลือกจัดการ',
+                        color: Colors.white,
+                        surfaceTintColor: Colors.transparent,
+                        icon: const Icon(
+                          Icons.more_horiz_rounded,
+                          color: Color(0xFF64748B),
+                          size: 20,
+                        ),
+                        onSelected: (String value) {
+                          switch (value) {
+                            case 'view':
+                              onView(student);
+                              break;
+                            case 'edit':
+                              onEdit(student);
+                              break;
+                            case 'toggle':
+                              onToggleAccount(student);
+                              break;
+                          }
+                        },
+                        itemBuilder: (BuildContext context) {
+                          return [
+                            const PopupMenuItem<String>(
+                              value: 'view',
+                              child: Text('ดูรายละเอียด'),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Text('แก้ไขชื่อ–นามสกุล'),
+                            ),
+                            PopupMenuItem<String>(
+                              value: 'toggle',
+                              child: Text(
+                                student.suspended
+                                    ? 'เปิดใช้งานบัญชี'
+                                    : 'ระงับบัญชีชั่วคราว',
+                              ),
+                            ),
+                          ];
+                        },
+                      ),
               ),
             ],
           );
@@ -2288,7 +1623,6 @@ class _StudentTableHeader extends StatelessWidget {
           fontSize: 12.5,
           fontWeight: FontWeight.w800,
           color: Color(0xFF475569),
-          letterSpacing: 0.2,
         ),
       ),
     );
@@ -2319,15 +1653,14 @@ class _StudentTableNameCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            CircleAvatar(
+            const CircleAvatar(
               radius: 18,
-              backgroundColor: const Color(0xFFF1F5F9),
-              child: const Icon(
+              backgroundColor: Color(0xFFF1F5F9),
+              child: Icon(
                 Icons.person_rounded,
                 size: 19,
                 color: SchoolAdminPalette.primary,
@@ -2373,12 +1706,14 @@ class _StudentTableNameCell extends StatelessWidget {
 class _MobileStudentCard extends StatelessWidget {
   const _MobileStudentCard({
     required this.student,
+    required this.busy,
     required this.onView,
     required this.onEdit,
     required this.onToggle,
   });
 
   final _StudentRecord student;
+  final bool busy;
   final VoidCallback onView;
   final VoidCallback onEdit;
   final VoidCallback onToggle;
@@ -2396,10 +1731,10 @@ class _MobileStudentCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 20,
-                backgroundColor: const Color(0xFFF1F5F9),
-                child: const Icon(
+                backgroundColor: Color(0xFFF1F5F9),
+                child: Icon(
                   Icons.person_rounded,
                   color: SchoolAdminPalette.primary,
                   size: 20,
@@ -2422,7 +1757,9 @@ class _MobileStudentCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${student.studentCode} • ${student.level}/${student.room} • เลขที่ ${student.number}',
+                      student.classLabel ?? _SchoolStudentsPageState.kUnplaced,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF64748B),
@@ -2442,114 +1779,37 @@ class _MobileStudentCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(child: _AttendanceBadge(value: student.attendance)),
-              const SizedBox(width: 8),
-              Expanded(child: _AccountBadge(value: student.accountStatus)),
-            ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _AccountBadge(value: student.statusLabel),
           ),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: onEdit,
+                  onPressed: busy ? null : onEdit,
                   icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: const Text('แก้ไข'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF334155),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                  ),
+                  label: const Text('แก้ไขชื่อ'),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: onToggle,
+                  onPressed: busy ? null : onToggle,
                   icon: Icon(
-                    student.accountStatus == 'ระงับ'
+                    student.suspended
                         ? Icons.lock_open_rounded
                         : Icons.block_rounded,
                     size: 16,
                   ),
-                  label: Text(
-                    student.accountStatus == 'ระงับ' ? 'เปิดบัญชี' : 'ระงับ',
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: student.accountStatus == 'ระงับ'
-                        ? const Color(0xFF16A34A)
-                        : const Color(0xFFD97706),
-                    side: BorderSide(
-                      color: student.accountStatus == 'ระงับ'
-                          ? const Color(0xFFBBF7D0)
-                          : const Color(0xFFFDE68A),
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                  ),
+                  label: Text(student.suspended ? 'เปิดบัญชี' : 'ระงับ'),
                 ),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-}
-
-class _AttendanceBadge extends StatelessWidget {
-  const _AttendanceBadge({required this.value});
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color bg;
-    final Color border;
-    final Color text;
-    final IconData icon;
-
-    switch (value) {
-      case 'มาเรียน':
-        bg = const Color(0xFFECFDF5);
-        border = const Color(0xFFA7F3D0);
-        text = const Color(0xFF059669);
-        icon = Icons.check_circle_rounded;
-        break;
-      case 'มาสาย':
-        bg = const Color(0xFFFFFBEB);
-        border = const Color(0xFFFDE68A);
-        text = const Color(0xFFD97706);
-        icon = Icons.access_time_filled_rounded;
-        break;
-      case 'ลา':
-      case 'ลาป่วย':
-        bg = const Color(0xFFEFF6FF);
-        border = const Color(0xFFBFDBFE);
-        text = const Color(0xFF2563EB);
-        icon = Icons.event_busy_rounded;
-        break;
-      default:
-        bg = const Color(0xFFFEF2F2);
-        border = const Color(0xFFFECACA);
-        text = const Color(0xFFDC2626);
-        icon = Icons.cancel_rounded;
-        break;
-    }
-
-    return _Badge(
-      label: value,
-      bgColor: bg,
-      borderColor: border,
-      textColor: text,
-      icon: icon,
     );
   }
 }
@@ -2561,82 +1821,38 @@ class _AccountBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bg;
-    final Color border;
-    final Color text;
-    final IconData icon;
-
-    switch (value) {
-      case 'ใช้งาน':
-        bg = const Color(0xFFF0FDF4);
-        border = const Color(0xFFBBF7D0);
-        text = const Color(0xFF16A34A);
-        icon = Icons.verified_rounded;
-        break;
-      case 'รอตรวจสอบ':
-        bg = const Color(0xFFFFFBEB);
-        border = const Color(0xFFFDE68A);
-        text = const Color(0xFFD97706);
-        icon = Icons.hourglass_top_rounded;
-        break;
-      default:
-        bg = const Color(0xFFFEF2F2);
-        border = const Color(0xFFFECACA);
-        text = const Color(0xFFDC2626);
-        icon = Icons.block_rounded;
-        break;
-    }
-
-    return _Badge(
-      label: value,
-      bgColor: bg,
-      borderColor: border,
-      textColor: text,
-      icon: icon,
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.label,
-    required this.bgColor,
-    required this.borderColor,
-    required this.textColor,
-    required this.icon,
-  });
-
-  final String label;
-  final Color bgColor;
-  final Color borderColor;
-  final Color textColor;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
+    final bool active = value == _SchoolStudentsPageState.kActive;
     return Container(
       constraints: const BoxConstraints(minWidth: 84),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: active ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor),
+        border: Border.all(
+          color: active ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 13, color: textColor),
+          Icon(
+            active ? Icons.verified_rounded : Icons.block_rounded,
+            size: 13,
+            color: active ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+          ),
           const SizedBox(width: 4.5),
           Flexible(
             child: Text(
-              label,
+              value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: textColor,
+                color: active
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFDC2626),
               ),
             ),
           ),
@@ -2644,13 +1860,6 @@ class _Badge extends StatelessWidget {
       ),
     );
   }
-}
-
-class _LevelCountData {
-  const _LevelCountData({required this.level, required this.value});
-
-  final String level;
-  final String value;
 }
 
 class _LevelCountCard extends StatelessWidget {
@@ -2674,6 +1883,8 @@ class _LevelCountCard extends StatelessWidget {
         children: [
           Text(
             level,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -2690,79 +1901,6 @@ class _LevelCountCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AttentionRow extends StatelessWidget {
-  const _AttentionRow({required this.student, required this.onTap});
-
-  final _StudentRecord student;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF2F2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Color(0xFFDC2626),
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.fullName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      '${student.level}/${student.room} • ${student.attendance} • บัญชี${student.accountStatus}',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF94A3B8),
-                size: 20,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -2805,7 +1943,7 @@ class _DetailRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(
-              value.isEmpty ? 'ไม่ได้ระบุ' : value,
+              value.isEmpty ? _SchoolStudentsPageState.kNoData : value,
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontSize: 12.5,
@@ -2815,45 +1953,6 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 45, horizontal: 16),
-      child: Center(
-        child: Column(
-          children: [
-            Icon(
-              Icons.search_off_rounded,
-              size: 46,
-              color: SchoolAdminPalette.textMuted,
-            ),
-            SizedBox(height: 10),
-            Text(
-              'ไม่พบรายชื่อนักเรียน',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-                color: SchoolAdminPalette.textPrimary,
-              ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: SchoolAdminPalette.textSecondary,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -2887,56 +1986,8 @@ class _QuickActionData {
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+
+  /// null = ยังไม่มี backend รองรับ การ์ดจะถูก disable พร้อมบอกเหตุผลใน subtitle
+  final VoidCallback? onTap;
   final bool isActive;
-}
-
-class _StudentRecord {
-  const _StudentRecord({
-    required this.id,
-    required this.studentCode,
-    required this.fullName,
-    required this.level,
-    required this.room,
-    required this.number,
-    required this.email,
-    required this.guardianName,
-    required this.guardianPhone,
-    required this.attendance,
-    required this.accountStatus,
-    required this.lastLogin,
-    required this.note,
-  });
-
-  final String id;
-  final String studentCode;
-  final String fullName;
-  final String level;
-  final String room;
-  final int number;
-  final String email;
-  final String guardianName;
-  final String guardianPhone;
-  final String attendance;
-  final String accountStatus;
-  final String lastLogin;
-  final String note;
-
-  _StudentRecord copyWith({String? accountStatus}) {
-    return _StudentRecord(
-      id: id,
-      studentCode: studentCode,
-      fullName: fullName,
-      level: level,
-      room: room,
-      number: number,
-      email: email,
-      guardianName: guardianName,
-      guardianPhone: guardianPhone,
-      attendance: attendance,
-      accountStatus: accountStatus ?? this.accountStatus,
-      lastLogin: lastLogin,
-      note: note,
-    );
-  }
 }

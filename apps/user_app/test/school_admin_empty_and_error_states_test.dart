@@ -12,6 +12,14 @@ import 'package:my_first_app/pages/school_admin/school_reports_page.dart';
 import 'package:my_first_app/pages/school_admin/school_settings_page.dart';
 import 'package:my_first_app/pages/school_admin/school_admin_profile_page.dart';
 
+// อัปเดต 2026-09-07: หน้าเหล่านี้เคยรวม "โหลดไม่สำเร็จ" กับ "ไม่มีข้อมูล"
+// เป็นสถานะเดียวกัน ทำให้ผู้ใช้แยกไม่ออกว่าระบบพังหรือยังไม่มีข้อมูลจริง
+// ตอนนี้แยกออกจากกันแล้วตามเกณฑ์ใน AGENTS.md
+//
+// ใน widget test ไม่มี Supabase client จริง การเรียก service จึงล้มเหลวเสมอ
+// สถานะที่ถูกต้องของหน้าในสภาพนี้คือ **error** ไม่ใช่ empty — assertion
+// ด้านล่างจึงตรวจข้อความ error ที่เจาะจงต่อหน้า ซึ่งพิสูจน์สองอย่างพร้อมกัน:
+// error ถูกเปิดเผย (ไม่ถูกกลืน) และไม่ถูกแสดงเป็น empty
 void main() {
   setUp(() {
     currentUserModel = const UserModel(
@@ -52,7 +60,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: SchoolStudentsPage()));
       await tester.pumpAndSettle();
 
-      expect(find.text('ไม่พบรายชื่อนักเรียน'), findsOneWidget);
+      expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
     },
   );
 
@@ -66,7 +74,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: SchoolTeachersPage()));
       await tester.pumpAndSettle();
 
-      expect(find.text('ไม่พบรายชื่อครูและบุคลากร'), findsOneWidget);
+      expect(find.text('โหลดรายชื่อบุคลากรไม่สำเร็จ'), findsOneWidget);
     },
   );
 
@@ -81,7 +89,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ไม่พบอุปกรณ์'), findsOneWidget);
-      expect(find.text('ยังไม่มีประวัติการจัดการอุปกรณ์'), findsOneWidget);
+      expect(find.text('โหลดประวัติการจัดการอุปกรณ์ไม่สำเร็จ'), findsOneWidget);
     },
   );
 
@@ -186,7 +194,7 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(find.text('ยังไม่มีประวัติการแก้ไขการตั้งค่า'), findsOneWidget);
+      expect(find.text('โหลดประวัติการแก้ไขการตั้งค่าไม่สำเร็จ'), findsOneWidget);
     },
   );
 
@@ -206,7 +214,7 @@ void main() {
         find.textContaining('ข้อมูลโปรไฟล์ดึงจากบัญชีปัจจุบัน'),
         findsOneWidget,
       );
-      expect(find.text('ยังไม่มีประวัติกิจกรรมล่าสุด'), findsOneWidget);
+      expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);
     },
   );
 }

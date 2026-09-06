@@ -22,18 +22,19 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   final TextEditingController _emailController = TextEditingController(
     text: 'admin@school.ac.th',
   );
-  final TextEditingController _phoneController = TextEditingController(
-    text: '089-000-0000',
-  );
-  final TextEditingController _employeeCodeController = TextEditingController(
-    text: 'ADM-0001',
-  );
-  final TextEditingController _positionController = TextEditingController(
-    text: 'ผู้ดูแลระบบโรงเรียน',
-  );
-  final TextEditingController _departmentController = TextEditingController(
-    text: 'ฝ่ายเทคโนโลยีสารสนเทศ',
-  );
+  // ว่างไว้ ไม่ใส่ค่าตัวอย่าง — `public.users` มีแค่
+  // id/school_id/email/student_code/first_name/last_name/status/building
+  // ไม่มีคอลัมน์ phone, ตำแหน่ง หรือรหัสพนักงานเลย (ตรวจกับ information_schema
+  // ของฐานข้อมูลที่รันอยู่ ระวัง auth.users ของอีกแอปที่มี phone และชื่อชนกัน)
+  //
+  // ของเดิมใส่ '089-000-0000' / 'ADM-0001' / 'ผู้ดูแลระบบโรงเรียน' ไว้ และ
+  // initState ไม่เคยเขียนทับสามช่องนี้ ผู้ดูแลจึงเห็นเบอร์โทรกับรหัสพนักงาน
+  // ที่ดูเหมือนของตัวเองทั้งที่ระบบไม่เคยเก็บ
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _employeeCodeController =
+      TextEditingController();
+  final TextEditingController _positionController = TextEditingController();
+  final TextEditingController _departmentController = TextEditingController();
 
   String? _profileImageUrl;
   bool _emailNotification = true;
@@ -41,6 +42,13 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   bool _securityNotification = true;
 
   List<_ProfileLog> _logs = [];
+
+  /// แยก loading / data / empty / error ออกจากกัน เดิมมีแค่ `_logs` เปล่า ๆ
+  /// กับ `catch (_) {}` ที่กลืน error ทำให้ "ยังไม่มี log" กับ "โหลดไม่สำเร็จ"
+  /// หน้าตาเหมือนกันทุกประการ
+  bool _logsLoading = true;
+  bool _logsFailed = false;
+  bool _savingProfile = false;
 
   @override
   void initState() {
@@ -57,6 +65,12 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   }
 
   Future<void> _loadLogs() async {
+    if (mounted) {
+      setState(() {
+        _logsLoading = true;
+        _logsFailed = false;
+      });
+    }
     try {
       final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 10);
       if (!mounted) return;
@@ -68,12 +82,37 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                     '${l.createdAt.hour.toString().padLeft(2, '0')}:${l.createdAt.minute.toString().padLeft(2, '0')} น.',
                 action: l.action,
                 detail: l.detail.isNotEmpty ? l.detail : l.target,
-                type: 'success',
+                // เดิม hardcode 'success' ให้ทุกรายการ ทำให้ log ทุกอันถูก
+                // ระบายเป็นสีเขียวว่าสำเร็จ แม้จะเป็นเหตุการณ์ล้มเหลวก็ตาม
+                // audit_logs ไม่มีคอลัมน์ผลลัพธ์ จึงอนุมานจากชื่อ action
+                // เท่าที่บอกได้จริง และไม่เดาเมื่อบอกไม่ได้
+                type: _logTypeFor(l.action),
               ),
             )
             .toList();
+        _logsLoading = false;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SchoolAdminProfilePage fetchAuditLogs failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _logsLoading = false;
+        _logsFailed = true;
+      });
+    }
+  }
+
+  /// `audit_logs` ไม่ได้เก็บสถานะสำเร็จ/ล้มเหลวไว้ ชื่อ action จึงเป็นสิ่งเดียว
+  /// ที่ใช้อนุมานได้ อะไรที่บอกไม่ได้ให้เป็นกลาง ดีกว่าเดาว่าสำเร็จ
+  String _logTypeFor(String action) {
+    final a = action.toLowerCase();
+    if (a.contains('fail') || a.contains('denied') || a.contains('revoke')) {
+      return 'error';
+    }
+    if (a.contains('delete') || a.contains('suspend') || a.contains('archive')) {
+      return 'warning';
+    }
+    return 'neutral';
   }
 
   @override
@@ -219,9 +258,36 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       return;
     }
 
-    _message(
-      'บันทึกข้อมูลโปรไฟล์แล้ว (ข้อมูลเพิ่มเติมยังไม่เชื่อมต่อระบบหลังบ้าน)',
-    );
+    // เดิมบรรทัดนี้ขึ้นข้อความว่า "บันทึกข้อมูลโปรไฟล์แล้ว" โดยไม่เขียนอะไรเลย
+    //
+    // ชื่อ-นามสกุลบันทึกได้จริงผ่าน update_user_profile ซึ่งรับ p_token
+    // (ตรวจลายเซ็นกับฐานข้อมูลที่รันอยู่แล้ว) — ระวังอย่าสับสนกับ
+    // admin_update_user_profile ที่ไม่มี p_token เลย นั่นเป็น RPC ของ
+    // aiot_dev_dashboard เรียกจากแอปนี้จะได้ actor เป็น null เงียบ ๆ
+    //
+    // ฟิลด์อื่น (อีเมล เบอร์โทร รูปโปรไฟล์ การแจ้งเตือน) ยังไม่มีที่เก็บใน
+    // สคีมา จึงไม่อ้างว่าบันทึกให้
+    final user = currentUserModel;
+    if (user == null) {
+      _message('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
+      return;
+    }
+
+    setState(() => _savingProfile = true);
+    try {
+      await AuthService.updateProfile(
+        uid: user.uid,
+        name: _fullNameController.text.trim(),
+      );
+      if (!mounted) return;
+      _message('บันทึกชื่อเรียบร้อยแล้ว (ฟิลด์อื่นยังไม่รองรับการบันทึก)');
+    } catch (e) {
+      debugPrint('updateProfile failed: $e');
+      if (!mounted) return;
+      _message('บันทึกไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      if (mounted) setState(() => _savingProfile = false);
+    }
   }
 
   Future<void> _changePassword() async {
@@ -545,9 +611,16 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                     label: const Text('เปลี่ยนรูป'),
                   ),
                   FilledButton.icon(
-                    onPressed: _saveProfile,
-                    icon: const Icon(Icons.save_rounded),
-                    label: const Text('บันทึก'),
+                    // ปิดปุ่มระหว่างบันทึก กันกดซ้ำแล้วยิง RPC ซ้อน
+                    onPressed: _savingProfile ? null : _saveProfile,
+                    icon: _savingProfile
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_rounded),
+                    label: Text(_savingProfile ? 'กำลังบันทึก…' : 'บันทึก'),
                   ),
                 ],
               );
@@ -685,6 +758,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   controller: _phoneController,
                   decoration: const InputDecoration(
                     labelText: 'เบอร์โทรศัพท์',
+                    hintText: 'ยังไม่รองรับการบันทึก',
                     prefixIcon: Icon(Icons.phone_rounded),
                   ),
                 ),
@@ -717,6 +791,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   controller: _employeeCodeController,
                   decoration: const InputDecoration(
                     labelText: 'รหัสผู้ใช้งาน / รหัสบุคลากร',
+                    hintText: 'ยังไม่รองรับการบันทึก',
                     prefixIcon: Icon(Icons.tag_rounded),
                   ),
                 ),
@@ -728,6 +803,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     labelText: 'ตำแหน่ง',
+                    hintText: 'ยังไม่รองรับการบันทึก',
                     prefixIcon: Icon(Icons.workspace_premium_rounded),
                   ),
                 ),
@@ -738,6 +814,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   controller: _departmentController,
                   decoration: const InputDecoration(
                     labelText: 'ฝ่าย / หน่วยงาน',
+                    hintText: 'ยังไม่รองรับการบันทึก',
                     prefixIcon: Icon(Icons.account_tree_rounded),
                   ),
                 ),
@@ -899,14 +976,33 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               alignment: Alignment.center,
-              child: const Text(
-                'ยังไม่มีประวัติกิจกรรมล่าสุด',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: SchoolAdminPalette.textSecondary,
-                ),
-              ),
+              child: _logsLoading
+                  ? const CircularProgressIndicator()
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _logsFailed
+                              ? 'โหลดประวัติไม่สำเร็จ'
+                              : 'ยังไม่มีข้อมูลประวัติกิจกรรม',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _logsFailed
+                                ? SchoolAdminPalette.red
+                                : SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                        if (_logsFailed) ...[
+                          const SizedBox(height: 6),
+                          TextButton(
+                            onPressed: _loadLogs,
+                            style: TextButton.styleFrom(minimumSize: Size.zero),
+                            child: const Text('ลองใหม่'),
+                          ),
+                        ],
+                      ],
+                    ),
             )
           : Column(
               children: _logs.map((_ProfileLog log) {
@@ -1265,9 +1361,13 @@ class _ProfileLogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = log.type == 'success'
-        ? SchoolAdminPalette.green
-        : SchoolAdminPalette.primaryDark;
+    // ไม่มีสีเขียว "สำเร็จ" แล้ว เพราะ audit_logs ไม่ได้บอกผลลัพธ์ — เขียว
+    // ทุกแถวคือการอ้างสิ่งที่ข้อมูลไม่ได้บอก
+    final Color color = switch (log.type) {
+      'error' => SchoolAdminPalette.red,
+      'warning' => SchoolAdminPalette.secondary,
+      _ => SchoolAdminPalette.primaryDark,
+    };
 
     return Container(
       width: double.infinity,
