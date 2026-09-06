@@ -4,9 +4,20 @@ import 'package:shared_core/shared_core.dart';
 import '../../theme/school_admin_palette.dart';
 
 class SchoolAdminProfilePage extends StatefulWidget {
-  const SchoolAdminProfilePage({super.key, this.onBack});
+  const SchoolAdminProfilePage({
+    super.key,
+    this.onBack,
+    this.loadLogs,
+    this.updateProfile,
+  });
 
   final VoidCallback? onBack;
+
+  /// Injectable seams for tests — production leaves these null and uses the
+  /// real service (same pattern as school_resources_page).
+  final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+  final Future<void> Function({required String uid, required String name})?
+  updateProfile;
 
   @override
   State<SchoolAdminProfilePage> createState() => _SchoolAdminProfilePageState();
@@ -72,7 +83,8 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       });
     }
     try {
-      final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 10);
+      final logs = await (widget.loadLogs ??
+          () => SchoolAdminPlatformService().fetchAuditLogs(limit: 10))();
       if (!mounted) return;
       setState(() {
         _logs = logs
@@ -275,10 +287,10 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
 
     setState(() => _savingProfile = true);
     try {
-      await AuthService.updateProfile(
-        uid: user.uid,
-        name: _fullNameController.text.trim(),
-      );
+      final save = widget.updateProfile ??
+          ({required String uid, required String name}) =>
+              AuthService.updateProfile(uid: uid, name: name);
+      await save(uid: user.uid, name: _fullNameController.text.trim());
       if (!mounted) return;
       _message('บันทึกชื่อเรียบร้อยแล้ว (ฟิลด์อื่นยังไม่รองรับการบันทึก)');
     } catch (e) {

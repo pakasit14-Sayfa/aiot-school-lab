@@ -4,7 +4,12 @@ import 'package:shared_core/shared_core.dart';
 import 'theme/school_admin_palette.dart';
 
 class SchoolPermissionsPage extends StatefulWidget {
-  const SchoolPermissionsPage({super.key});
+  const SchoolPermissionsPage({super.key, this.loadUsers, this.loadLogs});
+
+  /// Injectable seams for tests — production leaves these null and uses the
+  /// real service (same pattern as school_resources_page).
+  final Future<List<UserModel>> Function()? loadUsers;
+  final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
 
   @override
   State<SchoolPermissionsPage> createState() => _SchoolPermissionsPageState();
@@ -39,8 +44,9 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
       });
     }
     try {
-      final users = await UserAdminService.getAllUsers();
-      final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 20);
+      final users = await (widget.loadUsers ?? UserAdminService.getAllUsers)();
+      final logs = await (widget.loadLogs ??
+          () => SchoolAdminPlatformService().fetchAuditLogs(limit: 20))();
       if (mounted) {
         setState(() {
           _users = users.map((u) {
@@ -141,19 +147,27 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
     });
   }
 
+  /// ไม่มี RPC สร้างบัญชีใหม่จากหน้านี้ (ทางเดียวที่สร้างบัญชีได้คือ "นำเข้ารายชื่อ")
+  /// ของเดิมกดแล้วสร้าง `_PermissionUser` ปลอมขึ้นในหน่วยความจำพร้อมข้อความ
+  /// "เพิ่มสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว" — ดูเหมือนสร้างบัญชีจริงทั้งที่ไม่มีอะไร
+  /// ถูกบันทึกลงฐานข้อมูลเลย ส่วนการแก้ไข (editing == true) เรียก
+  /// `update_user_role` จริง จึงยังเปิดใช้งานได้ตามเดิม
   Future<void> _openPermissionDialog({_PermissionUser? user}) async {
-    final bool editing = user != null;
+    if (user == null) {
+      _showMessage('ยังไม่มีระบบเพิ่มผู้ใช้งานใหม่จากหน้านี้ ใช้ "นำเข้ารายชื่อ" แทน');
+      return;
+    }
 
     final TextEditingController emailController = TextEditingController(
-      text: user?.email ?? '',
+      text: user.email,
     );
     final TextEditingController nameController = TextEditingController(
-      text: user?.name ?? '',
+      text: user.name,
     );
 
-    String role = user?.role ?? 'ครูผู้สอน';
-    String scope = user?.scope ?? 'เฉพาะชั้นเรียนที่สอน';
-    String status = user?.status ?? 'ใช้งาน';
+    String role = user.role;
+    String scope = user.scope;
+    String status = user.status;
 
     final _PermissionUser? result = await showDialog<_PermissionUser>(
       context: context,
@@ -194,9 +208,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                 borderRadius: BorderRadius.circular(18),
                               ),
                               child: Icon(
-                                editing
-                                    ? Icons.manage_accounts_rounded
-                                    : Icons.person_add_alt_1_rounded,
+                                Icons.manage_accounts_rounded,
                                 color: SchoolAdminPalette.primaryDark,
                                 size: 26,
                               ),
@@ -207,9 +219,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    editing
-                                        ? 'แก้ไขสิทธิ์ผู้ใช้งาน'
-                                        : 'เพิ่มสิทธิ์ผู้ใช้งาน',
+                                    'แก้ไขสิทธิ์ผู้ใช้งาน',
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.w900,
@@ -219,9 +229,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    editing
-                                        ? 'ปรับปรุงบทบาท ขอบเขต หรือสถานะการเข้าถึงระบบ'
-                                        : 'กำหนดบทบาทและขอบเขตการเข้าถึงข้อมูลของบุคลากร',
+                                    'ปรับปรุงบทบาท ขอบเขต หรือสถานะการเข้าถึงระบบ',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: SchoolAdminPalette.textSecondary,
@@ -416,9 +424,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
 
                                 Navigator.of(dialogContext).pop(
                                   _PermissionUser(
-                                    id:
-                                        user?.id ??
-                                        'permission-${DateTime.now().millisecondsSinceEpoch}',
+                                    id: user.id,
                                     name: name,
                                     email: email,
                                     role: role,
@@ -442,7 +448,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                               ),
                               icon: const Icon(Icons.save_rounded, size: 18),
                               label: Text(
-                                editing ? 'บันทึกการแก้ไข' : 'เพิ่มสิทธิ์',
+                                'บันทึกการแก้ไข',
                                 style: const TextStyle(fontWeight: FontWeight.w800),
                               ),
                             ),
@@ -465,18 +471,14 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
     if (result == null || !mounted) return;
 
     try {
-      if (editing) {
-        final newRole = _parseRole(result.role);
-        await UserAdminService.updateRole(uid: result.id, role: newRole);
-      }
+      final newRole = _parseRole(result.role);
+      await UserAdminService.updateRole(uid: result.id, role: newRole);
 
       await _loadPermissions();
 
       if (mounted) {
         _showMessage(
-          editing
-              ? 'บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว'
-              : 'เพิ่มสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว',
+          'บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว',
         );
       }
     } catch (e) {
@@ -1122,10 +1124,12 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage('ส่งออกรายการสิทธิ์ตัวอย่างแล้ว');
-                },
+              // ไม่มี RPC ส่งออกไฟล์ในระบบ — ปิดปุ่มพร้อมบอกเหตุผลแทนข้อความ
+              // "ส่งออกรายการสิทธิ์ตัวอย่างแล้ว" ที่ไม่มีไฟล์ใดถูกสร้างจริง
+              Tooltip(
+                message: 'ยังไม่มีระบบส่งออกไฟล์รายการสิทธิ์ในเวอร์ชันนี้',
+                child: OutlinedButton.icon(
+                onPressed: null,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -1134,9 +1138,14 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                 ),
                 icon: const Icon(Icons.download_rounded, size: 18),
                 label: const Text('ส่งออกรายการ', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
               ),
-              FilledButton.icon(
-                onPressed: () => _openPermissionDialog(),
+              // ไม่มี RPC สร้างบัญชีใหม่จากหน้านี้ — ทางเดียวที่สร้างบัญชีได้คือ
+              // "นำเข้ารายชื่อ" ปิดปุ่มพร้อมบอกเหตุผลแทนการกดแล้วขึ้น snackbar
+              Tooltip(
+                message: 'ยังไม่มีระบบเพิ่มผู้ใช้งานใหม่จากหน้านี้ ใช้ "นำเข้ารายชื่อ" แทน',
+                child: FilledButton.icon(
+                onPressed: null,
                 style: FilledButton.styleFrom(
                   backgroundColor: SchoolAdminPalette.primaryDark,
                   foregroundColor: Colors.white,
@@ -1147,6 +1156,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                 ),
                 icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
                 label: const Text('เพิ่มสิทธิ์', style: TextStyle(fontWeight: FontWeight.w800)),
+                ),
               ),
             ],
           );
@@ -1608,11 +1618,6 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                     case 'edit':
                                       _openPermissionDialog(user: user);
                                       break;
-                                    case 'password':
-                                      _showMessage(
-                                        'ส่งคำขอตั้งรหัสผ่านใหม่ให้ ${user.name} แล้ว',
-                                      );
-                                      break;
                                     case 'toggle':
                                       _toggleUserStatus(user);
                                       break;
@@ -1648,20 +1653,10 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
-                                      value: 'password',
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.lock_reset_rounded,
-                                            size: 18,
-                                            color: Color(0xFF475569),
-                                          ),
-                                          SizedBox(width: 10),
-                                          Text('ตั้งรหัสผ่านใหม่'),
-                                        ],
-                                      ),
-                                    ),
+                                    // "ตั้งรหัสผ่านใหม่" ถูกลบออก — ไม่มี RPC
+                                    // ส่งคำขอตั้งรหัสผ่านใหม่ในระบบเลย ของเดิม
+                                    // กดแล้วขึ้น snackbar "ส่งคำขอ...แล้ว" โดย
+                                    // ไม่มีอะไรถูกส่งจริง
                                     PopupMenuItem(
                                       value: 'toggle',
                                       child: Row(
