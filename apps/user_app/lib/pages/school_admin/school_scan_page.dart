@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../../theme/school_admin_palette.dart';
 
 class SchoolScanPage extends StatefulWidget {
-  const SchoolScanPage({super.key, this.onBack});
+  const SchoolScanPage({super.key, this.onBack, this.loadDevices});
 
   final VoidCallback? onBack;
+
+  /// Injectable read seam so the lookup states can be exercised in widget
+  /// tests without a live Supabase client.
+  final Future<List<DeviceOption>> Function()? loadDevices;
 
   @override
   State<SchoolScanPage> createState() => _SchoolScanPageState();
@@ -52,6 +57,179 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
     });
 
     _showScanResult(value);
+  }
+
+  /// จุดเข้าสำหรับ widget test — กล้องทำงานใน test environment ไม่ได้ จึงยิง
+  /// การค้นหาตรง ๆ แทนการปลอม BarcodeCapture
+  @visibleForTesting
+  void lookupDeviceForTest(String code) => _lookupDevice(code);
+
+  /// ค้นรหัสที่สแกนได้กับรายการอุปกรณ์จริงของโรงเรียน
+  ///
+  /// จับคู่แบบ exact ก่อน (id) แล้วค่อยเทียบชื่อ/ตำแหน่งแบบไม่สนตัวพิมพ์ —
+  /// QR ที่ติดบนอุปกรณ์อาจเก็บได้ทั้ง id หรือชื่อ ผลลัพธ์ต้องแยกให้ชัดว่า
+  /// "ไม่พบ" (ค้นแล้วไม่มีจริง) ต่างจาก "ค้นไม่สำเร็จ" (ระบบมีปัญหา)
+  Future<void> _lookupDevice(String code) async {
+    final String needle = code.trim().toLowerCase();
+    if (needle.isEmpty) return;
+
+    _showLookupSheet(state: _LookupState.loading, code: code);
+
+    List<DeviceOption> devices;
+    try {
+      devices =
+          await (widget.loadDevices?.call() ??
+              RealtimeService.listSchoolDevices());
+    } catch (e) {
+      debugPrint('SchoolScanPage device lookup failed: $e');
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _showLookupSheet(state: _LookupState.failed, code: code);
+      return;
+    }
+
+    DeviceOption? match;
+    for (final d in devices) {
+      if (d.id.toLowerCase() == needle) {
+        match = d;
+        break;
+      }
+    }
+    match ??= devices
+        .where(
+          (d) =>
+              d.name.toLowerCase() == needle ||
+              (d.location?.toLowerCase() ?? '') == needle,
+        )
+        .firstOrNull;
+
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    _showLookupSheet(
+      state: match == null ? _LookupState.notFound : _LookupState.found,
+      code: code,
+      device: match,
+    );
+  }
+
+  void _showLookupSheet({
+    required _LookupState state,
+    required String code,
+    DeviceOption? device,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isDismissible: state != _LookupState.loading,
+      enableDrag: state != _LookupState.loading,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
+        final Widget body;
+        switch (state) {
+          case _LookupState.loading:
+            body = const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('กำลังค้นหาอุปกรณ์…'),
+                ],
+              ),
+            );
+          case _LookupState.failed:
+            body = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 34,
+                  color: SchoolAdminPalette.red,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'ค้นหาไม่สำเร็จ',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'ยังบอกไม่ได้ว่ามีอุปกรณ์นี้หรือไม่ กรุณาลองใหม่',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    _lookupDevice(code);
+                  },
+                  child: const Text('ลองใหม่'),
+                ),
+              ],
+            );
+          case _LookupState.notFound:
+            body = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.search_off_rounded,
+                  size: 34,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'ยังไม่มีข้อมูล',
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ไม่พบอุปกรณ์ที่ตรงกับรหัส "$code" ในโรงเรียนนี้',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            );
+          case _LookupState.found:
+            final d = device!;
+            body = Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    d.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _DeviceInfoRow(label: 'ประเภท', value: d.type),
+                _DeviceInfoRow(
+                  label: 'ตำแหน่ง',
+                  // ตำแหน่งอาจว่างจริง ๆ — บอกตรง ๆ ไม่เดา
+                  value: (d.location?.trim().isNotEmpty ?? false)
+                      ? d.location!.trim()
+                      : 'ยังไม่มีข้อมูล',
+                ),
+                _DeviceInfoRow(label: 'สถานะ', value: d.status),
+              ],
+            );
+          case _LookupState.idle:
+            body = const SizedBox.shrink();
+        }
+
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            child: Card(
+              child: Padding(padding: const EdgeInsets.all(20), child: body),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showScanResult(String value) async {
@@ -125,13 +303,16 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
+                          // เดิมปุ่มนี้ขึ้นแค่ข้อความ 'เปิดข้อมูลอุปกรณ์จาก ...'
+                          // โดยไม่ค้นหาอะไรเลย ตอนนี้ค้นจากรายการอุปกรณ์จริง
+                          // ของโรงเรียนผ่าน list_school_devices
                           child: FilledButton.icon(
                             onPressed: () {
                               Navigator.of(sheetContext).pop();
-                              _showMessage('เปิดข้อมูลอุปกรณ์จาก $value');
+                              _lookupDevice(value);
                             },
-                            icon: const Icon(Icons.open_in_new_rounded),
-                            label: const Text('เปิดข้อมูล'),
+                            icon: const Icon(Icons.search_rounded),
+                            label: const Text('ค้นหาอุปกรณ์'),
                           ),
                         ),
                       ],
@@ -841,6 +1022,50 @@ class _ScanHistoryRow extends StatelessWidget {
             style: const TextStyle(
               fontSize: 8.5,
               color: SchoolAdminPalette.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ผลการค้นหาอุปกรณ์จากรหัสที่สแกนได้ — แยก "ไม่พบ" ออกจาก "ค้นไม่สำเร็จ"
+/// ไม่ให้ผู้ใช้เข้าใจว่าอุปกรณ์ไม่มีอยู่ทั้งที่จริงระบบมีปัญหา
+enum _LookupState { idle, loading, found, notFound, failed }
+
+class _DeviceInfoRow extends StatelessWidget {
+  const _DeviceInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 74,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: SchoolAdminPalette.textPrimary,
+              ),
             ),
           ),
         ],

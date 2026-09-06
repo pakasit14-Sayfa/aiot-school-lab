@@ -20,6 +20,11 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   List<_PermissionUser> _users = [];
   List<_PermissionLog> _logs = [];
 
+  /// แยก loading / data / empty / error — เดิม `catch (_) {}` กลืน error
+  /// ทำให้ "โหลดไม่สำเร็จ" กับ "ยังไม่มีผู้ใช้" หน้าตาเหมือนกันทุกประการ
+  bool _loading = true;
+  bool _loadFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -27,23 +32,37 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   }
 
   Future<void> _loadPermissions() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadFailed = false;
+      });
+    }
     try {
       final users = await UserAdminService.getAllUsers();
       final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 20);
       if (mounted) {
         setState(() {
           _users = users.map((u) {
+            // บัญชีเดียวถือได้หลาย role — `u.role` คือ role เดียวที่ถูกยุบมา
+            // (ตัวที่ได้รับล่าสุด) การแสดงแค่ตัวนั้นบนหน้า "จัดการสิทธิ์"
+            // ทำให้ผู้ดูแลไม่เห็นสิทธิ์ที่บัญชีนั้นถืออยู่จริง — เป็นบั๊ก
+            // ชนิดเดียวกับที่เคยทำให้ครูหายไปจากรายชื่อครูทั้งคน
+            final roles = <UserRole>{u.role, ...u.allRoles}.toList();
             return _PermissionUser(
               id: u.uid,
               name: u.name,
               email: u.email,
-              role: u.role.label,
+              role: roles.map((r) => r.label).join(' · '),
               scope: u.building.isNotEmpty
                   ? u.building
                   : (u.room.isNotEmpty ? u.room : 'ทุกอาคาร'),
               status: u.status == 'active' ? 'ใช้งาน' : 'ระงับ',
-              lastUpdated: 'วันนี้',
-              updatedBy: 'ผู้ดูแลโรงเรียน',
+              // เดิม hardcode 'วันนี้' และ 'ผู้ดูแลโรงเรียน' ทุกแถว —
+              // ระบบไม่ได้เก็บว่าสิทธิ์ของผู้ใช้ถูกแก้เมื่อไหร่โดยใคร
+              // (`list_school_users` ไม่คืนค่าพวกนี้) จึงบอกตรง ๆ
+              lastUpdated: 'ยังไม่มีข้อมูล',
+              updatedBy: 'ยังไม่มีข้อมูล',
             );
           }).toList();
 
@@ -60,9 +79,17 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                 ),
               )
               .toList();
+          _loading = false;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SchoolPermissionsPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
   }
 
   @override
@@ -801,6 +828,71 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                   children: [
                     _buildHeader(),
                     const SizedBox(height: 14),
+                    // สถานะการโหลดต้องอยู่เหนือทุกอย่าง ไม่งั้นผู้ดูแลเห็น
+                    // รายชื่อว่างแล้วเข้าใจว่าโรงเรียนไม่มีผู้ใช้
+                    if (_loading || _loadFailed) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _loadFailed
+                              ? const Color(0xFFFEF2F2)
+                              : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _loadFailed
+                                ? const Color(0xFFFCA5A5)
+                                : SchoolAdminPalette.border,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            if (_loading)
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            else
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                size: 18,
+                                color: SchoolAdminPalette.red,
+                              ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _loading
+                                    ? 'กำลังโหลดรายชื่อผู้ใช้และสิทธิ์…'
+                                    : 'โหลดรายชื่อผู้ใช้ไม่สำเร็จ '
+                                          'รายการด้านล่างจึงยังไม่ครบ',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: _loadFailed
+                                      ? SchoolAdminPalette.red
+                                      : SchoolAdminPalette.textSecondary,
+                                ),
+                              ),
+                            ),
+                            if (_loadFailed)
+                              TextButton(
+                                onPressed: _loadPermissions,
+                                style: TextButton.styleFrom(
+                                  minimumSize: Size.zero,
+                                ),
+                                child: const Text('ลองใหม่'),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     _buildSummary(),
                     const SizedBox(height: 14),
                     _buildTabBar(),

@@ -1226,7 +1226,8 @@ class _HomeSummaryGridState extends State<_HomeSummaryGrid> {
     }
 
     final s = _summary;
-    final String placeholder = _loading ? '...' : '--';
+    // '--' เดิมกำกวม: อ่านไม่ออกว่ากำลังโหลด หรือโรงเรียนยังไม่มีข้อมูลจริง
+    final String placeholder = _loading ? '…' : 'ยังไม่มีข้อมูล';
     final List<_SummaryData> data = [
       _SummaryData(
         value: s != null ? s.studentsCount.toString() : placeholder,
