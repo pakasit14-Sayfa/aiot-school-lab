@@ -1,12 +1,53 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../../theme/school_admin_palette.dart';
 
+/// What the page knows about a relay right now.
+enum RelayLifecycle {
+  /// The device has never acknowledged a command, so nothing is known.
+  /// Critically NOT the same as off.
+  unknown,
+
+  /// A command is queued and the device has not confirmed it yet.
+  awaitingDevice,
+
+  /// The device reported this state itself.
+  confirmed,
+}
+
+typedef DeviceListLoader = Future<List<DeviceOption>> Function();
+typedef RelayStateLoader = Future<List<DeviceRelayState>> Function();
+typedef DeviceCommandSender =
+    Future<String?> Function({
+      required String deviceId,
+      required Map<String, dynamic> command,
+    });
+
 class SchoolAdminDeviceControlPage extends StatefulWidget {
-  const SchoolAdminDeviceControlPage({super.key, this.initialRelays});
+  const SchoolAdminDeviceControlPage({
+    super.key,
+    this.initialRelays,
+    this.loadDevices,
+    this.loadRelayStates,
+    this.sendCommand,
+    this.confirmationPollInterval = const Duration(seconds: 3),
+    this.confirmationTimeout = const Duration(seconds: 20),
+  });
 
   final List<DeviceOption>? initialRelays;
+
+  final DeviceListLoader? loadDevices;
+  final RelayStateLoader? loadRelayStates;
+  final DeviceCommandSender? sendCommand;
+
+  /// How often to re-read the confirmed relay state while waiting for a
+  /// device to act on a queued command, and how long to keep waiting before
+  /// telling the admin it has not confirmed.
+  final Duration confirmationPollInterval;
+  final Duration confirmationTimeout;
 
   @override
   State<SchoolAdminDeviceControlPage> createState() =>
@@ -18,14 +59,25 @@ class _SchoolAdminDeviceControlPageState
   static const _scopeAll = 'ทั้งหมด';
 
   bool _loading = true;
-  String? _loadError;
+  bool _loadFailed = false;
   List<DeviceOption> _relays = [];
   String _selectedLocation = _scopeAll;
   String _searchQuery = '';
   String _typeFilter = 'ทั้งหมด'; // ทั้งหมด, ไฟฟ้าและแสงสว่าง, ระบบน้ำ
 
-  final Map<String, bool> _optimisticState = {};
+  /// Confirmed state per device, straight from `device_relay_states`. A
+  /// device missing from this map has never acknowledged a command.
+  Map<String, DeviceRelayState> _confirmed = {};
+
+  /// Devices with a queued command the hardware has not confirmed yet,
+  /// mapped to the state that was requested.
+  final Map<String, bool> _pendingTarget = {};
+
+  /// Devices whose queued command never got confirmed within the timeout.
+  final Set<String> _unconfirmed = {};
+
   final Set<String> _sending = {};
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -38,27 +90,76 @@ class _SchoolAdminDeviceControlPageState
     }
   }
 
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     if (widget.initialRelays != null) return;
     setState(() {
       _loading = true;
-      _loadError = null;
+      _loadFailed = false;
     });
     try {
-      final devices = await RealtimeService.listSchoolDevices();
+      final devices =
+          await (widget.loadDevices?.call() ??
+              RealtimeService.listSchoolDevices());
+      final states =
+          await (widget.loadRelayStates?.call() ??
+              RealtimeService.listDeviceRelayStates());
       if (!mounted) return;
       setState(() {
         _relays = devices.where((d) => d.type == 'relay').toList();
+        _confirmed = {for (final s in states) s.deviceId: s};
         _loading = false;
       });
     } catch (e) {
+      // The raw exception used to be printed straight onto the page.
+      debugPrint('SchoolAdminDeviceControlPage load failed: $e');
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดรายชื่ออุปกรณ์ไม่สำเร็จ: $e';
+        _loadFailed = true;
         _loading = false;
       });
     }
   }
+
+  /// Re-reads confirmed state only; used while waiting for a device to act.
+  Future<void> _refreshConfirmedState() async {
+    try {
+      final states =
+          await (widget.loadRelayStates?.call() ??
+              RealtimeService.listDeviceRelayStates());
+      if (!mounted) return;
+      setState(() {
+        _confirmed = {for (final s in states) s.deviceId: s};
+        // A pending command is resolved the moment the device reports the
+        // state that was asked for — that, not the queue call returning, is
+        // what makes it true.
+        _pendingTarget.removeWhere(
+          (deviceId, target) => _confirmed[deviceId]?.state == target,
+        );
+      });
+    } catch (e) {
+      debugPrint('SchoolAdminDeviceControlPage state refresh failed: $e');
+    }
+  }
+
+  RelayLifecycle _lifecycleOf(DeviceOption device) {
+    if (_pendingTarget.containsKey(device.id)) {
+      return RelayLifecycle.awaitingDevice;
+    }
+    if (_confirmed.containsKey(device.id)) return RelayLifecycle.confirmed;
+    return RelayLifecycle.unknown;
+  }
+
+  /// The state to draw the switch in. For a pending command this is the
+  /// requested state (so the toggle does not snap back under the user's
+  /// finger) — the card labels it as not yet confirmed.
+  bool _displayStateOf(DeviceOption device) =>
+      _pendingTarget[device.id] ?? _confirmed[device.id]?.state ?? false;
 
   List<String> get _locationOptions => [
     _scopeAll,
@@ -75,12 +176,14 @@ class _SchoolAdminDeviceControlPageState
       final matchesLoc =
           _selectedLocation == _scopeAll || d.location == _selectedLocation;
       final q = _searchQuery.trim().toLowerCase();
-      final matchesQuery = q.isEmpty ||
+      final matchesQuery =
+          q.isEmpty ||
           d.name.toLowerCase().contains(q) ||
           (d.location ?? '').toLowerCase().contains(q);
 
       final isWater = _isWaterDevice(d);
-      final matchesType = _typeFilter == 'ทั้งหมด' ||
+      final matchesType =
+          _typeFilter == 'ทั้งหมด' ||
           (_typeFilter == 'ระบบน้ำ' && isWater) ||
           (_typeFilter == 'ไฟฟ้าและแสงสว่าง' && !isWater);
 
@@ -97,37 +200,113 @@ class _SchoolAdminDeviceControlPageState
     return grouped;
   }
 
+  /// Relays the hardware itself reports as on. This used to count
+  /// `_optimisticState`, a map that starts empty on every page load, so the
+  /// figure was always 0 until someone flipped a switch in this browser tab
+  /// — it measured the tab, not the school.
   int get _onCount =>
-      _filteredRelays.where((d) => _optimisticState[d.id] == true).length;
+      _filteredRelays.where((d) => _confirmed[d.id]?.state == true).length;
+
+  int get _unknownCount =>
+      _filteredRelays.where((d) => !_confirmed.containsKey(d.id)).length;
+
+  /// Newest confirmation across the relays in view, so the header can say how
+  /// fresh "confirmed" actually is.
+  DateTime? get _lastConfirmedAt {
+    DateTime? newest;
+    for (final d in _filteredRelays) {
+      final ts = _confirmed[d.id]?.updatedAt;
+      if (ts != null && (newest == null || ts.isAfter(newest))) newest = ts;
+    }
+    return newest;
+  }
 
   int get _waterCount => _filteredRelays.where(_isWaterDevice).length;
-  int get _electricCount => _filteredRelays.where((d) => !_isWaterDevice(d)).length;
+  int get _electricCount =>
+      _filteredRelays.where((d) => !_isWaterDevice(d)).length;
 
   Future<void> _toggle(DeviceOption device, bool value) async {
-    setState(() => _sending.add(device.id));
+    setState(() {
+      _sending.add(device.id);
+      _unconfirmed.remove(device.id);
+    });
     try {
-      await RealtimeService.queueDeviceCommand(
-        deviceId: device.id,
-        command: {'action': value ? 'on' : 'off'},
-      );
+      await (widget.sendCommand?.call(
+            deviceId: device.id,
+            command: {'action': value ? 'on' : 'off'},
+          ) ??
+          RealtimeService.queueDeviceCommand(
+            deviceId: device.id,
+            command: {'action': value ? 'on' : 'off'},
+          ));
       if (!mounted) return;
-      setState(() => _optimisticState[device.id] = value);
+      // `queue_device_command` only writes a row to the command queue. The
+      // gateway polls it, drives the board, and the device calls
+      // `ack_device_command`, which is what updates `device_relay_states`.
+      // This used to announce "ส่งคำสั่ง ปิด X สำเร็จ" right here and flip
+      // the switch, so an admin was told the light was off while an offline
+      // device left it burning. Say what actually happened — the command is
+      // queued — and let the device's own report decide the rest.
+      setState(() => _pendingTarget[device.id] = value);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('ส่งคำสั่ง ${value ? "เปิด" : "ปิด"} ${device.name} สำเร็จ'),
+          content: Text(
+            'ส่งคำสั่ง${value ? "เปิด" : "ปิด"} ${device.name} เข้าคิวแล้ว '
+            'รออุปกรณ์ยืนยัน',
+          ),
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-          backgroundColor: value ? const Color(0xFF16A34A) : const Color(0xFF475569),
+          duration: const Duration(seconds: 3),
+          backgroundColor: const Color(0xFF475569),
         ),
       );
+      _startConfirmationPolling();
     } catch (e) {
+      debugPrint('SchoolAdminDeviceControlPage command failed: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('สั่งงานไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ส่งคำสั่งไม่สำเร็จ กรุณาลองใหม่'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _sending.remove(device.id));
     }
+  }
+
+  /// Polls the confirmed state until every pending command has been
+  /// acknowledged, or long enough that it clearly will not be.
+  void _startConfirmationPolling() {
+    _pollTimer?.cancel();
+    // Counted in polls rather than measured against `DateTime.now()`: the
+    // wall clock is the one thing a widget test cannot advance, so a
+    // now()-based deadline made the "device never confirmed" path
+    // unreachable under test — the exact branch most worth covering.
+    final int maxAttempts =
+        (widget.confirmationTimeout.inMilliseconds /
+                widget.confirmationPollInterval.inMilliseconds)
+            .ceil()
+            .clamp(1, 1000);
+    var attempts = 0;
+
+    _pollTimer = Timer.periodic(widget.confirmationPollInterval, (timer) async {
+      if (!mounted || _pendingTarget.isEmpty) {
+        timer.cancel();
+        return;
+      }
+      attempts++;
+      await _refreshConfirmedState();
+      if (!mounted) return;
+      if (_pendingTarget.isEmpty) {
+        timer.cancel();
+      } else if (attempts >= maxAttempts) {
+        timer.cancel();
+        setState(() {
+          _unconfirmed.addAll(_pendingTarget.keys);
+          _pendingTarget.clear();
+        });
+      }
+    });
   }
 
   @override
@@ -137,30 +316,30 @@ class _SchoolAdminDeviceControlPageState
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : _loadError != null
-                ? _buildErrorView()
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1450),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildHeader(),
-                            const SizedBox(height: 16),
-                            _buildKpiSummaryGrid(),
-                            const SizedBox(height: 16),
-                            _buildUnknownStateNotice(),
-                            const SizedBox(height: 16),
-                            _buildFilterBar(),
-                            const SizedBox(height: 20),
-                            _buildRelaysGroupedList(),
-                          ],
-                        ),
-                      ),
+            : _loadFailed
+            ? _buildErrorView()
+            : SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1450),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 16),
+                        _buildKpiSummaryGrid(),
+                        const SizedBox(height: 16),
+                        _buildUnknownStateNotice(),
+                        const SizedBox(height: 16),
+                        _buildFilterBar(),
+                        const SizedBox(height: 20),
+                        _buildRelaysGroupedList(),
+                      ],
                     ),
                   ),
+                ),
+              ),
       ),
     );
   }
@@ -172,12 +351,16 @@ class _SchoolAdminDeviceControlPageState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 48),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Color(0xFFDC2626),
+              size: 48,
+            ),
             const SizedBox(height: 14),
-            Text(
-              _loadError!,
+            const Text(
+              'โหลดรายชื่ออุปกรณ์ควบคุมไม่สำเร็จ กรุณาลองใหม่',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Color(0xFFDC2626),
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -251,7 +434,10 @@ class _SchoolAdminDeviceControlPageState
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF0FDF4),
                             borderRadius: BorderRadius.circular(20),
@@ -292,11 +478,7 @@ class _SchoolAdminDeviceControlPageState
           if (constraints.maxWidth < 750) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleArea,
-                const SizedBox(height: 14),
-                actionButtons,
-              ],
+              children: [titleArea, const SizedBox(height: 14), actionButtons],
             );
           }
 
@@ -323,24 +505,28 @@ class _SchoolAdminDeviceControlPageState
           runSpacing: 12,
           children: [
             _buildKpiCard(
-              title: 'สั่งเปิดไว้ (เครื่องนี้)',
+              title: 'เปิดอยู่ (ยืนยันแล้ว)',
               value: '$_onCount / $total จุด',
-              subtitle: 'Active Relay Outputs',
+              subtitle: 'Confirmed by device',
               icon: Icons.toggle_on_rounded,
               color: const Color(0xFF16A34A),
               bgColor: const Color(0xFFF0FDF4),
               borderColor: const Color(0xFFBBF7D0),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
-              title: 'อุปกรณ์รีเลย์ทั้งหมด',
-              value: '$total ตัว',
-              subtitle: 'Connected Relays',
-              icon: Icons.settings_remote_rounded,
-              color: const Color(0xFF2563EB),
-              bgColor: const Color(0xFFEFF6FF),
-              borderColor: const Color(0xFFBFDBFE),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              title: 'ยังไม่ทราบสถานะ',
+              value: '$_unknownCount / $total จุด',
+              subtitle: 'ยังไม่เคยรายงานสถานะกลับมา',
+              icon: Icons.help_outline_rounded,
+              color: const Color(0xFF64748B),
+              bgColor: const Color(0xFFF1F5F9),
+              borderColor: const Color(0xFFE2E8F0),
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'ระบบไฟฟ้าและแสงสว่าง',
@@ -350,7 +536,9 @@ class _SchoolAdminDeviceControlPageState
               color: const Color(0xFFD97706),
               bgColor: const Color(0xFFFFFBEB),
               borderColor: const Color(0xFFFDE68A),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
             _buildKpiCard(
               title: 'ระบบน้ำและวาล์ว',
@@ -360,7 +548,9 @@ class _SchoolAdminDeviceControlPageState
               color: const Color(0xFF0284C7),
               bgColor: const Color(0xFFF0F9FF),
               borderColor: const Color(0xFFBAE6FD),
-              width: isMobile ? (constraints.maxWidth - 12) / 2 : (constraints.maxWidth - 36) / 4,
+              width: isMobile
+                  ? (constraints.maxWidth - 12) / 2
+                  : (constraints.maxWidth - 36) / 4,
             ),
           ],
         );
@@ -435,6 +625,14 @@ class _SchoolAdminDeviceControlPageState
   }
 
   Widget _buildUnknownStateNotice() {
+    final lastConfirmed = _lastConfirmedAt;
+    // The old copy said the display "สะท้อนตามคำสั่งล่าสุดที่สั่งงานจากระบบ",
+    // which was not true either: it reflected only the commands issued from
+    // this browser tab since it was opened.
+    final String freshness = lastConfirmed == null
+        ? 'ยังไม่มีอุปกรณ์ตัวใดรายงานสถานะกลับมา'
+        : 'ยืนยันล่าสุดเมื่อ ${_formatTimestamp(lastConfirmed)}';
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -442,14 +640,19 @@ class _SchoolAdminDeviceControlPageState
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF2563EB)),
-          SizedBox(width: 10),
+          const Icon(
+            Icons.info_outline_rounded,
+            size: 18,
+            color: Color(0xFF2563EB),
+          ),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'คำสั่งเปิด/ปิดจะถูกส่งไปยัง Queue คำสั่งควบคุมของอุปกรณ์ IoT โดยตรง และสถานะที่แสดงสะท้อนตามคำสั่งล่าสุดที่สั่งงานจากระบบ',
-              style: TextStyle(
+              'การกดสวิตช์เป็นการส่งคำสั่งเข้าคิวเท่านั้น อุปกรณ์จะดึงคำสั่งไปทำแล้วรายงานผลกลับมา '
+              'สถานะที่แสดงคือสถานะที่อุปกรณ์ยืนยันเองเท่านั้น · $freshness',
+              style: const TextStyle(
                 color: Color(0xFF334155),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -460,6 +663,13 @@ class _SchoolAdminDeviceControlPageState
         ],
       ),
     );
+  }
+
+  static String _formatTimestamp(DateTime ts) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    final local = ts.toLocal();
+    return '${local.day}/${local.month}/${local.year} '
+        '${two(local.hour)}:${two(local.minute)} น.';
   }
 
   Widget _buildFilterBar() {
@@ -476,12 +686,22 @@ class _SchoolAdminDeviceControlPageState
             onChanged: (v) => setState(() => _searchQuery = v),
             decoration: InputDecoration(
               hintText: 'ค้นหาชื่อสวิตช์ หรือสถานที่...',
-              hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-              prefixIcon: const Icon(Icons.search_rounded, size: 18, color: Color(0xFF94A3B8)),
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF94A3B8),
+              ),
+              prefixIcon: const Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: Color(0xFF94A3B8),
+              ),
               isDense: true,
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -504,9 +724,16 @@ class _SchoolAdminDeviceControlPageState
               child: DropdownButton<String>(
                 value: _typeFilter,
                 isExpanded: true,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
                 items: ['ทั้งหมด', 'ไฟฟ้าและแสงสว่าง', 'ระบบน้ำ'].map((s) {
-                  return DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis));
+                  return DropdownMenuItem(
+                    value: s,
+                    child: Text(s, overflow: TextOverflow.ellipsis),
+                  );
                 }).toList(),
                 onChanged: (v) => setState(() => _typeFilter = v ?? 'ทั้งหมด'),
               ),
@@ -524,11 +751,19 @@ class _SchoolAdminDeviceControlPageState
               child: DropdownButton<String>(
                 value: _selectedLocation,
                 isExpanded: true,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
                 items: _locationOptions.map((s) {
-                  return DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis));
+                  return DropdownMenuItem(
+                    value: s,
+                    child: Text(s, overflow: TextOverflow.ellipsis),
+                  );
                 }).toList(),
-                onChanged: (v) => setState(() => _selectedLocation = v ?? _scopeAll),
+                onChanged: (v) =>
+                    setState(() => _selectedLocation = v ?? _scopeAll),
               ),
             ),
           );
@@ -609,7 +844,9 @@ class _SchoolAdminDeviceControlPageState
                   crossAxisCount: crossAxisCount,
                   mainAxisSpacing: 12,
                   crossAxisSpacing: 12,
-                  mainAxisExtent: 100,
+                  // Room for the confirmed/queued/unknown status line under
+                  // the location; the previous 100 clipped it by 4px.
+                  mainAxisExtent: 118,
                 ),
                 itemCount: entry.value.length,
                 itemBuilder: (context, idx) {
@@ -617,7 +854,10 @@ class _SchoolAdminDeviceControlPageState
                   return _ControlCard(
                     device: device,
                     isWater: _isWaterDevice(device),
-                    value: _optimisticState[device.id] ?? false,
+                    value: _displayStateOf(device),
+                    lifecycle: _lifecycleOf(device),
+                    confirmedAt: _confirmed[device.id]?.updatedAt,
+                    didNotConfirm: _unconfirmed.contains(device.id),
                     isSending: _sending.contains(device.id),
                     onChanged: (v) => _toggle(device, v),
                   );
@@ -640,7 +880,11 @@ class _SchoolAdminDeviceControlPageState
             color: const Color(0xFFEFF6FF),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.place_rounded, color: Color(0xFF2563EB), size: 16),
+          child: const Icon(
+            Icons.place_rounded,
+            color: Color(0xFF2563EB),
+            size: 16,
+          ),
         ),
         const SizedBox(width: 8),
         Text(
@@ -660,7 +904,11 @@ class _SchoolAdminDeviceControlPageState
           ),
           child: Text(
             '$count สวิตช์',
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF64748B),
+            ),
           ),
         ),
       ],
@@ -673,6 +921,9 @@ class _ControlCard extends StatelessWidget {
     required this.device,
     required this.isWater,
     required this.value,
+    required this.lifecycle,
+    required this.confirmedAt,
+    required this.didNotConfirm,
     required this.isSending,
     required this.onChanged,
   });
@@ -680,14 +931,49 @@ class _ControlCard extends StatelessWidget {
   final DeviceOption device;
   final bool isWater;
   final bool value;
+  final RelayLifecycle lifecycle;
+  final DateTime? confirmedAt;
+  final bool didNotConfirm;
   final bool isSending;
   final ValueChanged<bool> onChanged;
 
+  /// The line under the device name. Whether a state is confirmed by the
+  /// hardware, still queued, or simply unknown is the single most important
+  /// thing on this card — an admin acts on it.
+  (String, Color) get _statusLine {
+    if (didNotConfirm) {
+      return ('อุปกรณ์ยังไม่ยืนยัน — ตรวจสอบหน้างาน', const Color(0xFFB45309));
+    }
+    switch (lifecycle) {
+      case RelayLifecycle.awaitingDevice:
+        return ('ส่งคำสั่งแล้ว รออุปกรณ์ยืนยัน', const Color(0xFF2563EB));
+      case RelayLifecycle.confirmed:
+        final when = confirmedAt == null
+            ? ''
+            : ' · ${_SchoolAdminDeviceControlPageState._formatTimestamp(confirmedAt!)}';
+        return (
+          'อุปกรณ์ยืนยันว่า${value ? "เปิด" : "ปิด"}อยู่$when',
+          const Color(0xFF16A34A),
+        );
+      case RelayLifecycle.unknown:
+        return (
+          'ยังไม่ทราบสถานะ — อุปกรณ์ยังไม่เคยรายงาน',
+          const Color(0xFF64748B),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeColor = isWater ? const Color(0xFF0284C7) : const Color(0xFFD97706);
-    final activeBg = isWater ? const Color(0xFFF0F9FF) : const Color(0xFFFFFBEB);
-    final activeBorder = isWater ? const Color(0xFFBAE6FD) : const Color(0xFFFDE68A);
+    final activeColor = isWater
+        ? const Color(0xFF0284C7)
+        : const Color(0xFFD97706);
+    final activeBg = isWater
+        ? const Color(0xFFF0F9FF)
+        : const Color(0xFFFFFBEB);
+    final activeBorder = isWater
+        ? const Color(0xFFBAE6FD)
+        : const Color(0xFFFDE68A);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -719,8 +1005,12 @@ class _ControlCard extends StatelessWidget {
             ),
             child: Icon(
               isWater
-                  ? (value ? Icons.water_drop_rounded : Icons.water_drop_outlined)
-                  : (value ? Icons.lightbulb_rounded : Icons.lightbulb_outline_rounded),
+                  ? (value
+                        ? Icons.water_drop_rounded
+                        : Icons.water_drop_outlined)
+                  : (value
+                        ? Icons.lightbulb_rounded
+                        : Icons.lightbulb_outline_rounded),
               color: value ? activeColor : const Color(0xFF94A3B8),
               size: 22,
             ),
@@ -749,6 +1039,17 @@ class _ControlCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _statusLine.$1,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _statusLine.$2,
                   ),
                 ),
               ],

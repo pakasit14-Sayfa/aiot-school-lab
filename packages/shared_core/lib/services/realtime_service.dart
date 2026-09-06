@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../models/device_relay_state_model.dart';
 import '../models/lesson_model.dart' show DeviceOption;
 import '../models/sensor_model.dart';
 import 'auth_service.dart';
@@ -205,16 +206,46 @@ class RealtimeService {
   /// supabase/migrations/20260721010000_relay_commands.sql) — เกตเวย์จะ
   /// poll คำสั่งนี้แล้วส่งต่อผ่าน MQTT ให้บอร์ดจริง ไม่ใช่ mock/no-op แบบ
   /// setSwitch ด้านบนอีกต่อไป (เหลือของเดิมไว้เผื่อจุดอื่นยังอ้างอิงอยู่)
-  static Future<void> queueDeviceCommand({
+  /// Returns the queued command's id.
+  ///
+  /// Queuing is NOT the same as the device having acted. The gateway polls
+  /// the queue and the board acknowledges separately, so callers must not
+  /// report success off the back of this call — read the confirmed state
+  /// through [listDeviceRelayStates] instead.
+  static Future<String?> queueDeviceCommand({
     required String deviceId,
     required Map<String, dynamic> command,
   }) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
-    await supabase.rpc(
+    final res = await supabase.rpc(
       'queue_device_command',
       params: {'p_token': token, 'p_device_id': deviceId, 'p_command': command},
     );
+    return res?.toString();
+  }
+
+  /// The state each relay last *confirmed*, from `device_relay_states`.
+  ///
+  /// A device with no row has never acknowledged a command; it is absent
+  /// from the result rather than defaulting to off. See [DeviceRelayState].
+  static Future<List<DeviceRelayState>> listDeviceRelayStates({
+    String? deviceId,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'list_device_relay_states',
+              params: {'p_token': token, 'p_device_id': deviceId},
+            )
+            as List;
+    return rows
+        .map(
+          (row) =>
+              DeviceRelayState.fromRow(Map<String, dynamic>.from(row as Map)),
+        )
+        .toList();
   }
 
   /// รายชื่ออุปกรณ์จริงทั้งหมดในโรงเรียน (ดู

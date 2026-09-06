@@ -59,6 +59,7 @@ export 'services/executive_service.dart';
 export 'services/learning_track_service.dart';
 export 'services/attendance_service.dart';
 export 'services/homeroom_service.dart';
+export 'models/device_relay_state_model.dart';
 export 'models/device_schedule_model.dart';
 export 'services/device_schedule_service.dart';
 export 'models/super_admin_model.dart';
