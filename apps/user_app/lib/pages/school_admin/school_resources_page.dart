@@ -6,7 +6,28 @@ import 'theme/school_admin_palette.dart';
 enum _ResourcePeriod { daily, weekly, monthly, yearly }
 
 class SchoolResourcesPage extends StatefulWidget {
-  const SchoolResourcesPage({super.key});
+  const SchoolResourcesPage({
+    super.key,
+    this.loadEnergySummary,
+    this.loadWaterSummary,
+    this.loadEnergyTrend,
+    this.loadWaterTrend,
+    this.loadEnergyScore,
+    this.loadWaterScore,
+    this.loadAlerts,
+  });
+
+  /// Injectable read seams, same pattern as the other connected School Admin
+  /// pages. Production passes nothing and the real services are used; tests
+  /// supply these to drive loading / data / empty / error without a live
+  /// Supabase client.
+  final Future<EnergyUsageSummary?> Function(String period)? loadEnergySummary;
+  final Future<WaterUsageSummary?> Function(String period)? loadWaterSummary;
+  final Future<List<UtilityTrendPoint>> Function(int days)? loadEnergyTrend;
+  final Future<List<UtilityTrendPoint>> Function(int days)? loadWaterTrend;
+  final Future<UtilityEfficiencyScore?> Function()? loadEnergyScore;
+  final Future<UtilityEfficiencyScore?> Function()? loadWaterScore;
+  final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
 
   @override
   State<SchoolResourcesPage> createState() => _SchoolResourcesPageState();
@@ -17,178 +38,95 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   String _selectedBuilding = 'ทุกอาคาร';
   String _selectedRoom = 'ทุกห้อง';
   bool _isLoading = false;
-  final bool _liveTelemetry = true;
+  /// ป้าย "IoT Live Sync" เคยเป็น `final bool = true` ติดค้างเสมอ — ขึ้นเป็น
+  /// สีเขียวแม้ในโรงเรียนที่ไม่มีมิเตอร์สักตัวและไม่มีข้อมูลไหลเข้าเลย
+  /// ตอนนี้ผูกกับจำนวนมิเตอร์ที่ backend เห็นจริง
+  bool get _liveTelemetry => _energyDeviceCount > 0 || _waterDeviceCount > 0;
 
   // Chart datasets
-  static const Map<_ResourcePeriod, _ChartSeries> _electricitySeries = {
-    _ResourcePeriod.daily: _ChartSeries(
-      labels: [
-        '00:00',
-        '03:00',
-        '06:00',
-        '09:00',
-        '12:00',
-        '15:00',
-        '18:00',
-        '21:00',
-      ],
-      values: [18, 14, 21, 62, 79, 88, 91, 55],
-      total: '428.5 kWh',
-      cost: '฿1,885.40',
-      previous: '442.8 kWh',
-      change: 'ลดลง 3.2%',
-      isPositive: true,
-      caption: 'การใช้ไฟวันนี้แยกตามช่วงเวลา (Peak: 14:00 - 16:00 น.)',
-      peakValue: '91.0 kWh',
-      avgValue: '53.5 kWh',
-      lowestValue: '14.0 kWh',
-    ),
-    _ResourcePeriod.weekly: _ChartSeries(
-      labels: ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสฯ', 'ศุกร์', 'เสาร์', 'อาทิตย์'],
-      values: [412, 435, 428, 440, 398, 145, 120],
-      total: '2,378 kWh',
-      cost: '฿10,463.20',
-      previous: '2,460 kWh',
-      change: 'ลดลง 3.3%',
-      isPositive: true,
-      caption: 'การใช้ไฟสัปดาห์นี้ (เสาร์-อาทิตย์ ปิดทำการประหยัดได้ 65%)',
-      peakValue: '440 kWh',
-      avgValue: '339.7 kWh',
-      lowestValue: '120 kWh',
-    ),
-    _ResourcePeriod.monthly: _ChartSeries(
-      labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'สัปดาห์ 4'],
-      values: [3210, 3450, 3120, 3060],
-      total: '12,840 kWh',
-      cost: '฿56,496.00',
-      previous: '13,210 kWh',
-      change: 'ลดลง 2.8%',
-      isPositive: true,
-      caption: 'การใช้ไฟเดือนนี้แยกตามสัปดาห์ (ประหยัดค่าไฟได้ ฿1,628)',
-      peakValue: '3,450 kWh',
-      avgValue: '3,210 kWh',
-      lowestValue: '3,060 kWh',
-    ),
-    _ResourcePeriod.yearly: _ChartSeries(
-      labels: [
-        'ม.ค.',
-        'ก.พ.',
-        'มี.ค.',
-        'เม.ย.',
-        'พ.ค.',
-        'มิ.ย.',
-        'ก.ค.',
-        'ส.ค.',
-        'ก.ย.',
-        'ต.ค.',
-        'พ.ย.',
-        'ธ.ค.',
-      ],
-      values: [
-        11240,
-        10860,
-        11920,
-        8640,
-        13110,
-        12840,
-        13520,
-        12980,
-        12140,
-        11820,
-        11460,
-        10990,
-      ],
-      total: '141,520 kWh',
-      cost: '฿622,688.00',
-      previous: '147,100 kWh',
-      change: 'ลดลง 3.8%',
-      isPositive: true,
-      caption: 'การใช้ไฟปีนี้แยกตามเดือน (เม.ย. ปิดภาคเรียนลดลงชัดเจน)',
-      peakValue: '13,520 kWh',
-      avgValue: '11,793 kWh',
-      lowestValue: '8,640 kWh',
-    ),
-  };
+  // ชุดข้อมูลกราฟเคยเป็น `static const Map` สองก้อน (~170 บรรทัด) ที่แต่งขึ้น
+  // ทั้งหมด: ยอดรวม "428.5 kWh" ค่าไฟ "฿1,885.40" ส่วนต่าง "ลดลง 3.2%" และ
+  // คำบรรยายที่อ้างข้อสรุปเชิงวิเคราะห์อย่าง "Peak: 14:00 - 16:00 น." กับ
+  // "เสาร์-อาทิตย์ ปิดทำการประหยัดได้ 65%" — ระบบไม่เคยมีข้อมูลรายชั่วโมง
+  // และไม่เคยคำนวณอะไรพวกนี้เลย
+  //
+  // ตอนนี้ทุกค่ามาจาก RPC จริงที่ school_admin เรียกได้:
+  //   get_energy_usage_summary / get_water_usage_summary (p_period)
+  //   get_energy_usage_trend  / get_water_usage_trend   (จุดรายวัน)
+  //   get_energy_efficiency_score / get_water_efficiency_score (current/previous)
+  // ส่วนต่างเทียบช่วงก่อนหน้าคำนวณจาก current/previous ที่ backend คืนมาจริง
+  // ไม่ได้เดา — และค่า peak/avg/ต่ำสุด คำนวณจากจุดใน trend จริง
+  _ChartSeries? _electricitySeries;
+  _ChartSeries? _waterSeries;
 
-  static const Map<_ResourcePeriod, _ChartSeries> _waterSeries = {
-    _ResourcePeriod.daily: _ChartSeries(
-      labels: [
-        '00:00',
-        '03:00',
-        '06:00',
-        '09:00',
-        '12:00',
-        '15:00',
-        '18:00',
-        '21:00',
-      ],
-      values: [0.4, 0.3, 1.1, 2.3, 2.6, 2.1, 2.4, 1.4],
-      total: '12.60 m³',
-      cost: '฿226.80',
-      previous: '12.45 m³',
-      change: 'เพิ่มขึ้น 1.2%',
-      isPositive: false,
-      caption: 'การใช้น้ำวันนี้แยกตามช่วงเวลา (Peak: 12:00 - 13:00 น. พักเที่ยง)',
-      peakValue: '2.60 m³',
-      avgValue: '1.57 m³',
-      lowestValue: '0.30 m³',
-    ),
-    _ResourcePeriod.weekly: _ChartSeries(
-      labels: ['จันทร์', 'อังคาร', 'พุธ', 'พฤหัสฯ', 'ศุกร์', 'เสาร์', 'อาทิตย์'],
-      values: [12.4, 13.1, 12.8, 13.4, 12.6, 3.8, 3.2],
-      total: '71.30 m³',
-      cost: '฿1,283.40',
-      previous: '73.20 m³',
-      change: 'ลดลง 2.6%',
-      isPositive: true,
-      caption: 'การใช้น้ำสัปดาห์นี้แยกตามวัน',
-      peakValue: '13.40 m³',
-      avgValue: '10.18 m³',
-      lowestValue: '3.20 m³',
-    ),
-    _ResourcePeriod.monthly: _ChartSeries(
-      labels: ['สัปดาห์ 1', 'สัปดาห์ 2', 'สัปดาห์ 3', 'สัปดาห์ 4'],
-      values: [94.5, 96.2, 91.8, 89.9],
-      total: '372.40 m³',
-      cost: '฿6,703.20',
-      previous: '380.20 m³',
-      change: 'ลดลง 2.1%',
-      isPositive: true,
-      caption: 'การใช้น้ำเดือนนี้แยกตามสัปดาห์',
-      peakValue: '96.20 m³',
-      avgValue: '93.10 m³',
-      lowestValue: '89.90 m³',
-    ),
-    _ResourcePeriod.yearly: _ChartSeries(
-      labels: [
-        'ม.ค.',
-        'ก.พ.',
-        'มี.ค.',
-        'เม.ย.',
-        'พ.ค.',
-        'มิ.ย.',
-        'ก.ค.',
-        'ส.ค.',
-        'ก.ย.',
-        'ต.ค.',
-        'พ.ย.',
-        'ธ.ค.',
-      ],
-      values: [342, 331, 355, 185, 389, 402, 396, 382, 368, 351, 340, 328],
-      total: '4,269 m³',
-      cost: '฿76,842.00',
-      previous: '4,410 m³',
-      change: 'ลดลง 3.2%',
-      isPositive: true,
-      caption: 'การใช้น้ำปีนี้แยกตามเดือน',
-      peakValue: '402 m³',
-      avgValue: '355.7 m³',
-      lowestValue: '185 m³',
-    ),
-  };
+  /// แยก "โหลดไม่สำเร็จ" ออกจาก "ไม่มีข้อมูล" — ของเดิมกลืน error แล้วโชว์
+  /// ตัวเลขปลอมต่อ ทำให้ทั้งสองกรณีหน้าตาเหมือนข้อมูลจริง
+  bool _loadFailed = false;
 
-  _ChartSeries get _electricity => _electricitySeries[_period]!;
-  _ChartSeries get _water => _waterSeries[_period]!;
+  /// จำนวนมิเตอร์ที่ backend เห็น ใช้แยก "วัดแล้วได้ศูนย์" ออกจาก
+  /// "ไม่มีอะไรวัด" — RPC รวมยอดด้วย coalesce(sum(...), 0) โรงเรียนที่ไม่มี
+  /// มิเตอร์เลยจึงได้ 0.0 ที่อ่านเหมือนค่าจริง (บทเรียนจาก energy page)
+  int _energyDeviceCount = 0;
+  int _waterDeviceCount = 0;
+
+  /// การแจ้งเตือนค่าเกินเกณฑ์จริงจาก sensor_alerts (cron เขียน) ใช้แทนรายการ
+  /// "ความผิดปกติ" ที่เคยแต่งขึ้น
+  List<SchoolSensorAlertRecord> _alerts = const [];
+  bool _alertsLoading = true;
+
+  /// ยังไม่มีข้อมูลจริง → คืนชุดที่บอกสถานะตรง ๆ แทนที่จะเป็น null
+  /// (ทุกช่องเป็นข้อความสถานะ ไม่ใช่ตัวเลข จึงไม่มีทางถูกอ่านว่าเป็นค่าจริง)
+  _ChartSeries _placeholderSeries() {
+    final String text = _isLoading
+        ? 'กำลังโหลด…'
+        : (_loadFailed ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล');
+    return _ChartSeries(
+      labels: const [],
+      values: const [],
+      total: text,
+      cost: text,
+      previous: text,
+      change: _loadFailed ? 'โหลดไม่สำเร็จ' : 'ไม่มีข้อมูลเทียบ',
+      isPositive: true,
+      caption: _loadFailed
+          ? 'โหลดข้อมูลการใช้ทรัพยากรไม่สำเร็จ'
+          : 'ยังไม่มีมิเตอร์ที่ส่งค่าเข้าระบบ',
+      peakValue: text,
+      avgValue: text,
+      lowestValue: text,
+    );
+  }
+
+  _ChartSeries get _electricity => _electricitySeries ?? _placeholderSeries();
+  _ChartSeries get _water => _waterSeries ?? _placeholderSeries();
+
+  /// ค่าที่ backend รองรับจริง — ตรวจจากตัวฟังก์ชันในฐานข้อมูล ไม่ใช่เดา
+  String get _periodParam {
+    switch (_period) {
+      case _ResourcePeriod.daily:
+        return 'today';
+      case _ResourcePeriod.weekly:
+        return 'week';
+      case _ResourcePeriod.monthly:
+        return 'month';
+      case _ResourcePeriod.yearly:
+        return 'year';
+    }
+  }
+
+  int get _trendDays {
+    switch (_period) {
+      case _ResourcePeriod.daily:
+        return 1;
+      case _ResourcePeriod.weekly:
+        return 7;
+      case _ResourcePeriod.monthly:
+        return 30;
+      case _ResourcePeriod.yearly:
+        return 365;
+    }
+  }
+
 
   String get _periodTitle {
     switch (_period) {
@@ -207,17 +145,159 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   void initState() {
     super.initState();
     _loadUtilityData();
+    _loadAlerts();
   }
 
-  Future<void> _loadUtilityData() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadAlerts() async {
+    if (mounted) setState(() => _alertsLoading = true);
     try {
-      await UtilityService.getSchoolUtilityRates();
-    } catch (_) {
-      // Offline fallback
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      final rows = await (widget.loadAlerts?.call() ??
+          IncidentService.listSchoolAlerts(status: 'new'));
+      if (!mounted) return;
+      setState(() {
+        _alerts = rows;
+        _alertsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('listSchoolAlerts failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _alerts = const [];
+        _alertsLoading = false;
+      });
     }
+  }
+
+  /// เดิมฟังก์ชันนี้ `await UtilityService.getSchoolUtilityRates()` แล้ว
+  /// **ทิ้งผลลัพธ์ทันที** ไม่เก็บใส่ตัวแปรใด ๆ ส่วน `catch (_)` เขียนคอมเมนต์ว่า
+  /// "Offline fallback" ทั้งที่ไม่มี fallback อะไรเลย — หน้าจึงแสดงค่าคงที่
+  /// เหมือนเดิมไม่ว่าจะโหลดสำเร็จหรือล้มเหลว
+  Future<void> _loadUtilityData() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _loadFailed = false;
+      });
+    }
+    try {
+      final results = await Future.wait([
+        widget.loadEnergySummary?.call(_periodParam) ??
+            UtilityService.getEnergyUsageSummary(period: _periodParam),
+        widget.loadWaterSummary?.call(_periodParam) ??
+            UtilityService.getWaterUsageSummary(period: _periodParam),
+        widget.loadEnergyTrend?.call(_trendDays) ??
+            UtilityService.getEnergyUsageTrend(days: _trendDays),
+        widget.loadWaterTrend?.call(_trendDays) ??
+            UtilityService.getWaterUsageTrend(days: _trendDays),
+        widget.loadEnergyScore?.call() ??
+            UtilityService.getEnergyEfficiencyScore(),
+        widget.loadWaterScore?.call() ??
+            UtilityService.getWaterEfficiencyScore(),
+      ]);
+      if (!mounted) return;
+
+      final energySummary = results[0] as EnergyUsageSummary?;
+      final waterSummary = results[1] as WaterUsageSummary?;
+      final energyTrend = results[2] as List<UtilityTrendPoint>;
+      final waterTrend = results[3] as List<UtilityTrendPoint>;
+      final energyScore = results[4] as UtilityEfficiencyScore?;
+      final waterScore = results[5] as UtilityEfficiencyScore?;
+
+      setState(() {
+        _energyDeviceCount = energySummary?.deviceCount ?? 0;
+        _waterDeviceCount = waterSummary?.deviceCount ?? 0;
+        _electricitySeries = _buildSeries(
+          points: energyTrend,
+          total: energySummary == null
+              ? null
+              : '${energySummary.totalKwh.toStringAsFixed(1)} kWh',
+          cost: energySummary == null
+              ? null
+              : '฿${energySummary.estimatedCostThb.toStringAsFixed(2)}',
+          score: energyScore,
+          unit: 'kWh',
+          deviceCount: _energyDeviceCount,
+          meterNoun: 'มิเตอร์ไฟ',
+        );
+        _waterSeries = _buildSeries(
+          points: waterTrend,
+          total: waterSummary == null
+              ? null
+              : '${waterSummary.totalM3.toStringAsFixed(1)} m³',
+          cost: waterSummary == null
+              ? null
+              : '฿${waterSummary.estimatedCostThb.toStringAsFixed(2)}',
+          score: waterScore,
+          unit: 'm³',
+          deviceCount: _waterDeviceCount,
+          meterNoun: 'มิเตอร์น้ำ',
+        );
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolResourcesPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadFailed = true;
+        _electricitySeries = null;
+        _waterSeries = null;
+      });
+    }
+  }
+
+  /// ประกอบชุดกราฟจากข้อมูลจริงเท่านั้น ค่าไหนที่ backend ไม่ได้ให้มาจะเป็น
+  /// `ยังไม่มีข้อมูล` ไม่ใช่ตัวเลขที่เดาขึ้น
+  _ChartSeries _buildSeries({
+    required List<UtilityTrendPoint> points,
+    required String? total,
+    required String? cost,
+    required UtilityEfficiencyScore? score,
+    required String unit,
+    required int deviceCount,
+    required String meterNoun,
+  }) {
+    const String noData = 'ยังไม่มีข้อมูล';
+    final values = points.map((p) => p.value).toList();
+    final labels = points
+        .map((p) => '${p.day.day}/${p.day.month}')
+        .toList(growable: false);
+
+    // ส่วนต่างเทียบช่วงก่อนหน้ามาจาก current/previous ที่ backend คืนมาจริง
+    // ถ้าไม่มีช่วงก่อนหน้าให้เทียบ (previous = 0) ก็บอกตรง ๆ ว่าเทียบไม่ได้
+    String change = 'ไม่มีข้อมูลเทียบ';
+    bool isPositive = true;
+    String previous = noData;
+    if (score != null) {
+      previous = '${score.previous.toStringAsFixed(1)} $unit';
+      if (score.previous > 0) {
+        final diff = (score.current - score.previous) / score.previous * 100;
+        isPositive = diff <= 0;
+        change =
+            '${diff <= 0 ? 'ลดลง' : 'เพิ่มขึ้น'} ${diff.abs().toStringAsFixed(1)}%';
+      }
+    }
+
+    String stat(double Function(List<double>) pick) => values.isEmpty
+        ? noData
+        : '${pick(values).toStringAsFixed(1)} $unit';
+
+    return _ChartSeries(
+      labels: labels,
+      values: values,
+      total: total ?? noData,
+      cost: cost ?? noData,
+      previous: previous,
+      change: change,
+      isPositive: isPositive,
+      // ไม่ใส่ข้อสรุปเชิงวิเคราะห์ที่ระบบคำนวณไม่ได้ บอกแค่ที่มาของข้อมูล
+      caption: deviceCount == 0
+          ? 'ยังไม่มี$meterNounที่ส่งค่าเข้าระบบ'
+          : 'จาก$meterNoun $deviceCount จุด · ${points.length} วันที่มีข้อมูล',
+      peakValue: stat((v) => v.reduce((a, b) => a > b ? a : b)),
+      avgValue: stat((v) => v.reduce((a, b) => a + b) / v.length),
+      lowestValue: stat((v) => v.reduce((a, b) => a < b ? a : b)),
+    );
   }
 
   void _showMessage(String message) {
@@ -230,7 +310,117 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     );
   }
 
+  // เกณฑ์การแจ้งเตือน: เดิมสามช่องนี้เป็นค่าตายตัวและปุ่มบันทึกแค่ขึ้นข้อความ
+  // "บันทึกเรียบร้อยแล้ว" โดยไม่เขียนอะไรลงฐานข้อมูลเลย
+  //
+  // ตรวจกับฐานข้อมูลที่รันอยู่แล้วว่า `set_threshold` เปิดให้
+  // ('teacher','school_admin','super_admin') และ metric_type มีค่า
+  // energy_kwh / water_m3 / pm25 ตรงกับสามช่องนี้พอดี จึงต่อของจริงได้
+  // โดยไม่ต้องเขียน backend ใหม่
+  final TextEditingController _energyLimitCtrl = TextEditingController();
+  final TextEditingController _waterLimitCtrl = TextEditingController();
+  final TextEditingController _pm25LimitCtrl = TextEditingController();
+  bool _thresholdSaving = false;
+  bool _thresholdsLoaded = false;
+
+  @override
+  void dispose() {
+    _energyLimitCtrl.dispose();
+    _waterLimitCtrl.dispose();
+    _pm25LimitCtrl.dispose();
+    super.dispose();
+  }
+
+  /// โหลดเกณฑ์ที่บันทึกไว้จริง ไม่เติมค่าตั้งต้นสมมติ — ช่องว่างแปลว่า
+  /// ยังไม่เคยตั้งเกณฑ์นั้น ไม่ใช่ว่าเกณฑ์เป็น 500
+  Future<void> _loadThresholds() async {
+    try {
+      final rows = await RealtimeService.listThresholds();
+      double? maxFor(String metric) {
+        for (final r in rows) {
+          if (r['metric'] == metric) return (r['max_value'] as num?)?.toDouble();
+        }
+        return null;
+      }
+
+      if (!mounted) return;
+      final energy = maxFor('energy_kwh');
+      final water = maxFor('water_m3');
+      final pm25 = maxFor('pm25');
+      setState(() {
+        _energyLimitCtrl.text = energy?.toString() ?? '';
+        _waterLimitCtrl.text = water?.toString() ?? '';
+        _pm25LimitCtrl.text = pm25?.toString() ?? '';
+        _thresholdsLoaded = true;
+      });
+    } catch (e) {
+      debugPrint('listThresholds failed: $e');
+      if (mounted) setState(() => _thresholdsLoaded = true);
+    }
+  }
+
+  /// เขียนจริง แล้วอ่านกลับมายืนยันก่อนบอกว่าสำเร็จ ถ้าอ่านกลับไม่ตรงจะบอกว่า
+  /// ยืนยันไม่ได้ ไม่ใช่บอกว่าสำเร็จ
+  Future<void> _saveThresholds() async {
+    final entries = <String, TextEditingController>{
+      'energy_kwh': _energyLimitCtrl,
+      'water_m3': _waterLimitCtrl,
+      'pm25': _pm25LimitCtrl,
+    };
+    final wanted = <String, double>{};
+    for (final e in entries.entries) {
+      final raw = e.value.text.trim();
+      if (raw.isEmpty) continue;
+      final parsed = double.tryParse(raw);
+      if (parsed == null) {
+        _showMessage('กรอกตัวเลขให้ถูกต้องก่อนบันทึก');
+        return;
+      }
+      wanted[e.key] = parsed;
+    }
+    if (wanted.isEmpty) {
+      _showMessage('ยังไม่ได้กรอกเกณฑ์ใดเลย');
+      return;
+    }
+
+    setState(() => _thresholdSaving = true);
+    try {
+      for (final e in wanted.entries) {
+        await RealtimeService.setThreshold(
+          metric: e.key,
+          min: 0,
+          max: e.value,
+        );
+      }
+      // อ่าน canonical กลับมาตรวจว่าเขียนติดจริง
+      final rows = await RealtimeService.listThresholds();
+      final confirmed = wanted.entries.every((e) {
+        for (final r in rows) {
+          if (r['metric'] == e.key &&
+              ((r['max_value'] as num?)?.toDouble() ?? -1) == e.value) {
+            return true;
+          }
+        }
+        return false;
+      });
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      _showMessage(
+        confirmed
+            ? 'บันทึกเกณฑ์การแจ้งเตือนแล้ว'
+            : 'ส่งคำขอแล้ว แต่ยืนยันผลไม่ได้ กรุณาเปิดดูอีกครั้ง',
+      );
+    } catch (e) {
+      debugPrint('setThreshold failed: $e');
+      if (!mounted) return;
+      _showMessage('บันทึกเกณฑ์ไม่สำเร็จ กรุณาลองใหม่');
+    } finally {
+      if (mounted) setState(() => _thresholdSaving = false);
+    }
+  }
+
   void _openThresholdDialog() {
+    if (!_thresholdsLoaded) _loadThresholds();
     showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -265,28 +455,32 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                   style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 16),
+                // ช่องว่าง = ยังไม่เคยตั้งเกณฑ์นี้ ไม่ใช่ค่าตั้งต้นสมมติ
                 TextFormField(
-                  initialValue: '500',
+                  controller: _energyLimitCtrl,
                   decoration: const InputDecoration(
                     labelText: 'เพดานการใช้ไฟฟ้าสูงสุดรายวัน (kWh/วัน)',
+                    hintText: 'ยังไม่ได้ตั้งเกณฑ์',
                     suffixText: 'kWh',
                   ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  initialValue: '15.0',
+                  controller: _waterLimitCtrl,
                   decoration: const InputDecoration(
                     labelText: 'เพดานการใช้น้ำสูงสุดรายวัน (m³/วัน)',
+                    hintText: 'ยังไม่ได้ตั้งเกณฑ์',
                     suffixText: 'm³',
                   ),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  initialValue: '37.5',
+                  controller: _pm25LimitCtrl,
                   decoration: const InputDecoration(
                     labelText: 'เกณฑ์แจ้งเตือนฝุ่นละออง PM2.5 (µg/m³)',
+                    hintText: 'ยังไม่ได้ตั้งเกณฑ์',
                     suffixText: 'µg/m³',
                   ),
                   keyboardType: TextInputType.number,
@@ -300,10 +494,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
               child: const Text('ยกเลิก'),
             ),
             FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _showMessage('บันทึกเกณฑ์การแจ้งเตือนทรัพยากรเรียบร้อยแล้ว');
-              },
+              onPressed: _thresholdSaving ? null : _saveThresholds,
               style: FilledButton.styleFrom(
                 backgroundColor: SchoolAdminPalette.primaryDark,
                 foregroundColor: Colors.white,
@@ -604,21 +795,25 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                   ),
                 ),
               ),
-              FilledButton.icon(
-                onPressed: () {
-                  _showMessage('ส่งออกรายงานการใช้ทรัพยากร (PDF/Excel) สำเร็จ');
-                },
-                icon: const Icon(Icons.file_download_outlined, size: 17),
-                label: const Text('ส่งออกรายงาน'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SchoolAdminPalette.primaryDark,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // ไม่มี pipeline สร้างไฟล์รายงานในระบบ ปุ่มนี้เคยขึ้นว่า "สำเร็จ"
+              // ทั้งที่ไม่มีไฟล์ใดถูกสร้างเลย จึงปิดไว้พร้อมบอกเหตุผล
+              Tooltip(
+                message:
+                    'ยังไม่รองรับการส่งออกไฟล์รายงาน — ฟีเจอร์นี้ยังไม่ได้เชื่อมกับเซิร์ฟเวอร์',
+                child: FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.file_download_outlined, size: 17),
+                  label: const Text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SchoolAdminPalette.primaryDark,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -1250,78 +1445,15 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 
   // 5. Building Consumption & Efficiency Table Section
   Widget _buildBuildingTableSection() {
-    final List<_BuildingResourceRecord> buildings = [
-      const _BuildingResourceRecord(
-        name: 'อาคารเรียน A',
-        area: '2,400 ตร.ม.',
-        meterCount: 8,
-        electricityText: '96.2 kWh',
-        electricityPercent: 22,
-        waterText: '2.70 m³',
-        waterPercent: 21,
-        efficiencyGrade: 'A',
-        efficiencyDetail: 'ใช้พลังงานตามเกณฑ์มาตรฐานดีเยี่ยม',
-        pm25: 16,
-        airQualityStatus: 'ดีมาก',
-        status: 'ปกติ',
-      ),
-      const _BuildingResourceRecord(
-        name: 'อาคารเรียน B',
-        area: '2,800 ตร.ม.',
-        meterCount: 10,
-        electricityText: '78.5 kWh',
-        electricityPercent: 18,
-        waterText: '2.40 m³',
-        waterPercent: 19,
-        efficiencyGrade: 'A+',
-        efficiencyDetail: 'ระบบโซลาร์เซลล์ช่วยประหยัด 35%',
-        pm25: 17,
-        airQualityStatus: 'ดีมาก',
-        status: 'ปกติ',
-      ),
-      const _BuildingResourceRecord(
-        name: 'อาคารปฏิบัติการ',
-        area: '3,200 ตร.ม.',
-        meterCount: 12,
-        electricityText: '142.8 kWh',
-        electricityPercent: 33,
-        waterText: '3.80 m³',
-        waterPercent: 30,
-        efficiencyGrade: 'C',
-        efficiencyDetail: 'มีการใช้ไฟสูงเกินค่าเฉลี่ยช่วงบ่าย',
-        pm25: 22,
-        airQualityStatus: 'ปานกลาง',
-        status: 'เฝ้าระวัง',
-      ),
-      const _BuildingResourceRecord(
-        name: 'อาคารอำนวยการ',
-        area: '1,600 ตร.ม.',
-        meterCount: 6,
-        electricityText: '61.0 kWh',
-        electricityPercent: 14,
-        waterText: '1.70 m³',
-        waterPercent: 14,
-        efficiencyGrade: 'B',
-        efficiencyDetail: 'การใช้พลังงานอยู่ในเกณฑ์ปกติ',
-        pm25: 15,
-        airQualityStatus: 'ดีมาก',
-        status: 'ปกติ',
-      ),
-      const _BuildingResourceRecord(
-        name: 'โรงอาหารและหอประชุม',
-        area: '1,800 ตร.ม.',
-        meterCount: 4,
-        electricityText: '50.0 kWh',
-        electricityPercent: 13,
-        waterText: '2.00 m³',
-        waterPercent: 16,
-        efficiencyGrade: 'B+',
-        efficiencyDetail: 'ใช้น้ำสูงช่วงมื้อกลางวัน',
-        pm25: 19,
-        airQualityStatus: 'ดี',
-        status: 'ปกติ',
-      ),
-    ];
+    // ตารางนี้เคยเป็นอาคาร 4 หลังที่แต่งขึ้นทั้งหมด — ชื่อ พื้นที่ จำนวนมิเตอร์
+    // ยอดใช้ไฟ/น้ำ เกรดประสิทธิภาพ และค่า PM2.5 รายอาคาร
+    //
+    // ตรวจแล้วว่าไม่มีทางแสดงของจริงได้ตอนนี้ ด้วยเหตุผลสองชั้น:
+    //   1. ไม่มี RPC รวมยอดรายอาคารเลย (มีแค่ระดับโรงเรียน: summary/trend/score)
+    //   2. ต่อให้เขียน RPC ก็ยังไม่มีอะไรให้จัดกลุ่ม — devices.building เป็น
+    //      null ทั้งหมด ยังไม่มีการผูกมิเตอร์เข้ากับอาคาร
+    // จึงแสดง empty state ที่บอกเงื่อนไขตรง ๆ แทนการเดาตัวเลขรายอาคาร
+    final List<_BuildingResourceRecord> buildings = const [];
 
     return Container(
       width: double.infinity,
@@ -1428,6 +1560,21 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                         _ResourceTableHeader(text: 'จัดการ'),
                       ],
                     ),
+                    if (buildings.isEmpty)
+                      const TableRow(
+                        children: [
+                          _ResourceTableHeader(
+                            text: 'ยังไม่มีข้อมูล — ต้องผูกมิเตอร์เข้ากับอาคารก่อน',
+                            align: TextAlign.left,
+                          ),
+                          SizedBox.shrink(),
+                          SizedBox.shrink(),
+                          SizedBox.shrink(),
+                          SizedBox.shrink(),
+                          SizedBox.shrink(),
+                          SizedBox.shrink(),
+                        ],
+                      ),
                     ...buildings.map((_BuildingResourceRecord b) {
                       return TableRow(
                         children: [
@@ -1456,11 +1603,25 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
               // Mobile Card List
               return Padding(
                 padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: buildings
-                      .map((b) => _buildMobileBuildingCard(b))
-                      .toList(),
-                ),
+                child: buildings.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'ยังไม่มีข้อมูล — ต้องผูกมิเตอร์เข้ากับอาคารก่อน '
+                          'จึงจะแยกยอดรายอาคารได้',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      )
+                    : Column(
+                        children: buildings
+                            .map((b) => _buildMobileBuildingCard(b))
+                            .toList(),
+                      ),
               );
             },
           ),
@@ -1805,23 +1966,52 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                 ],
               ),
               const SizedBox(height: 14),
-              _buildAnomalyItem(
-                title: 'การใช้ไฟฟ้าสูงกว่าปกติ 14% ช่วงพักเที่ยง',
-                subtitle: 'อาคารปฏิบัติการ ชั้น 2 • ตรวจพบเปิดเครื่องปรับอากาศทิ้งไว้ 3 ห้อง',
-                severity: 'สูง',
-                time: '12:45 น.',
-                color: const Color(0xFFDC2626),
-                onAction: () => _showMessage('ส่งคำสั่งปิดเครื่องปรับอากาศอัตโนมัติแล้ว'),
-              ),
-              const SizedBox(height: 10),
-              _buildAnomalyItem(
-                title: 'ตรวจพบน้ำไหลต่อเนื่องนอกเวลาทำการ',
-                subtitle: 'อาคารเรียน B ห้องน้ำชายชั้น 1 • อัตราไหล 0.35 m³/ชม.',
-                severity: 'ปานกลาง',
-                time: '04:15 น.',
-                color: const Color(0xFFD97706),
-                onAction: () => _showMessage('แจ้งเตือนฝ่ายอาคารสถานที่เรียบร้อยแล้ว'),
-              ),
+              // เดิมส่วนนี้เป็นความผิดปกติสองรายการที่แต่งขึ้นทั้งหมด — ระบุเวลา
+              // ("12:45 น."), สถานที่ ("อาคารปฏิบัติการ ชั้น 2") และข้อสรุป
+              // ("เปิดเครื่องปรับอากาศทิ้งไว้ 3 ห้อง", "อัตราไหล 0.35 m³/ชม.")
+              // ทั้งที่ระบบไม่มีการตรวจจับความผิดปกติเชิงพฤติกรรมแบบนั้นเลย
+              // และปุ่มก็ขึ้นแค่ข้อความว่าสั่งงานแล้วโดยไม่ส่งคำสั่งอะไรจริง
+              //
+              // แหล่งข้อมูลจริงที่มีคือ sensor_alerts ซึ่ง cron
+              // threshold-violation-check เขียนเมื่อค่าเกินเกณฑ์ที่ตั้งไว้
+              if (_alertsLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_alerts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Text(
+                    'ยังไม่มีข้อมูล — ยังไม่มีค่าที่เกินเกณฑ์ที่ตั้งไว้',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
+                )
+              else
+                ..._alerts.take(5).map(
+                  (a) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _buildAnomalyItem(
+                      title: '${a.metric} เกินเกณฑ์ (${a.value})',
+                      subtitle: '${a.deviceName} · ${a.deviceCode}',
+                      severity: a.status == 'new' ? 'ยังไม่รับเรื่อง' : a.status,
+                      time:
+                          '${a.triggeredAt.hour.toString().padLeft(2, '0')}:'
+                          '${a.triggeredAt.minute.toString().padLeft(2, '0')} น.',
+                      color: a.status == 'new'
+                          ? const Color(0xFFDC2626)
+                          : const Color(0xFFD97706),
+                      // ไม่มี RPC สำหรับสั่งปิดอุปกรณ์หรือแจ้งฝ่ายอาคารจากหน้านี้
+                      // จึงไม่ให้ปุ่มที่กดแล้วไม่เกิดอะไร
+                      onAction: null,
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -1923,7 +2113,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     required String severity,
     required String time,
     required Color color,
-    required VoidCallback onAction,
+    // null = ไม่มี backend รองรับการกระทำนี้ จึงไม่แสดงปุ่มเลย ดีกว่ามีปุ่ม
+    // ที่กดแล้วขึ้นข้อความว่าสั่งงานแล้วทั้งที่ไม่ได้ส่งคำสั่งอะไร
+    VoidCallback? onAction,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1978,33 +2170,35 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                     color: Color(0xFF64748B),
                   ),
                 ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: onAction,
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'ดำเนินการแก้ไข',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
+                if (onAction != null) ...[
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: onAction,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'ดำเนินการแก้ไข',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: SchoolAdminPalette.primaryDark,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 14,
                             color: SchoolAdminPalette.primaryDark,
                           ),
-                        ),
-                        SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 14,
-                          color: SchoolAdminPalette.primaryDark,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
