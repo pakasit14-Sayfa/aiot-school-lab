@@ -4,16 +4,31 @@ import 'package:shared_core/shared_core.dart';
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
+/// Read seams so loading / data / empty / failure can each be driven in a test.
+typedef ClassroomsOverviewLoader = Future<ClassroomsOverviewItem?> Function();
+typedef HomeroomsLoader = Future<List<HomeroomAssignment>> Function();
+typedef TrackRoomsLoader = Future<List<LearningTrackRoom>> Function();
+typedef ClassSchedulesLoader = Future<List<SchoolScheduleItem>> Function();
+
 class DirectorClassroomsPage extends StatefulWidget {
-  const DirectorClassroomsPage({super.key});
+  const DirectorClassroomsPage({
+    super.key,
+    this.loadOverview,
+    this.loadHomerooms,
+    this.loadTrackRooms,
+    this.loadSchedules,
+  });
+
+  final ClassroomsOverviewLoader? loadOverview;
+  final HomeroomsLoader? loadHomerooms;
+  final TrackRoomsLoader? loadTrackRooms;
+  final ClassSchedulesLoader? loadSchedules;
 
   @override
-  State<DirectorClassroomsPage> createState() =>
-      _DirectorClassroomsPageState();
+  State<DirectorClassroomsPage> createState() => _DirectorClassroomsPageState();
 }
 
-class _DirectorClassroomsPageState
-    extends State<DirectorClassroomsPage> {
+class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   _ClassroomData? selectedRoom;
 
   ClassroomsOverviewItem? _overview;
@@ -24,6 +39,10 @@ class _DirectorClassroomsPageState
   // numbers as if they were this school's.
   bool _overviewLoading = true;
   bool _overviewFailed = false;
+
+  List<HomeroomAssignment> _homerooms = const [];
+  List<LearningTrackRoom> _trackRooms = const [];
+  List<SchoolScheduleItem> _schedules = const [];
 
   @override
   void initState() {
@@ -39,9 +58,20 @@ class _DirectorClassroomsPageState
       });
     }
     try {
-      final overview = await ExecutiveService.getClassroomsOverview();
+      final results = await Future.wait<Object?>([
+        widget.loadOverview?.call() ?? ExecutiveService.getClassroomsOverview(),
+        widget.loadHomerooms?.call() ??
+            HomeroomService.listHomeroomAssignments(),
+        widget.loadTrackRooms?.call() ?? LearningTrackService.listTrackRooms(),
+        widget.loadSchedules?.call() ??
+            ExecutiveService.listAllSchoolSchedules(),
+      ]);
+      final overview = results[0] as ClassroomsOverviewItem?;
       if (!mounted) return;
       setState(() {
+        _homerooms = results[1] as List<HomeroomAssignment>;
+        _trackRooms = results[2] as List<LearningTrackRoom>;
+        _schedules = results[3] as List<SchoolScheduleItem>;
         _overview = overview;
         _overviewLoading = false;
       });
@@ -85,212 +115,80 @@ class _DirectorClassroomsPageState
     'ตรวจแล้ว',
   ];
 
-  final List<_ClassroomData> classrooms = const [
-    _ClassroomData(
-      room: 'ม.1/1',
-      grade: 'ม.1',
-      track: 'ทั่วไป',
-      roomNumber: '101',
-      homeroomTeacher: 'ครูพิมพ์ชนก รุ่งเรือง',
-      students: 36,
-      attendance: 95,
-      learningScore: 92,
-      behaviorScore: 94,
-      environmentScore: 93,
-      assignmentsThisWeek: 8,
-      overdueStudents: 4,
-      followUpStudents: 3,
-      nextClass: 'คณิตศาสตร์ 10:20 น.',
-      color: AppPalette.chartPink,
-    ),
-    _ClassroomData(
-      room: 'ม.1/2',
-      grade: 'ม.1',
-      track: 'ทั่วไป',
-      roomNumber: '102',
-      homeroomTeacher: 'ครูสมชาย ใจดี',
-      students: 35,
-      attendance: 94,
-      learningScore: 91,
-      behaviorScore: 93,
-      environmentScore: 94,
-      assignmentsThisWeek: 7,
-      overdueStudents: 5,
-      followUpStudents: 4,
-      nextClass: 'วิทยาศาสตร์ 11:10 น.',
-      color: AppPalette.learningBlue,
-    ),
-    _ClassroomData(
-      room: 'ม.2/1',
-      grade: 'ม.2',
-      track: 'ทั่วไป',
-      roomNumber: '201',
-      homeroomTeacher: 'ครูอรทัย พัฒนกิจ',
-      students: 36,
-      attendance: 96,
-      learningScore: 94,
-      behaviorScore: 92,
-      environmentScore: 95,
-      assignmentsThisWeek: 9,
-      overdueStudents: 2,
-      followUpStudents: 2,
-      nextClass: 'ภาษาอังกฤษ 09:30 น.',
-      color: AppPalette.environmentGreen,
-    ),
-    _ClassroomData(
-      room: 'ม.2/2',
-      grade: 'ม.2',
-      track: 'ทั่วไป',
-      roomNumber: '202',
-      homeroomTeacher: 'ครูศุภชัย สายดี',
-      students: 34,
-      attendance: 93,
-      learningScore: 90,
-      behaviorScore: 91,
-      environmentScore: 93,
-      assignmentsThisWeek: 8,
-      overdueStudents: 6,
-      followUpStudents: 5,
-      nextClass: 'ภาษาไทย 13:00 น.',
-      color: AppPalette.chartCream,
-    ),
-    _ClassroomData(
-      room: 'ม.3/1',
-      grade: 'ม.3',
-      track: 'ทั่วไป',
-      roomNumber: '301',
-      homeroomTeacher: 'ครูนันต์ พัฒนกิจ',
-      students: 35,
-      attendance: 88,
-      learningScore: 91,
-      behaviorScore: 90,
-      environmentScore: 94,
-      assignmentsThisWeek: 10,
-      overdueStudents: 9,
-      followUpStudents: 6,
-      nextClass: 'สังคมศึกษา 10:20 น.',
-      color: AppPalette.warning,
-    ),
-    _ClassroomData(
-      room: 'ม.3/2',
-      grade: 'ม.3',
-      track: 'ทั่วไป',
-      roomNumber: '302',
-      homeroomTeacher: 'ครูจิราพร ตั้งใจ',
-      students: 35,
-      attendance: 92,
-      learningScore: 89,
-      behaviorScore: 91,
-      environmentScore: 92,
-      assignmentsThisWeek: 9,
-      overdueStudents: 7,
-      followUpStudents: 5,
-      nextClass: 'คณิตศาสตร์ 14:00 น.',
-      color: AppPalette.chartPink2,
-    ),
-    _ClassroomData(
-      room: 'ม.4/1',
-      grade: 'ม.4',
-      track: 'วิทย์ - คณิต',
-      roomNumber: '401',
-      homeroomTeacher: 'ครูกิตติศักดิ์ แสงทอง',
-      students: 32,
-      attendance: 95,
-      learningScore: 96,
-      behaviorScore: 94,
-      environmentScore: 92,
-      assignmentsThisWeek: 11,
-      overdueStudents: 3,
-      followUpStudents: 2,
-      nextClass: 'ฟิสิกส์ 09:30 น.',
-      color: AppPalette.primaryPink,
-    ),
-    _ClassroomData(
-      room: 'ม.4/2',
-      grade: 'ม.4',
-      track: 'สายภาษา',
-      roomNumber: '402',
-      homeroomTeacher: 'ครูพรทิพย์ รักษ์ดี',
-      students: 31,
-      attendance: 93,
-      learningScore: 92,
-      behaviorScore: 93,
-      environmentScore: 95,
-      assignmentsThisWeek: 10,
-      overdueStudents: 4,
-      followUpStudents: 3,
-      nextClass: 'ภาษาจีน 11:10 น.',
-      color: AppPalette.learningBlue,
-    ),
-    _ClassroomData(
-      room: 'ม.5/1',
-      grade: 'ม.5',
-      track: 'วิทย์ - คณิต',
-      roomNumber: '501',
-      homeroomTeacher: 'ครูธนภัทร พงษ์ดี',
-      students: 33,
-      attendance: 91,
-      learningScore: 94,
-      behaviorScore: 92,
-      environmentScore: 91,
-      assignmentsThisWeek: 12,
-      overdueStudents: 8,
-      followUpStudents: 6,
-      nextClass: 'เคมี 13:00 น.',
-      color: AppPalette.chartPink,
-    ),
-    _ClassroomData(
-      room: 'ม.5/2',
-      grade: 'ม.5',
-      track: 'สายภาษา',
-      roomNumber: '502',
-      homeroomTeacher: 'ครูวิภา สายภาษา',
-      students: 31,
-      attendance: 90,
-      learningScore: 89,
-      behaviorScore: 90,
-      environmentScore: 93,
-      assignmentsThisWeek: 10,
-      overdueStudents: 9,
-      followUpStudents: 8,
-      nextClass: 'ภาษาอังกฤษ 14:00 น.',
-      color: AppPalette.warning,
-    ),
-    _ClassroomData(
-      room: 'ม.6/1',
-      grade: 'ม.6',
-      track: 'วิทย์ - คณิต',
-      roomNumber: '601',
-      homeroomTeacher: 'ครูปณิธาน เก่งวิทย์',
-      students: 34,
-      attendance: 86,
-      learningScore: 95,
-      behaviorScore: 94,
-      environmentScore: 95,
-      assignmentsThisWeek: 9,
-      overdueStudents: 5,
-      followUpStudents: 5,
-      nextClass: 'คณิตศาสตร์ 10:20 น.',
-      color: AppPalette.danger,
-    ),
-    _ClassroomData(
-      room: 'ม.6/2',
-      grade: 'ม.6',
-      track: 'สายภาษา',
-      roomNumber: '602',
-      homeroomTeacher: 'ครูอริสา ภาษาดี',
-      students: 32,
-      attendance: 92,
-      learningScore: 93,
-      behaviorScore: 95,
-      environmentScore: 96,
-      assignmentsThisWeek: 8,
-      overdueStudents: 3,
-      followUpStudents: 3,
-      nextClass: 'ภาษาจีน 09:30 น.',
-      color: AppPalette.environmentGreen,
-    ),
-  ];
+  /// Built from three executive-readable RPCs, not written by hand.
+  ///
+  /// This was a 205-line const list of every room in a school that does not
+  /// exist — ม.1/1 through ม.6/x, each with a homeroom teacher's name, a
+  /// student count, and five scores. `list_homeroom_assignments` supplies the
+  /// room, grade, teacher and student count; `list_learning_track_rooms` the
+  /// track; `list_all_school_schedules` the next period.
+  ///
+  /// The behaviour, environment and green scores are gone. Nothing in the
+  /// schema computes them and no formula for them is written down anywhere,
+  /// so every one of those numbers was an invention presented as an
+  /// assessment of a real classroom.
+  List<_ClassroomData> get classrooms {
+    final trackByRoom = <String, String>{
+      for (final t in _trackRooms)
+        if (t.trackName != null) '${t.gradeLevel}/${t.room}': t.trackName!,
+    };
+
+    final palette = [
+      AppPalette.primaryPink,
+      AppPalette.learningBlue,
+      AppPalette.environmentGreen,
+      AppPalette.behaviorYellow,
+      AppPalette.chartPink2,
+    ];
+
+    final rows = <_ClassroomData>[];
+    for (var i = 0; i < _homerooms.length; i++) {
+      final h = _homerooms[i];
+      final key = '${h.gradeLevel}/${h.room}';
+      rows.add(
+        _ClassroomData(
+          room: key,
+          grade: h.gradeLevel,
+          track: trackByRoom[key] ?? 'ยังไม่ระบุสาย',
+          roomNumber: h.room,
+          homeroomTeacher: h.teacherName ?? 'ยังไม่มีครูประจำชั้น',
+          students: h.studentCount,
+          nextClass: _nextClassFor(h.room),
+          color: palette[i % palette.length],
+        ),
+      );
+    }
+    rows.sort((a, b) => a.room.compareTo(b.room));
+    return rows;
+  }
+
+  /// The next scheduled period for a room, from the real timetable. Returns a
+  /// plain "ไม่มีคาบ" rather than inventing one.
+  String _nextClassFor(String room) {
+    final now = DateTime.now();
+    final today = now.weekday;
+    final nowMinutes = now.hour * 60 + now.minute;
+
+    int? toMinutes(String hhmm) {
+      final parts = hhmm.split(':');
+      if (parts.length < 2) return null;
+      final h = int.tryParse(parts[0]);
+      final m = int.tryParse(parts[1]);
+      if (h == null || m == null) return null;
+      return h * 60 + m;
+    }
+
+    final todays =
+        _schedules
+            .where((s) => s.room == room && s.dayOfWeek == today)
+            .where((s) => (toMinutes(s.startTime) ?? -1) >= nowMinutes)
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    if (todays.isEmpty) return 'ไม่มีคาบที่เหลือวันนี้';
+    final next = todays.first;
+    return '${next.subjectName} ${next.startTime.substring(0, 5)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -330,424 +228,59 @@ class _DirectorClassroomsPageState
   // GREEN SCORE — อันดับห้องเรียนด้านสิ่งแวดล้อม
   // ---------------------------------------------------------------------------
 
-  final List<_GreenScore> greenScores = const [
-    _GreenScore('ม.6/1', '6/1', 'วิทย์-คณิต', 96, _Trend.up,
-        AppPalette.primaryPink),
-    _GreenScore('ม.5/2', '5/2', 'ศิลป์-ภาษา', 94, _Trend.up,
-        AppPalette.learningBlue),
-    _GreenScore('ม.4/1', '4/1', 'วิทย์-คณิต', 92, _Trend.down,
-        AppPalette.chartCream),
-    _GreenScore('ม.6/2', '6/2', 'ศิลป์-คำนวณ', 90, _Trend.up,
-        AppPalette.heroPink),
-    _GreenScore('ม.3/1', '3/1', 'ทั่วไป', 88, _Trend.same,
-        AppPalette.behaviorYellow),
-    _GreenScore('ม.5/1', '5/1', 'วิทย์-คณิต', 86, _Trend.down,
-        AppPalette.chartPink2),
-    _GreenScore('ม.2/2', '2/2', 'ทั่วไป', 84, _Trend.up,
-        AppPalette.chartBlue),
-    _GreenScore('ม.1/1', '1/1', 'ทั่วไป', 82, _Trend.same,
-        AppPalette.primaryPinkDark),
-  ];
+  // The Green Score ranking that lived here — ม.6/1 96 คะแนน ↑, and eleven
+  // more rooms — was a const list. No metric called a green score exists in
+  // the schema, and no formula for one is written down in the project, so
+  // every rank and every arrow was invented. `_greenScoreSection` now says
+  // so instead of drawing a leaderboard of classrooms that were never
+  // measured against each other.
 
   Widget _greenScoreSection() {
-    final top3 = greenScores.take(3).toList();
-    final rest = greenScores.skip(3).toList();
-
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppPalette.tint(AppPalette.primaryPink, 0.12),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: const Icon(
-                    Icons.emoji_events_rounded,
-                    color: AppPalette.primaryPink,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 11),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ภาพรวมห้องเรียนที่ดีที่สุด',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'จัดอันดับจากการมาเรียน ผลการเรียน พฤติกรรม และการส่งงาน • คะแนนเต็ม 100',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          color: AppPalette.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppPalette.tint(AppPalette.primaryPink, 0.10),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'เดือนนี้',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: AppPalette.primaryPinkDark,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 20),
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFFDF0F6), Color(0xFFF8DEEA)],
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(child: _podiumItem(top3[1], 2)),
-                const SizedBox(width: 8),
-                Expanded(child: _podiumItem(top3[0], 1, big: true)),
-                const SizedBox(width: 8),
-                Expanded(child: _podiumItem(top3[2], 3)),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-            child: Column(
-              children: [
-                for (int i = 0; i < rest.length; i++)
-                  _greenRankRow(rest[i], i + 4),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _podiumItem(_GreenScore room, int rank, {bool big = false}) {
-    final medal = rank == 1
-        ? const Color(0xFFE3B341)
-        : rank == 2
-            ? const Color(0xFFA9BCC9)
-            : const Color(0xFFCB9A6B);
-    final avatarSize = big ? 60.0 : 48.0;
-    final pedestalHeight = rank == 1
-        ? 68.0
-        : rank == 2
-            ? 50.0
-            : 38.0;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (big)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 3),
-            child: Icon(
-              Icons.workspace_premium_rounded,
-              size: 22,
-              color: Color(0xFFE3B341),
-            ),
-          ),
-        SizedBox(
-          height: avatarSize + 10,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topCenter,
-            children: [
-              Container(
-                width: avatarSize,
-                height: avatarSize,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppPalette.tint(room.color, 0.16),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: medal, width: 2.5),
-                ),
-                child: Text(
-                  room.short,
-                  style: TextStyle(
-                    fontSize: big ? 15 : 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.textDark,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                child: Container(
-                  width: 21,
-                  height: 21,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: medal,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                  child: Text(
-                    '$rank',
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 7),
-        Text(
-          room.room,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: big ? 12.5 : 11,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        Text(
-          room.track,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 8.2,
-            color: AppPalette.textMuted,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppPalette.tint(AppPalette.primaryPink, 0.3),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${room.score}',
-                style: TextStyle(
-                  fontSize: big ? 13.5 : 12,
-                  fontWeight: FontWeight.w800,
-                  color: AppPalette.primaryPinkDark,
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.only(bottom: 1),
-                child: Text(
-                  ' /100',
-                  style: TextStyle(
-                    fontSize: 7.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          height: pedestalHeight,
-          alignment: Alignment.topCenter,
-          padding: const EdgeInsets.only(top: 8),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                medal,
-                AppPalette.tint(medal, 0.55),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-            boxShadow: [
-              BoxShadow(
-                color: AppPalette.tint(medal, 0.35),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Text(
-            '$rank',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _greenRankRow(_GreenScore room, int rank) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppPalette.pageBg,
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 24,
-            child: Text(
-              rank < 10 ? '0$rank' : '$rank',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.textMuted,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: AppPalette.tint(room.color, 0.16),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              room.short,
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                color: AppPalette.textDark,
-              ),
-            ),
-          ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  room.room,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  room.track,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 8.6,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
           Text(
-            '${room.score}',
-            style: const TextStyle(
-              fontSize: 12.5,
+            'Green Score รายห้อง',
+            style: TextStyle(
+              fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: AppPalette.primaryPinkDark,
+              color: AppPalette.textDark,
             ),
           ),
-          const SizedBox(width: 2),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 1),
-            child: Text(
-              '/100',
-              style: TextStyle(fontSize: 8, color: AppPalette.textMuted),
+          SizedBox(height: 10),
+          Text(
+            'ยังไม่มีเกณฑ์และข้อมูลสำหรับจัดอันดับห้องเรียน — ระบบยังไม่ได้เก็บตัวชี้วัดด้านสิ่งแวดล้อมรายห้อง',
+            style: TextStyle(
+              fontSize: 10.5,
+              height: 1.5,
+              color: AppPalette.textMuted,
             ),
           ),
-          const SizedBox(width: 8),
-          _trendIcon(room.trend),
         ],
       ),
     );
-  }
-
-  Widget _trendIcon(_Trend trend) {
-    switch (trend) {
-      case _Trend.up:
-        return const Icon(
-          Icons.arrow_drop_up_rounded,
-          color: AppPalette.success,
-          size: 24,
-        );
-      case _Trend.down:
-        return const Icon(
-          Icons.arrow_drop_down_rounded,
-          color: AppPalette.danger,
-          size: 24,
-        );
-      case _Trend.same:
-        return const Icon(
-          Icons.remove_rounded,
-          color: AppPalette.textMuted,
-          size: 15,
-        );
-    }
   }
 
   List<_ClassroomData> _filteredClassrooms() {
     final query = searchText.trim().toLowerCase();
 
     return classrooms.where((room) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           room.room.toLowerCase().contains(query) ||
           room.roomNumber.toLowerCase().contains(query) ||
           room.homeroomTeacher.toLowerCase().contains(query) ||
           room.track.toLowerCase().contains(query);
 
       final matchesGrade =
-          selectedGrade == 'ทุกระดับชั้น' ||
-          room.grade == selectedGrade;
+          selectedGrade == 'ทุกระดับชั้น' || room.grade == selectedGrade;
 
       final matchesTrack =
-          selectedTrack == 'ทุกสายการเรียน' ||
-          room.track == selectedTrack;
+          selectedTrack == 'ทุกสายการเรียน' || room.track == selectedTrack;
 
       return matchesSearch && matchesGrade && matchesTrack;
     }).toList();
@@ -839,8 +372,7 @@ class _DirectorClassroomsPageState
           itemCount: items.length,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -921,8 +453,7 @@ class _DirectorClassroomsPageState
               setState(() => searchText = value);
             },
             decoration: InputDecoration(
-              hintText:
-                  'ค้นหาห้อง เช่น ม.1/1, เลขห้อง หรือครูประจำชั้น...',
+              hintText: 'ค้นหาห้อง เช่น ม.1/1, เลขห้อง หรือครูประจำชั้น...',
               hintStyle: const TextStyle(fontSize: 9.8),
               prefixIcon: const Icon(
                 Icons.search_rounded,
@@ -937,13 +468,11 @@ class _DirectorClassroomsPageState
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide:
-                    const BorderSide(color: AppPalette.border),
+                borderSide: const BorderSide(color: AppPalette.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide:
-                    const BorderSide(color: AppPalette.border),
+                borderSide: const BorderSide(color: AppPalette.border),
               ),
             ),
           );
@@ -986,10 +515,7 @@ class _DirectorClassroomsPageState
 
           return Row(
             children: [
-              Expanded(
-                flex: 3,
-                child: search,
-              ),
+              Expanded(flex: 3, child: search),
               const SizedBox(width: 10),
               Expanded(child: grade),
               const SizedBox(width: 10),
@@ -1016,11 +542,7 @@ class _DirectorClassroomsPageState
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 17,
-            color: AppPalette.primaryPink,
-          ),
+          Icon(icon, size: 17, color: AppPalette.primaryPink),
           const SizedBox(width: 7),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -1035,10 +557,7 @@ class _DirectorClassroomsPageState
                     .map(
                       (item) => DropdownMenuItem<String>(
                         value: item,
-                        child: Text(
-                          item,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(item, overflow: TextOverflow.ellipsis),
                       ),
                     )
                     .toList(),
@@ -1100,26 +619,20 @@ class _DirectorClassroomsPageState
                 return Column(
                   children: [
                     for (int i = 0; i < filtered.length; i++) ...[
-                      SizedBox(
-                        height: 225,
-                        child: _classroomCard(filtered[i]),
-                      ),
-                      if (i != filtered.length - 1)
-                        const SizedBox(height: 10),
+                      SizedBox(height: 225, child: _classroomCard(filtered[i])),
+                      if (i != filtered.length - 1) const SizedBox(height: 10),
                     ],
                   ],
                 );
               }
 
-              final int columns =
-                  constraints.maxWidth < 1050 ? 2 : 3;
+              final int columns = constraints.maxWidth < 1050 ? 2 : 3;
 
               return GridView.builder(
                 itemCount: filtered.length,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
@@ -1134,17 +647,11 @@ class _DirectorClassroomsPageState
           if (filtered.isEmpty)
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 30,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
               alignment: Alignment.center,
               child: const Text(
                 'ไม่พบห้องเรียนตามเงื่อนไข',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: AppPalette.textMuted,
-                ),
+                style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
               ),
             ),
         ],
@@ -1153,9 +660,9 @@ class _DirectorClassroomsPageState
   }
 
   Widget _classroomCard(_ClassroomData room) {
-    final needsAttention = room.attendance < 92 ||
-        room.overdueStudents >= 8 ||
-        room.followUpStudents >= 6;
+    // The "ต้องติดตาม" badge that used to sit on these cards was decided by
+    // invented attendance and follow-up counts. Nothing measures either per
+    // room yet, so no room is flagged until something can justify the flag.
 
     return InkWell(
       borderRadius: BorderRadius.circular(19),
@@ -1165,15 +672,9 @@ class _DirectorClassroomsPageState
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: needsAttention
-              ? AppPalette.tint(AppPalette.warning, 0.05)
-              : AppPalette.tint(room.color, 0.05),
+          color: AppPalette.tint(room.color, 0.05),
           borderRadius: BorderRadius.circular(19),
-          border: Border.all(
-            color: needsAttention
-                ? AppPalette.tint(AppPalette.warning, 0.22)
-                : AppPalette.tint(room.color, 0.16),
-          ),
+          border: Border.all(color: AppPalette.tint(room.color, 0.16)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1221,33 +722,10 @@ class _DirectorClassroomsPageState
                     ],
                   ),
                 ),
-                if (needsAttention)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppPalette.tint(
-                        AppPalette.warning,
-                        0.12,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'ควรติดตาม',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w700,
-                        color: AppPalette.warning,
-                      ),
-                    ),
-                  )
-                else
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    color: AppPalette.textMuted,
-                  ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppPalette.textMuted,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1258,45 +736,25 @@ class _DirectorClassroomsPageState
                   '${room.students}',
                   AppPalette.primaryPink,
                 ),
-                _roomMetric(
-                  'มาเรียน',
-                  '${room.attendance}%',
-                  AppPalette.learningBlue,
-                ),
-                _roomMetric(
-                  'การเรียน',
-                  '${room.learningScore}%',
-                  AppPalette.environmentGreen,
-                ),
+                _roomMetric('สาย', room.track, AppPalette.learningBlue),
               ],
             ),
             const SizedBox(height: 10),
             _roomInfoRow(
-              Icons.assignment_rounded,
-              'งานสัปดาห์นี้',
-              '${room.assignmentsThisWeek} งาน',
+              Icons.person_rounded,
+              'ครูประจำชั้น',
+              room.homeroomTeacher,
             ),
-            _roomInfoRow(
-              Icons.assignment_late_rounded,
-              'ค้าง/ส่งช้า',
-              '${room.overdueStudents} คน',
-            ),
-            _roomInfoRow(
-              Icons.schedule_rounded,
-              'คาบถัดไป',
-              room.nextClass,
-            ),
+            _roomInfoRow(Icons.schedule_rounded, 'คาบถัดไป', room.nextClass),
             const Spacer(),
             Row(
               children: [
                 Text(
-                  'ติดตาม ${room.followUpStudents} คน',
-                  style: TextStyle(
+                  'ห้อง ${room.roomNumber}',
+                  style: const TextStyle(
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
-                    color: room.followUpStudents >= 6
-                        ? AppPalette.warning
-                        : AppPalette.environmentGreen,
+                    color: AppPalette.textMuted,
                   ),
                 ),
                 const Spacer(),
@@ -1316,18 +774,11 @@ class _DirectorClassroomsPageState
     );
   }
 
-  Widget _roomMetric(
-    String label,
-    String value,
-    Color color,
-  ) {
+  Widget _roomMetric(String label, String value, Color color) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 7,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
         decoration: BoxDecoration(
           color: AppPalette.tint(color, 0.08),
           borderRadius: BorderRadius.circular(12),
@@ -1355,20 +806,12 @@ class _DirectorClassroomsPageState
     );
   }
 
-  Widget _roomInfoRow(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _roomInfoRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: AppPalette.textMuted,
-          ),
+          Icon(icon, size: 14, color: AppPalette.textMuted),
           const SizedBox(width: 6),
           SizedBox(
             width: 75,
@@ -1402,15 +845,11 @@ class _DirectorClassroomsPageState
 
   Widget _classroomDetailPage(_ClassroomData room) {
     final assignments = _assignmentsFor(room);
-    final filteredAssignments =
-        selectedAssignmentFilter == 'ทั้งหมด'
-            ? assignments
-            : assignments
-                .where(
-                  (item) =>
-                      item.status == selectedAssignmentFilter,
-                )
-                .toList();
+    final filteredAssignments = selectedAssignmentFilter == 'ทั้งหมด'
+        ? assignments
+        : assignments
+              .where((item) => item.status == selectedAssignmentFilter)
+              .toList();
 
     final subjects = _subjectsFor(room);
     final timetable = _timetableFor(room);
@@ -1442,26 +881,17 @@ class _DirectorClassroomsPageState
                 children: [
                   Expanded(
                     flex: 5,
-                    child: _learningOverviewCard(
-                      room,
-                      subjects,
-                    ),
+                    child: _learningOverviewCard(room, subjects),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
-                    flex: 4,
-                    child: _directorAttentionCard(room),
-                  ),
+                  Expanded(flex: 4, child: _directorAttentionCard(room)),
                 ],
               );
             },
           ),
 
           const SizedBox(height: 16),
-          _assignmentsSection(
-            room,
-            filteredAssignments,
-          ),
+          _assignmentsSection(room, filteredAssignments),
           const SizedBox(height: 16),
 
           LayoutBuilder(
@@ -1479,13 +909,9 @@ class _DirectorClassroomsPageState
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: _todayTimetableCard(timetable),
-                  ),
+                  Expanded(child: _todayTimetableCard(timetable)),
                   const SizedBox(width: 16),
-                  Expanded(
-                    child: _teacherActivityCard(activities),
-                  ),
+                  Expanded(child: _teacherActivityCard(activities)),
                 ],
               );
             },
@@ -1568,10 +994,7 @@ class _DirectorClassroomsPageState
                 const SizedBox(height: 5),
                 const Text(
                   'ดูภาพรวมการเรียน งานที่ครูมอบหมาย คะแนนแต่ละรายวิชา ตารางสอน และประเด็นที่ต้องติดตามของห้องนี้',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    color: AppPalette.textMuted,
-                  ),
+                  style: TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
                 ),
               ],
             ),
@@ -1590,40 +1013,30 @@ class _DirectorClassroomsPageState
         icon: Icons.groups_rounded,
         color: AppPalette.softPink,
       ),
+      // Attendance, learning score, assignment counts and follow-up counts
+      // used to render here as percentages and headcounts. None is computed
+      // per room by any RPC today; the attendance and assignment ones are
+      // reachable with new aggregates over tables that do exist, the scores
+      // are not defined anywhere at all.
       _DetailSummary(
-        title: 'มาเรียนวันนี้',
-        value: '${room.attendance}%',
-        subtitle:
-            '${((room.students * room.attendance) / 100).round()} คน',
-        icon: Icons.how_to_reg_rounded,
+        title: 'สายการเรียน',
+        value: room.track,
+        subtitle: 'จากผังสายการเรียน',
+        icon: Icons.route_rounded,
         color: AppPalette.softBlue,
       ),
       _DetailSummary(
-        title: 'ภาพรวมการเรียน',
-        value: '${room.learningScore}%',
-        subtitle: 'คะแนนเฉลี่ยห้อง',
-        icon: Icons.analytics_rounded,
+        title: 'ครูประจำชั้น',
+        value: room.homeroomTeacher,
+        subtitle: 'ผู้รับผิดชอบห้อง',
+        icon: Icons.person_rounded,
         color: AppPalette.softMint,
       ),
       _DetailSummary(
-        title: 'งานสัปดาห์นี้',
-        value: '${room.assignmentsThisWeek}',
-        subtitle: 'ทุกวิชารวมกัน',
-        icon: Icons.assignment_rounded,
-        color: AppPalette.softCream,
-      ),
-      _DetailSummary(
-        title: 'ส่งช้า / ค้าง',
-        value: '${room.overdueStudents}',
-        subtitle: 'นักเรียน',
-        icon: Icons.assignment_late_rounded,
-        color: AppPalette.softPink2,
-      ),
-      _DetailSummary(
-        title: 'ต้องติดตาม',
-        value: '${room.followUpStudents}',
-        subtitle: 'นักเรียน',
-        icon: Icons.visibility_rounded,
+        title: 'คาบถัดไป',
+        value: room.nextClass,
+        subtitle: 'จากตารางสอนจริง',
+        icon: Icons.schedule_rounded,
         color: AppPalette.softCream,
       ),
     ];
@@ -1641,8 +1054,7 @@ class _DirectorClassroomsPageState
           itemCount: items.length,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -1660,11 +1072,7 @@ class _DirectorClassroomsPageState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    item.icon,
-                    size: 18,
-                    color: AppPalette.textDark,
-                  ),
+                  Icon(item.icon, size: 18, color: AppPalette.textDark),
                   const Spacer(),
                   Text(
                     item.title,
@@ -1710,47 +1118,32 @@ class _DirectorClassroomsPageState
         children: [
           const Text(
             'คะแนนภาพรวมการเรียนของห้อง',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'เปรียบเทียบคะแนนเฉลี่ยของแต่ละรายวิชา เพื่อดูว่าวิชาใดอยู่ในเกณฑ์ดีและวิชาใดควรติดตาม',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
-          ...subjects.map(
-            (subject) => _subjectProgress(subject),
-          ),
-          const SizedBox(height: 6),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: AppPalette.tint(
-                room.learningScore >= 93
-                    ? AppPalette.environmentGreen
-                    : AppPalette.warning,
-                0.08,
+          ...subjects.map((subject) => _subjectProgress(subject)),
+          if (subjects.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+              decoration: BoxDecoration(
+                color: AppPalette.pageBg,
+                borderRadius: BorderRadius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              room.learningScore >= 93
-                  ? 'ภาพรวมการเรียนของห้องอยู่ในเกณฑ์ดี ควรรักษาระดับและติดตามเฉพาะรายวิชาที่คะแนนต่ำกว่าค่าเฉลี่ย'
-                  : 'ภาพรวมการเรียนมีบางรายวิชาที่ควรติดตาม แนะนำให้ดูงานค้างและนักเรียนที่คะแนนต่ำกว่าเกณฑ์เพิ่มเติม',
-              style: const TextStyle(
-                fontSize: 9.5,
-                height: 1.4,
-                color: AppPalette.textMuted,
+              // The verdict that used to sit here — "ภาพรวมการเรียนของห้องอยู่
+              // ในเกณฑ์ดี" or its warning twin — was chosen by comparing an
+              // invented learningScore against 93.
+              child: const Text(
+                'ยังไม่มีการรวมคะแนนรายวิชาต่อห้อง',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -1760,8 +1153,8 @@ class _DirectorClassroomsPageState
     final color = subject.score >= 93
         ? AppPalette.environmentGreen
         : subject.score >= 88
-            ? AppPalette.learningBlue
-            : AppPalette.warning;
+        ? AppPalette.learningBlue
+        : AppPalette.warning;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1799,8 +1192,7 @@ class _DirectorClassroomsPageState
                 value: subject.score / 100,
                 minHeight: 8,
                 backgroundColor: AppPalette.softTag,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(color),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
               ),
             ),
           ),
@@ -1821,161 +1213,48 @@ class _DirectorClassroomsPageState
     );
   }
 
+  /// The "สิ่งที่ผู้อำนวยการควรติดตาม" card used to list four issues per room
+  /// — งานค้าง, การมาเรียน, นักเรียนที่ต้องดูแล, สภาพแวดล้อมในห้อง — each with
+  /// a headcount, a severity and a recommended action. Every one of those
+  /// numbers came from the invented per-room scores, so the card was advice
+  /// derived from nothing, addressed to the person most likely to act on it.
   Widget _directorAttentionCard(_ClassroomData room) {
-    final issues = <_AttentionItem>[
-      _AttentionItem(
-        title: 'งานค้าง / ส่งช้า',
-        detail:
-            '${room.overdueStudents} คนมีงานที่ยังไม่ส่งหรือส่งเกินกำหนด ควรให้ครูประจำชั้นติดตามร่วมกับครูผู้สอน',
-        status: room.overdueStudents >= 8
-            ? 'ควรติดตาม'
-            : 'เฝ้าดู',
-        color: room.overdueStudents >= 8
-            ? AppPalette.warning
-            : AppPalette.learningBlue,
-        icon: Icons.assignment_late_rounded,
-      ),
-      _AttentionItem(
-        title: 'การมาเรียน',
-        detail:
-            'วันนี้มาเรียน ${room.attendance}% หากต่ำกว่า 92% ควรตรวจสอบนักเรียนขาดเรียนต่อเนื่องและการลาป่วย',
-        status: room.attendance < 92
-            ? 'ควรตรวจสอบ'
-            : 'ปกติ',
-        color: room.attendance < 92
-            ? AppPalette.warning
-            : AppPalette.environmentGreen,
-        icon: Icons.how_to_reg_rounded,
-      ),
-      _AttentionItem(
-        title: 'นักเรียนที่ต้องดูแล',
-        detail:
-            '${room.followUpStudents} คนอยู่ในกลุ่มติดตามด้านการเรียน การมาเรียน หรือพฤติกรรม',
-        status: room.followUpStudents >= 6
-            ? 'สำคัญ'
-            : 'ติดตาม',
-        color: room.followUpStudents >= 6
-            ? AppPalette.danger
-            : AppPalette.chartPink,
-        icon: Icons.visibility_rounded,
-      ),
-      _AttentionItem(
-        title: 'สภาพแวดล้อมในห้อง',
-        detail:
-            'คะแนนการดูแลห้องเรียน ${room.environmentScore}% ครอบคลุมความสะอาด การจัดโต๊ะ และการใช้ทรัพยากร',
-        status: room.environmentScore >= 93
-            ? 'ปกติ'
-            : 'ควรปรับปรุง',
-        color: room.environmentScore >= 93
-            ? AppPalette.environmentGreen
-            : AppPalette.warning,
-        icon: Icons.cleaning_services_rounded,
-      ),
-    ];
-
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppPalette.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'สิ่งที่ผู้อำนวยการควรทราบ',
+            'สิ่งที่ควรติดตาม',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
+              color: AppPalette.textDark,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'สรุปเฉพาะประเด็นสำคัญของห้องนี้ ไม่ต้องเปิดดูรายชื่อนักเรียนทั้งหมด',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...issues.map(_attentionTile),
-        ],
-      ),
-    );
-  }
-
-  Widget _attentionTile(_AttentionItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: AppPalette.tint(item.color, 0.06),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: AppPalette.tint(item.color, 0.14),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 10),
           Container(
-            width: 34,
-            height: 34,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
+              color: AppPalette.pageBg,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              item.icon,
-              size: 17,
-              color: item.color,
-            ),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            AppPalette.tint(item.color, 0.11),
-                        borderRadius:
-                            BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        item.status,
-                        style: TextStyle(
-                          fontSize: 7.8,
-                          fontWeight: FontWeight.w700,
-                          color: item.color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  item.detail,
-                  style: const TextStyle(
-                    fontSize: 8.8,
-                    height: 1.4,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ],
+            child: const Text(
+              'ยังไม่มีข้อมูลรายห้องสำหรับการมาเรียน งานค้าง หรือการติดตามนักเรียน '
+              'ดูรายละเอียดได้ที่หน้าของครูประจำชั้นและระบบดูแลช่วยเหลือนักเรียน',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.5,
+                color: AppPalette.textMuted,
+              ),
             ),
           ),
         ],
@@ -2003,18 +1282,12 @@ class _DirectorClassroomsPageState
                 children: [
                   Text(
                     'งานที่ครูมอบหมายให้นักเรียน',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                   SizedBox(height: 4),
                   Text(
                     'ดูว่าครูแต่ละวิชาลงงานอะไร กำหนดส่งเมื่อไร นักเรียนส่งแล้วกี่คน และคะแนนเฉลี่ยของงาน',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: AppPalette.textMuted,
-                    ),
+                    style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
                   ),
                 ],
               );
@@ -2024,21 +1297,14 @@ class _DirectorClassroomsPageState
               if (compact) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    heading,
-                    const SizedBox(height: 10),
-                    filter,
-                  ],
+                  children: [heading, const SizedBox(height: 10), filter],
                 );
               }
 
               return Row(
                 children: [
                   Expanded(child: heading),
-                  SizedBox(
-                    width: 190,
-                    child: filter,
-                  ),
+                  SizedBox(width: 190, child: filter),
                 ],
               );
             },
@@ -2051,16 +1317,12 @@ class _DirectorClassroomsPageState
               alignment: Alignment.center,
               child: const Text(
                 'ไม่มีงานตามตัวกรองนี้',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: AppPalette.textMuted,
-                ),
+                style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
               ),
             )
           else
             ...assignments.map(
-              (assignment) =>
-                  _assignmentTile(room, assignment),
+              (assignment) => _assignmentTile(room, assignment),
             ),
         ],
       ),
@@ -2083,10 +1345,7 @@ class _DirectorClassroomsPageState
               .map(
                 (item) => DropdownMenuItem<String>(
                   value: item,
-                  child: Text(
-                    item,
-                    style: const TextStyle(fontSize: 9.5),
-                  ),
+                  child: Text(item, style: const TextStyle(fontSize: 9.5)),
                 ),
               )
               .toList(),
@@ -2101,20 +1360,12 @@ class _DirectorClassroomsPageState
     );
   }
 
-  Widget _assignmentTile(
-    _ClassroomData room,
-    _AssignmentData assignment,
-  ) {
-    final statusColor = _assignmentStatusColor(
-      assignment.status,
-    );
+  Widget _assignmentTile(_ClassroomData room, _AssignmentData assignment) {
+    final statusColor = _assignmentStatusColor(assignment.status);
 
     return InkWell(
       borderRadius: BorderRadius.circular(17),
-      onTap: () => _showAssignmentDetail(
-        room,
-        assignment,
-      ),
+      onTap: () => _showAssignmentDetail(room, assignment),
       child: Container(
         margin: const EdgeInsets.only(bottom: 9),
         padding: const EdgeInsets.all(12),
@@ -2135,11 +1386,7 @@ class _DirectorClassroomsPageState
                     children: [
                       _assignmentIcon(assignment),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: _assignmentMainInfo(
-                          assignment,
-                        ),
-                      ),
+                      Expanded(child: _assignmentMainInfo(assignment)),
                     ],
                   ),
                   const SizedBox(height: 9),
@@ -2155,10 +1402,7 @@ class _DirectorClassroomsPageState
                         'เฉลี่ย ${assignment.averageScore}%',
                         AppPalette.environmentGreen,
                       ),
-                      _tag(
-                        assignment.status,
-                        statusColor,
-                      ),
+                      _tag(assignment.status, statusColor),
                     ],
                   ),
                 ],
@@ -2169,15 +1413,9 @@ class _DirectorClassroomsPageState
               children: [
                 _assignmentIcon(assignment),
                 const SizedBox(width: 11),
+                Expanded(flex: 3, child: _assignmentMainInfo(assignment)),
                 Expanded(
-                  flex: 3,
-                  child: _assignmentMainInfo(assignment),
-                ),
-                Expanded(
-                  child: _assignmentListInfo(
-                    'กำหนดส่ง',
-                    assignment.dueDate,
-                  ),
+                  child: _assignmentListInfo('กำหนดส่ง', assignment.dueDate),
                 ),
                 Expanded(
                   child: _assignmentListInfo(
@@ -2197,8 +1435,7 @@ class _DirectorClassroomsPageState
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        AppPalette.tint(statusColor, 0.10),
+                    color: AppPalette.tint(statusColor, 0.10),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -2231,17 +1468,11 @@ class _DirectorClassroomsPageState
         color: AppPalette.tint(assignment.color, 0.10),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        assignment.icon,
-        color: assignment.color,
-        size: 20,
-      ),
+      child: Icon(assignment.icon, color: assignment.color, size: 20),
     );
   }
 
-  Widget _assignmentMainInfo(
-    _AssignmentData assignment,
-  ) {
+  Widget _assignmentMainInfo(_AssignmentData assignment) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2249,54 +1480,36 @@ class _DirectorClassroomsPageState
           assignment.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 10.8,
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontSize: 10.8, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 2),
         Text(
           '${assignment.subject} • ${assignment.teacher}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 8.7,
-            color: AppPalette.textMuted,
-          ),
+          style: const TextStyle(fontSize: 8.7, color: AppPalette.textMuted),
         ),
         const SizedBox(height: 2),
         Text(
           'มอบหมาย ${assignment.assignedDate}',
-          style: const TextStyle(
-            fontSize: 8.2,
-            color: AppPalette.textMuted,
-          ),
+          style: const TextStyle(fontSize: 8.2, color: AppPalette.textMuted),
         ),
       ],
     );
   }
 
-  Widget _assignmentListInfo(
-    String label,
-    String value,
-  ) {
+  Widget _assignmentListInfo(String label, String value) {
     return Column(
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 8.2,
-            color: AppPalette.textMuted,
-          ),
+          style: const TextStyle(fontSize: 8.2, color: AppPalette.textMuted),
         ),
         const SizedBox(height: 2),
         Text(
           value,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 9.2,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 9.2, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -2304,10 +1517,7 @@ class _DirectorClassroomsPageState
 
   Widget _tag(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: AppPalette.tint(color, 0.09),
         borderRadius: BorderRadius.circular(20),
@@ -2336,9 +1546,7 @@ class _DirectorClassroomsPageState
     }
   }
 
-  Widget _todayTimetableCard(
-    List<_TimetableItem> timetable,
-  ) {
+  Widget _todayTimetableCard(List<_TimetableItem> timetable) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
@@ -2347,18 +1555,12 @@ class _DirectorClassroomsPageState
         children: [
           const Text(
             'ตารางเรียนวันนี้',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'ดูรายวิชา ครูผู้สอน และสถานะการเรียนของแต่ละคาบ',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           ...timetable.map(
@@ -2382,16 +1584,11 @@ class _DirectorClassroomsPageState
                       ),
                     ),
                   ),
-                  Container(
-                    width: 1,
-                    height: 38,
-                    color: AppPalette.border,
-                  ),
+                  Container(width: 1, height: 38, color: AppPalette.border),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           item.subject,
@@ -2420,9 +1617,7 @@ class _DirectorClassroomsPageState
     );
   }
 
-  Widget _teacherActivityCard(
-    List<_TeacherActivity> activities,
-  ) {
+  Widget _teacherActivityCard(List<_TeacherActivity> activities) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
@@ -2431,47 +1626,33 @@ class _DirectorClassroomsPageState
         children: [
           const Text(
             'กิจกรรมล่าสุดของครูผู้สอน',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'ดูว่าครูลงงาน ตรวจงาน หรือบันทึกข้อมูลอะไรให้ห้องนี้ล่าสุด',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           ...activities.map(
             (item) => Container(
               margin: const EdgeInsets.only(bottom: 9),
               child: Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
                     width: 35,
                     height: 35,
                     decoration: BoxDecoration(
-                      color:
-                          AppPalette.tint(item.color, 0.10),
-                      borderRadius:
-                          BorderRadius.circular(11),
+                      color: AppPalette.tint(item.color, 0.10),
+                      borderRadius: BorderRadius.circular(11),
                     ),
-                    child: Icon(
-                      item.icon,
-                      size: 17,
-                      color: item.color,
-                    ),
+                    child: Icon(item.icon, size: 17, color: item.color),
                   ),
                   const SizedBox(width: 9),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           item.title,
@@ -2509,147 +1690,37 @@ class _DirectorClassroomsPageState
     );
   }
 
+  /// The student-support panel counted four categories of at-risk students
+  /// per room, each derived from the invented scores — "ผลการเรียนต่ำกว่าเกณฑ์
+  /// 4 คน", "ขาดเรียนต่อเนื่อง 3 คน". `list_student_support_cases` holds the
+  /// real thing but its gate rejects `executive`, so this needs a role
+  /// widening before it can be shown here.
   Widget _studentSupportSection(_ClassroomData room) {
-    final supportItems = [
-      _SupportItem(
-        title: 'ผลการเรียนต่ำกว่าเกณฑ์',
-        count: room.followUpStudents > 3 ? 4 : 2,
-        detail:
-            'มีคะแนนต่ำกว่า 70% อย่างน้อย 2 รายวิชา',
-        icon: Icons.trending_down_rounded,
-        color: AppPalette.chartPink,
-      ),
-      _SupportItem(
-        title: 'งานค้างหลายวิชา',
-        count: room.overdueStudents > 6 ? 5 : 2,
-        detail:
-            'มีงานค้างตั้งแต่ 3 งานขึ้นไปในสัปดาห์นี้',
-        icon: Icons.assignment_late_rounded,
-        color: AppPalette.warning,
-      ),
-      _SupportItem(
-        title: 'ขาดเรียนต่อเนื่อง',
-        count: room.attendance < 92 ? 3 : 1,
-        detail:
-            'ขาดเรียนเกินเกณฑ์ที่โรงเรียนกำหนด',
-        icon: Icons.person_off_rounded,
-        color: AppPalette.danger,
-      ),
-      _SupportItem(
-        title: 'พฤติกรรมที่ต้องติดตาม',
-        count: room.behaviorScore < 92 ? 3 : 1,
-        detail:
-            'มีบันทึกจากครูประจำชั้นหรือครูผู้สอน',
-        icon: Icons.visibility_rounded,
-        color: AppPalette.behaviorYellow,
-      ),
-    ];
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'นักเรียนที่ต้องติดตามในห้อง',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'สรุปเป็นประเภทเพื่อให้ผู้อำนวยการเห็นภาพรวม ไม่แสดงรายชื่อนักเรียนทั้งหมดในหน้าหลัก',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 620) {
-                return Column(
-                  children: [
-                    for (int i = 0;
-                        i < supportItems.length;
-                        i++) ...[
-                      _supportCard(supportItems[i]),
-                      if (i != supportItems.length - 1)
-                        const SizedBox(height: 9),
-                    ],
-                  ],
-                );
-              }
-
-              return GridView.builder(
-                itemCount: supportItems.length,
-                shrinkWrap: true,
-                physics:
-                    const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  mainAxisExtent: 128,
-                ),
-                itemBuilder: (context, index) {
-                  return _supportCard(
-                    supportItems[index],
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _supportCard(_SupportItem item) {
-    return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppPalette.tint(item.color, 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppPalette.tint(item.color, 0.14),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppPalette.border),
       ),
-      child: Column(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            item.icon,
-            size: 19,
-            color: item.color,
-          ),
-          const Spacer(),
           Text(
-            item.title,
-            style: const TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${item.count} คน',
+            'นักเรียนที่ต้องดูแลช่วยเหลือ',
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
-              color: item.color,
+              color: AppPalette.textDark,
             ),
           ),
+          SizedBox(height: 10),
           Text(
-            item.detail,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 7.8,
+            'ยังไม่เปิดให้ผู้บริหารดูข้อมูลรายห้อง — ดูได้ที่ระบบดูแลช่วยเหลือนักเรียนของครูประจำชั้น',
+            style: TextStyle(
+              fontSize: 10.5,
+              height: 1.5,
               color: AppPalette.textMuted,
             ),
           ),
@@ -2658,13 +1729,9 @@ class _DirectorClassroomsPageState
     );
   }
 
-  void _showAssignmentDetail(
-    _ClassroomData room,
-    _AssignmentData assignment,
-  ) {
+  void _showAssignmentDetail(_ClassroomData room, _AssignmentData assignment) {
     final missing = room.students - assignment.submitted;
-    final statusColor =
-        _assignmentStatusColor(assignment.status);
+    final statusColor = _assignmentStatusColor(assignment.status);
 
     showDialog<void>(
       context: context,
@@ -2672,57 +1739,32 @@ class _DirectorClassroomsPageState
         return AlertDialog(
           title: Text(
             assignment.title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           content: SizedBox(
             width: 560,
             child: SingleChildScrollView(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
                     children: [
-                      _tag(
-                        assignment.subject,
-                        assignment.color,
-                      ),
-                      _tag(
-                        assignment.status,
-                        statusColor,
-                      ),
+                      _tag(assignment.subject, assignment.color),
+                      _tag(assignment.status, statusColor),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _detailRow(
-                    'ครูผู้สอน',
-                    assignment.teacher,
-                  ),
-                  _detailRow(
-                    'มอบหมายวันที่',
-                    assignment.assignedDate,
-                  ),
-                  _detailRow(
-                    'กำหนดส่ง',
-                    assignment.dueDate,
-                  ),
+                  _detailRow('ครูผู้สอน', assignment.teacher),
+                  _detailRow('มอบหมายวันที่', assignment.assignedDate),
+                  _detailRow('กำหนดส่ง', assignment.dueDate),
                   _detailRow(
                     'ส่งแล้ว',
                     '${assignment.submitted}/${room.students} คน',
                   ),
-                  _detailRow(
-                    'ยังไม่ส่ง',
-                    '$missing คน',
-                  ),
-                  _detailRow(
-                    'คะแนนเฉลี่ย',
-                    '${assignment.averageScore}%',
-                  ),
+                  _detailRow('ยังไม่ส่ง', '$missing คน'),
+                  _detailRow('คะแนนเฉลี่ย', '${assignment.averageScore}%'),
                   const SizedBox(height: 12),
                   const Text(
                     'รายละเอียดงาน',
@@ -2746,8 +1788,7 @@ class _DirectorClassroomsPageState
           ),
           actions: [
             TextButton(
-              onPressed: () =>
-                  Navigator.pop(dialogContext),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ปิด'),
             ),
           ],
@@ -2775,10 +1816,7 @@ class _DirectorClassroomsPageState
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -2790,220 +1828,56 @@ class _DirectorClassroomsPageState
   // MOCK DETAIL DATA
   // ---------------------------------------------------------------------------
 
-  List<_AssignmentData> _assignmentsFor(
-    _ClassroomData room,
-  ) {
-    final offset =
-        int.tryParse(room.grade.replaceAll('ม.', '')) ?? 1;
+  /// Empty until an RPC can list a room's assignments.
+  ///
+  /// Was five fully-written assignments per room — titles, descriptions,
+  /// invented teacher names such as ครูพรทิพย์ รักษ์ดี, submission counts
+  /// derived from the invented overdue count, and average scores. The
+  /// `assignments`, `submissions` and `course_students` tables all exist, so
+  /// this is reachable with a room-scoped aggregate; it simply does not exist
+  /// yet, and a placeholder was never the honest stand-in.
+  List<_AssignmentData> _assignmentsFor(_ClassroomData room) =>
+      const <_AssignmentData>[];
+
+  /// Empty until per-subject results can be aggregated per room.
+  ///
+  /// Was eight subjects whose scores were computed as
+  /// `base + (room.learningScore - 92)` — invented numbers adjusted by another
+  /// invented number.
+  List<_SubjectPerformance> _subjectsFor(_ClassroomData room) =>
+      const <_SubjectPerformance>[];
+
+  /// The room's real timetable for today, from `list_all_school_schedules`.
+  ///
+  /// Was a const list of six periods with invented teacher names — ครูจิราพร
+  /// ตั้งใจ and others — and a "สอนแล้ว / กำลังสอน" status that nothing
+  /// tracks. The RPC gives subject, room, day and start/end time; whether a
+  /// teacher actually started a period on time is not recorded anywhere, so
+  /// no status is claimed.
+  List<_TimetableItem> _timetableFor(_ClassroomData room) {
+    final today = DateTime.now().weekday;
+    final todays =
+        _schedules
+            .where((s) => s.room == room.roomNumber && s.dayOfWeek == today)
+            .toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     return [
-      _AssignmentData(
-        subject: 'คณิตศาสตร์',
-        teacher: 'ครูอรทัย พัฒนกิจ',
-        title: 'แบบฝึกหัดสมการและการแก้โจทย์',
-        assignedDate: '19 ส.ค.',
-        dueDate: '22 ส.ค.',
-        submitted: (room.students - 3).clamp(
-          0,
-          room.students,
+      for (final s in todays)
+        _TimetableItem(
+          time: s.startTime.substring(0, 5),
+          subject: s.subjectName,
+          teacher: '',
+          room: s.room ?? room.roomNumber,
+          status: '',
+          color: AppPalette.learningBlue,
         ),
-        averageScore: 88 + (offset % 4),
-        status: 'ใกล้ครบกำหนด',
-        description:
-            'ทำแบบฝึกหัดท้ายบท พร้อมแสดงวิธีทำอย่างละเอียด ส่งผ่านระบบก่อนเวลา 18:00 น.',
-        icon: Icons.calculate_rounded,
-        color: AppPalette.learningBlue,
-      ),
-      _AssignmentData(
-        subject: 'วิทยาศาสตร์',
-        teacher: 'ครูกิตติศักดิ์ แสงทอง',
-        title: 'สรุปผลการทดลองและตอบคำถามท้ายกิจกรรม',
-        assignedDate: '18 ส.ค.',
-        dueDate: '23 ส.ค.',
-        submitted: (room.students - 5).clamp(
-          0,
-          room.students,
-        ),
-        averageScore: 91,
-        status: 'กำลังดำเนินการ',
-        description:
-            'จัดทำสรุปผลการทดลองเป็นรายกลุ่ม แนบภาพผลการทดลองและตอบคำถามวิเคราะห์ท้ายกิจกรรม',
-        icon: Icons.science_rounded,
-        color: AppPalette.environmentGreen,
-      ),
-      _AssignmentData(
-        subject: 'ภาษาอังกฤษ',
-        teacher: 'ครูพรทิพย์ รักษ์ดี',
-        title: 'Reading Reflection: My School Life',
-        assignedDate: '17 ส.ค.',
-        dueDate: '21 ส.ค.',
-        submitted: (room.students - room.overdueStudents)
-            .clamp(0, room.students),
-        averageScore: 86,
-        status: room.overdueStudents >= 6
-            ? 'เลยกำหนด'
-            : 'ใกล้ครบกำหนด',
-        description:
-            'อ่านบทความที่กำหนดและเขียน Reflection 150-200 คำ พร้อมคำศัพท์ใหม่อย่างน้อย 10 คำ',
-        icon: Icons.translate_rounded,
-        color: AppPalette.chartPink,
-      ),
-      _AssignmentData(
-        subject: 'ภาษาไทย',
-        teacher: 'ครูจิราพร ตั้งใจ',
-        title: 'วิเคราะห์ใจความสำคัญจากบทอ่าน',
-        assignedDate: '15 ส.ค.',
-        dueDate: '19 ส.ค.',
-        submitted: room.students,
-        averageScore: 93,
-        status: 'ตรวจแล้ว',
-        description:
-            'วิเคราะห์ใจความสำคัญ แนวคิด และข้อคิดจากบทอ่าน พร้อมเขียนสรุปด้วยภาษาของตนเอง',
-        icon: Icons.menu_book_rounded,
-        color: AppPalette.chartCream,
-      ),
-      _AssignmentData(
-        subject: 'สังคมศึกษา',
-        teacher: 'ครูวรพล ขยันงาน',
-        title: 'Infographic สิทธิและหน้าที่ของพลเมือง',
-        assignedDate: '20 ส.ค.',
-        dueDate: '27 ส.ค.',
-        submitted: (room.students - 8).clamp(
-          0,
-          room.students,
-        ),
-        averageScore: 0,
-        status: 'กำลังดำเนินการ',
-        description:
-            'สร้าง Infographic เป็นรายคู่ สรุปสิทธิ หน้าที่ และตัวอย่างการเป็นพลเมืองที่ดีในโรงเรียน',
-        icon: Icons.public_rounded,
-        color: AppPalette.behaviorYellow,
-      ),
     ];
   }
 
-  List<_SubjectPerformance> _subjectsFor(
-    _ClassroomData room,
-  ) {
-    final adjustment = room.learningScore - 92;
-
-    int score(int base) =>
-        (base + adjustment).clamp(70, 99);
-
-    return [
-      _SubjectPerformance(
-        'ภาษาไทย',
-        'ครูจิราพร ตั้งใจ',
-        score(91),
-      ),
-      _SubjectPerformance(
-        'คณิตศาสตร์',
-        'ครูอรทัย พัฒนกิจ',
-        score(89),
-      ),
-      _SubjectPerformance(
-        'วิทยาศาสตร์',
-        'ครูกิตติศักดิ์ แสงทอง',
-        score(94),
-      ),
-      _SubjectPerformance(
-        'สังคมศึกษา',
-        'ครูวรพล ขยันงาน',
-        score(90),
-      ),
-      _SubjectPerformance(
-        'ภาษาอังกฤษ',
-        'ครูพรทิพย์ รักษ์ดี',
-        score(88),
-      ),
-    ];
-  }
-
-  List<_TimetableItem> _timetableFor(
-    _ClassroomData room,
-  ) {
-    return const [
-      _TimetableItem(
-        time: '08:30',
-        subject: 'ภาษาไทย',
-        teacher: 'ครูจิราพร ตั้งใจ',
-        room: 'ห้องเรียนประจำ',
-        status: 'สอนแล้ว',
-        color: AppPalette.environmentGreen,
-      ),
-      _TimetableItem(
-        time: '09:30',
-        subject: 'คณิตศาสตร์',
-        teacher: 'ครูอรทัย พัฒนกิจ',
-        room: 'ห้องเรียนประจำ',
-        status: 'สอนแล้ว',
-        color: AppPalette.environmentGreen,
-      ),
-      _TimetableItem(
-        time: '10:20',
-        subject: 'วิทยาศาสตร์',
-        teacher: 'ครูกิตติศักดิ์ แสงทอง',
-        room: 'ห้องปฏิบัติการ',
-        status: 'กำลังสอน',
-        color: AppPalette.primaryPink,
-      ),
-      _TimetableItem(
-        time: '13:00',
-        subject: 'ภาษาอังกฤษ',
-        teacher: 'ครูพรทิพย์ รักษ์ดี',
-        room: 'ห้องเรียนประจำ',
-        status: 'รอสอน',
-        color: AppPalette.learningBlue,
-      ),
-      _TimetableItem(
-        time: '14:00',
-        subject: 'สังคมศึกษา',
-        teacher: 'ครูวรพล ขยันงาน',
-        room: 'ห้องเรียนประจำ',
-        status: 'รอสอน',
-        color: AppPalette.learningBlue,
-      ),
-    ];
-  }
-
-  List<_TeacherActivity> _teacherActivitiesFor(
-    _ClassroomData room,
-  ) {
-    return const [
-      _TeacherActivity(
-        title: 'ครูอรทัยลงงานคณิตศาสตร์ใหม่',
-        detail:
-            'แบบฝึกหัดสมการและการแก้โจทย์ กำหนดส่งวันที่ 22 ส.ค.',
-        time: 'วันนี้ 08:12 น.',
-        icon: Icons.assignment_rounded,
-        color: AppPalette.learningBlue,
-      ),
-      _TeacherActivity(
-        title: 'ครูจิราพรตรวจงานภาษาไทยครบแล้ว',
-        detail:
-            'ตรวจงานวิเคราะห์ใจความสำคัญครบทุกคน คะแนนเฉลี่ย 93%',
-        time: 'เมื่อวาน 16:45 น.',
-        icon: Icons.fact_check_rounded,
-        color: AppPalette.environmentGreen,
-      ),
-      _TeacherActivity(
-        title: 'ครูพรทิพย์แจ้งนักเรียนงานค้าง',
-        detail:
-            'มีนักเรียนบางส่วนยังไม่ส่ง Reading Reflection ระบบส่งแจ้งเตือนแล้ว',
-        time: 'เมื่อวาน 14:10 น.',
-        icon: Icons.notifications_active_rounded,
-        color: AppPalette.warning,
-      ),
-      _TeacherActivity(
-        title: 'ครูประจำชั้นบันทึกการติดตาม',
-        detail:
-            'อัปเดตนักเรียนที่ต้องดูแลด้านการมาเรียนและงานค้าง',
-        time: '18 ส.ค. 15:30 น.',
-        icon: Icons.edit_note_rounded,
-        color: AppPalette.chartPink,
-      ),
-    ];
-  }
+  /// Empty: nothing records homeroom-teacher activity per room.
+  List<_TeacherActivity> _teacherActivitiesFor(_ClassroomData room) =>
+      const <_TeacherActivity>[];
 }
 
 class _OverviewSummary {
@@ -3038,6 +1912,16 @@ class _DetailSummary {
   });
 }
 
+/// One classroom, carrying only what the backend can actually answer.
+///
+/// Dropped from here: `attendance`, `learningScore`, `behaviorScore`,
+/// `environmentScore`, `assignmentsThisWeek`, `overdueStudents` and
+/// `followUpStudents`. Attendance and the assignment counts are computable in
+/// principle — `homeroom_attendance_records`, `assignments` and `submissions`
+/// all exist — but no RPC aggregates them per room, so they need backend work
+/// rather than a default. Behaviour and environment scores have no source and
+/// no defining formula anywhere in the project; they were pure invention
+/// rendered as an assessment of a real class.
 class _ClassroomData {
   final String room;
   final String grade;
@@ -3045,13 +1929,6 @@ class _ClassroomData {
   final String roomNumber;
   final String homeroomTeacher;
   final int students;
-  final int attendance;
-  final int learningScore;
-  final int behaviorScore;
-  final int environmentScore;
-  final int assignmentsThisWeek;
-  final int overdueStudents;
-  final int followUpStudents;
   final String nextClass;
   final Color color;
 
@@ -3062,13 +1939,6 @@ class _ClassroomData {
     required this.roomNumber,
     required this.homeroomTeacher,
     required this.students,
-    required this.attendance,
-    required this.learningScore,
-    required this.behaviorScore,
-    required this.environmentScore,
-    required this.assignmentsThisWeek,
-    required this.overdueStudents,
-    required this.followUpStudents,
     required this.nextClass,
     required this.color,
   });
@@ -3107,27 +1977,7 @@ class _SubjectPerformance {
   final String teacher;
   final int score;
 
-  const _SubjectPerformance(
-    this.subject,
-    this.teacher,
-    this.score,
-  );
-}
-
-class _AttentionItem {
-  final String title;
-  final String detail;
-  final String status;
-  final Color color;
-  final IconData icon;
-
-  const _AttentionItem({
-    required this.title,
-    required this.detail,
-    required this.status,
-    required this.color,
-    required this.icon,
-  });
+  const _SubjectPerformance(this.subject, this.teacher, this.score);
 }
 
 class _TimetableItem {
@@ -3162,40 +2012,4 @@ class _TeacherActivity {
     required this.icon,
     required this.color,
   });
-}
-
-class _SupportItem {
-  final String title;
-  final int count;
-  final String detail;
-  final IconData icon;
-  final Color color;
-
-  const _SupportItem({
-    required this.title,
-    required this.count,
-    required this.detail,
-    required this.icon,
-    required this.color,
-  });
-}
-
-enum _Trend { up, down, same }
-
-class _GreenScore {
-  final String room;
-  final String short;
-  final String track;
-  final int score;
-  final _Trend trend;
-  final Color color;
-
-  const _GreenScore(
-    this.room,
-    this.short,
-    this.track,
-    this.score,
-    this.trend,
-    this.color,
-  );
 }

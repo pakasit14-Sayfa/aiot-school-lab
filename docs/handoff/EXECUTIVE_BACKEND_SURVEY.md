@@ -178,6 +178,27 @@ exactly the anti-pattern in DATA_CONNECTION_METHODOLOGY §2).
 **Effort class: needs-role-widening + needs-new-RPC.** A large majority of the fake
 per-room table can be replaced today by joining three executive-allowed RPCs in Dart.
 
+### ✅ เสร็จแล้ว 2026-09-07 — ไฟล์ลดจาก 3,201 เหลือ 2,015 บรรทัด
+
+survey ประเมินว่าเป็น "ตารางห้อง 205 บรรทัด" — พออ่านเต็มพบว่าเป็น**โรงเรียนทั้งโรงเรียน
+ที่แต่งขึ้น** และมีการ์ดที่แปลงมันเป็นคำแนะนำให้ผู้อำนวยการลงมือทำ
+
+| ที่พบ | แก้เป็น |
+|---|---|
+| `classrooms` 205 บรรทัด — ทุกห้องมีชื่อครูประจำชั้น จำนวนนักเรียน และคะแนน 5 ตัว | สร้างจาก `list_homeroom_assignments` + `list_learning_track_rooms` + `list_all_school_schedules` (executive เรียกได้ทั้งสาม) |
+| **การ์ด "สิ่งที่ผู้อำนวยการควรติดตาม"** — 4 ประเด็นต่อห้อง พร้อมจำนวนคนและคำสั่งการ | ลบ — ทุกตัวเลขมาจากคะแนนที่แต่งขึ้น คือ**คำแนะนำที่สร้างจากความว่างเปล่า ส่งถึงคนที่มีแนวโน้มจะลงมือทำที่สุด** |
+| Green Score จัดอันดับห้อง 12 ห้อง | ลบ — ไม่มี metric ชื่อนี้ในสคีมา ไม่มีสูตรเขียนไว้ที่ไหน |
+| ใบงานรายห้อง 5 รายการ ชื่อครู "ครูพรทิพย์ รักษ์ดี" คะแนนเฉลี่ย | ลบ — `assignments`/`submissions` มีจริงแต่ไม่มี RPC รวมยอดต่อห้อง |
+| คะแนนรายวิชา 8 วิชา คำนวณจาก `base + (learningScore - 92)` | ลบ — ตัวเลขแต่งปรับด้วยตัวเลขแต่งอีกที |
+| ตารางสอน 6 คาบ ชื่อครู "ครูจิราพร ตั้งใจ" สถานะ "สอนแล้ว/กำลังสอน" | ใช้ `list_all_school_schedules` จริง · **ไม่อ้างสถานะ** เพราะไม่มีอะไรบันทึกว่าครูเข้าสอนจริงไหม |
+| กลุ่มนักเรียนที่ต้องดูแล 4 หมวด | บอกว่ายังไม่เปิดให้ผู้บริหารดู — `list_student_support_cases` มีจริงแต่ gate ปฏิเสธ `executive` (ต้อง widening) |
+
+**ฟิลด์ที่ตัดออกจาก `_ClassroomData`:** `attendance` `learningScore` `behaviorScore`
+`environmentScore` `assignmentsThisWeek` `overdueStudents` `followUpStudents` —
+สองกลุ่มแรกคำนวณได้ถ้าเขียน RPC ใหม่ · **behaviour/environment/green ไม่มีทั้งแหล่งข้อมูลและนิยาม**
+
+test: `test/executive/director_classrooms_honesty_test.dart` (5 ชุด)
+
 ## `director_cctv_page.dart` (1,822 lines)
 
 Real today: `ExecutiveService.listCameraAccessGrants()` / `grantCameraAccess` /
