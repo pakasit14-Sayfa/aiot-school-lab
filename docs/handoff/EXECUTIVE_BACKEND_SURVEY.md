@@ -145,6 +145,24 @@ flow for classroom terminals** — unrelated to this page's purpose. Do not repu
 | Dashboard preferences (หน้าเริ่มต้น, ช่วงข้อมูล, ความหนาแน่น) | **D** | no table | could be stored client-side (`shared_preferences`) with **zero backend** — recommended |
 | รายงาน/สรุปรายวัน-รายสัปดาห์ ส่งเข้าอีเมล | **D** | no digest scheduler, no email sender in-app | |
 
+### ✅ เสร็จแล้ว 2026-09-07 — ไฟล์ลดจาก 1,789 เหลือ ~1,100 บรรทัด
+
+หน้านี้ **ไม่ได้ import `shared_core` เลย** แต่มีปุ่มบันทึกครบ `_saveSettings()`
+แค่ตั้ง `hasChanges = false` แล้วขึ้น "บันทึกการตั้งค่าของผู้อำนวยการแล้ว" โดยไม่เรียกอะไร
+— ตั้งค่าทุกอย่างย้อนกลับทันทีที่เปิดหน้าใหม่
+
+| ที่พบ | แก้เป็น |
+|---|---|
+| บัญชี seed ด้วย `ผู้อำนวยการโรงเรียน` / `director@school.ac.th` / `โรงเรียนตัวอย่าง` | **ผู้อำนวยการทุกคนเห็นบัญชีสมมติเดียวกัน** → อ่านจาก `currentUserModel` |
+| ปุ่มบันทึกที่ไม่บันทึกอะไร | ต่อ `update_user_profile` จริง · `hasChanges` เทียบกับชื่อที่ backend ยืนยันแล้ว ไม่ใช่ bool ที่พลิกทุกครั้งที่พิมพ์ |
+| **dialog เปลี่ยนรหัสผ่าน** เก็บรหัสเก่า/ใหม่/ยืนยัน แล้วขึ้น "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว" | **รหัสไม่เคยเปลี่ยน — คนที่เชื่อจะใช้รหัสเก่าต่อโดยคิดว่าเลิกใช้แล้ว** → บอกตรงว่าต้องใช้ OTP ทางหน้าลืมรหัสผ่าน (ไม่มี RPC เปลี่ยนรหัสในเซสชัน) |
+| **"ออกจากระบบทุกอุปกรณ์"** ขึ้นว่าสำเร็จโดยไม่เรียกอะไร | **คนที่สงสัยว่าบัญชีถูกเปิดบนเครื่องคนอื่นถูกบอกว่าปิดแล้ว ทั้งที่ทุก session ยังอยู่** → ต่อ `auth_sign_out_all` จริง + dialog ยืนยัน |
+| สวิตช์ 2FA แสดง "ปิด" และกดเปลี่ยนได้ | `auth_sign_in` **บังคับ MFA กับ `executive` ทุกครั้งอยู่แล้ว** — แสดงผิดในทางที่ทำให้บัญชีดูปลอดภัยน้อยกว่าจริง → เปลี่ยนเป็นข้อความสถานะอ่านอย่างเดียว |
+| เบอร์โทร / รูปโปรไฟล์ | `users` ไม่มีคอลัมน์ → ลบช่องกรอก บอกว่ายังไม่รองรับ |
+| การแจ้งเตือน 6 หัวข้อ · ช่องทาง · ระดับความสำคัญ · หน้าเริ่มต้น · ความหนาแน่น · รูปแบบไฟล์ · digest รายวัน/สัปดาห์ | **ไม่มีตาราง preference รายบุคคลในสคีมาเลย** (`school_settings` เป็นระดับโรงเรียนและ school_admin เท่านั้น) → รวมเป็นการ์ด "ยังไม่เปิดใช้งาน" 3 ใบพร้อมเหตุผล ไม่มีสวิตช์เหลือสักตัว |
+
+test: `test/executive/director_settings_honesty_test.dart` (7 ชุด)
+
 **Effort class: needs-new-schema for the preference sections, reuse-only for the account
 sections.** Cheapest honest outcome: wire profile name + sign-out-all + password change to
 real RPCs, keep the display/dashboard preferences purely local, and delete the notification
