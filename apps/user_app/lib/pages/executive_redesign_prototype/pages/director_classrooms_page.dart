@@ -758,10 +758,18 @@ class _DirectorClassroomsPageState
     // still fetching", "this school genuinely has none", and "the load
     // failed" apart from a real figure — the old `?? '36'` / `?? '1,248'` /
     // `?? '64'` collapsed all three into numbers that looked authoritative.
+    // The value slot is a large fixed-height number field, so the non-data
+    // states go in the small subtitle line and the value stays a short
+    // marker. Putting 'ยังไม่มีข้อมูล' in the value slot itself overflows
+    // the tile by 24px — caught by infinite_height_layout_audit_test.
     String figure(String Function(ClassroomsOverviewItem) read) {
       final o = _overview;
-      if (o != null) return read(o);
-      if (_overviewLoading) return '…';
+      return o != null ? read(o) : '—';
+    }
+
+    String note(String whenLoaded) {
+      if (_overview != null) return whenLoaded;
+      if (_overviewLoading) return 'กำลังโหลด…';
       return _overviewFailed ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล';
     }
 
@@ -773,28 +781,32 @@ class _DirectorClassroomsPageState
       _OverviewSummary(
         title: 'ห้องเรียนทั้งหมด',
         value: roomCount,
-        subtitle: 'ในระบบโรงเรียน',
+        subtitle: note('ในระบบโรงเรียน'),
         icon: Icons.meeting_room_rounded,
         color: AppPalette.softPink,
       ),
       _OverviewSummary(
         title: 'นักเรียนทั้งหมด',
         value: studentCount,
-        subtitle: 'ทุกระดับชั้น',
+        subtitle: note('ทุกระดับชั้น'),
         icon: Icons.groups_rounded,
         color: AppPalette.softBlue,
       ),
       _OverviewSummary(
         title: 'งานที่มอบหมายสัปดาห์นี้',
         value: assignmentCount,
-        subtitle: 'ทุกห้องรวมกัน',
+        subtitle: note('ทุกห้องรวมกัน'),
         icon: Icons.assignment_rounded,
         color: AppPalette.softCream,
       ),
+      // 'งานที่ส่งช้า/ค้าง' was a hardcoded '67'. get_classrooms_overview
+      // returns no such figure, so there is nothing truthful to show here —
+      // it is marked unavailable rather than left displaying an invented
+      // number of students who supposedly need following up.
       _OverviewSummary(
         title: 'งานที่ส่งช้า/ค้าง',
-        value: '67',
-        subtitle: 'นักเรียนที่ต้องติดตาม',
+        value: '—',
+        subtitle: 'ยังไม่มีข้อมูล',
         icon: Icons.assignment_late_rounded,
         color: AppPalette.softPink2,
       ),

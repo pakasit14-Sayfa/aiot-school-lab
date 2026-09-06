@@ -24,7 +24,22 @@ import 'school_admin_incident_inbox_page.dart';
 import 'school_learning_tracks_page.dart';
 
 class SchoolAdminDashboardPage extends StatefulWidget {
-  const SchoolAdminDashboardPage({super.key});
+  const SchoolAdminDashboardPage({
+    super.key,
+    this.loadEnergy,
+    this.loadWater,
+    this.loadSensor,
+    this.loadMetricsWithData,
+  });
+
+  /// Read seams for the home page's resource card, threaded down to
+  /// `_HomeResourceOverview`. Production passes nothing and the real
+  /// services are used; widget tests supply these to drive loading / data /
+  /// empty / error deterministically without a live Supabase client.
+  final Future<EnergyUsageSummary?> Function()? loadEnergy;
+  final Future<WaterUsageSummary?> Function()? loadWater;
+  final Future<SensorModel?> Function()? loadSensor;
+  final Future<Set<String>> Function()? loadMetricsWithData;
 
   @override
   State<SchoolAdminDashboardPage> createState() =>
@@ -100,7 +115,15 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     }
 
     if (_selectedIndex == 0) {
-      return _themed(_HomeDashboard(onOpenPage: _openPage));
+      return _themed(
+        _HomeDashboard(
+          onOpenPage: _openPage,
+          loadEnergy: widget.loadEnergy,
+          loadWater: widget.loadWater,
+          loadSensor: widget.loadSensor,
+          loadMetricsWithData: widget.loadMetricsWithData,
+        ),
+      );
     }
 
     if (_selectedIndex == 1) {
@@ -917,9 +940,19 @@ class _BottomButton extends StatelessWidget {
 }
 
 class _HomeDashboard extends StatelessWidget {
-  const _HomeDashboard({required this.onOpenPage});
+  const _HomeDashboard({
+    required this.onOpenPage,
+    this.loadEnergy,
+    this.loadWater,
+    this.loadSensor,
+    this.loadMetricsWithData,
+  });
 
   final ValueChanged<int> onOpenPage;
+  final Future<EnergyUsageSummary?> Function()? loadEnergy;
+  final Future<WaterUsageSummary?> Function()? loadWater;
+  final Future<SensorModel?> Function()? loadSensor;
+  final Future<Set<String>> Function()? loadMetricsWithData;
 
   @override
   Widget build(BuildContext context) {
@@ -973,7 +1006,13 @@ class _HomeDashboard extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 14),
-              _HomeResourceOverview(onOpenResources: () => onOpenPage(7)),
+              _HomeResourceOverview(
+                onOpenResources: () => onOpenPage(7),
+                loadEnergy: loadEnergy,
+                loadWater: loadWater,
+                loadSensor: loadSensor,
+                loadMetricsWithData: loadMetricsWithData,
+              ),
               const SizedBox(height: 14),
               LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
@@ -2173,44 +2212,170 @@ class _HomeAlertPanelState extends State<_HomeAlertPanel> {
   }
 }
 
-class _HomeResourceOverview extends StatelessWidget {
-  const _HomeResourceOverview({required this.onOpenResources});
+/// Electricity / water / air-quality summary on the School Admin home page.
+///
+/// Until 2026-09-07 every figure here was a `const` literal — "428 kWh",
+/// "12.6 m³", "PM2.5 21" — together with invented day-over-day deltas
+/// ("ลดลง 3.2% จากเมื่อวาน"). It was the first card the school admin saw and
+/// none of it came from the database. On a local stack with zero rows in
+/// `sensor_readings` it still displayed those numbers confidently.
+///
+/// Everything is now read through RPCs that `school_admin` is already
+/// allowed to call (verified against the running database, not the migration
+/// files): `get_energy_usage_summary`, `get_water_usage_summary` and
+/// `sensor_latest`. No new backend was needed.
+///
+/// The day-over-day comparison was NOT reimplemented: those summary RPCs
+/// return a total for a window, not a previous-period delta, so there is
+/// nothing truthful to compute it from. Showing device count and estimated
+/// cost — which the RPCs really do return — is preferred over resurrecting a
+/// trend line the backend cannot support.
+class _HomeResourceOverview extends StatefulWidget {
+  const _HomeResourceOverview({
+    required this.onOpenResources,
+    this.loadEnergy,
+    this.loadWater,
+    this.loadSensor,
+    this.loadMetricsWithData,
+  });
 
   final VoidCallback onOpenResources;
 
+  /// Injectable read seams so the four states can be driven in widget tests
+  /// without a live Supabase client, matching the pattern used by the
+  /// already-connected School Admin pages.
+  final Future<EnergyUsageSummary?> Function()? loadEnergy;
+  final Future<WaterUsageSummary?> Function()? loadWater;
+  final Future<SensorModel?> Function()? loadSensor;
+  final Future<Set<String>> Function()? loadMetricsWithData;
+
+  @override
+  State<_HomeResourceOverview> createState() => _HomeResourceOverviewState();
+}
+
+class _HomeResourceOverviewState extends State<_HomeResourceOverview> {
+  bool _loading = true;
+  bool _failed = false;
+
+  EnergyUsageSummary? _energy;
+  WaterUsageSummary? _water;
+  SensorModel? _sensor;
+  Set<String> _metricsWithData = const <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _failed = false;
+      });
+    }
+    try {
+      final results = await Future.wait([
+        widget.loadEnergy?.call() ?? UtilityService.getEnergyUsageSummary(),
+        widget.loadWater?.call() ?? UtilityService.getWaterUsageSummary(),
+        widget.loadSensor?.call() ??
+            RealtimeService.getSensorOnce(
+              schoolId: '',
+              building: '',
+              floor: '',
+              room: '',
+            ),
+        widget.loadMetricsWithData?.call() ??
+            RealtimeService.getWeatherMetricsWithData(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _energy = results[0] as EnergyUsageSummary?;
+        _water = results[1] as WaterUsageSummary?;
+        _sensor = results[2] as SensorModel?;
+        _metricsWithData = results[3] as Set<String>;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('_HomeResourceOverview load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+    }
+  }
+
+  static const String _empty = 'ยังไม่มีข้อมูล';
+
+  String _stateText() => _loading ? '…' : (_failed ? 'โหลดไม่สำเร็จ' : _empty);
+
+  _ResourceData _energyCard() {
+    final e = _energy;
+    return _ResourceData(
+      title: 'การใช้ไฟ (ช่วงที่ระบบสรุป)',
+      value: e != null ? '${e.totalKwh.toStringAsFixed(1)} kWh' : _stateText(),
+      detail: e != null
+          ? 'จากมิเตอร์ ${e.deviceCount} จุด · ประมาณ ${e.estimatedCostThb.toStringAsFixed(0)} บาท'
+          : 'ยังไม่มีมิเตอร์ไฟที่ส่งค่าเข้ามา',
+      icon: Icons.bolt_rounded,
+      color: SchoolAdminPalette.primary,
+    );
+  }
+
+  _ResourceData _waterCard() {
+    final w = _water;
+    return _ResourceData(
+      title: 'การใช้น้ำ (ช่วงที่ระบบสรุป)',
+      value: w != null ? '${w.totalM3.toStringAsFixed(1)} m³' : _stateText(),
+      detail: w != null
+          ? 'จากมิเตอร์ ${w.deviceCount} จุด · ประมาณ ${w.estimatedCostThb.toStringAsFixed(0)} บาท'
+          : 'ยังไม่มีมิเตอร์น้ำที่ส่งค่าเข้ามา',
+      icon: Icons.water_drop_rounded,
+      color: SchoolAdminPalette.blue,
+    );
+  }
+
+  _ResourceData _airCard() {
+    // SensorModel defaults an absent metric to 0, which is indistinguishable
+    // from a genuine reading of 0 — so presence is checked against the set of
+    // metrics that actually have at least one row, never against the number.
+    final hasPm25 = _metricsWithData.contains('pm25') && _sensor != null;
+    return _ResourceData(
+      title: 'คุณภาพอากาศ',
+      value: hasPm25 ? 'PM2.5 ${_sensor!.pm25.toStringAsFixed(0)}' : _stateText(),
+      detail: hasPm25
+          ? 'ค่าล่าสุดจากเซนเซอร์ในโรงเรียน'
+          : 'ยังไม่มีเซนเซอร์ที่ส่งค่า PM2.5',
+      icon: Icons.air_rounded,
+      color: SchoolAdminPalette.green,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const List<_ResourceData> data = [
-      _ResourceData(
-        title: 'การใช้ไฟวันนี้',
-        value: '428 kWh',
-        detail: 'ลดลง 3.2% จากเมื่อวาน',
-        icon: Icons.bolt_rounded,
-        color: SchoolAdminPalette.primary,
-      ),
-      _ResourceData(
-        title: 'การใช้น้ำวันนี้',
-        value: '12.6 m³',
-        detail: 'เพิ่มขึ้น 1.1% จากเมื่อวาน',
-        icon: Icons.water_drop_rounded,
-        color: SchoolAdminPalette.blue,
-      ),
-      _ResourceData(
-        title: 'คุณภาพอากาศ',
-        value: 'PM2.5 21',
-        detail: 'อยู่ในระดับดี',
-        icon: Icons.air_rounded,
-        color: SchoolAdminPalette.green,
-      ),
-    ];
+    final List<_ResourceData> data = [_energyCard(), _waterCard(), _airCard()];
 
     return _SectionCard(
       title: 'ไฟฟ้า น้ำ และคุณภาพอากาศ',
       subtitle: 'แสดงเฉพาะค่าที่แอดมินควรเห็นเพื่อดูความผิดปกติของโรงเรียน',
-      trailing: TextButton.icon(
-        onPressed: onOpenResources,
-        icon: const Icon(Icons.bar_chart_rounded, size: 17),
-        label: const Text('ดูรายละเอียด'),
+      trailing: Wrap(
+        spacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (_failed)
+            TextButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh_rounded, size: 17),
+              label: const Text('ลองใหม่'),
+            ),
+          TextButton.icon(
+            onPressed: widget.onOpenResources,
+            icon: const Icon(Icons.bar_chart_rounded, size: 17),
+            label: const Text('ดูรายละเอียด'),
+          ),
+        ],
       ),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
@@ -2298,34 +2463,51 @@ class _AutomaticRulePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
+      // Each row states whether the automation actually runs. Checked against
+      // the live database on 2026-09-07 (`pg_trigger` + `cron.job`), not
+      // against docs: the only jobs that exist are `threshold-violation-check`
+      // and `device-schedules-tick`, and the only notification triggers are
+      // notify_assignment_publication / notify_grade_confirmation /
+      // notify_lesson_publication.
+      //
+      // The card previously promised all four as working and told the admin
+      // "ไม่ต้องตามเองทุกเรื่อง" — for absence and unresponsive devices
+      // nothing happens at all, so an admin trusting it would simply never
+      // follow up. Rows are kept (they describe the intended design) but are
+      // now labelled with their real status instead of being deleted.
       title: 'การแจ้งเตือนอัตโนมัติ',
-      subtitle:
-          'ระบบส่งเรื่องไปยังผู้รับผิดชอบโดยไม่ต้องให้แอดมินตามเองทุกเรื่อง',
+      subtitle: 'สถานะจริงของแต่ละกฎ — กฎที่ยังไม่เปิดใช้งานต้องตามเอง',
       child: const Column(
         children: [
           _AutomaticRuleRow(
-            icon: Icons.person_off_outlined,
-            title: 'นักเรียนไม่มาเรียน',
-            detail: 'แจ้งครูประจำชั้นของนักเรียนคนนั้นอัตโนมัติ',
-            color: SchoolAdminPalette.primary,
-          ),
-          _AutomaticRuleRow(
-            icon: Icons.memory_rounded,
-            title: 'อุปกรณ์ไม่ตอบสนอง',
-            detail: 'แจ้งครูประจำอาคารและแอดมินโรงเรียน',
-            color: SchoolAdminPalette.red,
-          ),
-          _AutomaticRuleRow(
             icon: Icons.bolt_rounded,
             title: 'ไฟหรือน้ำใช้สูงผิดปกติ',
-            detail: 'แจ้งผู้ดูแลอาคารเพื่อเข้าตรวจสอบ',
+            detail:
+                'เปิดใช้งานอยู่ — ระบบตรวจทุกนาทีและสร้างการแจ้งเตือนเมื่อค่าเกินเกณฑ์',
             color: SchoolAdminPalette.secondary,
+            active: true,
           ),
           _AutomaticRuleRow(
             icon: Icons.security_rounded,
             title: 'มีการเข้าใช้งานผิดปกติ',
-            detail: 'บันทึก Log และแจ้งแอดมินโรงเรียน',
+            detail:
+                'บันทึก Log อยู่จริง แต่ยังไม่มีการแจ้งเตือน ต้องเปิดดูหน้ารายงานเอง',
             color: SchoolAdminPalette.blue,
+            active: false,
+          ),
+          _AutomaticRuleRow(
+            icon: Icons.person_off_outlined,
+            title: 'นักเรียนไม่มาเรียน',
+            detail: 'ยังไม่เปิดใช้งาน — ระบบยังไม่แจ้งครูประจำชั้นให้อัตโนมัติ',
+            color: SchoolAdminPalette.primary,
+            active: false,
+          ),
+          _AutomaticRuleRow(
+            icon: Icons.memory_rounded,
+            title: 'อุปกรณ์ไม่ตอบสนอง',
+            detail: 'ยังไม่เปิดใช้งาน — ต้องดูสถานะอุปกรณ์เองในหน้าอุปกรณ์',
+            color: SchoolAdminPalette.red,
+            active: false,
           ),
         ],
       ),
@@ -2339,6 +2521,7 @@ class _AutomaticRuleRow extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.color,
+    required this.active,
   });
 
   final IconData icon;
@@ -2346,13 +2529,19 @@ class _AutomaticRuleRow extends StatelessWidget {
   final String detail;
   final Color color;
 
+  /// Whether this automation actually runs today. A rule that does not run
+  /// must not look identical to one that does — that is what let this card
+  /// promise four working automations when only one existed.
+  final bool active;
+
   @override
   Widget build(BuildContext context) {
+    final Color tone = active ? color : SchoolAdminPalette.textSecondary;
     return Container(
       margin: const EdgeInsets.only(bottom: 9),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: active ? Colors.white : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(17),
         border: Border.all(color: SchoolAdminPalette.border),
       ),
@@ -2360,21 +2549,52 @@ class _AutomaticRuleRow extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 19,
-            backgroundColor: color.withAlpha(15),
-            child: Icon(icon, color: color, size: 19),
+            backgroundColor: tone.withAlpha(15),
+            child: Icon(
+              active ? icon : Icons.pause_circle_outline_rounded,
+              color: tone,
+              size: 19,
+            ),
           ),
           const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: active
+                              ? SchoolAdminPalette.textPrimary
+                              : SchoolAdminPalette.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tone.withAlpha(20),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        active ? 'เปิดใช้งาน' : 'ยังไม่เปิดใช้งาน',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: tone,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(
