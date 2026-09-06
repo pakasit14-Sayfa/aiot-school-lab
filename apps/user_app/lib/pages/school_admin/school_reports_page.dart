@@ -4,7 +4,14 @@ import 'package:shared_core/shared_core.dart';
 import '../../theme/school_admin_palette.dart';
 
 class SchoolReportsPage extends StatefulWidget {
-  const SchoolReportsPage({super.key});
+  const SchoolReportsPage({super.key, this.loadSummary, this.loadLogs});
+
+  /// Injectable read seams, same pattern as the already-connected School
+  /// Admin pages. Production passes nothing and the real service is used;
+  /// tests supply these so loading / data / empty / error can each be driven
+  /// deterministically without a live Supabase client.
+  final Future<SchoolAdminDashboardSummary> Function()? loadSummary;
+  final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
 
   @override
   State<SchoolReportsPage> createState() => _SchoolReportsPageState();
@@ -19,6 +26,13 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
   SchoolAdminDashboardSummary? _summaryData;
   List<_ReportLog> _logs = [];
 
+  // loading / data / empty / error are tracked separately. Previously this
+  // page had none of them: `catch (_) {}` swallowed every failure and the
+  // cards fell back to '--', so a failed load was indistinguishable from a
+  // school that genuinely has no data yet.
+  bool _loading = true;
+  bool _hasError = false;
+
   @override
   void initState() {
     super.initState();
@@ -26,10 +40,17 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
   }
 
   Future<void> _loadReportData() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _hasError = false;
+      });
+    }
     try {
-      final summary = await SchoolAdminPlatformService()
-          .fetchDashboardSummary();
-      final logs = await SchoolAdminPlatformService().fetchAuditLogs(limit: 5);
+      final summary = await (widget.loadSummary?.call() ??
+          SchoolAdminPlatformService().fetchDashboardSummary());
+      final logs = await (widget.loadLogs?.call() ??
+          SchoolAdminPlatformService().fetchAuditLogs(limit: 5));
       if (!mounted) return;
       setState(() {
         _summaryData = summary;
@@ -43,8 +64,56 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
               ),
             )
             .toList();
+        _loading = false;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SchoolReportsPage load failed: $e');
+      if (!mounted) return;
+      // Keep the last confirmed data on screen rather than blanking it, and
+      // surface the failure instead of hiding it. No raw backend text.
+      setState(() {
+        _loading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  Widget _errorBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: SchoolAdminPalette.red,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูลรายงานไม่สำเร็จ กรุณาลองใหม่',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: SchoolAdminPalette.red,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _loadReportData,
+            style: TextButton.styleFrom(minimumSize: Size.zero),
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _message(String text) {
@@ -71,6 +140,7 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
                 children: [
                   _header(),
                   const SizedBox(height: 14),
+                  if (_hasError) _errorBanner(),
                   _summary(),
                   const SizedBox(height: 14),
                   _reportTypes(),
@@ -171,31 +241,40 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
 
   Widget _summary() {
     final s = _summaryData;
+    // Three distinct meanings, previously all rendered as '--':
+    //   loading  -> '…'
+    //   no data  -> 'ยังไม่มีข้อมูล'
+    //   real      -> the number, including a real 0
+    String value(String Function(SchoolAdminDashboardSummary) read) {
+      if (s != null) return read(s);
+      return _loading ? '…' : 'ยังไม่มีข้อมูล';
+    }
+
     final data = [
       _Summary(
         'นักเรียน',
-        s != null ? s.studentsCount.toString() : '--',
+        value((v) => v.studentsCount.toString()),
         'รายชื่อในระบบโรงเรียน',
         Icons.groups_rounded,
         SchoolAdminPalette.primaryDark,
       ),
       _Summary(
         'อุปกรณ์',
-        s != null ? '${s.devicesCount}' : '--',
+        value((v) => '${v.devicesCount}'),
         s != null ? 'ออนไลน์ ${s.devicesOnline}' : 'ลงทะเบียนในระบบ',
         Icons.memory_rounded,
         const Color(0xFF4F6078),
       ),
       _Summary(
         'อาคาร / ห้อง',
-        s != null ? '${s.buildingsCount} / ${s.roomsCount}' : '--',
+        value((v) => '${v.buildingsCount} / ${v.roomsCount}'),
         'พื้นที่ที่เปิดใช้งาน',
         Icons.apartment_rounded,
         SchoolAdminPalette.secondary,
       ),
       _Summary(
         'การแจ้งเตือน',
-        s != null ? '${s.openAlertsCount}' : '--',
+        value((v) => '${v.openAlertsCount}'),
         'รายการที่รอตรวจสอบ',
         Icons.notifications_active_rounded,
         SchoolAdminPalette.red,
@@ -511,9 +590,14 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
               alignment: Alignment.center,
-              child: const Text(
-                'ยังไม่มีประวัติการใช้งานรายงาน',
-                style: TextStyle(
+              child: Text(
+                // The project-wide empty-state wording is exactly
+                // 'ยังไม่มีข้อมูล'; the loading case must not reuse it, or a
+                // slow load reads as "this school has no history".
+                _loading
+                    ? 'กำลังโหลด…'
+                    : 'ยังไม่มีข้อมูลประวัติการใช้งานรายงาน',
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: SchoolAdminPalette.textSecondary,
