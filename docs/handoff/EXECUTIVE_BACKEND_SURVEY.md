@@ -211,6 +211,32 @@ The **best-wired** Executive page: `EmergencyService.listEmergencyEvents` +
 
 **Effort class: reuse-only** (delete the mock; optionally add the action trail). Do this first.
 
+### ✅ เสร็จแล้ว 2026-09-07 — และเจอมากกว่าที่สำรวจไว้
+
+survey เดิมเขียนว่าเหลือแค่ "ลบ `events` const 86 บรรทัด + response teams"
+พออ่านเต็ม 4,480 บรรทัดพบว่าหนักกว่านั้น เพราะ **ทุกจุดที่อ่านของปลอมถูกกั้นด้วย
+`_hasRealData ? จริง : ปลอม` และ `_hasRealData` เป็น false พอดีตอนที่โรงเรียน
+"ไม่มีเหตุอะไรเลย"** — สถานะที่ปลอดภัยที่สุดจึงถูกวาดเป็นสถานะที่แย่ที่สุด
+
+| ที่พบ | แก้เป็น |
+|---|---|
+| hero card แต่ง SOS ขึ้นมาทั้งใบ: "SOS จากนักเรียน ห้อง ม.3/2" · "อาคาร 3 ชั้น 2" · "แจ้งมา 28 วิ" · **ผู้แจ้ง "ครูสมหญิง ใจดี"** | ไม่มีเหตุจริง = ไม่วาดการ์ด · แสดง "ไม่มีเหตุฉุกเฉินที่กำลังดำเนินอยู่" |
+| **เวรฉุกเฉิน 4 ทีม ชื่อครูที่ไม่มีอยู่จริง** (ครูสมชาย ครูพิมพ์ใจ ครูสุพรรณี อ.วินัย) พร้อมสถานะ "กำลังไปจุดเกิดเหตุ" | ลบทั้งบล็อก — ไม่มีตารางเวรในสคีมา · แทนด้วย empty state ที่บอกให้ประสานทางช่องทางอื่น |
+| `events` const 86 บรรทัด + counter ที่นับจากมัน (`sosPendingCount` fallback เป็นเลข `1`) | ลบ · นับจาก DB อย่างเดียว |
+| `catchError` กลืน error ของทั้ง 3 read เป็น list ว่าง | **แยก "โหลดไม่สำเร็จ" ออกจาก "ไม่มีเหตุ"** — บนหน้านี้สองอย่างนี้หมายตรงข้ามกัน |
+| หน้าเรียก stream ตรงใน `initState` → assert ตายก่อน build ใน test | เพิ่ม seam + `watchUpdates: false` — **ก่อนหน้านี้หน้านี้ไม่มี test ที่รันได้เลย** |
+| 🐛 `if (active.isEmpty) Expanded(...)` ในคอลัมน์ที่ความสูงไม่จำกัด | บั๊ก layout ที่ทำให้ `infinite_height_layout_audit` fail มานาน — **ข้อมูลปลอมกลบไว้เพราะ `active` ไม่เคยว่าง** พอลบของปลอม สาขานี้กลายเป็นสถานะปกติและ assert ทุกครั้ง · แก้แล้ว layout audit เหลือ 2 จาก 3 |
+
+test: `test/executive/director_emergency_page_honesty_test.dart` (5 ชุด)
+
+**ยังเหลือ:** ยังไม่คลิกจริงในเบราว์เซอร์ · `director_emergency_page_test.dart`
+เดิมยัง fail (หาข้อความที่ไม่มีในหน้ามานานแล้ว — ticket 1.3)
+
+**เจอระหว่างทาง ยังไม่แก้:** `director_environment_page` ประกาศฟิลด์
+`_energySummary` `_waterSummary` `_energyTrend` `_waterTrend` `_energyScore`
+`_waterScore` แล้ว**ไม่ได้ใช้เลยสักตัว** (analyze แจ้ง unused_field 6 จุด) —
+รูปแบบเดียวกับ `director_academic_calendar_page` ที่ดึงข้อมูลมาแล้วทิ้ง
+
 ## `director_environment_page.dart` (2,177 lines)
 
 Real today: all six `UtilityService` calls + `AiotLabService.getLatestSensorReadings()`.

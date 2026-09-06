@@ -24,16 +24,36 @@ String _timeAgo(DateTime t) {
   return '${diff.inDays} วันที่แล้ว';
 }
 
+/// Read seams, so loading / data / empty / failure can each be driven in a
+/// test. Without them `initState` reaches straight for the Supabase singleton
+/// and throws before the page can build — which is why this page had no
+/// working coverage at all.
+typedef EmergencyEventsLoader = Future<List<EmergencyEventItem>> Function();
+typedef IncidentSummaryLoader = Future<List<IncidentSummaryItem>> Function();
+typedef IncidentReportsLoader = Future<List<TeacherIncidentReport>> Function();
+
 class DirectorEmergencyPage extends StatefulWidget {
-  const DirectorEmergencyPage({super.key});
+  const DirectorEmergencyPage({
+    super.key,
+    this.loadEmergencyEvents,
+    this.loadIncidentSummary,
+    this.loadIncidentReports,
+    this.watchUpdates = true,
+  });
+
+  final EmergencyEventsLoader? loadEmergencyEvents;
+  final IncidentSummaryLoader? loadIncidentSummary;
+  final IncidentReportsLoader? loadIncidentReports;
+
+  /// Subscribe to the live incident/emergency streams. Off in tests, where
+  /// there is no Supabase client to stream from.
+  final bool watchUpdates;
 
   @override
-  State<DirectorEmergencyPage> createState() =>
-      _DirectorEmergencyPageState();
+  State<DirectorEmergencyPage> createState() => _DirectorEmergencyPageState();
 }
 
-class _DirectorEmergencyPageState
-    extends State<DirectorEmergencyPage> {
+class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
   String selectedFilter = 'ทั้งหมด';
   String searchText = '';
 
@@ -47,6 +67,10 @@ class _DirectorEmergencyPageState
   bool _isLoadingRealData = false;
   bool _hasRealData = false;
 
+  /// The read failed. Kept apart from "no incidents" because on this page the
+  /// two look identical and mean opposite things.
+  bool _loadFailed = false;
+
   EmergencyEventItem? get _activeRealEmergencyEvent {
     if (_realEmergencyEvents.isEmpty) return null;
     return _realEmergencyEvents
@@ -57,32 +81,39 @@ class _DirectorEmergencyPageState
   TeacherIncidentReport? get _activeSosIncident {
     if (_realIncidents.isEmpty) return null;
     return _realIncidents
-        .where((i) =>
-            i.category == IncidentCategory.sos &&
-            i.status != 'resolved' &&
-            i.status != 'cancelled')
+        .where(
+          (i) =>
+              i.category == IncidentCategory.sos &&
+              i.status != 'resolved' &&
+              i.status != 'cancelled',
+        )
         .firstOrNull;
   }
 
   TeacherIncidentReport? get _lastResolvedSosIncident {
     if (_realIncidents.isEmpty) return null;
     return _realIncidents
-        .where((i) =>
-            i.category == IncidentCategory.sos &&
-            (i.status == 'resolved' || i.status == 'cancelled'))
+        .where(
+          (i) =>
+              i.category == IncidentCategory.sos &&
+              (i.status == 'resolved' || i.status == 'cancelled'),
+        )
         .firstOrNull;
   }
 
   _EmergencyEvent _convertIncident(TeacherIncidentReport inc) {
     final localTime = inc.createdAt.toLocal();
-    final timeStr = 'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final timeStr =
+        'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
     final statusDisplay = inc.status == 'new'
         ? 'กำลังเกิดเหตุ'
         : (inc.status == 'acknowledged'
-            ? 'รับเรื่องแล้ว'
-            : (inc.status == 'resolved' || inc.status == 'cancelled'
-                ? 'ปิดเหตุแล้ว'
-                : (inc.status == 'escalated' ? 'ยกระดับเป็น SOS แล้ว' : 'กำลังช่วยเหลือ')));
+              ? 'รับเรื่องแล้ว'
+              : (inc.status == 'resolved' || inc.status == 'cancelled'
+                    ? 'ปิดเหตุแล้ว'
+                    : (inc.status == 'escalated'
+                          ? 'ยกระดับเป็น SOS แล้ว'
+                          : 'กำลังช่วยเหลือ')));
     final isSos = inc.category == IncidentCategory.sos;
     return _EmergencyEvent(
       id: inc.id,
@@ -98,16 +129,23 @@ class _DirectorEmergencyPageState
       source: 'แอปนักเรียน (SOS)',
       status: statusDisplay,
       priority: isSos ? 'เร่งด่วน' : 'สูง',
-      description: inc.reason ?? (isSos ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือเร่งด่วน' : 'นักเรียนรายงานเหตุผิดปกติ'),
+      description:
+          inc.reason ??
+          (isSos
+              ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือเร่งด่วน'
+              : 'นักเรียนรายงานเหตุผิดปกติ'),
       action: 'ประสานครูเวรและครูห้องพยาบาลเข้าช่วยเหลือทันที',
-      icon: isSos ? Icons.notifications_active_rounded : Icons.warning_amber_rounded,
+      icon: isSos
+          ? Icons.notifications_active_rounded
+          : Icons.warning_amber_rounded,
       color: isSos ? AppPalette.danger : AppPalette.warning,
     );
   }
 
   _EmergencyEvent _convertEmergencyEvent(EmergencyEventItem evt) {
     final localTime = evt.triggeredAt.toLocal();
-    final timeStr = 'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final timeStr =
+        'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
     final statusDisplay = evt.status == 'new'
         ? 'กำลังเกิดเหตุ'
         : (evt.status == 'acknowledged' ? 'รับเรื่องแล้ว' : 'ปิดเหตุแล้ว');
@@ -129,7 +167,6 @@ class _DirectorEmergencyPageState
   }
 
   List<_EmergencyEvent> get _allDisplayEvents {
-    if (!_hasRealData) return events;
     final list = <_EmergencyEvent>[];
     for (final inc in _realIncidents) {
       list.add(_convertIncident(inc));
@@ -137,7 +174,6 @@ class _DirectorEmergencyPageState
     for (final evt in _realEmergencyEvents) {
       list.add(_convertEmergencyEvent(evt));
     }
-    if (list.isEmpty) return events;
     return list;
   }
 
@@ -148,12 +184,14 @@ class _DirectorEmergencyPageState
   void initState() {
     super.initState();
     _loadRealData();
-    _incidentSub = IncidentService.streamIncidentReports().listen((_) {
-      if (mounted) _loadRealData();
-    });
-    _emergencySub = EmergencyService.streamEmergencyEvents().listen((_) {
-      if (mounted) _loadRealData();
-    });
+    if (widget.watchUpdates) {
+      _incidentSub = IncidentService.streamIncidentReports().listen((_) {
+        if (mounted) _loadRealData();
+      });
+      _emergencySub = EmergencyService.streamEmergencyEvents().listen((_) {
+        if (mounted) _loadRealData();
+      });
+    }
   }
 
   @override
@@ -164,21 +202,24 @@ class _DirectorEmergencyPageState
   }
 
   Future<void> _loadRealData() async {
-    setState(() => _isLoadingRealData = true);
+    setState(() {
+      _isLoadingRealData = true;
+      _loadFailed = false;
+    });
     try {
+      // Each read used to swallow its own failure into an empty list, so a
+      // page that could not reach the backend rendered exactly like a school
+      // with no emergencies — the one state a director must never be shown by
+      // mistake. Failures now surface; a partial failure is still a failure
+      // here, because "no incidents" is only safe to display when it was
+      // actually confirmed.
       final results = await Future.wait([
-        EmergencyService.listEmergencyEvents().catchError((e) {
-          debugPrint('EmergencyService.listEmergencyEvents error: $e');
-          return <EmergencyEventItem>[];
-        }),
-        IncidentService.getIncidentSummary().catchError((e) {
-          debugPrint('IncidentService.getIncidentSummary error: $e');
-          return <IncidentSummaryItem>[];
-        }),
-        IncidentService.listTeacherIncidentReports().catchError((e) {
-          debugPrint('IncidentService.listTeacherIncidentReports error: $e');
-          return <TeacherIncidentReport>[];
-        }),
+        widget.loadEmergencyEvents?.call() ??
+            EmergencyService.listEmergencyEvents(),
+        widget.loadIncidentSummary?.call() ??
+            IncidentService.getIncidentSummary(),
+        widget.loadIncidentReports?.call() ??
+            IncidentService.listTeacherIncidentReports(),
       ]);
 
       if (!mounted) return;
@@ -186,7 +227,8 @@ class _DirectorEmergencyPageState
       final summary = results[1] as List<IncidentSummaryItem>;
       final incidents = results[2] as List<TeacherIncidentReport>;
 
-      final hasData = eventsList.isNotEmpty ||
+      final hasData =
+          eventsList.isNotEmpty ||
           incidents.isNotEmpty ||
           summary.any((s) => s.totalCount > 0);
 
@@ -199,20 +241,28 @@ class _DirectorEmergencyPageState
 
         // Check active SOS from real incidents first, then real emergency events
         final activeSos = incidents
-            .where((i) =>
-                i.category == IncidentCategory.sos &&
-                i.status != 'resolved' &&
-                i.status != 'cancelled')
+            .where(
+              (i) =>
+                  i.category == IncidentCategory.sos &&
+                  i.status != 'resolved' &&
+                  i.status != 'cancelled',
+            )
             .firstOrNull;
-        final activeEvt = eventsList.where((e) => e.status != 'closed').firstOrNull;
+        final activeEvt = eventsList
+            .where((e) => e.status != 'closed')
+            .firstOrNull;
 
         if (activeSos != null) {
           sosResolved = false;
-          sosAccepted = activeSos.status == 'acknowledged' || activeSos.status == 'in_progress';
+          sosAccepted =
+              activeSos.status == 'acknowledged' ||
+              activeSos.status == 'in_progress';
         } else if (activeEvt != null) {
           sosResolved = false;
           sosAccepted = activeEvt.status == 'acknowledged';
-        } else if (hasData && (incidents.any((i) => i.category == IncidentCategory.sos) || eventsList.isNotEmpty)) {
+        } else if (hasData &&
+            (incidents.any((i) => i.category == IncidentCategory.sos) ||
+                eventsList.isNotEmpty)) {
           // มีข้อมูลจริงและ SOS ในอดีตถูกปิดแล้ว -> สภาวะปกติ
           sosResolved = true;
           sosAccepted = false;
@@ -221,9 +271,51 @@ class _DirectorEmergencyPageState
     } catch (e) {
       debugPrint('director_emergency_page: _loadRealData error: $e');
       if (mounted) {
-        setState(() => _isLoadingRealData = false);
+        setState(() {
+          _isLoadingRealData = false;
+          _loadFailed = true;
+        });
       }
     }
+  }
+
+  /// Stated on the page, not only in a log. An unreachable backend must not
+  /// be mistaken for a quiet day.
+  Widget _loadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูลเหตุฉุกเฉินไม่สำเร็จ — หน้านี้อาจไม่แสดงเหตุที่กำลังเกิดขึ้นจริง',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _isLoadingRealData ? null : _loadRealData,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _demoBadge({String text = 'ข้อมูลจำลอง'}) {
@@ -300,93 +392,17 @@ class _DirectorEmergencyPageState
     'ปิดเหตุแล้ว',
   ];
 
-  final List<_EmergencyEvent> events = const [
-    _EmergencyEvent(
-      id: 'SOS-20260821-001',
-      title: 'SOS จากนักเรียน ห้อง ม.3/2',
-      type: 'SOS',
-      location: 'อาคาร 3 • ชั้น 2 • ห้อง ม.3/2',
-      time: 'วันนี้ • 10:42 น.',
-      reporter: 'นักเรียน ม.3/2',
-      source: 'ปุ่ม SOS ในห้องเรียน',
-      status: 'กำลังเกิดเหตุ',
-      priority: 'เร่งด่วน',
-      description:
-          'มีการกดปุ่ม SOS ภายในห้องเรียน ระบบส่งตำแหน่งและแจ้งเตือนไปยังผู้อำนวยการ ครูเวร และฝ่ายกิจการนักเรียน',
-      action:
-          'รับ SOS เพื่อล็อกผู้รับผิดชอบ ตรวจสอบกล้อง/พื้นที่ และประสานครูเวรเข้าตรวจสอบทันที',
-      icon: Icons.notifications_active_rounded,
-      color: AppPalette.danger,
-    ),
-    _EmergencyEvent(
-      id: 'EVT-20260821-018',
-      title: 'ตรวจพบเหตุทะเลาะวิวาท',
-      type: 'ทะเลาะวิวาท',
-      location: 'อาคาร 2 • ชั้น 3',
-      time: 'วันนี้ • 10:24 น.',
-      reporter: 'AI Camera',
-      source: 'CAM-B2-03',
-      status: 'กำลังช่วยเหลือ',
-      priority: 'สูง',
-      description:
-          'กล้อง AI ตรวจพบการเคลื่อนไหวที่เข้าข่ายทะเลาะวิวาทต่อเนื่อง ระบบแจ้งครูเวรและฝ่ายกิจการนักเรียนแล้ว',
-      action:
-          'ตรวจสอบสถานการณ์ แยกนักเรียนออกจากพื้นที่ และบันทึกผลการดำเนินการ',
-      icon: Icons.sports_martial_arts_rounded,
-      color: AppPalette.danger,
-    ),
-    _EmergencyEvent(
-      id: 'EVT-20260821-017',
-      title: 'ตรวจพบนักเรียนล้ม',
-      type: 'ล้ม / หมดสติ',
-      location: 'อาคาร 1 • ชั้น 2',
-      time: 'วันนี้ • 09:51 น.',
-      reporter: 'AI Camera',
-      source: 'CAM-B1-06',
-      status: 'รับเรื่องแล้ว',
-      priority: 'สูง',
-      description:
-          'ระบบตรวจพบนักเรียนนอนอยู่บริเวณทางเดินนานกว่าค่าที่กำหนด จึงส่งแจ้งเตือนอัตโนมัติ',
-      action:
-          'ประสานครูเวรและห้องพยาบาลเพื่อตรวจอาการและยืนยันความปลอดภัย',
-      icon: Icons.personal_injury_rounded,
-      color: AppPalette.primaryPink,
-    ),
-    _EmergencyEvent(
-      id: 'EVT-20260821-014',
-      title: 'ตรวจพบควันในห้องวิทยาศาสตร์',
-      type: 'ควัน / ไฟ',
-      location: 'อาคาร 1 • ห้องวิทยาศาสตร์',
-      time: 'วันนี้ • 09:18 น.',
-      reporter: 'Smoke Sensor',
-      source: 'SMK-LAB-01',
-      status: 'ปิดเหตุแล้ว',
-      priority: 'สูง',
-      description:
-          'เซนเซอร์ตรวจพบควันระดับเฝ้าระวัง เจ้าหน้าที่ตรวจสอบพบว่าเกิดจากกิจกรรมทดลองในห้อง',
-      action:
-          'ตรวจสอบแล้ว ไม่พบเหตุเพลิงไหม้ เปิดระบบระบายอากาศและปิดเหตุ',
-      icon: Icons.smoke_free_rounded,
-      color: AppPalette.warning,
-    ),
-    _EmergencyEvent(
-      id: 'EVT-20260820-041',
-      title: 'กดปุ่ม SOS บริเวณสนามกีฬา',
-      type: 'SOS',
-      location: 'สนามกีฬา • จุด SOS-02',
-      time: 'เมื่อวาน • 15:26 น.',
-      reporter: 'นักเรียน',
-      source: 'ปุ่ม SOS สนามกีฬา',
-      status: 'ปิดเหตุแล้ว',
-      priority: 'เร่งด่วน',
-      description:
-          'นักเรียนกด SOS หลังเพื่อนเกิดอาการหน้ามืดระหว่างกิจกรรมกีฬา',
-      action:
-          'ครูพละและห้องพยาบาลเข้าช่วยเหลือ นักเรียนอาการปลอดภัยและปิดเหตุแล้ว',
-      icon: Icons.notifications_active_rounded,
-      color: AppPalette.danger,
-    ),
-  ];
+  // The 86-line `events` const that used to live here is gone.
+  //
+  // It held four fully-written emergencies — including an active
+  // "SOS จากนักเรียน ห้อง ม.3/2" — and every read of it was guarded by
+  // `_hasRealData ? real : events`. `_hasRealData` is false exactly when the
+  // school has no incidents at all, so a school with nothing wrong showed a
+  // director a student SOS in progress, with counters and an active-incident
+  // card to match. The safest possible state rendered as the worst one.
+  //
+  // Every RPC behind this page is real and executive-allowed, so there is
+  // nothing to fall back to: no incidents means no incidents.
 
   @override
   Widget build(BuildContext context) {
@@ -400,6 +416,10 @@ class _DirectorEmergencyPageState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _emergencyHeader(),
+            if (_loadFailed) ...[
+              const SizedBox(height: 12),
+              _loadErrorBanner(),
+            ],
             const SizedBox(height: 14),
             _summaryCards(),
             const SizedBox(height: 16),
@@ -420,13 +440,9 @@ class _DirectorEmergencyPageState
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _activeIncidentCard(isEqualHeight: false),
-                    ),
+                    Expanded(child: _activeIncidentCard(isEqualHeight: false)),
                     const SizedBox(width: 16),
-                    Expanded(
-                      child: _responseTeamCard(),
-                    ),
+                    Expanded(child: _responseTeamCard()),
                   ],
                 );
               },
@@ -444,14 +460,15 @@ class _DirectorEmergencyPageState
     final allEvents = _allDisplayEvents;
 
     return allEvents.where((item) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           item.title.toLowerCase().contains(query) ||
           item.location.toLowerCase().contains(query) ||
           item.type.toLowerCase().contains(query) ||
           item.reporter.toLowerCase().contains(query);
 
-      final matchesFilter = selectedFilter == 'ทั้งหมด' ||
-          item.status == selectedFilter;
+      final matchesFilter =
+          selectedFilter == 'ทั้งหมด' || item.status == selectedFilter;
 
       return matchesSearch && matchesFilter;
     }).toList();
@@ -477,10 +494,7 @@ class _DirectorEmergencyPageState
             SizedBox(height: 4),
             Text(
               'รับแจ้ง SOS เฝ้าระวังความปลอดภัย และสั่งการช่วยเหลือแบบเรียลไทม์ 24 ชม.',
-              style: TextStyle(
-                fontSize: 10.8,
-                color: AppPalette.textMuted,
-              ),
+              style: TextStyle(fontSize: 10.8, color: AppPalette.textMuted),
             ),
           ],
         );
@@ -496,14 +510,23 @@ class _DirectorEmergencyPageState
                 height: 14,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
+            // There is no demo data left on this page, so the old
+            // `_hasRealData ? real : demo` badge no longer describes anything
+            // real. What matters now is whether the read succeeded.
+            else if (_loadFailed)
+              _demoBadge(text: 'โหลดไม่สำเร็จ')
+            else if (_hasRealData)
+              _realBadge()
             else
-              _hasRealData ? _realBadge() : _demoBadge(),
+              _demoBadge(text: 'ไม่มีเหตุที่ต้องดำเนินการ'),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: const Color(0xFFE6F7ED),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: const Color(0xFF059669).withValues(alpha: 0.25),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -541,7 +564,11 @@ class _DirectorEmergencyPageState
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
-                    Icon(Icons.refresh_rounded, size: 13, color: Color(0xFF475569)),
+                    Icon(
+                      Icons.refresh_rounded,
+                      size: 13,
+                      color: Color(0xFF475569),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'รีเฟรช',
@@ -561,11 +588,7 @@ class _DirectorEmergencyPageState
         if (compact) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              titleBlock,
-              const SizedBox(height: 8),
-              statusBadge,
-            ],
+            children: [titleBlock, const SizedBox(height: 8), statusBadge],
           );
         }
 
@@ -582,46 +605,62 @@ class _DirectorEmergencyPageState
 
   Widget _summaryCards() {
     // Check if we have real emergency events or incidents from DB
-    final int realSosPending = _realIncidents
-            .where((i) => i.category == IncidentCategory.sos && (i.status == 'new' || i.status == 'acknowledged'))
+    final int realSosPending =
+        _realIncidents
+            .where(
+              (i) =>
+                  i.category == IncidentCategory.sos &&
+                  (i.status == 'new' || i.status == 'acknowledged'),
+            )
             .length +
-        _realEmergencyEvents.where((e) => e.status == 'new' || e.status == 'acknowledged').length;
+        _realEmergencyEvents
+            .where((e) => e.status == 'new' || e.status == 'acknowledged')
+            .length;
 
-    final int realClosed = _realIncidents
+    final int realClosed =
+        _realIncidents
             .where((i) => i.status == 'resolved' || i.status == 'cancelled')
             .length +
         _realEmergencyEvents.where((e) => e.status == 'closed').length;
 
-    final int realActive = _realIncidents
-            .where((i) =>
-                i.category != IncidentCategory.sos &&
-                i.status != 'resolved' &&
-                i.status != 'cancelled')
+    final int realActive =
+        _realIncidents
+            .where(
+              (i) =>
+                  i.category != IncidentCategory.sos &&
+                  i.status != 'resolved' &&
+                  i.status != 'cancelled',
+            )
             .length +
         _realEmergencyEvents.where((e) => e.status == 'acknowledged').length;
 
     // Active counts calculation
-    final activeCount = _hasRealData
-        ? realActive
-        : events.where((e) => e.status != 'ปิดเหตุแล้ว' && e.id != 'SOS-20260821-001').length;
-    final closedCount = _hasRealData
-        ? realClosed
-        : events.where((e) => e.status == 'ปิดเหตุแล้ว').length;
-    final sosPendingCount = _hasRealData
-        ? realSosPending
-        : (sosResolved ? 0 : 1);
+    // Counted from the database only. These used to fall back to counting the
+    // invented `events` list, and `sosPendingCount` fell back to the literal
+    // `1` — so a school with no incidents was told one SOS was pending.
+    final activeCount = realActive;
+    final closedCount = realClosed;
+    final sosPendingCount = realSosPending;
 
     final items = [
       _EmergencySummaryData(
         title: 'SOS รอรับเรื่อง',
         value: '$sosPendingCount',
         unit: 'จุด',
-        sub: _hasRealData
-            ? (sosPendingCount == 0 ? 'ไม่มีสัญญาณ SOS ค้าง' : 'พบสัญญาณ SOS รอการตอบสนอง')
-            : (sosResolved ? 'ไม่มี SOS ค้าง' : 'ห้อง ม.3/2 • แจ้งมา 28 วิ'),
+        // Was `_hasRealData ? real : 'ห้อง ม.3/2 • แจ้งมา 28 วิ'` — a school
+        // with no incidents read as one SOS waiting in a specific room.
+        sub: _loadFailed
+            ? 'ยังไม่ทราบ — โหลดไม่สำเร็จ'
+            : (sosPendingCount == 0
+                  ? 'ไม่มีสัญญาณ SOS ค้าง'
+                  : 'พบสัญญาณ SOS รอการตอบสนอง'),
         badge: sosPendingCount == 0 ? '✓ เรียบร้อย' : '● วิกฤตทันที',
-        badgeBg: sosPendingCount == 0 ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6),
-        badgeTextColor: sosPendingCount == 0 ? const Color(0xFF059669) : const Color(0xFFE11D48),
+        badgeBg: sosPendingCount == 0
+            ? const Color(0xFFDCFCE7)
+            : const Color(0xFFFFE4E6),
+        badgeTextColor: sosPendingCount == 0
+            ? const Color(0xFF059669)
+            : const Color(0xFFE11D48),
         icon: Icons.notifications_active_rounded,
         headerBg: const Color(0xFFFFE4E6),
         headerColor: const Color(0xFFBE123C),
@@ -634,8 +673,8 @@ class _DirectorEmergencyPageState
         unit: 'เรื่อง',
         sub: _hasRealData
             ? (_realIncidentSummary.isNotEmpty
-                ? 'สรุปเหตุในระบบ ${_realIncidentSummary.length} หมวด'
-                : 'เหตุการณ์ที่อยู่ระหว่างประสานงาน')
+                  ? 'สรุปเหตุในระบบ ${_realIncidentSummary.length} หมวด'
+                  : 'เหตุการณ์ที่อยู่ระหว่างประสานงาน')
             : 'ทะเลาะวิวาท 1 • ล้มหมดสติ 1',
         badge: '● กำลังช่วยเหลือ',
         badgeBg: const Color(0xFFFEF3C7),
@@ -652,7 +691,9 @@ class _DirectorEmergencyPageState
         title: 'ปิดเหตุแล้ววันนี้',
         value: '$closedCount',
         unit: 'เหตุ',
-        sub: _hasRealData ? 'บันทึกปิดเหตุในระบบ' : 'เสร็จสิ้นครบ • เฉลี่ย 14 นาที',
+        sub: _hasRealData
+            ? 'บันทึกปิดเหตุในระบบ'
+            : 'เสร็จสิ้นครบ • เฉลี่ย 14 นาที',
         badge: '✓ ปลอดภัย 100%',
         badgeBg: const Color(0xFFDCFCE7),
         badgeTextColor: const Color(0xFF059669),
@@ -687,7 +728,9 @@ class _DirectorEmergencyPageState
         final double width = constraints.maxWidth;
         final int columns = width >= 960 ? 4 : (width >= 560 ? 2 : 1);
         const double spacing = 12;
-        final double cardWidth = ((width - (spacing * (columns - 1))) / columns).floorToDouble() - 0.5;
+        final double cardWidth =
+            ((width - (spacing * (columns - 1))) / columns).floorToDouble() -
+            0.5;
 
         return Wrap(
           spacing: spacing,
@@ -709,7 +752,10 @@ class _DirectorEmergencyPageState
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFF1F5F9), width: 1.2),
+                      border: Border.all(
+                        color: const Color(0xFFF1F5F9),
+                        width: 1.2,
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.03),
@@ -724,14 +770,21 @@ class _DirectorEmergencyPageState
                         // Colored pill header banner
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
                           decoration: BoxDecoration(
                             color: item.headerBg,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
-                              Icon(item.icon, size: 14, color: item.headerColor),
+                              Icon(
+                                item.icon,
+                                size: 14,
+                                color: item.headerColor,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -745,10 +798,7 @@ class _DirectorEmergencyPageState
                                   ),
                                 ),
                               ),
-                              if (item.isReal)
-                                _realBadge()
-                              else
-                                _demoBadge(),
+                              if (item.isReal) _realBadge() else _demoBadge(),
                             ],
                           ),
                         ),
@@ -798,7 +848,10 @@ class _DirectorEmergencyPageState
                             ),
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2.5,
+                              ),
                               decoration: BoxDecoration(
                                 color: item.badgeBg,
                                 borderRadius: BorderRadius.circular(6),
@@ -827,10 +880,77 @@ class _DirectorEmergencyPageState
   }
 
   Widget _sosPanel() {
+    // Nothing is happening unless the database says so.
+    //
+    // `_sosActiveCard` was rendered whenever `sosResolved` was false, which
+    // includes the case where there is no incident at all — and it filled
+    // itself in with an invented emergency: "SOS จากนักเรียน ห้อง ม.3/2",
+    // "อาคาร 3 ชั้น 2", "แจ้งมา 28 วิ", reported by "ครูสมหญิง ใจดี". A small
+    // ข้อมูลจำลอง badge disclosed it, but the card is large, red, and on the
+    // emergency page — the one screen where a director must be able to trust
+    // that what is drawn is happening.
+    if (_activeSosIncident == null && _activeRealEmergencyEvent == null) {
+      return _noActiveEmergencyCard();
+    }
     if (sosResolved) {
       return _sosResolvedCard();
     }
     return _sosActiveCard();
+  }
+
+  /// Shown when the school has no open emergency — the normal state, and the
+  /// one this page could not previously express.
+  Widget _noActiveEmergencyCard() {
+    final bool failed = _loadFailed;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: failed
+              ? const Color(0xFFFECACA)
+              : const Color(0xFF10B981).withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            failed ? Icons.cloud_off_rounded : Icons.verified_user_outlined,
+            size: 34,
+            color: failed ? const Color(0xFFB91C1C) : const Color(0xFF10B981),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            failed
+                ? 'ยังไม่ทราบสถานะเหตุฉุกเฉิน'
+                : 'ไม่มีเหตุฉุกเฉินที่กำลังดำเนินอยู่',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: failed ? const Color(0xFF991B1B) : const Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            failed
+                ? 'โหลดข้อมูลไม่สำเร็จ — อย่าถือว่าไม่มีเหตุ กรุณาลองใหม่หรือตรวจสอบทางช่องทางอื่น'
+                : 'ยังไม่มีการแจ้ง SOS จากนักเรียนหรือสัญญาณจากปุ่มฉุกเฉินในโรงเรียน',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+          ),
+          if (failed) ...[
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: _isLoadingRealData ? null : _loadRealData,
+              child: const Text('ลองใหม่'),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Widget _sosResolvedCard() {
@@ -980,9 +1100,10 @@ class _DirectorEmergencyPageState
                                   Flexible(
                                     child: Text(
                                       resolved != null
-                                          ? (resolved.room != null && resolved.room!.isNotEmpty
-                                              ? 'บันทึกการระงับเหตุ: SOS ห้อง ${resolved.room}'
-                                              : 'บันทึกการระงับเหตุ: SOS จากนักเรียน')
+                                          ? (resolved.room != null &&
+                                                    resolved.room!.isNotEmpty
+                                                ? 'บันทึกการระงับเหตุ: SOS ห้อง ${resolved.room}'
+                                                : 'บันทึกการระงับเหตุ: SOS จากนักเรียน')
                                           : 'บันทึกการระงับเหตุ: SOS ห้อง ม.3/2',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -995,11 +1116,18 @@ class _DirectorEmergencyPageState
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2.5,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFDCFCE7),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFF059669,
+                                        ).withValues(alpha: 0.25),
+                                      ),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1164,9 +1292,11 @@ class _DirectorEmergencyPageState
                         ),
                         onPressed: () {
                           final room = resolved?.room;
-                          _showMessage(room != null && room.isNotEmpty
-                              ? 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ห้อง $room ช่วงเกิดเหตุ...'
-                              : 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ช่วงเกิดเหตุ...');
+                          _showMessage(
+                            room != null && room.isNotEmpty
+                                ? 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ห้อง $room ช่วงเกิดเหตุ...'
+                                : 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ช่วงเกิดเหตุ...',
+                          );
                         },
                         icon: const Icon(Icons.videocam_outlined, size: 16),
                         label: const Text(
@@ -1197,10 +1327,7 @@ class _DirectorEmergencyPageState
                   children: [
                     Expanded(child: infoSection),
                     const SizedBox(width: 20),
-                    SizedBox(
-                      width: 230,
-                      child: actionSection,
-                    ),
+                    SizedBox(width: 230, child: actionSection),
                   ],
                 );
               },
@@ -1213,8 +1340,12 @@ class _DirectorEmergencyPageState
 
   Widget _sosActiveCard() {
     final isUrgent = !sosAccepted;
-    final statusColor = sosAccepted ? const Color(0xFFD97706) : const Color(0xFFE11D48);
-    final statusText = sosAccepted ? 'รับเรื่องแล้ว • กำลังช่วยเหลือ' : 'รอรับ SOS ด่วน';
+    final statusColor = sosAccepted
+        ? const Color(0xFFD97706)
+        : const Color(0xFFE11D48);
+    final statusText = sosAccepted
+        ? 'รับเรื่องแล้ว • กำลังช่วยเหลือ'
+        : 'รอรับ SOS ด่วน';
 
     final activeIncident = _activeSosIncident;
     final activeEvt = _activeRealEmergencyEvent;
@@ -1222,77 +1353,77 @@ class _DirectorEmergencyPageState
 
     final titleText = activeIncident != null
         ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
-            ? 'SOS จากนักเรียน ห้อง ${activeIncident.room}'
-            : 'SOS จากนักเรียน')
+              ? 'SOS จากนักเรียน ห้อง ${activeIncident.room}'
+              : 'SOS จากนักเรียน')
         : (activeEvt != null
-            ? 'เหตุฉุกเฉินจาก ${activeEvt.deviceName}'
-            : 'SOS จากนักเรียน ห้อง ม.3/2');
+              ? 'เหตุฉุกเฉินจาก ${activeEvt.deviceName}'
+              : 'SOS จากนักเรียน ห้อง ม.3/2');
 
     final reasonText = activeIncident != null
         ? 'ประเภทเหตุ: ${activeIncident.reason ?? "สัญญาณฉุกเฉิน (SOS)"}'
         : (activeEvt != null
-            ? 'ประเภทเหตุ: ปุ่มกดแจ้งเหตุฉุกเฉิน'
-            : 'ประเภทเหตุ: เจ็บป่วยฉุกเฉิน (นักเรียนหมดสติในคาบเรียน)');
+              ? 'ประเภทเหตุ: ปุ่มกดแจ้งเหตุฉุกเฉิน'
+              : 'ประเภทเหตุ: เจ็บป่วยฉุกเฉิน (นักเรียนหมดสติในคาบเรียน)');
 
     final locationChip = activeIncident != null
         ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
-            ? 'ห้อง ${activeIncident.room}'
-            : 'บริเวณโรงเรียน')
-        : (activeEvt != null
-            ? activeEvt.location
-            : 'อาคาร 3 ชั้น 2');
+              ? 'ห้อง ${activeIncident.room}'
+              : 'บริเวณโรงเรียน')
+        : (activeEvt != null ? activeEvt.location : 'อาคาร 3 ชั้น 2');
 
     final sensorChip = activeIncident != null
         ? 'แอปนักเรียน (SOS)'
-        : (activeEvt != null
-            ? activeEvt.deviceName
-            : 'ปุ่ม SOS ห้อง ม.3/2');
+        : (activeEvt != null ? activeEvt.deviceName : 'ปุ่ม SOS ห้อง ม.3/2');
 
     final reporterChip = activeIncident != null
         ? 'ผู้แจ้ง: ${activeIncident.reporterName.isNotEmpty ? activeIncident.reporterName : "นักเรียน"}'
         : (activeEvt != null
-            ? 'ไม่มี (แจ้งเตือนจากอุปกรณ์)'
-            : 'ผู้แจ้ง: ครูสมหญิง ใจดี');
+              ? 'ไม่มี (แจ้งเตือนจากอุปกรณ์)'
+              : 'ผู้แจ้ง: ครูสมหญิง ใจดี');
 
     final timeChip = activeIncident != null
         ? 'แจ้งเมื่อ ${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, '0')}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, '0')} น.'
         : (activeEvt != null
-            ? 'แจ้งเมื่อ ${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, '0')}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, '0')} น.'
-            : 'แจ้งเมื่อ 10:42:18 น.');
+              ? 'แจ้งเมื่อ ${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, '0')}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, '0')} น.'
+              : 'แจ้งเมื่อ 10:42:18 น.');
 
     final timerText = activeIncident != null
         ? () {
-            final diff = DateTime.now().toUtc().difference(activeIncident.createdAt);
-            if (diff.inMinutes < 1) return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
+            final diff = DateTime.now().toUtc().difference(
+              activeIncident.createdAt,
+            );
+            if (diff.inMinutes < 1)
+              return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
             if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
             return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
           }()
         : (activeEvt != null
-            ? () {
-                final diff = DateTime.now().toUtc().difference(activeEvt.triggeredAt.toUtc());
-                if (diff.inMinutes < 1) return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
-                if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
-                return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
-              }()
-            : 'แจ้งมา 28 วินาทีที่แล้ว');
+              ? () {
+                  final diff = DateTime.now().toUtc().difference(
+                    activeEvt.triggeredAt.toUtc(),
+                  );
+                  if (diff.inMinutes < 1)
+                    return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
+                  if (diff.inHours < 1)
+                    return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
+                  return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
+                }()
+              : 'ไม่ทราบเวลาแจ้ง');
 
     final narrativeText = activeIncident != null
         ? (activeIncident.reason != null && activeIncident.reason!.isNotEmpty
-            ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือ: "${activeIncident.reason}" กำลังประสานครูเวรและครูห้องพยาบาลเข้าช่วยเหลือทันที'
-            : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS กำลังประสานครูเวรและครูห้องพยาบาลเข้าดูแลพื้นที่')
+              ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือ: "${activeIncident.reason}" กำลังประสานครูเวรและครูห้องพยาบาลเข้าช่วยเหลือทันที'
+              : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS กำลังประสานครูเวรและครูห้องพยาบาลเข้าดูแลพื้นที่')
         : (activeEvt != null
-            ? 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt.location}'
-            : 'นักเรียนหญิงหมดสติระหว่างเรียนคณิตศาสตร์ ครูประจำวิชากำลังปฐมพยาบาลเบื้องต้น ประสานครูห้องพยาบาลและครูเวรเข้าช่วยเหลือ ระบบส่งพิกัดให้ผู้อำนวยการและครูเวรแล้ว');
+              ? 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt.location}'
+              : 'นักเรียนหญิงหมดสติระหว่างเรียนคณิตศาสตร์ ครูประจำวิชากำลังปฐมพยาบาลเบื้องต้น ประสานครูห้องพยาบาลและครูเวรเข้าช่วยเหลือ ระบบส่งพิกัดให้ผู้อำนวยการและครูเวรแล้ว');
 
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: isUrgent ? const Color(0xFFFFFBFB) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: statusColor,
-          width: isUrgent ? 2.0 : 1.3,
-        ),
+        border: Border.all(color: statusColor, width: isUrgent ? 2.0 : 1.3),
         boxShadow: [
           BoxShadow(
             color: statusColor.withValues(alpha: isUrgent ? 0.22 : 0.08),
@@ -1317,7 +1448,11 @@ class _DirectorEmergencyPageState
               gradient: LinearGradient(
                 colors: sosAccepted
                     ? [const Color(0xFFB45309), const Color(0xFFD97706)]
-                    : [const Color(0xFF9F1239), const Color(0xFFE11D48), const Color(0xFFBE123C)],
+                    : [
+                        const Color(0xFF9F1239),
+                        const Color(0xFFE11D48),
+                        const Color(0xFFBE123C),
+                      ],
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(18),
@@ -1329,11 +1464,16 @@ class _DirectorEmergencyPageState
                 final isNarrow = constraints.maxWidth < 420;
 
                 final timerPill = Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2.5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1374,7 +1514,10 @@ class _DirectorEmergencyPageState
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.white.withValues(alpha: 0.8),
@@ -1386,7 +1529,9 @@ class _DirectorEmergencyPageState
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        sosAccepted ? 'กำลังเข้าควบคุมสถานการณ์' : 'LIVE EMERGENCY • สัญญาณ SOS ฉุกเฉิน',
+                        sosAccepted
+                            ? 'กำลังเข้าควบคุมสถานการณ์'
+                            : 'LIVE EMERGENCY • สัญญาณ SOS ฉุกเฉิน',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1410,10 +1555,7 @@ class _DirectorEmergencyPageState
                         spacing: 6,
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          timerPill,
-                          badge,
-                        ],
+                        children: [timerPill, badge],
                       ),
                     ],
                   );
@@ -1452,8 +1594,14 @@ class _DirectorEmergencyPageState
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: isUrgent
-                                  ? [const Color(0xFFE11D48), const Color(0xFFBE123C)]
-                                  : [const Color(0xFFD97706), const Color(0xFFB45309)],
+                                  ? [
+                                      const Color(0xFFE11D48),
+                                      const Color(0xFFBE123C),
+                                    ]
+                                  : [
+                                      const Color(0xFFD97706),
+                                      const Color(0xFFB45309),
+                                    ],
                             ),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
@@ -1492,9 +1640,14 @@ class _DirectorEmergencyPageState
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 9,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFFD97706),
+                                      color: isUrgent
+                                          ? const Color(0xFFE11D48)
+                                          : const Color(0xFFD97706),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
@@ -1545,8 +1698,16 @@ class _DirectorEmergencyPageState
                       spacing: 7,
                       runSpacing: 6,
                       children: [
-                        _unifiedSpecChip(Icons.place_rounded, locationChip, isPrimary: isUrgent),
-                        _unifiedSpecChip(Icons.sensors_rounded, sensorChip, isPrimary: isUrgent),
+                        _unifiedSpecChip(
+                          Icons.place_rounded,
+                          locationChip,
+                          isPrimary: isUrgent,
+                        ),
+                        _unifiedSpecChip(
+                          Icons.sensors_rounded,
+                          sensorChip,
+                          isPrimary: isUrgent,
+                        ),
                         _unifiedSpecChip(Icons.person_rounded, reporterChip),
                         _unifiedSpecChip(Icons.access_time_rounded, timeChip),
                       ],
@@ -1558,10 +1719,14 @@ class _DirectorEmergencyPageState
                       width: double.infinity,
                       padding: const EdgeInsets.all(13),
                       decoration: BoxDecoration(
-                        color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
+                        color: isUrgent
+                            ? const Color(0xFFFFF1F2)
+                            : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isUrgent ? const Color(0xFFFECDD3) : const Color(0xFFE2E8F0),
+                          color: isUrgent
+                              ? const Color(0xFFFECDD3)
+                              : const Color(0xFFE2E8F0),
                           width: 1.2,
                         ),
                       ),
@@ -1572,13 +1737,17 @@ class _DirectorEmergencyPageState
                             width: 34,
                             height: 34,
                             decoration: BoxDecoration(
-                              color: isUrgent ? const Color(0xFFFFE4E6) : const Color(0xFFE2E8F0),
+                              color: isUrgent
+                                  ? const Color(0xFFFFE4E6)
+                                  : const Color(0xFFE2E8F0),
                               borderRadius: BorderRadius.circular(9),
                             ),
                             child: Icon(
                               Icons.medical_services_rounded,
                               size: 18,
-                              color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFF475569),
+                              color: isUrgent
+                                  ? const Color(0xFFE11D48)
+                                  : const Color(0xFF475569),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1620,21 +1789,29 @@ class _DirectorEmergencyPageState
                       height: 44,
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: sosAccepted ? const Color(0xFF059669) : const Color(0xFFE11D48),
+                          backgroundColor: sosAccepted
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFE11D48),
                           elevation: isUrgent ? 3 : 0,
-                          shadowColor: isUrgent ? const Color(0xFFE11D48).withValues(alpha: 0.5) : Colors.transparent,
+                          shadowColor: isUrgent
+                              ? const Color(0xFFE11D48).withValues(alpha: 0.5)
+                              : Colors.transparent,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         onPressed: sosAccepted ? _showSosDetail : _acceptSos,
                         icon: Icon(
-                          sosAccepted ? Icons.check_circle_rounded : Icons.crisis_alert_rounded,
+                          sosAccepted
+                              ? Icons.check_circle_rounded
+                              : Icons.crisis_alert_rounded,
                           size: 18,
                           color: Colors.white,
                         ),
                         label: Text(
-                          sosAccepted ? '✓ ผอ. รับเรื่องแล้ว' : '🚨 รับ SOS และสั่งการ',
+                          sosAccepted
+                              ? '✓ ผอ. รับเรื่องแล้ว'
+                              : '🚨 รับ SOS และสั่งการ',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
@@ -1664,7 +1841,8 @@ class _DirectorEmergencyPageState
                                 await IncidentService.closeIncidentReport(
                                   inc.id,
                                   resolutionType: 'resolved',
-                                  resolutionNote: 'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
+                                  resolutionNote:
+                                      'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
                                 );
                               } catch (e) {
                                 debugPrint('Error closing incident: $e');
@@ -1673,7 +1851,8 @@ class _DirectorEmergencyPageState
                               try {
                                 await EmergencyService.closeEmergencyEvent(
                                   eventId: evt.id,
-                                  reviewNote: 'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
+                                  reviewNote:
+                                      'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
                                 );
                               } catch (e) {
                                 debugPrint('Error closing emergency event: $e');
@@ -1705,15 +1884,22 @@ class _DirectorEmergencyPageState
                             borderRadius: BorderRadius.circular(12),
                           ),
                           side: BorderSide(
-                            color: isUrgent ? const Color(0xFFFECDD3) : const Color(0xFFCBD5E1),
+                            color: isUrgent
+                                ? const Color(0xFFFECDD3)
+                                : const Color(0xFFCBD5E1),
                           ),
-                          foregroundColor: isUrgent ? const Color(0xFF9F1239) : const Color(0xFF475569),
+                          foregroundColor: isUrgent
+                              ? const Color(0xFF9F1239)
+                              : const Color(0xFF475569),
                         ),
                         onPressed: _showSosDetail,
                         icon: const Icon(Icons.visibility_outlined, size: 15),
                         label: const Text(
                           'ดูรายละเอียดและไทม์ไลน์',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -1722,9 +1908,15 @@ class _DirectorEmergencyPageState
                       width: double.infinity,
                       child: TextButton.icon(
                         onPressed: () {
-                          _showMessage('กำลังเชื่อมต่อสัญญาณกล้อง CCTV $locationChip...');
+                          _showMessage(
+                            'กำลังเชื่อมต่อสัญญาณกล้อง CCTV $locationChip...',
+                          );
                         },
-                        icon: const Icon(Icons.videocam_rounded, size: 16, color: Color(0xFFE11D48)),
+                        icon: const Icon(
+                          Icons.videocam_rounded,
+                          size: 16,
+                          color: Color(0xFFE11D48),
+                        ),
                         label: const Text(
                           'เปิดดูกล้อง CCTV ห้องนี้',
                           style: TextStyle(
@@ -1754,10 +1946,7 @@ class _DirectorEmergencyPageState
                   children: [
                     Expanded(child: infoSection),
                     const SizedBox(width: 20),
-                    SizedBox(
-                      width: 230,
-                      child: actionSection,
-                    ),
+                    SizedBox(width: 230, child: actionSection),
                   ],
                 );
               },
@@ -1768,7 +1957,11 @@ class _DirectorEmergencyPageState
     );
   }
 
-  Widget _unifiedSpecChip(IconData icon, String text, {bool isPrimary = false}) {
+  Widget _unifiedSpecChip(
+    IconData icon,
+    String text, {
+    bool isPrimary = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
       decoration: BoxDecoration(
@@ -1785,7 +1978,9 @@ class _DirectorEmergencyPageState
           Icon(
             icon,
             size: 11.5,
-            color: isPrimary ? const Color(0xFFE11D48) : const Color(0xFF64748B),
+            color: isPrimary
+                ? const Color(0xFFE11D48)
+                : const Color(0xFF64748B),
           ),
           const SizedBox(width: 4),
           Text(
@@ -1793,7 +1988,9 @@ class _DirectorEmergencyPageState
             style: TextStyle(
               fontSize: 9.5,
               fontWeight: isPrimary ? FontWeight.w700 : FontWeight.w600,
-              color: isPrimary ? const Color(0xFF9F1239) : const Color(0xFF334155),
+              color: isPrimary
+                  ? const Color(0xFF9F1239)
+                  : const Color(0xFF334155),
             ),
           ),
         ],
@@ -1802,7 +1999,7 @@ class _DirectorEmergencyPageState
   }
 
   Widget _activeIncidentCard({bool isEqualHeight = false}) {
-    final all = _hasRealData ? _allDisplayEvents : events;
+    final all = _allDisplayEvents;
     final active = all
         .where(
           (item) =>
@@ -1878,7 +2075,10 @@ class _DirectorEmergencyPageState
                   if (_hasRealData) _realBadge() else _demoBadge(),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.5, vertical: 3.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.5,
+                      vertical: 3.5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEF3C7),
                       borderRadius: BorderRadius.circular(20),
@@ -1926,11 +2126,52 @@ class _DirectorEmergencyPageState
           const SizedBox(height: 14),
 
           // Incident Cards Body (Equal height distribution on desktop)
-          if (active.isEmpty)
+          //
+          // The empty branch used to be Expanded unconditionally, but both
+          // call sites pass isEqualHeight: false and this card sits inside a
+          // SingleChildScrollView — an Expanded there has no bounded height to
+          // expand into and throws during layout. It never showed up because
+          // the invented `events` list meant `active` was never empty; with
+          // that gone, empty is the ordinary state and the assertion fires on
+          // every load. Gate it the same way the populated branch is gated.
+          if (active.isEmpty && isEqualHeight)
             Expanded(
               child: Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 38,
+                      color: Color(0xFF059669),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'ไม่มีเหตุฉุกเฉินค้างการติดตาม',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF059669),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'ทุกจุดในโรงเรียนปลอดภัยและอยู่ในสภาวะปกติ',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (active.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: const [
                     Icon(
                       Icons.check_circle_outline_rounded,
@@ -1995,12 +2236,21 @@ class _DirectorEmergencyPageState
                     ),
                   ),
                   onPressed: () {
-                    _showMessage('กำลังเปิดแผนที่แสดงพิกัดจุดเกิดเหตุทั้งหมด...');
+                    _showMessage(
+                      'กำลังเปิดแผนที่แสดงพิกัดจุดเกิดเหตุทั้งหมด...',
+                    );
                   },
-                  icon: const Icon(Icons.map_rounded, size: 14, color: Color(0xFF0284C7)),
+                  icon: const Icon(
+                    Icons.map_rounded,
+                    size: 14,
+                    color: Color(0xFF0284C7),
+                  ),
                   label: const Text(
                     'แผนที่จุดเกิดเหตุ',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -2016,12 +2266,21 @@ class _DirectorEmergencyPageState
                     ),
                   ),
                   onPressed: () {
-                    _showMessage('กำลังเปิดรายงานการติดตามเหตุการณ์ย้อนหลัง...');
+                    _showMessage(
+                      'กำลังเปิดรายงานการติดตามเหตุการณ์ย้อนหลัง...',
+                    );
                   },
-                  icon: const Icon(Icons.history_rounded, size: 14, color: Color(0xFF64748B)),
+                  icon: const Icon(
+                    Icons.history_rounded,
+                    size: 14,
+                    color: Color(0xFF64748B),
+                  ),
                   label: const Text(
                     'ประวัติเหตุการณ์',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -2074,7 +2333,10 @@ class _DirectorEmergencyPageState
                 children: [
                   Flexible(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3.5,
+                      ),
                       decoration: BoxDecoration(
                         color: item.color.withValues(alpha: 0.09),
                         borderRadius: BorderRadius.circular(7),
@@ -2103,7 +2365,10 @@ class _DirectorEmergencyPageState
                   const SizedBox(width: 6),
                   Flexible(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.09),
                         borderRadius: BorderRadius.circular(20),
@@ -2171,7 +2436,11 @@ class _DirectorEmergencyPageState
               const SizedBox(height: 6),
 
               // Subtle hairline divider
-              const Divider(height: 1, thickness: 0.6, color: Color(0xFFF1F5F9)),
+              const Divider(
+                height: 1,
+                thickness: 0.6,
+                color: Color(0xFFF1F5F9),
+              ),
               const SizedBox(height: 6),
 
               // Row 4: Location/Time on left + Action on right
@@ -2197,17 +2466,24 @@ class _DirectorEmergencyPageState
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.5, vertical: 3.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.5,
+                      vertical: 3.5,
+                    ),
                     decoration: BoxDecoration(
                       color: item.color.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: item.color.withValues(alpha: 0.18)),
+                      border: Border.all(
+                        color: item.color.withValues(alpha: 0.18),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          item.type == 'ทะเลาะวิวาท' ? 'ดูกล้อง CCTV' : 'ตรวจอาการ',
+                          item.type == 'ทะเลาะวิวาท'
+                              ? 'ดูกล้อง CCTV'
+                              : 'ตรวจอาการ',
                           style: TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.w700,
@@ -2233,39 +2509,18 @@ class _DirectorEmergencyPageState
   }
 
   Widget _responseTeamCard() {
-    final activeRoom = _activeSosIncident?.room;
-    final roomText = activeRoom != null && activeRoom.isNotEmpty ? 'ห้อง $activeRoom' : 'ห้อง ม.3/2';
-
-    final teams = [
-      const _ResponseTeam(
-        name: 'ครูเวรประจำวัน (อาคาร 1–3)',
-        detail: 'ครูสมชาย, ครูพิมพ์ใจ (พร้อม 3 ท่าน)',
-        status: 'ประจำจุดตรวจ',
-        icon: Icons.person_rounded,
-        color: Color(0xFF059669),
-      ),
-      const _ResponseTeam(
-        name: 'ครูห้องพยาบาล / อนามัยโรงเรียน',
-        detail: 'ครูสุพรรณี (ห้องพยาบาล อาคาร 1)',
-        status: 'พร้อมดูแลทันที',
-        icon: Icons.medical_services_rounded,
-        color: Color(0xFF059669),
-      ),
-      const _ResponseTeam(
-        name: 'ฝ่ายกิจการนักเรียน / ครูฝ่ายปกครอง',
-        detail: 'อ.วินัย พร้อมครูผู้ช่วย 2 ท่าน',
-        status: 'กำลังไปจุดเกิดเหตุ',
-        icon: Icons.groups_rounded,
-        color: Color(0xFFD97706),
-      ),
-      _ResponseTeam(
-        name: 'ครูประจำชั้น / ครูที่ปรึกษา',
-        detail: 'ครูประจำ$roomText (ครูสมหญิง)',
-        status: 'ดูแลนักเรียนในห้อง',
-        icon: Icons.school_rounded,
-        color: const Color(0xFF0284C7),
-      ),
-    ];
+    // The four duty teams that used to be built here are gone.
+    //
+    // They were a const list naming real-sounding staff — ครูสมชาย,
+    // ครูพิมพ์ใจ, ครูสุพรรณี, อ.วินัย, ครูสมหญิง — each with a live status
+    // such as "กำลังไปจุดเกิดเหตุ" or "ประจำจุดตรวจ", and a room that fell
+    // back to a hardcoded ม.3/2 when no incident was open. Nothing in the
+    // schema models an emergency duty roster: there is no team table, no
+    // assignment, and no way for anyone to report that they are on their way.
+    //
+    // This is worse than an invented number. During a real incident a
+    // director could read it as confirmation that named people were already
+    // responding, and stop looking for them.
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -2332,7 +2587,10 @@ class _DirectorEmergencyPageState
                   _demoBadge(),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.5, vertical: 3.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8.5,
+                      vertical: 3.5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE6F7ED),
                       borderRadius: BorderRadius.circular(20),
@@ -2379,8 +2637,37 @@ class _DirectorEmergencyPageState
           ),
           const SizedBox(height: 14),
 
-          // 4 Teams List
-          ...teams.map(_responseTeamTile),
+          // Where the four invented duty teams used to render.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.groups_outlined, size: 30, color: Color(0xFF94A3B8)),
+                SizedBox(height: 8),
+                Text(
+                  'ยังไม่มีข้อมูลเวรฉุกเฉิน',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'ระบบยังไม่มีตารางเวรและการรายงานตัวของผู้รับผิดชอบเหตุฉุกเฉิน '
+                  'กรุณาประสานงานตามช่องทางของโรงเรียนโดยตรง',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
+          ),
 
           const SizedBox(height: 10),
 
@@ -2400,10 +2687,17 @@ class _DirectorEmergencyPageState
                   onPressed: () {
                     _showMessage('กำลังต่อสายด่วนถึงครูเวรหัวหน้าชุด...');
                   },
-                  icon: const Icon(Icons.phone_rounded, size: 14, color: Color(0xFF059669)),
+                  icon: const Icon(
+                    Icons.phone_rounded,
+                    size: 14,
+                    color: Color(0xFF059669),
+                  ),
                   label: const Text(
                     'โทรครูเวร',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -2419,118 +2713,27 @@ class _DirectorEmergencyPageState
                     ),
                   ),
                   onPressed: () {
-                    _showMessage('ส่งสัญญาณแจ้งเตือนซ้ำไปยังวิทยุสื่อสารและมือถือของทีมแล้ว');
+                    _showMessage(
+                      'ส่งสัญญาณแจ้งเตือนซ้ำไปยังวิทยุสื่อสารและมือถือของทีมแล้ว',
+                    );
                   },
-                  icon: const Icon(Icons.notifications_active_rounded, size: 14, color: Color(0xFFE11D48)),
+                  icon: const Icon(
+                    Icons.notifications_active_rounded,
+                    size: 14,
+                    color: Color(0xFFE11D48),
+                  ),
                   label: const Text(
                     'แจ้งเตือนซ้ำ',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _responseTeamTile(_ResponseTeam team) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          _showMessage('สถานะ: ${team.name} • ${team.status} (${team.detail})');
-        },
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: team.color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  team.icon,
-                  size: 18,
-                  color: team.color,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      team.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      team.detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 9.5,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: team.color.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: team.color.withValues(alpha: 0.2)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: team.color,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      team.status,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        color: team.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -2576,7 +2779,10 @@ class _DirectorEmergencyPageState
                 children: [
                   if (_hasRealData) _realBadge() else _demoBadge(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3.5,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
@@ -2597,11 +2803,7 @@ class _DirectorEmergencyPageState
               if (isNarrow) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    titleCol,
-                    const SizedBox(height: 8),
-                    badgeRow,
-                  ],
+                  children: [titleCol, const SizedBox(height: 8), badgeRow],
                 );
               }
 
@@ -2695,7 +2897,10 @@ class _DirectorEmergencyPageState
               borderRadius: BorderRadius.circular(7),
               onTap: () => setState(() => selectedFilter = f),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: active ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(7),
@@ -2742,11 +2947,7 @@ class _DirectorEmergencyPageState
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        search,
-        const SizedBox(height: 10),
-        filterTabs,
-      ],
+      children: [search, const SizedBox(height: 10), filterTabs],
     );
   }
 
@@ -2827,7 +3028,10 @@ class _DirectorEmergencyPageState
                         const SizedBox(width: 8),
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2.5,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(6),
@@ -2904,7 +3108,10 @@ class _DirectorEmergencyPageState
                   ),
                   const SizedBox(width: 12),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(6),
@@ -2999,7 +3206,13 @@ class _DirectorEmergencyPageState
         await IncidentService.acknowledgeIncidentReport(inc.id);
       } catch (e) {
         debugPrint('Error acknowledging incident: $e');
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('เกิดข้อผิดพลาด: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
         return;
       }
     } else if (evt != null) {
@@ -3007,7 +3220,13 @@ class _DirectorEmergencyPageState
         await EmergencyService.acknowledgeEmergencyEvent(evt.id);
       } catch (e) {
         debugPrint('Error acknowledging emergency event: $e');
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('เกิดข้อผิดพลาด: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
         return;
       }
     }
@@ -3036,7 +3255,10 @@ class _DirectorEmergencyPageState
       barrierColor: Colors.black.withValues(alpha: 0.15),
       transitionDuration: const Duration(milliseconds: 260),
       transitionBuilder: (context, anim, secondaryAnim, child) {
-        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        final curved = CurvedAnimation(
+          parent: anim,
+          curve: Curves.easeOutCubic,
+        );
         return ScaleTransition(
           scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
           child: FadeTransition(opacity: curved, child: child),
@@ -3049,51 +3271,48 @@ class _DirectorEmergencyPageState
 
         final modalTitle = activeIncident != null
             ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
-                ? 'SOS จากห้อง ${activeIncident.room}'
-                : 'SOS จากนักเรียน')
+                  ? 'SOS จากห้อง ${activeIncident.room}'
+                  : 'SOS จากนักเรียน')
             : (activeEvt != null
-                ? 'เหตุฉุกเฉินจาก ${activeEvt.deviceName}'
-                : 'SOS ฉุกเฉิน');
+                  ? 'เหตุฉุกเฉินจาก ${activeEvt.deviceName}'
+                  : 'SOS ฉุกเฉิน');
 
         final modalSubtitle = activeIncident != null
             ? '${activeIncident.reason ?? "สัญญาณฉุกเฉิน"} • ${activeIncident.room != null && activeIncident.room!.isNotEmpty ? "ห้อง ${activeIncident.room!}" : "ในโรงเรียน"} • ${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")} น.'
             : (activeEvt != null
-                ? '${activeEvt.location} • ${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")} น.'
-                : 'สัญญาณฉุกเฉิน');
+                  ? '${activeEvt.location} • ${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")} น.'
+                  : 'สัญญาณฉุกเฉิน');
 
         final modalLocation = activeIncident != null
             ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
-                ? 'ห้อง ${activeIncident.room}'
-                : 'ภายในโรงเรียน')
-            : (activeEvt != null
-                ? activeEvt.location
-                : 'ภายในโรงเรียน');
+                  ? 'ห้อง ${activeIncident.room}'
+                  : 'ภายในโรงเรียน')
+            : (activeEvt != null ? activeEvt.location : 'ภายในโรงเรียน');
 
         final modalSource = activeIncident != null
             ? 'แอปพลิเคชันนักเรียน (SOS)'
             : (activeEvt != null
-                ? activeEvt.deviceName
-                : 'ระบบแจ้งเหตุฉุกเฉิน');
+                  ? activeEvt.deviceName
+                  : 'ระบบแจ้งเหตุฉุกเฉิน');
 
         final modalReporter = activeIncident != null
             ? '${activeIncident.reporterName.isNotEmpty ? activeIncident.reporterName : "นักเรียน"} (ส่งสัญญาณฉุกเฉิน)'
-            : (activeEvt != null
-                ? 'ไม่มี (แจ้งเตือนจากอุปกรณ์)'
-                : 'นักเรียน');
+            : (activeEvt != null ? 'ไม่มี (แจ้งเตือนจากอุปกรณ์)' : 'นักเรียน');
 
         final modalTime = activeIncident != null
             ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")} น. (วันนี้)'
             : (activeEvt != null
-                ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")} น. (วันนี้)'
-                : '-');
+                  ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")} น. (วันนี้)'
+                  : '-');
 
         final modalNarrative = activeIncident != null
-            ? (activeIncident.reason != null && activeIncident.reason!.isNotEmpty
-                ? 'นักเรียนแจ้งเหตุฉุกเฉิน: "${activeIncident.reason}" ระบบส่งสัญญาณแจ้งเตือนไปยังผู้อำนวยการและทีมครูเวรเรียบร้อยแล้ว'
-                : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS กำลังประสานครูเวรและครูห้องพยาบาลเข้าช่วยเหลือ')
+            ? (activeIncident.reason != null &&
+                      activeIncident.reason!.isNotEmpty
+                  ? 'นักเรียนแจ้งเหตุฉุกเฉิน: "${activeIncident.reason}" ระบบส่งสัญญาณแจ้งเตือนไปยังผู้อำนวยการและทีมครูเวรเรียบร้อยแล้ว'
+                  : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS กำลังประสานครูเวรและครูห้องพยาบาลเข้าช่วยเหลือ')
             : (activeEvt != null
-                ? 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt.location}'
-                : 'ไม่มีรายละเอียดเหตุการณ์');
+                  ? 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt.location}'
+                  : 'ไม่มีรายละเอียดเหตุการณ์');
 
         return Center(
           child: BackdropFilter(
@@ -3103,7 +3322,10 @@ class _DirectorEmergencyPageState
                 return Dialog(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                  insetPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 20,
+                  ),
                   child: Container(
                     constraints: const BoxConstraints(
                       maxWidth: 640,
@@ -3139,7 +3361,9 @@ class _DirectorEmergencyPageState
                                   width: 42,
                                   height: 42,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE11D48).withValues(alpha: 0.12),
+                                    color: const Color(
+                                      0xFFE11D48,
+                                    ).withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
@@ -3151,7 +3375,8 @@ class _DirectorEmergencyPageState
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         modalTitle,
@@ -3178,12 +3403,20 @@ class _DirectorEmergencyPageState
                                 // ของ dialog นี้ (modalTitle/.../modalNarrative
                                 // ด้านบน) สลับตาม hasActiveReal เท่านั้น ต้อง
                                 // ใช้ตัวแปรเดียวกันกับป้าย ไม่ใช่ _hasRealData
-                                if (hasActiveReal) _realBadge() else _demoBadge(),
+                                if (hasActiveReal)
+                                  _realBadge()
+                                else
+                                  _demoBadge(),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE11D48).withValues(alpha: 0.1),
+                                    color: const Color(
+                                      0xFFE11D48,
+                                    ).withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Text(
@@ -3197,12 +3430,15 @@ class _DirectorEmergencyPageState
                                 ),
                                 const SizedBox(width: 8),
                                 GestureDetector(
-                                  onTap: () => Navigator.of(dialogContext).pop(),
+                                  onTap: () =>
+                                      Navigator.of(dialogContext).pop(),
                                   child: Container(
                                     width: 30,
                                     height: 30,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFE5E5EA).withValues(alpha: 0.8),
+                                      color: const Color(
+                                        0xFFE5E5EA,
+                                      ).withValues(alpha: 0.8),
                                       shape: BoxShape.circle,
                                     ),
                                     child: const Icon(
@@ -3216,12 +3452,21 @@ class _DirectorEmergencyPageState
                             ),
                           ),
 
-                          const Divider(height: 1, thickness: 0.6, color: Color(0xFFE5E5EA)),
+                          const Divider(
+                            height: 1,
+                            thickness: 0.6,
+                            color: Color(0xFFE5E5EA),
+                          ),
 
                           // 2. Scrollable Body
                           Flexible(
                             child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                16,
+                                20,
+                                16,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -3237,10 +3482,13 @@ class _DirectorEmergencyPageState
                                         bg: const Color(0xFFFFE4E6),
                                       ),
                                       _sosModalChip(
-                                        icon: Icons.radio_button_checked_rounded,
+                                        icon:
+                                            Icons.radio_button_checked_rounded,
                                         label: sosResolved
                                             ? 'ปิดเหตุแล้ว'
-                                            : (sosAccepted ? 'ผอ. รับเรื่องแล้ว' : 'รอรับ SOS'),
+                                            : (sosAccepted
+                                                  ? 'ผอ. รับเรื่องแล้ว'
+                                                  : 'รอรับ SOS'),
                                         color: sosResolved || sosAccepted
                                             ? const Color(0xFF059669)
                                             : const Color(0xFFE11D48),
@@ -3250,7 +3498,9 @@ class _DirectorEmergencyPageState
                                       ),
                                       _sosModalChip(
                                         icon: Icons.sensors_rounded,
-                                        label: hasActiveReal ? 'แอปนักเรียน' : 'IoT ในห้องเรียน',
+                                        label: hasActiveReal
+                                            ? 'แอปนักเรียน'
+                                            : 'IoT ในห้องเรียน',
                                         color: const Color(0xFF475569),
                                         bg: const Color(0xFFF1F5F9),
                                       ),
@@ -3258,7 +3508,7 @@ class _DirectorEmergencyPageState
                                         icon: Icons.schedule_rounded,
                                         label: activeIncident != null
                                             ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")} น.'
-                                            : 'แจ้งมา 28 วินาทีที่แล้ว',
+                                            : 'ไม่ทราบเวลาแจ้ง',
                                         color: const Color(0xFFB45309),
                                         bg: const Color(0xFFFEF3C7),
                                       ),
@@ -3269,7 +3519,11 @@ class _DirectorEmergencyPageState
                                   // Section 1: ข้อมูลจุดเกิดเหตุ (2x2 Grid)
                                   Row(
                                     children: const [
-                                      Icon(Icons.location_on_rounded, size: 16, color: Color(0xFFE11D48)),
+                                      Icon(
+                                        Icons.location_on_rounded,
+                                        size: 16,
+                                        color: Color(0xFFE11D48),
+                                      ),
                                       SizedBox(width: 6),
                                       Text(
                                         'ข้อมูลจุดเกิดเหตุ',
@@ -3286,7 +3540,9 @@ class _DirectorEmergencyPageState
                                   LayoutBuilder(
                                     builder: (context, c) {
                                       final isCompact = c.maxWidth < 450;
-                                      final tileWidth = isCompact ? c.maxWidth : (c.maxWidth - 10) / 2;
+                                      final tileWidth = isCompact
+                                          ? c.maxWidth
+                                          : (c.maxWidth - 10) / 2;
                                       return Wrap(
                                         spacing: 10,
                                         runSpacing: 8,
@@ -3307,7 +3563,8 @@ class _DirectorEmergencyPageState
                                           ),
                                           _sosInfoTile(
                                             width: tileWidth,
-                                            icon: Icons.person_pin_circle_rounded,
+                                            icon:
+                                                Icons.person_pin_circle_rounded,
                                             title: 'ผู้แจ้งเหตุ / ในพื้นที่',
                                             value: modalReporter,
                                             iconColor: const Color(0xFF059669),
@@ -3328,7 +3585,11 @@ class _DirectorEmergencyPageState
                                   // Section 2: รายละเอียดเหตุการณ์และอาการ
                                   Row(
                                     children: const [
-                                      Icon(Icons.medical_services_rounded, size: 16, color: Color(0xFFE11D48)),
+                                      Icon(
+                                        Icons.medical_services_rounded,
+                                        size: 16,
+                                        color: Color(0xFFE11D48),
+                                      ),
                                       SizedBox(width: 6),
                                       Text(
                                         'รายละเอียดเหตุการณ์และอาการ',
@@ -3348,10 +3609,14 @@ class _DirectorEmergencyPageState
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFFFF1F2),
                                       borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: const Color(0xFFFECDD3), width: 1.2),
+                                      border: Border.all(
+                                        color: const Color(0xFFFECDD3),
+                                        width: 1.2,
+                                      ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           modalNarrative,
@@ -3364,15 +3629,26 @@ class _DirectorEmergencyPageState
                                         ),
                                         const SizedBox(height: 10),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 7,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: const Color(0xFFFDA4AF)),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: const Color(0xFFFDA4AF),
+                                            ),
                                           ),
                                           child: Row(
                                             children: const [
-                                              Icon(Icons.add_box_rounded, size: 16, color: Color(0xFFE11D48)),
+                                              Icon(
+                                                Icons.add_box_rounded,
+                                                size: 16,
+                                                color: Color(0xFFE11D48),
+                                              ),
                                               SizedBox(width: 6),
                                               Expanded(
                                                 child: Text(
@@ -3397,53 +3673,98 @@ class _DirectorEmergencyPageState
                                     builder: (context, c) {
                                       final isCompact = c.maxWidth < 430;
                                       final targetRoom = activeIncident?.room;
-                                      final targetReporter = activeIncident?.reporterName;
+                                      final targetReporter =
+                                          activeIncident?.reporterName;
 
                                       final cctv = OutlinedButton.icon(
                                         style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(0xFFE11D48),
-                                          side: const BorderSide(color: Color(0xFFFDA4AF)),
-                                          padding: const EdgeInsets.symmetric(vertical: 10),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          foregroundColor: const Color(
+                                            0xFFE11D48,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFFFDA4AF),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
                                         ),
                                         onPressed: () {
                                           Navigator.pop(dialogContext);
-                                          _showMessage(targetRoom != null && targetRoom.isNotEmpty
-                                              ? 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง $targetRoom...'
-                                              : 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง ม.3/2...');
+                                          _showMessage(
+                                            targetRoom != null &&
+                                                    targetRoom.isNotEmpty
+                                                ? 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง $targetRoom...'
+                                                : 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง ม.3/2...',
+                                          );
                                         },
-                                        icon: const Icon(Icons.videocam_rounded, size: 16),
+                                        icon: const Icon(
+                                          Icons.videocam_rounded,
+                                          size: 16,
+                                        ),
                                         label: const Text(
                                           'เปิดกล้อง CCTV ห้องนี้',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       );
 
                                       final call = OutlinedButton.icon(
                                         style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(0xFF2563EB),
-                                          side: const BorderSide(color: Color(0xFFBFDBFE)),
-                                          padding: const EdgeInsets.symmetric(vertical: 10),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                          foregroundColor: const Color(
+                                            0xFF2563EB,
+                                          ),
+                                          side: const BorderSide(
+                                            color: Color(0xFFBFDBFE),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
                                         ),
                                         onPressed: () {
-                                          _showMessage(targetReporter != null && targetReporter.isNotEmpty
-                                              ? 'กำลังโทรด่วนหาผู้แจ้งเหตุ ($targetReporter)...'
-                                              : 'กำลังโทรด่วนหาครูประจำห้อง (ครูสมหญิง)...');
+                                          _showMessage(
+                                            targetReporter != null &&
+                                                    targetReporter.isNotEmpty
+                                                ? 'กำลังโทรด่วนหาผู้แจ้งเหตุ ($targetReporter)...'
+                                                : 'กำลังโทรด่วนหาครูประจำห้อง (ครูสมหญิง)...',
+                                          );
                                         },
-                                        icon: const Icon(Icons.phone_in_talk_rounded, size: 16),
+                                        icon: const Icon(
+                                          Icons.phone_in_talk_rounded,
+                                          size: 16,
+                                        ),
                                         label: const Text(
                                           'โทรด่วนหาครูประจำห้อง',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       );
 
                                       if (isCompact) {
                                         return Column(
                                           children: [
-                                            SizedBox(width: double.infinity, child: cctv),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: cctv,
+                                            ),
                                             const SizedBox(height: 8),
-                                            SizedBox(width: double.infinity, child: call),
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: call,
+                                            ),
                                           ],
                                         );
                                       }
@@ -3459,10 +3780,14 @@ class _DirectorEmergencyPageState
                                   ),
                                   const SizedBox(height: 16),
 
-                                   // Section 3: ขั้นตอนตอบสนองและไทม์ไลน์
+                                  // Section 3: ขั้นตอนตอบสนองและไทม์ไลน์
                                   Row(
                                     children: const [
-                                      Icon(Icons.timeline_rounded, size: 16, color: Color(0xFF2563EB)),
+                                      Icon(
+                                        Icons.timeline_rounded,
+                                        size: 16,
+                                        color: Color(0xFF2563EB),
+                                      ),
                                       SizedBox(width: 6),
                                       Text(
                                         'ขั้นตอนตอบสนองและไทม์ไลน์',
@@ -3481,52 +3806,71 @@ class _DirectorEmergencyPageState
                                       final createdTime = activeIncident != null
                                           ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().second.toString().padLeft(2, "0")} น.'
                                           : (activeEvt != null
-                                              ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().second.toString().padLeft(2, "0")} น.'
-                                              : '10:42:18 น.');
+                                                ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().second.toString().padLeft(2, "0")} น.'
+                                                : '10:42:18 น.');
 
-                                      final broadcastTime = activeIncident != null
+                                      final broadcastTime =
+                                          activeIncident != null
                                           ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeIncident.createdAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
                                           : (activeEvt != null
-                                              ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeEvt.triggeredAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
-                                              : '10:42:19 น.');
+                                                ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeEvt.triggeredAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
+                                                : '10:42:19 น.');
 
-                                      final ackTime = activeIncident?.acknowledgedAt != null
+                                      final ackTime =
+                                          activeIncident?.acknowledgedAt != null
                                           ? '${activeIncident!.acknowledgedAt!.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.acknowledgedAt!.toLocal().minute.toString().padLeft(2, "0")} น. (ผู้อำนวยการ/ครูรับเรื่องแล้ว)'
                                           : (sosAccepted
-                                              ? 'รับเรื่องเรียบร้อยแล้ว'
-                                              : 'รอการกดยืนยันรับเรื่องด่วน');
+                                                ? 'รับเรื่องเรียบร้อยแล้ว'
+                                                : 'รอการกดยืนยันรับเรื่องด่วน');
 
                                       return Column(
                                         children: [
                                           _sosTimelineItem(
                                             stepNumber: '1',
-                                            title: 'ระบบรับสัญญาณ SOS อัตโนมัติ',
-                                            subtitle: '$createdTime (ตรวจจับและแจ้งเตือนทันที)',
+                                            title:
+                                                'ระบบรับสัญญาณ SOS อัตโนมัติ',
+                                            subtitle:
+                                                '$createdTime (ตรวจจับและแจ้งเตือนทันที)',
                                             isDone: true,
                                             isCurrent: false,
                                           ),
                                           _sosTimelineItem(
                                             stepNumber: '2',
-                                            title: 'ส่งสัญญาณแจ้งผู้อำนวยการและครูเวร',
-                                            subtitle: '$broadcastTime (ส่งผ่านแอปและระบบข้อความด่วน)',
+                                            title:
+                                                'ส่งสัญญาณแจ้งผู้อำนวยการและครูเวร',
+                                            subtitle:
+                                                '$broadcastTime (ส่งผ่านแอปและระบบข้อความด่วน)',
                                             isDone: true,
                                             isCurrent: false,
                                           ),
                                           _sosTimelineItem(
                                             stepNumber: '3',
-                                            title: 'ผู้อำนวยการรับ SOS และเข้าคุมเหตุการณ์',
+                                            title:
+                                                'ผู้อำนวยการรับ SOS และเข้าคุมเหตุการณ์',
                                             subtitle: ackTime,
-                                            isDone: sosAccepted || activeIncident?.acknowledgedAt != null,
-                                            isCurrent: !sosAccepted && activeIncident?.acknowledgedAt == null,
+                                            isDone:
+                                                sosAccepted ||
+                                                activeIncident
+                                                        ?.acknowledgedAt !=
+                                                    null,
+                                            isCurrent:
+                                                !sosAccepted &&
+                                                activeIncident
+                                                        ?.acknowledgedAt ==
+                                                    null,
                                           ),
                                           _sosTimelineItem(
                                             stepNumber: '4',
-                                            title: 'ครูห้องพยาบาลและครูเวรเข้าพื้นที่',
+                                            title:
+                                                'ครูห้องพยาบาลและครูเวรเข้าพื้นที่',
                                             subtitle: sosResolved
                                                 ? 'ดำเนินการปฐมพยาบาลและดูแลนักเรียนเรียบร้อย'
-                                                : (sosAccepted ? 'กำลังเข้าพื้นที่พร้อมชุดปฐมพยาบาล' : 'รอดำเนินการสั่งการ'),
+                                                : (sosAccepted
+                                                      ? 'กำลังเข้าพื้นที่พร้อมชุดปฐมพยาบาล'
+                                                      : 'รอดำเนินการสั่งการ'),
                                             isDone: sosResolved,
-                                            isCurrent: sosAccepted && !sosResolved,
+                                            isCurrent:
+                                                sosAccepted && !sosResolved,
                                             isLast: true,
                                           ),
                                         ],
@@ -3538,7 +3882,11 @@ class _DirectorEmergencyPageState
                                   // Section 4: ทีมเผชิญเหตุที่ได้รับแจ้ง
                                   Row(
                                     children: [
-                                      const Icon(Icons.groups_rounded, size: 16, color: Color(0xFF059669)),
+                                      const Icon(
+                                        Icons.groups_rounded,
+                                        size: 16,
+                                        color: Color(0xFF059669),
+                                      ),
                                       const SizedBox(width: 6),
                                       const Text(
                                         'ทีมครูเวรและบุคลากรที่ได้รับแจ้ง',
@@ -3563,14 +3911,16 @@ class _DirectorEmergencyPageState
                                   ),
                                   _sosTeamRow(
                                     name: 'ฝ่ายกิจการนักเรียน / ครูปกครอง',
-                                    role: 'ประสานงานและดูแลความปลอดภัยในจุดเกิดเหตุ',
+                                    role:
+                                        'ประสานงานและดูแลความปลอดภัยในจุดเกิดเหตุ',
                                     status: 'ได้รับแจ้งแล้ว',
                                     statusColor: const Color(0xFF059669),
                                     statusBg: const Color(0xFFD1FAE5),
                                   ),
                                   _sosTeamRow(
                                     name: 'ครูห้องพยาบาล / อนามัยโรงเรียน',
-                                    role: 'เตรียมเวชภัณฑ์และเข้าปฐมพยาบาลเบื้องต้น',
+                                    role:
+                                        'เตรียมเวชภัณฑ์และเข้าปฐมพยาบาลเบื้องต้น',
                                     status: 'Standby พร้อม',
                                     statusColor: const Color(0xFF2563EB),
                                     statusBg: const Color(0xFFDBEAFE),
@@ -3580,23 +3930,38 @@ class _DirectorEmergencyPageState
                             ),
                           ),
 
-                          const Divider(height: 1, thickness: 0.6, color: Color(0xFFE5E5EA)),
+                          const Divider(
+                            height: 1,
+                            thickness: 0.6,
+                            color: Color(0xFFE5E5EA),
+                          ),
 
                           // 3. Decisive Bottom Footer Bar
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                            color: const Color(0xFFF9F9FB).withValues(alpha: 0.6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            color: const Color(
+                              0xFFF9F9FB,
+                            ).withValues(alpha: 0.6),
                             child: LayoutBuilder(
                               builder: (context, c) {
                                 final isCompact = c.maxWidth < 460;
                                 final accept = ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: (sosAccepted || sosResolved)
+                                    backgroundColor:
+                                        (sosAccepted || sosResolved)
                                         ? const Color(0xFF94A3B8)
                                         : const Color(0xFFE11D48),
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                     elevation: 0,
                                   ),
                                   onPressed: (sosAccepted || sosResolved)
@@ -3606,13 +3971,21 @@ class _DirectorEmergencyPageState
                                           final evt = _activeRealEmergencyEvent;
                                           if (inc != null) {
                                             try {
-                                              await IncidentService.acknowledgeIncidentReport(inc.id);
+                                              await IncidentService.acknowledgeIncidentReport(
+                                                inc.id,
+                                              );
                                             } catch (e) {
-                                              debugPrint('Error acknowledging incident: $e');
+                                              debugPrint(
+                                                'Error acknowledging incident: $e',
+                                              );
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
                                                   SnackBar(
-                                                    content: Text('เกิดข้อผิดพลาด: $e'),
+                                                    content: Text(
+                                                      'เกิดข้อผิดพลาด: $e',
+                                                    ),
                                                     backgroundColor: Colors.red,
                                                   ),
                                                 );
@@ -3621,13 +3994,21 @@ class _DirectorEmergencyPageState
                                             }
                                           } else if (evt != null) {
                                             try {
-                                              await EmergencyService.acknowledgeEmergencyEvent(evt.id);
+                                              await EmergencyService.acknowledgeEmergencyEvent(
+                                                evt.id,
+                                              );
                                             } catch (e) {
-                                              debugPrint('Error acknowledging emergency event: $e');
+                                              debugPrint(
+                                                'Error acknowledging emergency event: $e',
+                                              );
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
                                                   SnackBar(
-                                                    content: Text('เกิดข้อผิดพลาด: $e'),
+                                                    content: Text(
+                                                      'เกิดข้อผิดพลาด: $e',
+                                                    ),
                                                     backgroundColor: Colors.red,
                                                   ),
                                                 );
@@ -3642,10 +4023,16 @@ class _DirectorEmergencyPageState
                                             sosAccepted = true;
                                           });
                                           if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
                                               const SnackBar(
-                                                content: Text('✓ ผอ. รับทราบและสั่งการระดมทีมครูเวรและครูอนามัยแล้ว'),
-                                                backgroundColor: Color(0xFF059669),
+                                                content: Text(
+                                                  '✓ ผอ. รับทราบและสั่งการระดมทีมครูเวรและครูอนามัยแล้ว',
+                                                ),
+                                                backgroundColor: Color(
+                                                  0xFF059669,
+                                                ),
                                                 duration: Duration(seconds: 3),
                                               ),
                                             );
@@ -3653,11 +4040,15 @@ class _DirectorEmergencyPageState
                                           await _loadRealData();
                                         },
                                   icon: Icon(
-                                    (sosAccepted || sosResolved) ? Icons.check_circle_rounded : Icons.local_fire_department_rounded,
+                                    (sosAccepted || sosResolved)
+                                        ? Icons.check_circle_rounded
+                                        : Icons.local_fire_department_rounded,
                                     size: 18,
                                   ),
                                   label: Text(
-                                    (sosAccepted || sosResolved) ? '✓ ผอ. รับเรื่องแล้ว' : '🚨 รับ SOS และสั่งการ',
+                                    (sosAccepted || sosResolved)
+                                        ? '✓ ผอ. รับเรื่องแล้ว'
+                                        : '🚨 รับ SOS และสั่งการ',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w800,
@@ -3673,8 +4064,13 @@ class _DirectorEmergencyPageState
                                     foregroundColor: !sosAccepted || sosResolved
                                         ? const Color(0xFF94A3B8)
                                         : const Color(0xFF047857),
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                     elevation: 0,
                                   ),
                                   onPressed: !sosAccepted || sosResolved
@@ -3687,12 +4083,24 @@ class _DirectorEmergencyPageState
                                               await IncidentService.closeIncidentReport(
                                                 inc.id,
                                                 resolutionType: 'resolved',
-                                                resolutionNote: 'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
+                                                resolutionNote:
+                                                    'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
                                               );
                                             } catch (e) {
-                                              debugPrint('Error closing incident: $e');
+                                              debugPrint(
+                                                'Error closing incident: $e',
+                                              );
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red));
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'เกิดข้อผิดพลาด: $e',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
                                               }
                                               return;
                                             }
@@ -3700,12 +4108,24 @@ class _DirectorEmergencyPageState
                                             try {
                                               await EmergencyService.closeEmergencyEvent(
                                                 eventId: evt.id,
-                                                reviewNote: 'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
+                                                reviewNote:
+                                                    'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
                                               );
                                             } catch (e) {
-                                              debugPrint('Error closing emergency event: $e');
+                                              debugPrint(
+                                                'Error closing emergency event: $e',
+                                              );
                                               if (context.mounted) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red));
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'เกิดข้อผิดพลาด: $e',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
                                               }
                                               return;
                                             }
@@ -3718,10 +4138,16 @@ class _DirectorEmergencyPageState
                                           });
                                           Navigator.pop(dialogContext);
                                           if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
                                               const SnackBar(
-                                                content: Text('✓ ปิดเหตุการณ์ SOS เรียบร้อยแล้ว'),
-                                                backgroundColor: Color(0xFF059669),
+                                                content: Text(
+                                                  '✓ ปิดเหตุการณ์ SOS เรียบร้อยแล้ว',
+                                                ),
+                                                backgroundColor: Color(
+                                                  0xFF059669,
+                                                ),
                                                 duration: Duration(seconds: 3),
                                               ),
                                             );
@@ -3744,9 +4170,15 @@ class _DirectorEmergencyPageState
                                 if (isCompact) {
                                   return Column(
                                     children: [
-                                      SizedBox(width: double.infinity, child: accept),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: accept,
+                                      ),
                                       const SizedBox(height: 8),
-                                      SizedBox(width: double.infinity, child: resolve),
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: resolve,
+                                      ),
                                     ],
                                   );
                                 }
@@ -3873,8 +4305,8 @@ class _DirectorEmergencyPageState
     final color = isDone
         ? const Color(0xFF059669)
         : isCurrent
-            ? const Color(0xFFE11D48)
-            : const Color(0xFF94A3B8);
+        ? const Color(0xFFE11D48)
+        : const Color(0xFF94A3B8);
 
     return IntrinsicHeight(
       child: Row(
@@ -3890,37 +4322,43 @@ class _DirectorEmergencyPageState
                   color: isDone
                       ? const Color(0xFF059669)
                       : isCurrent
-                          ? const Color(0xFFE11D48)
-                          : const Color(0xFFF1F5F9),
+                      ? const Color(0xFFE11D48)
+                      : const Color(0xFFF1F5F9),
                   border: Border.all(
                     color: isDone
                         ? const Color(0xFF059669)
                         : isCurrent
-                            ? const Color(0xFFFDA4AF)
-                            : const Color(0xFFCBD5E1),
+                        ? const Color(0xFFFDA4AF)
+                        : const Color(0xFFCBD5E1),
                     width: 1.5,
                   ),
                 ),
                 child: Center(
                   child: isDone
-                      ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+                      ? const Icon(
+                          Icons.check_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        )
                       : isCurrent
-                          ? const Icon(Icons.circle, size: 8, color: Colors.white)
-                          : Text(
-                              stepNumber,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: color,
-                              ),
-                            ),
+                      ? const Icon(Icons.circle, size: 8, color: Colors.white)
+                      : Text(
+                          stepNumber,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: color,
+                          ),
+                        ),
                 ),
               ),
               if (!isLast)
                 Expanded(
                   child: Container(
                     width: 2,
-                    color: isDone ? const Color(0xFF059669).withValues(alpha: 0.4) : const Color(0xFFE2E8F0),
+                    color: isDone
+                        ? const Color(0xFF059669).withValues(alpha: 0.4)
+                        : const Color(0xFFE2E8F0),
                     margin: const EdgeInsets.symmetric(vertical: 3),
                   ),
                 ),
@@ -3937,12 +4375,14 @@ class _DirectorEmergencyPageState
                     title,
                     style: TextStyle(
                       fontSize: 11.5,
-                      fontWeight: isCurrent || isDone ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: isCurrent || isDone
+                          ? FontWeight.w800
+                          : FontWeight.w600,
                       color: isCurrent
                           ? const Color(0xFFE11D48)
                           : isDone
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFF64748B),
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF64748B),
                     ),
                   ),
                   const SizedBox(height: 1.5),
@@ -3950,7 +4390,9 @@ class _DirectorEmergencyPageState
                     subtitle,
                     style: TextStyle(
                       fontSize: 10,
-                      color: isCurrent ? const Color(0xFF9F1239) : const Color(0xFF64748B),
+                      color: isCurrent
+                          ? const Color(0xFF9F1239)
+                          : const Color(0xFF64748B),
                       fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),
@@ -4040,7 +4482,10 @@ class _DirectorEmergencyPageState
       barrierColor: Colors.black.withValues(alpha: 0.15),
       transitionDuration: const Duration(milliseconds: 260),
       transitionBuilder: (context, anim, secondaryAnim, child) {
-        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        final curved = CurvedAnimation(
+          parent: anim,
+          curve: Curves.easeOutCubic,
+        );
         return ScaleTransition(
           scale: Tween<double>(begin: 0.94, end: 1.0).animate(curved),
           child: FadeTransition(opacity: curved, child: child),
@@ -4053,7 +4498,10 @@ class _DirectorEmergencyPageState
             child: Dialog(
               backgroundColor: Colors.transparent,
               elevation: 0,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 540),
                 width: double.infinity,
@@ -4121,12 +4569,17 @@ class _DirectorEmergencyPageState
                                 ],
                               ),
                             ),
-                             if (_hasRealData) _realBadge() else _demoBadge(),
+                            if (_hasRealData) _realBadge() else _demoBadge(),
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
-                                color: _statusColor(item.status).withValues(alpha: 0.1),
+                                color: _statusColor(
+                                  item.status,
+                                ).withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -4145,7 +4598,9 @@ class _DirectorEmergencyPageState
                                 width: 30,
                                 height: 30,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE5E5EA).withValues(alpha: 0.8),
+                                  color: const Color(
+                                    0xFFE5E5EA,
+                                  ).withValues(alpha: 0.8),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -4159,7 +4614,11 @@ class _DirectorEmergencyPageState
                         ),
                       ),
 
-                      const Divider(height: 1, thickness: 0.6, color: Color(0xFFE5E5EA)),
+                      const Divider(
+                        height: 1,
+                        thickness: 0.6,
+                        color: Color(0xFFE5E5EA),
+                      ),
 
                       // Content Body
                       Flexible(
@@ -4174,7 +4633,9 @@ class _DirectorEmergencyPageState
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4187,7 +4648,8 @@ class _DirectorEmergencyPageState
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'รายละเอียดเหตุการณ์',
@@ -4218,9 +4680,15 @@ class _DirectorEmergencyPageState
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: _statusColor(item.status).withValues(alpha: 0.08),
+                                  color: _statusColor(
+                                    item.status,
+                                  ).withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: _statusColor(item.status).withValues(alpha: 0.22)),
+                                  border: Border.all(
+                                    color: _statusColor(
+                                      item.status,
+                                    ).withValues(alpha: 0.22),
+                                  ),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4237,7 +4705,8 @@ class _DirectorEmergencyPageState
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             'สถานะ: ${item.status}',
@@ -4267,11 +4736,18 @@ class _DirectorEmergencyPageState
                         ),
                       ),
 
-                      const Divider(height: 1, thickness: 0.6, color: Color(0xFFE5E5EA)),
+                      const Divider(
+                        height: 1,
+                        thickness: 0.6,
+                        color: Color(0xFFE5E5EA),
+                      ),
 
                       // Apple Bottom Action Bar
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
                         color: const Color(0xFFF9F9FB).withValues(alpha: 0.6),
                         child: Row(
                           children: [
@@ -4293,26 +4769,43 @@ class _DirectorEmergencyPageState
                                     }
                                     if (mounted) {
                                       Navigator.of(dialogContext).pop();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('✓ ปิดเหตุเรียบร้อยแล้ว'), backgroundColor: Color(0xFF059669)),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            '✓ ปิดเหตุเรียบร้อยแล้ว',
+                                          ),
+                                          backgroundColor: Color(0xFF059669),
+                                        ),
                                       );
                                       _loadRealData();
                                     }
                                   } catch (e) {
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: Colors.red),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('เกิดข้อผิดพลาด: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
                                       );
                                     }
                                   }
                                 },
                                 child: Container(
                                   height: 38,
-                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(19),
-                                    border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+                                    border: Border.all(
+                                      color: const Color(0xFF10B981),
+                                      width: 1.5,
+                                    ),
                                   ),
                                   alignment: Alignment.center,
                                   child: const Text(
@@ -4332,13 +4825,17 @@ class _DirectorEmergencyPageState
                               onTap: () => Navigator.of(dialogContext).pop(),
                               child: Container(
                                 height: 38,
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF007AFF),
                                   borderRadius: BorderRadius.circular(19),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF007AFF).withValues(alpha: 0.3),
+                                      color: const Color(
+                                        0xFF007AFF,
+                                      ).withValues(alpha: 0.3),
                                       blurRadius: 10,
                                       offset: const Offset(0, 3),
                                     ),
@@ -4373,10 +4870,7 @@ class _DirectorEmergencyPageState
   Widget _emptyState() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 28,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppPalette.pageBg,
@@ -4384,10 +4878,7 @@ class _DirectorEmergencyPageState
       ),
       child: const Text(
         'ไม่พบเหตุการณ์ตามเงื่อนไข',
-        style: TextStyle(
-          fontSize: 10,
-          color: AppPalette.textMuted,
-        ),
+        style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
       ),
     );
   }
@@ -4395,9 +4886,9 @@ class _DirectorEmergencyPageState
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -4458,22 +4949,6 @@ class _EmergencyEvent {
     required this.priority,
     required this.description,
     required this.action,
-    required this.icon,
-    required this.color,
-  });
-}
-
-class _ResponseTeam {
-  final String name;
-  final String detail;
-  final String status;
-  final IconData icon;
-  final Color color;
-
-  const _ResponseTeam({
-    required this.name,
-    required this.detail,
-    required this.status,
     required this.icon,
     required this.color,
   });
