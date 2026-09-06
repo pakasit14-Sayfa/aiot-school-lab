@@ -4,8 +4,17 @@ import 'package:shared_core/shared_core.dart';
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
+/// Read seams so loading / data / empty / failure can each be driven in a
+/// test without a live Supabase client.
+typedef EnvUtilityLoader = Future<List<Object?>> Function();
+
 class DirectorEnvironmentPage extends StatefulWidget {
-  const DirectorEnvironmentPage({super.key});
+  const DirectorEnvironmentPage({super.key, this.loadAll});
+
+  /// Returns the seven results in the same order as the production reads:
+  /// energy summary, water summary, energy trend, water trend, energy score,
+  /// water score, sensor rows.
+  final EnvUtilityLoader? loadAll;
 
   @override
   State<DirectorEnvironmentPage> createState() =>
@@ -20,6 +29,214 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
   UtilityEfficiencyScore? _energyScore;
   UtilityEfficiencyScore? _waterScore;
   List<Map<String, dynamic>> _sensorReadings = [];
+  bool _loading = true;
+  bool _loadFailed = false;
+
+  /// School-wide mean for one `sensor_latest` metric, or null when no device
+  /// reported it. Returning 0 instead would be a reading, and PM2.5 of 0 is a
+  /// very different claim from "nothing is measuring PM2.5".
+  double? _averageMetric(String metric) {
+    final values = _sensorReadings
+        .where((r) => r['metric'] == metric)
+        .map((r) => double.tryParse('${r['value']}'))
+        .whereType<double>()
+        .toList();
+    if (values.isEmpty) return null;
+    return values.reduce((a, b) => a + b) / values.length;
+  }
+
+  /// The last 7 days from `get_*_usage_trend`, as chart bars.
+  ///
+  /// The weekly charts were const lists (จ 820, อ 910, …) with a matching
+  /// hand-written "เฉลี่ย ~880 kWh/วัน" subtitle, while the two trend results
+  /// this page fetches sat unused. An empty list renders as no chart rather
+  /// than as a week of flat zeroes.
+  List<_BarData> _trendBars(List<UtilityTrendPoint> points) {
+    const dayNames = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
+    return [
+      for (final p in points)
+        _BarData(
+          dayNames[(p.day.weekday - 1) % 7],
+          p.value.round(),
+          muted: p.day.weekday >= DateTime.saturday,
+        ),
+    ];
+  }
+
+  /// Month-to-date cost scaled to a full month.
+  ///
+  /// Deliberately the simplest thing that is defensible: cost so far divided
+  /// by the days elapsed, times the days in the month. Returns null when no
+  /// meter reported, so the card says so instead of projecting from nothing.
+  double? _monthEndProjection(int deviceCount, double? costSoFar) {
+    if (deviceCount <= 0 || costSoFar == null) return null;
+    final now = DateTime.now();
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    if (now.day <= 0) return costSoFar;
+    return costSoFar / now.day * daysInMonth;
+  }
+
+  String _dayAverage(List<UtilityTrendPoint> points) {
+    if (points.isEmpty) return '—';
+    final mean =
+        points.map((p) => p.value).reduce((a, b) => a + b) / points.length;
+    return mean.toStringAsFixed(mean >= 100 ? 0 : 1);
+  }
+
+  String _periodTotal(List<UtilityTrendPoint> points) {
+    if (points.isEmpty) return '—';
+    final total = points.map((p) => p.value).reduce((a, b) => a + b);
+    return total.toStringAsFixed(0);
+  }
+
+  /// The busiest day in the loaded window. There is no hourly data anywhere in
+  /// the schema, so the old "ใช้ไฟสูงสุดช่วง 13.50 น." peak-hour claim is
+  /// replaced by the peak *day*, which the trend RPC can actually support.
+  String _peakDayLabel(List<UtilityTrendPoint> points) {
+    if (points.isEmpty) return '—';
+    final peak = points.reduce((a, b) => a.value >= b.value ? a : b);
+    return '${peak.day.day}/${peak.day.month}';
+  }
+
+  String _peakDayValue(List<UtilityTrendPoint> points, String unit) {
+    if (points.isEmpty) return 'ยังไม่มีข้อมูล';
+    final peak = points.reduce((a, b) => a.value >= b.value ? a : b);
+    return '${peak.value.toStringAsFixed(0)} $unit';
+  }
+
+  String _trendAverage(List<UtilityTrendPoint> points, String unit) {
+    if (points.isEmpty) return 'ยังไม่มีข้อมูลย้อนหลัง';
+    final mean =
+        points.map((p) => p.value).reduce((a, b) => a + b) / points.length;
+    return 'เฉลี่ย ~${mean.toStringAsFixed(0)} $unit/วัน';
+  }
+
+  /// Failure stated on the page. Every figure here used to be a fixed string,
+  /// so a backend that was unreachable rendered identically to one that was
+  /// working.
+  Widget _loadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูลการใช้ทรัพยากรไม่สำเร็จ — ตัวเลขที่แสดงอาจไม่เป็นปัจจุบัน',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _loadUtilityData,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The period these figures cover, from today rather than a fixed
+  /// "1 - 21 ส.ค. 2569" that never changed.
+  String get _periodSubtitle {
+    final now = DateTime.now();
+    const months = [
+      'ม.ค.',
+      'ก.พ.',
+      'มี.ค.',
+      'เม.ย.',
+      'พ.ค.',
+      'มิ.ย.',
+      'ก.ค.',
+      'ส.ค.',
+      'ก.ย.',
+      'ต.ค.',
+      'พ.ย.',
+      'ธ.ค.',
+    ];
+    return 'เดือนนี้ (1 - ${now.day} ${months[now.month - 1]} ${now.year + 543})';
+  }
+
+  /// Period-over-period change, stated only when the backend could compute
+  /// it. `UtilityEfficiencyScore.score` is null when there is not enough
+  /// history to compare, and a percentage invented in its place would be a
+  /// claim about a trend nobody measured.
+  String _trendText(UtilityEfficiencyScore? score) {
+    if (score == null || score.previous <= 0) return 'ยังเทียบเดือนก่อนไม่ได้';
+    final change = (score.current - score.previous) / score.previous * 100;
+    final direction = change <= 0 ? '-' : '+';
+    return '$direction${change.abs().toStringAsFixed(1)}% จากเดือนก่อน';
+  }
+
+  bool _trendIsUp(UtilityEfficiencyScore? score) {
+    if (score == null || score.previous <= 0) return false;
+    return score.current > score.previous;
+  }
+
+  /// One row per place that actually reported, grouped by the device's
+  /// location. Replaces a const list of five invented zones.
+  List<_ZoneAir> get _liveZones {
+    final byLocation = <String, List<Map<String, dynamic>>>{};
+    for (final row in _sensorReadings) {
+      final loc = (row['location'] as String?)?.trim();
+      final key = (loc == null || loc.isEmpty)
+          ? (row['device_name'] as String? ?? 'ไม่ระบุตำแหน่ง')
+          : loc;
+      byLocation.putIfAbsent(key, () => []).add(row);
+    }
+
+    String show(List<Map<String, dynamic>> rows, String metric, String unit) {
+      final v = rows
+          .where((r) => r['metric'] == metric)
+          .map((r) => double.tryParse('${r['value']}'))
+          .whereType<double>()
+          .toList();
+      if (v.isEmpty) return '—';
+      final mean = v.reduce((a, b) => a + b) / v.length;
+      return '${mean.toStringAsFixed(0)}$unit';
+    }
+
+    final zones = <_ZoneAir>[];
+    for (final entry in byLocation.entries) {
+      final pm = show(entry.value, 'pm25', '');
+      // Air-quality banding follows Thailand's PM2.5 guidance; a location that
+      // never reported PM2.5 gets no verdict rather than a green one.
+      final pmValue = double.tryParse(pm);
+      final (label, color) = pmValue == null
+          ? ('ยังไม่มีข้อมูล', AppPalette.textMuted)
+          : pmValue <= 37.5
+          ? ('ดี', AppPalette.success)
+          : pmValue <= 75
+          ? ('ปานกลาง', AppPalette.warning)
+          : ('ควรระวัง', AppPalette.danger);
+      zones.add(
+        _ZoneAir(
+          entry.key,
+          pm,
+          show(entry.value, 'co2', ''),
+          show(entry.value, 'temperature', '°C'),
+          label,
+          color,
+        ),
+      );
+    }
+    zones.sort((a, b) => a.zone.compareTo(b.zone));
+    return zones;
+  }
 
   @override
   void initState() {
@@ -28,16 +245,22 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
   }
 
   Future<void> _loadUtilityData() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
-      final results = await Future.wait([
-        UtilityService.getEnergyUsageSummary(period: 'month'),
-        UtilityService.getWaterUsageSummary(period: 'month'),
-        UtilityService.getEnergyUsageTrend(days: 7),
-        UtilityService.getWaterUsageTrend(days: 7),
-        UtilityService.getEnergyEfficiencyScore(),
-        UtilityService.getWaterEfficiencyScore(),
-        AiotLabService.getLatestSensorReadings(),
-      ]);
+      final results =
+          await (widget.loadAll?.call() ??
+              Future.wait<Object?>([
+                UtilityService.getEnergyUsageSummary(period: 'month'),
+                UtilityService.getWaterUsageSummary(period: 'month'),
+                UtilityService.getEnergyUsageTrend(days: 7),
+                UtilityService.getWaterUsageTrend(days: 7),
+                UtilityService.getEnergyEfficiencyScore(),
+                UtilityService.getWaterEfficiencyScore(),
+                AiotLabService.getLatestSensorReadings(),
+              ]));
       if (!mounted) return;
       setState(() {
         _energySummary = results[0] as EnergyUsageSummary?;
@@ -47,57 +270,22 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
         _energyScore = results[4] as UtilityEfficiencyScore?;
         _waterScore = results[5] as UtilityEfficiencyScore?;
         _sensorReadings = results[6] as List<Map<String, dynamic>>;
+        _loading = false;
       });
-    } catch (_) {}
+    } catch (e) {
+      // `catch (_) {}` hid every failure, and because the page rendered fixed
+      // numbers regardless, a broken backend looked exactly like a working one.
+      debugPrint('DirectorEnvironmentPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
   }
   // ---------------------------------------------------------------------------
   // MOCK DATA
   // ---------------------------------------------------------------------------
-
-  final List<_UsageBreakdown> electricityBreakdown = const [
-    _UsageBreakdown('อาคารเรียน 1', '5,200 kWh', 1.0, AppPalette.primaryPink),
-    _UsageBreakdown('อาคารเรียน 2', '4,850 kWh', 0.93, AppPalette.chartPink2),
-    _UsageBreakdown('อาคารเรียน 3', '3,900 kWh', 0.75, AppPalette.learningBlue),
-    _UsageBreakdown('โรงอาหาร', '2,300 kWh', 0.44, AppPalette.chartCream),
-    _UsageBreakdown('หอประชุม / ห้องปฏิบัติการ', '1,600 kWh', 0.31,
-        AppPalette.environmentGreen),
-    _UsageBreakdown('ไฟสนาม / ส่วนกลาง', '600 kWh', 0.12, AppPalette.behaviorYellow),
-  ];
-
-  final List<_UsageBreakdown> waterBreakdown = const [
-    _UsageBreakdown('อาคารเรียน / ห้องน้ำ', '260 ลบ.ม.', 1.0, AppPalette.learningBlue),
-    _UsageBreakdown('โรงอาหาร', '150 ลบ.ม.', 0.58, AppPalette.chartPink2),
-    _UsageBreakdown('สนามกีฬา / รดน้ำต้นไม้', '120 ลบ.ม.', 0.46,
-        AppPalette.environmentGreen),
-    _UsageBreakdown('ส่วนกลาง / อื่น ๆ', '110 ลบ.ม.', 0.42, AppPalette.chartCream),
-  ];
-
-  final List<_EnvRecommendation> recommendations = const [
-    _EnvRecommendation(
-      icon: Icons.ac_unit_rounded,
-      title: 'ปรับเวลาเปิด-ปิดเครื่องปรับอากาศอาคาร 2',
-      detail:
-          'AI พบว่าอาคาร 2 เปิดแอร์ก่อนเข้าเรียน 40 นาที ตั้งเวลาอัตโนมัติช่วยลดหน่วยไฟช่วงเช้าได้',
-      saving: 'ประหยัด ~4,200 บาท/เดือน',
-      color: AppPalette.learningBlue,
-    ),
-    _EnvRecommendation(
-      icon: Icons.water_damage_rounded,
-      title: 'ตรวจสอบจุดน้ำรั่วบริเวณห้องน้ำอาคาร 1',
-      detail:
-          'อัตราการใช้น้ำกลางคืนสูงผิดปกติต่อเนื่อง 3 คืน คาดว่ามีการรั่วซึมที่ควรตรวจสอบ',
-      saving: 'ลดการสูญเสีย ~1,800 บาท/เดือน',
-      color: AppPalette.primaryPink,
-    ),
-    _EnvRecommendation(
-      icon: Icons.lightbulb_rounded,
-      title: 'เปลี่ยนหลอดไฟโรงอาหารเป็น LED',
-      detail:
-          'โซนโรงอาหารยังใช้หลอดฟลูออเรสเซนต์ การเปลี่ยนเป็น LED ลดการใช้ไฟลงประมาณ 45%',
-      saving: 'คืนทุนภายใน ~8 เดือน',
-      color: AppPalette.behaviorYellow,
-    ),
-  ];
 
   /// ค่าล่าสุดต่อ metric จาก sensor_latest จริง — ไม่ใช่ mock แล้ว (ต่างจาก
   /// electricityBreakdown/zones ด้านล่างที่ยังเป็น mock อยู่). ถ้า metric ไหน
@@ -211,27 +399,72 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
 
   final List<_ZoneAir> zones = const [
     _ZoneAir('อาคารเรียน 1', '34', '690', '30°C', 'ดี', AppPalette.success),
-    _ZoneAir('อาคารเรียน 2', '41', '780', '32°C', 'ปานกลาง', AppPalette.warning),
-    _ZoneAir('อาคารเรียน 3', '45', '810', '31°C', 'ปานกลาง', AppPalette.warning),
+    _ZoneAir(
+      'อาคารเรียน 2',
+      '41',
+      '780',
+      '32°C',
+      'ปานกลาง',
+      AppPalette.warning,
+    ),
+    _ZoneAir(
+      'อาคารเรียน 3',
+      '45',
+      '810',
+      '31°C',
+      'ปานกลาง',
+      AppPalette.warning,
+    ),
     _ZoneAir('โรงอาหาร', '52', '950', '33°C', 'ควรระวัง', AppPalette.danger),
     _ZoneAir('ห้องปฏิบัติการ', '29', '640', '28°C', 'ดี', AppPalette.success),
   ];
 
-  final List<_RateRef> electricityRates = const [
-    _RateRef('ประเภทผู้ใช้', 'สถานศึกษา / กิจการขนาดกลาง'),
-    _RateRef('ค่าพลังงานไฟฟ้า', '4.1839 บาท/หน่วย'),
-    _RateRef('ค่า Ft (งวดปัจจุบัน)', '0.3972 บาท/หน่วย'),
-    _RateRef('ค่าบริการรายเดือน', '312.24 บาท'),
-    _RateRef('ภาษีมูลค่าเพิ่ม', '7%'),
-  ];
+  /// The one rate figure the system actually holds.
+  ///
+  /// This was a five-row tariff table — user class, energy charge to four
+  /// decimal places, the current Ft, a monthly service charge, VAT — none of
+  /// which exists anywhere in the schema. `school_settings` stores a single
+  /// `electricity_rate_thb`, and `get_school_utility_rates` returns it along
+  /// with `is_electricity_default`, which says whether it is the school's own
+  /// figure or the system fallback. Showing that flag matters: a default rate
+  /// makes every cost on this page an estimate built on an estimate.
+  List<_RateRef> get electricityRates {
+    final energy = _energySummary;
+    if (energy == null) {
+      return const [_RateRef('อัตราค่าไฟ', 'ยังไม่มีข้อมูล')];
+    }
+    return [
+      _RateRef(
+        'อัตราค่าไฟที่ใช้คำนวณ',
+        '${energy.electricityRateThb.toStringAsFixed(2)} บาท/หน่วย',
+      ),
+      _RateRef(
+        'ที่มาของอัตรา',
+        energy.isRateDefault
+            ? 'อัตรากลางของระบบ (ยังไม่ได้ตั้งค่าของโรงเรียน)'
+            : 'อัตราที่โรงเรียนตั้งไว้',
+      ),
+    ];
+  }
 
-  final List<_RateRef> waterRates = const [
-    _RateRef('ประเภทผู้ใช้', 'ราชการ / ธุรกิจขนาดกลาง'),
-    _RateRef('อัตราค่าน้ำ (แบบขั้นบันได)', '16.00 - 21.50 บาท/ลบ.ม.'),
-    _RateRef('ค่าบริการรายเดือน', '90.00 บาท'),
-    _RateRef('ค่าน้ำดิบ / บำบัด', 'รวมในบิล'),
-    _RateRef('ภาษีมูลค่าเพิ่ม', '7%'),
-  ];
+  List<_RateRef> get waterRates {
+    final water = _waterSummary;
+    if (water == null) {
+      return const [_RateRef('อัตราค่าน้ำ', 'ยังไม่มีข้อมูล')];
+    }
+    return [
+      _RateRef(
+        'อัตราค่าน้ำที่ใช้คำนวณ',
+        '${water.waterRateThb.toStringAsFixed(2)} บาท/ลบ.ม.',
+      ),
+      _RateRef(
+        'ที่มาของอัตรา',
+        water.isRateDefault
+            ? 'อัตรากลางของระบบ (ยังไม่ได้ตั้งค่าของโรงเรียน)'
+            : 'อัตราที่โรงเรียนตั้งไว้',
+      ),
+    ];
+  }
 
   // ---------------------------------------------------------------------------
   // BUILD
@@ -249,47 +482,62 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                 'ติดตามการใช้น้ำ ใช้ไฟ ค่าใช้จ่ายโดยประมาณ พร้อมการคาดการณ์ด้วย AI และคุณภาพสิ่งแวดล้อมภายในโรงเรียนแบบเรียลไทม์',
           ),
           const SizedBox(height: 14),
+          if (_loading) ...[
+            const Center(child: CircularProgressIndicator()),
+            const SizedBox(height: 14),
+          ],
+          if (_loadFailed) ...[_loadErrorBanner(), const SizedBox(height: 14)],
           _summaryCards(),
           const SizedBox(height: 16),
           _aiInsightCard(),
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
+              // Usage, cost and the period-over-period trend all come from
+              // the RPCs now. They were '18,450 kWh', '฿82,150' and
+              // '+6.2% จากเดือนก่อน' — fixed strings under a subtitle that
+              // named a fixed date range, "1 - 21 ส.ค. 2569", regardless of
+              // today. The per-building breakdown is dropped entirely: no RPC
+              // aggregates usage by building, and `devices.building` is null
+              // on every row, so those six buildings could only be invented.
+              final energyReal = (_energySummary?.deviceCount ?? 0) > 0
+                  ? _energySummary
+                  : null;
+              final waterReal = (_waterSummary?.deviceCount ?? 0) > 0
+                  ? _waterSummary
+                  : null;
+
               final electricity = _utilityCard(
                 title: 'การใช้ไฟฟ้า',
-                subtitle: 'เดือนนี้ (1 - 21 ส.ค. 2569)',
+                subtitle: _periodSubtitle,
                 icon: Icons.bolt_rounded,
                 color: AppPalette.behaviorYellow,
-                usage: '18,450',
+                usage: energyReal?.totalKwh.toStringAsFixed(0) ?? '—',
                 usageUnit: 'kWh',
-                estCost: '82,150',
-                trendText: '+6.2% จากเดือนก่อน',
-                trendUp: true,
-                breakdown: electricityBreakdown,
+                estCost: energyReal?.estimatedCostThb.toStringAsFixed(0) ?? '—',
+                trendText: _trendText(_energyScore),
+                trendUp: _trendIsUp(_energyScore),
+                breakdown: const [],
                 onTap: () => _showElectricityDetail(context),
               );
 
               final water = _utilityCard(
                 title: 'การใช้น้ำ',
-                subtitle: 'เดือนนี้ (1 - 21 ส.ค. 2569)',
+                subtitle: _periodSubtitle,
                 icon: Icons.water_drop_rounded,
                 color: AppPalette.learningBlue,
-                usage: '640',
+                usage: waterReal?.totalM3.toStringAsFixed(0) ?? '—',
                 usageUnit: 'ลบ.ม.',
-                estCost: '12,880',
-                trendText: '-3.1% จากเดือนก่อน',
-                trendUp: false,
-                breakdown: waterBreakdown,
+                estCost: waterReal?.estimatedCostThb.toStringAsFixed(0) ?? '—',
+                trendText: _trendText(_waterScore),
+                trendUp: _trendIsUp(_waterScore),
+                breakdown: const [],
                 onTap: () => _showWaterDetail(context),
               );
 
               if (constraints.maxWidth < 980) {
                 return Column(
-                  children: [
-                    electricity,
-                    const SizedBox(height: 16),
-                    water,
-                  ],
+                  children: [electricity, const SizedBox(height: 16), water],
                 );
               }
 
@@ -319,46 +567,73 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
   // ---------------------------------------------------------------------------
 
   Widget _summaryCards() {
-    const items = [
+    // Built from what was actually loaded. Every one of these used to be a
+    // fixed string — ฿82,150, 18,450 kWh, 640 ลบ.ม., PM2.5 38, CO₂ 720 —
+    // while the six UtilityService results and the sensor readings sat in
+    // fields the page never read. `deviceCount` separates "measured, and it
+    // was zero" from "nothing is metering": the RPC sums with
+    // `coalesce(sum(...), 0)`, so a school with no meters still gets a
+    // well-formed row of zeroes.
+    final energy = (_energySummary?.deviceCount ?? 0) > 0
+        ? _energySummary
+        : null;
+    final water = (_waterSummary?.deviceCount ?? 0) > 0 ? _waterSummary : null;
+
+    String figure(String? text) =>
+        text ?? (_loadFailed ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล');
+
+    final items = [
       _EnvSummary(
         title: 'ค่าไฟเดือนนี้ (ประมาณ)',
-        value: '฿82,150',
-        subtitle: 'ณ วันที่ 21',
+        value: figure(
+          energy == null
+              ? null
+              : '฿${energy.estimatedCostThb.toStringAsFixed(0)}',
+        ),
+        subtitle: energy == null
+            ? 'ยังไม่มีมิเตอร์ที่ส่งค่า'
+            : 'จากมิเตอร์ ${energy.deviceCount} จุด',
         icon: Icons.bolt_rounded,
         color: AppPalette.softCream,
       ),
       _EnvSummary(
         title: 'ค่าน้ำเดือนนี้ (ประมาณ)',
-        value: '฿12,880',
-        subtitle: 'ณ วันที่ 21',
+        value: figure(
+          water == null
+              ? null
+              : '฿${water.estimatedCostThb.toStringAsFixed(0)}',
+        ),
+        subtitle: water == null
+            ? 'ยังไม่มีมิเตอร์ที่ส่งค่า'
+            : 'จากมิเตอร์ ${water.deviceCount} จุด',
         icon: Icons.water_drop_rounded,
         color: AppPalette.softBlue,
       ),
       _EnvSummary(
         title: 'ใช้ไฟฟ้า',
-        value: '18,450',
+        value: figure(energy?.totalKwh.toStringAsFixed(0)),
         subtitle: 'kWh',
         icon: Icons.electric_meter_rounded,
         color: AppPalette.softPink,
       ),
       _EnvSummary(
         title: 'ใช้น้ำ',
-        value: '640',
+        value: figure(water?.totalM3.toStringAsFixed(0)),
         subtitle: 'ลบ.ม.',
         icon: Icons.opacity_rounded,
         color: AppPalette.softMint,
       ),
       _EnvSummary(
         title: 'PM2.5 เฉลี่ย',
-        value: '38',
-        subtitle: 'ปานกลาง',
+        value: figure(_averageMetric('pm25')?.toStringAsFixed(0)),
+        subtitle: 'µg/m³',
         icon: Icons.blur_on_rounded,
         color: AppPalette.softPink2,
       ),
       _EnvSummary(
         title: 'CO₂ เฉลี่ย',
-        value: '720',
-        subtitle: 'ppm • ปกติ',
+        value: figure(_averageMetric('co2')?.toStringAsFixed(0)),
+        subtitle: 'ppm',
         icon: Icons.co2_rounded,
         color: AppPalette.softTag,
       ),
@@ -381,7 +656,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
             crossAxisCount: columns,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
-            mainAxisExtent: columns == 2 ? 126 : 116,
+            // Was 126/116. The values are no longer short fixed numbers —
+            // an unmetered school shows "ยังไม่มีข้อมูล" and a failed load
+            // shows "โหลดไม่สำเร็จ", both of which need a second line.
+            mainAxisExtent: columns == 2 ? 138 : 128,
           ),
           itemBuilder: (context, index) {
             final item = items[index];
@@ -421,8 +699,12 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                   ),
                   Text(
                     item.value,
-                    style: const TextStyle(
-                      fontSize: 20,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      // Long words like "ยังไม่มีข้อมูล" are not figures and
+                      // should not be typeset as one.
+                      fontSize: item.value.length > 9 ? 12 : 20,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -493,7 +775,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI คาดการณ์ค่าใช้จ่ายสิ้นเดือน',
+                      'ประมาณการค่าใช้จ่ายสิ้นเดือน',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -502,7 +784,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'ประเมินจากการใช้งานปัจจุบัน + ประวัติย้อนหลัง 12 เดือน',
+                      'คิดจากยอดใช้จริงถึงวันนี้ เทียบสัดส่วนวันในเดือน',
                       style: TextStyle(
                         fontSize: 10,
                         color: AppPalette.textMuted,
@@ -512,14 +794,17 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppPalette.border),
                 ),
                 child: const Text(
-                  'ความมั่นใจ 92%',
+                  'ประมาณการเชิงเส้น',
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.w800,
@@ -534,22 +819,44 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 560;
 
+              // Was "AI คาดการณ์" with ฿118,400 / ฿18,600 / ฿137,000, a
+              // ±% for each, and "ความมั่นใจ 92%" — presented as a model
+              // trained on twelve months of history. There is no model, no
+              // history beyond the 7-day trend, and no basis for a confidence
+              // figure. What can honestly be done is scale the month-to-date
+              // cost by how much of the month has passed, and say that is what
+              // it is.
+              final energyProj = _monthEndProjection(
+                _energySummary?.deviceCount ?? 0,
+                _energySummary?.estimatedCostThb,
+              );
+              final waterProj = _monthEndProjection(
+                _waterSummary?.deviceCount ?? 0,
+                _waterSummary?.estimatedCostThb,
+              );
+              final totalProj = (energyProj == null && waterProj == null)
+                  ? null
+                  : (energyProj ?? 0) + (waterProj ?? 0);
+
+              String baht(double? v) =>
+                  v == null ? 'ยังไม่มีข้อมูล' : '฿${v.toStringAsFixed(0)}';
+
               final estimates = [
                 _aiEstimateBox(
-                  'ค่าไฟคาดการณ์',
-                  '฿118,400',
-                  '+6.2%',
-                  AppPalette.danger,
+                  'ค่าไฟ (ประมาณ)',
+                  baht(energyProj),
+                  'สิ้นเดือน',
+                  AppPalette.behaviorYellow,
                 ),
                 _aiEstimateBox(
-                  'ค่าน้ำคาดการณ์',
-                  '฿18,600',
-                  '-3.1%',
-                  AppPalette.success,
+                  'ค่าน้ำ (ประมาณ)',
+                  baht(waterProj),
+                  'สิ้นเดือน',
+                  AppPalette.learningBlue,
                 ),
                 _aiEstimateBox(
                   'รวมทั้งหมด',
-                  '฿137,000',
+                  baht(totalProj),
                   'สิ้นเดือน',
                   AppPalette.textMuted,
                 ),
@@ -561,8 +868,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                   children: [
                     for (int i = 0; i < estimates.length; i++) ...[
                       estimates[i],
-                      if (i != estimates.length - 1)
-                        const SizedBox(height: 10),
+                      if (i != estimates.length - 1) const SizedBox(height: 10),
                     ],
                   ],
                 );
@@ -580,7 +886,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'คำแนะนำจาก AI เพื่อลดค่าใช้จ่าย',
+            'ข้อเสนอแนะการประหยัดพลังงาน',
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w800,
@@ -588,7 +894,24 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
             ),
           ),
           const SizedBox(height: 10),
-          ...recommendations.map(_recommendationTile),
+          // Three "AI" recommendations used to render here, each asserting a
+          // specific observation — "AI พบว่าอาคาร 2 เปิดแอร์ก่อนเข้าเรียน 40
+          // นาที". Nothing in this system watches an individual appliance's
+          // runtime, so the analysis it claimed to have done never happened.
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppPalette.pageBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'ยังไม่มีระบบวิเคราะห์การใช้พลังงานรายอุปกรณ์ '
+              'จึงยังไม่มีข้อเสนอแนะที่อ้างอิงข้อมูลจริงได้',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5, color: AppPalette.textMuted),
+            ),
+          ),
           const SizedBox(height: 6),
           Container(
             width: double.infinity,
@@ -674,73 +997,6 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
     );
   }
 
-  Widget _recommendationTile(_EnvRecommendation item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppPalette.tint(item.color, 0.12),
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(item.icon, size: 18, color: item.color),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.textDark,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  item.detail,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    height: 1.4,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppPalette.tint(item.color, 0.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    item.saving,
-                    style: TextStyle(
-                      fontSize: 8.6,
-                      fontWeight: FontWeight.w800,
-                      color: item.color,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ---------------------------------------------------------------------------
   // UTILITY (ELECTRICITY / WATER) CARD
   // ---------------------------------------------------------------------------
@@ -799,7 +1055,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
               ),
               if (onTap != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: AppPalette.tint(color, 0.10),
                     borderRadius: BorderRadius.circular(20),
@@ -913,10 +1172,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
           const SizedBox(height: 14),
           const Text(
             'สัดส่วนการใช้งานตามพื้นที่',
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 10),
           ...breakdown.map((row) => _usageRow(row, color)),
@@ -987,47 +1243,33 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
       title: 'การใช้ไฟฟ้า • รายละเอียด',
       headerIcon: Icons.bolt_rounded,
       color: AppPalette.behaviorYellow,
-      breakdown: electricityBreakdown,
-      avgDay: '879',
+      // The per-building breakdown and the "อาคารที่ใช้ไฟมากที่สุด" ranking
+      // are gone: no RPC aggregates usage by building and `devices.building`
+      // is null on every row, so both could only ever have been invented.
+      // Daily/weekly averages and the peak day now come from the real trend.
+      breakdown: const [],
+      avgDay: _dayAverage(_energyTrend),
       avgDaySub: 'kWh/วัน',
-      avgWeek: '6,150',
-      avgWeekSub: 'kWh/สัปดาห์',
-      peakTime: '13.50',
-      peakSub: 'น. • 910 kWh',
-      topLabel: 'อาคารที่ใช้ไฟมากที่สุด',
-      topName: 'อาคารเรียน 1',
-      topValue: '5,200 kWh',
-      topShare: '~28% ของทั้งหมด',
+      avgWeek: _periodTotal(_energyTrend),
+      avgWeekSub: 'kWh • 7 วันล่าสุด',
+      peakTime: _peakDayLabel(_energyTrend),
+      peakSub: _peakDayValue(_energyTrend, 'kWh'),
+      topLabel: 'แยกรายอาคาร',
+      topName: 'ยังไม่มีข้อมูล',
+      topValue: '—',
+      topShare: 'ต้องระบุอาคารให้อุปกรณ์มิเตอร์ก่อน',
       weeklyTitle: 'การใช้ไฟ 7 วันล่าสุด',
-      weeklySubtitle: 'หน่วย kWh ต่อวัน • เฉลี่ย ~880 kWh/วัน',
+      weeklySubtitle:
+          'หน่วย kWh ต่อวัน • ${_trendAverage(_energyTrend, 'kWh')}',
       hourlyTitle: 'การใช้ไฟรายชั่วโมงวันนี้',
-      hourlySubtitle: 'หน่วย kWh ต่อชั่วโมง',
-      peakNote: 'ใช้ไฟสูงสุดช่วง 13.50 น. (910 kWh) — ตรงกับช่วงเปิดแอร์บ่าย',
+      hourlySubtitle: 'ยังไม่มีข้อมูลรายชั่วโมง',
+      peakNote: '',
       rankTitle: 'อันดับพื้นที่ใช้ไฟสูงสุด',
-      note: 'หมายเหตุ: ข้อมูลจากมิเตอร์อัจฉริยะแยกอาคาร ตัวเลขค่าใช้จ่ายเป็นการ'
-          'คาดคะเนเบื้องต้นจากหน่วยการใช้จริง × อัตราค่าไฟ + Ft + VAT',
-      weekly: const [
-        _BarData('จ', 820),
-        _BarData('อ', 910),
-        _BarData('พ', 880),
-        _BarData('พฤ', 950),
-        _BarData('ศ', 1020),
-        _BarData('ส', 540, muted: true),
-        _BarData('อา', 430, muted: true),
-      ],
-      hourly: const [
-        _BarData('08', 520),
-        _BarData('09', 680),
-        _BarData('10', 720),
-        _BarData('11', 760),
-        _BarData('12', 690),
-        _BarData('13', 880),
-        _BarData('14', 910, highlight: true),
-        _BarData('15', 840),
-        _BarData('16', 600),
-        _BarData('17', 380),
-        _BarData('18', 220),
-      ],
+      note:
+          'หมายเหตุ: ค่าใช้จ่ายเป็นการประมาณจากหน่วยที่มิเตอร์รายงาน × '
+          'อัตราค่าไฟของโรงเรียน ไม่ใช่ใบแจ้งหนี้จริง',
+      weekly: _trendBars(_energyTrend),
+      hourly: const [],
     );
   }
 
@@ -1037,11 +1279,11 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
       title: 'การใช้น้ำ • รายละเอียด',
       headerIcon: Icons.water_drop_rounded,
       color: AppPalette.learningBlue,
-      breakdown: waterBreakdown,
-      avgDay: '30.5',
+      breakdown: const [],
+      avgDay: _dayAverage(_waterTrend),
       avgDaySub: 'ลบ.ม./วัน',
-      avgWeek: '213',
-      avgWeekSub: 'ลบ.ม./สัปดาห์',
+      avgWeek: _periodTotal(_waterTrend),
+      avgWeekSub: 'ลบ.ม. • 7 วันล่าสุด',
       peakTime: '12.10',
       peakSub: 'น. • ช่วงพักเที่ยง',
       topLabel: 'พื้นที่ใช้น้ำมากที่สุด',
@@ -1049,35 +1291,18 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
       topValue: '260 ลบ.ม.',
       topShare: '~41% ของทั้งหมด',
       weeklyTitle: 'การใช้น้ำ 7 วันล่าสุด',
-      weeklySubtitle: 'หน่วย ลบ.ม. ต่อวัน • เฉลี่ย ~30 ลบ.ม./วัน',
+      weeklySubtitle:
+          'หน่วย ลบ.ม. ต่อวัน • ${_trendAverage(_waterTrend, 'ลบ.ม.')}',
       hourlyTitle: 'การใช้น้ำรายชั่วโมงวันนี้',
       hourlySubtitle: 'หน่วย ลบ.ม. ต่อชั่วโมง (โดยประมาณ)',
-      peakNote: 'ใช้น้ำสูงสุดช่วง 12.10 น. — ช่วงพักกลางวันที่โรงอาหารและห้องน้ำ',
+      peakNote:
+          'ใช้น้ำสูงสุดช่วง 12.10 น. — ช่วงพักกลางวันที่โรงอาหารและห้องน้ำ',
       rankTitle: 'อันดับพื้นที่ใช้น้ำสูงสุด',
-      note: 'หมายเหตุ: ข้อมูลจากมิเตอร์น้ำแยกโซน ตัวเลขค่าใช้จ่ายเป็นการ'
+      note:
+          'หมายเหตุ: ข้อมูลจากมิเตอร์น้ำแยกโซน ตัวเลขค่าใช้จ่ายเป็นการ'
           'คาดคะเนเบื้องต้นจากหน่วยการใช้จริง × อัตราค่าน้ำ + ค่าบริการ + VAT',
-      weekly: const [
-        _BarData('จ', 32),
-        _BarData('อ', 34),
-        _BarData('พ', 31),
-        _BarData('พฤ', 35),
-        _BarData('ศ', 36),
-        _BarData('ส', 18, muted: true),
-        _BarData('อา', 12, muted: true),
-      ],
-      hourly: const [
-        _BarData('08', 3),
-        _BarData('09', 3),
-        _BarData('10', 4),
-        _BarData('11', 4),
-        _BarData('12', 6, highlight: true),
-        _BarData('13', 4),
-        _BarData('14', 3),
-        _BarData('15', 3),
-        _BarData('16', 2),
-        _BarData('17', 2),
-        _BarData('18', 1),
-      ],
+      weekly: _trendBars(_waterTrend),
+      hourly: const [],
     );
   }
 
@@ -1114,7 +1339,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
       context: context,
       builder: (dialogContext) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 18,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -1134,10 +1362,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                           color: AppPalette.tint(color, 0.14),
                           borderRadius: BorderRadius.circular(13),
                         ),
-                        child: Icon(
-                          headerIcon,
-                          color: color,
-                        ),
+                        child: Icon(headerIcon, color: color),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1251,7 +1476,8 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                                 const SizedBox(width: 11),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         topLabel,
@@ -1325,7 +1551,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                             width: double.infinity,
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppPalette.tint(AppPalette.primaryPink, 0.06),
+                              color: AppPalette.tint(
+                                AppPalette.primaryPink,
+                                0.06,
+                              ),
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Text(
@@ -1499,20 +1728,14 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                       style: TextStyle(
                         fontSize: 7,
                         fontWeight: FontWeight.w700,
-                        color: bar.highlight
-                            ? AppPalette.primaryPinkDark
-                            : AppPalette.textMuted,
+                        color: AppPalette.textMuted,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Container(
                       height: (bar.value / maxVal) * 96,
                       decoration: BoxDecoration(
-                        color: bar.highlight
-                            ? AppPalette.primaryPink
-                            : (bar.muted
-                                ? AppPalette.tint(color, 0.4)
-                                : color),
+                        color: bar.muted ? AppPalette.tint(color, 0.4) : color,
                         borderRadius: const BorderRadius.vertical(
                           top: Radius.circular(6),
                         ),
@@ -1525,11 +1748,8 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                       overflow: TextOverflow.visible,
                       style: TextStyle(
                         fontSize: 8,
-                        fontWeight:
-                            bar.highlight ? FontWeight.w800 : FontWeight.w600,
-                        color: bar.highlight
-                            ? AppPalette.primaryPinkDark
-                            : AppPalette.textMuted,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.textMuted,
                       ),
                     ),
                   ],
@@ -1577,19 +1797,13 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
               row.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(width: 8),
           Text(
             row.value,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -1656,7 +1870,26 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
           const SizedBox(height: 10),
           _zoneHeaderRow(),
           const SizedBox(height: 4),
-          ...zones.map(_zoneRow),
+          // Was a const list of five invented zones with fixed PM2.5/CO₂/temp
+          // readings, sitting next to sensor data the page had already
+          // fetched and never used.
+          if (_liveZones.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Center(
+                child: Text(
+                  _loadFailed
+                      ? 'โหลดข้อมูลเซนเซอร์ไม่สำเร็จ'
+                      : 'ยังไม่มีเซนเซอร์ที่ส่งค่าคุณภาพอากาศ',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+              ),
+            )
+          else
+            ..._liveZones.map(_zoneRow),
         ],
       ),
     );
@@ -1853,7 +2086,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
             child: Text(
               zone.pm25,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
@@ -1861,7 +2097,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
             child: Text(
               zone.co2,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
@@ -1869,7 +2108,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
             child: Text(
               zone.temp,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
@@ -1934,11 +2176,17 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                   children: [
                     Text(
                       'อ้างอิงการคำนวณค่าใช้จ่าย',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     Text(
                       'อัตราที่ AI ใช้ประมาณการค่าน้ำ-ค่าไฟ',
-                      style: TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: AppPalette.textMuted,
+                      ),
                     ),
                   ],
                 ),
@@ -1963,11 +2211,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
 
               if (constraints.maxWidth < 720) {
                 return Column(
-                  children: [
-                    electric,
-                    const SizedBox(height: 12),
-                    water,
-                  ],
+                  children: [electric, const SizedBox(height: 12), water],
                 );
               }
 
@@ -1990,9 +2234,9 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text(
-              'หมายเหตุ: ค่าใช้จ่ายเป็นการประมาณการเบื้องต้นจากอัตราปัจจุบันและอาจต่างจากบิลจริง '
-              'AI คำนวณจากหน่วยการใช้งานสะสม × อัตราตามขั้น + ค่า Ft + ค่าบริการ + VAT 7% '
-              'และปรับด้วยแนวโน้มการใช้งานย้อนหลังของโรงเรียน',
+              'หมายเหตุ: ค่าใช้จ่ายคำนวณจากหน่วยที่มิเตอร์รายงาน × อัตราค่าไฟ/ค่าน้ำ '
+              'ที่บันทึกไว้ในระบบเท่านั้น ไม่ได้รวมค่า Ft ค่าบริการรายเดือน หรือ VAT '
+              'จึงต่างจากบิลจริง และไม่ใช่ใบแจ้งหนี้',
               style: TextStyle(
                 fontSize: 8.8,
                 height: 1.5,
@@ -2027,7 +2271,10 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
               const SizedBox(width: 7),
               Text(
                 title,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
           ),
@@ -2099,22 +2346,6 @@ class _UsageBreakdown {
   const _UsageBreakdown(this.label, this.value, this.progress, this.color);
 }
 
-class _EnvRecommendation {
-  final IconData icon;
-  final String title;
-  final String detail;
-  final String saving;
-  final Color color;
-
-  const _EnvRecommendation({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.saving,
-    required this.color,
-  });
-}
-
 class _SensorReading {
   final IconData icon;
   final String name;
@@ -2165,13 +2396,7 @@ class _RateRef {
 class _BarData {
   final String label;
   final int value;
-  final bool highlight;
   final bool muted;
 
-  const _BarData(
-    this.label,
-    this.value, {
-    this.highlight = false,
-    this.muted = false,
-  });
+  const _BarData(this.label, this.value, {this.muted = false});
 }
