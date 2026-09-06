@@ -211,10 +211,9 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     _AlertRecord alert,
     String status,
   ) async {
-    if (status == 'กำลังตรวจสอบ') {
-      _showMessage('สถานะกำลังตรวจสอบยังไม่เชื่อมต่อระบบหลังบ้าน');
-      return;
-    }
+    // Unreachable from the UI now that the button is disabled, but kept as
+    // a guard: nothing in `sensor_alerts` can hold this state.
+    if (status == 'กำลังตรวจสอบ') return;
     final isAcknowledge = status == 'รับทราบแล้ว';
     final isResolve = status == 'แก้ไขแล้ว';
     if (!isAcknowledge && !isResolve) {
@@ -598,23 +597,27 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      _showMessage(
-                        'ฟังก์ชันส่งออกรายงานยังไม่เชื่อมต่อระบบหลังบ้าน',
-                      );
-                    },
-                    icon: const Icon(Icons.download_rounded),
-                    label: const Text('ส่งออกรายงาน'),
+                  // Both were tappable and answered with a "ยังไม่เชื่อมต่อ"
+                  // snackbar. Honest, but the DoD asks for controls without a
+                  // backend to be disabled — an admin should be able to see
+                  // what is unavailable without having to press it.
+                  Tooltip(
+                    message:
+                        'ยังไม่เปิดใช้งาน — ระบบส่งออกไฟล์ยังไม่พร้อมใช้งาน',
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.download_rounded),
+                      label: const Text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)'),
+                    ),
                   ),
-                  FilledButton.icon(
-                    onPressed: () {
-                      _showMessage(
-                        'การรับทราบทั้งหมดพร้อมกันยังไม่เชื่อมต่อระบบหลังบ้าน',
-                      );
-                    },
-                    icon: const Icon(Icons.done_all_rounded),
-                    label: const Text('รับทราบทั้งหมด'),
+                  Tooltip(
+                    message:
+                        'ยังไม่เปิดใช้งาน — รับทราบได้ทีละรายการจากปุ่มในตาราง',
+                    child: FilledButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.done_all_rounded),
+                      label: const Text('รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)'),
+                    ),
                   ),
                 ],
               );
@@ -704,6 +707,34 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     );
   }
 
+  /// A dropdown offering only the values that actually occur in the loaded
+  /// alerts, or nothing at all when the field carries no real value.
+  ///
+  /// Returns null when there is nothing to choose between — a field the
+  /// backend never populates renders as '--' on every row, and a filter over
+  /// it is a control that cannot do anything.
+  Widget? _buildDerivedFilter({
+    required String label,
+    required String allLabel,
+    required String selected,
+    required Iterable<String> values,
+    required ValueChanged<String> onChanged,
+  }) {
+    final options =
+        values.where((v) => v.trim().isNotEmpty && v != '--').toSet().toList()
+          ..sort();
+    if (options.isEmpty) return null;
+
+    return _AlertFilterDropdown(
+      label: label,
+      // A stale selection (the user filtered, then the data changed under
+      // them) must not leave the dropdown showing a value it no longer has.
+      value: options.contains(selected) ? selected : allLabel,
+      items: <String>[allLabel, ...options],
+      onChanged: onChanged,
+    );
+  }
+
   Widget _buildFilters() {
     return _AlertSectionCard(
       title: 'ค้นหาและกรองการแจ้งเตือน',
@@ -728,63 +759,49 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
             ),
           );
 
-          final Widget category = _AlertFilterDropdown(
+          // Every dropdown below is built from the alerts actually loaded.
+          //
+          // They used to be const lists, and none of them could filter
+          // anything. `list_school_alerts` returns device sensor alerts, so
+          // the page maps every row to category 'อุปกรณ์' with no severity,
+          // building or room — yet the menus offered ไฟฟ้า / น้ำ /
+          // คุณภาพอากาศ / ความปลอดภัย / นักเรียน, three severity levels, and
+          // five invented building names ("อาคารเรียน A", "อาคารปฏิบัติการ").
+          // Choosing any of them emptied the table and looked like "no alerts
+          // in that building" rather than "this filter cannot work".
+          // Statuses 'กำลังตรวจสอบ' and 'ส่งต่อแล้ว' likewise do not exist in
+          // `sensor_alerts`. A filter offering only the values present can
+          // never lie about what it is filtering.
+          final Widget? category = _buildDerivedFilter(
             label: 'ประเภท',
-            value: _selectedCategory,
-            items: const [
-              'ทุกประเภท',
-              'อุปกรณ์',
-              'ไฟฟ้า',
-              'น้ำ',
-              'คุณภาพอากาศ',
-              'ความปลอดภัย',
-              'นักเรียน',
-              'ระบบ',
-            ],
-            onChanged: (String value) {
-              setState(() => _selectedCategory = value);
-            },
+            allLabel: 'ทุกประเภท',
+            selected: _selectedCategory,
+            values: _alerts.map((a) => a.category),
+            onChanged: (value) => setState(() => _selectedCategory = value),
           );
 
-          final Widget severity = _AlertFilterDropdown(
+          final Widget? severity = _buildDerivedFilter(
             label: 'ระดับ',
-            value: _selectedSeverity,
-            items: const ['ทุกระดับ', 'เร่งด่วน', 'เฝ้าระวัง', 'แจ้งเตือน'],
-            onChanged: (String value) {
-              setState(() => _selectedSeverity = value);
-            },
+            allLabel: 'ทุกระดับ',
+            selected: _selectedSeverity,
+            values: _alerts.map((a) => a.severity),
+            onChanged: (value) => setState(() => _selectedSeverity = value),
           );
 
-          final Widget status = _AlertFilterDropdown(
+          final Widget? status = _buildDerivedFilter(
             label: 'สถานะ',
-            value: _selectedStatus,
-            items: const [
-              'ทุกสถานะ',
-              'ใหม่',
-              'กำลังตรวจสอบ',
-              'รับทราบแล้ว',
-              'ส่งต่อแล้ว',
-              'แก้ไขแล้ว',
-            ],
-            onChanged: (String value) {
-              setState(() => _selectedStatus = value);
-            },
+            allLabel: 'ทุกสถานะ',
+            selected: _selectedStatus,
+            values: _alerts.map((a) => a.status),
+            onChanged: (value) => setState(() => _selectedStatus = value),
           );
 
-          final Widget building = _AlertFilterDropdown(
+          final Widget? building = _buildDerivedFilter(
             label: 'อาคาร',
-            value: _selectedBuilding,
-            items: const [
-              'ทุกอาคาร',
-              'อาคารเรียน A',
-              'อาคารเรียน B',
-              'อาคารปฏิบัติการ',
-              'อาคารอำนวยการ',
-              'ระบบกลาง',
-            ],
-            onChanged: (String value) {
-              setState(() => _selectedBuilding = value);
-            },
+            allLabel: 'ทุกอาคาร',
+            selected: _selectedBuilding,
+            values: _alerts.map((a) => a.building),
+            onChanged: (value) => setState(() => _selectedBuilding = value),
           );
 
           final Widget clear = OutlinedButton.icon(
@@ -793,26 +810,23 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
             label: const Text('ล้างตัวกรอง'),
           );
 
+          // Only the dropdowns that have something to offer.
+          final dropdowns = <Widget>[?category, ?severity, ?status, ?building];
+
           if (constraints.maxWidth < 950) {
             return Column(
               children: [
                 search,
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: category),
-                    const SizedBox(width: 10),
-                    Expanded(child: severity),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: status),
-                    const SizedBox(width: 10),
-                    Expanded(child: building),
-                  ],
-                ),
+                if (dropdowns.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: dropdowns
+                        .map((d) => SizedBox(width: 200, child: d))
+                        .toList(),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Align(alignment: Alignment.centerRight, child: clear),
               ],
@@ -822,14 +836,10 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
           return Row(
             children: [
               Expanded(flex: 3, child: search),
-              const SizedBox(width: 10),
-              Expanded(child: category),
-              const SizedBox(width: 10),
-              Expanded(child: severity),
-              const SizedBox(width: 10),
-              Expanded(child: status),
-              const SizedBox(width: 10),
-              Expanded(child: building),
+              for (final d in dropdowns) ...[
+                const SizedBox(width: 10),
+                Expanded(child: d),
+              ],
               const SizedBox(width: 10),
               clear,
             ],
@@ -1570,11 +1580,20 @@ class _AlertActionButtons extends StatelessWidget {
           ),
           label: Text(acknowledged ? 'รับทราบแล้ว' : 'รับทราบ'),
         ),
-        OutlinedButton.icon(
-          onPressed: checking || resolved ? null : onChecking,
-          style: smallOutlinedStyle,
-          icon: Icon(Icons.manage_search_rounded, size: compact ? 14 : 16),
-          label: Text(checking ? 'กำลังตรวจสอบ' : 'ตรวจสอบ'),
+        // `sensor_alerts.status` only ever holds 'acknowledged' or
+        // 'resolved' — `acknowledge_sensor_alert` and `resolve_sensor_alert`
+        // are the only writers and there is no investigating state for this
+        // to move an alert into. The button used to be tappable and answer
+        // with "ยังไม่เชื่อมต่อระบบหลังบ้าน", which reads as "not wired up
+        // yet" when in fact nothing in the schema can back it.
+        Tooltip(
+          message: 'ยังไม่เปิดใช้งาน — ระบบยังไม่มีสถานะ "กำลังตรวจสอบ"',
+          child: OutlinedButton.icon(
+            onPressed: null,
+            style: smallOutlinedStyle,
+            icon: Icon(Icons.manage_search_rounded, size: compact ? 14 : 16),
+            label: Text(checking ? 'กำลังตรวจสอบ' : 'ตรวจสอบ'),
+          ),
         ),
         FilledButton.icon(
           onPressed: resolved ? null : onResolved,
