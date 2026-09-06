@@ -14,7 +14,30 @@ class SchoolImportPage extends StatefulWidget {
 }
 
 class _SchoolImportPageState extends State<SchoolImportPage> {
-  String _dataType = 'นักเรียน';
+  /// 🔐 การนำเข้า "นักเรียน" และ "ครูและบุคลากร" ถูกปิดไว้
+  ///
+  /// ตรวจกับฐานข้อมูลที่รันอยู่เมื่อ 2026-09-07 พบว่าเส้นทางนี้สร้างบัญชีที่
+  /// เข้าใช้งานได้ทันทีด้วยรหัสผ่านที่เดาได้ ครบทั้งสามชั้น:
+  ///   1. `import_school_users_batch_for_school_admin` ตั้งรหัสเป็น
+  ///      `crypt('Test1234!', ...)` เหมือนกันทุกคน
+  ///   2. คำสั่ง INSERT ไม่ตั้ง `must_change_password` และค่า default คือ false
+  ///   3. ไม่มีโค้ด Dart ที่ไหนในทั้ง repo อ่าน `must_change_password` เลย
+  ///      แปลว่าไม่มีการบังคับเปลี่ยนรหัสอยู่จริง
+  /// บัญชีถูกสร้างเป็น `status = 'active'` ด้วย
+  ///
+  /// ผลคือ นำเข้านักเรียน 500 คน = 500 บัญชีที่ใครรู้อีเมลก็ล็อกอินแทนได้
+  ///
+  /// ทำตามมติที่บันทึกไว้ใน task_plan §"Security defects": ถ้ายังไม่มีเส้นทาง
+  /// ส่งมอบ/รีเซ็ตรหัสที่สมบูรณ์ ให้ปิดการนำเข้าผู้ใช้ไว้ก่อน ดีกว่าแจกรหัส
+  /// ที่เดาได้ การนำเข้าอาคาร/ห้อง/อุปกรณ์/ชุดฝึกไม่สร้างบัญชี จึงยังใช้ได้ปกติ
+  static const Set<String> _credentialCreatingTypes = {
+    'นักเรียน',
+    'ครูและบุคลากร',
+  };
+
+  bool get _importBlocked => _credentialCreatingTypes.contains(_dataType);
+
+  String _dataType = 'อาคารและห้อง';
   _ImportSource _source = _ImportSource.file;
 
   final TextEditingController _sheetUrlController = TextEditingController();
@@ -28,6 +51,10 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
 
   List<ImportPreviewRow> _validatedRows = [];
   List<String> _existingBuildingCodes = [];
+
+  /// โหลดรายชื่ออาคารเดิมไม่สำเร็จ — ผลตรวจสอบจะเชื่อถือไม่ได้ ต้องบอกผู้ใช้
+  /// ไม่ใช่ปล่อยให้เข้าใจว่าไฟล์ตัวเองผิด
+  bool _buildingCodesFailed = false;
 
   final List<_ImportLogRecord> _logs = [];
 
@@ -88,8 +115,15 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
     try {
       final buildings = await _platformService.fetchBuildings();
       _existingBuildingCodes = buildings.map((b) => b.code).toList();
-    } catch (_) {
+      _buildingCodesFailed = false;
+    } catch (e) {
+      // เดิม `catch (_)` ตั้งลิสต์เป็นว่างเงียบ ๆ ซึ่งอันตรายกว่าที่เห็น:
+      // การตรวจสอบใช้ลิสต์นี้ยืนยันว่าห้องอ้างอิงอาคารที่มีอยู่จริงหรือไม่
+      // พอลิสต์ว่าง ทุกแถวที่อ้างอาคารเดิมจะถูกตัดสินว่า "ต้องแก้ไข" และ
+      // ผู้ดูแลจะเข้าใจว่าไฟล์ตัวเองผิด ทั้งที่ความจริงคือระบบโหลดไม่ได้
+      debugPrint('fetchBuildings failed during import validation: $e');
       _existingBuildingCodes = [];
+      _buildingCodesFailed = true;
     }
   }
 
@@ -118,6 +152,13 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
       _validatedRows = validated;
       _hasPreview = true;
     });
+
+    if (_buildingCodesFailed) {
+      _showMessage(
+        'โหลดรายชื่ออาคารเดิมไม่สำเร็จ — ผลตรวจสอบห้องที่อ้างอิงอาคารเดิม'
+        'อาจไม่ถูกต้อง กรุณาลองใหม่ก่อนนำเข้า',
+      );
+    }
   }
 
   Future<void> _pickFile() async {
@@ -178,6 +219,15 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
   }
 
   Future<void> _startImport() async {
+    // ด่านที่สอง นอกเหนือจากปุ่มที่ถูก disable ไว้ — กันไม่ให้เส้นทางสร้าง
+    // บัญชีถูกเรียกจากทางอื่นโดยไม่ตั้งใจ
+    if (_importBlocked) {
+      _showMessage(
+        'ยังนำเข้าบัญชีผู้ใช้ไม่ได้ — ระบบยังตั้งรหัสผ่านเริ่มต้นเหมือนกันทุกบัญชี',
+      );
+      return;
+    }
+
     if (!_hasPreview) {
       _showMessage('กรุณาเลือกไฟล์หรือโหลด Google Sheets ก่อน');
       return;
@@ -269,7 +319,10 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
           }
       }
     } catch (e) {
-      errorMessage = e.toString();
+      // ไม่โยน e.toString() ขึ้นจอ — เดิมข้อความ error ดิบจากฐานข้อมูลถูก
+      // แสดงตรง ๆ ให้ผู้ดูแลเห็น
+      debugPrint('SchoolImportPage import failed: $e');
+      errorMessage = 'นำเข้าไม่สำเร็จ กรุณาตรวจสอบไฟล์แล้วลองใหม่';
     }
 
     if (!mounted) return;
@@ -283,7 +336,10 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
         _ImportLogRecord(
           date:
               'วันนี้ ${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')} น.',
-          user: 'ผู้ดูแลโรงเรียน',
+          // เดิม hardcode 'ผู้ดูแลโรงเรียน' ทุกแถว ทำให้ประวัติไม่บอกว่าใครทำจริง
+          user: currentUserModel?.name.isNotEmpty == true
+              ? currentUserModel!.name
+              : 'ยังไม่มีข้อมูล',
           dataType: _dataType,
           source: _source == _ImportSource.file
               ? (_selectedFileName?.toLowerCase().endsWith('.csv') == true
@@ -304,7 +360,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
     });
 
     if (errorMessage != null) {
-      _showMessage('นำเข้าไม่สำเร็จ: $errorMessage');
+      _showMessage(errorMessage);
       return;
     }
 
@@ -652,9 +708,12 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
               'ชุดฝึก',
             ].map((String type) {
               final bool selected = _dataType == type;
+              final bool blocked = _credentialCreatingTypes.contains(type);
 
+              // ยังเลือกดูได้ เพื่อให้เห็นว่าฟีเจอร์มีอยู่และทำไมถึงปิด — แต่
+              // ขั้นตอนนำเข้าจริงจะถูกล็อกไว้ในขั้นที่ 4
               return ChoiceChip(
-                label: Text(type),
+                label: Text(blocked ? '$type (ปิดชั่วคราว)' : type),
                 selected: selected,
                 onSelected: (_) {
                   setState(() {
@@ -819,17 +878,31 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
             ),
           );
 
-          final Widget button = FilledButton.icon(
-            onPressed: _isImporting ? null : _startImport,
-            icon: _isImporting
-                ? const SizedBox(
-                    width: 17,
-                    height: 17,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.upload_rounded),
-            label: Text(_isImporting ? 'กำลังนำเข้า...' : 'เริ่มนำเข้าข้อมูล'),
-          );
+          final Widget button = _importBlocked
+              ? Tooltip(
+                  message:
+                      'ปิดไว้ด้วยเหตุผลด้านความปลอดภัย — ระบบยังตั้งรหัสผ่าน'
+                      'เริ่มต้นเหมือนกันทุกบัญชีและยังไม่มีการบังคับเปลี่ยนรหัส '
+                      'จึงยังนำเข้าบัญชีผู้ใช้ไม่ได้',
+                  child: FilledButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    label: const Text('ปิดชั่วคราวด้วยเหตุผลด้านความปลอดภัย'),
+                  ),
+                )
+              : FilledButton.icon(
+                  onPressed: _isImporting ? null : _startImport,
+                  icon: _isImporting
+                      ? const SizedBox(
+                          width: 17,
+                          height: 17,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_rounded),
+                  label: Text(
+                    _isImporting ? 'กำลังนำเข้า...' : 'เริ่มนำเข้าข้อมูล',
+                  ),
+                );
 
           if (constraints.maxWidth < 650) {
             return Column(
