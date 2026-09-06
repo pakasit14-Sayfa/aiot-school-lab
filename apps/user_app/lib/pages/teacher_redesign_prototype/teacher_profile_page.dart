@@ -17,7 +17,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   List<CourseSummary> _courses = [];
   int _totalStudents = 0;
   List<TermOption> _terms = [];
-  String? _selectedTermName;
   List<AiotLabDeviceItem> _devices = [];
 
   @override
@@ -66,9 +65,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
             _terms = terms;
             _devices = devices;
             _totalStudents = studentCount;
-            if (terms.isNotEmpty) {
-              _selectedTermName = terms.first.name;
-            }
             _isLoading = false;
           });
         }
@@ -160,8 +156,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 courses: _courses,
                 totalStudents: _totalStudents,
                 terms: _terms,
-                selectedTermName: _selectedTermName,
-                onTermChanged: (t) => setState(() => _selectedTermName = t),
                 devices: _devices,
                 onLogout: () => _handleLogout(context),
               )
@@ -171,8 +165,6 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 courses: _courses,
                 totalStudents: _totalStudents,
                 terms: _terms,
-                selectedTermName: _selectedTermName,
-                onTermChanged: (t) => setState(() => _selectedTermName = t),
                 devices: _devices,
                 onLogout: () => _handleLogout(context),
               );
@@ -188,8 +180,6 @@ class _MobileLayout extends StatelessWidget {
     required this.courses,
     required this.totalStudents,
     required this.terms,
-    required this.selectedTermName,
-    required this.onTermChanged,
     required this.devices,
     required this.onLogout,
   });
@@ -199,8 +189,6 @@ class _MobileLayout extends StatelessWidget {
   final List<CourseSummary> courses;
   final int totalStudents;
   final List<TermOption> terms;
-  final String? selectedTermName;
-  final ValueChanged<String?> onTermChanged;
   final List<AiotLabDeviceItem> devices;
   final VoidCallback onLogout;
 
@@ -222,11 +210,7 @@ class _MobileLayout extends StatelessWidget {
               .length,
         ),
         const SizedBox(height: 14),
-        _AcademicSettingCard(
-          terms: terms,
-          selectedTermName: selectedTermName,
-          onTermChanged: onTermChanged,
-        ),
+        _AcademicSettingCard(terms: terms),
         const SizedBox(height: 14),
         _AiotHardwareCard(devices: devices),
         const SizedBox(height: 14),
@@ -305,8 +289,6 @@ class _DesktopLayout extends StatelessWidget {
     required this.courses,
     required this.totalStudents,
     required this.terms,
-    required this.selectedTermName,
-    required this.onTermChanged,
     required this.devices,
     required this.onLogout,
   });
@@ -316,8 +298,6 @@ class _DesktopLayout extends StatelessWidget {
   final List<CourseSummary> courses;
   final int totalStudents;
   final List<TermOption> terms;
-  final String? selectedTermName;
-  final ValueChanged<String?> onTermChanged;
   final List<AiotLabDeviceItem> devices;
   final VoidCallback onLogout;
 
@@ -359,11 +339,7 @@ class _DesktopLayout extends StatelessWidget {
               flex: 5,
               child: Column(
                 children: [
-                  _AcademicSettingCard(
-                    terms: terms,
-                    selectedTermName: selectedTermName,
-                    onTermChanged: onTermChanged,
-                  ),
+                  _AcademicSettingCard(terms: terms),
                   const SizedBox(height: 16),
                   const _SectionCard(
                     title: 'ช่วยเหลือ',
@@ -870,26 +846,23 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = danger ? TeacherPalette.red : TeacherPalette.ink;
-    final titleColor = danger ? TeacherPalette.red : TeacherPalette.ink;
+    // ไม่มี onTap = ยังไม่มีหน้าจริง/ยังไม่ได้ต่อ backend — ปิดการกดไปเลย
+    // และบอกตรง ๆ ว่ายังไม่เปิดใช้งาน แทนการขึ้น snackbar ว่า "กำลังเปิด: ..."
+    // ซึ่งทำให้ผู้ใช้เข้าใจผิดว่าระบบทำงานให้แล้ว
+    final enabled = onTap != null;
+    const disabledColor = Color(0xFF9CA9B4);
+    final iconColor = !enabled
+        ? disabledColor
+        : (danger ? TeacherPalette.red : TeacherPalette.ink);
+    final titleColor = !enabled
+        ? disabledColor
+        : (danger ? TeacherPalette.red : TeacherPalette.ink);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          if (onTap != null) {
-            onTap!();
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(danger ? 'ออกจากระบบ' : 'กำลังเปิด: $title'),
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        },
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
@@ -919,7 +892,7 @@ class _MenuTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      subtitle,
+                      enabled ? subtitle : '$subtitle · ยังไม่เปิดใช้งาน',
                       style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontSize: 12,
@@ -931,10 +904,12 @@ class _MenuTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF9CA9B4),
-                size: 22,
+              Icon(
+                enabled
+                    ? Icons.chevron_right_rounded
+                    : Icons.lock_outline_rounded,
+                color: const Color(0xFF9CA9B4),
+                size: enabled ? 22 : 18,
               ),
             ],
           ),
@@ -1004,48 +979,31 @@ class _DividerLine extends StatelessWidget {
 }
 
 class _AcademicSettingCard extends StatelessWidget {
-  const _AcademicSettingCard({
-    this.terms = const [],
-    this.selectedTermName,
-    this.onTermChanged,
-  });
+  const _AcademicSettingCard({this.terms = const []});
 
   final List<TermOption> terms;
-  final String? selectedTermName;
-  final ValueChanged<String?>? onTermChanged;
 
   @override
   Widget build(BuildContext context) {
     return _SectionCard(
       title: 'การศึกษา & ภาคเรียน',
       icon: Icons.school_rounded,
-      children: [
-        _AcademicDropdownTile(
-          terms: terms,
-          selectedTermName: selectedTermName,
-          onTermChanged: onTermChanged,
-        ),
-      ],
+      children: [_AcademicDropdownTile(terms: terms)],
     );
   }
 }
 
+/// แสดงภาคเรียนปัจจุบันจาก `list_terms` (ข้อมูลจริง) แบบอ่านอย่างเดียว —
+/// เดิมเป็น dropdown ที่เลือกได้แล้วขึ้นข้อความ "เปลี่ยนปีการศึกษาเป็น: ..."
+/// ทั้งที่ไม่ได้บันทึกอะไรเลย (ไม่มี RPC เปลี่ยน/ตั้งภาคเรียนปัจจุบันในระบบ)
 class _AcademicDropdownTile extends StatelessWidget {
-  const _AcademicDropdownTile({
-    this.terms = const [],
-    this.selectedTermName,
-    this.onTermChanged,
-  });
+  const _AcademicDropdownTile({this.terms = const []});
 
   final List<TermOption> terms;
-  final String? selectedTermName;
-  final ValueChanged<String?>? onTermChanged;
 
   @override
   Widget build(BuildContext context) {
-    final currentVal =
-        selectedTermName ??
-        (terms.isNotEmpty ? terms.first.name : 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)');
+    final currentVal = terms.isNotEmpty ? terms.first.name : 'ยังไม่มีข้อมูล';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1079,51 +1037,21 @@ class _AcademicDropdownTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: currentVal,
-                    isDense: true,
-                    style: const TextStyle(
-                      color: TeacherPalette.muted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    icon: const Icon(
-                      Icons.arrow_drop_down_rounded,
-                      color: TeacherPalette.muted,
-                    ),
-                    onChanged: (newValue) {
-                      if (newValue != null) {
-                        onTermChanged?.call(newValue);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('เปลี่ยนปีการศึกษาเป็น: $newValue'),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    },
-                    items: terms.isNotEmpty
-                        ? terms.map((t) {
-                            return DropdownMenuItem<String>(
-                              value: t.name,
-                              child: Text(t.name),
-                            );
-                          }).toList()
-                        : const [
-                            DropdownMenuItem(
-                              value: 'ภาคเรียนที่ 1/2569 (ปัจจุบัน)',
-                              child: Text('ภาคเรียนที่ 1/2569 (ปัจจุบัน)'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'ภาคเรียนที่ 2/2568',
-                              child: Text('ภาคเรียนที่ 2/2568'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'ภาคเรียนที่ 1/2568',
-                              child: Text('ภาคเรียนที่ 1/2568'),
-                            ),
-                          ],
+                Text(
+                  currentVal,
+                  style: const TextStyle(
+                    color: TeacherPalette.muted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'ยังเปลี่ยนภาคเรียนจากหน้านี้ไม่ได้ (ยังไม่เปิดใช้งาน)',
+                  style: TextStyle(
+                    color: TeacherPalette.softText,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],

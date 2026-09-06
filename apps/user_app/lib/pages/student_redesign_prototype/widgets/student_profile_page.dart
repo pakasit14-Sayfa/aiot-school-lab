@@ -675,24 +675,22 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = danger ? const Color(0xFFDC2626) : SchoolPalette.navy;
-    final titleColor = danger ? const Color(0xFFDC2626) : SchoolPalette.navy;
+    // ไม่มี onTap = ยังไม่มีหน้าจริง/ยังไม่ได้ต่อ backend — ปิดการกดไปเลย
+    // และบอกไว้ที่ตัวรายการ แทนการปล่อยให้กดได้แล้วค่อยขึ้น snackbar
+    final enabled = onTap != null;
+    const disabledColor = Color(0xFF9CA9B4);
+    final iconColor = !enabled
+        ? disabledColor
+        : (danger ? const Color(0xFFDC2626) : SchoolPalette.navy);
+    final titleColor = !enabled
+        ? disabledColor
+        : (danger ? const Color(0xFFDC2626) : SchoolPalette.navy);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap:
-            onTap ??
-            () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน'),
-                  duration: Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
@@ -722,7 +720,7 @@ class _MenuTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      subtitle,
+                      enabled ? subtitle : '$subtitle · ยังไม่เปิดใช้งาน',
                       style: const TextStyle(
                         color: SchoolPalette.muted,
                         fontSize: 12,
@@ -734,10 +732,12 @@ class _MenuTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF9CA9B4),
-                size: 22,
+              Icon(
+                enabled
+                    ? Icons.chevron_right_rounded
+                    : Icons.lock_outline_rounded,
+                color: const Color(0xFF9CA9B4),
+                size: enabled ? 22 : 18,
               ),
             ],
           ),

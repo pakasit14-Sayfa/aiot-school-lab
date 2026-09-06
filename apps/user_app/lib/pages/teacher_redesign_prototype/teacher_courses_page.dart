@@ -4461,28 +4461,27 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                 color: TeacherPalette.ink,
               ),
             ),
-            OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('กำลังส่งออกไฟล์คะแนน Excel / CSV...'),
-                    duration: Duration(seconds: 2),
+            // ยังไม่มี backend รองรับการส่งออกคะแนน (ไม่มี RPC/Service ใดใน
+            // shared_core ที่ทำเรื่องนี้) — ปิดปุ่มไว้ตรง ๆ ดีกว่าขึ้นข้อความ
+            // ว่า "กำลังส่งออก..." ทั้งที่ไม่ได้ยิงอะไรเลย
+            const Tooltip(
+              message:
+                  'ยังไม่รองรับการส่งออกคะแนนเป็นไฟล์ — ฟีเจอร์นี้ยังไม่ได้เชื่อมกับเซิร์ฟเวอร์',
+              child: OutlinedButton(
+                onPressed: null,
+                style: ButtonStyle(
+                  minimumSize: WidgetStatePropertyAll(Size.zero),
+                  padding: WidgetStatePropertyAll(
+                    EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   ),
-                );
-              },
-              icon: const Icon(Icons.file_download_rounded, size: 16),
-              label: const Text('ส่งออกคะแนน (Excel)'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF059669),
-                side: const BorderSide(color: Color(0xFFA7F3D0)),
-                backgroundColor: const Color(0xFFECFDF5),
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.file_download_rounded, size: 16),
+                    SizedBox(width: 6),
+                    Text('ส่งออกคะแนน (ยังไม่เปิดใช้งาน)'),
+                  ],
                 ),
               ),
             ),
