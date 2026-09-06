@@ -82,30 +82,42 @@ class MyApp extends StatelessWidget {
         '/users': (context) => const UserListPage(),
         '/forgot-password': (context) => const ForgotPasswordPage(),
         '/studentHomePage': (context) => const StudentHomePageWidget(),
-        '/prototype/teacher-design-system': (context) =>
-            const TeacherDesignSystemPage(),
-        '/prototype/teacher-redesign/design-system': (context) =>
-            const TeacherDesignSystemPage(),
-        '/prototype/teacher-storybook': (context) =>
-            const TeacherStorybookPage(),
-        '/prototype/executive': (context) => const DirectorNavigationShell(),
-        '/prototype/executive-inbox': (context) =>
-            const DirectorNavigationShell(),
-        '/prototype/storybook': (context) => const TeacherStorybookPage(),
-        '/prototype/teacher-courses': (context) => const TeacherCoursesPage(),
-        '/prototype/course-detail': (context) =>
-            const TeacherCourseDetailPage(),
-        '/prototype/teacher-courses/detail': (context) =>
-            const TeacherCourseDetailPage(),
-        '/prototype/courses': (context) => const TeacherCoursesPage(),
-        '/prototype/student-catalog': (context) =>
-            const StudentCourseCatalogPage(),
-        '/prototype/student-catalog-carousel': (context) =>
-            const StudentCourseCatalogCarouselPage(),
-        '/prototype/student-catalog-minimal': (context) =>
-            const StudentCourseCatalogMinimalPage(),
-        '/prototype/student-catalog-streaming': (context) =>
-            const StudentCourseCatalogStreamingPage(),
+        // Dev-preview routes. Gated behind isPrototypeMode so they are not
+        // registered at all in a normal build: they were previously always
+        // reachable by typing the URL (e.g. /#/prototype/executive), which
+        // rendered a role's shell — and, more visibly, that shell's
+        // hardcoded placeholder rows (fake staff names, emails and phone
+        // numbers) — to anyone, signed in or not. Real data was never at
+        // risk: every RPC checks the caller's role server-side, and the
+        // services return early when there is no session token. Nothing in
+        // the app navigates to these paths; they are typed by hand during
+        // design review only.
+        if (isPrototypeMode) ...{
+          '/prototype/teacher-design-system': (context) =>
+              const TeacherDesignSystemPage(),
+          '/prototype/teacher-redesign/design-system': (context) =>
+              const TeacherDesignSystemPage(),
+          '/prototype/teacher-storybook': (context) =>
+              const TeacherStorybookPage(),
+          '/prototype/executive': (context) => const DirectorNavigationShell(),
+          '/prototype/executive-inbox': (context) =>
+              const DirectorNavigationShell(),
+          '/prototype/storybook': (context) => const TeacherStorybookPage(),
+          '/prototype/teacher-courses': (context) => const TeacherCoursesPage(),
+          '/prototype/course-detail': (context) =>
+              const TeacherCourseDetailPage(),
+          '/prototype/teacher-courses/detail': (context) =>
+              const TeacherCourseDetailPage(),
+          '/prototype/courses': (context) => const TeacherCoursesPage(),
+          '/prototype/student-catalog': (context) =>
+              const StudentCourseCatalogPage(),
+          '/prototype/student-catalog-carousel': (context) =>
+              const StudentCourseCatalogCarouselPage(),
+          '/prototype/student-catalog-minimal': (context) =>
+              const StudentCourseCatalogMinimalPage(),
+          '/prototype/student-catalog-streaming': (context) =>
+              const StudentCourseCatalogStreamingPage(),
+        },
         '/super_admin/schools': (context) => const SuperAdminSchoolsPage(),
         '/super_admin/device_control': (context) =>
             const SuperAdminDeviceControlPage(),
@@ -114,6 +126,11 @@ class MyApp extends StatelessWidget {
         final name = settings.name;
         if (name == null) return null;
         final uri = Uri.parse(name);
+        // Same gate as the routes table above — onGenerateRoute would
+        // otherwise still resolve every /prototype/ path in a normal build.
+        if (!isPrototypeMode && uri.path.startsWith('/prototype/')) {
+          return null;
+        }
         if (uri.path == '/prototype/teacher-dashboard') {
           return MaterialPageRoute(
             settings: settings,
