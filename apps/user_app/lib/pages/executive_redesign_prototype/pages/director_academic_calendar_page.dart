@@ -4,8 +4,20 @@ import 'package:shared_core/shared_core.dart';
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
+/// Read seams so loading / data / empty / failure can each be driven in a
+/// test without a live Supabase client.
+typedef CalendarEventsLoader = Future<List<CalendarEventItem>> Function();
+typedef SchoolSchedulesLoader = Future<List<SchoolScheduleItem>> Function();
+
 class DirectorAcademicCalendarPage extends StatefulWidget {
-  const DirectorAcademicCalendarPage({super.key});
+  const DirectorAcademicCalendarPage({
+    super.key,
+    this.loadEvents,
+    this.loadSchedules,
+  });
+
+  final CalendarEventsLoader? loadEvents;
+  final SchoolSchedulesLoader? loadSchedules;
 
   @override
   State<DirectorAcademicCalendarPage> createState() =>
@@ -27,144 +39,88 @@ class _DirectorAcademicCalendarPageState
     'วันหยุด',
   ];
 
-  late final List<_CalendarEvent> events;
+  /// Today, resolved once so the grid cannot drift mid-build.
+  final DateTime _now = DateTime.now();
+
+  List<_CalendarEvent> events = const [];
+  List<SchoolScheduleItem> _schedules = const [];
+  bool _loading = true;
+  bool _loadFailed = false;
 
   @override
   void initState() {
     super.initState();
-    _initCalendarEvents();
-    _loadSchoolSchedules();
+    selectedMonth = DateTime(_now.year, _now.month);
+    selectedDate = DateTime(_now.year, _now.month, _now.day);
+    _loadCalendar();
   }
 
-  Future<void> _loadSchoolSchedules() async {
+  /// Loads the school's real calendar.
+  ///
+  /// `_initCalendarEvents()` used to live here: 123 lines building a fixed
+  /// August-2026 calendar — "ประชุมฝ่ายบริหาร 09:00-10:30 ห้องประชุม 1",
+  /// "ประชุมหัวหน้ากลุ่มสาระ", and the rest — while `_loadSchoolSchedules`
+  /// awaited a real RPC and threw the result away inside `catch (_) {}`. The
+  /// page therefore looked connected and was not: every date, time, room and
+  /// attendee on screen was invented, and it always showed August 2026 no
+  /// matter what month it actually was.
+  Future<void> _loadCalendar() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
-      await ExecutiveService.listAllSchoolSchedules();
-    } catch (_) {}
+      final results = await Future.wait([
+        widget.loadEvents?.call() ?? CalendarService.listSchoolCalendarEvents(),
+        widget.loadSchedules?.call() ??
+            ExecutiveService.listAllSchoolSchedules(),
+      ]);
+      if (!mounted) return;
+      final calendarRows = results[0] as List<CalendarEventItem>;
+      setState(() {
+        events = calendarRows.map(_toCalendarEvent).toList();
+        _schedules = results[1] as List<SchoolScheduleItem>;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('DirectorAcademicCalendarPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
   }
 
-  void _initCalendarEvents() {
-    selectedMonth = DateTime(2026, 8);
-    selectedDate = DateTime(2026, 8, 20);
-
-    events = [
-      _CalendarEvent(
-        date: DateTime(2026, 8, 20),
-        time: '09:00 - 10:30',
-        title: 'ประชุมฝ่ายบริหาร',
-        description:
-            'ประชุมติดตามภาพรวมการมาเรียน การใช้ทรัพยากร เหตุฉุกเฉิน และสถานะการดำเนินงานประจำสัปดาห์',
-        location: 'ห้องประชุม 1',
-        category: 'ประชุม',
-        color: AppPalette.primaryPink,
-        icon: Icons.groups_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 30 นาที',
-        participants: 'ผู้อำนวยการ / รองผู้อำนวยการ / หัวหน้าฝ่าย',
+  /// `school_events` stores dates only — no time of day, no attendee list, no
+  /// organiser — so those fields say so rather than being filled in. The
+  /// event_type check constraint is
+  /// ('holiday','public_holiday','exam','activity','study'): there is no
+  /// meeting type, which is why the invented ประชุม entries could never have
+  /// come from the database.
+  _CalendarEvent _toCalendarEvent(CalendarEventItem row) {
+    final (category, color, icon) = switch (row.eventType) {
+      'exam' => ('สอบ', AppPalette.danger, Icons.assignment_rounded),
+      'holiday' || 'public_holiday' => (
+        'วันหยุด',
+        AppPalette.primaryPink,
+        Icons.beach_access_rounded,
       ),
-      _CalendarEvent(
-        date: DateTime(2026, 8, 20),
-        time: '13:00 - 15:00',
-        title: 'ประชุมหัวหน้ากลุ่มสาระ',
-        description:
-            'สรุปผลการสอน ปัญหาการเรียนของนักเรียน และวางแผนการจัดกิจกรรมเสริมในแต่ละกลุ่มสาระ',
-        location: 'ห้องวิชาการ',
-        category: 'ประชุม',
-        color: AppPalette.learningBlue,
-        icon: Icons.co_present_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 1 ชั่วโมง',
-        participants: 'หัวหน้ากลุ่มสาระ 8 กลุ่ม',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 8, 21),
-        time: '08:30 - 12:00',
-        title: 'นิเทศการสอนภายใน',
-        description:
-            'ติดตามการจัดการเรียนการสอนในระดับ ม.1 - ม.6 และบันทึกผลการนิเทศเพื่อใช้ในการพัฒนาการสอน',
-        location: 'อาคารเรียน 1 - 3',
-        category: 'วิชาการ',
-        color: AppPalette.environmentGreen,
-        icon: Icons.fact_check_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 1 วัน',
-        participants: 'ฝ่ายวิชาการ / ครูผู้สอน',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 8, 24),
-        time: '08:00 - 16:00',
-        title: 'สอบกลางภาค ม.1 - ม.3',
-        description:
-            'ดำเนินการสอบกลางภาคระดับมัธยมศึกษาตอนต้น ตรวจสอบห้องสอบ กรรมการคุมสอบ และความพร้อมของนักเรียน',
-        location: 'อาคารเรียน 1 และ 2',
-        category: 'สอบ',
-        color: AppPalette.warning,
-        icon: Icons.edit_note_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 3 วัน',
-        participants: 'นักเรียน ม.1 - ม.3 / ครูคุมสอบ',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 8, 25),
-        time: '08:00 - 16:00',
-        title: 'สอบกลางภาค ม.4 - ม.6',
-        description:
-            'ดำเนินการสอบกลางภาคระดับมัธยมศึกษาตอนปลาย พร้อมตรวจสอบตารางสอบ ห้องสอบ และนักเรียนขาดสอบ',
-        location: 'อาคารเรียน 2 และ 3',
-        category: 'สอบ',
-        color: AppPalette.warning,
-        icon: Icons.edit_note_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 3 วัน',
-        participants: 'นักเรียน ม.4 - ม.6 / ครูคุมสอบ',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 8, 28),
-        time: '13:00 - 16:00',
-        title: 'กิจกรรมแนะแนวการศึกษาต่อ',
-        description:
-            'แนะแนวเส้นทางการศึกษาต่อสำหรับนักเรียน ม.6 แยกตามสายวิทย์-คณิต สายภาษา และสายทั่วไป',
-        location: 'หอประชุมใหญ่',
-        category: 'กิจกรรม',
-        color: AppPalette.chartPink,
-        icon: Icons.school_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 1 วัน',
-        participants: 'นักเรียน ม.6 / ครูแนะแนว',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 9, 1),
-        time: '09:00 - 11:00',
-        title: 'ประชุมคณะกรรมการสถานศึกษา',
-        description:
-            'รายงานผลการดำเนินงานประจำเดือน งบประมาณ ผลการเรียน ความปลอดภัย และแผนพัฒนาโรงเรียน',
-        location: 'ห้องประชุมใหญ่',
-        category: 'ประชุม',
-        color: AppPalette.primaryPink,
-        icon: Icons.groups_2_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 2 วัน',
-        participants: 'คณะกรรมการสถานศึกษา',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 9, 5),
-        time: 'ตลอดวัน',
-        title: 'วันหยุดกิจกรรมโรงเรียน',
-        description:
-            'งดการเรียนการสอนตามปฏิทินโรงเรียน ระบบยังคงติดตามความปลอดภัยและทรัพยากรตามปกติ',
-        location: 'ทั้งโรงเรียน',
-        category: 'วันหยุด',
-        color: AppPalette.chartCream,
-        icon: Icons.event_busy_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 2 วัน',
-        participants: 'นักเรียน / ครู / บุคลากร',
-      ),
-      _CalendarEvent(
-        date: DateTime(2026, 9, 10),
-        time: '15:00 - 16:30',
-        title: 'ประชุมสรุปผลกลางภาค',
-        description:
-            'สรุปผลการสอบกลางภาค วิเคราะห์นักเรียนที่ต้องได้รับการดูแลเพิ่มเติม และกำหนดแนวทางพัฒนาผลสัมฤทธิ์',
-        location: 'ห้องวิชาการ',
-        category: 'วิชาการ',
-        color: AppPalette.learningBlue,
-        icon: Icons.analytics_rounded,
-        alertBefore: 'แจ้งเตือนก่อน 1 วัน',
-        participants: 'ฝ่ายวิชาการ / หัวหน้ากลุ่มสาระ',
-      ),
-    ];
+      'study' => ('วิชาการ', AppPalette.learningBlue, Icons.school_rounded),
+      _ => ('กิจกรรม', AppPalette.success, Icons.celebration_rounded),
+    };
+    return _CalendarEvent(
+      date: row.startDate,
+      time: 'ตลอดวัน',
+      title: row.title,
+      description: row.description ?? '',
+      location: row.location ?? 'ไม่ระบุสถานที่',
+      category: category,
+      color: color,
+      icon: icon,
+      alertBefore: '',
+      participants: '',
+    );
   }
 
   @override
@@ -178,6 +134,12 @@ class _DirectorAcademicCalendarPageState
             subtitle:
                 'ติดตามปฏิทินโรงเรียน ตารางประชุม การสอบ กิจกรรม และการแจ้งเตือนสำคัญในหน้าเดียว',
           ),
+          if (_loading) ...[
+            const SizedBox(height: 24),
+            const Center(child: CircularProgressIndicator()),
+            const SizedBox(height: 24),
+          ],
+          if (_loadFailed) ...[const SizedBox(height: 12), _loadErrorBanner()],
           const SizedBox(height: 16),
           _summaryCards(),
           const SizedBox(height: 16),
@@ -198,15 +160,9 @@ class _DirectorAcademicCalendarPageState
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 5,
-                    child: _calendarCard(),
-                  ),
+                  Expanded(flex: 5, child: _calendarCard()),
                   const SizedBox(width: 16),
-                  Expanded(
-                    flex: 3,
-                    child: _selectedDateCard(),
-                  ),
+                  Expanded(flex: 3, child: _selectedDateCard()),
                 ],
               );
             },
@@ -244,32 +200,49 @@ class _DirectorAcademicCalendarPageState
   }
 
   Widget _summaryCards() {
-    const items = [
+    // Counted from the loaded calendar. These were the fixed strings '12',
+    // '4', '3' and '72' — the last one, "วันเรียนคงเหลือ 72", was a claim
+    // about the academic term that nothing in the schema records at all.
+    final monthCount = _eventsForMonth(selectedMonth).length;
+    final today = DateTime(_now.year, _now.month, _now.day);
+    final weekCount = events.where((e) {
+      final days = DateTime(
+        e.date.year,
+        e.date.month,
+        e.date.day,
+      ).difference(today).inDays;
+      return days >= 0 && days <= 7;
+    }).length;
+    final examCount = events.where((e) => e.category == 'สอบ').length;
+
+    String figure(int n) => _loadFailed ? '—' : '$n';
+
+    final items = [
       _CalendarSummary(
         title: 'กิจกรรมเดือนนี้',
-        value: '12',
-        subtitle: 'วิชาการ / สอบ / กิจกรรม',
+        value: figure(monthCount),
+        subtitle: 'วิชาการ / สอบ / กิจกรรม / วันหยุด',
         icon: Icons.calendar_month_rounded,
         color: AppPalette.softPink,
       ),
       _CalendarSummary(
-        title: 'ประชุมสัปดาห์นี้',
-        value: '4',
-        subtitle: 'เหลืออีก 2 รายการ',
-        icon: Icons.groups_rounded,
+        title: 'ภายใน 7 วัน',
+        value: figure(weekCount),
+        subtitle: 'นับจากวันนี้',
+        icon: Icons.event_available_rounded,
         color: AppPalette.softBlue,
       ),
       _CalendarSummary(
-        title: 'แจ้งเตือนสำคัญ',
-        value: '3',
-        subtitle: 'ต้องติดตามภายใน 7 วัน',
-        icon: Icons.notifications_active_rounded,
+        title: 'ตารางสอบ',
+        value: figure(examCount),
+        subtitle: 'ทั้งปฏิทิน',
+        icon: Icons.assignment_rounded,
         color: AppPalette.softCream,
       ),
       _CalendarSummary(
-        title: 'วันเรียนคงเหลือ',
-        value: '72',
-        subtitle: 'ภาคเรียนปัจจุบัน',
+        title: 'คาบเรียนต่อสัปดาห์',
+        value: figure(_schedules.length),
+        subtitle: 'จากตารางสอนทั้งโรงเรียน',
         icon: Icons.school_rounded,
         color: AppPalette.softPink2,
       ),
@@ -301,11 +274,7 @@ class _DirectorAcademicCalendarPageState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    item.icon,
-                    size: 20,
-                    color: AppPalette.textDark,
-                  ),
+                  Icon(item.icon, size: 20, color: AppPalette.textDark),
                   const Spacer(),
                   Text(
                     item.title,
@@ -390,10 +359,7 @@ class _DirectorAcademicCalendarPageState
               ),
               const Text(
                 'ภาคเรียนที่ 1 / 2569',
-                style: TextStyle(
-                  fontSize: 9.5,
-                  color: AppPalette.textMuted,
-                ),
+                style: TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
               ),
             ],
           ),
@@ -451,9 +417,7 @@ class _DirectorAcademicCalendarPageState
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: active
-                        ? Colors.white
-                        : AppPalette.textMuted,
+                    color: active ? Colors.white : AppPalette.textMuted,
                   ),
                 ),
               ),
@@ -488,11 +452,7 @@ class _DirectorAcademicCalendarPageState
   }
 
   Widget _monthGrid(List<_CalendarEvent> visibleEvents) {
-    final firstDay = DateTime(
-      selectedMonth.year,
-      selectedMonth.month,
-      1,
-    );
+    final firstDay = DateTime(selectedMonth.year, selectedMonth.month, 1);
     final daysInMonth = DateTime(
       selectedMonth.year,
       selectedMonth.month + 1,
@@ -508,8 +468,7 @@ class _DirectorAcademicCalendarPageState
       itemCount: cellCount,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
         crossAxisSpacing: 6,
         mainAxisSpacing: 6,
@@ -533,10 +492,7 @@ class _DirectorAcademicCalendarPageState
             .toList();
 
         final selected = _sameDate(selectedDate, date);
-        final today = _sameDate(
-          date,
-          DateTime(2026, 8, 20),
-        );
+        final today = _sameDate(date, DateTime(2026, 8, 20));
 
         return InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -544,14 +500,10 @@ class _DirectorAcademicCalendarPageState
           child: Container(
             padding: const EdgeInsets.all(7),
             decoration: BoxDecoration(
-              color: selected
-                  ? AppPalette.primaryPinkSoft
-                  : Colors.white,
+              color: selected ? AppPalette.primaryPinkSoft : Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected
-                    ? AppPalette.primaryPink
-                    : AppPalette.border,
+                color: selected ? AppPalette.primaryPink : AppPalette.border,
                 width: selected ? 1.5 : 1,
               ),
             ),
@@ -575,9 +527,7 @@ class _DirectorAcademicCalendarPageState
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          color: today
-                              ? Colors.white
-                              : AppPalette.textDark,
+                          color: today ? Colors.white : AppPalette.textDark,
                         ),
                       ),
                     ),
@@ -618,20 +568,14 @@ class _DirectorAcademicCalendarPageState
         children: [
           Text(
             _thaiFullDate(selectedDate),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(
             dayEvents.isEmpty
                 ? 'ไม่มีกิจกรรมในวันนี้'
                 : '${dayEvents.length} รายการในวันนี้',
-            style: const TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           if (dayEvents.isEmpty)
@@ -646,10 +590,7 @@ class _DirectorAcademicCalendarPageState
   Widget _emptySelectedDate() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 30,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 30),
       decoration: BoxDecoration(
         color: AppPalette.primaryPinkSoft,
         borderRadius: BorderRadius.circular(18),
@@ -664,19 +605,13 @@ class _DirectorAcademicCalendarPageState
           SizedBox(height: 8),
           Text(
             'วันนี้ยังไม่มีรายการ',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
           ),
           SizedBox(height: 3),
           Text(
             'เลือกวันที่อื่นในปฏิทินเพื่อดูรายละเอียด',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 9.5,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
           ),
         ],
       ),
@@ -693,9 +628,7 @@ class _DirectorAcademicCalendarPageState
         decoration: BoxDecoration(
           color: AppPalette.tint(event.color, 0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppPalette.tint(event.color, 0.18),
-          ),
+          border: Border.all(color: AppPalette.tint(event.color, 0.18)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -707,11 +640,7 @@ class _DirectorAcademicCalendarPageState
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                event.icon,
-                size: 19,
-                color: event.color,
-              ),
+              child: Icon(event.icon, size: 19, color: event.color),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -769,18 +698,12 @@ class _DirectorAcademicCalendarPageState
         children: [
           const Text(
             'ตารางการประชุม',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'รายการประชุมสำคัญของฝ่ายบริหารและครู',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           ...meetings.map((event) {
@@ -818,11 +741,7 @@ class _DirectorAcademicCalendarPageState
                         ],
                       ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 42,
-                      color: AppPalette.border,
-                    ),
+                    Container(width: 1, height: 42, color: AppPalette.border),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -859,41 +778,80 @@ class _DirectorAcademicCalendarPageState
     );
   }
 
+  /// Stated on the page. A calendar that failed to load and a school with no
+  /// events look identical otherwise.
+  Widget _loadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดปฏิทินไม่สำเร็จ — หน้านี้อาจไม่แสดงกิจกรรมที่มีอยู่จริง',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _loadCalendar,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _alertsCard() {
-    final alerts = [
-      const _CalendarAlert(
-        title: 'สอบกลางภาคเริ่มในอีก 4 วัน',
-        detail:
-            'ตรวจสอบตารางสอบ ห้องสอบ กรรมการคุมสอบ และรายชื่อนักเรียนให้เรียบร้อย',
-        status: 'ควรเตรียมการ',
-        icon: Icons.edit_note_rounded,
-        color: AppPalette.warning,
-      ),
-      const _CalendarAlert(
-        title: 'ประชุมฝ่ายบริหารวันนี้ 09:00 น.',
-        detail:
-            'ระบบจะแจ้งเตือนซ้ำก่อนเริ่มประชุม 30 นาที พร้อมสรุปข้อมูล Dashboard ที่เกี่ยวข้อง',
-        status: 'วันนี้',
-        icon: Icons.groups_rounded,
-        color: AppPalette.primaryPink,
-      ),
-      const _CalendarAlert(
-        title: 'นิเทศการสอนพรุ่งนี้',
-        detail:
-            'ฝ่ายวิชาการควรตรวจสอบรายชื่อห้องเรียนและครูที่เข้ารับการนิเทศ',
-        status: 'พรุ่งนี้',
-        icon: Icons.fact_check_rounded,
-        color: AppPalette.learningBlue,
-      ),
-      const _CalendarAlert(
-        title: 'ใกล้วันส่งผลการเรียนกลางภาค',
-        detail:
-            'แจ้งหัวหน้ากลุ่มสาระติดตามครูผู้สอนที่ยังบันทึกคะแนนไม่ครบ',
-        status: 'ติดตาม',
-        icon: Icons.notifications_active_rounded,
-        color: AppPalette.environmentGreen,
-      ),
-    ];
+    // Derived from the school's own calendar, not written by hand.
+    //
+    // This was a const list of three warnings — "สอบกลางภาคเริ่มในอีก 4 วัน"
+    // and friends — that never changed and referred to nothing. A reminder is
+    // only useful if it counts down to a date that exists, so these are built
+    // from upcoming entries and disappear when there are none.
+    final today = DateTime(_now.year, _now.month, _now.day);
+    final alerts =
+        events
+            .where((e) {
+              final d = DateTime(e.date.year, e.date.month, e.date.day);
+              final days = d.difference(today).inDays;
+              return days >= 0 && days <= 14;
+            })
+            .map((e) {
+              final days = DateTime(
+                e.date.year,
+                e.date.month,
+                e.date.day,
+              ).difference(today).inDays;
+              final whenText = days == 0
+                  ? 'วันนี้'
+                  : (days == 1 ? 'พรุ่งนี้' : 'อีก $days วัน');
+              return _CalendarAlert(
+                title: '${e.title} — $whenText',
+                status: e.category,
+                detail: e.description.isNotEmpty
+                    ? e.description
+                    : 'สถานที่: ${e.location}',
+                color: e.color,
+                icon: e.icon,
+              );
+            })
+            .toList()
+          ..sort((a, b) => a.title.compareTo(b.title));
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -903,18 +861,12 @@ class _DirectorAcademicCalendarPageState
         children: [
           const Text(
             'การแจ้งเตือนปฏิทิน',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'เตือนสิ่งที่ผู้บริหารควรดำเนินการล่วงหน้า',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           ...alerts.map((alert) {
@@ -924,9 +876,7 @@ class _DirectorAcademicCalendarPageState
               decoration: BoxDecoration(
                 color: AppPalette.tint(alert.color, 0.07),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppPalette.tint(alert.color, 0.14),
-                ),
+                border: Border.all(color: AppPalette.tint(alert.color, 0.14)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -938,11 +888,7 @@ class _DirectorAcademicCalendarPageState
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(11),
                     ),
-                    child: Icon(
-                      alert.icon,
-                      size: 18,
-                      color: alert.color,
-                    ),
+                    child: Icon(alert.icon, size: 18, color: alert.color),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -966,10 +912,7 @@ class _DirectorAcademicCalendarPageState
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: AppPalette.tint(
-                                  alert.color,
-                                  0.13,
-                                ),
+                                color: AppPalette.tint(alert.color, 0.13),
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
@@ -1023,18 +966,12 @@ class _DirectorAcademicCalendarPageState
         children: [
           const Text(
             'รายการวิชาการที่กำลังจะมาถึง',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'เรียงตามวันที่ เพื่อช่วยวางแผนการดำเนินงานและเตรียมความพร้อมล่วงหน้า',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           ...upcoming.map((event) {
@@ -1047,9 +984,7 @@ class _DirectorAcademicCalendarPageState
                 decoration: BoxDecoration(
                   color: AppPalette.tint(event.color, 0.05),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppPalette.tint(event.color, 0.12),
-                  ),
+                  border: Border.all(color: AppPalette.tint(event.color, 0.12)),
                 ),
                 child: Row(
                   children: [
@@ -1060,11 +995,7 @@ class _DirectorAcademicCalendarPageState
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(13),
                       ),
-                      child: Icon(
-                        event.icon,
-                        size: 20,
-                        color: event.color,
-                      ),
+                      child: Icon(event.icon, size: 20, color: event.color),
                     ),
                     const SizedBox(width: 11),
                     Expanded(
@@ -1120,12 +1051,10 @@ class _DirectorAcademicCalendarPageState
   List<_CalendarEvent> _eventsForMonth(DateTime month) {
     return events.where((event) {
       final sameMonth =
-          event.date.year == month.year &&
-          event.date.month == month.month;
+          event.date.year == month.year && event.date.month == month.month;
 
       final filterMatch =
-          selectedFilter == 'ทั้งหมด' ||
-          event.category == selectedFilter;
+          selectedFilter == 'ทั้งหมด' || event.category == selectedFilter;
 
       return sameMonth && filterMatch;
     }).toList();
@@ -1135,8 +1064,7 @@ class _DirectorAcademicCalendarPageState
     return events.where((event) {
       final dateMatch = _sameDate(event.date, date);
       final filterMatch =
-          selectedFilter == 'ทั้งหมด' ||
-          event.category == selectedFilter;
+          selectedFilter == 'ทั้งหมด' || event.category == selectedFilter;
 
       return dateMatch && filterMatch;
     }).toList();
@@ -1156,10 +1084,7 @@ class _DirectorAcademicCalendarPageState
                   color: AppPalette.tint(event.color, 0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: Icon(
-                  event.icon,
-                  color: event.color,
-                ),
+                child: Icon(event.icon, color: event.color),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1184,16 +1109,8 @@ class _DirectorAcademicCalendarPageState
                     'วันที่',
                     _thaiFullDate(event.date),
                   ),
-                  _detailRow(
-                    Icons.schedule_rounded,
-                    'เวลา',
-                    event.time,
-                  ),
-                  _detailRow(
-                    Icons.place_rounded,
-                    'สถานที่',
-                    event.location,
-                  ),
+                  _detailRow(Icons.schedule_rounded, 'เวลา', event.time),
+                  _detailRow(Icons.place_rounded, 'สถานที่', event.location),
                   _detailRow(
                     Icons.people_alt_rounded,
                     'ผู้เกี่ยวข้อง',
@@ -1207,10 +1124,7 @@ class _DirectorAcademicCalendarPageState
                   const SizedBox(height: 12),
                   const Text(
                     'รายละเอียด',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -1236,30 +1150,19 @@ class _DirectorAcademicCalendarPageState
     );
   }
 
-  Widget _detailRow(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _detailRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 17,
-            color: AppPalette.primaryPink,
-          ),
+          Icon(icon, size: 17, color: AppPalette.primaryPink),
           const SizedBox(width: 9),
           SizedBox(
             width: 78,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 10,
-                color: AppPalette.textMuted,
-              ),
+              style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
             ),
           ),
           Expanded(
@@ -1277,9 +1180,7 @@ class _DirectorAcademicCalendarPageState
   }
 
   bool _sameDate(DateTime a, DateTime b) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   String _thaiMonthYear(DateTime date) {

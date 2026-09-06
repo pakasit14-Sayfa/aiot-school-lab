@@ -1,4 +1,5 @@
 import '../models/calendar_model.dart';
+import '../models/parent_portal_model.dart' show CalendarEventItem;
 import 'auth_service.dart';
 import 'supabase_config.dart';
 
@@ -7,6 +8,32 @@ import 'supabase_config.dart';
 /// completeness but there's no schedule-editing UI yet — only the
 /// student-facing read + personal-task CRUD flow is wired in the app.
 class CalendarService {
+  /// School-wide calendar entries (`list_calendar_events`).
+  ///
+  /// The RPC has no role gate of its own — it only validates the session and
+  /// resolves the caller's school — so every role can read its own school's
+  /// calendar. `p_student_id` narrows it to one student's classes and is left
+  /// null for a school-wide view.
+  ///
+  /// It was previously only reachable through `ParentPortalService`, which is
+  /// why the executive calendar page fell back to hardcoded events.
+  static Future<List<CalendarEventItem>> listSchoolCalendarEvents() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'list_calendar_events',
+              params: {'p_token': token, 'p_student_id': null},
+            )
+            as List;
+    return rows
+        .map(
+          (row) =>
+              CalendarEventItem.fromRow(Map<String, dynamic>.from(row as Map)),
+        )
+        .toList();
+  }
+
   static Future<List<ClassScheduleSlot>> listMySchedule() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
