@@ -1,5 +1,26 @@
 # AIoT School Lab — Project Instructions
 
+> ## เริ่มทุกเซสชันด้วยคำสั่งนี้
+>
+> ```bash
+> ./scripts/state.sh
+> ```
+>
+> พ่นสถานะจริงจาก git / โค้ด / ฐานข้อมูล ~40 บรรทัด — งานไหนยังไม่ push · เลนอื่น
+> ทำอะไรอยู่ · build เขียวไหม · หน้าไหนต่อ backend แล้ว · RPC ตัวไหนเป็นกับดัก
+> (`--test` เพิ่มผลรัน test · `--log` ประวัติงานที่สร้างจาก git)
+>
+> **อย่าเริ่มจากการอ่านเอกสารแล้วเชื่อ** — 2026-09-06 เอกสารในโฟลเดอร์นี้ผิดพร้อมกัน
+> 3 จุด: baseline test (เขียน 16 ของจริง 17), `school_admin_energy_page` ที่เขียนว่า
+> "ต่อครบแล้ว เหลือแค่งาน DoD" ทั้งที่มี fallback ปลอม 10 ตัว, และ `school_alerts_page`
+> ที่เขียนว่าผ่าน DoD ทั้งที่ filter 4 ตัวกรองอะไรไม่ได้เลย
+>
+> **`grep` พิสูจน์ได้แค่ "ไม่ต่อ backend แน่ ๆ" ไม่เคยพิสูจน์ว่า "ต่อครบแล้ว"**
+> ต้องอ่านทั้งไฟล์ก่อนสรุปว่าหน้าไหนเสร็จ · ตรวจ role gate กับฐานข้อมูลที่รันอยู่
+> ไม่ใช่ไฟล์ migration
+>
+> กติกาการทำงานร่วมกันหลาย AI (commit / push / จองเลนด้วย branch): **`AGENTS.md`**
+
 School management app (Thai-language UI): classes, assignments, grading,
 quizzes, lesson content, incident/emergency reporting, parent-student
 binding, and IoT sensor data from physical classroom devices.

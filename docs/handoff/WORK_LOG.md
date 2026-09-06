@@ -1,4 +1,49 @@
-# Work Log — index of every agy brief, one place to check status
+# Work Log
+
+> **ไฟล์นี้เก็บเฉพาะสิ่งที่ git เก็บไม่ได้** — การตัดสินใจที่ยังไม่ได้เคาะ, งานที่ค้างอยู่
+> ตอนนี้, และการไล่ตรวจที่ไม่ได้เกิด commit (เช่น การคลิกทดสอบในเบราว์เซอร์)
+>
+> **ห้ามเขียนสรุปงานที่ commit ไปแล้วซ้ำที่นี่** — commit เก็บครบแล้วทั้งใคร/เมื่อไหร่/
+> ทำอะไร/ทำไม/เหลืออะไร และแก้ย้อนหลังไม่ได้ ดูด้วย:
+>
+> ```bash
+> ./scripts/state.sh --log            # 3 วันล่าสุด
+> SINCE='2 weeks ago' ./scripts/state.sh --log
+> ```
+>
+> การเขียนซ้ำสองที่คือสาเหตุที่ไฟล์นี้เคยเน่า — ตอนตรวจ 2026-09-06 พบว่ายังลิสต์งาน
+> 2 อย่างไว้ใน "In progress" ทั้งที่เสร็จไปแล้ว และมี 4 รายการใน "ไม่แน่ใจ" ที่ปิดไปแล้ว
+
+---
+
+## 🔴 การตัดสินใจที่ค้างอยู่ — บล็อกงานข้างล่าง
+
+รอเจ้าของโปรเจกต์เคาะ ไม่ใช่งานที่ AI ตัดสินเองได้
+
+| # | เรื่อง | บล็อกอะไร | ตัวเลือก |
+|---|---|---|---|
+| **D1** | อนุญาตให้เขียน production ไหม | ticket 0.2–0.4, 5.6 · **ช่องโหว่ 2 จุดยังเปิดอยู่** | อนุญาต / เจ้าของรันเอง ตาม `PRODUCTION_FIX_0.2-0.4.md` |
+| **S1** | เมทริกซ์สิทธิ์ในหน้า `school_permissions_page` — เขียนมือล้วน ไม่ผูกกับ role gate จริง แถมยังโชว์บทบาท `ครูประจำอาคาร` ที่ยุบไปแล้ว | ลำดับ 4 ของ School Admin | **ลบทิ้ง (แนะนำ)** — ทางเลือกอีกทางคือรื้อระบบสิทธิ์ทั้ง 270 RPC ให้อ่านจากตาราง |
+| **S2** | ฝ่าย (departments) + กลุ่มสาระ (subject_groups) — ไม่มีตาราง `users` ไม่มี `position`/`department`/`phone` | `school_teachers_page` · `director_teachers_page` | ลบส่วนนี้ (~0) / สร้างตาราง+RPC+UI (~3–4 เซสชัน แต่ปลดล็อกทั้งสองสิทธิ์) |
+| **S3** | ปุ่ม Export ที่โผล่ใน 5 หน้า — ไม่มี export pipeline ที่ไหนเลย | หลายหน้า | disable (~0) / ทำ CSV จริง (~1 เซสชัน) / CSV+PDF (~2–3) |
+| **D2** | `director_meetings_page` (2,216 บรรทัด) — ไม่มีตาราง meetings/attendees/agenda ในสคีมาเลย | Executive 3.7 | สร้างใหม่ (+3–4 เซสชัน) / disable แท็บ (0.3) / ลบทิ้ง |
+| **D3** | Super Admin ใช้เกณฑ์ไหน | Phase 4 | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |
+| **D5** | โควตา GitLab CI หมด (`ci_quota_exceeded`) — ไม่ใช่ปัญหาโค้ด | CI ทั้งหมด | ต่อโควตา / self-hosted runner / ใช้ GitHub Actions อย่างเดียว |
+
+## 🟡 งานที่ค้างอยู่ตอนนี้
+
+| งาน | ค้างตรงไหน |
+|---|---|
+| `school_admin_permissions_controller.dart` (345 บรรทัด) | เขียนเสร็จแล้ว **แต่ยังไม่มีหน้าไหน import และยังไม่มี test** — ticket 2.1 ยังเปิดอยู่ ต้องต่อกับหน้า + ลบเมทริกซ์ปลอม (ดู S1) |
+| `school_reports_page` | loading/data/empty/error + test เสร็จแล้ว · filter/กราฟ/insight/export ยังปลอม (ticket 2.4) |
+| `director_classrooms_page` | ลบ fallback `?? '36'` แล้ว · **ตารางห้อง 205 บรรทัดยังปลอมอยู่** (ticket 3.1) |
+| ticket 1.1 (fake button) | ทำ `teacher_profile` `teacher_courses` `student_profile` แล้ว · ยังไม่ได้ตรวจ hardcode 8 จุดใน `teacher_redesign_prototype_page` (ticket 1.2) |
+| ticket 1.3 test debt | fail 17 ชุด — Executive prototype 7 · Super Admin 9 · layout audit 3 · ยังไม่มีใครแตะ |
+
+---
+
+## ประวัติการตรวจที่ไม่ได้เกิด commit
+
 
 ## ✅ Closed 2026-09-06 — cross-role browser click-through (student SOS → teacher, teacher publish → student notification)
 
@@ -241,98 +286,7 @@ Done from a report alone.
 - Brief: docs/handoff/agy-brief-parent-teacher-leave-request-feature.md
 
 
-## 2026-09-06 — School Admin: energy + esg ต่อข้อมูลจริงและปิดของปลอม
 
-**สำรวจก่อน:** `docs/handoff/SCHOOL_ADMIN_BACKEND_SURVEY.md` (ไล่ทั้ง 15 หน้าที่เหลือ
-เทียบกับ RPC ที่มีอยู่จริงในฐานข้อมูลที่รันอยู่ ไม่ใช่แค่ไฟล์ migration)
-
-**ข้อค้นพบระดับสถาปัตยกรรม:** `archive_school_device` / `archive_school_user` /
-`admin_update_user_profile` **ไม่มี `p_token`** และใช้ `is_super_admin()`/`has_role()`
-ซึ่งอิง `auth.uid()` — เป็น RPC ของ `aiot_dev_dashboard` เรียกจาก `my_first_app`
-ไม่ได้ (hard rule 1) ต่อไปนี้ต้องเช็ค `p_token` ในลายเซ็นก่อนเสมอ ไม่ใช่ดูแค่ชื่อ
-
-**แก้ bug ที่ทำ build พังทั้ง repo:** งานค้างเขียน `StaffInvitation` +
-เมธอด invitation ซ้ำใน `user_admin_service.dart` ทั้งที่ `invitation_model.dart` และ
-`invitation_service.dart` มีอยู่แล้ว → export ชนกัน คอมไพล์ไม่ผ่าน (test fail 51)
-รวมเป็นตัวเดียว + `InvitationService.createInvitation` คืน `StaffInvitationTicket`
-(เดิมคืนแค่ `String` ทำให้ข้อมูลวันหมดอายุหาย) · บทเรียน: `flutter analyze` ใน
-`apps/user_app` **ไม่ครอบ `packages/shared_ui`** ต้อง analyze ทั้ง 3 แพ็กเกจ
-
-**`school_admin_energy_page`:** ลบ fallback ปลอม 10 ตัว (ลอกมาจากไฟล์ screenshot test),
-ลบบล็อกรายอาคาร hardcode, เปลี่ยน insights ที่อ้างว่า "ตรวจพบเครื่องปรับอากาศเปิดเกิน
-8 ชม." เป็นการเทียบช่วงเวลาจริง, เอา `disclaimer`/`isRateDefault`/`deviceCount` ที่
-backend ส่งมาแล้วถูกทิ้งมาแสดง, disable ปุ่มส่งออก, เพิ่ม error state
-
-**`school_admin_esg_page`:** คะแนนรวมเดิม `?? 0.0` ทำให้โรงเรียนที่ไม่มีมิเตอร์ได้
-**0/100 "ต้องปรับปรุง" สีแดง** → เฉลี่ยเฉพาะด้านที่มีคะแนนจริง · แก้ป้าย "ลดคาร์บอน"
-ที่ความหมายกลับด้าน (สูตรคำนวณคาร์บอนที่ปล่อย ไม่ใช่ที่ลด) · ผูกมาตรการ
-"ตัดไฟอัตโนมัติ" กับ `device_schedules` จริง · ลบมาตรการที่ไม่มีตารางรองรับ 2 ข้อ
-
-**เจอเฉพาะตอนเปิดเบราว์เซอร์จริง:** RPC utility รวมยอดด้วย `coalesce(sum(...),0)`
-โรงเรียนที่ไม่มีมิเตอร์เลยจึงได้ `0.0 kWh` ซึ่งอ่านเป็น "ใช้ไฟศูนย์หน่วย" →
-ใช้ `deviceCount > 0` แยก "วัดแล้วได้ศูนย์" ออกจาก "ไม่มีอะไรวัด"
-
-**test:** เพิ่ม 21 ชุด (energy 9, esg 12) ครอบ loading/data/empty/error/retry และ
-ล็อกตัวเลขปลอมเดิมไว้ว่าห้ามกลับมา · แก้ `school_admin_empty_and_error_states_test`
-ที่ยืนยัน empty state ทั้งที่ขับด้วย error path จริง
-**baseline test ที่เชื่อถือได้: `+239 -17`** (เอกสารเก่าบอก 16 — ของจริง 17 และ
-ไม่มีตัวไหนอยู่ใน School Admin เลย ทั้งหมดเป็น Executive prototype + Super Admin)
-
-**ยืนยันในเบราว์เซอร์จริง:** login `schooladmin@aiot-school-lab.local` → เปิดทั้งสองหน้า
-
-## 2026-09-06 — School Admin: device_control บอกความจริงเรื่องสถานะอุปกรณ์
-
-หน้านี้ขึ้น "ส่งคำสั่ง ปิด X สำเร็จ" ทันทีที่ `queue_device_command` คืนค่า และ
-เลื่อนสวิตช์ตาม ทั้งที่สิ่งที่เกิดคือเขียนแถวลงคิวเท่านั้น — เกตเวย์ต้องมาดึงไปทำ
-แล้วบอร์ดถึงเรียก `ack_device_command` ซึ่งเป็นตัวที่เขียน `device_relay_states`
-ผลคืออุปกรณ์ออฟไลน์ = ไฟยังติดอยู่ แต่จอบอกผู้ดูแลว่าดับแล้ว
-
-ซ้ำร้าย สวิตช์ทุกตัวเริ่มที่ OFF เพราะอ่านจาก map ที่ว่างทุกครั้งที่โหลดหน้า และ
-KPI "สั่งเปิดไว้" ก็นับจาก map เดียวกัน = วัดแท็บเบราว์เซอร์ ไม่ได้วัดโรงเรียน
-
-**แก้:** อ่านสถานะที่อุปกรณ์ยืนยันเองจาก `list_device_relay_states` · แยก 3 สถานะ
-ยืนยันแล้ว / รออุปกรณ์ยืนยัน / ยังไม่ทราบ (ไม่มีแถว ≠ ปิด) · หลังส่งคำสั่งจะ poll
-จนอุปกรณ์รายงานสถานะที่ขอ ถ้าไม่มาภายในกำหนดบอกตรง ๆ ว่ายังไม่ยืนยัน · ลบ raw
-exception ออกจากหน้าจอ
-
-**แก้ข้อสรุปที่ผมเขียนผิดเองตอนสำรวจ:** เคยเขียนว่าใช้ `ack_device_command` +
-`poll_device_commands` ได้ — ทั้งคู่รับ `p_device_token` เป็น RPC ฝั่งอุปกรณ์
-แอดมินเรียกไม่ได้ (ความผิดพลาดแบบเดียวกับเรื่อง `archive_school_device`)
-
-**เพิ่มใน shared_core:** `DeviceRelayState` + `RealtimeService.listDeviceRelayStates()`
-(RPC มีมานานแล้วแต่ไม่เคยมี service ห่อ) · `queueDeviceCommand` คืน command id
-
-**บทเรียน test:** timeout ที่วัดด้วย `DateTime.now()` ทดสอบใน widget test ไม่ได้
-เพราะ `pump(Duration)` เลื่อนแต่นาฬิกาของ timer ไม่เลื่อนนาฬิกาจริง — เปลี่ยนไปนับ
-รอบ poll ทำให้เส้นทาง "อุปกรณ์ไม่ยืนยัน" ครอบด้วย test ได้
-
-test เพิ่ม 9 ชุด · baseline `+249 -17`
-**ยืนยันในเบราว์เซอร์จริง:** กดสวิตช์ → "เข้าคิวแล้ว รออุปกรณ์ยืนยัน" → จำลอง ack
-ใน DB → รีเฟรช → KPI ขยับ 1/6 → 2/6 และ "ยังไม่ทราบสถานะ" 4 → 3
-
-## 2026-09-06 — ตรวจย้อน 5 หน้าที่เคยนับว่า "ผ่าน DoD แล้ว"
-
-ไล่อ่านเต็มทั้ง alerts · cctv · device_schedule · incident_inbox · learning_tracks
-พร้อม controller ของแต่ละหน้า เพราะเซสชันนี้เจอสองครั้งแล้วว่าหน้าที่ "มี service
-call จริงและมี test" ยังมีของปลอมได้ (energy มี 6 service call จริง + fallback ปลอม 10 ตัว)
-
-**ผล: 4 ใน 5 เสร็จจริงตามที่อ้าง** และคุณภาพดีกว่าที่ DoD กำหนด — ทุก controller
-เขียนแล้วอ่าน canonical กลับ **แล้วยังตรวจว่าแถวที่เขียนโผล่มาจริงพร้อมค่าที่ถูกต้อง**
-ไม่งั้นโยน `backend_*_not_confirmed` · error message เป็นข้อความคงที่ ไม่มี `$e` หลุด ·
-ไม่มี `catch (_) {}` · ข้อความสำเร็จอยู่หลัง `if (succeeded)` ทุกจุด
-
-**`school_admin_alerts_page` ไม่ผ่าน — เจอ 2 เรื่อง แก้แล้ว**
-
-1. **filter 4 ตัวกรองอะไรไม่ได้เลย** — `list_school_alerts` คืน sensor alert ทำให้
-   ทุกแถวเป็น category 'อุปกรณ์' และ severity/building/room = '--' แต่ dropdown เสนอ
-   ไฟฟ้า/น้ำ/คุณภาพอากาศ, สามระดับความรุนแรง, สถานะที่ backend เขียนไม่ได้
-   (`กำลังตรวจสอบ`, `ส่งต่อแล้ว`) และ **ชื่ออาคารที่แต่งขึ้น 5 ชื่อ** (ชุดเดียวกับที่
-   ลบจากหน้า energy) — เลือกแล้วตารางว่าง ผู้ใช้อ่านว่า "อาคารนี้ไม่มีแจ้งเตือน"
-   → สร้างตัวเลือกจากข้อมูลจริง · ฟิลด์ที่ backend ไม่เคยใส่ค่าไม่แสดง dropdown เลย
-2. **ปุ่ม 3 ตัวกดได้แต่ตอบว่า "ยังไม่เชื่อมต่อระบบหลังบ้าน"** → disable + tooltip
-   (ปุ่ม "ตรวจสอบ" ไม่ใช่แค่ยังไม่ต่อ — `sensor_alerts` ไม่มีสถานะนี้และไม่มี RPC
-   ตัวไหนเขียนได้ จึงเป็นไปไม่ได้)
-
-การ์ดสรุปที่โชว์ `--` พร้อมบอกเหตุผลว่าไม่มีข้อมูล **เก็บไว้** — เป็นรูปแบบที่ถูกแล้ว
-
-test เพิ่ม 2 ชุด · baseline `+252 -17`
+> งานของวันที่ 2026-09-06 (energy · esg · device_control · การตรวจย้อน 5 หน้า)
+> เคยถูกสรุปซ้ำไว้ตรงนี้ — ลบออกแล้วเพราะ commit เก็บครบกว่าและแก้ย้อนหลังไม่ได้
+> ดูด้วย `SINCE='2026-09-06' ./scripts/state.sh --log`
