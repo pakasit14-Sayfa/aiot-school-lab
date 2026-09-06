@@ -3,6 +3,21 @@ import 'package:shared_core/shared_core.dart';
 
 import '../../theme/school_admin_palette.dart';
 
+/// Grid emission factor for purchased electricity, kg CO₂e per kWh.
+///
+/// Thailand grid mix, TGO (องค์การบริหารจัดการก๊าซเรือนกระจก) Emission Factor
+/// for grid electricity. Named and documented rather than left as a bare
+/// `* 0.499` in the middle of a widget, so the number on screen can be traced
+/// to a source and updated when TGO revises it.
+const double kGridEmissionFactorKgCo2ePerKwh = 0.499;
+
+/// Read seams so loading / data / empty / error can each be driven in a test
+/// without a live Supabase client.
+typedef EsgScoreLoader = Future<UtilityEfficiencyScore?> Function();
+typedef EsgEnergySummaryLoader = Future<EnergyUsageSummary?> Function();
+typedef EsgWaterSummaryLoader = Future<WaterUsageSummary?> Function();
+typedef EsgScheduleLoader = Future<List<DeviceSchedule>> Function();
+
 class SchoolAdminEsgPage extends StatefulWidget {
   const SchoolAdminEsgPage({
     super.key,
@@ -10,12 +25,23 @@ class SchoolAdminEsgPage extends StatefulWidget {
     this.initialWaterScore,
     this.initialEnergySummary,
     this.initialWaterSummary,
+    this.loadEnergyScore,
+    this.loadWaterScore,
+    this.loadEnergySummary,
+    this.loadWaterSummary,
+    this.loadSchedules,
   });
 
   final UtilityEfficiencyScore? initialEnergyScore;
   final UtilityEfficiencyScore? initialWaterScore;
   final EnergyUsageSummary? initialEnergySummary;
   final WaterUsageSummary? initialWaterSummary;
+
+  final EsgScoreLoader? loadEnergyScore;
+  final EsgScoreLoader? loadWaterScore;
+  final EsgEnergySummaryLoader? loadEnergySummary;
+  final EsgWaterSummaryLoader? loadWaterSummary;
+  final EsgScheduleLoader? loadSchedules;
 
   @override
   State<SchoolAdminEsgPage> createState() => _SchoolAdminEsgPageState();
@@ -26,7 +52,9 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
   UtilityEfficiencyScore? _waterScore;
   EnergyUsageSummary? _energySummary;
   WaterUsageSummary? _waterSummary;
+  List<DeviceSchedule> _schedules = [];
   bool _isLoading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -48,13 +76,21 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
         widget.initialEnergySummary != null) {
       return;
     }
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
     try {
       final results = await Future.wait([
-        UtilityService.getEnergyEfficiencyScore(),
-        UtilityService.getWaterEfficiencyScore(),
-        UtilityService.getEnergyUsageSummary(period: 'month'),
-        UtilityService.getWaterUsageSummary(period: 'month'),
+        widget.loadEnergyScore?.call() ??
+            UtilityService.getEnergyEfficiencyScore(),
+        widget.loadWaterScore?.call() ??
+            UtilityService.getWaterEfficiencyScore(),
+        widget.loadEnergySummary?.call() ??
+            UtilityService.getEnergyUsageSummary(period: 'month'),
+        widget.loadWaterSummary?.call() ??
+            UtilityService.getWaterUsageSummary(period: 'month'),
+        widget.loadSchedules?.call() ?? DeviceScheduleService.listSchedules(),
       ]);
 
       if (mounted) {
@@ -63,39 +99,66 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
           _waterScore = results[1] as UtilityEfficiencyScore?;
           _energySummary = results[2] as EnergyUsageSummary?;
           _waterSummary = results[3] as WaterUsageSummary?;
+          _schedules = results[4] as List<DeviceSchedule>;
           _isLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      // `catch (_) {}` used to hide the failure, and because every figure on
+      // this page falls back to 0, a failed load rendered as a school scoring
+      // 0/100 "ต้องปรับปรุง" — an accusation, not a missing value.
+      debugPrint('SchoolAdminEsgPage load failed: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
   }
 
-  void _exportEsgReport() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('ดาวน์โหลดรายงาน ESG ประจำเดือน (PDF/Excel) เรียบร้อยแล้ว'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF16A34A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
+  /// The energy summary, but only when a meter actually reported it.
+  ///
+  /// `get_energy_usage_summary` sums with `coalesce(sum(...), 0)`, so a school
+  /// with no metering hardware still returns a well-formed row reading 0.0 kWh.
+  /// Rendering that as a consumption figure (and as 0 kg CO₂e) claims a
+  /// measurement that was never taken. `deviceCount` is what tells the two
+  /// apart.
+  EnergyUsageSummary? get _measuredEnergy =>
+      (_energySummary?.deviceCount ?? 0) > 0 ? _energySummary : null;
+
+  WaterUsageSummary? get _measuredWater =>
+      (_waterSummary?.deviceCount ?? 0) > 0 ? _waterSummary : null;
 
   @override
   Widget build(BuildContext context) {
-    // Calculate combined score
-    final eScore = _energyScore?.score ?? 0.0;
-    final wScore = _waterScore?.score ?? 0.0;
-    final count = (_energyScore != null ? 1 : 0) + (_waterScore != null ? 1 : 0);
-    final overallScore = count > 0 ? (eScore + wScore) / count : 0.0;
+    // Averaged over the pillars that actually returned a score. `score` is
+    // nullable in the model on purpose — the backend returns null when there
+    // is not enough history to compare periods.
+    //
+    // This used to read `?? 0.0` on both pillars, so a school with no meter
+    // data at all scored 0/100 and was graded "ต้องปรับปรุง" in red. A missing
+    // measurement is not a failing measurement; grading a school on data that
+    // was never collected is the most damaging thing this page could do.
+    final List<double> realScores = [
+      if (_energyScore?.score != null) _energyScore!.score!,
+      if (_waterScore?.score != null) _waterScore!.score!,
+    ];
+    final double? overallScore = realScores.isEmpty
+        ? null
+        : realScores.reduce((a, b) => a + b) / realScores.length;
 
-    String overallLabel = 'ดีมาก';
-    Color gradeColor = const Color(0xFF16A34A);
-    Color gradeBg = const Color(0xFFF0FDF4);
-    Color gradeBorder = const Color(0xFFBBF7D0);
+    String overallLabel;
+    Color gradeColor;
+    Color gradeBg;
+    Color gradeBorder;
 
-    if (overallScore < 50) {
+    if (overallScore == null) {
+      overallLabel = _hasError ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล';
+      gradeColor = const Color(0xFF64748B);
+      gradeBg = const Color(0xFFF1F5F9);
+      gradeBorder = const Color(0xFFE2E8F0);
+    } else if (overallScore < 50) {
       overallLabel = 'ต้องปรับปรุง';
       gradeColor = const Color(0xFFDC2626);
       gradeBg = const Color(0xFFFEF2F2);
@@ -110,6 +173,11 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
       gradeColor = const Color(0xFF2563EB);
       gradeBg = const Color(0xFFEFF6FF);
       gradeBorder = const Color(0xFFBFDBFE);
+    } else {
+      overallLabel = 'ดีมาก';
+      gradeColor = const Color(0xFF16A34A);
+      gradeBg = const Color(0xFFF0FDF4);
+      gradeBorder = const Color(0xFFBBF7D0);
     }
 
     return Scaffold(
@@ -128,6 +196,10 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildHeader(),
+                          if (_hasError) ...[
+                            const SizedBox(height: 14),
+                            _buildErrorBanner(),
+                          ],
                           const SizedBox(height: 16),
                           _buildOverallGreenScoreHero(
                             overallScore,
@@ -146,7 +218,7 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          _buildPillarsGrid(eScore, wScore),
+                          _buildPillarsGrid(),
                           const SizedBox(height: 20),
                           _buildInitiativesSection(),
                           const SizedBox(height: 20),
@@ -222,25 +294,41 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
             ],
           );
 
-          final actionButtons = Row(
-            mainAxisSize: MainAxisSize.min,
+          // Wrap, not Row: the export button carries a long disabled-state
+          // label and a fixed Row overflowed the header on narrow widths.
+          final actionButtons = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               IconButton(
                 onPressed: _loadData,
                 tooltip: 'รีเฟรชข้อมูล',
-                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF64748B)),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: Color(0xFF64748B),
+                ),
               ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _exportEsgReport,
-                icon: const Icon(Icons.file_download_outlined, size: 16),
-                label: const Text('ส่งออกรายงาน ESG'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SchoolAdminPalette.primaryDark,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Disabled, not removed: schools do have to submit these figures
+              // upward. But no export pipeline exists, and this button used to
+              // answer every click with "ดาวน์โหลดรายงาน ESG … เรียบร้อยแล้ว"
+              // while producing no file.
+              Tooltip(
+                message: 'ยังไม่เปิดใช้งาน — ระบบส่งออกไฟล์ยังไม่พร้อมใช้งาน',
+                child: FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.file_download_outlined, size: 16),
+                  label: const Text('ส่งออกรายงาน ESG (ยังไม่เปิดใช้งาน)'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: SchoolAdminPalette.primaryDark,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -250,11 +338,7 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
           if (constraints.maxWidth < 750) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleArea,
-                const SizedBox(height: 14),
-                actionButtons,
-              ],
+              children: [titleArea, const SizedBox(height: 14), actionButtons],
             );
           }
 
@@ -272,7 +356,7 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
   }
 
   Widget _buildOverallGreenScoreHero(
-    double overallScore,
+    double? overallScore,
     String overallLabel,
     Color gradeColor,
     Color gradeBg,
@@ -296,30 +380,44 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
         builder: (context, constraints) {
           final isMobile = constraints.maxWidth < 650;
 
+          // With no score the circle must not print a green "0 / 100 คะแนน";
+          // it goes grey and says there is nothing to grade yet.
+          final bool hasScore = overallScore != null;
+          final int realScoreCount =
+              (_energyScore?.score != null ? 1 : 0) +
+              (_waterScore?.score != null ? 1 : 0);
           final scoreCircle = Container(
             width: 110,
             height: 110,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF16A34A), Color(0xFF15803D)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x2216A34A),
-                  blurRadius: 16,
-                  offset: Offset(0, 6),
-                ),
-              ],
+              gradient: hasScore
+                  ? const LinearGradient(
+                      colors: [Color(0xFF16A34A), Color(0xFF15803D)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : const LinearGradient(
+                      colors: [Color(0xFFCBD5E1), Color(0xFF94A3B8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              boxShadow: hasScore
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x2216A34A),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ]
+                  : null,
             ),
             child: Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    overallScore.toStringAsFixed(0),
+                    hasScore ? overallScore.toStringAsFixed(0) : '—',
                     style: const TextStyle(
                       fontSize: 34,
                       fontWeight: FontWeight.w900,
@@ -328,9 +426,9 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
-                    '/ 100 คะแนน',
-                    style: TextStyle(
+                  Text(
+                    hasScore ? '/ 100 คะแนน' : 'ยังไม่มีคะแนน',
+                    style: const TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w600,
                       color: Colors.white70,
@@ -358,7 +456,10 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: gradeBg,
                       borderRadius: BorderRadius.circular(20),
@@ -376,9 +477,12 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                 ],
               ),
               const SizedBox(height: 6),
-              const Text(
-                'ดัชนีคะแนนรวมด้านสิ่งแวดล้อม คำนวณจากข้อมูลมิเตอร์ตรวจวัด IoT และอัตราการใช้พลังงานเทียบเป้าหมายความยั่งยืนประจำปีการศึกษา',
-                style: TextStyle(
+              Text(
+                hasScore
+                    ? 'คะแนนรวมด้านสิ่งแวดล้อม เฉลี่ยจากด้านที่มีข้อมูลเทียบช่วงก่อนหน้าแล้ว '
+                          '(${realScoreCount == 1 ? "1 ด้าน" : "$realScoreCount ด้าน"})'
+                    : 'ยังคำนวณคะแนนไม่ได้ ต้องมีข้อมูลมิเตอร์ย้อนหลังพอที่จะเทียบกับช่วงก่อนหน้าก่อน',
+                style: const TextStyle(
                   fontSize: 12.5,
                   color: Color(0xFF64748B),
                   height: 1.4,
@@ -391,19 +495,31 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                 children: [
                   _buildHeroStatChip(
                     Icons.bolt_rounded,
-                    'ไฟฟ้า ${_energySummary?.totalKwh.toStringAsFixed(0) ?? "0"} kWh',
+                    _measuredEnergy == null
+                        ? 'ไฟฟ้า: ยังไม่มีข้อมูล'
+                        : 'ไฟฟ้า ${_measuredEnergy!.totalKwh.toStringAsFixed(0)} kWh',
                     const Color(0xFFD97706),
                     const Color(0xFFFFFBEB),
                   ),
                   _buildHeroStatChip(
                     Icons.water_drop_rounded,
-                    'น้ำ ${_waterSummary?.totalM3.toStringAsFixed(0) ?? "0"} m³',
+                    _measuredWater == null
+                        ? 'น้ำ: ยังไม่มีข้อมูล'
+                        : 'น้ำ ${_measuredWater!.totalM3.toStringAsFixed(0)} m³',
                     const Color(0xFF0284C7),
                     const Color(0xFFF0F9FF),
                   ),
+                  // Was labelled "ลดคาร์บอน" (carbon *reduced*) while the
+                  // formula computes the emissions *caused by* the electricity
+                  // consumed — the opposite meaning. Using more power made the
+                  // "reduction" go up. It is now labelled as what it is, and
+                  // it disappears entirely when there is no consumption
+                  // figure, instead of claiming a tidy 0.
                   _buildHeroStatChip(
-                    Icons.energy_savings_leaf_rounded,
-                    'ลดคาร์บอน ~${((_energySummary?.totalKwh ?? 0) * 0.499).toStringAsFixed(0)} kg CO₂e',
+                    Icons.co2_rounded,
+                    _measuredEnergy == null
+                        ? 'คาร์บอนจากไฟฟ้า: ยังไม่มีข้อมูล'
+                        : 'คาร์บอนจากไฟฟ้า ~${(_measuredEnergy!.totalKwh * kGridEmissionFactorKgCo2ePerKwh).toStringAsFixed(0)} kg CO₂e',
                     const Color(0xFF16A34A),
                     const Color(0xFFF0FDF4),
                   ),
@@ -415,11 +531,7 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
           if (isMobile) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                scoreCircle,
-                const SizedBox(height: 16),
-                detailsBlock,
-              ],
+              children: [scoreCircle, const SizedBox(height: 16), detailsBlock],
             );
           }
 
@@ -462,7 +574,8 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
     );
   }
 
-  Widget _buildPillarsGrid(double eScore, double wScore) {
+  Widget _buildPillarsGrid() {
+    final String noData = _hasError ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล';
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSingleCol = constraints.maxWidth < 800;
@@ -476,29 +589,75 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
           children: [
             _buildPillarCard(
               title: 'ประสิทธิภาพการใช้พลังงานไฟฟ้า (Energy Efficiency)',
-              subtitle: 'การใช้ไฟฟ้าในเดือนนี้: ${_energySummary?.totalKwh.toStringAsFixed(1) ?? "0"} kWh (~฿${_energySummary?.estimatedCostThb.toStringAsFixed(0) ?? "0"})',
+              subtitle: _measuredEnergy == null
+                  ? 'การใช้ไฟฟ้าในเดือนนี้: $noData'
+                  : 'การใช้ไฟฟ้าในเดือนนี้: ${_measuredEnergy!.totalKwh.toStringAsFixed(1)} kWh '
+                        '(~฿${_measuredEnergy!.estimatedCostThb.toStringAsFixed(0)})',
               icon: Icons.bolt_rounded,
               color: const Color(0xFFD97706),
               bgColor: const Color(0xFFFFFBEB),
               borderColor: const Color(0xFFFDE68A),
-              score: eScore,
-              label: _energyScore?.label ?? 'ไม่มีข้อมูล',
+              score: _energyScore?.score,
+              label: _energyScore?.label,
+              noDataText: noData,
               width: cardWidth,
             ),
             _buildPillarCard(
               title: 'ประสิทธิภาพการใช้น้ำประปา (Water Conservation)',
-              subtitle: 'การใช้น้ำในเดือนนี้: ${_waterSummary?.totalM3.toStringAsFixed(1) ?? "0"} ลบ.ม. (~฿${_waterSummary?.estimatedCostThb.toStringAsFixed(0) ?? "0"})',
+              subtitle: _measuredWater == null
+                  ? 'การใช้น้ำในเดือนนี้: $noData'
+                  : 'การใช้น้ำในเดือนนี้: ${_measuredWater!.totalM3.toStringAsFixed(1)} ลบ.ม. '
+                        '(~฿${_measuredWater!.estimatedCostThb.toStringAsFixed(0)})',
               icon: Icons.water_drop_rounded,
               color: const Color(0xFF0284C7),
               bgColor: const Color(0xFFF0F9FF),
               borderColor: const Color(0xFFBAE6FD),
-              score: wScore,
-              label: _waterScore?.label ?? 'ไม่มีข้อมูล',
+              score: _waterScore?.score,
+              label: _waterScore?.label,
+              noDataText: noData,
               width: cardWidth,
             ),
           ],
         );
       },
+    );
+  }
+
+  /// Failure is stated in the page, not only in a snackbar that is gone by the
+  /// time anyone reads the score. No raw backend text is shown.
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูล ESG ไม่สำเร็จ คะแนนและตัวเลขที่แสดงอาจไม่เป็นปัจจุบัน',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _isLoading ? null : _loadData,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -509,8 +668,9 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
     required Color color,
     required Color bgColor,
     required Color borderColor,
-    required double score,
-    required String label,
+    required double? score,
+    required String? label,
+    required String noDataText,
     required double width,
   }) {
     return Container(
@@ -555,30 +715,41 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: bgColor,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: borderColor),
                 ),
                 child: Text(
-                  '${score.toStringAsFixed(0)}/100 ($label)',
+                  score == null
+                      ? noDataText
+                      : '${score.toStringAsFixed(0)}/100'
+                            '${label == null ? '' : ' ($label)'}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: color,
+                    color: score == null ? const Color(0xFF64748B) : color,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          // An absent score leaves the bar empty and grey. Rendering it as a
+          // filled-to-0% coloured bar made "no measurement" look like a
+          // measured zero.
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: (score / 100).clamp(0.0, 1.0),
+              value: score == null ? 0.0 : (score / 100).clamp(0.0, 1.0),
               backgroundColor: const Color(0xFFF1F5F9),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                score == null ? const Color(0xFFE2E8F0) : color,
+              ),
               minHeight: 10,
             ),
           ),
@@ -591,7 +762,11 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.insights_rounded, size: 16, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.insights_rounded,
+                  size: 16,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -639,28 +814,56 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
             ],
           ),
           const SizedBox(height: 14),
-          _buildInitiativeItem(
-            'ระบบตัดไฟอัตโนมัติ (Smart Power Auto-Cut)',
-            'ตั้งเวลาปิดเครื่องปรับอากาศและไฟส่องสว่างหลัง 17:00 น. ผ่าน pg_cron Engine',
-            'เปิดใช้งาน',
-            const Color(0xFF16A34A),
-          ),
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
-          _buildInitiativeItem(
-            'การตรวจจับน้ำรั่วไหล (Water Leakage Detection)',
-            'เฝ้าระวังอัตราการไหลผิดปกติในเวลากลางคืนด้วยเซนเซอร์ Pulse Flow Meter',
-            'พร้อมทำงาน',
-            const Color(0xFF0284C7),
-          ),
-          const Divider(height: 20, color: Color(0xFFF1F5F9)),
-          _buildInitiativeItem(
-            'เป้าหมายลดการปล่อยคาร์บอน (Carbon Footprint Target)',
-            'ลดการใช้พลังงานไฟฟ้าลง 5% เมื่อเทียบกับปีการศึกษาที่ผ่านมา',
-            'ตามแผนงาน',
-            const Color(0xFFD97706),
-          ),
+          // Only measures whose status this system can actually observe.
+          //
+          // Removed: "การตรวจจับน้ำรั่วไหล … พร้อมทำงาน" (nothing in the schema
+          // detects leaks) and "เป้าหมายลดการปล่อยคาร์บอน 5% … ตามแผนงาน"
+          // (no target is stored anywhere, so "ตามแผนงาน" was an unverifiable
+          // claim of being on track). Both asserted that equipment and
+          // programmes exist and are working.
+          _buildScheduleInitiative(),
         ],
       ),
+    );
+  }
+
+  /// Automatic power cut-off is real: `device_schedules` drives it and the
+  /// School Admin device-schedule page manages it. So report what is actually
+  /// configured — how many rules are enabled and when one last fired — rather
+  /// than a fixed "เปิดใช้งาน" badge that was true even with zero schedules.
+  Widget _buildScheduleInitiative() {
+    final enabled = _schedules.where((s) => s.enabled).toList();
+    final DateTime? lastRun = enabled
+        .map((s) => s.lastTriggeredAt)
+        .whereType<DateTime>()
+        .fold<DateTime?>(
+          null,
+          (acc, d) => acc == null || d.isAfter(acc) ? d : acc,
+        );
+
+    final String status;
+    final Color statusColor;
+    if (_hasError) {
+      status = 'โหลดไม่สำเร็จ';
+      statusColor = const Color(0xFFDC2626);
+    } else if (enabled.isEmpty) {
+      status = 'ยังไม่ได้ตั้งค่า';
+      statusColor = const Color(0xFF64748B);
+    } else {
+      status = 'เปิดใช้งาน ${enabled.length} รายการ';
+      statusColor = const Color(0xFF16A34A);
+    }
+
+    final String desc = enabled.isEmpty
+        ? 'ตั้งเวลาเปิด-ปิดอุปกรณ์อัตโนมัติได้ที่หน้า "ตารางเวลาอุปกรณ์" — ยังไม่มีรายการที่เปิดใช้งาน'
+        : 'ตั้งเวลาเปิด-ปิดอุปกรณ์อัตโนมัติ'
+              '${lastRun == null ? ' · ยังไม่เคยทำงาน' : ' · ทำงานล่าสุด ${lastRun.day}/${lastRun.month}/${lastRun.year}'}';
+
+    return _buildInitiativeItem(
+      'ระบบตัดไฟอัตโนมัติ (Smart Power Auto-Cut)',
+      desc,
+      status,
+      statusColor,
     );
   }
 

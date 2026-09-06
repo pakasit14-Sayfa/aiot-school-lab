@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+/// Read seams so loading / data / empty / error can each be driven in a test
+/// without a live Supabase client — the same pattern as the School Admin
+/// pages that already meet the DoD.
+typedef EnergySummaryLoader =
+    Future<EnergyUsageSummary?> Function(String period);
+typedef WaterSummaryLoader = Future<WaterUsageSummary?> Function(String period);
+typedef UtilityTrendLoader = Future<List<UtilityTrendPoint>> Function();
+typedef UtilityScoreLoader = Future<UtilityEfficiencyScore?> Function();
+
 class SchoolAdminEnergyPage extends StatefulWidget {
   const SchoolAdminEnergyPage({
     super.key,
@@ -10,6 +19,12 @@ class SchoolAdminEnergyPage extends StatefulWidget {
     this.initialWaterTrend,
     this.initialEnergyScore,
     this.initialWaterScore,
+    this.loadEnergySummary,
+    this.loadWaterSummary,
+    this.loadEnergyTrend,
+    this.loadWaterTrend,
+    this.loadEnergyScore,
+    this.loadWaterScore,
   });
 
   final EnergyUsageSummary? initialEnergySummary;
@@ -19,6 +34,13 @@ class SchoolAdminEnergyPage extends StatefulWidget {
   final UtilityEfficiencyScore? initialEnergyScore;
   final UtilityEfficiencyScore? initialWaterScore;
 
+  final EnergySummaryLoader? loadEnergySummary;
+  final WaterSummaryLoader? loadWaterSummary;
+  final UtilityTrendLoader? loadEnergyTrend;
+  final UtilityTrendLoader? loadWaterTrend;
+  final UtilityScoreLoader? loadEnergyScore;
+  final UtilityScoreLoader? loadWaterScore;
+
   @override
   State<SchoolAdminEnergyPage> createState() => _SchoolAdminEnergyPageState();
 }
@@ -27,6 +49,7 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   String _selectedPeriod = 'month';
   int _selectedTrendTab = 0; // 0 = ไฟฟ้า, 1 = น้ำประปา
   bool _isLoading = true;
+  bool _hasError = false;
 
   EnergyUsageSummary? _energySummary;
   WaterUsageSummary? _waterSummary;
@@ -57,15 +80,24 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
         widget.initialWaterSummary != null) {
       return;
     }
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
     try {
       final results = await Future.wait([
-        UtilityService.getEnergyUsageSummary(period: _selectedPeriod),
-        UtilityService.getWaterUsageSummary(period: _selectedPeriod),
-        UtilityService.getEnergyUsageTrend(days: 7),
-        UtilityService.getWaterUsageTrend(days: 7),
-        UtilityService.getEnergyEfficiencyScore(),
-        UtilityService.getWaterEfficiencyScore(),
+        widget.loadEnergySummary?.call(_selectedPeriod) ??
+            UtilityService.getEnergyUsageSummary(period: _selectedPeriod),
+        widget.loadWaterSummary?.call(_selectedPeriod) ??
+            UtilityService.getWaterUsageSummary(period: _selectedPeriod),
+        widget.loadEnergyTrend?.call() ??
+            UtilityService.getEnergyUsageTrend(days: 7),
+        widget.loadWaterTrend?.call() ??
+            UtilityService.getWaterUsageTrend(days: 7),
+        widget.loadEnergyScore?.call() ??
+            UtilityService.getEnergyEfficiencyScore(),
+        widget.loadWaterScore?.call() ??
+            UtilityService.getWaterEfficiencyScore(),
       ]);
 
       if (mounted) {
@@ -79,19 +111,27 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
           _isLoading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoading = false);
+    } catch (e) {
+      // The failure used to be swallowed by `catch (_) {}`, which left every
+      // card on its hardcoded fallback — a director could not tell a failed
+      // load from a real reading. Surface it, keep whatever was last
+      // confirmed, and never invent a number in its place.
+      debugPrint('SchoolAdminEnergyPage load failed: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+  /// Formats a real measurement, or says plainly that there is none. Loading,
+  /// empty and failure must never collapse into a number that reads as a
+  /// meter reading.
+  String _figure(String? text) {
+    if (text != null) return text;
+    return _hasError ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล';
   }
 
   @override
@@ -100,7 +140,9 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF9E401A)))
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFF9E401A)),
+              )
             : SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
                 child: Center(
@@ -110,6 +152,10 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildHeader(),
+                        if (_hasError) ...[
+                          const SizedBox(height: 14),
+                          _buildErrorBanner(),
+                        ],
                         const SizedBox(height: 18),
                         _buildPeriodSelector(),
                         const SizedBox(height: 18),
@@ -191,10 +237,7 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                     SizedBox(height: 3),
                     Text(
                       "รายงานและติดตามการใช้ไฟฟ้า น้ำประปา และการประเมินประสิทธิภาพพลังงานภาพรวมทั้งสถานศึกษา",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -207,26 +250,41 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage("เตรียมส่งออกรายงานสรุปพลังงานเป็น Excel/PDF เรียบร้อย");
-                },
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text("ส่งออกรายงาน"),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  foregroundColor: const Color(0xFF334155),
+              // Disabled rather than removed: exporting is a real requirement
+              // (schools submit these figures upward), but no export pipeline
+              // exists anywhere in the system. It used to answer every click
+              // with "เตรียมส่งออก… เรียบร้อย" while producing no file at all.
+              Tooltip(
+                message: 'ยังไม่เปิดใช้งาน — ระบบส่งออกไฟล์ยังไม่พร้อมใช้งาน',
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text("ส่งออกรายงาน (ยังไม่เปิดใช้งาน)"),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    foregroundColor: const Color(0xFF334155),
+                  ),
                 ),
               ),
               IconButton(
                 onPressed: _loadData,
                 tooltip: "รีเฟรชข้อมูล",
-                icon: const Icon(Icons.refresh_rounded, color: Color(0xFF475569)),
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: Color(0xFF475569),
+                ),
                 style: IconButton.styleFrom(
                   backgroundColor: const Color(0xFFF1F5F9),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ],
@@ -251,6 +309,45 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
     );
   }
 
+  /// Failure is stated in the page, not only in a snackbar that has already
+  /// disappeared by the time the director reads the numbers. No raw backend
+  /// text is shown.
+  Widget _buildErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูลการใช้พลังงานไม่สำเร็จ ตัวเลขที่แสดงอาจไม่เป็นปัจจุบัน',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _isLoading ? null : _loadData,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPeriodSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -267,7 +364,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
           const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFF64748B)),
+              Icon(
+                Icons.calendar_today_rounded,
+                size: 18,
+                color: Color(0xFF64748B),
+              ),
               SizedBox(width: 8),
               Text(
                 "ช่วงเวลาวิเคราะห์:",
@@ -322,44 +423,89 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   }
 
   Widget _buildKpiSummaryGrid() {
-    final energyKwh = _energySummary?.totalKwh ?? 0.0;
-    final energyCost = _energySummary?.estimatedCostThb ?? 0.0;
-    final waterCuM = _waterSummary?.totalM3 ?? 0.0;
-    final waterCost = _waterSummary?.estimatedCostThb ?? 0.0;
-    final totalCost = energyCost + waterCost;
+    // Every value below is either a real backend figure or an explicit
+    // "ยังไม่มีข้อมูล" / "โหลดไม่สำเร็จ". The old `?? 4.5` / `?? 18.0` /
+    // `?? 'ดีเยี่ยม'` / "ประหยัดกว่าเกณฑ์มาตรฐาน 12.4%" fallbacks made an
+    // empty database and a failed request both render as a confident meter
+    // reading. `isRateDefault` and `deviceCount` come from the RPC precisely
+    // so the page can disclose how the number was reached — they were fetched
+    // and then thrown away.
+    // A summary built from zero meters is not a measurement of zero. The RPC
+    // sums readings with `coalesce(sum(sr.value), 0)`, so a school with no
+    // metering hardware still gets a well-formed row reading 0.0 kWh — which
+    // on screen claims the school consumed nothing. `deviceCount` is what
+    // separates "measured, and it was zero" from "nothing is measuring".
+    final energy = (_energySummary?.deviceCount ?? 0) > 0
+        ? _energySummary
+        : null;
+    final water = (_waterSummary?.deviceCount ?? 0) > 0 ? _waterSummary : null;
+    final energyScore = _energyScore;
 
-    final energyScoreVal = _energyScore?.score ?? 0.0;
+    String rateDetail(double rate, bool isDefault, String unit) =>
+        'อัตรา ฿${rate.toStringAsFixed(2)} / $unit'
+        '${isDefault ? ' (อัตรากลาง ยังไม่ได้ตั้งค่าของโรงเรียน)' : ''}';
+
+    final String? totalCostText = (energy != null && water != null)
+        ? '฿${(energy.estimatedCostThb + water.estimatedCostThb).toStringAsFixed(0)}'
+        : null;
 
     final items = [
       _EnergyKpiData(
         title: "การใช้ไฟฟ้าทั้งหมด",
-        value: "${energyKwh.toStringAsFixed(1)} kWh",
-        subValue: "ประมาณ ฿${energyCost.toStringAsFixed(0)}",
-        detail: "อัตรา ฿${(_energySummary?.electricityRateThb ?? 4.5).toStringAsFixed(2)} / หน่วย",
+        value: _figure(
+          energy == null ? null : '${energy.totalKwh.toStringAsFixed(1)} kWh',
+        ),
+        subValue: energy == null
+            ? 'ยังไม่มีมิเตอร์ที่ส่งค่า'
+            : 'ประมาณ ฿${energy.estimatedCostThb.toStringAsFixed(0)} · จากมิเตอร์ ${energy.deviceCount} จุด',
+        detail: energy == null
+            ? '—'
+            : rateDetail(
+                energy.electricityRateThb,
+                energy.isRateDefault,
+                'หน่วย',
+              ),
         icon: Icons.bolt_rounded,
         color: const Color(0xFFD97706),
       ),
       _EnergyKpiData(
         title: "การใช้น้ำประปาทั้งหมด",
-        value: "${waterCuM.toStringAsFixed(1)} ลบ.ม.",
-        subValue: "ประมาณ ฿${waterCost.toStringAsFixed(0)}",
-        detail: "อัตรา ฿${(_waterSummary?.waterRateThb ?? 18.0).toStringAsFixed(2)} / ลบ.ม.",
+        value: _figure(
+          water == null ? null : '${water.totalM3.toStringAsFixed(1)} ลบ.ม.',
+        ),
+        subValue: water == null
+            ? 'ยังไม่มีมิเตอร์ที่ส่งค่า'
+            : 'ประมาณ ฿${water.estimatedCostThb.toStringAsFixed(0)} · จากมิเตอร์ ${water.deviceCount} จุด',
+        detail: water == null
+            ? '—'
+            : rateDetail(water.waterRateThb, water.isRateDefault, 'ลบ.ม.'),
         icon: Icons.water_drop_rounded,
         color: const Color(0xFF0284C7),
       ),
       _EnergyKpiData(
         title: "ค่าสาธารณูปโภครวม",
-        value: "฿${totalCost.toStringAsFixed(0)}",
+        value: _figure(totalCostText),
         subValue: "ค่าไฟ + ค่าน้ำประปา",
-        detail: "คำนวณตามอัตราจริงของโรงเรียน",
+        detail: energy?.disclaimer ?? water?.disclaimer ?? '—',
         icon: Icons.account_balance_wallet_rounded,
         color: const Color(0xFF9E401A),
       ),
       _EnergyKpiData(
         title: "ดัชนีประสิทธิภาพพลังงาน",
-        value: "${energyScoreVal.toStringAsFixed(0)} / 100",
-        subValue: "ระดับ: ${_energyScore?.label ?? 'ดีเยี่ยม'}",
-        detail: "ประหยัดกว่าเกณฑ์มาตรฐาน 12.4%",
+        // score is nullable in the model *on purpose*: the backend returns
+        // null when there is not enough history to compare periods. Filling
+        // that with a number would be inventing the verdict.
+        value: _figure(
+          energyScore?.score == null
+              ? null
+              : '${energyScore!.score!.toStringAsFixed(0)} / 100',
+        ),
+        subValue: energyScore?.label == null
+            ? 'ยังเทียบกับช่วงก่อนหน้าไม่ได้'
+            : 'ระดับ: ${energyScore!.label}',
+        detail: energyScore?.score == null
+            ? '—'
+            : 'ช่วงนี้ ${energyScore!.current.toStringAsFixed(1)} · ช่วงก่อน ${energyScore.previous.toStringAsFixed(1)}',
         icon: Icons.eco_rounded,
         color: const Color(0xFF16A34A),
       ),
@@ -372,7 +518,8 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
         if (constraints.maxWidth < 540) columns = 1;
 
         const double spacing = 14;
-        final double width = (constraints.maxWidth - ((columns - 1) * spacing)) / columns;
+        final double width =
+            (constraints.maxWidth - ((columns - 1) * spacing)) / columns;
 
         return Wrap(
           spacing: spacing,
@@ -389,11 +536,13 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   }
 
   Widget _buildTrendSection() {
-    final List<UtilityTrendPoint> activePoints =
-        _selectedTrendTab == 0 ? _energyTrend : _waterTrend;
+    final List<UtilityTrendPoint> activePoints = _selectedTrendTab == 0
+        ? _energyTrend
+        : _waterTrend;
     final String unit = _selectedTrendTab == 0 ? "kWh" : "ลบ.ม.";
-    final Color activeColor =
-        _selectedTrendTab == 0 ? const Color(0xFFD97706) : const Color(0xFF0284C7);
+    final Color activeColor = _selectedTrendTab == 0
+        ? const Color(0xFFD97706)
+        : const Color(0xFF0284C7);
 
     return Container(
       width: double.infinity,
@@ -443,8 +592,16 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildTrendTabButton(0, "⚡ ไฟฟ้า (kWh)", const Color(0xFFD97706)),
-                    _buildTrendTabButton(1, "💧 น้ำประปา (m³)", const Color(0xFF0284C7)),
+                    _buildTrendTabButton(
+                      0,
+                      "⚡ ไฟฟ้า (kWh)",
+                      const Color(0xFFD97706),
+                    ),
+                    _buildTrendTabButton(
+                      1,
+                      "💧 น้ำประปา (m³)",
+                      const Color(0xFF0284C7),
+                    ),
                   ],
                 ),
               );
@@ -473,7 +630,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
               alignment: Alignment.center,
               child: const Text(
                 "ยังไม่มีข้อมูลประวัติการใช้งานในช่วง 7 วันที่ผ่านมา",
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             )
           else
@@ -495,12 +656,20 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                           children: [
                             Text(
                               dateStr,
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                             const SizedBox(height: 3),
                             Text(
                               "${pt.value.toStringAsFixed(1)} $unit",
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: activeColor),
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w900,
+                                color: activeColor,
+                              ),
                             ),
                           ],
                         ),
@@ -526,7 +695,13 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(9),
           boxShadow: isSelected
-              ? const [BoxShadow(color: Color(0x10000000), blurRadius: 4, offset: Offset(0, 1))]
+              ? const [
+                  BoxShadow(
+                    color: Color(0x10000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
+                  ),
+                ]
               : null,
         ),
         child: Text(
@@ -541,8 +716,14 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
     );
   }
 
-  Widget _buildVisualTrendBars(List<UtilityTrendPoint> points, Color color, String unit) {
-    final double maxVal = points.map((p) => p.value).fold(0.0, (a, b) => a > b ? a : b);
+  Widget _buildVisualTrendBars(
+    List<UtilityTrendPoint> points,
+    Color color,
+    String unit,
+  ) {
+    final double maxVal = points
+        .map((p) => p.value)
+        .fold(0.0, (a, b) => a > b ? a : b);
     final double safeMax = maxVal > 0 ? maxVal : 1.0;
 
     return SizedBox(
@@ -561,7 +742,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                 children: [
                   Text(
                     pt.value.toStringAsFixed(0),
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Container(
@@ -578,7 +763,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                   const SizedBox(height: 6),
                   Text(
                     dateStr,
-                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -611,7 +800,11 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
             children: [
               const Text(
                 "คะแนนประสิทธิภาพพลังงาน (Efficiency Benchmark)",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               const SizedBox(height: 2),
               const Text(
@@ -621,20 +814,22 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
               const SizedBox(height: 16),
               _buildEfficiencyScoreRow(
                 title: "ประสิทธิภาพไฟฟ้า",
-                score: _energyScore?.score ?? 88.5,
-                label: _energyScore?.label ?? "ดีเยี่ยม",
-                currentText: "${(_energyScore?.current ?? 4520.5).toStringAsFixed(1)} kWh",
-                previousText: "${(_energyScore?.previous ?? 5160.0).toStringAsFixed(1)} kWh",
+                score: _energyScore?.score,
+                label: _energyScore?.label,
+                current: _energyScore?.current,
+                previous: _energyScore?.previous,
+                unit: 'kWh',
                 color: const Color(0xFFD97706),
                 icon: Icons.bolt_rounded,
               ),
               const Divider(height: 20, color: Color(0xFFF1F5F9)),
               _buildEfficiencyScoreRow(
                 title: "ประสิทธิภาพน้ำประปา",
-                score: _waterScore?.score ?? 79.0,
-                label: _waterScore?.label ?? "ดี",
-                currentText: "${(_waterScore?.current ?? 340.2).toStringAsFixed(1)} m³",
-                previousText: "${(_waterScore?.previous ?? 357.0).toStringAsFixed(1)} m³",
+                score: _waterScore?.score,
+                label: _waterScore?.label,
+                current: _waterScore?.current,
+                previous: _waterScore?.previous,
+                unit: 'm³',
                 color: const Color(0xFF0284C7),
                 icon: Icons.water_drop_rounded,
               ),
@@ -656,53 +851,70 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
               ),
             ],
           ),
+          // The four bars here (อาคารเรียน 1 = 1,420 kWh 31%, …) were a const
+          // list. Nothing in the schema can produce them today: no RPC
+          // aggregates usage by building, and `devices.building` is null on
+          // every row, so even a new RPC would have nothing to group by.
+          // Showing the gap is the honest state; inventing a split across
+          // buildings that were never metered is not.
           child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 "สัดส่วนการใช้พลังงานรายอาคาร",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               SizedBox(height: 2),
               Text(
                 "แจกแจงตามจุดติดตั้งมิเตอร์อัจฉริยะในแต่ละอาคาร",
                 style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
               ),
-              SizedBox(height: 16),
-              _BuildingUsageBar(
-                buildingName: "อาคารเรียน 1 (ประถม)",
-                usageText: "1,420 kWh (31%)",
-                percent: 0.31,
-                color: Color(0xFFD97706),
+              SizedBox(height: 24),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.domain_disabled_rounded,
+                      size: 34,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      "ยังไม่มีข้อมูลรายอาคาร",
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      "ต้องระบุอาคารให้อุปกรณ์มิเตอร์ก่อน จึงจะแจกแจงการใช้พลังงานรายอาคารได้",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(height: 12),
-              _BuildingUsageBar(
-                buildingName: "อาคารเรียน 2 (มัธยม)",
-                usageText: "1,850 kWh (41%)",
-                percent: 0.41,
-                color: Color(0xFF9E401A),
-              ),
-              SizedBox(height: 12),
-              _BuildingUsageBar(
-                buildingName: "โรงฝึกงาน AIoT Lab",
-                usageText: "820 kWh (18%)",
-                percent: 0.18,
-                color: Color(0xFF0284C7),
-              ),
-              SizedBox(height: 12),
-              _BuildingUsageBar(
-                buildingName: "โรงอาหาร/หอประชุม",
-                usageText: "430 kWh (10%)",
-                percent: 0.10,
-                color: Color(0xFF16A34A),
-              ),
+              SizedBox(height: 24),
             ],
           ),
         );
 
         if (constraints.maxWidth < 1100) {
           return Column(
-            children: [efficiency, const SizedBox(height: 16), buildingBreakdown],
+            children: [
+              efficiency,
+              const SizedBox(height: 16),
+              buildingBreakdown,
+            ],
           );
         }
 
@@ -720,13 +932,30 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
 
   Widget _buildEfficiencyScoreRow({
     required String title,
-    required double score,
-    required String label,
-    required String currentText,
-    required String previousText,
+    required double? score,
+    required String? label,
+    required double? current,
+    required double? previous,
+    required String unit,
     required Color color,
     required IconData icon,
   }) {
+    // A missing score is a real answer from the backend ("not enough history
+    // to compare"), not a gap to paper over.
+    final String scoreText = score == null
+        ? (_hasError ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล')
+        : '${score.toStringAsFixed(0)}/100';
+    // Only quote the two period figures when the backend was able to grade
+    // them. With no meters the RPC still returns current = previous = 0, and
+    // printing "ช่วงนี้: 0.0 kWh (เทียบช่วงก่อน 0.0 kWh)" next to a
+    // "ยังไม่มีข้อมูล" score contradicts it — the row would be claiming a
+    // measurement of zero in the same breath as saying nothing was measured.
+    final String comparisonText =
+        (score == null || current == null || previous == null)
+        ? 'ยังไม่มีข้อมูลเทียบช่วงก่อนหน้า'
+        : 'ช่วงนี้: ${current.toStringAsFixed(1)} $unit '
+              '(เทียบช่วงก่อน ${previous.toStringAsFixed(1)} $unit)';
+
     return Row(
       children: [
         Container(
@@ -749,24 +978,36 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: color.withAlpha(22),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: color),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
+                  if (label != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withAlpha(22),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                        ),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 3),
               Text(
-                "ช่วงนี้: $currentText (เทียบช่วงก่อน $previousText)",
+                comparisonText,
                 style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
             ],
@@ -774,51 +1015,96 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
         ),
         const SizedBox(width: 8),
         Text(
-          "${score.toStringAsFixed(0)}/100",
+          scoreText,
           style: TextStyle(
-            fontSize: 17,
+            fontSize: score == null ? 12 : 17,
             fontWeight: FontWeight.w900,
-            color: color,
+            color: score == null ? const Color(0xFF64748B) : color,
           ),
         ),
       ],
     );
   }
 
+  /// One line per comparison the backend can actually justify.
+  ///
+  /// The previous version asserted things no part of this system observes —
+  /// "ตรวจพบเครื่องปรับอากาศห้องปฏิบัติการ 2 เปิดใช้งานต่อเนื่องเกิน 8 ชม.",
+  /// "ไม่มีสัญญาณท่อรั่วซึม", "ประหยัดงบประมาณได้ประมาณ ฿2,860". There is no
+  /// per-appliance runtime tracking, no leak detection and no budget baseline
+  /// anywhere in the schema, so those were claims about a school that the
+  /// system had never measured. What *is* real is the period-over-period
+  /// comparison the efficiency RPCs return, so only that is stated.
+  List<String> _realInsights() {
+    final List<String> lines = [];
+
+    void compare(UtilityEfficiencyScore? s, String noun, String unit) {
+      if (s == null || s.previous <= 0) return;
+      final double change = (s.current - s.previous) / s.previous * 100;
+      final String direction = change <= 0 ? 'ลดลง' : 'เพิ่มขึ้น';
+      lines.add(
+        '• $noun$direction ${change.abs().toStringAsFixed(1)}% '
+        'เทียบช่วงก่อนหน้า (${s.current.toStringAsFixed(1)} $unit '
+        'จาก ${s.previous.toStringAsFixed(1)} $unit)',
+      );
+    }
+
+    compare(_energyScore, 'การใช้ไฟฟ้า', 'kWh');
+    compare(_waterScore, 'การใช้น้ำประปา', 'm³');
+    return lines;
+  }
+
   Widget _buildSavingRecommendations() {
+    final List<String> insights = _realInsights();
+    final bool hasInsights = insights.isNotEmpty;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: hasInsights ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
+        border: Border.all(
+          color: hasInsights
+              ? const Color(0xFFBBF7D0)
+              : const Color(0xFFE2E8F0),
+        ),
       ),
-      child: const Row(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.tips_and_updates_rounded, color: Color(0xFF16A34A), size: 26),
-          SizedBox(width: 14),
+          Icon(
+            Icons.tips_and_updates_rounded,
+            color: hasInsights
+                ? const Color(0xFF16A34A)
+                : const Color(0xFF94A3B8),
+            size: 26,
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "ข้อเสนอแนะเพื่อการประหยัดพลังงาน (Smart Energy Insights)",
+                  "การเปลี่ยนแปลงเทียบช่วงก่อนหน้า",
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF14532D),
+                    color: hasInsights
+                        ? const Color(0xFF14532D)
+                        : const Color(0xFF334155),
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '''• ตรวจพบเครื่องปรับอากาศห้องปฏิบัติการ 2 เปิดใช้งานต่อเนื่องเกิน 8 ชม. แนะนำตั้งเวลาปิดอัตโนมัติด้วย Smart Relay
-• ปริมาณการใช้น้ำช่วง 18:00 - 06:00 น. ต่ำกว่า 0.2 m³ อยู่ในเกณฑ์ปกติ ไม่มีสัญญาณท่อรั่วซึม
-• การใช้ไฟฟ้าโดยรวมลดลง 12.4% เมื่อเทียบกับเดือนก่อนหน้า ประหยัดงบประมาณสถานศึกษาได้ประมาณ ฿2,860''',
+                  hasInsights
+                      ? insights.join('\n')
+                      : 'ยังไม่มีข้อมูลมากพอจะเทียบกับช่วงก่อนหน้า',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF166534),
+                    color: hasInsights
+                        ? const Color(0xFF166534)
+                        : const Color(0xFF64748B),
                     height: 1.5,
                   ),
                 ),
@@ -827,57 +1113,6 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BuildingUsageBar extends StatelessWidget {
-  const _BuildingUsageBar({
-    required this.buildingName,
-    required this.usageText,
-    required this.percent,
-    required this.color,
-  });
-
-  final String buildingName;
-  final String usageText;
-  final double percent;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                buildingName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              usageText,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: percent.clamp(0.0, 1.0),
-            minHeight: 8,
-            backgroundColor: const Color(0xFFE2E8F0),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
     );
   }
 }

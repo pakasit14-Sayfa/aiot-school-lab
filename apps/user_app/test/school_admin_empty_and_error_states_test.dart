@@ -134,14 +134,39 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      await tester.pumpWidget(const MaterialApp(home: SchoolReportsPage()));
+      // The reads are injected so this drives a genuinely EMPTY result. It
+      // used to construct the page bare, which made the real service throw
+      // AuthException — so the test asserted the empty state while actually
+      // exercising the failure path. Those are now separate states, and
+      // conflating them is exactly the anti-pattern the page was fixed for.
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SchoolReportsPage(
+            loadSummary: () async => SchoolAdminDashboardSummary(
+              schoolId: 'school-1',
+              schoolName: 'โรงเรียนทดสอบ',
+              schoolCode: 'TEST-1',
+              studentsCount: 0,
+              teachersCount: 0,
+              devicesCount: 0,
+              devicesOnline: 0,
+              buildingsCount: 0,
+              roomsCount: 0,
+              openAlertsCount: 0,
+            ),
+            loadLogs: () async => const <SchoolAdminAuditLog>[],
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(
         find.text('ระบบสร้างรายงานและส่งออกไฟล์ยังไม่พร้อมใช้งานในเวอร์ชันนี้'),
         findsOneWidget,
       );
-      expect(find.text('ยังไม่มีประวัติการใช้งานรายงาน'), findsOneWidget);
+      expect(find.text('ยังไม่มีข้อมูลประวัติการใช้งานรายงาน'), findsOneWidget);
+      // An empty school must not be reported as a failed load.
+      expect(find.text('โหลดข้อมูลรายงานไม่สำเร็จ กรุณาลองใหม่'), findsNothing);
     },
   );
 
