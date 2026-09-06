@@ -306,10 +306,63 @@ begin
   end if;
 end $$;
 
+-- =====================================================================
+-- Dual-role fixture — teacher@aiot-school-lab.local also holds
+-- school_admin in the same school.
+--
+-- Why this is seeded rather than created by hand: an account with 2+
+-- roles is the ONLY way to exercise the multi-role login path
+-- (auth_sign_in returns `role_selection_required` instead of picking a
+-- role, then auth_select_role issues an OTP for the chosen role). Every
+-- other seeded account has exactly one role and never reaches that code.
+-- This fixture used to be created manually at runtime, which meant it
+-- silently disappeared on every `supabase db reset` and the multi-role
+-- flow quietly stopped being tested. Seeding it fixes that.
+--
+-- It also reproduces a real bug class: `list_school_users` collapses a
+-- multi-role account to one `active_role` (most recently granted), which
+-- once hid this teacher from the teacher list entirely until
+-- `all_roles`/`hasRole` was added.
+--
+-- Safe to re-run: the insert is guarded on the exact (user, role, school).
+-- =====================================================================
+
+do $$
+declare
+  v_teacher_id uuid;
+  v_school_id uuid;
+  v_super_admin_id uuid;
+begin
+  select id, school_id into v_teacher_id, v_school_id
+  from users where email = 'teacher@aiot-school-lab.local';
+
+  select id into v_super_admin_id
+  from users where email = 'admin@aiot-school-lab.local';
+
+  if v_teacher_id is not null and v_school_id is not null then
+    if not exists (
+      select 1 from user_roles
+      where user_id = v_teacher_id
+        and role = 'school_admin'
+        and school_id = v_school_id
+    ) then
+      insert into user_roles (user_id, role, school_id, granted_by)
+      values (v_teacher_id, 'school_admin', v_school_id,
+              coalesce(v_super_admin_id, v_teacher_id));
+    end if;
+  end if;
+end $$;
+
 -- Quick reference: everything logs in with password Test1234!
 -- (except admin@aiot-school-lab.local, which uses ChangeMe123! from the
 -- bootstrap migration).
-select email, (select role from user_roles ur where ur.user_id = u.id limit 1) as role
+-- `string_agg` rather than `limit 1`: teacher@ deliberately holds two
+-- roles (see the dual-role fixture above), and `limit 1` would pick one
+-- of them arbitrarily and hide that fact.
+select
+  u.email,
+  (select string_agg(ur.role::text, ', ' order by ur.role)
+     from user_roles ur where ur.user_id = u.id) as roles
 from users u
 where u.email like '%@aiot-school-lab.local'
-order by role;
+order by u.email;
