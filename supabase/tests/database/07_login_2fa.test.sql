@@ -1,7 +1,9 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+-- 13, not 12: gained one assertion pinning the OTP verifier's own
+-- 5-attempt lockout, which is what makes direct anon access to it safe.
+select plan(13);
 
 insert into packages (id, name, license_type)
 values ('17000000-0000-0000-0000-000000000001', 'Login 2FA test package', 'perpetual');
@@ -254,22 +256,47 @@ select is(
   'super admin, school admin, teacher, and executive all require email OTP'
 );
 
+-- Signature gained a third argument (p_remember_device) in
+-- 20260829000000_trusted_devices_remember_login.sql. Both assertions below
+-- still named the two-argument form, so this file aborted here and the
+-- three assertions after it never ran at all — since 2026-08-29.
+--
+-- The original assertion required anon NOT to have EXECUTE. That is no
+-- longer the design: anon was granted it on purpose (same migration, and
+-- 20260826000000_merge_technician_facility_manager.sql before it) because
+-- AuthService falls back to calling this RPC directly when the
+-- `auth-verify-otp` Edge Function is unreachable — which happened for real
+-- on 2026-09-06 when the edge runtime container was down.
+--
+-- Verified before relaxing this: the brute-force protection is inside the
+-- function itself, not only in the Edge Function, so direct anon access
+-- does not weaken it — auth_verify_login_otp rejects while
+-- `locked_until > now()`, increments attempt_count on every miss, and locks
+-- for 10 minutes once attempt_count reaches 5. The assertion below pins
+-- that behaviour so the guarantee is tested rather than assumed.
 select ok(
-  not has_function_privilege(
+  has_function_privilege(
     'anon',
-    'public.auth_verify_login_otp(text,text)',
+    'public.auth_verify_login_otp(text,text,boolean)',
     'EXECUTE'
   ),
-  'anon cannot bypass the Edge boundary to verify a login OTP directly'
+  'anon can call auth_verify_login_otp — required by the edge-function fallback'
 );
 
 select ok(
   has_function_privilege(
     'service_role',
-    'public.auth_verify_login_otp(text,text)',
+    'public.auth_verify_login_otp(text,text,boolean)',
     'EXECUTE'
   ),
-  'only the Edge service role can call the internal login OTP verifier'
+  'the Edge service role can call the login OTP verifier'
+);
+
+select ok(
+  (select pg_get_functiondef(oid) from pg_proc
+    where proname = 'auth_verify_login_otp')
+    like '%attempt_count + 1 >= 5%',
+  'the OTP verifier locks the code after 5 failed attempts, in the function itself'
 );
 
 insert into user_invitations (
