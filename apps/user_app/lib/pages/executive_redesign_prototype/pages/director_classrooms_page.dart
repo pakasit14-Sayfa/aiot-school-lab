@@ -18,6 +18,13 @@ class _DirectorClassroomsPageState
 
   ClassroomsOverviewItem? _overview;
 
+  // Loading and failure used to be indistinguishable from real data: the
+  // summary tiles fell back to the hardcoded '36' / '1,248' / '64' whenever
+  // _overview was null, so a failed load silently showed a director invented
+  // numbers as if they were this school's.
+  bool _overviewLoading = true;
+  bool _overviewFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -25,13 +32,27 @@ class _DirectorClassroomsPageState
   }
 
   Future<void> _loadClassroomsOverview() async {
+    if (mounted) {
+      setState(() {
+        _overviewLoading = true;
+        _overviewFailed = false;
+      });
+    }
     try {
       final overview = await ExecutiveService.getClassroomsOverview();
       if (!mounted) return;
       setState(() {
         _overview = overview;
+        _overviewLoading = false;
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('DirectorClassroomsPage overview load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _overviewLoading = false;
+        _overviewFailed = true;
+      });
+    }
   }
 
   String searchText = '';
@@ -733,9 +754,20 @@ class _DirectorClassroomsPageState
   }
 
   Widget _overviewSummary() {
-    final roomCount = _overview?.roomCount.toString() ?? '36';
-    final studentCount = _overview?.activeStudentCount.toString() ?? '1,248';
-    final assignmentCount = _overview?.assignmentsDueThisWeek.toString() ?? '64';
+    // No invented fallbacks. A director must be able to tell "the system is
+    // still fetching", "this school genuinely has none", and "the load
+    // failed" apart from a real figure — the old `?? '36'` / `?? '1,248'` /
+    // `?? '64'` collapsed all three into numbers that looked authoritative.
+    String figure(String Function(ClassroomsOverviewItem) read) {
+      final o = _overview;
+      if (o != null) return read(o);
+      if (_overviewLoading) return '…';
+      return _overviewFailed ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล';
+    }
+
+    final roomCount = figure((o) => o.roomCount.toString());
+    final studentCount = figure((o) => o.activeStudentCount.toString());
+    final assignmentCount = figure((o) => o.assignmentsDueThisWeek.toString());
 
     final items = [
       _OverviewSummary(
