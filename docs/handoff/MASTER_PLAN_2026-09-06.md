@@ -139,12 +139,12 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 
 | | ID | งาน | ต้องทำหลัง | จบเมื่อ |
 |---|---|---|---|---|
-| [ ] | 0.1 | `git push` 6 commits ขึ้น gitlab | — | `git status` บอก up to date |
+| [x] | 0.1 | `git push` ขึ้น gitlab | — | ✅ **เสร็จ 2026-09-06** — push 11 commits (`e3fd2d2..66b83a2`) · remote ตรงกับ local แล้ว |
 | [ ] | 0.2 | 🔐 ปิด `redeem_parent_binding_code` บน production | 0.1 + **ผู้ใช้อนุญาต** | REST เรียกแล้วได้ `42501` และ `has_function_privilege`=false |
 | [ ] | 0.3 | 🔐 apply `20260905040000` (audit-log leak) ขึ้น production | 0.2 | school_admin จริงอ่าน log null-school ไม่ได้ + บันทึกใน `schema_migrations` |
 | [ ] | 0.4 | ตรวจ migration ทุกตัวว่าขึ้น production ครบ | 0.3 | `migration list` local ตรงกับ remote ทุกแถว |
 | [ ] | 0.5 | ใส่ fixture dual-role ลง `seed.sql` | — | `db reset` แล้ว teacher ยังมี 2 role |
-| [ ] | 0.6 | ลบ dead code 3,485 บรรทัด (9 ไฟล์ ดู §1-G) | — | `flutter analyze` + `build web` ยังผ่าน |
+| [x] | 0.6 | ลบ dead code + ปิด route `/prototype/*` | — | ✅ **เสร็จ 2026-09-06** (`66b83a2`) — ลบ 9 ไฟล์ + test ล้าสมัย 2 ไฟล์ รวม **-10,121 บรรทัด** · route `/prototype/*` ถูกครอบ `isPrototypeMode` แล้วทั้ง `routes:` และ `onGenerateRoute` · analyze 0 error/0 warning · build web ผ่าน · test fail คงที่ 16 ชุดเดิม |
 
 ---
 
