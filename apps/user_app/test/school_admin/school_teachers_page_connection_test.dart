@@ -1,0 +1,195 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:my_first_app/pages/school_admin/school_teachers_page.dart';
+import 'package:shared_core/shared_core.dart';
+
+/// Pins loading / data / empty / error apart for the teacher/staff roster.
+/// Guards the same multi-role bug as the student page (filtering must use
+/// `hasRole`, not `role == teacher`) and the write→read-back→confirm
+/// contract on suspend/reactivate/rename/homeroom-assignment mutations.
+
+UserModel _teacher({
+  String uid = 'tch-1',
+  String name = 'สมหญิง รักเรียน',
+  String email = 'somying@school.test',
+  String status = 'active',
+  List<UserRole> allRoles = const [UserRole.teacher],
+}) => UserModel(
+  uid: uid,
+  name: name,
+  email: email,
+  role: allRoles.first,
+  allRoles: allRoles,
+  status: status,
+);
+
+HomeroomAssignment _assignment({
+  String id = 'asg-1',
+  String gradeLevel = 'ม.1',
+  String room = '1',
+  String? teacherId = 'tch-1',
+}) => HomeroomAssignment(
+  assignmentId: id,
+  gradeLevel: gradeLevel,
+  room: room,
+  teacherId: teacherId,
+  studentCount: 20,
+);
+
+Future<void> _pump(
+  WidgetTester tester, {
+  Future<List<UserModel>> Function()? loadUsers,
+  Future<List<HomeroomAssignment>> Function()? loadHomerooms,
+  Future<String?> Function(String gradeLevel, String room, String teacherId)?
+  setHomeroomTeacher,
+  Future<bool> Function(String assignmentId)? removeHomeroomTeacher,
+  Future<void> Function(String uid)? suspendUser,
+  Future<void> Function(String uid)? reactivateUser,
+  Future<void> Function(String uid, String name)? updateName,
+}) async {
+  tester.view.physicalSize = const Size(1500, 3200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  await tester.pumpWidget(
+    MaterialApp(
+      home: SchoolTeachersPage(
+        loadUsers: loadUsers ?? () async => <UserModel>[],
+        loadHomerooms: loadHomerooms ?? () async => <HomeroomAssignment>[],
+        setHomeroomTeacher: setHomeroomTeacher,
+        removeHomeroomTeacher: removeHomeroomTeacher,
+        suspendUser: suspendUser,
+        reactivateUser: reactivateUser,
+        updateName: updateName,
+      ),
+    ),
+  );
+}
+
+void main() {
+  testWidgets('a multi-role teacher is still listed as staff', (
+    tester,
+  ) async {
+    // active_role collapsed to student, but all_roles still includes
+    // teacher — `role == teacher` would have dropped this person entirely.
+    await _pump(
+      tester,
+      loadUsers: () async => [
+        _teacher(allRoles: const [UserRole.student, UserRole.teacher]),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('สมหญิง รักเรียน'), findsOneWidget);
+  });
+
+  testWidgets('homeroom assignment is read from list_homeroom_assignments', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadUsers: () async => [_teacher()],
+      loadHomerooms: () async => [_assignment()],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ม.1/1'), findsWidgets);
+  });
+
+  testWidgets('a teacher with no homeroom is disclosed honestly', (
+    tester,
+  ) async {
+    await _pump(tester, loadUsers: () async => [_teacher()]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่ได้เป็นครูประจำชั้น'), findsWidgets);
+  });
+
+  testWidgets('no teachers says so, distinct from a failed load', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
+    expect(find.text('ยังไม่มีบัญชีที่มีบทบาทครูในโรงเรียนนี้'), findsOneWidget);
+  });
+
+  testWidgets('a failed load is distinct from empty, with retry', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      loadUsers: () async {
+        calls++;
+        throw StateError('backend detail that must stay internal');
+      },
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดรายชื่อบุคลากรไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('backend detail'), findsNothing);
+    expect(calls, 1);
+
+    await tester.tap(find.text('ลองใหม่').first);
+    await tester.pumpAndSettle();
+    expect(calls, 2, reason: 'retry must actually re-issue the load');
+  });
+
+  testWidgets('a slow load shows progress, not an empty result', (
+    tester,
+  ) async {
+    final gate = Completer<List<UserModel>>();
+    await _pump(tester, loadUsers: () => gate.future);
+    await tester.pump();
+
+    expect(find.text('กำลังโหลดรายชื่อบุคลากร…'), findsOneWidget);
+    expect(find.text('ยังไม่มีบัญชีที่มีบทบาทครูในโรงเรียนนี้'), findsNothing);
+
+    gate.complete([_teacher()]);
+    await tester.pumpAndSettle();
+    expect(find.text('กำลังโหลดรายชื่อบุคลากร…'), findsNothing);
+  });
+
+  testWidgets('suspend only reports success once the read-back confirms it', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadUsers: () async => [_teacher(status: 'active')],
+      suspendUser: (uid) async {
+        // Write succeeds but never actually flips the flag.
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ระงับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsNothing);
+    expect(find.textContaining('ระบบยังไม่ยืนยันการเปลี่ยนแปลง'), findsOneWidget);
+  });
+
+  testWidgets('suspend reports success once the read-back actually confirms', (
+    tester,
+  ) async {
+    var suspended = false;
+    await _pump(
+      tester,
+      loadUsers: () async =>
+          [_teacher(status: suspended ? 'suspended' : 'active')],
+      suspendUser: (uid) async => suspended = true,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ระงับ'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsOneWidget);
+  });
+}

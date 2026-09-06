@@ -1,0 +1,221 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:my_first_app/pages/school_admin/school_settings_page.dart';
+import 'package:shared_core/shared_core.dart';
+
+/// Pins loading / data / empty / error apart across the three real sources
+/// this page reads (`get_school_admin_dashboard_summary`,
+/// `get_school_utility_rates`, `list_school_admin_audit_logs`), and guards
+/// the write→read-back→confirm contract on `set_school_utility_rates`: a
+/// "saved" message may only appear once the value read back matches what was
+/// submitted, never on the strength of the write call alone.
+
+SchoolAdminDashboardSummary _summary({
+  String schoolName = 'โรงเรียนทดสอบ',
+  String schoolCode = 'TEST-1',
+}) => SchoolAdminDashboardSummary(
+  schoolId: 'school-1',
+  schoolName: schoolName,
+  schoolCode: schoolCode,
+  studentsCount: 120,
+  teachersCount: 8,
+  devicesCount: 5,
+  devicesOnline: 3,
+  buildingsCount: 2,
+  roomsCount: 10,
+  openAlertsCount: 1,
+);
+
+SchoolUtilityRates _rates({
+  double electricity = 4.2,
+  double water = 18,
+  bool electricityDefault = false,
+  bool waterDefault = false,
+}) => SchoolUtilityRates(
+  electricityRateThb: electricity,
+  isElectricityDefault: electricityDefault,
+  waterRateThb: water,
+  isWaterDefault: waterDefault,
+);
+
+SchoolAdminAuditLog _log({String action = 'แก้ไขอัตราค่าไฟฟ้า'}) =>
+    SchoolAdminAuditLog(
+      id: 1,
+      action: action,
+      target: 'school_settings',
+      detail: '',
+      actorName: 'ผู้ดูแล ทดสอบ',
+      actorRole: 'school_admin',
+      createdAt: DateTime(2026, 9, 1),
+    );
+
+Future<void> _pump(
+  WidgetTester tester, {
+  Future<SchoolAdminDashboardSummary> Function()? loadSummary,
+  Future<SchoolUtilityRates?> Function()? loadRates,
+  Future<void> Function({
+    required double electricityRateThb,
+    required double waterRateThb,
+  })?
+  saveRates,
+  Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
+}) async {
+  tester.view.physicalSize = const Size(1500, 3200);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  await tester.pumpWidget(
+    MaterialApp(
+      home: SchoolSettingsPage(
+        loadSummary: loadSummary ?? () async => _summary(),
+        loadRates: loadRates ?? () async => _rates(),
+        saveRates: saveRates,
+        loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
+      ),
+    ),
+  );
+}
+
+void main() {
+  testWidgets('real school info and rates are rendered', (tester) async {
+    await _pump(tester);
+    await tester.pumpAndSettle();
+
+    expect(find.text('โรงเรียนทดสอบ'), findsOneWidget);
+    expect(find.text('TEST-1'), findsOneWidget);
+    expect(find.text('4.2'), findsOneWidget);
+    expect(find.text('18'), findsOneWidget);
+  });
+
+  testWidgets('no utility rates yet says so, not an error', (tester) async {
+    await _pump(tester, loadRates: () async => null);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'ยังไม่มีข้อมูลอัตราค่าสาธารณูปโภคของโรงเรียนนี้ กรอกค่าแล้วกดบันทึกเพื่อตั้งค่าครั้งแรก',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('โหลดอัตราค่าไฟฟ้าและค่าน้ำไม่สำเร็จ'), findsNothing);
+  });
+
+  testWidgets('a default (unset) rate is disclosed, not shown as chosen', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadRates: () async => _rates(electricityDefault: true, waterDefault: true),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โรงเรียนนี้ยังไม่ได้ตั้งอัตราเอง ระบบใช้ค่ากลางอยู่'), findsOneWidget);
+  });
+
+  testWidgets('a failed summary load is distinct from a failed rates load', (
+    tester,
+  ) async {
+    await _pump(tester, loadSummary: () async => throw StateError('boom'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดข้อมูลโรงเรียนไม่สำเร็จ'), findsOneWidget);
+    // Rates still loaded fine — the two sources must not be conflated.
+    expect(find.text('โหลดอัตราค่าไฟฟ้าและค่าน้ำไม่สำเร็จ'), findsNothing);
+    expect(find.text('4.2'), findsOneWidget);
+  });
+
+  testWidgets('saving is rejected client-side if the retry never confirms', (
+    tester,
+  ) async {
+    var writeCalls = 0;
+    var stillOldRate = _rates(electricity: 4.2);
+    await _pump(
+      tester,
+      loadRates: () async => stillOldRate,
+      saveRates: ({required electricityRateThb, required waterRateThb}) async {
+        writeCalls++;
+        // Simulate the write silently not taking effect server-side.
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'อัตราค่าไฟฟ้า (บาท/หน่วย)'),
+      '5.5',
+    );
+    await tester.tap(find.text('บันทึกอัตราค่าสาธารณูปโภค'));
+    await tester.pumpAndSettle();
+
+    expect(writeCalls, 1);
+    expect(
+      find.text('บันทึกอัตราค่าไฟฟ้าและค่าน้ำไม่สำเร็จ ระบบยังไม่ได้บันทึกการเปลี่ยนแปลง'),
+      findsOneWidget,
+    );
+    // Must never claim success when the read-back does not match.
+    expect(find.text('บันทึกอัตราค่าไฟฟ้าและค่าน้ำเรียบร้อยแล้ว'), findsNothing);
+  });
+
+  testWidgets('saving succeeds only after the read-back confirms the value', (
+    tester,
+  ) async {
+    var confirmed = _rates(electricity: 4.2);
+    await _pump(
+      tester,
+      loadRates: () async => confirmed,
+      saveRates: ({required electricityRateThb, required waterRateThb}) async {
+        confirmed = _rates(
+          electricity: electricityRateThb,
+          water: waterRateThb,
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'อัตราค่าไฟฟ้า (บาท/หน่วย)'),
+      '5.5',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'อัตราค่าน้ำ (บาท/ลูกบาศก์เมตร)'),
+      '20',
+    );
+    await tester.tap(find.text('บันทึกอัตราค่าสาธารณูปโภค'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('5.5'), findsOneWidget);
+    expect(find.text('20'), findsOneWidget);
+  });
+
+  testWidgets('a slow summary load shows progress, not empty fields', (
+    tester,
+  ) async {
+    final gate = Completer<SchoolAdminDashboardSummary>();
+    await _pump(tester, loadSummary: () => gate.future);
+    await tester.pump();
+
+    expect(find.text('กำลังโหลดข้อมูลโรงเรียน…'), findsOneWidget);
+
+    gate.complete(_summary());
+    await tester.pumpAndSettle();
+    expect(find.text('กำลังโหลดข้อมูลโรงเรียน…'), findsNothing);
+  });
+
+  testWidgets('log error is distinct from empty log history', (tester) async {
+    await _pump(tester, loadLogs: () async => throw StateError('boom'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดประวัติการแก้ไขการตั้งค่าไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ยังไม่มีประวัติการแก้ไขการตั้งค่า'), findsNothing);
+  });
+
+  testWidgets('a real log entry is rendered', (tester) async {
+    await _pump(tester, loadLogs: () async => [_log()]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('แก้ไขอัตราค่าไฟฟ้า'), findsOneWidget);
+  });
+}
