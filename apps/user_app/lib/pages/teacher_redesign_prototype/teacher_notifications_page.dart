@@ -33,51 +33,27 @@ class NotificationItemModel {
   String targetRoute;
 }
 
-/// ข้อมูลแจ้งเตือน mock ชุดเดียวที่ทั้งหน้าเต็ม (`TeacherNotificationsPage`)
-/// และป็อปอัพตัวอย่างแจ้งเตือนแบบกระจกฝ้าบนแดชบอร์ดใช้ร่วมกัน กันไม่ให้
-/// ข้อมูลไม่ตรงกันระหว่างสองที่
-List<NotificationItemModel> mockTeacherNotifications() {
-  return [
-    NotificationItemModel(
-      id: 'notif-1',
-      title: '🚨 เกิดเหตุ SOS ฉุกเฉิน!',
-      message:
-          'ปุ่มกดกายภาพ PANIC-BTN-05B ถูกกดที่ ห้องปฏิบัติการเคมี (ห้อง 532)',
-      category: 'emergency',
-      timestamp: '14:22 น. (วันนี้)',
-      isRead: false,
-      targetRoute: 'emergency',
-    ),
-    NotificationItemModel(
-      id: 'notif-2',
-      title: '⚠️ ค่าดัชนีรังสี UV สูงเกินขอบเขต',
-      message:
-          'เซนเซอร์ AIoT-Node-01 ห้อง ม.5/2 ตรวจพบรังสี UV ระดับ 6 (เกินเกณฑ์สูงสุด UV 5)',
-      category: 'sensor',
-      timestamp: '13:45 น. (วันนี้)',
-      isRead: false,
-      targetRoute: 'aiot',
-    ),
-    NotificationItemModel(
-      id: 'notif-3',
-      title: '📝 มีนักเรียนส่งใบงานทดลองใหม่รอตรวจ 18 รายการ',
-      message:
-          'วิชา ม.5/2 การออกแบบเทคโนโลยี — ใบงานทดลองที่ 3 การวัดค่าฝุ่น PM2.5',
-      category: 'grading',
-      timestamp: '11:30 น. (วันนี้)',
-      isRead: true,
-      targetRoute: 'grading',
-    ),
-    NotificationItemModel(
-      id: 'notif-4',
-      title: '📷 กล้อง AI Security ตรวจพบความผิดปกติ',
-      message: 'กล้องประตูหลังโรงเรียน ตรวจพบเคสความปลอดภัยรอการรีวิว',
-      category: 'camera',
-      timestamp: '09:10 น. (วันนี้)',
-      isRead: true,
-      targetRoute: 'camera',
-    ),
-  ];
+/// ใช้ร่วมกันระหว่างหน้าเต็ม ([TeacherNotificationsPage]) และป็อปอัพ
+/// ตัวอย่างแจ้งเตือนแบบกระจกฝ้าบนแดชบอร์ด (`_showTeacherNotificationPreview`
+/// ใน teacher_redesign_prototype_page.dart) กันไม่ให้สองที่แปลงข้อมูลไม่ตรงกัน
+List<NotificationItemModel> mapRealNotifications(
+  List<AppNotification> list,
+) {
+  return list.map((n) {
+    return NotificationItemModel(
+      id: n.id,
+      title: n.title,
+      message: n.body ?? '',
+      category: n.type == 'emergency'
+          ? 'emergency'
+          : (n.type == 'sensor' ? 'sensor' : 'grading'),
+      timestamp: '${n.createdAt.toLocal().toString().substring(11, 16)} น.',
+      isRead: n.readAt != null,
+      targetRoute: n.type == 'emergency'
+          ? 'emergency'
+          : (n.type == 'sensor' ? 'aiot' : 'grading'),
+    );
+  }).toList();
 }
 
 class TeacherNotificationsPage extends StatefulWidget {
@@ -92,46 +68,47 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
   String _selectedCategory =
       'ทั้งหมด'; // 'ทั้งหมด', 'ฉุกเฉิน/SOS', 'เซนเซอร์', 'ตรวจงาน'
 
-  late List<NotificationItemModel> _notifications;
+  List<NotificationItemModel> _notifications = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _notifications = mockTeacherNotifications();
     _loadRealNotifications();
   }
 
   Future<void> _loadRealNotifications() async {
     try {
       final list = await NotificationService.listMyNotifications();
-      if (!mounted || list.isEmpty) return;
+      if (!mounted) return;
       setState(() {
-        _notifications = list.map((n) {
-          return NotificationItemModel(
-            id: n.id,
-            title: n.title,
-            message: n.body ?? '',
-            category: n.type == 'emergency'
-                ? 'emergency'
-                : (n.type == 'sensor' ? 'sensor' : 'grading'),
-            timestamp:
-                '${n.createdAt.toLocal().toString().substring(11, 16)} น.',
-            isRead: n.readAt != null,
-            targetRoute: n.type == 'emergency'
-                ? 'emergency'
-                : (n.type == 'sensor' ? 'aiot' : 'grading'),
-          );
-        }).toList();
+        _notifications = mapRealNotifications(list);
+        _isLoading = false;
       });
-    } catch (_) {}
+    } catch (_) {
+      // เคย seed ด้วยการแจ้งเตือนปลอม 4 รายการ (SOS ฉุกเฉิน/เซนเซอร์ UV/ตรวจ
+      // งาน/กล้อง) แล้วเขียนทับเฉพาะตอนโหลดจริงสำเร็จและได้ผลลัพธ์ไม่ว่าง —
+      // ครูที่ยังไม่มีการแจ้งเตือนจริงเลยหรือโหลดพังจะเห็นการแจ้งเตือนปลอม
+      // ค้างตลอดไป ตอนนี้ว่างจริงหรือพังจริงต้องโชว่าลิสต์ว่างเสมอ
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  void _handleNotificationTap(NotificationItemModel notif) {
+  Future<void> _handleNotificationTap(NotificationItemModel notif) async {
+    final wasRead = notif.isRead;
     setState(() => notif.isRead = true);
     try {
-      NotificationService.markNotificationRead(notif.id);
-    } catch (_) {}
+      await NotificationService.markNotificationRead(notif.id);
+    } catch (e) {
+      if (mounted) {
+        setState(() => notif.isRead = wasRead);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ทำเครื่องหมายอ่านแล้วไม่สำเร็จ: $e')),
+        );
+      }
+    }
 
+    if (!mounted) return;
     if (notif.targetRoute == 'emergency') {
       Navigator.push(
         context,
@@ -284,8 +261,47 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
 
               const SizedBox(height: 20),
 
-              // Notifications List Loop
-              ListView.separated(
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(
+                      color: TeacherPalette.primary,
+                    ),
+                  ),
+                )
+              else if (filtered.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: TeacherPalette.border),
+                  ),
+                  child: const Column(
+                    children: [
+                      Icon(
+                        Icons.notifications_none_rounded,
+                        size: 40,
+                        color: TeacherPalette.muted,
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'ไม่มีการแจ้งเตือนในหมวดนี้',
+                        style: TextStyle(
+                          color: TeacherPalette.ink,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                // Notifications List Loop
+                ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: filtered.length,

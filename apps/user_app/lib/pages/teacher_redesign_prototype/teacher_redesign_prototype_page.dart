@@ -5803,11 +5803,21 @@ const _teacherSearchSuggestions = [
 /// `_openGlassNotificationModal` ฝั่งนักเรียน (student_navigation_prototype.
 /// dart): เบลอพื้นหลัง + การ์ดขาวโปร่งแสง + โชว์ 3 รายการล่าสุด + ปุ่ม
 /// "ดูการแจ้งเตือนทั้งหมด" พาไปหน้าเต็ม `TeacherNotificationsPage` (ของเดิม
-/// ที่มีระบบกรอง/mark-as-read ครบอยู่แล้ว ไม่ได้แตะ) ใช้ข้อมูล mock ชุด
-/// เดียวกับหน้าเต็มผ่าน `mockTeacherNotifications()` กันข้อมูลไม่ตรงกัน
-void _showTeacherNotificationPreview(BuildContext context) {
-  final notifications = mockTeacherNotifications();
-  final preview = notifications.take(3).toList();
+/// ที่มีระบบกรอง/mark-as-read ครบอยู่แล้ว ไม่ได้แตะ) ใช้ข้อมูลจริงผ่าน
+/// `mapRealNotifications` ตัวเดียวกับหน้าเต็ม กันข้อมูลไม่ตรงกัน — เคยเป็น
+/// การแจ้งเตือนปลอม 4 รายการ (SOS ฉุกเฉิน/เซนเซอร์ UV/ตรวจงาน/กล้อง) ที่ขึ้น
+/// ทุกครั้งไม่ว่าจะมีการแจ้งเตือนจริงหรือไม่
+Future<void> _showTeacherNotificationPreview(BuildContext context) async {
+  List<NotificationItemModel> preview = [];
+  try {
+    final list = await NotificationService.listMyNotifications();
+    preview = mapRealNotifications(list).take(3).toList();
+  } catch (_) {
+    // ว่างจริงหรือโหลดพังต้องโชว่า "ไม่มีการแจ้งเตือนใหม่" ด้านล่าง ไม่ใช่
+    // ของปลอม
+  }
+
+  if (!context.mounted) return;
 
   showDialog<void>(
     context: context,
