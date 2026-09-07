@@ -51,7 +51,13 @@ void main() {
     expect(find.text('Log การเปลี่ยนสิทธิ์ล่าสุด'), findsOneWidget);
   });
 
-  testWidgets('SchoolPermissionsPage opens modern permission dialog with visual role chips', (tester) async {
+  // Updated 2026-09-07: "เพิ่มสิทธิ์" (add a new user) used to open a dialog
+  // that built a fake `_PermissionUser` in memory and claimed it was saved —
+  // there is no RPC that creates a user this way (the only real path is
+  // "นำเข้ารายชื่อ" / bulk import). The button is now disabled with a
+  // tooltip explaining why, instead of opening a dialog that lies about
+  // persisting anything.
+  testWidgets('SchoolPermissionsPage disables "เพิ่มสิทธิ์" instead of faking account creation', (tester) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -65,19 +71,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    // Tap Add Permission button
-    await tester.tap(find.text('เพิ่มสิทธิ์'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    final addButton = find.byWidgetPredicate(
+      (w) => w is ButtonStyleButton && w.onPressed == null,
+    );
+    expect(
+      find.descendant(of: addButton, matching: find.text('เพิ่มสิทธิ์')),
+      findsOneWidget,
+    );
 
-    // Verify modern dialog content
-    expect(find.text('เพิ่มสิทธิ์ผู้ใช้งาน'), findsOneWidget);
-    expect(find.text('เลือกบทบาทในระบบ'), findsOneWidget);
-    expect(find.text('สรุปสิทธิ์ที่จะได้รับ'), findsOneWidget);
-    expect(find.text('ยกเลิก'), findsOneWidget);
-
-    // Tap Cancel
-    await tester.tap(find.text('ยกเลิก'));
+    // Tapping a disabled button must not open any dialog.
+    await tester.tap(find.text('เพิ่มสิทธิ์'), warnIfMissed: false);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
