@@ -219,11 +219,16 @@ class _UserListPageState extends State<UserListPage> {
                   return;
                 }
 
-                await AuthService.updateProfile(uid: user.uid, name: newName);
-                if (!mounted) return;
-                Navigator.pop(dialogContext);
-                await loadUsers();
-                _showMessage('แก้ไขข้อมูลผู้ใช้เรียบร้อยแล้ว');
+                try {
+                  await AuthService.updateProfile(uid: user.uid, name: newName);
+                  if (!mounted) return;
+                  Navigator.pop(dialogContext);
+                  await loadUsers();
+                  _showMessage('แก้ไขข้อมูลผู้ใช้เรียบร้อยแล้ว');
+                } catch (_) {
+                  if (!mounted) return;
+                  _showMessage('บันทึกไม่สำเร็จ กรุณาลองใหม่', isError: true);
+                }
               },
               icon: const Icon(Icons.check_rounded, size: 18),
               label: const Text('บันทึก'),
@@ -344,14 +349,19 @@ class _UserListPageState extends State<UserListPage> {
                 ),
                 FilledButton.icon(
                   onPressed: () async {
-                    await UserAdminService.updateRole(
-                      uid: user.uid,
-                      role: selectedRole,
-                    );
-                    if (!mounted) return;
-                    Navigator.pop(dialogContext);
-                    await loadUsers();
-                    _showMessage('ปรับสิทธิ์ผู้ใช้เป็น ${selectedRole.label} เรียบร้อยแล้ว');
+                    try {
+                      await UserAdminService.updateRole(
+                        uid: user.uid,
+                        role: selectedRole,
+                      );
+                      if (!mounted) return;
+                      Navigator.pop(dialogContext);
+                      await loadUsers();
+                      _showMessage('ปรับสิทธิ์ผู้ใช้เป็น ${selectedRole.label} เรียบร้อยแล้ว');
+                    } catch (_) {
+                      if (!mounted) return;
+                      _showMessage('เปลี่ยนสิทธิ์ไม่สำเร็จ กรุณาลองใหม่', isError: true);
+                    }
                   },
                   icon: const Icon(Icons.check_rounded, size: 18),
                   label: const Text('ยืนยันการเปลี่ยนสิทธิ์'),
@@ -424,11 +434,16 @@ class _UserListPageState extends State<UserListPage> {
             ),
             FilledButton.icon(
               onPressed: () async {
-                await UserAdminService.deleteUser(user.uid);
-                if (!mounted) return;
-                Navigator.pop(dialogContext);
-                await loadUsers();
-                _showMessage('ระงับผู้ใช้เรียบร้อยแล้ว');
+                try {
+                  await UserAdminService.deleteUser(user.uid);
+                  if (!mounted) return;
+                  Navigator.pop(dialogContext);
+                  await loadUsers();
+                  _showMessage('ระงับผู้ใช้เรียบร้อยแล้ว');
+                } catch (_) {
+                  if (!mounted) return;
+                  _showMessage('ระงับผู้ใช้ไม่สำเร็จ กรุณาลองใหม่', isError: true);
+                }
               },
               icon: const Icon(Icons.block_rounded, size: 18),
               label: const Text('ระงับบัญชี'),
@@ -499,11 +514,16 @@ class _UserListPageState extends State<UserListPage> {
             ),
             FilledButton.icon(
               onPressed: () async {
-                await UserAdminService.reactivateUser(user.uid);
-                if (!mounted) return;
-                Navigator.pop(dialogContext);
-                await loadUsers();
-                _showMessage('เปิดใช้งานผู้ใช้เรียบร้อยแล้ว');
+                try {
+                  await UserAdminService.reactivateUser(user.uid);
+                  if (!mounted) return;
+                  Navigator.pop(dialogContext);
+                  await loadUsers();
+                  _showMessage('เปิดใช้งานผู้ใช้เรียบร้อยแล้ว');
+                } catch (_) {
+                  if (!mounted) return;
+                  _showMessage('เปิดใช้งานไม่สำเร็จ กรุณาลองใหม่', isError: true);
+                }
               },
               icon: const Icon(Icons.check_rounded, size: 18),
               label: const Text('เปิดใช้งาน'),
