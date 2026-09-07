@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
+/// Read seams so loading / data / empty / failure can each be driven in a test.
+typedef StaffDirectoryLoader = Future<List<StaffDirectoryEntry>> Function();
+typedef DepartmentsLoader = Future<List<SchoolDepartment>> Function();
+
 class DirectorTeachersPage extends StatefulWidget {
-  const DirectorTeachersPage({super.key});
+  const DirectorTeachersPage({super.key, this.loadStaff, this.loadDepartments});
+
+  final StaffDirectoryLoader? loadStaff;
+  final DepartmentsLoader? loadDepartments;
 
   @override
-  State<DirectorTeachersPage> createState() =>
-      _DirectorTeachersPageState();
+  State<DirectorTeachersPage> createState() => _DirectorTeachersPageState();
 }
 
 class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
@@ -16,6 +23,56 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
   String selectedDepartment = 'ทุกฝ่าย';
   String selectedRole = 'ทุกประเภท';
   String selectedStatus = 'ทุกสถานะ';
+
+  List<StaffDirectoryEntry> _staff = const [];
+  List<SchoolDepartment> _departments = const [];
+  bool _loading = true;
+  bool _loadFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
+    try {
+      final results = await Future.wait<Object?>([
+        widget.loadStaff?.call() ?? StaffOrgService.listStaffDirectory(),
+        widget.loadDepartments?.call() ?? StaffOrgService.listDepartments(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _staff = results[0] as List<StaffDirectoryEntry>;
+        _departments = results[1] as List<SchoolDepartment>;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('DirectorTeachersPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
+  }
+
+  /// ฝ่าย, from `departments` where kind = administrative.
+  ///
+  /// Was a const list of six with per-department staff/present/on-leave counts
+  /// and a workload percentage. Only the member count is real; attendance and
+  /// workload have no source — there is no staff attendance table at all — so
+  /// they are not shown.
+  List<SchoolDepartment> get _administrative =>
+      _departments.where((d) => d.isAdministrative).toList();
+
+  /// กลุ่มสาระ, from the same table.
+  List<SchoolDepartment> get _subjectGroups =>
+      _departments.where((d) => d.isSubjectGroup).toList();
 
   final List<String> departments = const [
     'ทุกฝ่าย',
@@ -43,239 +100,6 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     'ลา',
     'มาสาย',
     'ประชุม/อบรม',
-  ];
-
-  final List<_DepartmentData> departmentData = const [
-    _DepartmentData(
-      title: 'ฝ่ายบริหาร',
-      subtitle: 'กำกับนโยบายและบริหารภาพรวมโรงเรียน',
-      staff: 6,
-      present: 6,
-      onLeave: 0,
-      workload: 92,
-      icon: Icons.account_balance_rounded,
-      color: AppPalette.primaryPink,
-      issue: 'ปกติ',
-    ),
-    _DepartmentData(
-      title: 'ฝ่ายวิชาการ',
-      subtitle: 'การเรียนการสอน หลักสูตร วัดผล และนิเทศ',
-      staff: 54,
-      present: 51,
-      onLeave: 2,
-      workload: 96,
-      icon: Icons.school_rounded,
-      color: AppPalette.learningBlue,
-      issue: 'ติดตาม 2 คน',
-    ),
-    _DepartmentData(
-      title: 'ฝ่ายกิจการนักเรียน',
-      subtitle: 'ดูแลพฤติกรรม วินัย ความปลอดภัย และกิจกรรม',
-      staff: 8,
-      present: 8,
-      onLeave: 0,
-      workload: 94,
-      icon: Icons.groups_2_rounded,
-      color: AppPalette.chartPink,
-      issue: 'มี 2 เคส',
-    ),
-    _DepartmentData(
-      title: 'ฝ่ายบุคคลและธุรการ',
-      subtitle: 'งานบุคคล เอกสาร การลา และงานสำนักงาน',
-      staff: 6,
-      present: 5,
-      onLeave: 1,
-      workload: 91,
-      icon: Icons.badge_rounded,
-      color: AppPalette.behaviorYellow,
-      issue: 'ลา 1 คน',
-    ),
-    _DepartmentData(
-      title: 'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
-      subtitle: 'ดูแลอาคาร ห้องเรียน น้ำ ไฟ และสภาพแวดล้อม',
-      staff: 8,
-      present: 7,
-      onLeave: 0,
-      workload: 89,
-      icon: Icons.apartment_rounded,
-      color: AppPalette.environmentGreen,
-      issue: 'ตรวจอาคาร 2',
-    ),
-    _DepartmentData(
-      title: 'ฝ่ายเทคโนโลยีและระบบ',
-      subtitle: 'ดูแลระบบสารสนเทศ AIoT อุปกรณ์ และเครือข่าย',
-      staff: 4,
-      present: 4,
-      onLeave: 0,
-      workload: 95,
-      icon: Icons.memory_rounded,
-      color: AppPalette.chartCream,
-      issue: 'ปกติ',
-    ),
-  ];
-
-  final List<_SubjectGroupData> subjectGroups = const [
-    _SubjectGroupData('ภาษาไทย', 6, 95, 94, 1, AppPalette.chartPink),
-    _SubjectGroupData('คณิตศาสตร์', 7, 96, 95, 1, AppPalette.learningBlue),
-    _SubjectGroupData('วิทยาศาสตร์และเทคโนโลยี', 8, 94, 96, 2, AppPalette.environmentGreen),
-    _SubjectGroupData('สังคมศึกษา', 5, 93, 92, 1, AppPalette.chartCream),
-    _SubjectGroupData('สุขศึกษาและพลศึกษา', 5, 97, 94, 0, AppPalette.behaviorYellow),
-    _SubjectGroupData('ศิลปะ', 4, 95, 93, 0, AppPalette.chartPink2),
-    _SubjectGroupData('การงานอาชีพ', 5, 94, 92, 1, AppPalette.chartCream),
-    _SubjectGroupData('ภาษาต่างประเทศ', 8, 96, 95, 1, AppPalette.learningBlue),
-  ];
-
-  final List<_PersonnelData> personnel = const [
-    _PersonnelData(
-      name: 'นายสมชาย ใจดี',
-      position: 'รองผู้อำนวยการฝ่ายวิชาการ',
-      department: 'ฝ่ายวิชาการ',
-      role: 'ผู้บริหาร',
-      subjectGroup: 'บริหารวิชาการ',
-      status: 'มาปฏิบัติงาน',
-      email: 'somchai@school.ac.th',
-      phone: '08x-xxx-1001',
-      attendance: 98,
-      teaching: 0,
-      taskProgress: 96,
-      note: 'กำกับแผนการเรียน การนิเทศ และผลสัมฤทธิ์ทางการเรียน',
-      color: AppPalette.primaryPink,
-    ),
-    _PersonnelData(
-      name: 'นางสาวอรทัย พัฒนกิจ',
-      position: 'หัวหน้ากลุ่มสาระคณิตศาสตร์',
-      department: 'ฝ่ายวิชาการ',
-      role: 'หัวหน้าฝ่าย',
-      subjectGroup: 'คณิตศาสตร์',
-      status: 'เข้าสอน',
-      email: 'orathai@school.ac.th',
-      phone: '08x-xxx-1002',
-      attendance: 97,
-      teaching: 96,
-      taskProgress: 95,
-      note: 'รับผิดชอบแผนการสอนและติดตามนักเรียนที่ผลการเรียนต่ำกว่าเกณฑ์',
-      color: AppPalette.learningBlue,
-    ),
-    _PersonnelData(
-      name: 'นายกิตติศักดิ์ แสงทอง',
-      position: 'ครูวิทยาศาสตร์',
-      department: 'ฝ่ายวิชาการ',
-      role: 'ครูผู้สอน',
-      subjectGroup: 'วิทยาศาสตร์และเทคโนโลยี',
-      status: 'เข้าสอน',
-      email: 'kittisak@school.ac.th',
-      phone: '08x-xxx-1003',
-      attendance: 95,
-      teaching: 94,
-      taskProgress: 92,
-      note: 'สอน ม.4-ม.6 และดูแลห้องปฏิบัติการวิทยาศาสตร์',
-      color: AppPalette.environmentGreen,
-    ),
-    _PersonnelData(
-      name: 'นางสาวพรทิพย์ รักษ์ดี',
-      position: 'ครูภาษาอังกฤษ',
-      department: 'ฝ่ายวิชาการ',
-      role: 'ครูผู้สอน',
-      subjectGroup: 'ภาษาต่างประเทศ',
-      status: 'มาปฏิบัติงาน',
-      email: 'porntip@school.ac.th',
-      phone: '08x-xxx-1004',
-      attendance: 96,
-      teaching: 95,
-      taskProgress: 94,
-      note: 'สอน ม.2 และ ม.5 พร้อมดูแลกิจกรรมภาษาอังกฤษ',
-      color: AppPalette.chartPink2,
-    ),
-    _PersonnelData(
-      name: 'นายณัฐวุฒิ มั่นคง',
-      position: 'หัวหน้าฝ่ายกิจการนักเรียน',
-      department: 'ฝ่ายกิจการนักเรียน',
-      role: 'หัวหน้าฝ่าย',
-      subjectGroup: 'กิจการนักเรียน',
-      status: 'มาปฏิบัติงาน',
-      email: 'nattawut@school.ac.th',
-      phone: '08x-xxx-1005',
-      attendance: 98,
-      teaching: 0,
-      taskProgress: 94,
-      note: 'ดูแลวินัย ความปลอดภัย นักเรียนขาดเรียน และเหตุการณ์ฉุกเฉิน',
-      color: AppPalette.chartPink,
-    ),
-    _PersonnelData(
-      name: 'นางสาวสุภาวดี ศรีสุข',
-      position: 'เจ้าหน้าที่งานบุคคล',
-      department: 'ฝ่ายบุคคลและธุรการ',
-      role: 'เจ้าหน้าที่',
-      subjectGroup: 'งานบุคคล',
-      status: 'มาปฏิบัติงาน',
-      email: 'supawadee@school.ac.th',
-      phone: '08x-xxx-1006',
-      attendance: 97,
-      teaching: 0,
-      taskProgress: 91,
-      note: 'ดูแลข้อมูลบุคลากร การลา ประวัติ และเอกสารราชการ',
-      color: AppPalette.behaviorYellow,
-    ),
-    _PersonnelData(
-      name: 'นายประสิทธิ์ ช่างดี',
-      position: 'เจ้าหน้าที่อาคารสถานที่',
-      department: 'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
-      role: 'บุคลากรสนับสนุน',
-      subjectGroup: 'อาคารสถานที่',
-      status: 'มาปฏิบัติงาน',
-      email: 'prasit@school.ac.th',
-      phone: '08x-xxx-1007',
-      attendance: 95,
-      teaching: 0,
-      taskProgress: 89,
-      note: 'ตรวจสอบระบบน้ำ ไฟ อาคาร และรับผิดชอบเหตุผิดปกติอาคาร 2',
-      color: AppPalette.environmentGreen,
-    ),
-    _PersonnelData(
-      name: 'นายธนกฤต ระบบดี',
-      position: 'เจ้าหน้าที่ระบบสารสนเทศ',
-      department: 'ฝ่ายเทคโนโลยีและระบบ',
-      role: 'เจ้าหน้าที่',
-      subjectGroup: 'ระบบสารสนเทศ',
-      status: 'ประชุม/อบรม',
-      email: 'thanakrit@school.ac.th',
-      phone: '08x-xxx-1008',
-      attendance: 96,
-      teaching: 0,
-      taskProgress: 95,
-      note: 'ดูแล AIoT Dashboard เครือข่าย ฐานข้อมูล และระบบแจ้งเตือน',
-      color: AppPalette.chartCream,
-    ),
-    _PersonnelData(
-      name: 'นางสาวจิราพร ตั้งใจ',
-      position: 'ครูภาษาไทย',
-      department: 'ฝ่ายวิชาการ',
-      role: 'ครูผู้สอน',
-      subjectGroup: 'ภาษาไทย',
-      status: 'ลา',
-      email: 'jiraporn@school.ac.th',
-      phone: '08x-xxx-1009',
-      attendance: 92,
-      teaching: 93,
-      taskProgress: 90,
-      note: 'ลาป่วยวันนี้ มีการจัดครูสอนแทนคาบ 2 และคาบ 4 แล้ว',
-      color: AppPalette.chartPink,
-    ),
-    _PersonnelData(
-      name: 'นายวรพล ขยันงาน',
-      position: 'ครูสังคมศึกษา',
-      department: 'ฝ่ายวิชาการ',
-      role: 'ครูผู้สอน',
-      subjectGroup: 'สังคมศึกษา',
-      status: 'มาสาย',
-      email: 'worapon@school.ac.th',
-      phone: '08x-xxx-1010',
-      attendance: 90,
-      teaching: 91,
-      taskProgress: 92,
-      note: 'มาสาย 18 นาที ระบบบันทึกเวลาเข้าแล้ว และเข้าสอนคาบแรกทันเวลา',
-      color: AppPalette.warning,
-    ),
   ];
 
   @override
@@ -311,19 +135,18 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 5,
-                    child: _todayStatusCard(),
-                  ),
+                  Expanded(flex: 5, child: _todayStatusCard()),
                   const SizedBox(width: 16),
-                  Expanded(
-                    flex: 4,
-                    child: _directorFollowUpCard(),
-                  ),
+                  Expanded(flex: 4, child: _directorFollowUpCard()),
                 ],
               );
             },
           ),
+          if (_loading) ...[
+            const SizedBox(height: 20),
+            const Center(child: CircularProgressIndicator()),
+          ],
+          if (_loadFailed) ...[const SizedBox(height: 12), _loadErrorBanner()],
           const SizedBox(height: 16),
           _subjectGroupsSection(),
           const SizedBox(height: 16),
@@ -333,75 +156,146 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  List<_PersonnelData> _filteredPersonnel() {
+  /// Thai label for a backend role value. The filter used to offer
+  /// 'ผู้บริหาร / ครูผู้สอน / …' against a `role` string that was written by
+  /// hand per row; these map to what `user_roles` actually holds.
+  static const Map<String, String> _roleLabels = {
+    'executive': 'ผู้บริหาร',
+    'school_admin': 'ผู้ดูแลระบบโรงเรียน',
+    'teacher': 'ครูผู้สอน',
+  };
+
+  String _roleLabel(StaffDirectoryEntry p) =>
+      p.roles.map((r) => _roleLabels[r] ?? r).join(' · ');
+
+  List<StaffDirectoryEntry> _filteredPersonnel() {
     final query = searchText.trim().toLowerCase();
 
-    return personnel.where((person) {
-      final matchesSearch = query.isEmpty ||
-          person.name.toLowerCase().contains(query) ||
-          person.position.toLowerCase().contains(query) ||
-          person.department.toLowerCase().contains(query) ||
-          person.subjectGroup.toLowerCase().contains(query);
+    return _staff.where((person) {
+      final groups = [
+        ...person.administrativeDepartments,
+        ...person.subjectGroups,
+      ];
 
-      final matchesDepartment = selectedDepartment == 'ทุกฝ่าย' ||
-          person.department == selectedDepartment;
+      final matchesSearch =
+          query.isEmpty ||
+          person.fullName.toLowerCase().contains(query) ||
+          person.email.toLowerCase().contains(query) ||
+          (person.positionTitle ?? '').toLowerCase().contains(query) ||
+          groups.any((g) => g.toLowerCase().contains(query));
 
+      final matchesDepartment =
+          selectedDepartment == 'ทุกฝ่าย' ||
+          groups.contains(selectedDepartment);
+
+      // Matches on membership in `roles`, not equality against one collapsed
+      // role — an account holding both teacher and school_admin belongs in
+      // both filters.
       final matchesRole =
-          selectedRole == 'ทุกประเภท' || person.role == selectedRole;
+          selectedRole == 'ทุกประเภท' ||
+          person.roles.any((r) => _roleLabels[r] == selectedRole);
 
       final matchesStatus =
-          selectedStatus == 'ทุกสถานะ' || person.status == selectedStatus;
+          selectedStatus == 'ทุกสถานะ' ||
+          (selectedStatus == 'ใช้งานอยู่' && person.isActive) ||
+          (selectedStatus == 'ระงับการใช้งาน' && !person.isActive);
 
-      return matchesSearch &&
-          matchesDepartment &&
-          matchesRole &&
-          matchesStatus;
+      return matchesSearch && matchesDepartment && matchesRole && matchesStatus;
     }).toList();
   }
 
+  /// Failure stated on the page. Without it an unreachable backend renders as
+  /// a school with no staff at all.
+  Widget _loadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดข้อมูลบุคลากรไม่สำเร็จ — รายชื่อที่แสดงอาจไม่ครบ',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF991B1B),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _load,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _summaryCards() {
-    const items = [
+    // Counted from the loaded directory. All six were fixed strings — 86
+    // staff, 82 present today, 3 on leave, 2 late, 96% of periods started on
+    // time, 4 in meetings. Only the head counts have a source: nothing in the
+    // schema records staff attendance, lateness, whether a period actually
+    // started, or who is in a meeting, so those four cards are gone rather
+    // than showing a zero that would read as "nobody came in today".
+    final teacherCount = _staff.where((s) => s.hasRole('teacher')).length;
+    final adminCount = _staff.where((s) => s.hasRole('school_admin')).length;
+    final unassigned = _staff
+        .where(
+          (s) => s.administrativeDepartments.isEmpty && s.subjectGroups.isEmpty,
+        )
+        .length;
+    final noPosition = _staff.where((s) => s.positionTitle == null).length;
+
+    String figure(int n) => _loadFailed ? '—' : '$n';
+
+    final items = [
       _SummaryItem(
         title: 'ครูและบุคลากรทั้งหมด',
-        value: '86',
-        subtitle: 'ครู 61 • บุคลากร 25',
+        value: figure(_staff.length),
+        subtitle:
+            'ครู ${figure(teacherCount)} • ผู้ดูแลระบบ ${figure(adminCount)}',
         icon: Icons.groups_rounded,
         color: AppPalette.softPink,
       ),
       _SummaryItem(
-        title: 'มาปฏิบัติงานวันนี้',
-        value: '82',
-        subtitle: 'คิดเป็น 95.3%',
-        icon: Icons.how_to_reg_rounded,
-        color: AppPalette.softMint,
-      ),
-      _SummaryItem(
-        title: 'ลา / ไม่อยู่',
-        value: '3',
-        subtitle: 'ลาป่วย 2 • ลากิจ 1',
-        icon: Icons.person_off_rounded,
-        color: AppPalette.softCream,
-      ),
-      _SummaryItem(
-        title: 'มาสาย',
-        value: '2',
-        subtitle: 'ติดตามเวลาเข้าสอนแล้ว',
-        icon: Icons.schedule_rounded,
-        color: AppPalette.softPink2,
-      ),
-      _SummaryItem(
-        title: 'เข้าสอนตามตาราง',
-        value: '96%',
-        subtitle: 'คาบสอนที่เริ่มตรงเวลา',
-        icon: Icons.co_present_rounded,
+        title: 'ฝ่าย',
+        value: figure(_administrative.length),
+        subtitle: 'ตามโครงสร้างของโรงเรียน',
+        icon: Icons.account_tree_rounded,
         color: AppPalette.softBlue,
       ),
       _SummaryItem(
-        title: 'ประชุม / อบรม',
-        value: '4',
-        subtitle: 'จัดครูสอนแทนแล้ว 3 คาบ',
-        icon: Icons.event_available_rounded,
+        title: 'กลุ่มสาระ',
+        value: figure(_subjectGroups.length),
+        subtitle: 'กลุ่มสาระการเรียนรู้',
+        icon: Icons.menu_book_rounded,
         color: AppPalette.softMint,
+      ),
+      _SummaryItem(
+        title: 'ยังไม่ได้สังกัด',
+        value: figure(unassigned),
+        subtitle: 'ยังไม่ได้กำหนดฝ่าย/กลุ่มสาระ',
+        icon: Icons.person_search_rounded,
+        color: AppPalette.softCream,
+      ),
+      _SummaryItem(
+        title: 'ยังไม่ได้ระบุตำแหน่ง',
+        value: figure(noPosition),
+        subtitle: 'รอบันทึกวิทยฐานะ',
+        icon: Icons.badge_outlined,
+        color: AppPalette.softPink2,
       ),
     ];
 
@@ -497,18 +391,12 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         children: [
           const Text(
             'ภาพรวมแยกตามฝ่าย',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'ผู้อำนวยการสามารถดูจำนวนบุคลากร การมาปฏิบัติงาน ภาระงาน และประเด็นที่ต้องติดตามของแต่ละฝ่ายได้ในภาพเดียว',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -521,18 +409,17 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
               }
 
               return GridView.builder(
-                itemCount: departmentData.length,
+                itemCount: _administrative.length,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                   mainAxisExtent: 205,
                 ),
                 itemBuilder: (context, index) {
-                  return _departmentCard(departmentData[index]);
+                  return _departmentCard(_administrative[index]);
                 },
               );
             },
@@ -542,20 +429,28 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  Widget _departmentCard(_DepartmentData item) {
+  /// One ฝ่าย, showing only what `departments` can answer: its name, how many
+  /// staff are assigned, and who heads it.
+  ///
+  /// The card used to carry present/on-leave counts and a workload percentage
+  /// per department. There is no staff-attendance table anywhere in the schema
+  /// and no workload metric, so all three were invented — and unlike a wrong
+  /// number on a dashboard, "ฝ่ายวิชาการ ลา 2 คน" is a claim about named
+  /// colleagues.
+  Widget _departmentCard(SchoolDepartment item) {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        setState(() => selectedDepartment = item.title);
-        _showDepartmentDetail(item);
-      },
+      onTap: () => _showDepartmentDetail(item),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppPalette.tint(item.color, 0.06),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: AppPalette.tint(item.color, 0.18),
+            color: selectedDepartment == item.name
+                ? AppPalette.primaryPink
+                : AppPalette.border,
+            width: selectedDepartment == item.name ? 1.4 : 1,
           ),
         ),
         child: Column(
@@ -567,157 +462,47 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                   width: 39,
                   height: 39,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppPalette.tint(AppPalette.primaryPink, 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    item.icon,
+                  child: const Icon(
+                    Icons.account_tree_rounded,
                     size: 20,
-                    color: item.color,
+                    color: AppPalette.primaryPink,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    item.title,
+                    item.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 12.2,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w800,
+                      color: AppPalette.textDark,
                     ),
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppPalette.textMuted,
-                ),
               ],
-            ),
-            const SizedBox(height: 5),
-            Text(
-              item.subtitle,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 9.2,
-                height: 1.35,
-                color: AppPalette.textMuted,
-              ),
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                _departmentMetric(
-                  'ทั้งหมด',
-                  '${item.staff}',
-                  item.color,
-                ),
-                _departmentMetric(
-                  'มาทำงาน',
-                  '${item.present}',
-                  AppPalette.success,
-                ),
-                _departmentMetric(
-                  'ลา',
-                  '${item.onLeave}',
-                  AppPalette.warning,
-                ),
-              ],
-            ),
-            const Spacer(),
-            Row(
-              children: [
-                const Text(
-                  'ภาระงาน',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: item.workload / 100,
-                      minHeight: 6,
-                      backgroundColor: AppPalette.softTag,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(item.color),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 7),
-                Text(
-                  '${item.workload}%',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Text(
-                  'สถานะ',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  item.issue,
-                  style: TextStyle(
-                    fontSize: 9.2,
-                    fontWeight: FontWeight.w700,
-                    color: item.issue == 'ปกติ'
-                        ? AppPalette.success
-                        : AppPalette.warning,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _departmentMetric(
-    String title,
-    String value,
-    Color color,
-  ) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 7,
-          vertical: 7,
-        ),
-        decoration: BoxDecoration(
-          color: AppPalette.tint(color, 0.08),
-          borderRadius: BorderRadius.circular(11),
-        ),
-        child: Column(
-          children: [
             Text(
-              title,
+              '${item.memberCount} คน',
               style: const TextStyle(
-                fontSize: 8.3,
-                color: AppPalette.textMuted,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: AppPalette.textDark,
               ),
             ),
             const SizedBox(height: 2),
             Text(
-              value,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
+              item.headName == null
+                  ? 'ยังไม่ได้ระบุหัวหน้าฝ่าย'
+                  : 'หัวหน้า: ${item.headName}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
             ),
           ],
         ),
@@ -725,273 +510,102 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
+  /// Was "สถานะบุคลากรวันนี้": present / on leave / late headcounts with a
+  /// breakdown ("ลาป่วย 2 คน • ลากิจ 1 คน"). There is no staff attendance
+  /// table anywhere in the schema, and `leave_requests` is *student* leave —
+  /// it has `student_id` and `parent_id` NOT NULL — so none of it could have
+  /// come from the database.
   Widget _todayStatusCard() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'สถานะการปฏิบัติงานวันนี้',
+            'สถานะบุคลากรวันนี้',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
+              color: AppPalette.textDark,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'สรุปสิ่งที่มีผลต่อการทำงานและการจัดการเรียนการสอนในวันนี้',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _statusTile(
-            icon: Icons.check_circle_rounded,
-            title: 'มาปฏิบัติงานตามปกติ',
-            value: '82 คน',
-            detail: '95.3% ของครูและบุคลากรทั้งหมด',
-            color: AppPalette.success,
-          ),
-          _statusTile(
-            icon: Icons.person_off_rounded,
-            title: 'ลา',
-            value: '3 คน',
-            detail: 'ลาป่วย 2 คน • ลากิจ 1 คน',
-            color: AppPalette.warning,
-          ),
-          _statusTile(
-            icon: Icons.schedule_rounded,
-            title: 'มาสาย',
-            value: '2 คน',
-            detail: 'ไม่มีผลกระทบต่อคาบสอนในขณะนี้',
-            color: AppPalette.chartCream,
-          ),
-          _statusTile(
-            icon: Icons.swap_horiz_rounded,
-            title: 'ครูสอนแทน',
-            value: '3 คาบ',
-            detail: 'จัดครูสอนแทนเรียบร้อยทุกคาบ',
-            color: AppPalette.learningBlue,
-          ),
-          _statusTile(
-            icon: Icons.co_present_rounded,
-            title: 'คาบสอนเริ่มตรงเวลา',
-            value: '96%',
-            detail: 'มี 4 คาบที่เริ่มช้ากว่าแผนเล็กน้อย',
-            color: AppPalette.primaryPink,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusTile({
-    required IconData icon,
-    required String title,
-    required String value,
-    required String detail,
-    required Color color,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: AppPalette.tint(color, 0.07),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Row(
-        children: [
+          const SizedBox(height: 12),
           Container(
-            width: 36,
-            height: 36,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(11),
+              color: AppPalette.pageBg,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: const Column(
               children: [
+                Icon(
+                  Icons.badge_outlined,
+                  size: 30,
+                  color: AppPalette.textMuted,
+                ),
+                SizedBox(height: 8),
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 10.7,
-                    fontWeight: FontWeight.w700,
+                  'ยังไม่มีระบบลงเวลาปฏิบัติงานของบุคลากร',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: AppPalette.textDark,
                   ),
                 ),
+                SizedBox(height: 4),
                 Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: AppPalette.textMuted,
-                  ),
+                  'การมาปฏิบัติงาน การลา และการมาสายของครู ยังไม่ได้ถูกบันทึกไว้ในระบบ',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
                 ),
               ],
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
         ],
       ),
     );
   }
 
+  /// The follow-up card listed items like "ครูลา 2 คนในฝ่ายวิชาการ" with a
+  /// severity and a suggested action — every one derived from the invented
+  /// attendance figures, and every one naming a real department. It is an
+  /// honest gap until staff attendance and staff leave are modelled.
   Widget _directorFollowUpCard() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'สิ่งที่ผู้อำนวยการควรติดตาม',
+            'สิ่งที่ควรติดตาม',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
+              color: AppPalette.textDark,
             ),
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'ประเด็นที่อาจกระทบต่อบุคลากร การสอน หรือการบริหารงาน',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _followUpTile(
-            title: 'ครูลา 2 คนในฝ่ายวิชาการ',
-            detail:
-                'มีคาบสอนรวม 3 คาบที่ต้องจัดครูสอนแทน ขณะนี้จัดสรรครบแล้ว แต่ควรติดตามหากมีการลาต่อเนื่อง',
-            status: 'ควรติดตาม',
-            color: AppPalette.warning,
-            icon: Icons.person_off_rounded,
-          ),
-          _followUpTile(
-            title: 'ภาระงานฝ่ายวิชาการอยู่ที่ 96%',
-            detail:
-                'ช่วงสอบและงานวัดผลทำให้ภาระงานสูง ควรตรวจสอบการกระจายงานของหัวหน้ากลุ่มสาระและครูผู้รับผิดชอบ',
-            status: 'ภาระงานสูง',
-            color: AppPalette.chartPink,
-            icon: Icons.speed_rounded,
-          ),
-          _followUpTile(
-            title: 'เจ้าหน้าที่อาคารกำลังตรวจสอบอาคาร 2',
-            detail:
-                'เกี่ยวข้องกับข้อมูลการใช้น้ำสูงผิดปกติ ฝ่ายอาคารสถานที่กำลังตรวจจุดใช้น้ำและระบบท่อ',
-            status: 'กำลังดำเนินการ',
-            color: AppPalette.warning,
-            icon: Icons.apartment_rounded,
-          ),
-          _followUpTile(
-            title: 'มีบุคลากรเข้าอบรมด้านระบบ 1 คน',
-            detail:
-                'ไม่กระทบการให้บริการระบบหลัก มีเจ้าหน้าที่สำรองรับผิดชอบ AIoT Dashboard และเครือข่าย',
-            status: 'ปกติ',
-            color: AppPalette.success,
-            icon: Icons.computer_rounded,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _followUpTile({
-    required String title,
-    required String detail,
-    required String status,
-    required Color color,
-    required IconData icon,
-  }) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppPalette.tint(color, 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppPalette.tint(color, 0.14),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 12),
           Container(
-            width: 37,
-            height: 37,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(11),
+              color: AppPalette.pageBg,
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 10.8,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppPalette.tint(color, 0.12),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          fontSize: 8.3,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 9.3,
-                    height: 1.4,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ],
+            child: const Text(
+              'ยังไม่มีข้อมูลการมาปฏิบัติงานและการลาของบุคลากร '
+              'จึงยังไม่มีประเด็นที่ระบบยืนยันได้',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.5,
+                color: AppPalette.textMuted,
+              ),
             ),
           ),
         ],
@@ -1009,18 +623,12 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         children: [
           const Text(
             'ครูผู้สอนแยกตามกลุ่มสาระ',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'ดูจำนวนครู การมาปฏิบัติงาน ภาพรวมการเข้าสอน และจำนวนครูที่ต้องติดตามของแต่ละกลุ่มสาระ',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           LayoutBuilder(
@@ -1033,81 +641,65 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
               }
 
               return GridView.builder(
-                itemCount: subjectGroups.length,
+                itemCount: _subjectGroups.length,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: columns,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                   mainAxisExtent: 145,
                 ),
                 itemBuilder: (context, index) {
-                  final item = subjectGroups[index];
-
+                  final item = _subjectGroups[index];
+                  // Was six invented metrics per group: teacher count,
+                  // attendance %, teaching-compliance % and a follow-up
+                  // headcount. Only the member count exists — nothing records
+                  // staff attendance, and nothing records whether a teacher
+                  // started a period, so "เข้าสอน 96%" was a claim about
+                  // colleagues that no system had measured.
                   return Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppPalette.tint(item.color, 0.06),
-                      borderRadius: BorderRadius.circular(17),
+                      color: AppPalette.tint(AppPalette.learningBlue, 0.06),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: AppPalette.tint(item.color, 0.16),
+                        color: AppPalette.tint(AppPalette.learningBlue, 0.16),
                       ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.title,
+                          item.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: AppPalette.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${item.memberCount} คน',
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w900,
+                            color: AppPalette.textDark,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.headName == null
+                              ? 'ยังไม่ได้ระบุหัวหน้ากลุ่มสาระ'
+                              : 'หัวหน้า: ${item.headName}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${item.teachers} คน',
-                          style: const TextStyle(
-                            fontSize: 9.2,
+                            fontSize: 9.5,
                             color: AppPalette.textMuted,
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        _subjectMetric(
-                          'มาปฏิบัติงาน',
-                          item.attendance,
-                          AppPalette.learningBlue,
-                        ),
-                        _subjectMetric(
-                          'เข้าสอน',
-                          item.teaching,
-                          AppPalette.primaryPink,
-                        ),
-                        const Spacer(),
-                        Row(
-                          children: [
-                            const Text(
-                              'ต้องติดตาม',
-                              style: TextStyle(
-                                fontSize: 8.8,
-                                color: AppPalette.textMuted,
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '${item.followUp} คน',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: item.followUp > 0
-                                    ? AppPalette.warning
-                                    : AppPalette.success,
-                              ),
-                            ),
-                          ],
                         ),
                       ],
                     ),
@@ -1121,50 +713,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  Widget _subjectMetric(
-    String label,
-    int value,
-    Color color,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 66,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 8.4,
-                color: AppPalette.textMuted,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: value / 100,
-                minHeight: 5,
-                backgroundColor: AppPalette.softTag,
-                valueColor: AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '$value%',
-            style: const TextStyle(
-              fontSize: 8.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _personnelSection(List<_PersonnelData> filtered) {
+  Widget _personnelSection(List<StaffDirectoryEntry> filtered) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -1174,18 +723,12 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         children: [
           const Text(
             'รายชื่อครูและบุคลากร',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'ค้นหาชื่อ ตำแหน่ง ฝ่าย หรือกลุ่มสาระ และกรองตามสถานะการทำงาน',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           _filterArea(),
@@ -1214,10 +757,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                       selectedStatus = 'ทุกสถานะ';
                     });
                   },
-                  icon: const Icon(
-                    Icons.refresh_rounded,
-                    size: 16,
-                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: const Text('ล้างตัวกรอง'),
                 ),
             ],
@@ -1257,13 +797,11 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppPalette.border),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppPalette.border),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
           ),
         );
@@ -1318,10 +856,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
 
         return Row(
           children: [
-            Expanded(
-              flex: 3,
-              child: search,
-            ),
+            Expanded(flex: 3, child: search),
             const SizedBox(width: 9),
             Expanded(child: department),
             const SizedBox(width: 9),
@@ -1349,11 +884,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 17,
-            color: AppPalette.primaryPink,
-          ),
+          Icon(icon, size: 17, color: AppPalette.primaryPink),
           const SizedBox(width: 7),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -1385,185 +916,149 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  Widget _personnelCard(_PersonnelData person) {
-    final statusColor = _statusColor(person.status);
+  /// One staff row. Carries name, position, groups, roles and account status —
+  /// everything `list_staff_directory` can answer.
+  ///
+  /// Gone with the data that never existed: the attendance percentage, the
+  /// teaching-compliance percentage and the task-progress bar. There is no
+  /// staff attendance table, nothing records whether a teacher started a
+  /// period, and no task tracker exists — so all three were assessments of a
+  /// named colleague that no system had made.
+  Widget _personnelCard(StaffDirectoryEntry person) {
+    final groups = [
+      ...person.administrativeDepartments,
+      ...person.subjectGroups,
+    ];
+    final statusColor = person.isActive
+        ? AppPalette.success
+        : AppPalette.textMuted;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => _showPersonnelDetail(person),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 9),
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppPalette.border),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final compact = constraints.maxWidth < 720;
-
-            final avatar = CircleAvatar(
-              radius: 23,
-              backgroundColor:
-                  AppPalette.tint(person.color, 0.12),
-              child: Text(
-                _firstLetter(person.name),
-                style: TextStyle(
-                  color: person.color,
-                  fontWeight: FontWeight.w800,
-                ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppPalette.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: AppPalette.tint(AppPalette.primaryPink, 0.12),
+            child: Text(
+              _firstLetter(person.fullName),
+              style: const TextStyle(
+                color: AppPalette.primaryPink,
+                fontWeight: FontWeight.w800,
               ),
-            );
-
-            final info = Column(
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  person.name,
+                  person.fullName,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w800,
+                    color: AppPalette.textDark,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  person.position,
+                  person.positionTitle ?? 'ยังไม่ได้ระบุตำแหน่ง',
                   style: const TextStyle(
-                    fontSize: 9.8,
+                    fontSize: 10,
                     color: AppPalette.textMuted,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
-                  '${person.department} • ${person.subjectGroup}',
-                  maxLines: 1,
+                  groups.isEmpty
+                      ? 'ยังไม่ได้สังกัดฝ่าย/กลุ่มสาระ'
+                      : groups.join(' • '),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 9,
+                    fontSize: 9.5,
                     color: AppPalette.textMuted,
                   ),
                 ),
-              ],
-            );
-
-            final status = Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 9,
-                vertical: 5,
-              ),
-              decoration: BoxDecoration(
-                color: AppPalette.tint(statusColor, 0.10),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                person.status,
-                style: TextStyle(
-                  fontSize: 8.8,
-                  fontWeight: FontWeight.w700,
-                  color: statusColor,
-                ),
-              ),
-            );
-
-            if (compact) {
-              return Row(
-                children: [
-                  avatar,
-                  const SizedBox(width: 11),
-                  Expanded(child: info),
-                  const SizedBox(width: 8),
-                  status,
+                if (person.headsDepartments.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'หัวหน้า: ${person.headsDepartments.join(', ')}',
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.primaryPinkDark,
+                    ),
+                  ),
                 ],
-              );
-            }
-
-            return Row(
-              children: [
-                avatar,
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 3,
-                  child: info,
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppPalette.tint(statusColor, 0.12),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                Expanded(
-                  child: _listMetric(
-                    'มาปฏิบัติงาน',
-                    '${person.attendance}%',
+                child: Text(
+                  person.isActive ? 'ใช้งานอยู่' : 'ระงับการใช้งาน',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: statusColor,
                   ),
                 ),
-                Expanded(
-                  child: _listMetric(
-                    person.teaching > 0
-                        ? 'การเข้าสอน'
-                        : 'ความคืบหน้างาน',
-                    person.teaching > 0
-                        ? '${person.teaching}%'
-                        : '${person.taskProgress}%',
-                  ),
-                ),
-                const SizedBox(width: 10),
-                status,
-                const SizedBox(width: 8),
-                const Icon(
-                  Icons.chevron_right_rounded,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _roleLabel(person),
+                style: const TextStyle(
+                  fontSize: 9,
                   color: AppPalette.textMuted,
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                person.phone ?? person.email,
+                style: const TextStyle(
+                  fontSize: 8.5,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _listMetric(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 8.5,
-            color: AppPalette.textMuted,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 10.5,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
     );
   }
 
   Widget _emptyPersonnel() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 30,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 30),
       decoration: BoxDecoration(
         color: AppPalette.pageBg,
         borderRadius: BorderRadius.circular(18),
       ),
       child: const Column(
         children: [
-          Icon(
-            Icons.search_off_rounded,
-            size: 34,
-            color: AppPalette.textMuted,
-          ),
+          Icon(Icons.search_off_rounded, size: 34, color: AppPalette.textMuted),
           SizedBox(height: 8),
           Text(
             'ไม่พบบุคลากรตามตัวกรอง',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
         ],
       ),
@@ -1595,9 +1090,13 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     return clean.isEmpty ? '?' : clean.substring(0, 1);
   }
 
-  void _showDepartmentDetail(_DepartmentData item) {
-    final people = personnel
-        .where((person) => person.department == item.title)
+  void _showDepartmentDetail(SchoolDepartment item) {
+    final people = _staff
+        .where(
+          (person) =>
+              person.administrativeDepartments.contains(item.name) ||
+              person.subjectGroups.contains(item.name),
+        )
         .toList();
 
     showDialog<void>(
@@ -1605,11 +1104,8 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(
-            item.title,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-            ),
+            item.name,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
           ),
           content: SizedBox(
             width: 620,
@@ -1618,25 +1114,21 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.subtitle,
+                    item.isAdministrative ? 'ฝ่าย' : 'กลุ่มสาระการเรียนรู้',
                     style: const TextStyle(
                       fontSize: 10,
                       color: AppPalette.textMuted,
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _dialogRow('บุคลากรทั้งหมด', '${item.staff} คน'),
-                  _dialogRow('มาปฏิบัติงาน', '${item.present} คน'),
-                  _dialogRow('ลา', '${item.onLeave} คน'),
-                  _dialogRow('ภาระงานเฉลี่ย', '${item.workload}%'),
-                  _dialogRow('สถานะที่ควรทราบ', item.issue),
+                  // Present / on-leave / average-workload rows are gone with
+                  // the data that never backed them.
+                  _dialogRow('บุคลากรทั้งหมด', '${item.memberCount} คน'),
+                  _dialogRow('หัวหน้า', item.headName ?? 'ยังไม่ได้ระบุ'),
                   const SizedBox(height: 14),
                   const Text(
-                    'บุคลากรตัวอย่างในฝ่าย',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    'บุคลากรในฝ่าย',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
                   ),
                   const SizedBox(height: 8),
                   if (people.isEmpty)
@@ -1652,25 +1144,27 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                       (person) => ListTile(
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
-                          backgroundColor:
-                              AppPalette.tint(person.color, 0.12),
+                          backgroundColor: AppPalette.tint(
+                            AppPalette.primaryPink,
+                            0.12,
+                          ),
                           child: Text(
-                            _firstLetter(person.name),
-                            style: TextStyle(
-                              color: person.color,
+                            _firstLetter(person.fullName),
+                            style: const TextStyle(
+                              color: AppPalette.primaryPink,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                         ),
                         title: Text(
-                          person.name,
+                          person.fullName,
                           style: const TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                         subtitle: Text(
-                          person.position,
+                          person.positionTitle ?? 'ยังไม่ได้ระบุตำแหน่ง',
                           style: const TextStyle(
                             fontSize: 9,
                             color: AppPalette.textMuted,
@@ -1686,109 +1180,6 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('ปิด'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showPersonnelDetail(_PersonnelData person) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor:
-                    AppPalette.tint(person.color, 0.12),
-                child: Text(
-                  _firstLetter(person.name),
-                  style: TextStyle(
-                    color: person.color,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  person.name,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _dialogRow('ตำแหน่ง', person.position),
-                  _dialogRow('ฝ่าย', person.department),
-                  _dialogRow('ประเภท', person.role),
-                  _dialogRow('กลุ่มงาน / กลุ่มสาระ', person.subjectGroup),
-                  _dialogRow('สถานะวันนี้', person.status),
-                  _dialogRow(
-                    'การมาปฏิบัติงาน',
-                    '${person.attendance}%',
-                  ),
-                  if (person.teaching > 0)
-                    _dialogRow(
-                      'การเข้าสอน',
-                      '${person.teaching}%',
-                    ),
-                  _dialogRow(
-                    'ความคืบหน้างาน',
-                    '${person.taskProgress}%',
-                  ),
-                  _dialogRow('อีเมล', person.email),
-                  _dialogRow('โทรศัพท์', person.phone),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppPalette.tint(
-                        person.color,
-                        0.07,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'ข้อมูลที่ควรทราบ',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          person.note,
-                          style: const TextStyle(
-                            fontSize: 9.8,
-                            height: 1.45,
-                            color: AppPalette.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1847,80 +1238,6 @@ class _SummaryItem {
     required this.value,
     required this.subtitle,
     required this.icon,
-    required this.color,
-  });
-}
-
-class _DepartmentData {
-  final String title;
-  final String subtitle;
-  final int staff;
-  final int present;
-  final int onLeave;
-  final int workload;
-  final IconData icon;
-  final Color color;
-  final String issue;
-
-  const _DepartmentData({
-    required this.title,
-    required this.subtitle,
-    required this.staff,
-    required this.present,
-    required this.onLeave,
-    required this.workload,
-    required this.icon,
-    required this.color,
-    required this.issue,
-  });
-}
-
-class _SubjectGroupData {
-  final String title;
-  final int teachers;
-  final int attendance;
-  final int teaching;
-  final int followUp;
-  final Color color;
-
-  const _SubjectGroupData(
-    this.title,
-    this.teachers,
-    this.attendance,
-    this.teaching,
-    this.followUp,
-    this.color,
-  );
-}
-
-class _PersonnelData {
-  final String name;
-  final String position;
-  final String department;
-  final String role;
-  final String subjectGroup;
-  final String status;
-  final String email;
-  final String phone;
-  final int attendance;
-  final int teaching;
-  final int taskProgress;
-  final String note;
-  final Color color;
-
-  const _PersonnelData({
-    required this.name,
-    required this.position,
-    required this.department,
-    required this.role,
-    required this.subjectGroup,
-    required this.status,
-    required this.email,
-    required this.phone,
-    required this.attendance,
-    required this.teaching,
-    required this.taskProgress,
-    required this.note,
     required this.color,
   });
 }

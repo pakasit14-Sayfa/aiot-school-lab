@@ -80,6 +80,14 @@ half-building it on `school_events`.
 
 ## 3.2 `director_teachers_page.dart` (1,927 lines) — ครูและบุคลากร
 
+> **✅ เชื่อมแล้ว (2026-09-07)** — 1,927 → 1,243 บรรทัด · `list_staff_directory` +
+> `list_departments` จาก migration `20260907000000_staff_org_structure.sql`
+> (ตาราง `departments` / `department_members` / `staff_profiles` · pgTAP 18/18)
+> ทีมโรงเรียนยืนยันว่าใช้ทั้งฝ่ายและกลุ่มสาระจริง จึงสร้างสคีมาแทนที่จะลบการ์ดทิ้ง
+> ของที่สคีมายังไม่รองรับ **ถูกลบ ไม่ได้แสดงเป็น 0**: การมาปฏิบัติงาน/มาสาย/ลา
+> ของบุคลากร · เข้าสอนตามตาราง % · ภาระงาน % — แสดงเป็นช่องว่างที่บอกเหตุผลแทน
+> test: `test/executive/director_teachers_honesty_test.dart` (5 ตัว)
+
 | what it must show | verdict | exact RPC / table | notes |
 |---|---|---|---|
 | รายชื่อครู/บุคลากร: ชื่อ, อีเมล, บทบาท, สถานะบัญชี (`personnel`, 151 lines) | **B** | `list_school_users(p_token)` → `user_id, first_name, last_name, email, active_role, all_roles[], active_school_id, status`. Gate: `('school_admin','super_admin')` — **executive rejected** (`20260826130000_list_school_users_all_roles.sql`) | wrapper exists: `UserAdminService.getAllUsers()`. Widening this one RPC turns the entire personnel directory real. Master plan 3.2's guess ("น่าจะ reuse getAllUsers ได้") is **correct**, with the caveat that it is a role widening, not a straight reuse. |
