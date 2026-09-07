@@ -13,7 +13,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(54);
 
 insert into packages (id, name, license_type)
 values ('99920000-0000-0000-0000-000000000001', 'Staff requests test package', 'perpetual');
@@ -119,6 +119,33 @@ select throws_ok(
        current_date, current_date - 1) $$,
   'invalid_date_range',
   'an end date before the start is refused'
+);
+
+select throws_ok(
+  $$ select create_staff_request('sr-member-token', 'meet_request', 'ขอเข้าพบหลายวัน',
+       current_date, current_date + 2) $$,
+  'single_day_only',
+  'a meet_request spanning several days is refused — it is a single event, not a range'
+);
+
+select throws_ok(
+  $$ select create_staff_request('sr-head-token', 'meeting_request', 'ขอจัดประชุมหลายวัน',
+       current_date, current_date + 1) $$,
+  'single_day_only',
+  'the same rule applies to meeting_request'
+);
+
+select throws_ok(
+  $$ select create_staff_request('sr-lone-token', 'official_duty', 'ไปราชการยาวเกินไป',
+       current_date, current_date + 91) $$,
+  'range_too_long',
+  'an official_duty request spanning more than 90 days is refused'
+);
+
+select lives_ok(
+  $$ select create_staff_request('sr-member-token', 'official_duty', 'ไปราชการพอดีเพดาน',
+       current_date, current_date + 90) $$,
+  'exactly 90 days is still allowed — the cap is a ceiling, not off-by-one'
 );
 
 select lives_ok(

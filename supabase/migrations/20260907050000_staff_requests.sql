@@ -129,6 +129,19 @@ BEGIN
     RAISE EXCEPTION 'invalid_date_range';
   END IF;
 
+  -- ขอเข้าพบ and ขอจัดประชุม are single events, not a range — only ไปราชการ
+  -- genuinely spans days.
+  IF p_request_type IN ('meet_request', 'meeting_request') AND v_end <> p_start_date THEN
+    RAISE EXCEPTION 'single_day_only';
+  END IF;
+
+  -- A real ไปราชการ is days, not years — caps the day-by-day attendance
+  -- write below to something a mistaken or malicious date range cannot
+  -- turn into an unbounded loop.
+  IF p_request_type = 'official_duty' AND v_end - p_start_date > 90 THEN
+    RAISE EXCEPTION 'range_too_long';
+  END IF;
+
   -- Level-1 routing: the requester's own administrative ฝ่าย, if any.
   SELECT d.id, d.name INTO v_dept
     FROM public.department_members m
