@@ -80,7 +80,14 @@ void main() {
   });
 
   testWidgets('Capture School Admin Drawer Menu', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
+    // physicalSize is in physical pixels, so at devicePixelRatio 2.0 this
+    // must be double the intended 390x844 logical (iPhone-width) viewport —
+    // every other test in this file already accounts for the ratio (e.g.
+    // 1280/2.0 = 640 logical). Leaving it un-doubled shrank the actual
+    // render surface to 195 logical px, far narrower than any real phone,
+    // which squeezed the automation-rule row down to a 41px-wide layout
+    // and overflowed — a test viewport bug, not a page bug.
+    tester.view.physicalSize = const Size(780, 1688);
     tester.view.devicePixelRatio = 2.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
