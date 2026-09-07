@@ -7,12 +7,23 @@ import '../widgets/director_common_widgets.dart';
 /// Read seams so loading / data / empty / failure can each be driven in a test.
 typedef StaffDirectoryLoader = Future<List<StaffDirectoryEntry>> Function();
 typedef DepartmentsLoader = Future<List<SchoolDepartment>> Function();
+typedef StaffAttendanceSummaryLoader =
+    Future<StaffAttendanceSummary?> Function();
+typedef StaffLeaveLoader = Future<List<StaffLeaveRequest>> Function();
 
 class DirectorTeachersPage extends StatefulWidget {
-  const DirectorTeachersPage({super.key, this.loadStaff, this.loadDepartments});
+  const DirectorTeachersPage({
+    super.key,
+    this.loadStaff,
+    this.loadDepartments,
+    this.loadAttendanceSummary,
+    this.loadLeaveRequests,
+  });
 
   final StaffDirectoryLoader? loadStaff;
   final DepartmentsLoader? loadDepartments;
+  final StaffAttendanceSummaryLoader? loadAttendanceSummary;
+  final StaffLeaveLoader? loadLeaveRequests;
 
   @override
   State<DirectorTeachersPage> createState() => _DirectorTeachersPageState();
@@ -20,12 +31,21 @@ class DirectorTeachersPage extends StatefulWidget {
 
 class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
   String searchText = '';
-  String selectedDepartment = 'ทุกฝ่าย';
-  String selectedRole = 'ทุกประเภท';
-  String selectedStatus = 'ทุกสถานะ';
+  String selectedDepartment = _anyDepartment;
+  String selectedRole = _anyRole;
+  String selectedStatus = _anyStatus;
 
   List<StaffDirectoryEntry> _staff = const [];
   List<SchoolDepartment> _departments = const [];
+
+  /// Null while loading and after a failure — never a zeroed summary, so the
+  /// card cannot show "มาปฏิบัติงาน 0 คน" when it simply could not read.
+  StaffAttendanceSummary? _attendance;
+  List<StaffLeaveRequest> _pendingLeave = const [];
+
+  /// Attendance is loaded separately from the directory: the directory can
+  /// succeed while attendance fails, and one failing must not blank the other.
+  bool _attendanceFailed = false;
   bool _loading = true;
   bool _loadFailed = false;
 
@@ -51,12 +71,38 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         _departments = results[1] as List<SchoolDepartment>;
         _loading = false;
       });
+      await _loadAttendance();
     } catch (e) {
       debugPrint('DirectorTeachersPage load failed: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
         _loadFailed = true;
+      });
+    }
+  }
+
+  Future<void> _loadAttendance() async {
+    try {
+      final results = await Future.wait<Object?>([
+        widget.loadAttendanceSummary?.call() ??
+            StaffAttendanceService.getSummary(),
+        widget.loadLeaveRequests?.call() ??
+            StaffAttendanceService.listLeaveRequests(status: 'pending'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _attendance = results[0] as StaffAttendanceSummary?;
+        _pendingLeave = results[1] as List<StaffLeaveRequest>;
+        _attendanceFailed = false;
+      });
+    } catch (e) {
+      debugPrint('DirectorTeachersPage attendance load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _attendance = null;
+        _pendingLeave = const [];
+        _attendanceFailed = true;
       });
     }
   }
@@ -74,33 +120,54 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
   List<SchoolDepartment> get _subjectGroups =>
       _departments.where((d) => d.isSubjectGroup).toList();
 
-  final List<String> departments = const [
-    'ทุกฝ่าย',
-    'ฝ่ายบริหาร',
-    'ฝ่ายวิชาการ',
-    'ฝ่ายกิจการนักเรียน',
-    'ฝ่ายบุคคลและธุรการ',
-    'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
-    'ฝ่ายเทคโนโลยีและระบบ',
+  /// Filter options are built from the data on screen, never written by
+  /// hand. The three lists that used to sit here named six ฝ่าย, five staff
+  /// categories and six attendance states that no query could ever match —
+  /// the status filter in particular offered 'มาปฏิบัติงาน' / 'ลา' / 'มาสาย'
+  /// while the code behind it compared against 'ใช้งานอยู่' / 'ระงับการใช้งาน',
+  /// so picking any of them silently emptied the list.
+  static const String _anyDepartment = 'ทุกฝ่าย';
+  static const String _anyRole = 'ทุกประเภท';
+  static const String _anyStatus = 'ทุกสถานะ';
+
+  List<String> get _departmentOptions => [
+    _anyDepartment,
+    ..._administrative.map((d) => d.name),
+    ..._subjectGroups.map((d) => d.name),
   ];
 
-  final List<String> roles = const [
-    'ทุกประเภท',
-    'ผู้บริหาร',
-    'ครูผู้สอน',
-    'หัวหน้าฝ่าย',
-    'เจ้าหน้าที่',
-    'บุคลากรสนับสนุน',
-  ];
+  List<String> get _roleOptions {
+    final labels = <String>{};
+    for (final person in _staff) {
+      for (final role in person.roles) {
+        final label = _roleLabels[role];
+        if (label != null) labels.add(label);
+      }
+    }
+    final sorted = labels.toList()..sort();
+    return [_anyRole, ...sorted];
+  }
 
-  final List<String> statuses = const [
-    'ทุกสถานะ',
-    'มาปฏิบัติงาน',
-    'เข้าสอน',
-    'ลา',
-    'มาสาย',
-    'ประชุม/อบรม',
-  ];
+  static const Map<String, String> _accountStatusLabels = {
+    'active': 'ใช้งานอยู่',
+    'suspended': 'ระงับการใช้งาน',
+  };
+
+  List<String> get _statusOptions {
+    final labels = <String>{};
+    for (final person in _staff) {
+      final label = _accountStatusLabels[person.status];
+      if (label != null) labels.add(label);
+    }
+    final sorted = labels.toList()..sort();
+    return [_anyStatus, ...sorted];
+  }
+
+  /// A selection made before a reload may no longer exist in the data. Falling
+  /// back to the "any" option keeps the dropdown consistent with the list it
+  /// filters instead of asserting.
+  String _safeSelection(String selected, List<String> options) =>
+      options.contains(selected) ? selected : options.first;
 
   @override
   Widget build(BuildContext context) {
@@ -185,18 +252,18 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
           groups.any((g) => g.toLowerCase().contains(query));
 
       final matchesDepartment =
-          selectedDepartment == 'ทุกฝ่าย' ||
+          selectedDepartment == _anyDepartment ||
           groups.contains(selectedDepartment);
 
       // Matches on membership in `roles`, not equality against one collapsed
       // role — an account holding both teacher and school_admin belongs in
       // both filters.
       final matchesRole =
-          selectedRole == 'ทุกประเภท' ||
+          selectedRole == _anyRole ||
           person.roles.any((r) => _roleLabels[r] == selectedRole);
 
       final matchesStatus =
-          selectedStatus == 'ทุกสถานะ' ||
+          selectedStatus == _anyStatus ||
           (selectedStatus == 'ใช้งานอยู่' && person.isActive) ||
           (selectedStatus == 'ระงับการใช้งาน' && !person.isActive);
 
@@ -510,12 +577,17 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  /// Was "สถานะบุคลากรวันนี้": present / on leave / late headcounts with a
-  /// breakdown ("ลาป่วย 2 คน • ลากิจ 1 คน"). There is no staff attendance
-  /// table anywhere in the schema, and `leave_requests` is *student* leave —
-  /// it has `student_id` and `parent_id` NOT NULL — so none of it could have
-  /// come from the database.
+  /// สถานะบุคลากรวันนี้ — counted by `get_staff_attendance_summary`.
+  ///
+  /// This card once showed present / on-leave / late head counts with a
+  /// breakdown ("ลาป่วย 2 คน • ลากิจ 1 คน") that no table could produce:
+  /// `leave_requests` is *student* leave (`student_id` and `parent_id` are
+  /// both NOT NULL) and nothing recorded staff attendance at all. It was left
+  /// as a stated gap in fe8e4e6 and comes back here on
+  /// `20260907010000_staff_attendance.sql`.
   Widget _todayStatusCard() {
+    final summary = _attendance;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -532,36 +604,104 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppPalette.pageBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Column(
-              children: [
-                Icon(
-                  Icons.badge_outlined,
-                  size: 30,
+          if (_loading)
+            _attendanceNotice(
+              icon: Icons.hourglass_empty_rounded,
+              title: 'กำลังโหลดข้อมูลการลงเวลา',
+            )
+          else if (_attendanceFailed || summary == null)
+            _attendanceNotice(
+              icon: Icons.cloud_off_rounded,
+              title: 'โหลดข้อมูลการลงเวลาไม่สำเร็จ',
+              detail: 'ยังไม่ทราบสถานะการมาปฏิบัติงานวันนี้ ลองใหม่อีกครั้ง',
+            )
+          else ...[
+            // Zero staff is a different statement from an unreadable day, and
+            // both are different from "everyone is here".
+            if (summary.totalStaff == 0)
+              _attendanceNotice(
+                icon: Icons.badge_outlined,
+                title: 'ยังไม่มีบุคลากรในระบบ',
+              )
+            else ...[
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _statusChip(
+                    'มาปฏิบัติงาน',
+                    summary.presentCount,
+                    const Color(0xFF059669),
+                  ),
+                  _statusChip('มาสาย', summary.lateCount, const Color(0xFFD97706)),
+                  _statusChip('ลา', summary.leaveCount, const Color(0xFF7C3AED)),
+                  _statusChip(
+                    'ไปราชการ / อบรม',
+                    summary.officialDutyCount,
+                    const Color(0xFF2563EB),
+                  ),
+                  _statusChip('ขาดงาน', summary.absentCount, const Color(0xFFDC2626)),
+                  // Kept visibly separate from ขาดงาน: nobody has asserted
+                  // anything about these people today.
+                  _statusChip(
+                    'ยังไม่ลงเวลา',
+                    summary.noRecordCount,
+                    AppPalette.textMuted,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'บุคลากรทั้งหมด ${summary.totalStaff} คน',
+                style: const TextStyle(
+                  fontSize: 10.5,
                   color: AppPalette.textMuted,
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'ยังไม่มีระบบลงเวลาปฏิบัติงานของบุคลากร',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.textDark,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'การมาปฏิบัติงาน การลา และการมาสายของครู ยังไม่ได้ถูกบันทึกไว้ในระบบ',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
-                ),
-              ],
+              ),
+            ],
+            if (!summary.workHoursConfigured) ...[
+              const SizedBox(height: 10),
+              // Without configured hours the backend refuses every check-in,
+              // so 0 มาสาย means "unknowable", not "nobody was late".
+              _attendanceNotice(
+                icon: Icons.schedule_rounded,
+                title: 'โรงเรียนยังไม่ได้ตั้งเวลาปฏิบัติงาน',
+                detail:
+                    'ระบบจึงยังตัดสินไม่ได้ว่าใครมาสาย และบุคลากรยังลงเวลาไม่ได้ '
+                    'ผู้ดูแลระบบโรงเรียนเป็นผู้ตั้งค่านี้',
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _statusChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppPalette.textMuted,
             ),
           ),
         ],
@@ -569,11 +709,72 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  /// The follow-up card listed items like "ครูลา 2 คนในฝ่ายวิชาการ" with a
-  /// severity and a suggested action — every one derived from the invented
-  /// attendance figures, and every one naming a real department. It is an
-  /// honest gap until staff attendance and staff leave are modelled.
+  Widget _attendanceNotice({
+    required IconData icon,
+    required String title,
+    String? detail,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+      decoration: BoxDecoration(
+        color: AppPalette.pageBg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 26, color: AppPalette.textMuted),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: AppPalette.textDark,
+            ),
+          ),
+          if (detail != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10,
+                height: 1.45,
+                color: AppPalette.textMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// สิ่งที่ควรติดตาม — derived from the same figures, not authored.
+  ///
+  /// The old card listed items like "ครูลา 2 คนในฝ่ายวิชาการ" with a severity
+  /// and a suggested action, all computed from the invented attendance
+  /// numbers. Every line here is a count the backend returned, and when there
+  /// is nothing to report it says so rather than filling the space.
+  List<String> _followUpItems() {
+    final summary = _attendance;
+    if (summary == null) return const [];
+
+    return [
+      if (_pendingLeave.isNotEmpty)
+        'มีคำขอลาที่ยังไม่ได้พิจารณา ${_pendingLeave.length} รายการ',
+      if (summary.lateCount > 0) 'มาสายวันนี้ ${summary.lateCount} คน',
+      if (summary.absentCount > 0) 'ขาดงานวันนี้ ${summary.absentCount} คน',
+      if (summary.noRecordCount > 0)
+        'ยังไม่ได้ลงเวลาวันนี้ ${summary.noRecordCount} คน',
+    ];
+  }
+
   Widget _directorFollowUpCard() {
+    final items = _followUpItems();
+    final unavailable = _loading || _attendanceFailed || _attendance == null;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -590,24 +791,47 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
             ),
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppPalette.pageBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'ยังไม่มีข้อมูลการมาปฏิบัติงานและการลาของบุคลากร '
-              'จึงยังไม่มีประเด็นที่ระบบยืนยันได้',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10.5,
-                height: 1.5,
-                color: AppPalette.textMuted,
+          if (unavailable)
+            _attendanceNotice(
+              icon: Icons.help_outline_rounded,
+              title: 'ยังไม่ทราบประเด็นที่ต้องติดตาม',
+              detail: 'ต้องอ่านข้อมูลการลงเวลาและการลาได้ก่อน',
+            )
+          else if (items.isEmpty)
+            _attendanceNotice(
+              icon: Icons.check_circle_outline_rounded,
+              title: 'ไม่มีประเด็นที่ระบบยืนยันได้ในวันนี้',
+            )
+          else
+            ...items.map(
+              (text) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 3),
+                      child: Icon(
+                        Icons.flag_rounded,
+                        size: 14,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        text,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 1.5,
+                          color: AppPalette.textDark,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -807,8 +1031,8 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         );
 
         final department = _dropdownBox(
-          value: selectedDepartment,
-          items: departments,
+          value: _safeSelection(selectedDepartment, _departmentOptions),
+          items: _departmentOptions,
           icon: Icons.account_tree_rounded,
           onChanged: (value) {
             if (value == null) return;
@@ -817,8 +1041,8 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         );
 
         final role = _dropdownBox(
-          value: selectedRole,
-          items: roles,
+          value: _safeSelection(selectedRole, _roleOptions),
+          items: _roleOptions,
           icon: Icons.badge_rounded,
           onChanged: (value) {
             if (value == null) return;
@@ -827,8 +1051,8 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         );
 
         final status = _dropdownBox(
-          value: selectedStatus,
-          items: statuses,
+          value: _safeSelection(selectedStatus, _statusOptions),
+          items: _statusOptions,
           icon: Icons.fact_check_rounded,
           onChanged: (value) {
             if (value == null) return;

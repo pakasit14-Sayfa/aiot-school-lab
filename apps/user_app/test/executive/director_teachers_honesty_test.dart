@@ -53,11 +53,35 @@ SchoolDepartment _dept({
   headName: head,
 );
 
+StaffAttendanceSummary _summary({
+  int total = 0,
+  int present = 0,
+  int late = 0,
+  int leave = 0,
+  int officialDuty = 0,
+  int absent = 0,
+  int noRecord = 0,
+  bool hoursConfigured = true,
+}) => StaffAttendanceSummary(
+  workDate: DateTime(2026, 9, 7),
+  totalStaff: total,
+  presentCount: present,
+  lateCount: late,
+  leaveCount: leave,
+  officialDutyCount: officialDuty,
+  absentCount: absent,
+  noRecordCount: noRecord,
+  workHoursConfigured: hoursConfigured,
+);
+
 Future<void> _pump(
   WidgetTester tester, {
   List<StaffDirectoryEntry>? staff,
   List<SchoolDepartment>? departments,
+  StaffAttendanceSummary? attendance,
+  List<StaffLeaveRequest>? pendingLeave,
   bool fail = false,
+  bool attendanceFails = false,
 }) async {
   tester.view.physicalSize = const Size(1500, 2600);
   tester.view.devicePixelRatio = 1;
@@ -75,6 +99,12 @@ Future<void> _pump(
           },
           loadDepartments: () async =>
               departments ?? const <SchoolDepartment>[],
+          loadAttendanceSummary: () async {
+            if (attendanceFails) throw StateError('attendance_unreachable');
+            return attendance;
+          },
+          loadLeaveRequests: () async =>
+              pendingLeave ?? const <StaffLeaveRequest>[],
         ),
       ),
     ),
@@ -161,17 +191,127 @@ void main() {
     }
   });
 
-  testWidgets('staff attendance is an honest gap, not a zero', (tester) async {
-    await _pump(tester);
+  testWidgets('today\'s attendance comes from the summary RPC', (tester) async {
+    await _pump(
+      tester,
+      staff: [_staff(name: 'ก'), _staff(name: 'ข')],
+      attendance: _summary(
+        total: 6,
+        present: 3,
+        late: 1,
+        leave: 1,
+        absent: 0,
+        noRecord: 1,
+      ),
+    );
 
+    expect(find.text('มาปฏิบัติงาน'), findsOneWidget);
+    expect(find.text('บุคลากรทั้งหมด 6 คน'), findsOneWidget);
+    // ยังไม่ลงเวลา must stay a separate figure from ขาดงาน: silence is not
+    // evidence of absence.
+    expect(find.text('ยังไม่ลงเวลา'), findsOneWidget);
+    expect(find.text('ขาดงาน'), findsOneWidget);
+  });
+
+  testWidgets('unset work hours are stated, not shown as nobody late', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      attendance: _summary(total: 4, noRecord: 4, hoursConfigured: false),
+    );
+
+    expect(find.text('โรงเรียนยังไม่ได้ตั้งเวลาปฏิบัติงาน'), findsOneWidget);
     expect(
-      find.text('ยังไม่มีระบบลงเวลาปฏิบัติงานของบุคลากร'),
+      find.textContaining('ระบบจึงยังตัดสินไม่ได้ว่าใครมาสาย'),
       findsOneWidget,
     );
-    expect(
-      find.textContaining('ยังไม่มีข้อมูลการมาปฏิบัติงานและการลาของบุคลากร'),
-      findsOneWidget,
+  });
+
+  testWidgets('follow-up items are counts, never authored', (tester) async {
+    await _pump(
+      tester,
+      attendance: _summary(total: 5, present: 3, late: 2, noRecord: 0),
+      pendingLeave: [
+        StaffLeaveRequest(
+          requestId: 'r1',
+          userId: 'u1',
+          fullName: 'ครูทดสอบ',
+          leaveType: 'sick',
+          startDate: DateTime(2026, 9, 7),
+          endDate: DateTime(2026, 9, 7),
+          status: 'pending',
+          createdAt: DateTime(2026, 9, 6),
+        ),
+      ],
     );
+
+    expect(find.text('มีคำขอลาที่ยังไม่ได้พิจารณา 1 รายการ'), findsOneWidget);
+    expect(find.text('มาสายวันนี้ 2 คน'), findsOneWidget);
+    // Nothing is claimed about the counts that were zero.
+    expect(find.textContaining('ขาดงานวันนี้'), findsNothing);
+    expect(find.textContaining('ยังไม่ได้ลงเวลาวันนี้'), findsNothing);
+  });
+
+  testWidgets('a clean day says so instead of filling the space', (
+    tester,
+  ) async {
+    await _pump(tester, attendance: _summary(total: 3, present: 3));
+
+    expect(find.text('ไม่มีประเด็นที่ระบบยืนยันได้ในวันนี้'), findsOneWidget);
+  });
+
+  testWidgets('unreadable attendance is not a zeroed day', (tester) async {
+    await _pump(tester, attendanceFails: true);
+
+    expect(find.text('โหลดข้อมูลการลงเวลาไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ยังไม่ทราบประเด็นที่ต้องติดตาม'), findsOneWidget);
+    expect(find.textContaining('attendance_unreachable'), findsNothing);
+    // No count is invented in place of the read that failed.
+    expect(find.text('มาปฏิบัติงาน'), findsNothing);
+  });
+
+  testWidgets('filter options are built from the data', (tester) async {
+    await _pump(
+      tester,
+      staff: [
+        _staff(name: 'ก', roles: ['teacher'], admin: ['ฝ่ายวิชาการ']),
+        _staff(name: 'ข', roles: ['executive'], status: 'suspended'),
+      ],
+      departments: [
+        _dept(name: 'ฝ่ายวิชาการ'),
+        _dept(name: 'วิทยาศาสตร์', kind: 'subject_group'),
+      ],
+    );
+
+    final departmentDropdown = tester.widget<DropdownButton<String>>(
+      find.byType(DropdownButton<String>).first,
+    );
+    expect(
+      departmentDropdown.items?.map((i) => i.value).toList(),
+      ['ทุกฝ่าย', 'ฝ่ายวิชาการ', 'วิทยาศาสตร์'],
+      reason: 'ตัวเลือกฝ่ายต้องมาจาก departments ที่โหลดมา',
+    );
+
+    final statusDropdown = tester.widget<DropdownButton<String>>(
+      find.byType(DropdownButton<String>).at(2),
+    );
+    expect(
+      statusDropdown.items?.map((i) => i.value).toList(),
+      ['ทุกสถานะ', 'ระงับการใช้งาน', 'ใช้งานอยู่'],
+      reason: 'สถานะต้องเป็นสถานะบัญชีจริงที่ตัวกรองเทียบได้',
+    );
+
+    // The five invented ฝ่าย and the six attendance states that the status
+    // filter used to offer — none of which its own comparison could match.
+    for (final invented in <String>[
+      'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
+      'ฝ่ายเทคโนโลยีและระบบ',
+      'บุคลากรสนับสนุน',
+      'ประชุม/อบรม',
+    ]) {
+      expect(find.text(invented), findsNothing, reason: invented);
+    }
   });
 
   testWidgets('a failed load is stated and shows no counts', (tester) async {
