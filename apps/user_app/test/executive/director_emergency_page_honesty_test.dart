@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_first_app/pages/executive_redesign_prototype/controllers/director_emergency_controller.dart';
 import 'package:my_first_app/pages/executive_redesign_prototype/pages/director_emergency_page.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -27,6 +28,8 @@ void main() {
     EmergencyEventsLoader? events,
     IncidentSummaryLoader? summary,
     IncidentReportsLoader? incidents,
+    IncidentReportCloser? closeIncident,
+    EmergencyEventCloser? closeEmergency,
   }) async {
     tester.view.physicalSize = const Size(1400, 2400);
     tester.view.devicePixelRatio = 1;
@@ -47,6 +50,8 @@ void main() {
                 summary ?? () async => throw StateError('unreachable'),
             loadIncidentReports:
                 incidents ?? () async => throw StateError('unreachable'),
+            closeIncidentReport: closeIncident,
+            closeEmergencyEvent: closeEmergency,
           ),
         ),
       ),
@@ -134,5 +139,257 @@ void main() {
     expect(find.text('ยังไม่ทราบสถานะเหตุฉุกเฉิน'), findsNothing);
     expect(find.textContaining('โหลดข้อมูลเหตุฉุกเฉินไม่สำเร็จ'), findsNothing);
     expect(find.textContaining('SOS จากนักเรียน ห้อง ม.3/2'), findsNothing);
+  });
+
+  group('closing an SOS', () {
+    final openIncident = TeacherIncidentReport(
+      id: 'incident-1',
+      category: IncidentCategory.sos,
+      room: 'ม.3/2',
+      status: 'acknowledged',
+      reporterName: 'นักเรียนทดสอบ',
+      createdAt: DateTime.utc(2026, 9, 7, 8),
+    );
+
+    TeacherIncidentReport resolvedIncident() => TeacherIncidentReport(
+      id: openIncident.id,
+      category: openIncident.category,
+      room: openIncident.room,
+      status: 'resolved',
+      reporterName: openIncident.reporterName,
+      createdAt: openIncident.createdAt,
+    );
+
+    EmergencyEventItem emergencyEvent(String status) => EmergencyEventItem(
+      id: 'event-1',
+      schoolId: 'school-1',
+      deviceName: 'ปุ่มหน้าอาคาร',
+      location: 'อาคาร 1',
+      triggeredAt: DateTime.utc(2026, 9, 7, 10),
+      status: status,
+      warningLightOn: status != 'closed',
+    );
+
+    testWidgets('RPC failure keeps the SOS open and hides raw backend errors', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        events: () async => const [],
+        summary: () async => const [],
+        incidents: () async => [openIncident],
+        closeIncident:
+            (_, {required resolutionType, required resolutionNote}) async =>
+                throw StateError('secret-backend-error'),
+      );
+
+      await tester.tap(find.byKey(const Key('director-emergency-close-hero')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+        findsOneWidget,
+      );
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+      expect(find.text('ปิดเหตุการณ์ (เสร็จสิ้น)'), findsOneWidget);
+      expect(find.textContaining('secret-backend-error'), findsNothing);
+      expect(find.textContaining('StateError'), findsNothing);
+    });
+
+    testWidgets('an unconfirmed backend write is reported as a failure', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        events: () async => const [],
+        summary: () async => const [],
+        incidents: () async => [openIncident],
+        closeIncident:
+            (_, {required resolutionType, required resolutionNote}) async {},
+      );
+
+      await tester.tap(find.byKey(const Key('director-emergency-close-hero')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+        findsOneWidget,
+      );
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+      expect(find.text('ปิดเหตุการณ์ (เสร็จสิ้น)'), findsOneWidget);
+    });
+
+    testWidgets('success is shown only after the canonical row is resolved', (
+      tester,
+    ) async {
+      var closed = false;
+      await pumpPage(
+        tester,
+        events: () async => const [],
+        summary: () async => const [],
+        incidents: () async => [
+          if (closed) resolvedIncident() else openIncident,
+        ],
+        closeIncident:
+            (_, {required resolutionType, required resolutionNote}) async {
+              closed = true;
+            },
+      );
+
+      await tester.tap(find.byKey(const Key('director-emergency-close-hero')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsOneWidget);
+      expect(find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'), findsNothing);
+      expect(find.text('ไม่มีเหตุฉุกเฉินที่กำลังดำเนินอยู่'), findsOneWidget);
+      expect(find.text('ปิดเหตุการณ์ (เสร็จสิ้น)'), findsNothing);
+    });
+
+    testWidgets('the modal close control uses the same safe failure path', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        events: () async => const [],
+        summary: () async => const [],
+        incidents: () async => [openIncident],
+        closeIncident:
+            (_, {required resolutionType, required resolutionNote}) async =>
+                throw StateError('modal-secret'),
+      );
+
+      await tester.tap(find.text('✓ ผอ. รับเรื่องแล้ว'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('director-emergency-close-modal')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+        findsOneWidget,
+      );
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+      expect(
+        find.byKey(const Key('director-emergency-close-modal')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('modal-secret'), findsNothing);
+    });
+
+    testWidgets('the event-detail close control uses the safe failure path', (
+      tester,
+    ) async {
+      final report = TeacherIncidentReport(
+        id: 'incident-detail',
+        category: IncidentCategory.anomaly,
+        room: 'ม.2/1',
+        status: 'acknowledged',
+        reporterName: 'นักเรียนทดสอบ',
+        createdAt: DateTime.utc(2026, 9, 7, 9),
+        reason: 'เหตุสำหรับทดสอบรายละเอียด',
+      );
+      await pumpPage(
+        tester,
+        events: () async => const [],
+        summary: () async => const [],
+        incidents: () async => [report],
+        closeIncident:
+            (_, {required resolutionType, required resolutionNote}) async =>
+                throw StateError('detail-secret'),
+      );
+
+      await tester.tap(find.text('เหตุสำหรับทดสอบรายละเอียด').first);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('director-emergency-close-detail')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+        findsOneWidget,
+      );
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+      expect(
+        find.byKey(const Key('director-emergency-close-detail')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('detail-secret'), findsNothing);
+    });
+
+    testWidgets('a physical emergency is confirmed from its canonical row', (
+      tester,
+    ) async {
+      var closed = false;
+      await pumpPage(
+        tester,
+        events: () async => [
+          emergencyEvent(closed ? 'closed' : 'acknowledged'),
+        ],
+        summary: () async => const [],
+        incidents: () async => const [],
+        closeEmergency: ({required eventId, required reviewNote}) async {
+          closed = true;
+        },
+      );
+
+      await tester.tap(find.byKey(const Key('director-emergency-close-hero')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsOneWidget);
+      expect(find.text('ไม่มีเหตุฉุกเฉินที่กำลังดำเนินอยู่'), findsOneWidget);
+      expect(find.textContaining('Exception'), findsNothing);
+    });
+
+    testWidgets('a physical emergency RPC failure keeps the event open', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        events: () async => [emergencyEvent('acknowledged')],
+        summary: () async => const [],
+        incidents: () async => const [],
+        closeEmergency: ({required eventId, required reviewNote}) async =>
+            throw StateError('physical-secret'),
+      );
+
+      await tester.tap(find.byKey(const Key('director-emergency-close-hero')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+        findsOneWidget,
+      );
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+      expect(find.textContaining('physical-secret'), findsNothing);
+      expect(
+        find.byKey(const Key('director-emergency-close-hero')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an unconfirmed physical emergency write stays open', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        events: () async => [emergencyEvent('acknowledged')],
+        summary: () async => const [],
+        incidents: () async => const [],
+        closeEmergency: ({required eventId, required reviewNote}) async {},
+      );
+
+      await tester.tap(find.byKey(const Key('director-emergency-close-hero')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+        findsOneWidget,
+      );
+      expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+      expect(
+        find.byKey(const Key('director-emergency-close-hero')),
+        findsOneWidget,
+      );
+    });
   });
 }

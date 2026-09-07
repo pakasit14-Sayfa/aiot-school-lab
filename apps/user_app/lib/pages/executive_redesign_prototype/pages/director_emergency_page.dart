@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../controllers/director_emergency_controller.dart';
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
@@ -28,22 +29,22 @@ String _timeAgo(DateTime t) {
 /// test. Without them `initState` reaches straight for the Supabase singleton
 /// and throws before the page can build — which is why this page had no
 /// working coverage at all.
-typedef EmergencyEventsLoader = Future<List<EmergencyEventItem>> Function();
-typedef IncidentSummaryLoader = Future<List<IncidentSummaryItem>> Function();
-typedef IncidentReportsLoader = Future<List<TeacherIncidentReport>> Function();
-
 class DirectorEmergencyPage extends StatefulWidget {
   const DirectorEmergencyPage({
     super.key,
     this.loadEmergencyEvents,
     this.loadIncidentSummary,
     this.loadIncidentReports,
+    this.closeIncidentReport,
+    this.closeEmergencyEvent,
     this.watchUpdates = true,
   });
 
   final EmergencyEventsLoader? loadEmergencyEvents;
   final IncidentSummaryLoader? loadIncidentSummary;
   final IncidentReportsLoader? loadIncidentReports;
+  final IncidentReportCloser? closeIncidentReport;
+  final EmergencyEventCloser? closeEmergencyEvent;
 
   /// Subscribe to the live incident/emergency streams. Off in tests, where
   /// there is no Supabase client to stream from.
@@ -54,6 +55,7 @@ class DirectorEmergencyPage extends StatefulWidget {
 }
 
 class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
+  late final DirectorEmergencyController _emergencyController;
   String selectedFilter = 'ทั้งหมด';
   String searchText = '';
 
@@ -183,6 +185,12 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
   @override
   void initState() {
     super.initState();
+    _emergencyController = DirectorEmergencyController(
+      loadIncidentReports: widget.loadIncidentReports,
+      loadEmergencyEvents: widget.loadEmergencyEvents,
+      closeIncidentReport: widget.closeIncidentReport,
+      closeEmergencyEvent: widget.closeEmergencyEvent,
+    );
     _loadRealData();
     if (widget.watchUpdates) {
       _incidentSub = IncidentService.streamIncidentReports().listen((_) {
@@ -232,6 +240,11 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
           incidents.isNotEmpty ||
           summary.any((s) => s.totalCount > 0);
 
+      _emergencyController.replaceCanonicalData(
+        incidents: incidents,
+        events: eventsList,
+      );
+
       setState(() {
         _realEmergencyEvents = eventsList;
         _realIncidentSummary = summary;
@@ -239,32 +252,13 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         _hasRealData = hasData;
         _isLoadingRealData = false;
 
-        // Check active SOS from real incidents first, then real emergency events
-        final activeSos = incidents
-            .where(
-              (i) =>
-                  i.category == IncidentCategory.sos &&
-                  i.status != 'resolved' &&
-                  i.status != 'cancelled',
-            )
-            .firstOrNull;
-        final activeEvt = eventsList
-            .where((e) => e.status != 'closed')
-            .firstOrNull;
-
-        if (activeSos != null) {
-          sosResolved = false;
-          sosAccepted =
-              activeSos.status == 'acknowledged' ||
-              activeSos.status == 'in_progress';
-        } else if (activeEvt != null) {
-          sosResolved = false;
-          sosAccepted = activeEvt.status == 'acknowledged';
-        } else if (hasData &&
+        if (hasData &&
             (incidents.any((i) => i.category == IncidentCategory.sos) ||
                 eventsList.isNotEmpty)) {
-          // มีข้อมูลจริงและ SOS ในอดีตถูกปิดแล้ว -> สภาวะปกติ
-          sosResolved = true;
+          sosResolved = _emergencyController.sosResolved;
+          sosAccepted = _emergencyController.sosAccepted;
+        } else {
+          sosResolved = false;
           sosAccepted = false;
         }
       });
@@ -276,6 +270,39 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
           _loadFailed = true;
         });
       }
+    }
+  }
+
+  /// Closes one canonical backend record and refuses to report success until
+  /// a fresh read confirms the terminal status. All close buttons use this
+  /// path so an RPC exception or a silently rejected write cannot turn an
+  /// active emergency into a false all-clear in the UI.
+  Future<bool> _closeAndConfirmEmergency({
+    TeacherIncidentReport? incident,
+    EmergencyEventItem? emergencyEvent,
+    required String resolutionNote,
+  }) async {
+    const failureMessage = 'ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่';
+    try {
+      await _emergencyController.closeAndConfirm(
+        incident: incident,
+        emergencyEvent: emergencyEvent,
+        resolutionNote: resolutionNote,
+      );
+      if (!mounted) return false;
+      setState(() {
+        _realIncidents = _emergencyController.incidentReports;
+        _realEmergencyEvents = _emergencyController.emergencyEvents;
+        sosResolved = _emergencyController.sosResolved;
+        sosAccepted = _emergencyController.sosAccepted;
+      });
+
+      _showMessage('✓ ปิดเหตุเรียบร้อยแล้ว');
+      return true;
+    } catch (error) {
+      debugPrint('director_emergency_page: close failed: $error');
+      _showMessage(failureMessage);
+      return false;
     }
   }
 
@@ -1826,6 +1853,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                         width: double.infinity,
                         height: 38,
                         child: FilledButton.tonalIcon(
+                          key: const Key('director-emergency-close-hero'),
                           style: FilledButton.styleFrom(
                             backgroundColor: const Color(0xFFDCFCE7),
                             foregroundColor: const Color(0xFF047857),
@@ -1836,31 +1864,12 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                           onPressed: () async {
                             final inc = _activeSosIncident;
                             final evt = _activeRealEmergencyEvent;
-                            if (inc != null) {
-                              try {
-                                await IncidentService.closeIncidentReport(
-                                  inc.id,
-                                  resolutionType: 'resolved',
-                                  resolutionNote:
-                                      'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
-                                );
-                              } catch (e) {
-                                debugPrint('Error closing incident: $e');
-                              }
-                            } else if (evt != null) {
-                              try {
-                                await EmergencyService.closeEmergencyEvent(
-                                  eventId: evt.id,
-                                  reviewNote:
-                                      'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
-                                );
-                              } catch (e) {
-                                debugPrint('Error closing emergency event: $e');
-                              }
-                            }
-                            setState(() => sosResolved = true);
-                            _showMessage('✓ ปิดเหตุการณ์ SOS เรียบร้อยแล้ว');
-                            await _loadRealData();
+                            await _closeAndConfirmEmergency(
+                              incident: inc,
+                              emergencyEvent: evt,
+                              resolutionNote:
+                                  'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
+                            );
                           },
                           icon: const Icon(Icons.task_alt_rounded, size: 16),
                           label: const Text(
@@ -4057,6 +4066,9 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                 );
 
                                 final resolve = ElevatedButton.icon(
+                                  key: const Key(
+                                    'director-emergency-close-modal',
+                                  ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: !sosAccepted || sosResolved
                                         ? const Color(0xFFE2E8F0)
@@ -4078,81 +4090,16 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                       : () async {
                                           final inc = _activeSosIncident;
                                           final evt = _activeRealEmergencyEvent;
-                                          if (inc != null) {
-                                            try {
-                                              await IncidentService.closeIncidentReport(
-                                                inc.id,
-                                                resolutionType: 'resolved',
+                                          final closed =
+                                              await _closeAndConfirmEmergency(
+                                                incident: inc,
+                                                emergencyEvent: evt,
                                                 resolutionNote:
                                                     'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
                                               );
-                                            } catch (e) {
-                                              debugPrint(
-                                                'Error closing incident: $e',
-                                              );
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      'เกิดข้อผิดพลาด: $e',
-                                                    ),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                              return;
-                                            }
-                                          } else if (evt != null) {
-                                            try {
-                                              await EmergencyService.closeEmergencyEvent(
-                                                eventId: evt.id,
-                                                reviewNote:
-                                                    'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
-                                              );
-                                            } catch (e) {
-                                              debugPrint(
-                                                'Error closing emergency event: $e',
-                                              );
-                                              if (context.mounted) {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      'เกิดข้อผิดพลาด: $e',
-                                                    ),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                              return;
-                                            }
+                                          if (closed && dialogContext.mounted) {
+                                            Navigator.pop(dialogContext);
                                           }
-                                          setDialogState(() {
-                                            sosResolved = true;
-                                          });
-                                          setState(() {
-                                            sosResolved = true;
-                                          });
-                                          Navigator.pop(dialogContext);
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  '✓ ปิดเหตุการณ์ SOS เรียบร้อยแล้ว',
-                                                ),
-                                                backgroundColor: Color(
-                                                  0xFF059669,
-                                                ),
-                                                duration: Duration(seconds: 3),
-                                              ),
-                                            );
-                                          }
-                                          await _loadRealData();
                                         },
                                   icon: const Icon(
                                     Icons.task_alt_rounded,
@@ -4753,45 +4700,35 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                           children: [
                             if (item.status != 'ปิดเหตุแล้ว') ...[
                               GestureDetector(
+                                key: const Key(
+                                  'director-emergency-close-detail',
+                                ),
                                 onTap: () async {
-                                  try {
-                                    if (item.type == 'ปุ่มฉุกเฉิน') {
-                                      await EmergencyService.closeEmergencyEvent(
-                                        eventId: item.id,
-                                        reviewNote: 'ปิดเหตุโดยผู้อำนวยการ',
-                                      );
-                                    } else {
-                                      await IncidentService.closeIncidentReport(
-                                        item.id,
-                                        resolutionType: 'resolved',
+                                  final incident = item.type == 'ปุ่มฉุกเฉิน'
+                                      ? null
+                                      : _realIncidents
+                                            .where(
+                                              (candidate) =>
+                                                  candidate.id == item.id,
+                                            )
+                                            .firstOrNull;
+                                  final emergencyEvent =
+                                      item.type == 'ปุ่มฉุกเฉิน'
+                                      ? _realEmergencyEvents
+                                            .where(
+                                              (candidate) =>
+                                                  candidate.id == item.id,
+                                            )
+                                            .firstOrNull
+                                      : null;
+                                  final closed =
+                                      await _closeAndConfirmEmergency(
+                                        incident: incident,
+                                        emergencyEvent: emergencyEvent,
                                         resolutionNote: 'ปิดเหตุโดยผู้อำนวยการ',
                                       );
-                                    }
-                                    if (mounted) {
-                                      Navigator.of(dialogContext).pop();
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            '✓ ปิดเหตุเรียบร้อยแล้ว',
-                                          ),
-                                          backgroundColor: Color(0xFF059669),
-                                        ),
-                                      );
-                                      _loadRealData();
-                                    }
-                                  } catch (e) {
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('เกิดข้อผิดพลาด: $e'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                    }
+                                  if (closed && dialogContext.mounted) {
+                                    Navigator.of(dialogContext).pop();
                                   }
                                 },
                                 child: Container(
