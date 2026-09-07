@@ -75,13 +75,6 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
     if (changed != hasChanges) setState(() => hasChanges = changed);
   }
 
-  void _setChanged(VoidCallback callback) {
-    setState(() {
-      callback();
-      hasChanges = true;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(

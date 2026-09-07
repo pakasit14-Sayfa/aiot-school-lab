@@ -1,8 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-import '../theme/app_palette.dart';
-import '../widgets/director_common_widgets.dart';
 
 class DirectorLearningPage extends StatefulWidget {
   const DirectorLearningPage({super.key});
