@@ -23,9 +23,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.text('ตั้งค่าระบบส่วนกลาง (Platform Settings)', skipOffstage: false), findsOneWidget);
+    // Updated 2026-09-07: this page is now genuinely connected
+    // (getPlatformSettings/updatePlatformSettings write and read back for
+    // real) — the old "ยังไม่เชื่อมต่อระบบหลังบ้าน" (nothing is connected)
+    // banner is gone. The Tier B disclosure that replaced it says the
+    // opposite: values ARE saved, they just aren't enforced automatically
+    // yet (e.g. no real notification dispatch, no real MFA enforcement).
     expect(
-      find.text(
-        'หมายเหตุ: ระบบการตั้งค่าแพลตฟอร์มส่วนกลาง การแจ้งเตือน และ Thresholds ยังไม่เชื่อมต่อระบบหลังบ้าน การแก้ไขจะไม่ถูกบันทึกจริงลงฐานข้อมูล',
+      find.textContaining(
+        'ค่าที่กรอกในหน้านี้ถูกบันทึกจริงแล้ว แต่ระบบยังไม่มีการบังคับใช้อัตโนมัติตามค่าเหล่านี้',
         skipOffstage: false,
       ),
       findsOneWidget,

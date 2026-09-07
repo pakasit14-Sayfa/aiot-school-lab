@@ -10,12 +10,24 @@ import 'package:my_first_app/pages/super_admin/super_admin_permissions_page.dart
 import 'package:my_first_app/pages/super_admin/super_admin_alerts_logs_page.dart';
 import 'package:my_first_app/pages/super_admin/super_admin_settings_page.dart';
 
+// Updated 2026-09-07: the hub's quick-action / drawer labels were renamed in
+// an earlier redesign pass (e.g. "ควบคุมอุปกรณ์" → "ควบคุมและอนุมัติอุปกรณ์",
+// "จัดการสิทธิ์" → "กำหนดสิทธิ์และบทบาท") and two cards were added (Device
+// Scan, Learning Overview), but this test file was never updated — every
+// assertion here still targeted the old strings and the old count of 8.
+//
+// Also: the drawer's `AppDrawer` items and the body's quick-action grid
+// render the exact same title strings, and both are present in the widget
+// tree whether or not the drawer is visually open (a closed Drawer is
+// translated off-screen, not removed from the tree). Every tap on a shared
+// label must use `.first` or it is ambiguous.
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('SuperAdminHubPage renders all 8 quick action cards and drawer', (tester) async {
+  testWidgets('SuperAdminHubPage renders all 10 quick action cards and drawer', (tester) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -34,13 +46,15 @@ void main() {
 
     expect(find.text('ศูนย์ควบคุมภาพรวม (Platform Hub)'), findsOneWidget);
     expect(find.text('จัดการโรงเรียน (Schools)', skipOffstage: false), findsWidgets);
-    expect(find.text('ควบคุมอุปกรณ์ (Device Control)', skipOffstage: false), findsOneWidget);
-    expect(find.text('ทะเบียน & QR Code (Devices & QR)', skipOffstage: false), findsOneWidget);
-    expect(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)', skipOffstage: false), findsOneWidget);
-    expect(find.text('จัดการสิทธิ์ (Permissions)', skipOffstage: false), findsOneWidget);
-    expect(find.text('การแจ้งเตือน (Alerts & Logs)', skipOffstage: false), findsOneWidget);
-    expect(find.text('ตั้งค่าระบบส่วนกลาง (Settings)', skipOffstage: false), findsOneWidget);
-    expect(find.text('รายชื่อผู้ใช้ (Users)', skipOffstage: false), findsOneWidget);
+    expect(find.text('ควบคุมและอนุมัติอุปกรณ์ (Device Control)', skipOffstage: false), findsWidgets);
+    expect(find.text('ทะเบียนและ QR Code (Devices & QR)', skipOffstage: false), findsWidgets);
+    expect(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)', skipOffstage: false), findsWidgets);
+    expect(find.text('กำหนดสิทธิ์และบทบาท (Permissions)', skipOffstage: false), findsWidgets);
+    expect(find.text('การแจ้งเตือนและประวัติ (Alerts & Logs)', skipOffstage: false), findsWidgets);
+    expect(find.text('ตั้งค่าระบบส่วนกลาง (Settings)', skipOffstage: false), findsWidgets);
+    expect(find.text('จัดการผู้ใช้ (User Management)', skipOffstage: false), findsWidgets);
+    expect(find.text('สแกนอุปกรณ์ (Device Scan)', skipOffstage: false), findsWidgets);
+    expect(find.text('แพลตฟอร์มการเรียนรู้ (Learning Overview)', skipOffstage: false), findsWidgets);
   });
 
   testWidgets('SuperAdminHubPage navigates to Schools page from quick action', (tester) async {
@@ -78,7 +92,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('ควบคุมอุปกรณ์ (Device Control)'));
+    await tester.tap(find.text('ควบคุมและอนุมัติอุปกรณ์ (Device Control)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -99,7 +113,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('ทะเบียน & QR Code (Devices & QR)'));
+    await tester.tap(find.text('ทะเบียนและ QR Code (Devices & QR)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -120,7 +134,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)'));
+    await tester.tap(find.text('ทดสอบอุปกรณ์ (Device Diagnostics)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -141,7 +155,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('จัดการสิทธิ์ (Permissions)'));
+    await tester.tap(find.text('กำหนดสิทธิ์และบทบาท (Permissions)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -162,7 +176,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('การแจ้งเตือน (Alerts & Logs)'));
+    await tester.tap(find.text('การแจ้งเตือนและประวัติ (Alerts & Logs)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -183,7 +197,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('ตั้งค่าระบบส่วนกลาง (Settings)'));
+    await tester.tap(find.text('ตั้งค่าระบบส่วนกลาง (Settings)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -207,7 +221,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('รายชื่อผู้ใช้ (Users)'));
+    await tester.tap(find.text('จัดการผู้ใช้ (User Management)').first);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -233,7 +247,16 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    await tester.tap(find.text('ทะเบียนและ QR Code (Devices & QR)'));
+    // Both the drawer and the underlying quick-action grid render this
+    // label. Once the drawer is open, a full-screen modal barrier blocks
+    // every tap on the body underneath — `.first` picked the grid's copy
+    // and hit the barrier instead, so this must scope to the Drawer itself.
+    await tester.tap(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('ทะเบียนและ QR Code (Devices & QR)'),
+      ),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 

@@ -32,6 +32,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.byType(SuperAdminHubPage), findsOneWidget);
-    expect(find.text('ศูนย์ควบคุมภาพรวม (Platform Hub)'), findsOneWidget);
+    // At this width (>= 980) SuperAdminNavigationShell embeds the hub page
+    // with its own AppBar suppressed (`embedded: true`), so the AppBar
+    // title text never renders here — assert on the quick-action panel
+    // title instead, which SuperAdminHubPage always renders in its body
+    // regardless of the embedded flag.
+    expect(find.text('ศูนย์สั่งการหลัก (Platform Control Hub)'), findsOneWidget);
   });
 }
