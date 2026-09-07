@@ -10,12 +10,18 @@ import 'widgets/dev_ui.dart';
 /// stays with teachers via CourseService/LessonService, where it
 /// already works.
 class SuperAdminLearningOverviewPage extends StatefulWidget {
-  const SuperAdminLearningOverviewPage({super.key, this.embedded = false});
+  const SuperAdminLearningOverviewPage({
+    super.key,
+    this.embedded = false,
+    this.loadCourses,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  final Future<List<CourseOverviewRecord>> Function()? loadCourses;
 
   @override
   State<SuperAdminLearningOverviewPage> createState() =>
@@ -44,7 +50,8 @@ class _SuperAdminLearningOverviewPageState
       });
     }
     try {
-      final records = await _service.getCoursesOverview();
+      final records =
+          await (widget.loadCourses ?? _service.getCoursesOverview)();
       if (!mounted) return;
       setState(() {
         _records = records;

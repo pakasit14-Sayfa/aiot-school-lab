@@ -5,12 +5,22 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminDeviceTestPage extends StatefulWidget {
-  const SuperAdminDeviceTestPage({super.key, this.embedded = false});
+  const SuperAdminDeviceTestPage({
+    super.key,
+    this.embedded = false,
+    this.loadDevices,
+    this.loadAuditLogs,
+    this.loadAlerts,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  final Future<DeviceControlDataModel> Function()? loadDevices;
+  final Future<List<SchoolAdminAuditLog>> Function()? loadAuditLogs;
+  final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
 
   @override
   State<SuperAdminDeviceTestPage> createState() =>
@@ -90,7 +100,8 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     }
 
     try {
-      final DeviceControlDataModel data = await _service.fetchDeviceControlData();
+      final DeviceControlDataModel data =
+          await (widget.loadDevices ?? _service.fetchDeviceControlData)();
 
       if (!mounted) return;
 
@@ -134,7 +145,7 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     // 1. Check 0: Measure real execution time of fetchDeviceControlData
     final sw0 = Stopwatch()..start();
     try {
-      final data = await _service.fetchDeviceControlData();
+      final data = await (widget.loadDevices ?? _service.fetchDeviceControlData)();
       sw0.stop();
       _checks[0].status = _CheckStatus.passed;
       _checks[0].latencyMs = sw0.elapsedMilliseconds;
@@ -150,7 +161,8 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     // 2. Check 1: Measure real execution time of session auth RPC
     final sw1 = Stopwatch()..start();
     try {
-      await _service.fetchAuditLogs(limit: 1);
+      await (widget.loadAuditLogs ??
+          () => _service.fetchAuditLogs(limit: 1))();
       sw1.stop();
       _checks[1].status = _CheckStatus.passed;
       _checks[1].latencyMs = sw1.elapsedMilliseconds;
@@ -165,7 +177,7 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     // 3. Check 2: Measure telemetry & sensor alert pipeline
     final sw2 = Stopwatch()..start();
     try {
-      final alerts = await IncidentService.listSchoolAlerts();
+      final alerts = await (widget.loadAlerts ?? IncidentService.listSchoolAlerts)();
       sw2.stop();
       _checks[2].status = _CheckStatus.passed;
       _checks[2].latencyMs = sw2.elapsedMilliseconds;

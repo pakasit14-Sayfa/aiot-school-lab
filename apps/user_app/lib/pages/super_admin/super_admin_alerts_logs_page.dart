@@ -8,12 +8,26 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminAlertsLogsPage extends StatefulWidget {
-  const SuperAdminAlertsLogsPage({super.key, this.embedded = false});
+  const SuperAdminAlertsLogsPage({
+    super.key,
+    this.embedded = false,
+    this.loadSchools,
+    this.loadAlerts,
+    this.loadAuditLogs,
+    this.acknowledgeAlert,
+    this.resolveAlert,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  final Future<List<SchoolPlatformRecord>> Function()? loadSchools;
+  final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
+  final Future<List<SchoolAdminAuditLog>> Function()? loadAuditLogs;
+  final Future<void> Function(String alertId)? acknowledgeAlert;
+  final Future<void> Function(String alertId, {String? note})? resolveAlert;
 
   @override
   State<SuperAdminAlertsLogsPage> createState() =>
@@ -61,14 +75,15 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
 
     try {
       final List<SchoolPlatformRecord> schoolRecords =
-          await _platformService.fetchSchools();
+          await (widget.loadSchools ?? _platformService.fetchSchools)();
 
       final List<SchoolSensorAlertRecord> alertRecords =
-          await IncidentService.listSchoolAlerts();
+          await (widget.loadAlerts ?? IncidentService.listSchoolAlerts)();
 
       List<SchoolAdminAuditLog> logRecords = [];
       try {
-        logRecords = await _platformService.fetchAuditLogs(limit: 15);
+        logRecords = await (widget.loadAuditLogs ??
+            () => _platformService.fetchAuditLogs(limit: 15))();
       } catch (_) {
         logRecords = [];
       }
@@ -1299,7 +1314,8 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
 
   Future<void> _acknowledgeAlert(_AlertViewModel alert) async {
     try {
-      await IncidentService.acknowledgeSensorAlert(alert.rawRecord.id);
+      await (widget.acknowledgeAlert ??
+          IncidentService.acknowledgeSensorAlert)(alert.rawRecord.id);
       _message('รับทราบเหตุการณ์ ${alert.title} แล้ว');
       _loadAllData(showLoading: false);
     } catch (e) {
@@ -1352,7 +1368,8 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
     if (resolved != true || !mounted) return;
 
     try {
-      await IncidentService.resolveSensorAlert(
+      final resolve = widget.resolveAlert ?? IncidentService.resolveSensorAlert;
+      await resolve(
         alert.rawRecord.id,
         note: note.isNotEmpty ? note : null,
       );

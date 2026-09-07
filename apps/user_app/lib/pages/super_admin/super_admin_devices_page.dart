@@ -10,12 +10,29 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminDevicesPage extends StatefulWidget {
-  const SuperAdminDevicesPage({super.key, this.embedded = false});
+  const SuperAdminDevicesPage({
+    super.key,
+    this.embedded = false,
+    this.loadDevices,
+    this.registerDevice,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  final Future<DeviceControlDataModel> Function()? loadDevices;
+  final Future<Map<String, dynamic>> Function({
+    required String schoolId,
+    required String name,
+    required String type,
+    String? categoryCode,
+    String? deviceCode,
+    String? building,
+    String? room,
+  })?
+  registerDevice;
 
   @override
   State<SuperAdminDevicesPage> createState() => _SuperAdminDevicesPageState();
@@ -60,7 +77,7 @@ class _SuperAdminDevicesPageState extends State<SuperAdminDevicesPage> {
 
     try {
       final DeviceControlDataModel data =
-          await _service.fetchDeviceControlData();
+          await (widget.loadDevices ?? _service.fetchDeviceControlData)();
 
       if (!mounted) return;
 
@@ -1347,7 +1364,9 @@ class _SuperAdminDevicesPageState extends State<SuperAdminDevicesPage> {
                       }
                       setDialogState(() => isSubmitting = true);
                       try {
-                        final result = await _service.registerDevice(
+                        final register =
+                            widget.registerDevice ?? _service.registerDevice;
+                        final result = await register(
                           schoolId: schoolId!,
                           name: name,
                           type: type,

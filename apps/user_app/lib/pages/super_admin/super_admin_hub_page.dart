@@ -15,7 +15,13 @@ import 'super_admin_scan_page.dart';
 import 'super_admin_learning_overview_page.dart';
 
 class SuperAdminHubPage extends StatefulWidget {
-  const SuperAdminHubPage({super.key, this.embedded = false});
+  const SuperAdminHubPage({
+    super.key,
+    this.embedded = false,
+    this.loadSchools,
+    this.loadAlerts,
+    this.loadAuditLogs,
+  });
 
   /// True when embedded as index 0 of [SuperAdminNavigationShell]'s
   /// desktop sidebar layout — suppresses this page's own drawer since
@@ -23,6 +29,10 @@ class SuperAdminHubPage extends StatefulWidget {
   /// original standalone behavior (own drawer, Navigator.push to the
   /// other 7 pages), used as the mobile fallback.
   final bool embedded;
+
+  final Future<List<SchoolPlatformRecord>> Function()? loadSchools;
+  final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
+  final Future<List<SchoolAdminAuditLog>> Function()? loadAuditLogs;
 
   @override
   State<SuperAdminHubPage> createState() => _SuperAdminHubPageState();
@@ -60,17 +70,18 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
     }
 
     try {
-      final schools = await _platformService.fetchSchools();
+      final schools = await (widget.loadSchools ?? _platformService.fetchSchools)();
       List<SchoolSensorAlertRecord> alertRecords = [];
       try {
-        alertRecords = await IncidentService.listSchoolAlerts();
+        alertRecords = await (widget.loadAlerts ?? IncidentService.listSchoolAlerts)();
       } catch (_) {
         alertRecords = [];
       }
 
       List<SchoolAdminAuditLog> logRecords = [];
       try {
-        logRecords = await _platformService.fetchAuditLogs(limit: 10);
+        logRecords = await (widget.loadAuditLogs ??
+            () => _platformService.fetchAuditLogs(limit: 10))();
       } catch (_) {
         logRecords = [];
       }

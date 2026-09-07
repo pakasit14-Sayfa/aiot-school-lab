@@ -5,12 +5,41 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminSettingsPage extends StatefulWidget {
-  const SuperAdminSettingsPage({super.key, this.embedded = false});
+  const SuperAdminSettingsPage({
+    super.key,
+    this.embedded = false,
+    this.loadSettings,
+    this.loadAuditLogs,
+    this.saveSettings,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  final Future<PlatformSettings> Function()? loadSettings;
+  final Future<List<SchoolAdminAuditLog>> Function()? loadAuditLogs;
+  final Future<PlatformSettings> Function({
+    double? mq2Threshold,
+    double? pm25Threshold,
+    double? temperatureThreshold,
+    int? offlineMinutes,
+    String? mqttHost,
+    int? mqttPort,
+    bool? lineNotify,
+    bool? emailNotify,
+    bool? pushNotify,
+    bool? automaticBackup,
+    bool? maintenanceMode,
+    bool? twoFactorRequired,
+    bool? auditLogEnabled,
+    String? language,
+    String? timezone,
+    int? logRetentionDays,
+    String? backupTime,
+  })?
+  saveSettings;
 
   @override
   State<SuperAdminSettingsPage> createState() => _SuperAdminSettingsPageState();
@@ -63,7 +92,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
 
   Future<void> _loadSettings() async {
     try {
-      final s = await _service.getPlatformSettings();
+      final s = await (widget.loadSettings ?? _service.getPlatformSettings)();
       if (!mounted) return;
       setState(() {
         _mq2Controller.text = s.mq2Threshold.toString();
@@ -107,7 +136,8 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
 
   Future<void> _loadAuditLogs() async {
     try {
-      final logs = await _service.fetchAuditLogs(limit: 6);
+      final logs = await (widget.loadAuditLogs ??
+          () => _service.fetchAuditLogs(limit: 6))();
       if (!mounted) return;
       setState(() {
         _logs
@@ -129,7 +159,8 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
     try {
       final logRetentionDays =
           int.tryParse(_logRetention.replaceAll(RegExp(r'[^0-9]'), '')) ?? 365;
-      await _service.updatePlatformSettings(
+      final save = widget.saveSettings ?? _service.updatePlatformSettings;
+      await save(
         mq2Threshold: double.tryParse(_mq2Controller.text),
         pm25Threshold: double.tryParse(_pmController.text),
         temperatureThreshold: double.tryParse(_temperatureController.text),
@@ -232,6 +263,8 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
             _buildHeroCard(),
             const SizedBox(height: 18),
             _buildThresholdsSection(),
+            const SizedBox(height: 18),
+            _buildMqttSection(),
             const SizedBox(height: 18),
             _buildNotificationSection(),
             const SizedBox(height: 18),
@@ -385,6 +418,43 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
               labelText: 'เกณฑ์ควันและแก๊ส MQ-2 (Volt)',
               prefixIcon: Icon(Icons.local_fire_department_rounded),
               helperText: 'แรงดันไฟฟ้าเซนเซอร์เกินเกณฑ์จะแจ้งเตือนวิกฤต (Critical)',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _offlineMinutesController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'แจ้งเตือนอุปกรณ์ออฟไลน์หลัง (นาที)',
+              prefixIcon: Icon(Icons.wifi_off_rounded),
+              helperText: 'อุปกรณ์ที่ไม่ส่งข้อมูลเกินเวลานี้จะถูกแจ้งเตือนว่าออฟไลน์',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMqttSection() {
+    return _panel(
+      title: 'การเชื่อมต่อ MQTT / Local Gateway',
+      child: Column(
+        children: [
+          TextField(
+            controller: _mqttHostController,
+            decoration: const InputDecoration(
+              labelText: 'MQTT Host',
+              prefixIcon: Icon(Icons.dns_rounded),
+              helperText: 'ที่อยู่ IP ของ Local Gateway ที่รับส่งข้อมูลอุปกรณ์',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _mqttPortController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'MQTT Port',
+              prefixIcon: Icon(Icons.numbers_rounded),
             ),
           ),
         ],

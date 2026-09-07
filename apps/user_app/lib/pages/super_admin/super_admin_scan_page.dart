@@ -15,12 +15,18 @@ import 'widgets/dev_ui.dart';
 /// info instead of a snackbar. Session-only scan history starts empty
 /// (no seeded fake rows).
 class SuperAdminScanPage extends StatefulWidget {
-  const SuperAdminScanPage({super.key, this.embedded = false});
+  const SuperAdminScanPage({
+    super.key,
+    this.embedded = false,
+    this.loadDevices,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  final Future<DeviceControlDataModel> Function()? loadDevices;
 
   @override
   State<SuperAdminScanPage> createState() => _SuperAdminScanPageState();
@@ -73,7 +79,8 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
 
   Future<void> _loadDevices() async {
     try {
-      final data = await _service.fetchDeviceControlData();
+      final data =
+          await (widget.loadDevices ?? _service.fetchDeviceControlData)();
       if (!mounted) return;
       setState(() {
         _devices = data.devices;
