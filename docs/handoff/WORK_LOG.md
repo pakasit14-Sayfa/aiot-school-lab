@@ -24,7 +24,6 @@
 |---|---|---|---|
 | **D1** | อนุญาตให้เขียน production ไหม | ticket 0.2–0.4, 5.6 · **ช่องโหว่ 2 จุดยังเปิดอยู่** | อนุญาต / เจ้าของรันเอง ตาม `PRODUCTION_FIX_0.2-0.4.md` |
 | **S1** | เมทริกซ์สิทธิ์ในหน้า `school_permissions_page` — เขียนมือล้วน ไม่ผูกกับ role gate จริง แถมยังโชว์บทบาท `ครูประจำอาคาร` ที่ยุบไปแล้ว | ลำดับ 4 ของ School Admin | **ลบทิ้ง (แนะนำ)** — ทางเลือกอีกทางคือรื้อระบบสิทธิ์ทั้ง 270 RPC ให้อ่านจากตาราง |
-| **S2** | ฝ่าย (departments) + กลุ่มสาระ (subject_groups) — ไม่มีตาราง `users` ไม่มี `position`/`department`/`phone` | `school_teachers_page` · `director_teachers_page` | ลบส่วนนี้ (~0) / สร้างตาราง+RPC+UI (~3–4 เซสชัน แต่ปลดล็อกทั้งสองสิทธิ์) |
 | **S3** | ปุ่ม Export ที่โผล่ใน 5 หน้า — ไม่มี export pipeline ที่ไหนเลย | หลายหน้า | disable (~0) / ทำ CSV จริง (~1 เซสชัน) / CSV+PDF (~2–3) |
 | **D2** | `director_meetings_page` (2,216 บรรทัด) — ไม่มีตาราง meetings/attendees/agenda ในสคีมาเลย | Executive 3.7 | สร้างใหม่ (+3–4 เซสชัน) / disable แท็บ (0.3) / ลบทิ้ง |
 | **D3** | Super Admin ใช้เกณฑ์ไหน | Phase 4 | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |

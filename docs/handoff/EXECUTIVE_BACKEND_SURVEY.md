@@ -86,14 +86,28 @@ half-building it on `school_events`.
 > ทีมโรงเรียนยืนยันว่าใช้ทั้งฝ่ายและกลุ่มสาระจริง จึงสร้างสคีมาแทนที่จะลบการ์ดทิ้ง
 > ของที่สคีมายังไม่รองรับ **ถูกลบ ไม่ได้แสดงเป็น 0**: การมาปฏิบัติงาน/มาสาย/ลา
 > ของบุคลากร · เข้าสอนตามตาราง % · ภาระงาน % — แสดงเป็นช่องว่างที่บอกเหตุผลแทน
-> test: `test/executive/director_teachers_honesty_test.dart` (5 ตัว)
+> test: `test/executive/director_teachers_honesty_test.dart` (10 ตัว)
+>
+> **✅ ลงเวลาปฏิบัติงานบุคลากรตามมาแล้ว (2026-09-07, `710c8b8` + `c56c509`)** —
+> migration `20260907010000_staff_attendance.sql` เพิ่ม `staff_work_hours` /
+> `staff_attendance_records` / `staff_leave_requests` + 11 RPC (pgTAP 25/25)
+> การ์ด "สถานะบุคลากรวันนี้" และ "สิ่งที่ควรติดตาม" จึงกลับมาโดยนับจาก
+> `get_staff_attendance_summary` จริง · `no_record` ถูกนับแยกจาก `absent`
+> และ `work_hours_configured` ติดมากับผลสรุป เพื่อแยก "ไม่มีใครสาย" ออกจาก
+> "ตัดสินไม่ได้ว่าใครสาย"
+>
+> ⚠️ พบระหว่างทาง: commit ที่ลบข้อมูลปลอม (`fe8e4e6`) เผลอทิ้งรายการตัวเลือก
+> ตัวกรองเดิมไว้ — ตัวกรองสถานะให้เลือก 'มาปฏิบัติงาน'/'ลา'/'มาสาย' ทั้งที่โค้ด
+> เทียบกับ 'ใช้งานอยู่'/'ระงับการใช้งาน' เลือกแล้วรายการว่างเงียบ ๆ แก้ใน
+> `c56c509` โดยสร้างตัวเลือกทั้ง 3 ชุดจากข้อมูลที่โหลดมาจริง
+> **บทเรียน: ลบข้อมูลปลอมออกแล้วต้องตามไปดู "รายการตัวเลือก" ที่เคยคู่กับมันด้วย**
 
 | what it must show | verdict | exact RPC / table | notes |
 |---|---|---|---|
 | รายชื่อครู/บุคลากร: ชื่อ, อีเมล, บทบาท, สถานะบัญชี (`personnel`, 151 lines) | **B** | `list_school_users(p_token)` → `user_id, first_name, last_name, email, active_role, all_roles[], active_school_id, status`. Gate: `('school_admin','super_admin')` — **executive rejected** (`20260826130000_list_school_users_all_roles.sql`) | wrapper exists: `UserAdminService.getAllUsers()`. Widening this one RPC turns the entire personnel directory real. Master plan 3.2's guess ("น่าจะ reuse getAllUsers ได้") is **correct**, with the caveat that it is a role widening, not a straight reuse. |
 | จำนวนครู/บุคลากรทั้งหมด, แยกบทบาท | **A** | `count_school_users_by_role(p_token)` — executive allowed | |
-| ตำแหน่ง (ครูชำนาญการ…), เบอร์โทร, ฝ่าย, กลุ่มสาระ | **D** | `users` has no `position`/`phone`/`department` column; there is no `departments` or `subject_groups` table | `departmentData` (67 lines) and `subjectGroups` (9 entries) are pure invention. Needs schema (`staff_profiles` + `departments`) or drop those sections. |
-| มาปฏิบัติงานวันนี้ / ลา / มาสาย ของครู | **D** | there is **no staff attendance table**. `homeroom_attendance_records` and `attendance_records` are both student-scoped; `leave_requests` is student leave (`student_id` + `parent_id` NOT NULL) | the entire `_todayStatusCard()` is unbackable today |
+| ตำแหน่ง (ครูชำนาญการ…), เบอร์โทร, ฝ่าย, กลุ่มสาระ | ~~D~~ → **A** (2026-09-07) | `users` has no `position`/`phone`/`department` column; there is no `departments` or `subject_groups` table | `departmentData` (67 lines) and `subjectGroups` (9 entries) are pure invention. Needs schema (`staff_profiles` + `departments`) or drop those sections. |
+| มาปฏิบัติงานวันนี้ / ลา / มาสาย ของครู | ~~D~~ → **A** (2026-09-07) | there is **no staff attendance table**. `homeroom_attendance_records` and `attendance_records` are both student-scoped; `leave_requests` is student leave (`student_id` + `parent_id` NOT NULL) | the entire `_todayStatusCard()` is unbackable today |
 | ครูประจำชั้น (homeroom) ต่อห้อง | **A** | `list_homeroom_assignments(p_token)` → `assignment_id, grade_level, room, teacher_id, teacher_name, student_count`; gate `('school_admin','super_admin','executive')` | `HomeroomService.listHomeroomAssignments()` — real, executive-allowed, unused by this page today |
 | ตารางสอนของครู / เข้าสอนตามตาราง 96% | **A for the schedule, D for the compliance %** | `list_all_school_schedules(p_token)` → schedule_id, course_id, subject_name, day_of_week, start_time, end_time, room; gate `('executive','school_admin')`. `list_teacher_schedules` is `('teacher','school_admin')` = **B** but redundant | nothing records whether a teacher actually started a period on time → the 96% is **D** |
 | ภาระงาน (workload %) | **C** | derivable: `course_teachers` × `class_schedules` × `courses` | a `get_teacher_workload(p_token)` RPC could count periods/courses per teacher honestly |
