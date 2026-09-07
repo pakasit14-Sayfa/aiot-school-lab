@@ -118,11 +118,27 @@ inventing tables).
 
 ## 3.3 `director_reports_page.dart` (1,705 lines) — รายงาน
 
+> **✅ เชื่อมแล้ว (2026-09-07, `30c26ff` + `6065fe3`)** — migration
+> `20260907020000_school_report_register.sql` สร้าง `school_reports` /
+> `report_requirements` / `report_requirement_departments` + bucket
+> `school-reports` (private) + Edge Function `school-report-upload` /
+> `-download` ตามกฎเหล็กข้อ 3 (pgTAP 28/28)
+>
+> **สองอย่างที่หน้าเดิมปนกัน ถูกแยกออก**: ไฟล์ที่มีคนส่งจริง กับ *รายการที่โรงเรียน
+> สั่งให้ส่ง* — กำหนดส่งเป็นของอย่างหลัง `เกินกำหนด` จึงคำนวณจาก due_date ของ
+> requirement ไม่ใช่สถานะที่ไฟล์ถืออยู่ และ "3/6" มาจากจำนวนฝ่ายที่ถูกสั่งจริง
+>
+> **จำนวนหน้าถูกลบทิ้ง** — เซิร์ฟเวอร์นับหน้า PDF ที่อัปโหลดมาไม่ได้
+> ข้อเสนอ "on-demand generated report" ด้านล่างยังใช้ได้ในฐานะหน้าเสริม
+> แต่ไม่ใช่สิ่งทดแทนทะเบียน เพราะโรงเรียนใช้ทะเบียนจริง
+>
+> test: `test/executive/director_reports_honesty_test.dart` (10 ตัว)
+
 | what it must show | verdict | exact RPC / table | notes |
 |---|---|---|---|
-| คลังไฟล์รายงานที่ฝ่ายต่างๆ ส่งขึ้นมา (`reports`, 191 lines): ชื่อไฟล์, ประเภทไฟล์/ขนาด/จำนวนหน้า, ผู้ส่ง+ตำแหน่ง, ฝ่าย, ช่วงเวลา, สถานะ (ส่งแล้ว/รอตรวจ/อนุมัติ/ต้องแก้ไข/เกินกำหนด) | **D** | **no table.** `course_files` is the only document table and it is course-scoped (teacher/student coursework), not a school report register | |
-| `pendingReports` (31 lines) — รายงานที่รอผู้อำนวยการตรวจ | **D** | no approval workflow table | |
-| ฝ่ายผู้ส่ง (ฝ่ายวิชาการ / ฝ่ายบุคคล …) | **D** | no departments table (same gap as 3.2) | |
+| คลังไฟล์รายงานที่ฝ่ายต่างๆ ส่งขึ้นมา (`reports`, 191 lines): ชื่อไฟล์, ประเภทไฟล์/ขนาด/จำนวนหน้า, ผู้ส่ง+ตำแหน่ง, ฝ่าย, ช่วงเวลา, สถานะ (ส่งแล้ว/รอตรวจ/อนุมัติ/ต้องแก้ไข/เกินกำหนด) | ~~D~~ → **A** (2026-09-07) | **no table.** `course_files` is the only document table and it is course-scoped (teacher/student coursework), not a school report register | |
+| `pendingReports` (31 lines) — รายงานที่รอผู้อำนวยการตรวจ | ~~D~~ → **A** (2026-09-07) | no approval workflow table | |
+| ฝ่ายผู้ส่ง (ฝ่ายวิชาการ / ฝ่ายบุคคล …) | ~~D~~ → **A** (2026-09-07) | no departments table (same gap as 3.2) | |
 
 **Effort class: needs-new-schema.** Requires a `school_reports` table + upload pipeline
 (Edge Function + signed URL, copying `course-file-upload`/`-download` per CLAUDE.md hard
