@@ -22,6 +22,9 @@ import 'school_admin_esg_page.dart';
 import 'school_admin_device_control_page.dart';
 import 'school_admin_incident_inbox_page.dart';
 import 'school_learning_tracks_page.dart';
+import 'school_admin_attendance_settings_page.dart';
+import 'school_admin_leave_approval_page.dart';
+import 'school_admin_report_requirements_page.dart';
 
 class SchoolAdminDashboardPage extends StatefulWidget {
   const SchoolAdminDashboardPage({
@@ -71,6 +74,9 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     _MenuItemData('รายงาน ESG', Icons.eco_rounded),
     _MenuItemData('ควบคุมไฟและน้ำ', Icons.lightbulb_rounded),
     _MenuItemData('กล่องแจ้งเหตุการณ์', Icons.inbox_rounded),
+    _MenuItemData('ตั้งเวลาปฏิบัติงาน', Icons.access_time_rounded),
+    _MenuItemData('อนุมัติการลา', Icons.fact_check_rounded),
+    _MenuItemData('รายการรายงานที่ต้องส่ง', Icons.assignment_turned_in_rounded),
   ];
 
   void _openPage(int index) {
@@ -204,6 +210,18 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
 
     if (_selectedIndex == 20) {
       return _themed(const SchoolLearningTracksPage());
+    }
+
+    if (_selectedIndex == 21) {
+      return _themed(const SchoolAdminAttendanceSettingsPage());
+    }
+
+    if (_selectedIndex == 22) {
+      return _themed(const SchoolAdminLeaveApprovalPage());
+    }
+
+    if (_selectedIndex == 23) {
+      return _themed(const SchoolAdminReportRequirementsPage());
     }
 
     return Center(
