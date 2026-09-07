@@ -57,14 +57,24 @@ class _ExamQuestionMock {
 class TeacherExamBuilderPage extends StatefulWidget {
   const TeacherExamBuilderPage({
     super.key,
+    this.courseId,
     this.courseCode = 'PBL-110',
     this.courseName = 'โครงงานเซนเซอร์',
     this.initialKind = 'ข้อสอบก่อนเรียน',
+    this.listMyCourses,
   });
 
+  // ไม่บังคับ required เพื่อไม่ให้ route dev-preview เดิมใน main.dart
+  // (`/prototype/exam-builder`, เปิดโดยไม่มีคอร์สจริงในคอนเท็กซ์) พัง — แต่
+  // ทุกจุดที่เปิดจากหน้าจริง (course detail) ต้องส่งมาเสมอ ดู _saveExam
+  final String? courseId;
   final String courseCode;
   final String courseName;
   final String initialKind;
+  // Seam for tests: lets a test prove _saveExam skips CourseService entirely
+  // (and so never falls back to "the first course of any random list") once
+  // a real courseId is supplied.
+  final Future<List<CourseSummary>> Function()? listMyCourses;
 
   @override
   State<TeacherExamBuilderPage> createState() => _TeacherExamBuilderPageState();
@@ -361,21 +371,29 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     }
 
     try {
-      final courses = await CourseService.listMyCourses();
-      if (courses.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนออกข้อสอบ',
+      var targetCourseId = widget.courseId;
+      if (targetCourseId == null) {
+        // Dev-preview only (e.g. /prototype/exam-builder opened with no real
+        // course in context) — never true for a real teacher, who always
+        // reaches this page from a specific course's detail page.
+        final listMyCourses =
+            widget.listMyCourses ?? CourseService.listMyCourses;
+        final courses = await listMyCourses();
+        if (courses.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนออกข้อสอบ',
+                ),
+                backgroundColor: Color(0xFFEF4444),
               ),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
+            );
+          }
+          return;
         }
-        return;
+        targetCourseId = courses.first.id;
       }
-      final targetCourseId = courses.first.id;
       final quizKindStr = _selectedKind == _ExamKind.preTest
           ? 'pre_test'
           : (_selectedKind == _ExamKind.postTest ? 'post_test' : 'general');

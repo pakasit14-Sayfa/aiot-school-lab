@@ -1905,6 +1905,7 @@ class _TeacherCourseCard extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (_) => TeacherExamBuilderPage(
+                      courseId: course.id,
                       courseCode: course.code,
                       courseName: course.name,
                     ),
