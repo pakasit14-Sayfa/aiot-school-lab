@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,9 +12,21 @@ import 'student_redesign_palette.dart';
 enum _QrMode { display, scan }
 
 class StudentQrLoginPage extends StatefulWidget {
-  const StudentQrLoginPage({super.key, this.startInScanMode = false});
+  const StudentQrLoginPage({
+    super.key,
+    this.startInScanMode = false,
+    this.createSession,
+  });
 
   final bool startInScanMode;
+
+  /// Injectable seam, same pattern as the rest of this app. Production
+  /// passes nothing and the real service is used; tests supply this to
+  /// drive the success/failure paths deterministically.
+  final Future<({String pairingCode, DateTime expiresAt})> Function({
+    String? terminalName,
+  })?
+  createSession;
 
   @override
   State<StudentQrLoginPage> createState() => _StudentQrLoginPageState();
@@ -32,6 +43,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   Duration _remaining = _validDuration;
   Timer? _tickTimer;
   Timer? _pollTimer;
+  bool _sessionFailed = false;
 
   // --- Scan-mode state ---
   MobileScannerController? _scannerController;
@@ -93,8 +105,16 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   }
 
   Future<void> _initPairingSession() async {
+    if (mounted) {
+      setState(() {
+        _pairingToken = '';
+        _sessionFailed = false;
+      });
+    }
     try {
-      final session = await TerminalPairingService.createPairingSession(
+      final createSession =
+          widget.createSession ?? TerminalPairingService.createPairingSession;
+      final session = await createSession(
         terminalName: 'แท็บเล็ตประจำโต๊ะแล็บ AIoT',
       );
       if (mounted) {
@@ -104,19 +124,13 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
           _remaining = _expiresAt.difference(DateTime.now());
         });
       }
-    } catch (_) {
-      // Fallback local random token if offline
-      final random = Random.secure();
-      final code = List.generate(
-        24,
-        (_) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[random.nextInt(36)],
-      ).join();
+    } catch (e) {
+      debugPrint('StudentQrLoginPage: failed to create pairing session: $e');
+      // A QR code that looks real but can never be claimed is worse than an
+      // honest error — the student would scan it and get stuck with no clue
+      // why. Show a real failure state instead of a fabricated token.
       if (mounted) {
-        setState(() {
-          _pairingToken = 'aiot-pairing:$code';
-          _expiresAt = DateTime.now().add(_validDuration);
-          _remaining = _validDuration;
-        });
+        setState(() => _sessionFailed = true);
       }
     }
   }
@@ -676,12 +690,15 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'หน้าจอแท็บเล็ตแล็บพร้อมจับคู่',
-                style: TextStyle(
-                  color: SchoolPalette.deepGreen,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
+              Flexible(
+                child: const Text(
+                  'หน้าจอแท็บเล็ตแล็บพร้อมจับคู่',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: SchoolPalette.deepGreen,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -728,7 +745,41 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(20),
-                child: _pairingToken.isNotEmpty
+                child: _sessionFailed
+                    ? SizedBox(
+                        width: 220,
+                        height: 220,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.wifi_off_rounded,
+                              size: 36,
+                              color: SchoolPalette.muted,
+                            ),
+                            const SizedBox(height: 10),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                'สร้างรหัส QR ไม่สำเร็จ\nกรุณาลองใหม่',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: SchoolPalette.muted,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton.icon(
+                              onPressed: _initPairingSession,
+                              icon: const Icon(Icons.refresh_rounded, size: 16),
+                              label: const Text('ลองใหม่'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : _pairingToken.isNotEmpty
                     ? QrImageView(
                         data: _pairingToken,
                         version: QrVersions.auto,
