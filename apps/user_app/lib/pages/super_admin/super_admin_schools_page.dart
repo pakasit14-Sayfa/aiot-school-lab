@@ -9,7 +9,40 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminSchoolsPage extends StatefulWidget {
-  const SuperAdminSchoolsPage({super.key});
+  const SuperAdminSchoolsPage({
+    super.key,
+    this.loadSchools,
+    this.createSchool,
+    this.updateSchool,
+    this.setSchoolStatus,
+  });
+
+  /// Injectable seams for tests — production leaves these null and uses the
+  /// real service (same pattern as school_admin's connection tests).
+  final Future<List<SchoolPlatformRecord>> Function()? loadSchools;
+  final Future<Map<String, dynamic>> Function({
+    required String name,
+    String? province,
+    String? adminEmail,
+    String packageName,
+    int maxUsers,
+    int maxDevices,
+    DateTime? licenseExpiresAt,
+  })?
+  createSchool;
+  final Future<bool> Function({
+    required String schoolId,
+    required String name,
+    String? province,
+    String? adminEmail,
+    String? packageName,
+    int? maxUsers,
+    int? maxDevices,
+    DateTime? licenseExpiresAt,
+  })?
+  updateSchool;
+  final Future<bool> Function({required String schoolId, required String status})?
+  setSchoolStatus;
 
   @override
   State<SuperAdminSchoolsPage> createState() => _SuperAdminSchoolsPageState();
@@ -47,7 +80,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
 
     try {
       final List<SchoolPlatformRecord> records =
-          await _service.fetchSchools();
+          await (widget.loadSchools ?? _service.fetchSchools)();
 
       if (!mounted) {
         return;
@@ -147,8 +180,24 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
   int get _totalAlerts =>
       _schools.fold(0, (sum, school) => sum + school.alerts);
 
+  // This page has no `embedded` toggle of its own — it's placed directly
+  // inside SuperAdminNavigationShell's desktop sidebar (which provides a
+  // Material ancestor via its own Scaffold) but is also pushed as a
+  // standalone route from SuperAdminHubPage's mobile fallback via
+  // `Navigator.push(MaterialPageRoute(builder: (_) => const
+  // SuperAdminSchoolsPage()))`, which does not wrap its child in a
+  // Scaffold/Material. Without this, the package/status filter
+  // DropdownButtons throw `debugCheckHasMaterial` the moment they render —
+  // a real crash on any narrow-width Super Admin session, not just a test
+  // artifact. A bare Scaffold is enough; it doesn't change the page's
+  // visuals (already fully colored via ColoredBox) or add an AppBar,
+  // since none was ever shown here.
   @override
   Widget build(BuildContext context) {
+    return Scaffold(body: _buildContent(context));
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading && _schools.isEmpty) {
       return const ColoredBox(
         color: AppPalette.background,
@@ -1856,7 +1905,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
       );
 
       if (school == null) {
-        await _service.createSchool(
+        await (widget.createSchool ?? _service.createSchool)(
           name: result.name,
           province: result.province,
           adminEmail: result.email,
@@ -1866,7 +1915,7 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
           licenseExpiresAt: licenseExpiresAt,
         );
       } else {
-        await _service.updateSchool(
+        final bool ok = await (widget.updateSchool ?? _service.updateSchool)(
           schoolId: school.databaseId,
           name: result.name,
           province: result.province,
@@ -1876,6 +1925,11 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
           maxDevices: result.maxDevices,
           licenseExpiresAt: licenseExpiresAt,
         );
+        // updateSchool returns false (no thrown error) when the RPC ran but
+        // did not apply — must not be reported as saved.
+        if (!ok) {
+          throw StateError('update_school_not_confirmed');
+        }
       }
 
       await _loadSchools(showLoading: false);
@@ -1956,7 +2010,15 @@ class _SuperAdminSchoolsPageState extends State<SuperAdminSchoolsPage> {
     try {
       final String newStatus = willSuspend ? 'suspended' : 'active';
 
-      await _service.setSchoolStatus(schoolId: school.databaseId, status: newStatus);
+      final bool ok = await (widget.setSchoolStatus ?? _service.setSchoolStatus)(
+        schoolId: school.databaseId,
+        status: newStatus,
+      );
+      // Same as updateSchool: false means the RPC ran but did not confirm
+      // the change, and must not be reported as success.
+      if (!ok) {
+        throw StateError('set_school_status_not_confirmed');
+      }
 
       await _loadSchools(showLoading: false);
 

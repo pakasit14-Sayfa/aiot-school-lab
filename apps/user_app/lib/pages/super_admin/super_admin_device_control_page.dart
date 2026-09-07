@@ -9,10 +9,39 @@ import 'widgets/device_control_sections.dart';
 import 'widgets/device_control_widgets.dart';
 
 class SuperAdminDeviceControlPage extends StatefulWidget {
-  const SuperAdminDeviceControlPage({super.key, this.onOpenSchools, this.onOpenDevices});
+  const SuperAdminDeviceControlPage({
+    super.key,
+    this.onOpenSchools,
+    this.onOpenDevices,
+    this.loadControlData,
+    this.queueDeviceCommand,
+    this.createControlApprovalRequest,
+    this.decideControlApprovalRequest,
+  });
 
   final VoidCallback? onOpenSchools;
   final VoidCallback? onOpenDevices;
+
+  /// Injectable seams for tests — production leaves these null and uses the
+  /// real service (same pattern as school_admin's connection tests).
+  final Future<DeviceControlDataModel> Function()? loadControlData;
+  final Future<String> Function({
+    required String deviceId,
+    required Map<String, dynamic> command,
+  })?
+  queueDeviceCommand;
+  final Future<Map<String, dynamic>> Function({
+    required String deviceId,
+    required String command,
+    String? reason,
+  })?
+  createControlApprovalRequest;
+  final Future<Map<String, dynamic>> Function({
+    required String requestId,
+    required bool approved,
+    String? reason,
+  })?
+  decideControlApprovalRequest;
 
   @override
   State<SuperAdminDeviceControlPage> createState() => _SuperAdminDeviceControlPageState();
@@ -128,7 +157,8 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     }
 
     try {
-      final DeviceControlDataModel data = await _service.fetchDeviceControlData();
+      final DeviceControlDataModel data =
+          await (widget.loadControlData ?? _service.fetchDeviceControlData)();
 
       if (!mounted) {
         return;
@@ -382,8 +412,19 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     }).toList();
   }
 
+  // Same reasoning as SuperAdminSchoolsPage: this page has no `embedded`
+  // toggle, is placed inside the desktop sidebar shell (Material ancestor
+  // provided there) but also pushed as a standalone mobile route from
+  // SuperAdminHubPage, which provides none — the DropdownButtonFormField
+  // widgets in this page's filter/permission UI throw
+  // `debugCheckHasMaterial` without a Scaffold ancestor. A bare Scaffold
+  // fixes it without changing the page's look.
   @override
   Widget build(BuildContext context) {
+    return Scaffold(body: _buildContent(context));
+  }
+
+  Widget _buildContent(BuildContext context) {
     if (_isLoading && _devices.isEmpty) {
       return const ColoredBox(
         color: AppPalette.background,
@@ -1536,7 +1577,8 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
 
     try {
       for (final item in devices) {
-        await _service.createControlApprovalRequest(
+        await (widget.createControlApprovalRequest ??
+            _service.createControlApprovalRequest)(
           deviceId: item.databaseId,
           command: turnOn ? 'power_on' : 'power_off',
           reason: reason.isNotEmpty ? reason : 'Scope: $scope',
@@ -1629,7 +1671,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     });
 
     try {
-      await _service.decideControlApprovalRequest(
+      await (widget.decideControlApprovalRequest ?? _service.decideControlApprovalRequest)(
         requestId: item.databaseId,
         approved: true,
       );
@@ -1710,7 +1752,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     });
 
     try {
-      await _service.decideControlApprovalRequest(
+      await (widget.decideControlApprovalRequest ?? _service.decideControlApprovalRequest)(
         requestId: item.databaseId,
         approved: false,
         reason: reason,
@@ -2173,7 +2215,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
     });
 
     try {
-      await _service.queueDeviceCommand(
+      await (widget.queueDeviceCommand ?? _service.queueDeviceCommand)(
         deviceId: item.databaseId,
         command: <String, dynamic>{
           'action': 'set_mode',
@@ -2265,7 +2307,7 @@ class _SuperAdminDeviceControlPageState extends State<SuperAdminDeviceControlPag
 
     try {
       for (final item in targets) {
-        await _service.queueDeviceCommand(
+        await (widget.queueDeviceCommand ?? _service.queueDeviceCommand)(
           deviceId: item.databaseId,
           command: const <String, dynamic>{
             'action': 'emergency_stop',

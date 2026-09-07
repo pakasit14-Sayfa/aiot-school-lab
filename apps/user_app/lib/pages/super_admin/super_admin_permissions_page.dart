@@ -8,12 +8,29 @@ import 'theme/app_palette.dart';
 import 'widgets/dev_ui.dart';
 
 class SuperAdminPermissionsPage extends StatefulWidget {
-  const SuperAdminPermissionsPage({super.key, this.embedded = false});
+  const SuperAdminPermissionsPage({
+    super.key,
+    this.embedded = false,
+    this.loadUsers,
+    this.loadSchools,
+    this.updateRole,
+    this.suspendUser,
+    this.reactivateUser,
+  });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
   /// layout — suppresses this page's own AppBar since the sidebar
   /// already shows which page is selected.
   final bool embedded;
+
+  /// Injectable seams for tests — production leaves these null and uses the
+  /// real service (same pattern as school_admin's connection tests).
+  final Future<List<UserModel>> Function()? loadUsers;
+  final Future<List<SchoolPlatformRecord>> Function()? loadSchools;
+  final Future<void> Function({required String uid, required UserRole role})?
+  updateRole;
+  final Future<void> Function(String uid)? suspendUser;
+  final Future<void> Function(String uid)? reactivateUser;
 
   @override
   State<SuperAdminPermissionsPage> createState() =>
@@ -62,9 +79,10 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     }
 
     try {
-      final List<UserModel> userModels = await UserAdminService.getAllUsers();
+      final List<UserModel> userModels =
+          await (widget.loadUsers ?? UserAdminService.getAllUsers)();
       final List<SchoolPlatformRecord> schoolRecords =
-          await _platformService.fetchSchools();
+          await (widget.loadSchools ?? _platformService.fetchSchools)();
 
       List<StaffInvitation> invitationRecords = [];
       try {
@@ -94,10 +112,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
 
         final displayRole = _mapUserRoleToDisplay(u.role);
         final isActive = u.status == 'active';
-        final isMfa = u.hasRole(UserRole.superAdmin) ||
-            u.hasRole(UserRole.schoolAdmin) ||
-            u.hasRole(UserRole.teacher) ||
-            u.hasRole(UserRole.executive);
 
         loadedUsers.add(_UserAccount(
           id: 'USR-${(i + 1).toString().padLeft(4, '0')}',
@@ -113,7 +127,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
               ? 'เฉพาะโรงเรียน $sName'
               : 'ทุกโรงเรียนและทุกอุปกรณ์',
           status: isActive ? _UserStatus.active : _UserStatus.suspended,
-          mfaEnabled: isMfa,
           lastActive: isActive ? 'ใช้งานได้' : 'ระงับการใช้งาน',
           permissions: _defaultPermissionsForRole(displayRole),
         ));
@@ -225,8 +238,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
         matchesStatus = item.status == _UserStatus.active;
       } else if (_statusFilter == 'ระงับใช้งาน') {
         matchesStatus = item.status == _UserStatus.suspended;
-      } else if (_statusFilter == 'ยังไม่เปิด MFA') {
-        matchesStatus = !item.mfaEnabled;
       }
 
       return matchesText && matchesRole && matchesSchool && matchesStatus;
@@ -236,9 +247,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       result.sort((a, b) => a.name.compareTo(b.name));
     } else if (_sortMode == 'บทบาทสำคัญก่อน') {
       result.sort((a, b) => a.rolePriority.compareTo(b.rolePriority));
-    } else if (_sortMode == 'ยังไม่เปิด MFA ก่อน') {
-      result.sort(
-          (a, b) => a.mfaEnabled == b.mfaEnabled ? 0 : (a.mfaEnabled ? 1 : -1));
     }
 
     return result;
@@ -382,7 +390,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                'เชิญผู้ใช้ กำหนดบทบาทข้ามโรงเรียน ตรวจสอบ MFA และดูประวัติการเข้าใช้งานได้จากหน้าเดียว',
+                'เชิญผู้ใช้ กำหนดบทบาทข้ามโรงเรียน และดูประวัติการเข้าใช้งานได้จากหน้าเดียว',
                 style: TextStyle(
                   color: Colors.white.withAlpha(210),
                   fontSize: mobile ? 12 : 14,
@@ -886,7 +894,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                         'ทุกสถานะ',
                         'เปิดใช้งาน',
                         'ระงับใช้งาน',
-                        'ยังไม่เปิด MFA',
                       ],
                       onChanged: (String value) {
                         setState(() {
@@ -904,7 +911,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                       items: const <String>[
                         'บทบาทสำคัญก่อน',
                         'ชื่อผู้ใช้',
-                        'ยังไม่เปิด MFA ก่อน',
                       ],
                       onChanged: (String value) {
                         setState(() {
@@ -1020,11 +1026,9 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(25),
         border: Border.all(
-          color: !user.mfaEnabled && user.role != 'Student' && user.role != 'Parent'
-              ? AppPalette.circusYellow.withAlpha(140)
-              : user.status == _UserStatus.suspended
-                  ? AppPalette.carnivalRed.withAlpha(110)
-                  : AppPalette.softBeige.withAlpha(180),
+          color: user.status == _UserStatus.suspended
+              ? AppPalette.carnivalRed.withAlpha(110)
+              : AppPalette.softBeige.withAlpha(180),
         ),
         boxShadow: _shadow,
       ),
@@ -1150,12 +1154,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                   '+ ${user.allRoles.length - 1} บทบาท',
                   AppPalette.deepBlue,
                 ),
-              _badge(
-                user.mfaEnabled ? 'MFA เปิดแล้ว' : 'ยังไม่เปิด MFA',
-                user.mfaEnabled
-                    ? AppPalette.gardenGreen
-                    : AppPalette.circusYellow,
-              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -2261,7 +2259,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     try {
       if (user.dbId != null) {
         if (selectedRole != user.rawRole) {
-          await UserAdminService.updateRole(
+          await (widget.updateRole ?? UserAdminService.updateRole)(
             uid: user.dbId!,
             role: selectedRole,
           );
@@ -2373,12 +2371,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                           '+ ${user.allRoles.length - 1} บทบาท',
                           AppPalette.deepBlue,
                         ),
-                      _badge(
-                        user.mfaEnabled ? 'MFA เปิดแล้ว' : 'ยังไม่เปิด MFA',
-                        user.mfaEnabled
-                            ? AppPalette.gardenGreen
-                            : AppPalette.circusYellow,
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -2591,9 +2583,13 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     try {
       if (user.dbId != null) {
         if (willSuspend) {
-          await UserAdminService.deleteUser(user.dbId!);
+          await (widget.suspendUser ?? UserAdminService.deleteUser)(
+            user.dbId!,
+          );
         } else {
-          await UserAdminService.reactivateUser(user.dbId!);
+          await (widget.reactivateUser ?? UserAdminService.reactivateUser)(
+            user.dbId!,
+          );
         }
       }
       _message('${willSuspend ? 'ระงับ' : 'เปิดใช้งาน'}บัญชี ${user.name} แล้ว');
@@ -2635,7 +2631,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       'role',
       'school',
       'status',
-      'mfa',
     ];
     final List<List<String>> rows = <List<String>>[
       header,
@@ -2647,7 +2642,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
           u.role,
           u.school,
           u.status == _UserStatus.active ? 'active' : 'suspended',
-          u.mfaEnabled ? 'yes' : 'no',
         ],
     ];
     final String csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
@@ -2847,7 +2841,6 @@ class _UserAccount {
   String? schoolId;
   String scope;
   _UserStatus status;
-  bool mfaEnabled;
   String lastActive;
   _PermissionSet permissions;
 
@@ -2863,7 +2856,6 @@ class _UserAccount {
     this.schoolId,
     required this.scope,
     required this.status,
-    required this.mfaEnabled,
     required this.lastActive,
     required this.permissions,
   });
