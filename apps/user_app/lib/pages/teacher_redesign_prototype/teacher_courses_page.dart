@@ -370,9 +370,11 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
   // แทนที่รายการ mock ต้นทางด้วยรายวิชาจริงของครูที่ login อยู่ตอนเปิดหน้า
   // — ยังคง mockTeacherCourses เป็น list เดิม (แค่เปลี่ยนเนื้อหา) เพื่อไม่
   // ต้องแตะ logic สร้าง/คัดลอกรายวิชา (CLS-1/CLS-6) ที่ผูกกับ list ตัวนี้
-  // อยู่แล้ว — ฟีเจอร์สร้าง/คัดลอกยังคงบันทึกแค่ในเครื่อง (ไม่ยิง
-  // CourseService.createCourse จริง) เพราะฟอร์มปัจจุบันยังไม่มีช่องเลือก
-  // ภาคเรียน (termId) ที่ RPC จริงต้องการ — จุดนี้ต้องทำต่อ ไม่ใช่ยังทำเสร็จ
+  // อยู่แล้ว — CLS-1 (สร้างรายวิชาใหม่) ยิง CourseService.createCourse จริง
+  // แล้ว (ดู _NewCourseModalSheet._submit) แล้วรีโหลดรายการจริงทับของที่สร้าง
+  // ในเครื่อง — CLS-6 (คัดลอกรายวิชา) ยังไม่มี RPC รองรับ ยังคงบันทึกแค่ใน
+  // เครื่องและ disclose ตรง ๆ ในสี snackbar เตือนว่า "ยังไม่บันทึกลง
+  // เซิร์ฟเวอร์" (ดู _openCopyCourseModal)
   Future<void> _loadRealCourses() async {
     try {
       final courses = await CourseService.listMyCourses();
@@ -4370,28 +4372,37 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
   Future<void> _fetchGradeData() async {
     setState(() => _isLoading = true);
     try {
-      final enrolled = await CourseService.listCourseStudents(
-        widget.course.id ?? '',
-      );
-      final List<Map<String, dynamic>> list = enrolled
-          .map(
-            (st) => {
-              'name': st.fullName,
-              'code': st.studentId.length >= 8
-                  ? st.studentId.substring(0, 8)
-                  : st.studentId,
-              'room': 'ม.4/1',
-              'l1_score': 10,
-              'l1_max': 10,
-              'a1_score': 20,
-              'a1_max': 20,
-              'total_score': 30,
-              'total_max': 30,
-              'grade': '4.0',
-              'status': 'ส่งงานครบแล้ว',
-            },
-          )
-          .toList();
+      final courseId = widget.course.id ?? '';
+      final enrolled = await CourseService.listCourseStudents(courseId);
+      List<GradeRecord> grades = [];
+      try {
+        grades = await GradeService.listCourseGrades(courseId);
+      } catch (e) {
+        debugPrint('Error fetching course grades via RPC: $e');
+      }
+      final gradesByStudent = <String, List<GradeRecord>>{};
+      for (final g in grades) {
+        gradesByStudent.putIfAbsent(g.studentId, () => []).add(g);
+      }
+
+      final List<Map<String, dynamic>> list = enrolled.map((st) {
+        final entries = gradesByStudent[st.studentId] ?? const [];
+        final totalScore = entries.fold<num>(0, (sum, g) => sum + g.score);
+        final totalMax = entries.fold<num>(0, (sum, g) => sum + g.maxScore);
+        final confirmedCount = entries
+            .where((g) => g.status == 'confirmed')
+            .length;
+        return {
+          'name': st.fullName,
+          'code': st.studentId.length >= 8
+              ? st.studentId.substring(0, 8)
+              : st.studentId,
+          'entryCount': entries.length,
+          'totalScore': totalScore,
+          'totalMax': totalMax,
+          'confirmedCount': confirmedCount,
+        };
+      }).toList();
 
       if (mounted) {
         setState(() {
@@ -4407,6 +4418,25 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final totalScore = _students.fold<num>(
+      0,
+      (sum, st) => sum + (st['totalScore'] as num),
+    );
+    final totalMax = _students.fold<num>(
+      0,
+      (sum, st) => sum + (st['totalMax'] as num),
+    );
+    final avgLabel = totalMax > 0
+        ? '${(totalScore / totalMax * 100).round()}%'
+        : 'ยังไม่มีคะแนน';
+    final entryCount = _students.fold<int>(
+      0,
+      (sum, st) => sum + (st['entryCount'] as int),
+    );
+    final studentsWithGrades = _students
+        .where((st) => (st['entryCount'] as int) > 0)
+        .length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4423,24 +4453,26 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
               children: [
                 _buildSummaryCard(
                   title: 'คะแนนเฉลี่ยรวมรายวิชา',
-                  value: '100%',
-                  subtitle: 'คำนวณจากภารกิจและบทเรียนทั้งหมด',
+                  value: avgLabel,
+                  subtitle: 'คำนวณจากคะแนนที่บันทึกจริงในระบบ',
                   icon: Icons.grade_rounded,
                   color: const Color(0xFF059669),
                   bgColor: const Color(0xFFECFDF5),
                 ),
                 _buildSummaryCard(
-                  title: 'จำนวนภารกิจที่เก็บคะแนน',
-                  value: '2 งาน',
-                  subtitle: 'บทเรียน 1 งาน · ใบงาน 1 งาน',
+                  title: 'จำนวนรายการคะแนนที่บันทึกแล้ว',
+                  value: '$entryCount รายการ',
+                  subtitle: 'รวมทุกรายการคะแนนที่ครูบันทึกในวิชานี้',
                   icon: Icons.assignment_turned_in_rounded,
                   color: TeacherPalette.primary,
                   bgColor: TeacherPalette.primary.withValues(alpha: 0.08),
                 ),
                 _buildSummaryCard(
-                  title: 'นักเรียนที่ส่งงานครบ',
-                  value: '${_students.length}/${_students.length} คน',
-                  subtitle: 'คิดเป็น 100% ของทั้งห้องเรียน',
+                  title: 'นักเรียนที่มีคะแนนแล้ว',
+                  value: '$studentsWithGrades/${_students.length} คน',
+                  subtitle: _students.isEmpty
+                      ? '-'
+                      : '${(studentsWithGrades / _students.length * 100).round()}% ของทั้งห้องเรียน',
                   icon: Icons.people_alt_rounded,
                   color: const Color(0xFF2563EB),
                   bgColor: const Color(0xFFEFF6FF),
@@ -4554,12 +4586,10 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                 ),
                 columns: const [
                   DataColumn(label: Text('ชื่อ-นามสกุล นักเรียน')),
-                  DataColumn(label: Text('รหัส / ห้อง')),
-                  DataColumn(label: Text('บทที่ 1: เซนเซอร์ PM2.5 (10)')),
-                  DataColumn(label: Text('ใบงานที่ 1: ต่อวงจร (20)')),
-                  DataColumn(label: Text('คะแนนรวม (30)')),
-                  DataColumn(label: Text('เกรดประเมิน')),
-                  DataColumn(label: Text('สถานะการส่ง')),
+                  DataColumn(label: Text('รหัสนักเรียน')),
+                  DataColumn(label: Text('คะแนนรวมที่บันทึกแล้ว')),
+                  DataColumn(label: Text('จำนวนรายการคะแนน')),
+                  DataColumn(label: Text('สถานะ')),
                 ],
                 rows: _students.map((st) {
                   return DataRow(
@@ -4593,94 +4623,63 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                           ],
                         ),
                       ),
-                      DataCell(Text('${st['code']} (${st['room']})')),
+                      DataCell(Text(st['code'] as String)),
                       DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '${st['l1_score']}/${st['l1_max']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF047857),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '${st['a1_score']}/${st['a1_max']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF047857),
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Text(
-                          '${st['total_score']}/${st['total_max']}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w900,
-                            color: TeacherPalette.primary,
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: TeacherPalette.primary,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            'เกรด ${st['grade']}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              fontSize: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.check_circle_rounded,
-                              size: 16,
-                              color: Color(0xFF059669),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              st['status'] as String,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF059669),
-                                fontSize: 12,
+                        (st['entryCount'] as int) == 0
+                            ? const Text(
+                                'ยังไม่มีคะแนน',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: TeacherPalette.muted,
+                                ),
+                              )
+                            : Text(
+                                '${st['totalScore']}/${st['totalMax']}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: TeacherPalette.primary,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                      ),
+                      DataCell(Text('${st['entryCount']} รายการ')),
+                      DataCell(
+                        (st['entryCount'] as int) == 0
+                            ? const Text(
+                                'ยังไม่มีคะแนน',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: TeacherPalette.muted,
+                                  fontSize: 12,
+                                ),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    (st['confirmedCount'] as int) ==
+                                            st['entryCount']
+                                        ? Icons.check_circle_rounded
+                                        : Icons.hourglass_bottom_rounded,
+                                    size: 16,
+                                    color: (st['confirmedCount'] as int) ==
+                                            st['entryCount']
+                                        ? const Color(0xFF059669)
+                                        : const Color(0xFFCA8A04),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'ยืนยันแล้ว ${st['confirmedCount']}/${st['entryCount']} รายการ',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: (st['confirmedCount'] as int) ==
+                                              st['entryCount']
+                                          ? const Color(0xFF059669)
+                                          : const Color(0xFFCA8A04),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                       ),
                     ],
                   );
