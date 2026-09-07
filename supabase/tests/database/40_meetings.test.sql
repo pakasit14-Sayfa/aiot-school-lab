@@ -15,7 +15,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(117);
+select plan(126);
 
 insert into packages (id, name, license_type)
 values ('99820000-0000-0000-0000-000000000001', 'Meetings test package', 'perpetual');
@@ -41,7 +41,11 @@ insert into users (
   ('99822000-0000-0000-0000-000000000005', '99821000-0000-0000-0000-000000000001',
    'mtg-teacher3@test.local', crypt('pass', gen_salt('bf')), 'Mtg', 'Teacher3', '99822000-0000-0000-0000-000000000001'),
   ('99822000-0000-0000-0000-000000000006', '99821000-0000-0000-0000-000000000001',
-   'mtg-student@test.local', crypt('pass', gen_salt('bf')), 'Mtg', 'Student', '99822000-0000-0000-0000-000000000001');
+   'mtg-student@test.local', crypt('pass', gen_salt('bf')), 'Mtg', 'Student', '99822000-0000-0000-0000-000000000001'),
+  -- School B: exists only to prove tenant isolation, never a party to
+  -- anything created in School A below.
+  ('99822000-0000-0000-0000-000000000007', '99821000-0000-0000-0000-000000000002',
+   'mtg-execb@test.local', crypt('pass', gen_salt('bf')), 'Mtg', 'ExecB', '99822000-0000-0000-0000-000000000007');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
   ('99822000-0000-0000-0000-000000000001', 'executive',    '99821000-0000-0000-0000-000000000001', '99822000-0000-0000-0000-000000000001'),
@@ -49,7 +53,8 @@ insert into user_roles (user_id, role, school_id, granted_by) values
   ('99822000-0000-0000-0000-000000000003', 'teacher',      '99821000-0000-0000-0000-000000000001', '99822000-0000-0000-0000-000000000001'),
   ('99822000-0000-0000-0000-000000000004', 'teacher',      '99821000-0000-0000-0000-000000000001', '99822000-0000-0000-0000-000000000001'),
   ('99822000-0000-0000-0000-000000000005', 'teacher',      '99821000-0000-0000-0000-000000000001', '99822000-0000-0000-0000-000000000001'),
-  ('99822000-0000-0000-0000-000000000006', 'student',      '99821000-0000-0000-0000-000000000001', '99822000-0000-0000-0000-000000000001');
+  ('99822000-0000-0000-0000-000000000006', 'student',      '99821000-0000-0000-0000-000000000001', '99822000-0000-0000-0000-000000000001'),
+  ('99822000-0000-0000-0000-000000000007', 'executive',    '99821000-0000-0000-0000-000000000002', '99822000-0000-0000-0000-000000000007');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
   ('99822000-0000-0000-0000-000000000001', 'executive', '99821000-0000-0000-0000-000000000001',
@@ -63,7 +68,9 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
   ('99822000-0000-0000-0000-000000000005', 'teacher', '99821000-0000-0000-0000-000000000001',
    encode(digest('mtg-teacher3-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('99822000-0000-0000-0000-000000000006', 'student', '99821000-0000-0000-0000-000000000001',
-   encode(digest('mtg-student-token', 'sha256'), 'hex'), now() + interval '1 hour');
+   encode(digest('mtg-student-token', 'sha256'), 'hex'), now() + interval '1 hour'),
+  ('99822000-0000-0000-0000-000000000007', 'executive', '99821000-0000-0000-0000-000000000002',
+   encode(digest('mtg-execb-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
 insert into departments (id, school_id, name, kind, sort_order, created_by) values
   ('99823000-0000-0000-0000-000000000001', '99821000-0000-0000-0000-000000000001',
@@ -272,6 +279,37 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- Cross-school isolation — School B is a party to nothing created above
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select count(*)::int from list_meetings('mtg-execb-token')),
+  0,
+  'an executive of an unrelated school sees none of School A''s meetings, school-wide included'
+);
+
+select throws_ok(
+  $$ select cancel_meeting('mtg-execb-token',
+       (select id from meetings where title = 'ประชุมทั้งคณะเทสต์'), 'ไม่เกี่ยว') $$,
+  'forbidden',
+  'an executive of another school cannot cancel a meeting outside their own school_id'
+);
+
+select throws_ok(
+  $$ select set_meeting_agenda_item('mtg-execb-token',
+       (select id from meetings where title = 'ประชุมฝ่ายทดสอบ'), 'วาระแทรก') $$,
+  'forbidden',
+  'nor set an agenda item on it, despite create_meeting''s own role check passing for any executive'
+);
+
+select throws_ok(
+  $$ select * from list_meeting_attendees('mtg-execb-token',
+       (select id from meetings where title = 'ประชุมทั้งคณะเทสต์')) $$,
+  'forbidden',
+  'nor read who is attending — visibility=''school'' means that school, not every school'
+);
+
+-- ---------------------------------------------------------------------------
 -- respond_to_meeting
 -- ---------------------------------------------------------------------------
 
@@ -325,6 +363,28 @@ select lives_ok(
   'the summoned teacher asks to postpone instead, with a reason'
 );
 
+select throws_ok(
+  $$ select * from list_meeting_attendees('mtg-teacher3-token',
+       (select id from meetings where title = 'ประชุมฝ่ายทดสอบ')) $$,
+  'forbidden',
+  'someone who cannot see the meeting cannot read its attendee list'
+);
+
+select is(
+  (select response from list_meeting_attendees('mtg-teacher1-token',
+     (select id from meetings where title = 'ประชุมฝ่ายทดสอบ'))
+    where user_id = '99822000-0000-0000-0000-000000000003'),
+  'accepted',
+  'a real attendee reads the real response back through the list RPC, not just the table'
+);
+
+select is(
+  (select bool_or(is_organizer) from list_meeting_attendees('mtg-teacher1-token',
+     (select id from meetings where title = 'ประชุมฝ่ายทดสอบ'))),
+  true,
+  'the organiser flag comes through correctly'
+);
+
 -- ---------------------------------------------------------------------------
 -- Agenda
 -- ---------------------------------------------------------------------------
@@ -361,6 +421,20 @@ select is(
     where meeting_id = (select id from meetings where title = 'ประชุมฝ่ายทดสอบ')),
   1,
   'still exactly one item — the update path did not insert a second row'
+);
+
+select throws_ok(
+  $$ select * from list_meeting_agenda('mtg-teacher3-token',
+       (select id from meetings where title = 'ประชุมฝ่ายทดสอบ')) $$,
+  'forbidden',
+  'someone who cannot see the meeting cannot read its agenda'
+);
+
+select is(
+  (select title from list_meeting_agenda('mtg-teacher1-token',
+     (select id from meetings where title = 'ประชุมฝ่ายทดสอบ'))),
+  'วาระทดสอบ (แก้ไข)'::varchar,
+  'a real attendee reads the real, updated agenda item'
 );
 
 select throws_ok(
