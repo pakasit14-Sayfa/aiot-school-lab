@@ -43,7 +43,7 @@
 
 | งาน | ค้างตรงไหน |
 |---|---|
-| ระบบประชุม (`20260907030000` + `20260907040000`) | สคีมา 9 ตาราง + 31 RPC รันบน local แล้ว **แต่ยังไม่มี pgTAP · ยังไม่มี service/model ฝั่ง Dart · ยังไม่แตะหน้าจอ · ยังไม่มี Edge Function ของ meeting-files** |
+| ระบบประชุม (`20260907030000` + `20260907040000`) | สคีมา 9 ตาราง + 31 RPC รันบน local แล้ว · **pgTAP เขียนแล้ว** (`40_meetings.test.sql`, 117/117 ผ่าน — ครอบคลุม create/cancel/complete_meeting, respond_to_meeting, agenda, minutes draft→final→addendum, resolutions + overdue, attachments, external attendees, three-state attendance, notification categories, staff calendar) **แต่ยังไม่มี service/model ฝั่ง Dart · ยังไม่แตะหน้าจอ · ยังไม่มี Edge Function ของ meeting-files** |
 | `staff_requests` (ขอเข้าพบ / ขอจัดประชุม / ขอไปราชการ) | ยังไม่เริ่ม — ต้องมีอนุมัติ 2 ชั้นตามข้อ D และเมื่ออนุมัติไปราชการต้องลงสถานะ `official_duty` ใน `staff_attendance_records` ให้อัตโนมัติ ไม่งั้นครูจะขึ้นว่า "ยังไม่ลงเวลา" ทั้งที่ได้รับอนุมัติแล้ว |
 | ไฟล์แนบของการลา | `staff_leave_requests` ยังแนบไฟล์ไม่ได้ = แนบใบรับรองแพทย์ไม่ได้ |
 | หน้า school_admin ที่ backend เสร็จแล้วแต่ยังไม่มีหน้าจอ | ตั้งเวลาปฏิบัติงาน · อนุมัติการลา · สร้างรายการรายงานที่ต้องส่ง — **จนกว่าจะมีหน้าตั้งเวลาปฏิบัติงาน ครูลงเวลาไม่ได้เลยสักคน** (`staff_check_in` จะโยน `work_hours_not_configured`) |
