@@ -2562,6 +2562,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
             // Tab Content Display
             if (_activeTab == 'บทเรียน')
               TeacherLessonListPage(
+                courseId: c.id,
                 courseCode: c.code,
                 courseName: c.name,
                 isCourseClosed: c.isClosed,

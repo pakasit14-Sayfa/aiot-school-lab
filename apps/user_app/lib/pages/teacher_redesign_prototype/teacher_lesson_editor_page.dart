@@ -119,312 +119,6 @@ class LessonModel {
   List<LessonSensorLinkModel> sensorLinks;
 }
 
-// MOCK LESSONS DATA (6 Realistic Sample Lessons)
-final List<LessonModel> mockLessonsList = [
-  LessonModel(
-    id: 'les-1',
-    courseCode: 'ว31281',
-    courseName: 'วิทยาการคำนวณ & AI เบื้องต้น',
-    title: 'บทที่ 1: การคิดเชิงคำนวณและการทำความรู้จักกับ AI',
-    status: LessonStatus.published,
-    lastEdited: '10 ส.ค. 2026, 14:30 น.',
-    materialsCount: 2,
-    sensorChartsCount: 1,
-    blocks: [
-      ContentBlockModel(
-        id: 'b1',
-        type: ContentBlockType.heading,
-        text: '1. แนวคิดเชิงคำนวณ (Computational Thinking)',
-      ),
-      ContentBlockModel(
-        id: 'b2',
-        type: ContentBlockType.text,
-        text:
-            'การคิดเชิงคำนวณคือกระบวนการแก้ปัญหาอย่างเป็นลำดับขั้นตอนที่เครื่องคอมพิวเตอร์สามารถเข้าใจและนำไปปฏิบัติตามได้ ประกอบด้วย 4 องค์ประกอบสำคัญ ได้แก่ การย่อยปัญหา, การจดจำรูปแบบ, การคิดเชิงนามธรรม และการออกแบบอัลกอริทึม',
-      ),
-      ContentBlockModel(
-        id: 'b3',
-        type: ContentBlockType.calloutWarning,
-        text:
-            'ข้อควรระวัง: อย่าสับสนระหว่างคำว่า AI (Pervasive Artificial Intelligence) กับโปรแกรมคอมพิวเตอร์แบบดั้งเดิมที่เขียนด้วย Rule-based system',
-      ),
-      ContentBlockModel(
-        id: 'b4',
-        type: ContentBlockType.sensorChart,
-        sensorDeviceId: 'ESP32-Lab3-SensorNode',
-        sensorMetric: 'ค่าฝุ่นละออง PM2.5 & CO2',
-        timeRange: '08:00 - 15:00 น.',
-        caption: 'กราฟแสดงคุณภาพอากาศในห้องปฏิบัติการคอมพิวเตอร์ระหว่างวัน',
-      ),
-    ],
-    materials: [
-      LessonMaterialModel(
-        id: 'm1',
-        title: 'สไลด์ประกอบการสอน บทที่ 1 (Computational Thinking)',
-        type: 'ไฟล์',
-        url: 'slides_lesson1.pdf',
-      ),
-      LessonMaterialModel(
-        id: 'm2',
-        title: 'วิดีโอแนะนำปัญญาประดิษฐ์ในชีวิตประจำวัน',
-        type: 'วิดีโอ',
-        url: 'https://youtube.com/watch?v=ai101',
-      ),
-    ],
-    sensorLinks: [
-      LessonSensorLinkModel(
-        id: 's1',
-        deviceName: 'ESP32-Lab3-SensorNode',
-        metric: 'PM2.5 & CO2',
-        timeRange: 'วันนี้ 08:00-15:00',
-        caption: 'คุณภาพอากาศ Lab 3',
-      ),
-    ],
-  ),
-  LessonModel(
-    id: 'les-2',
-    courseCode: 'ว31281',
-    courseName: 'วิทยาการคำนวณ & AI เบื้องต้น',
-    title: 'บทที่ 2: การจำแนกภาพด้วย Image Classification Model',
-    status: LessonStatus.published,
-    lastEdited: '10 ส.ค. 2026, 15:45 น.',
-    materialsCount: 2,
-    sensorChartsCount: 0,
-    blocks: [
-      ContentBlockModel(
-        id: 'b10',
-        type: ContentBlockType.heading,
-        text: 'โครงสร้างประสาทเทียม Convolutional Neural Network (CNN)',
-      ),
-      ContentBlockModel(
-        id: 'b11',
-        type: ContentBlockType.text,
-        text:
-            'ในบทนี้เราจะมาเรียนรู้การเตรียมชุดข้อมูลภาพถ่าย (Image Dataset) สำหรับฝึกฝนโมเดลจำแนกประเภทด้วย Teachable Machine และทำการส่งออกโมเดลไปใช้งานบนเว็บ',
-      ),
-      ContentBlockModel(
-        id: 'b12',
-        type: ContentBlockType.summaryBox,
-        text:
-            'สรุปการฝึกโมเดล: ยิ่งมีภาพตัวอย่างที่มีความหลากหลายในสภาวะแสงที่ต่างกัน Accuracy ของโมเดลจำแนกภาพจะยิ่งสูงขึ้นอย่างเห็นได้ชัด',
-      ),
-    ],
-    materials: [
-      LessonMaterialModel(
-        id: 'm3',
-        title: 'ใบงานฝึกปฏิบัติการสร้างโมเดล Teachable Machine',
-        type: 'ไฟล์',
-        url: 'worksheet_model_train.pdf',
-      ),
-      LessonMaterialModel(
-        id: 'm4',
-        title: 'ลิงก์เข้าใช้งาน Google Teachable Machine',
-        type: 'ลิงก์',
-        url: 'https://teachablemachine.withgoogle.com',
-      ),
-    ],
-    sensorLinks: [],
-  ),
-  LessonModel(
-    id: 'les-3',
-    courseCode: 'ว32282',
-    courseName: 'STEM & Green-Lab IoT',
-    title:
-        'บทที่ 3: ระบบตรวจวัดสภาพแวดล้อมสมาร์ทฟาร์ม (Smart Agriculture & AIoT)',
-    status: LessonStatus.published,
-    lastEdited: '09 ส.ค. 2026, 11:20 น.',
-    materialsCount: 2,
-    sensorChartsCount: 1,
-    blocks: [
-      ContentBlockModel(
-        id: 'b20',
-        type: ContentBlockType.heading,
-        text: 'การต่อวงจรและอ่านค่าเซนเซอร์ DHT22 ด้วยบอร์ด ESP32',
-      ),
-      ContentBlockModel(
-        id: 'b21',
-        type: ContentBlockType.text,
-        text:
-            'ศึกษาการประยุกต์ใช้อินเทอร์เน็ตของสรรพสิ่ง (IoT) ในการติดตามอุณหภูมิและความชื้นในโรงเรือนเกษตรอัจฉริยะของโรงเรียน เพื่อช่วยวางแผนการรดน้ำอัตโนมัติ',
-      ),
-      ContentBlockModel(
-        id: 'b22',
-        type: ContentBlockType.sensorChart,
-        sensorDeviceId: 'ESP32-GreenLab-SensorNode',
-        sensorMetric: 'อุณหภูมิ & ความชื้นสัมพัทธ์',
-        timeRange: 'ย้อนหลัง 24 ชม.',
-        caption:
-            'กราฟแสดงการเปลี่ยนแปลงอุณหภูมิและความชื้นในแปลงผักไฮโดรโปนิกส์',
-      ),
-    ],
-    materials: [
-      LessonMaterialModel(
-        id: 'm5',
-        title: 'คู่มือการต่อวงจร ESP32 กับเซนเซอร์ DHT22',
-        type: 'ไฟล์',
-        url: 'esp32_dht22_guide.pdf',
-      ),
-      LessonMaterialModel(
-        id: 'm6',
-        title: 'ซอร์สโค้ด Arduino C++ สำหรับส่งค่า IoT',
-        type: 'ไฟล์',
-        url: 'greenlab_sensor.ino',
-      ),
-    ],
-    sensorLinks: [
-      LessonSensorLinkModel(
-        id: 's2',
-        deviceName: 'ESP32-GreenLab-SensorNode',
-        metric: 'อุณหภูมิ & ความชื้น',
-        timeRange: 'ย้อนหลัง 24 ชม.',
-        caption: 'แปลงผักไฮโดรโปนิกส์',
-      ),
-    ],
-  ),
-  LessonModel(
-    id: 'les-4',
-    courseCode: 'ว33283',
-    courseName: 'ฟิสิกส์ประยุกต์ & หุ่นยนต์',
-    title: 'บทที่ 4: หุ่นยนต์เดินตามเส้นและระบบควบคุม PID Control',
-    status: LessonStatus.draft,
-    lastEdited: '08 ส.ค. 2026, 16:10 น.',
-    materialsCount: 1,
-    sensorChartsCount: 0,
-    blocks: [
-      ContentBlockModel(
-        id: 'b30',
-        type: ContentBlockType.heading,
-        text:
-            'หลักการทำงานของระบบควบคุมแบบป้อนกลับ (Proportional-Integral-Derivative)',
-      ),
-      ContentBlockModel(
-        id: 'b31',
-        type: ContentBlockType.text,
-        text:
-            'การปรับจูนค่า Kp, Ki, Kd ช่วยให้หุ่นยนต์สามารถเข้าโค้งได้อย่างนุ่มนวลและไม่หลุดออกจากเส้นทางแข่งขัน',
-      ),
-      ContentBlockModel(
-        id: 'b32',
-        type: ContentBlockType.calloutWarning,
-        text:
-            'คำเตือน: การตั้งค่า Kp สูงเกินไปจะทำให้มอเตอร์สั่น (Oscillation) และหุ่นยนต์จะส่ายไปมาจนหลุดเส้น',
-      ),
-    ],
-    materials: [
-      LessonMaterialModel(
-        id: 'm7',
-        title: 'แผนผังวงจรขับมอเตอร์ L298N และ IR Sensors',
-        type: 'ไฟล์',
-        url: 'robot_schematic.pdf',
-      ),
-    ],
-    sensorLinks: [],
-  ),
-  LessonModel(
-    id: 'les-5',
-    courseCode: 'ว30205',
-    courseName: 'การเขียนโปรแกรม Python & Data Science',
-    title:
-        'บทที่ 5: การวิเคราะห์ข้อมูล Big Data และ Data Visualization ด้วย Pandas',
-    status: LessonStatus.draft,
-    lastEdited: '07 ส.ค. 2026, 09:15 น.',
-    materialsCount: 2,
-    sensorChartsCount: 1,
-    blocks: [
-      ContentBlockModel(
-        id: 'b40',
-        type: ContentBlockType.heading,
-        text:
-            'ทำความสะอาดข้อมูล (Data Cleaning) และสร้างแผนภูมิด้วย Matplotlib',
-      ),
-      ContentBlockModel(
-        id: 'b41',
-        type: ContentBlockType.text,
-        text:
-            'ในบทเรียนนี้ นักเรียนจะได้ฝึกใช้ภาษา Python บน Google Colab ในการโหลดไฟล์ CSV, จัดการค่า Null, และพล็อตสถิติเปรียบเทียบพลังงานไฟฟ้าที่ผลิตได้จากแผงโซลาร์เซลล์โรงเรียน',
-      ),
-      ContentBlockModel(
-        id: 'b42',
-        type: ContentBlockType.sensorChart,
-        sensorDeviceId: 'ESP32-SolarStation',
-        sensorMetric: 'พลังงานไฟฟ้า Watt',
-        timeRange: '08:00 - 15:00 น.',
-        caption: 'ข้อมูลการผลิตไฟฟ้าจากแผงโซลาร์เซลล์อาคารเรียน 5',
-      ),
-    ],
-    materials: [
-      LessonMaterialModel(
-        id: 'm8',
-        title: 'Google Colab Notebook: Data Cleaning 101',
-        type: 'ลิงก์',
-        url: 'https://colab.research.google.com/drive/sample',
-      ),
-      LessonMaterialModel(
-        id: 'm9',
-        title: 'ชุดข้อมูลตัวอย่างการใช้ไฟฟ้า (CSV Dataset)',
-        type: 'ไฟล์',
-        url: 'school_power_dataset.csv',
-      ),
-    ],
-    sensorLinks: [
-      LessonSensorLinkModel(
-        id: 's3',
-        deviceName: 'ESP32-SolarStation',
-        metric: 'พลังงานไฟฟ้า Watt',
-        timeRange: '08:00 - 15:00 น.',
-        caption: 'แผงโซลาร์เซลล์ อาคาร 5',
-      ),
-    ],
-  ),
-  LessonModel(
-    id: 'les-6',
-    courseCode: 'ว30291',
-    courseName: 'โครงงานนวัตกรรมพลังงานสะอาด',
-    title:
-        'บทที่ 6: การบริหารจัดการพลังงานสะอาดในอาคารเรียน (Clean Energy Smart Grid)',
-    status: LessonStatus.published,
-    lastEdited: '05 ส.ค. 2026, 13:50 น.',
-    materialsCount: 1,
-    sensorChartsCount: 1,
-    blocks: [
-      ContentBlockModel(
-        id: 'b50',
-        type: ContentBlockType.heading,
-        text: 'การประเมินการลดคาร์บอนเครดิต (Carbon Footprint Reduction)',
-      ),
-      ContentBlockModel(
-        id: 'b51',
-        type: ContentBlockType.text,
-        text:
-            'ศึกษาแนวทางการคำนวณปริมาณก๊าซเรือนกระจกที่ลดลงจากการนำระบบพลังงานหมุนเวียนมาใช้ในสถานศึกษา',
-      ),
-      ContentBlockModel(
-        id: 'b52',
-        type: ContentBlockType.summaryBox,
-        text:
-            'สรุปผลงาน: โรงเรียนสามารถลดการปล่อย CO2 ได้เฉลี่ย 1.2 ตันต่อเดือนจากการใช้ระบบ Smart Grid',
-      ),
-    ],
-    materials: [
-      LessonMaterialModel(
-        id: 'm10',
-        title: 'รายงานการวิเคราะห์พลังงานหมุนเวียนโรงเรียน',
-        type: 'ไฟล์',
-        url: 'clean_energy_report.pdf',
-      ),
-    ],
-    sensorLinks: [
-      LessonSensorLinkModel(
-        id: 's4',
-        deviceName: 'ESP32-SolarStation',
-        metric: 'พลังงานสะสม kWh',
-        timeRange: 'ย้อนหลัง 7 วัน',
-        caption: 'พลังงานรวมสะสม',
-      ),
-    ],
-  ),
-];
-
 // ==========================================
 // 1. LESSON LIST & COURSE TAB VIEW (SPEC 1)
 // ==========================================
@@ -432,12 +126,17 @@ final List<LessonModel> mockLessonsList = [
 class TeacherLessonListPage extends StatefulWidget {
   const TeacherLessonListPage({
     super.key,
+    this.courseId,
     required this.courseCode,
     required this.courseName,
     this.isCourseClosed = false,
     this.hasAccess = true,
   });
 
+  // ไม่บังคับ required เพื่อไม่ให้ route dev-preview เดิม
+  // (`/prototype/teacher-course-list`) พัง — จุดที่เปิดจากหน้าวิชาจริง
+  // (teacher_courses_page.dart) ต้องส่งมาเสมอ ดู _loadRealLessons
+  final String? courseId;
   final String courseCode;
   final String courseName;
   final bool isCourseClosed;
@@ -451,56 +150,68 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
   bool _isLoading = true;
   String _searchQuery = '';
   String _statusFilter = 'ทั้งหมด'; // 'ทั้งหมด', 'Draft', 'Published'
-  late List<LessonModel> _lessons;
+  List<LessonModel> _lessons = [];
 
   @override
   void initState() {
     super.initState();
-    _lessons = List.from(mockLessonsList);
     _loadRealLessons();
   }
 
   Future<void> _loadRealLessons() async {
     try {
-      final courses = await CourseService.listMyCourses();
-      if (courses.isNotEmpty) {
-        final courseId = courses.first.id;
-        final summaries = await LessonService.listLessons(courseId);
-        if (mounted && summaries.isNotEmpty) {
-          setState(() {
-            _lessons = summaries.map((s) {
-              return LessonModel(
-                id: s.id,
-                courseCode: widget.courseCode,
-                courseName: widget.courseName,
-                title: s.title,
-                status: s.status == 'published'
-                    ? LessonStatus.published
-                    : LessonStatus.draft,
-                lastEdited: 'อัปเดตล่าสุด',
-                materialsCount: s.materialsCount,
-                sensorChartsCount: s.sensorLinksCount,
-                blocks: [
-                  ContentBlockModel(
-                    id: 'b1',
-                    type: ContentBlockType.heading,
-                    text: s.title,
-                  ),
-                ],
-                materials: [],
-                sensorLinks: [],
-              );
-            }).toList();
-            _isLoading = false;
-          });
+      var courseId = widget.courseId;
+      if (courseId == null) {
+        // Dev-preview only (e.g. /prototype/teacher-course-list opened with
+        // no real course in context) — never true for a real teacher.
+        final courses = await CourseService.listMyCourses();
+        if (courses.isEmpty) {
+          if (mounted) setState(() => _isLoading = false);
           return;
         }
+        courseId = courses.first.id;
+      }
+      final summaries = await LessonService.listLessons(courseId);
+      if (mounted) {
+        setState(() {
+          // ว่างจริงต้องโชว่ "ยังไม่มีบทเรียนในวิชานี้" ไม่ใช่บทเรียนตัวอย่าง
+          // 6 รายการที่ค้างมาจากค่าเริ่มต้น — เคยเป็นบั๊กจริง (courseId ว่าง
+          // ต้องแยกจาก courseId มีแต่ยังไม่มีบทเรียน ทั้งสองกรณีต้องแสดงลิสต์
+          // ว่างจริง ไม่ใช่ mockLessonsList)
+          _lessons = summaries.map((s) {
+            return LessonModel(
+              id: s.id,
+              courseCode: widget.courseCode,
+              courseName: widget.courseName,
+              title: s.title,
+              status: s.status == 'published'
+                  ? LessonStatus.published
+                  : LessonStatus.draft,
+              lastEdited: 'อัปเดตล่าสุด',
+              materialsCount: s.materialsCount,
+              sensorChartsCount: s.sensorLinksCount,
+              blocks: [
+                ContentBlockModel(
+                  id: 'b1',
+                  type: ContentBlockType.heading,
+                  text: s.title,
+                ),
+              ],
+              materials: [],
+              sensorLinks: [],
+            );
+          }).toList();
+          _isLoading = false;
+        });
       }
     } catch (e) {
       debugPrint('Error loading real lessons: $e');
-    }
-    if (mounted) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _lessons = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -1162,10 +873,26 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                               context: context,
                               builder: (_) => TeacherPublishChecklistDialog(
                                 lesson: les,
-                                onConfirmedPublish: () {
-                                  setState(() {
-                                    les.status = LessonStatus.published;
-                                  });
+                                onConfirmedPublish: () async {
+                                  try {
+                                    await LessonService.publishLesson(les.id);
+                                    if (!mounted) return;
+                                    setState(() {
+                                      les.status = LessonStatus.published;
+                                    });
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(
+                                      context,
+                                    ).showSnackBar(
+                                      SnackBar(
+                                        content: Text('เผยแพร่ไม่สำเร็จ: $e'),
+                                        backgroundColor: const Color(
+                                          0xFFEF4444,
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 },
                               ),
                             );
@@ -2132,241 +1859,6 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     );
   }
 
-  // SPEC 6: AIoT Sensor Binding Dialog
-  void _openBindAiotDialog() {
-    String selectedDevice = 'ESP32-Lab3-SensorNode';
-    String selectedMetric = 'PM2.5 & CO2';
-    String selectedTimeRange = '08:00 - 15:00 น.';
-    final captionController = TextEditingController(
-      text: 'กราฟแสดงข้อมูลคุณภาพอากาศเรียลไทม์',
-    );
-
-    showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.sensors_rounded, color: Color(0xFF2563EB)),
-              SizedBox(width: 10),
-              Text(
-                'ผูกข้อมูล AIoT Sensor ในบทเรียน',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-              ),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'เลือกอุปกรณ์ในโรงเรียน:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  value: selectedDevice,
-                  items:
-                      [
-                            'ESP32-Lab3-SensorNode',
-                            'ESP32-GreenLab-SensorNode',
-                            'ESP32-SolarStation',
-                          ]
-                          .map(
-                            (d) => DropdownMenuItem(
-                              value: d,
-                              child: Text(
-                                d,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (v) => setModalState(() => selectedDevice = v!),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                const Text(
-                  'เลือก Metric เฝ้าระวัง:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  value: selectedMetric,
-                  items:
-                      [
-                            'PM2.5 & CO2',
-                            'อุณหภูมิ & ความชื้น',
-                            'ความเข้มแสง Lux',
-                            'พลังงานไฟฟ้า Watt',
-                          ]
-                          .map(
-                            (m) => DropdownMenuItem(
-                              value: m,
-                              child: Text(
-                                m,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (v) => setModalState(() => selectedMetric = v!),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                const Text(
-                  'ช่วงเวลาข้อมูล:',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 4),
-                DropdownButtonFormField<String>(
-                  value: selectedTimeRange,
-                  items:
-                      ['08:00 - 15:00 น.', 'ย้อนหลัง 24 ชม.', 'ย้อนหลัง 7 วัน']
-                          .map(
-                            (t) => DropdownMenuItem(
-                              value: t,
-                              child: Text(
-                                t,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (v) => setModalState(() => selectedTimeRange = v!),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                TextField(
-                  controller: captionController,
-                  decoration: InputDecoration(
-                    labelText: 'คำอธิบายใต้กราฟ',
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Live Preview Chart Box
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.show_chart_rounded,
-                            color: Color(0xFF2563EB),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$selectedDevice ($selectedMetric)',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1E40AF),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        height: 60,
-                        color: Colors.white,
-                        child: const Center(
-                          child: Text(
-                            '[ตัวอย่างกราฟเรียลไทม์ AIoT]',
-                            style: TextStyle(
-                              color: Colors.blueAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('ยกเลิก'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.check_rounded, size: 16),
-              label: const Text('บันทึกและแทรกในบทเรียน'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                final newSensor = LessonSensorLinkModel(
-                  id: 's-${DateTime.now().millisecondsSinceEpoch}',
-                  deviceName: selectedDevice,
-                  metric: selectedMetric,
-                  timeRange: selectedTimeRange,
-                  caption: captionController.text.trim(),
-                );
-                setState(() {
-                  widget.lesson.sensorLinks.add(newSensor);
-                  _blocks.add(
-                    ContentBlockModel(
-                      id: 'b-sens-${DateTime.now().millisecondsSinceEpoch}',
-                      type: ContentBlockType.sensorChart,
-                      sensorDeviceId: selectedDevice,
-                      sensorMetric: selectedMetric,
-                      timeRange: selectedTimeRange,
-                      caption: newSensor.caption,
-                    ),
-                  );
-                });
-                _triggerAutoSave();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -3188,14 +2680,22 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ElevatedButton.icon(
-          onPressed: _openBindAiotDialog,
-          icon: const Icon(Icons.sensors_rounded, size: 16),
-          label: const Text('+ ผูกข้อมูล AIoT Sensor'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563EB),
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 40),
+        // เดิมเปิด dialog ให้เลือกอุปกรณ์/metric จากรายการ hardcode 3 ชื่อ
+        // ที่ไม่ตรงกับอุปกรณ์จริงในโรงเรียนเลย แล้วบันทึกไว้ในเครื่อง — ไม่มี
+        // ทั้งรายการอุปกรณ์จริง (ไม่มี service ให้ดึงอุปกรณ์จริงสำหรับหน้านี้
+        // โดยเฉพาะ) และไม่มีฝั่งนักเรียนอ่านบล็อกกราฟ AIoT ที่ผูกไว้เลยสัก
+        // จุด (`student_lessons_page.dart` ไม่มีโค้ดอ่าน sensorDeviceId เลย)
+        // — ปิดปุ่มไว้ตรง ๆ ดีกว่าให้ครูผูกอุปกรณ์ปลอมที่ไม่มีทางใช้งานได้จริง
+        Tooltip(
+          message:
+              'ยังไม่รองรับการผูกข้อมูลเซนเซอร์จริงในบทเรียน — ฟีเจอร์นี้ยังไม่ได้เชื่อมกับอุปกรณ์จริง',
+          child: ElevatedButton.icon(
+            onPressed: null,
+            icon: const Icon(Icons.sensors_rounded, size: 16),
+            label: const Text('+ ผูกข้อมูล AIoT Sensor (ยังไม่เปิดใช้งาน)'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 40),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -3499,259 +2999,49 @@ class TeacherLessonAnalyticsPage extends StatefulWidget {
 
 class _TeacherLessonAnalyticsPageState
     extends State<TeacherLessonAnalyticsPage> {
-  bool _isLoading = true;
-  String _filter = 'ทั้งหมด';
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) setState(() => _isLoading = false);
-    });
-  }
-
-  final List<Map<String, dynamic>> _students = [
-    {
-      'name': 'ณัฐวุฒิ ใจดี',
-      'room': 'ม.4/1',
-      'progress': '100%',
-      'status': 'เรียนจบแล้ว',
-      'color': Colors.green,
-    },
-    {
-      'name': 'ปวีณา สายทอง',
-      'room': 'ม.4/1',
-      'progress': '75%',
-      'status': 'กำลังเรียน',
-      'color': Colors.amber,
-    },
-    {
-      'name': 'ธนกร วิจิตร',
-      'room': 'ม.4/1',
-      'progress': '0%',
-      'status': 'ยังไม่เริ่ม',
-      'color': Colors.grey,
-    },
-    {
-      'name': 'กิตติศักดิ์ มั่นคง',
-      'room': 'ม.4/2',
-      'progress': '100%',
-      'status': 'เรียนจบแล้ว',
-      'color': Colors.green,
-    },
-    {
-      'name': 'สุชาดา พรหมดี',
-      'room': 'ม.4/2',
-      'progress': '40%',
-      'status': 'กำลังเรียน',
-      'color': Colors.amber,
-    },
-  ];
-
+  // เคยเป็นหน้าปลอม 100% — สถิติ/รายชื่อนักเรียน/ความคืบหน้าเป็นตัวเลข
+  // hardcode ทั้งหมด (ไม่มีการเรียก service ใดๆ เลย แค่ Future.delayed
+  // จำลองการโหลด) ไม่มี backend รองรับสถิติระดับบทเรียนรายคนจริงในตอนนี้
+  // (ไม่มี RPC/Service ใน shared_core ที่ทำเรื่องนี้) — ปิดฟีเจอร์ตรงๆ ดีกว่า
+  // โชว์ตัวเลขที่ไม่มีอยู่จริงเป็นสถิตินักเรียนจริง
   @override
   Widget build(BuildContext context) {
-    final filtered = _students.where((s) {
-      if (_filter == 'ทั้งหมด') return true;
-      return s['status'] == _filter;
-    }).toList();
-
     return Scaffold(
       appBar: AppBar(
         title: Text('สถิติบทเรียน: ${widget.lesson.title}'),
         backgroundColor: Colors.white,
         foregroundColor: TeacherPalette.ink,
       ),
-      body: _isLoading
-          ? const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: TeacherPalette.primary,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.bar_chart_rounded,
+                size: 48,
+                color: TeacherPalette.muted,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'สถิติบทเรียนรายคนยังไม่เปิดใช้งาน',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: TeacherPalette.ink,
                 ),
               ),
-            )
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      _statBox(
-                        'นักเรียนทั้งหมด',
-                        '42 คน',
-                        Icons.groups_rounded,
-                        Colors.blue,
-                      ),
-                      const SizedBox(width: 10),
-                      _statBox(
-                        'เริ่มเรียนแล้ว',
-                        '38 คน',
-                        Icons.play_circle_outline,
-                        Colors.amber,
-                      ),
-                      const SizedBox(width: 10),
-                      _statBox(
-                        'เรียนจบแล้ว',
-                        '31 คน',
-                        Icons.task_alt_rounded,
-                        Colors.green,
-                      ),
-                      const SizedBox(width: 10),
-                      _statBox(
-                        'ความคืบหน้าเฉลี่ย',
-                        '84%',
-                        Icons.trending_up_rounded,
-                        Colors.purple,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Filters Bar (Spec 9: Filter: ทั้งหมด / ยังไม่เริ่ม / กำลังเรียน / เรียนจบ)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'ตารางพัฒนาการนักเรียนรายบุคคล',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Row(
-                        children:
-                            [
-                              'ทั้งหมด',
-                              'ยังไม่เริ่ม',
-                              'กำลังเรียน',
-                              'เรียนจบแล้ว',
-                            ].map((f) {
-                              final isSelected = _filter == f;
-                              return Padding(
-                                padding: const EdgeInsets.only(left: 6),
-                                child: ChoiceChip(
-                                  label: Text(f),
-                                  selected: isSelected,
-                                  selectedColor: TeacherPalette.primary,
-                                  labelStyle: TextStyle(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : TeacherPalette.ink,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  onSelected: (_) =>
-                                      setState(() => _filter = f),
-                                ),
-                              );
-                            }).toList(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: TeacherPalette.border),
-                    ),
-                    child: Column(
-                      children: [
-                        for (int i = 0; i < filtered.length; i++) ...[
-                          _studentRow(
-                            filtered[i]['name'] as String,
-                            filtered[i]['room'] as String,
-                            filtered[i]['progress'] as String,
-                            filtered[i]['status'] as String,
-                            filtered[i]['color'] as Color,
-                          ),
-                          if (i < filtered.length - 1) const Divider(),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 8),
+              const Text(
+                'ระบบยังไม่มีข้อมูลความคืบหน้าของนักเรียนรายบุคคลต่อบทเรียน '
+                'ฟีเจอร์นี้อยู่ระหว่างพัฒนา',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
               ),
-            ),
-    );
-  }
-
-  Widget _statBox(String title, String val, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: TeacherPalette.border),
+            ],
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Text(
-              val,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
-            ),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 11, color: TeacherPalette.muted),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _studentRow(
-    String name,
-    String room,
-    String progress,
-    String status,
-    Color color,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Text(name, style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(width: 8),
-          Text(
-            '($room)',
-            style: const TextStyle(color: TeacherPalette.muted, fontSize: 12),
-          ),
-          const Spacer(),
-          Text(
-            'ความคืบหน้า $progress',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w800,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
