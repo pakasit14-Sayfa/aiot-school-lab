@@ -480,9 +480,7 @@ class _IdentityCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                AuthService.sessionToken != null
-                    ? (currentUserModel?.email ?? 'ครูผู้สอน (เข้าสู่ระบบแล้ว)')
-                    : 'ครูสมชาย สายวิทย์',
+                currentUserModel?.email ?? 'ไม่พบข้อมูลผู้ใช้',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -492,13 +490,11 @@ class _IdentityCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                AuthService.sessionToken != null
-                    ? 'ครู • บัญชีผู้ใช้ยืนยันแล้ว'
-                    : 'ครู • โรงเรียนสาธิต AIoT',
+              const Text(
+                'ครู • บัญชีผู้ใช้ยืนยันแล้ว',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   color: TeacherPalette.muted,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -514,17 +510,17 @@ class _IdentityCard extends StatelessWidget {
 
     final subjectsText = courses.isNotEmpty
         ? courses.map((c) => c.subjectName).take(2).join(', ')
-        : 'AIoT สมาร์ตแล็บ, ฟิสิกส์ประยุกต์';
+        : 'ยังไม่มีวิชาที่สอน';
 
     final classroomText = courses.isNotEmpty
         ? '${courses.length} วิชา · $totalStudents คน'
-        : 'ม.5/2 · 32 คน';
+        : '-';
 
     final details = <Widget>[
       _DetailRow(
         icon: Icons.badge_outlined,
         label: 'Teacher ID',
-        value: currentUserModel?.uid ?? 'T-AIOT-014',
+        value: currentUserModel?.uid ?? '-',
       ),
       _DetailRow(
         icon: Icons.school_outlined,
@@ -1096,18 +1092,16 @@ class _AiotHardwareCard extends StatelessWidget {
       title: 'อุปกรณ์ & บอร์ดแล็บ AIoT',
       icon: Icons.developer_board_rounded,
       children: [
-        _HardwareTile(
-          deviceName: 'ชุดคิท Smart Lab #2 (Demonstration Kit)',
-          status: 'Online',
-          statusColor: TeacherPalette.green,
-          macAddress: 'AA:BB:CC:DD:EE:01',
-        ),
-        _DividerLine(),
-        _HardwareTile(
-          deviceName: 'บอร์ดทดลองส่วนตัว (Teacher Board #1)',
-          status: 'Offline',
-          statusColor: TeacherPalette.muted,
-          macAddress: '11:22:33:44:55:66',
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'ยังไม่มีอุปกรณ์แล็บ AIoT ที่ผูกกับบัญชีนี้',
+            style: TextStyle(
+              color: TeacherPalette.muted,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
         ),
       ],
     );

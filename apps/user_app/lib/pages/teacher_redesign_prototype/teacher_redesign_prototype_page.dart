@@ -810,15 +810,52 @@ class _SidebarProfileCard extends StatelessWidget {
   }
 }
 
-class _SidebarMiniClassCard extends StatelessWidget {
+class _SidebarMiniClassCard extends StatefulWidget {
   const _SidebarMiniClassCard({required this.compact});
 
   final bool compact;
 
   @override
+  State<_SidebarMiniClassCard> createState() => _SidebarMiniClassCardState();
+}
+
+class _SidebarMiniClassCardState extends State<_SidebarMiniClassCard> {
+  // เคย hardcode "ม.5/2 · 32 คน" ตายตัวบนทุกหน้าของครูทุกคน (การ์ดนี้อยู่ใน
+  // sidebar ถาวรที่ TeacherMockPageShell ใช้ร่วมกันทุกหน้า) ไม่ว่าครูจะมี
+  // ห้องประจำชั้นจริงกี่ห้อง/กี่คนก็ตาม ตอนนี้ดึงจาก
+  // HomeroomService.listMyHomeroomClasses() จริง
+  bool _isLoading = true;
+  HomeroomAssignment? _homeroom;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await HomeroomService.listMyHomeroomClasses();
+      if (!mounted) return;
+      setState(() {
+        _homeroom = list.isNotEmpty ? list.first : null;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final subtitle = _isLoading
+        ? 'กำลังโหลด...'
+        : (_homeroom == null
+              ? 'ยังไม่มีห้องประจำชั้น'
+              : '${_homeroom!.gradeLevel}/${_homeroom!.room} · ${_homeroom!.studentCount} คน');
+
     return Container(
-      padding: compact
+      padding: widget.compact
           ? const EdgeInsets.symmetric(vertical: 10)
           : const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
@@ -826,7 +863,7 @@ class _SidebarMiniClassCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE5D5F2)),
       ),
-      child: compact
+      child: widget.compact
           ? const Center(
               child: Icon(
                 Icons.groups_rounded,
@@ -862,7 +899,9 @@ class _SidebarMiniClassCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'ม.5/2 · 32 คน',
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: TeacherPalette.muted,
                           fontWeight: FontWeight.w700,
