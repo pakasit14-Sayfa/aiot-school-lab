@@ -7,7 +7,7 @@ import 'pages/home_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/forgot_password_page.dart';
 import 'pages/role_router.dart';
-import 'pages/student_redesign_prototype/student_redesign_prototype_page.dart';
+import 'pages/student_redesign_prototype/widgets/widgets.dart';
 import 'pages/teacher_redesign_prototype/teacher_redesign_prototype_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_design_system_page.dart';
 import 'pages/teacher_redesign_prototype/teacher_storybook_page.dart';
@@ -111,12 +111,8 @@ class MyApp extends StatelessWidget {
           '/prototype/courses': (context) => const TeacherCoursesPage(),
           '/prototype/student-catalog': (context) =>
               const StudentCourseCatalogPage(),
-          '/prototype/student-catalog-carousel': (context) =>
-              const StudentCourseCatalogCarouselPage(),
           '/prototype/student-catalog-minimal': (context) =>
               const StudentCourseCatalogMinimalPage(),
-          '/prototype/student-catalog-streaming': (context) =>
-              const StudentCourseCatalogStreamingPage(),
         },
         '/super_admin/schools': (context) => const SuperAdminSchoolsPage(),
         '/super_admin/device_control': (context) =>
@@ -141,16 +137,6 @@ class MyApp extends StatelessWidget {
           return MaterialPageRoute(
             settings: settings,
             builder: (_) => const TeacherCourseListPage(),
-          );
-        }
-        if (uri.path == '/prototype/student-redesign') {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (_) => StudentRedesignPrototypePage(
-              initialVariant: StudentPrototypeVariant.fromQuery(
-                uri.queryParameters['variant'],
-              ),
-            ),
           );
         }
         if (uri.path == '/prototype/teacher-redesign') {
@@ -272,19 +258,10 @@ class MyApp extends StatelessWidget {
         ),
       );
     }
-    if (path.contains('student-redesign')) {
-      return StudentRedesignPrototypePage(
-        initialVariant: StudentPrototypeVariant.fromQuery(
-          uri.queryParameters['variant'],
-        ),
-      );
-    }
-
-    // Default landing page for prototype mode: Student Home
-    return StudentRedesignPrototypePage(
-      initialVariant: StudentPrototypeVariant.fromQuery(
-        uri.queryParameters['variant'],
-      ),
-    );
+    // Default landing page for prototype mode: Student Home. The old
+    // multi-variant prototype gallery (student_redesign_prototype_page.dart)
+    // was deleted 2026-09-07 — variant A was always just this same real
+    // shell, and it was the only variant that ever went live.
+    return const StudentNavigationPrototype();
   }
 }

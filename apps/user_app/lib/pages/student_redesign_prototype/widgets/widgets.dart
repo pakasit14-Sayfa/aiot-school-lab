@@ -1,5 +1,4 @@
 export 'student_redesign_palette.dart';
-export 'student_dashboard_models.dart';
 export 'aiot_weather_sensors_card.dart';
 export 'school_encouragement_card.dart';
 export 'academy_quick_actions.dart';
@@ -12,5 +11,3 @@ export 'student_lessons_page.dart';
 export 'student_navigation_prototype.dart';
 export 'student_course_catalog_page.dart';
 export 'student_course_catalog_minimal_page.dart';
-export 'student_course_catalog_streaming_page.dart';
-export 'student_course_catalog_carousel_page.dart';
