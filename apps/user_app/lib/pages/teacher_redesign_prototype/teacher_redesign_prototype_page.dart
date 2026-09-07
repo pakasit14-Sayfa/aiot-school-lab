@@ -23,15 +23,12 @@ import 'teacher_profile_page.dart';
 import 'teacher_knowledge_library_page.dart';
 import 'teacher_question_bank_page.dart';
 import 'teacher_rubric_page.dart';
-import 'teacher_shared_widgets.dart';
 import 'teacher_student_support_page.dart';
 import 'teacher_students_page.dart';
 import 'teacher_class_schedule_page.dart';
 
 enum TeacherPrototypeVariant {
-  a('A', 'Dashboard'),
-  b('B', 'Schedule Focus'),
-  c('C', 'Review Ops');
+  a('A', 'Dashboard');
 
   const TeacherPrototypeVariant(this.key, this.label);
 
@@ -94,28 +91,14 @@ class _TeacherRedesignPrototypePageState
         // (ไม่ผ่าน isTablet) ไม่มีทางเข้าเมนูอื่นเลยนอกจาก AIoT ที่ลิงก์
         // จากการ์ดในแดชบอร์ด จุดนี้คือทางเข้าเมนูทั้งหมดบนมือถือ
         drawer: const _TeacherMobileDrawer(),
-        body: switch (variant) {
-          TeacherPrototypeVariant.a => _TeacherDashboardVariant(
-            currentVariant: variant,
-            onVariantSelected: (next) => setState(() => variant = next),
-            onPreviousVariant: () => _cycle(-1),
-            onNextVariant: () => _cycle(1),
-            sidebarManualCompact: _sidebarManualCompact,
-            onToggleSidebar: _toggleSidebar,
-          ),
-          TeacherPrototypeVariant.b => _TeacherScheduleVariant(
-            currentVariant: variant,
-            onVariantSelected: (next) => setState(() => variant = next),
-            onPreviousVariant: () => _cycle(-1),
-            onNextVariant: () => _cycle(1),
-          ),
-          TeacherPrototypeVariant.c => _TeacherOpsVariant(
-            currentVariant: variant,
-            onVariantSelected: (next) => setState(() => variant = next),
-            onPreviousVariant: () => _cycle(-1),
-            onNextVariant: () => _cycle(1),
-          ),
-        },
+        body: _TeacherDashboardVariant(
+          currentVariant: variant,
+          onVariantSelected: (next) => setState(() => variant = next),
+          onPreviousVariant: () => _cycle(-1),
+          onNextVariant: () => _cycle(1),
+          sidebarManualCompact: _sidebarManualCompact,
+          onToggleSidebar: _toggleSidebar,
+        ),
       ),
     );
   }
@@ -289,147 +272,12 @@ class _TeacherDashboardVariant extends StatelessWidget {
   }
 }
 
-class _TeacherScheduleVariant extends StatelessWidget {
-  const _TeacherScheduleVariant({
-    required this.currentVariant,
-    required this.onVariantSelected,
-    required this.onPreviousVariant,
-    required this.onNextVariant,
-  });
-
-  final TeacherPrototypeVariant currentVariant;
-  final ValueChanged<TeacherPrototypeVariant> onVariantSelected;
-  final VoidCallback onPreviousVariant;
-  final VoidCallback onNextVariant;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _TeacherSidebar(
-          compact: true,
-          currentVariant: currentVariant,
-          onVariantSelected: onVariantSelected,
-          onPreviousVariant: onPreviousVariant,
-          onNextVariant: onNextVariant,
-        ),
-        Expanded(
-          child: _TeacherPageFrame(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _GlassCard(
-                    padding: const EdgeInsets.all(26),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _SectionTitle(
-                          title: 'ตารางสอนวันนี้',
-                          subtitle:
-                              'มองคาบเรียนแบบ timeline เพื่อเตรียมสอนให้เร็ว',
-                          icon: Icons.calendar_month_rounded,
-                        ),
-                        const SizedBox(height: 24),
-                        ...TeacherMock.lessons.map(
-                          (lesson) => _LargeScheduleItem(lesson: lesson),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 22),
-                const SizedBox(
-                  width: 360,
-                  child: Column(
-                    children: [
-                      _TodayFocusCard(),
-                      SizedBox(height: 18),
-                      _ReviewQueueCard(),
-                      SizedBox(height: 18),
-                      _SensorSnapshotCard(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TeacherOpsVariant extends StatelessWidget {
-  const _TeacherOpsVariant({
-    required this.currentVariant,
-    required this.onVariantSelected,
-    required this.onPreviousVariant,
-    required this.onNextVariant,
-  });
-
-  final TeacherPrototypeVariant currentVariant;
-  final ValueChanged<TeacherPrototypeVariant> onVariantSelected;
-  final VoidCallback onPreviousVariant;
-  final VoidCallback onNextVariant;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _TeacherSidebar(
-          compact: true,
-          currentVariant: currentVariant,
-          onVariantSelected: onVariantSelected,
-          onPreviousVariant: onPreviousVariant,
-          onNextVariant: onNextVariant,
-        ),
-        Expanded(
-          child: _TeacherPageFrame(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _TeacherTopBar(title: 'ศูนย์งานครู'),
-                const SizedBox(height: 20),
-                const _TeacherSummaryStrip(),
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _GlassCard(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const _SectionTitle(
-                                title: 'งานที่ต้องจัดการ',
-                                subtitle:
-                                    'รวมงานรอตรวจ นักเรียนที่ต้องติดตาม และคาบถัดไป',
-                                icon: Icons.task_alt_rounded,
-                              ),
-                              const SizedBox(height: 18),
-                              ...TeacherMock.reviewTasks.map(
-                                (task) => _OpsTaskTile(task: task),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 22),
-                      const SizedBox(width: 380, child: _StudentsWatchCard()),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+// _TeacherScheduleVariant and _TeacherOpsVariant (design-exploration
+// dashboard variants B/C) were removed 2026-09-07 — both rendered entirely
+// from TeacherMock's hardcoded fake schedule/review-task data, reachable
+// by any real teacher via the sidebar's variant-cycle arrows despite
+// looking identical to the real dashboard. Variant A (below) was always
+// the only one wired to a real backend.
 
 class _TeacherMobileDashboard extends StatelessWidget {
   const _TeacherMobileDashboard();
@@ -1047,7 +895,6 @@ class _TeacherMainDashboardContent extends StatelessWidget {
         const _TeacherTopBar(title: 'แดชบอร์ดครู'),
         const SizedBox(height: 20),
         const _EmergencyAlertBanner(),
-        const _CameraSecuritySummaryCard(),
         const _TeacherHero(),
         const SizedBox(height: 18),
         // การ์ดน้ำ-ไฟ/เซนเซอร์ + AIoT Smart Wiring Lab อยู่ใต้แจ้งเตือนทันที
@@ -1508,6 +1355,37 @@ class _DonutPainter extends CustomPainter {
   bool shouldRepaint(covariant _DonutPainter oldDelegate) => false;
 }
 
+const _thaiDayNames = [
+  'จันทร์',
+  'อังคาร',
+  'พุธ',
+  'พฤหัสบดี',
+  'ศุกร์',
+  'เสาร์',
+  'อาทิตย์',
+];
+const _thaiMonthShortNames = [
+  'ม.ค.',
+  'ก.พ.',
+  'มี.ค.',
+  'เม.ย.',
+  'พ.ค.',
+  'มิ.ย.',
+  'ก.ค.',
+  'ส.ค.',
+  'ก.ย.',
+  'ต.ค.',
+  'พ.ย.',
+  'ธ.ค.',
+];
+
+String _thaiTodayLabel() {
+  final now = DateTime.now();
+  final day = _thaiDayNames[now.weekday - 1];
+  final month = _thaiMonthShortNames[now.month - 1];
+  return '$day ${now.day} $month';
+}
+
 class _TeacherTopBar extends StatelessWidget {
   const _TeacherTopBar({required this.title});
 
@@ -1530,9 +1408,9 @@ class _TeacherTopBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'พุธ 5 ส.ค. · เตรียมคาบสอนและงานตรวจวันนี้',
-                style: TextStyle(
+              Text(
+                '${_thaiTodayLabel()} · เตรียมคาบสอนและงานตรวจวันนี้',
+                style: const TextStyle(
                   color: TeacherPalette.muted,
                   fontWeight: FontWeight.w700,
                 ),
@@ -2474,79 +2352,6 @@ class _ScheduleTile extends StatelessWidget {
   }
 }
 
-class _LargeScheduleItem extends StatelessWidget {
-  const _LargeScheduleItem({required this.lesson});
-
-  final _LessonItem lesson;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: lesson.tint,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: lesson.color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          _SoftIcon(
-            icon: lesson.icon,
-            color: lesson.color,
-            background: Colors.white,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  lesson.time,
-                  style: TextStyle(
-                    color: lesson.color,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  lesson.title,
-                  style: const TextStyle(
-                    color: TeacherPalette.ink,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 21,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  lesson.subtitleLabel,
-                  style: const TextStyle(
-                    color: TeacherPalette.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: lesson.color,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            ),
-            onPressed: () => showTeacherMockAction(
-              context,
-              'เปิดคาบ ${lesson.title} (${lesson.room})',
-            ),
-
-            child: const Text('เปิดคาบ'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _TeacherRightPanel extends StatelessWidget {
   const _TeacherRightPanel();
 
@@ -3181,87 +2986,6 @@ class _EmergencyAlertBanner extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-}
-
-/// การ์ดสรุปเหตุการณ์กล้อง AI Security ตรวจพบบุคคล/ความผิดปกติรอการตรวจ
-class _CameraSecuritySummaryCard extends StatelessWidget {
-  const _CameraSecuritySummaryCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TeacherNotificationsPage(),
-              ),
-            );
-          },
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFDBEAFE),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.videocam_rounded,
-                    color: Color(0xFF2563EB),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'เหตุการณ์กล้อง AI Security รอตรวจ 2 รายการ',
-                        style: TextStyle(
-                          color: Color(0xFF1D4ED8),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'ตรวจพบบุคคลภายนอก · ประตูหลังโรงเรียน (09:10 น.)',
-                        style: TextStyle(
-                          color: TeacherPalette.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Color(0xFF2563EB),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -5215,68 +4939,6 @@ class _ReviewTaskTile extends StatelessWidget {
   }
 }
 
-class _OpsTaskTile extends StatelessWidget {
-  const _OpsTaskTile({required this.task});
-
-  final _ReviewTask task;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: TeacherPalette.border),
-      ),
-      child: Row(
-        children: [
-          _SoftIcon(
-            icon: task.icon,
-            color: task.color,
-            background: task.color.withValues(alpha: 0.12),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.title,
-                  style: const TextStyle(
-                    color: TeacherPalette.ink,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  task.subtitle,
-                  style: const TextStyle(
-                    color: TeacherPalette.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: task.color,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () =>
-                showTeacherMockAction(context, 'จัดการ ${task.title}'),
-
-            child: Text(task.count),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StudentWatchTile extends StatelessWidget {
   const _StudentWatchTile({required this.student});
 
@@ -5908,140 +5570,6 @@ class TeacherMock {
     _MenuItem('AIoT Dashboard', Icons.sensors_rounded),
     _MenuItem('แจ้งเหตุฉุกเฉิน', Icons.emergency_rounded),
   ];
-
-  static const stats = [
-    _StatItem(
-      'คาบสอนวันนี้',
-      '4',
-      Icons.co_present_rounded,
-      TeacherPalette.blue,
-      Color(0xFFF1EEF9),
-    ),
-    _StatItem(
-      'งานรอตรวจ',
-      '18',
-      Icons.assignment_rounded,
-      TeacherPalette.orange,
-      Color(0xFFF1EEF9),
-    ),
-    _StatItem(
-      'ต้องติดตาม',
-      '3',
-      Icons.person_search_rounded,
-      TeacherPalette.red,
-      Color(0xFFEDF7FC),
-    ),
-    _StatItem(
-      'ห้องปกติ',
-      '6/7',
-      Icons.sensors_rounded,
-      TeacherPalette.green,
-      Color(0xFFF1EEF9),
-    ),
-  ];
-
-  static const classes = [
-    _ClassItem(
-      'AIOT-501',
-      'AIoT สมาร์ตแล็บเพื่อการเรียนรู้',
-      'ม.5/2',
-      32,
-      Icons.memory_rounded,
-      '2 งานค้าง',
-      TeacherPalette.orange,
-      [TeacherPalette.primary, TeacherPalette.primary2],
-    ),
-    _ClassItem(
-      'PHYS-302',
-      'ฟิสิกส์ประยุกต์และการทดลอง',
-      'ม.5/1',
-      30,
-      Icons.bolt_rounded,
-      'ส่งครบแล้ว',
-      TeacherPalette.green,
-      [TeacherPalette.skyDeep, TeacherPalette.skyMid],
-    ),
-    _ClassItem(
-      'BIO-204',
-      'ชีววิทยาและสิ่งแวดล้อม',
-      'ม.4/3',
-      35,
-      Icons.eco_rounded,
-      'มีแจ้งเตือน',
-      TeacherPalette.red,
-      [TeacherPalette.skyBright, TeacherPalette.skyVivid],
-    ),
-  ];
-
-  static const lessons = [
-    _LessonItem(
-      '08:30',
-      'AIoT: วิเคราะห์ข้อมูล PM2.5',
-      'Lab 2 · ม.5/2',
-      'ใช้ข้อมูลเซนเซอร์จริงในห้อง',
-      Icons.sensors_rounded,
-      TeacherPalette.primary,
-      Color(0xFFF1EEF9),
-    ),
-    _LessonItem(
-      '10:30',
-      'ฟิสิกส์: คลื่นและแสง',
-      'ห้อง 403 · ม.5/1',
-      'เตรียมชุดทดลอง',
-      Icons.bolt_rounded,
-      TeacherPalette.blue,
-      Color(0xFFF1EEF9),
-    ),
-    _LessonItem(
-      '13:30',
-      'ตรวจงาน: ใบงานชีววิทยา',
-      'ห้องพักครู',
-      'เหลือ 18 ชิ้น',
-      Icons.fact_check_rounded,
-      TeacherPalette.orange,
-      Color(0xFFF1EEF9),
-    ),
-  ];
-
-  static const reviewTasks = [
-    _ReviewTask(
-      'ใบงาน PM2.5',
-      'AIOT-501 · ส่งเข้ามา 18 ชิ้น',
-      '18',
-      Icons.assignment_rounded,
-      TeacherPalette.orange,
-    ),
-    _ReviewTask(
-      'แบบทดสอบก่อนเรียน',
-      'PHYS-302 · รอตรวจคำตอบ',
-      '9',
-      Icons.quiz_rounded,
-      TeacherPalette.blue,
-    ),
-    _ReviewTask(
-      'รายงานแล็บชีววิทยา',
-      'BIO-204 · เลยกำหนด 3 คน',
-      '3',
-      Icons.warning_rounded,
-      TeacherPalette.red,
-    ),
-  ];
-
-  static const students = [
-    _StudentWatch('สายฟ้า', 'ค้างส่ง 2 งาน', 'ด่วน', TeacherPalette.red),
-    _StudentWatch(
-      'มินตรา',
-      'คะแนนตกจากสัปดาห์ก่อน',
-      'ดูคะแนน',
-      TeacherPalette.orange,
-    ),
-    _StudentWatch(
-      'ก้องภพ',
-      'ขาดเรียน 2 ครั้ง',
-      'เช็กชื่อ',
-      TeacherPalette.blue,
-    ),
-  ];
 }
 
 class _MenuItem {
@@ -6502,6 +6030,58 @@ class _GlassNotificationTile extends StatelessWidget {
 Future<void> _showTeacherSearchDialog(BuildContext context) async {
   final searchController = TextEditingController();
   var query = '';
+  final classesData = <_ClassItem>[];
+  final lessonsData = <_LessonItem>[];
+
+  try {
+    final courses = await CourseService.listMyCourses();
+    for (var i = 0; i < courses.length; i++) {
+      final c = courses[i];
+      var studentCount = 0;
+      try {
+        studentCount = (await CourseService.listCourseStudents(c.id)).length;
+      } catch (_) {
+        studentCount = 0;
+      }
+      classesData.add(
+        _ClassItem(
+          c.termId.length > 8
+              ? c.termId.substring(0, 8).toUpperCase()
+              : c.termId.toUpperCase(),
+          c.subjectName,
+          c.room ?? c.gradeLevel ?? '-',
+          studentCount,
+          Icons.menu_book_rounded,
+          c.isActive ? 'กำลังเปิดสอน' : 'ปิดแล้ว',
+          c.isActive ? TeacherPalette.green : TeacherPalette.muted,
+          const [TeacherPalette.primary, TeacherPalette.primary2],
+        ),
+      );
+    }
+
+    final slots = await CalendarService.listTeacherSchedules();
+    // ClassScheduleSlot.dayOfWeek: 0=จันทร์...6=อาทิตย์, DateTime.weekday: 1=จันทร์...7=อาทิตย์
+    final todayIndex = DateTime.now().weekday - 1;
+    final today = slots.where((s) => s.dayOfWeek == todayIndex).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    for (final slot in today) {
+      lessonsData.add(
+        _LessonItem(
+          slot.timeRangeLabel,
+          slot.subjectName,
+          slot.room ?? 'ไม่ระบุห้อง',
+          '',
+          Icons.menu_book_rounded,
+          TeacherPalette.primary,
+          TeacherPalette.primary.withValues(alpha: 0.08),
+        ),
+      );
+    }
+  } catch (e) {
+    debugPrint('_showTeacherSearchDialog: failed to load real data: $e');
+  }
+
+  if (!context.mounted) return;
 
   await showDialog<void>(
     context: context,
@@ -6511,7 +6091,7 @@ Future<void> _showTeacherSearchDialog(BuildContext context) async {
       return StatefulBuilder(
         builder: (context, setDialogState) {
           final q = query.trim().toLowerCase();
-          final classes = TeacherMock.classes
+          final classes = classesData
               .where(
                 (c) =>
                     q.isEmpty ||
@@ -6520,7 +6100,7 @@ Future<void> _showTeacherSearchDialog(BuildContext context) async {
                     c.room.toLowerCase().contains(q),
               )
               .toList();
-          final lessons = TeacherMock.lessons
+          final lessons = lessonsData
               .where(
                 (l) =>
                     q.isEmpty ||
