@@ -1,285 +1,211 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_core/shared_core.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
+/// Read seams so loading / data / empty / failure can each be driven in a
+/// test, and write seams so the review and upload paths can be exercised
+/// without a live backend.
+typedef SchoolReportsLoader = Future<List<SchoolReport>> Function();
+typedef ReportSummaryLoader = Future<SchoolReportSummary?> Function();
+typedef ReportRequirementsLoader = Future<List<ReportRequirement>> Function();
+typedef ReportDepartmentsLoader = Future<List<SchoolDepartment>> Function();
+typedef ReportReviewer =
+    Future<void> Function(String reportId, String status, String? note);
+typedef ReportDownloadUrlLoader = Future<String> Function(String reportId);
+typedef ReportSubmitter =
+    Future<String> Function({
+      required String title,
+      required String reportType,
+      required String fileName,
+      required Uint8List bytes,
+      String? departmentId,
+      String? description,
+    });
+
 class DirectorReportsPage extends StatefulWidget {
-  const DirectorReportsPage({super.key});
+  const DirectorReportsPage({
+    super.key,
+    this.loadReports,
+    this.loadSummary,
+    this.loadRequirements,
+    this.loadDepartments,
+    this.reviewReport,
+    this.loadDownloadUrl,
+    this.submitReport,
+  });
+
+  final SchoolReportsLoader? loadReports;
+  final ReportSummaryLoader? loadSummary;
+  final ReportRequirementsLoader? loadRequirements;
+  final ReportDepartmentsLoader? loadDepartments;
+  final ReportReviewer? reviewReport;
+  final ReportDownloadUrlLoader? loadDownloadUrl;
+  final ReportSubmitter? submitReport;
 
   @override
-  State<DirectorReportsPage> createState() =>
-      _DirectorReportsPageState();
+  State<DirectorReportsPage> createState() => _DirectorReportsPageState();
 }
 
 class _DirectorReportsPageState extends State<DirectorReportsPage> {
+  static const String _anyDepartment = 'ทุกฝ่าย';
+  static const String _anyReportType = 'ทุกประเภท';
+  static const String _anyFileType = 'ทุกไฟล์';
+  static const String _anyStatus = 'ทุกสถานะ';
+
   String searchText = '';
-  String selectedDepartment = 'ทุกฝ่าย';
-  String selectedReportType = 'ทุกประเภท';
-  String selectedFileType = 'ทุกไฟล์';
-  String selectedStatus = 'ทุกสถานะ';
+  String selectedDepartment = _anyDepartment;
+  String selectedReportType = _anyReportType;
+  String selectedFileType = _anyFileType;
+  String selectedStatus = _anyStatus;
 
-  final List<String> departments = const [
-    'ทุกฝ่าย',
-    'ฝ่ายบริหาร',
-    'ฝ่ายวิชาการ',
-    'ฝ่ายกิจการนักเรียน',
-    'ฝ่ายบุคคลและธุรการ',
-    'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
-    'ฝ่ายเทคโนโลยีและระบบ',
-    'ระบบอัตโนมัติ',
-  ];
+  List<SchoolReport> _reports = const [];
+  List<ReportRequirement> _requirements = const [];
+  List<SchoolDepartment> _departments = const [];
 
-  final List<String> reportTypes = const [
-    'ทุกประเภท',
-    'รายวัน',
-    'รายสัปดาห์',
-    'รายเดือน',
-    'ภาคเรียน',
-    'เหตุการณ์',
-    'เฉพาะกิจ',
-  ];
+  /// Null while loading and after a failure — never a zeroed summary. The old
+  /// page printed 128 / 102 / 8 / 12 / 3 / 2 with nothing behind them.
+  SchoolReportSummary? _summary;
 
-  final List<String> fileTypes = const [
-    'ทุกไฟล์',
-    'PDF',
-    'Excel',
-    'Word',
-  ];
+  bool _loading = true;
+  bool _loadFailed = false;
 
-  final List<String> statuses = const [
-    'ทุกสถานะ',
-    'ส่งแล้ว',
-    'รอตรวจ',
-    'อนุมัติแล้ว',
-    'ต้องแก้ไข',
-    'เกินกำหนด',
-  ];
+  /// Keyed by report id so one row's review spinner does not lock the page.
+  final Set<String> _busyReports = <String>{};
+  bool _uploading = false;
 
-  final List<_ReportFileData> reports = const [
-    _ReportFileData(
-      title: 'รายงานสรุปการมาเรียนประจำวัน',
-      fileName: 'Attendance_Daily_20-08-2569.pdf',
-      fileType: 'PDF',
-      fileSize: '2.4 MB',
-      pages: 18,
-      senderName: 'นางสาวอรทัย พัฒนกิจ',
-      senderRole: 'หัวหน้าฝ่ายวิชาการ',
-      department: 'ฝ่ายวิชาการ',
-      reportType: 'รายวัน',
-      period: '20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 16:42 น.',
-      status: 'อนุมัติแล้ว',
-      description:
-          'สรุปการมาเรียน ขาดเรียน มาสาย และนักเรียนที่ต้องติดตาม แยกระดับชั้น ม.1-ม.6',
-      remark:
-          'มีนักเรียนขาดเรียนต่อเนื่อง 11 คน ส่งรายชื่อให้ครูประจำชั้นติดตามแล้ว',
-      color: AppPalette.learningBlue,
-    ),
-    _ReportFileData(
-      title: 'รายงานเหตุการณ์และความปลอดภัยประจำวัน',
-      fileName: 'Safety_Incident_Daily_20-08-2569.pdf',
-      fileType: 'PDF',
-      fileSize: '1.8 MB',
-      pages: 12,
-      senderName: 'นายณัฐวุฒิ มั่นคง',
-      senderRole: 'หัวหน้าฝ่ายกิจการนักเรียน',
-      department: 'ฝ่ายกิจการนักเรียน',
-      reportType: 'รายวัน',
-      period: '20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 17:05 น.',
-      status: 'รอตรวจ',
-      description:
-          'สรุปเหตุการณ์ในโรงเรียน การแจ้งเตือน ความปลอดภัย และเคสที่ฝ่ายกิจการนักเรียนกำลังติดตาม',
-      remark:
-          'มีเหตุการณ์ที่ต้องติดตาม 2 รายการ ไม่มีเหตุฉุกเฉินระดับรุนแรง',
-      color: AppPalette.chartPink,
-    ),
-    _ReportFileData(
-      title: 'รายงานการใช้น้ำและไฟประจำสัปดาห์',
-      fileName: 'Utility_Weekly_W3_Aug2569.pdf',
-      fileType: 'PDF',
-      fileSize: '4.1 MB',
-      pages: 24,
-      senderName: 'นายประสิทธิ์ ช่างดี',
-      senderRole: 'เจ้าหน้าที่อาคารสถานที่',
-      department: 'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
-      reportType: 'รายสัปดาห์',
-      period: '14-20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 15:18 น.',
-      status: 'รอตรวจ',
-      description:
-          'เปรียบเทียบการใช้น้ำและไฟรายวัน พร้อมจุดที่ใช้สูงกว่าค่าเฉลี่ยและข้อเสนอแนะการตรวจสอบ',
-      remark:
-          'อาคาร 2 ใช้น้ำสูงกว่าค่าเฉลี่ยประมาณ 28% อยู่ระหว่างตรวจสอบระบบท่อ',
-      color: AppPalette.warning,
-    ),
-    _ReportFileData(
-      title: 'รายงานภาพรวมสิ่งแวดล้อมในห้องเรียน',
-      fileName: 'Environment_Classroom_Aug2569.pdf',
-      fileType: 'PDF',
-      fileSize: '3.6 MB',
-      pages: 21,
-      senderName: 'AIoT Smart Lab',
-      senderRole: 'ระบบสร้างรายงานอัตโนมัติ',
-      department: 'ระบบอัตโนมัติ',
-      reportType: 'รายเดือน',
-      period: '1-20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 18:00 น.',
-      status: 'ส่งแล้ว',
-      description:
-          'สรุป PM2.5 อุณหภูมิ ความเข้มแสง CO₂ ก๊าซมีเทน และการตรวจจับควันของห้องเรียนที่เชื่อมต่อ',
-      remark:
-          'ค่าภาพรวมอยู่ในเกณฑ์ปกติ มี 3 ห้องที่ควรตรวจเรื่องแสงสว่าง',
-      color: AppPalette.environmentGreen,
-    ),
-    _ReportFileData(
-      title: 'รายงานผลการเรียนและงานค้างนักเรียน',
-      fileName: 'Learning_Assignment_Weekly_20-08-2569.pdf',
-      fileType: 'PDF',
-      fileSize: '5.2 MB',
-      pages: 32,
-      senderName: 'นางสาวอรทัย พัฒนกิจ',
-      senderRole: 'หัวหน้าฝ่ายวิชาการ',
-      department: 'ฝ่ายวิชาการ',
-      reportType: 'รายสัปดาห์',
-      period: '14-20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 16:10 น.',
-      status: 'อนุมัติแล้ว',
-      description:
-          'สรุปคะแนนภาพรวม งานที่ครูมอบหมาย งานค้าง และนักเรียนที่มีผลการเรียนต่ำกว่าเกณฑ์ แยกตามห้อง',
-      remark:
-          'มีนักเรียน 9 คนที่ควรจัดสอนเสริม และ 5 ห้องที่มีงานค้างสูงกว่าค่าเฉลี่ย',
-      color: AppPalette.primaryPink,
-    ),
-    _ReportFileData(
-      title: 'รายงานการปฏิบัติงานครูและบุคลากร',
-      fileName: 'Personnel_Attendance_Aug2569.pdf',
-      fileType: 'PDF',
-      fileSize: '2.9 MB',
-      pages: 19,
-      senderName: 'นางสาวสุภาวดี ศรีสุข',
-      senderRole: 'เจ้าหน้าที่งานบุคคล',
-      department: 'ฝ่ายบุคคลและธุรการ',
-      reportType: 'รายเดือน',
-      period: '1-20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 14:25 น.',
-      status: 'อนุมัติแล้ว',
-      description:
-          'สรุปการมาปฏิบัติงาน การลา มาสาย ภาระงาน และสถานะบุคลากรแยกตามฝ่าย',
-      remark:
-          'อัตรามาปฏิบัติงานเฉลี่ย 95.3% ไม่มีฝ่ายใดมีบุคลากรขาดเกินเกณฑ์',
-      color: AppPalette.chartCream,
-    ),
-    _ReportFileData(
-      title: 'รายงานสรุปผลการประชุมฝ่ายบริหาร',
-      fileName: 'Management_Meeting_20-08-2569.pdf',
-      fileType: 'PDF',
-      fileSize: '1.2 MB',
-      pages: 9,
-      senderName: 'นางสาวกมลชนก ธุรการดี',
-      senderRole: 'เจ้าหน้าที่ธุรการ',
-      department: 'ฝ่ายบุคคลและธุรการ',
-      reportType: 'เหตุการณ์',
-      period: 'ประชุมวันที่ 20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 11:32 น.',
-      status: 'ส่งแล้ว',
-      description:
-          'บันทึกการประชุม มติที่ประชุม ผู้รับผิดชอบ และกำหนดเวลาติดตามงานแต่ละฝ่าย',
-      remark:
-          'มีมติให้ฝ่ายอาคารตรวจสอบน้ำอาคาร 2 และฝ่ายวิชาการติดตามนักเรียนขาดเรียนต่อเนื่อง',
-      color: AppPalette.chartPink2,
-    ),
-    _ReportFileData(
-      title: 'รายงานงบประมาณและค่าใช้จ่ายประจำเดือน',
-      fileName: 'Budget_Aug2569.pdf',
-      fileType: 'PDF',
-      fileSize: '6.7 MB',
-      pages: 41,
-      senderName: 'นายสมชาย บริหารดี',
-      senderRole: 'รองผู้อำนวยการฝ่ายบริหาร',
-      department: 'ฝ่ายบริหาร',
-      reportType: 'รายเดือน',
-      period: 'ส.ค. 2569',
-      submittedAt: '19 ส.ค. 2569 • 16:55 น.',
-      status: 'ต้องแก้ไข',
-      description:
-          'สรุปรายรับ รายจ่าย งบคงเหลือ ค่าใช้จ่ายด้านอาคาร ทรัพยากร และกิจกรรมการเรียนการสอน',
-      remark:
-          'ผู้อำนวยการขอให้เพิ่มรายละเอียดค่าใช้จ่ายซ่อมบำรุงอาคาร 2 ก่อนอนุมัติ',
-      color: AppPalette.danger,
-    ),
-    _ReportFileData(
-      title: 'ข้อมูลรายชื่อนักเรียนที่ต้องติดตาม',
-      fileName: 'Student_FollowUp_List_Aug2569.xlsx',
-      fileType: 'Excel',
-      fileSize: '860 KB',
-      pages: 0,
-      senderName: 'นายณัฐวุฒิ มั่นคง',
-      senderRole: 'หัวหน้าฝ่ายกิจการนักเรียน',
-      department: 'ฝ่ายกิจการนักเรียน',
-      reportType: 'เฉพาะกิจ',
-      period: 'ข้อมูล ณ 20 ส.ค. 2569',
-      submittedAt: '20 ส.ค. 2569 • 13:48 น.',
-      status: 'ส่งแล้ว',
-      description:
-          'รายชื่อนักเรียนที่ต้องติดตามด้านการมาเรียน พฤติกรรม และการประสานผู้ปกครอง',
-      remark:
-          'ใช้ประกอบการติดตามรายบุคคล ไม่ใช่รายงานสรุปสำหรับนำเสนอ',
-      color: AppPalette.success,
-    ),
-    _ReportFileData(
-      title: 'แผนดำเนินงานพัฒนาระบบสารสนเทศ',
-      fileName: 'IT_System_Plan_Semester1.docx',
-      fileType: 'Word',
-      fileSize: '1.5 MB',
-      pages: 0,
-      senderName: 'นายธนกฤต ระบบดี',
-      senderRole: 'เจ้าหน้าที่ระบบสารสนเทศ',
-      department: 'ฝ่ายเทคโนโลยีและระบบ',
-      reportType: 'ภาคเรียน',
-      period: 'ภาคเรียนที่ 1/2569',
-      submittedAt: '18 ส.ค. 2569 • 10:15 น.',
-      status: 'รอตรวจ',
-      description:
-          'แผนงานดูแลระบบ AIoT ฐานข้อมูล อุปกรณ์ เครือข่าย และแผนสำรองข้อมูลตลอดภาคเรียน',
-      remark:
-          'เสนอช่วงเวลาบำรุงรักษาระบบหลังเลิกเรียนเพื่อลดผลกระทบต่อผู้ใช้งาน',
-      color: AppPalette.learningBlue,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  final List<_PendingReportData> pendingReports = const [
-    _PendingReportData(
-      title: 'รายงานสรุปผลการสอนรายสัปดาห์',
-      responsible: 'หัวหน้ากลุ่มสาระทุกกลุ่ม',
-      department: 'ฝ่ายวิชาการ',
-      dueDate: 'วันนี้ • 18:00 น.',
-      submitted: 6,
-      total: 8,
-      status: 'รอ 2 กลุ่มสาระ',
-      color: AppPalette.warning,
-    ),
-    _PendingReportData(
-      title: 'รายงานตรวจอาคารและระบบสาธารณูปโภค',
-      responsible: 'ฝ่ายอาคารสถานที่',
-      department: 'ฝ่ายอาคารสถานที่และสิ่งแวดล้อม',
-      dueDate: '22 ส.ค. • 16:00 น.',
-      submitted: 0,
-      total: 1,
-      status: 'ยังไม่ส่ง',
-      color: AppPalette.learningBlue,
-    ),
-    _PendingReportData(
-      title: 'รายงานสรุปกิจกรรมนักเรียนประจำเดือน',
-      responsible: 'ฝ่ายกิจการนักเรียน',
-      department: 'ฝ่ายกิจการนักเรียน',
-      dueDate: '31 ส.ค. • 17:00 น.',
-      submitted: 0,
-      total: 1,
-      status: 'ยังไม่ถึงกำหนด',
-      color: AppPalette.environmentGreen,
-    ),
-  ];
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
+    try {
+      final results = await Future.wait<Object?>([
+        widget.loadReports?.call() ?? SchoolReportService.listReports(),
+        widget.loadSummary?.call() ?? SchoolReportService.getSummary(),
+        widget.loadRequirements?.call() ??
+            SchoolReportService.listRequirements(onlyOpen: true),
+        widget.loadDepartments?.call() ??
+            StaffOrgService.listDepartments(kind: 'administrative'),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _reports = results[0] as List<SchoolReport>;
+        _summary = results[1] as SchoolReportSummary?;
+        _requirements = results[2] as List<ReportRequirement>;
+        _departments = results[3] as List<SchoolDepartment>;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('DirectorReportsPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Filters — every option is built from the rows on screen.
+  //
+  // The four lists that used to sit here were written by hand: eight ฝ่าย
+  // including a 'ระบบอัตโนมัติ' that nothing produces, and a status list with
+  // 'เกินกำหนด', which is not a state a filed report can be in — lateness
+  // belongs to a requirement's due date.
+  // -------------------------------------------------------------------------
+
+  List<String> get _departmentOptions {
+    final names = <String>{
+      for (final d in _departments) d.name,
+      for (final r in _reports)
+        if (r.departmentName != null) r.departmentName!,
+    };
+    final sorted = names.toList()..sort();
+    return [_anyDepartment, ...sorted];
+  }
+
+  List<String> get _reportTypeOptions {
+    final labels = _reports.map((r) => r.reportTypeLabel).toSet().toList()
+      ..sort();
+    return [_anyReportType, ...labels];
+  }
+
+  List<String> get _fileTypeOptions {
+    final labels = _reports.map((r) => r.fileTypeLabel).toSet().toList()..sort();
+    return [_anyFileType, ...labels];
+  }
+
+  List<String> get _statusOptions {
+    final labels = _reports.map((r) => r.statusLabel).toSet().toList()..sort();
+    return [_anyStatus, ...labels];
+  }
+
+  String _safeSelection(String selected, List<String> options) =>
+      options.contains(selected) ? selected : options.first;
+
+  List<SchoolReport> _filteredReports() {
+    final query = searchText.trim().toLowerCase();
+
+    return _reports.where((report) {
+      final matchesSearch =
+          query.isEmpty ||
+          report.title.toLowerCase().contains(query) ||
+          report.fileName.toLowerCase().contains(query) ||
+          report.submitterName.toLowerCase().contains(query) ||
+          (report.submitterPosition ?? '').toLowerCase().contains(query) ||
+          (report.departmentName ?? '').toLowerCase().contains(query);
+
+      final matchesDepartment =
+          selectedDepartment == _anyDepartment ||
+          report.departmentName == selectedDepartment;
+
+      final matchesType =
+          selectedReportType == _anyReportType ||
+          report.reportTypeLabel == selectedReportType;
+
+      final matchesFile =
+          selectedFileType == _anyFileType ||
+          report.fileTypeLabel == selectedFileType;
+
+      final matchesStatus =
+          selectedStatus == _anyStatus || report.statusLabel == selectedStatus;
+
+      return matchesSearch &&
+          matchesDepartment &&
+          matchesType &&
+          matchesFile &&
+          matchesStatus;
+    }).toList();
+  }
+
+  bool _hasActiveFilters() =>
+      searchText.isNotEmpty ||
+      selectedDepartment != _anyDepartment ||
+      selectedReportType != _anyReportType ||
+      selectedFileType != _anyFileType ||
+      selectedStatus != _anyStatus;
+
+  void _clearFilters() {
+    setState(() {
+      searchText = '';
+      selectedDepartment = _anyDepartment;
+      selectedReportType = _anyReportType;
+      selectedFileType = _anyFileType;
+      selectedStatus = _anyStatus;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -292,9 +218,29 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           const DirectorSectionHeader(
             title: 'รายงานผู้บริหาร',
             subtitle:
-                'ติดตามว่าใครส่งรายงาน ไฟล์อะไร ส่งเมื่อไร อยู่ฝ่ายไหน และสถานะการตรวจเป็นอย่างไร โดยเน้นรายงาน PDF เป็นหลัก',
+                'ทะเบียนรายงานที่ฝ่ายต่าง ๆ ส่งเข้ามา — ใครส่ง ไฟล์อะไร เมื่อไร '
+                'อยู่ฝ่ายไหน และสถานะการตรวจ',
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.primaryPink,
+              ),
+              onPressed: _uploading ? null : _pickAndSubmitReport,
+              icon: _uploading
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.upload_file_rounded, size: 16),
+              label: Text(_uploading ? 'กำลังส่ง...' : 'ส่งรายงาน'),
+            ),
           ),
           const SizedBox(height: 14),
+          if (_loadFailed) ...[_loadErrorBanner(), const SizedBox(height: 14)],
           _summaryCards(),
           const SizedBox(height: 16),
           LayoutBuilder(
@@ -302,9 +248,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
               if (constraints.maxWidth < 980) {
                 return Column(
                   children: [
-                    _recentPdfCard(),
+                    _recentReportsCard(),
                     const SizedBox(height: 16),
-                    _pendingReportsCard(),
+                    _openRequirementsCard(),
                   ],
                 );
               }
@@ -312,15 +258,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    flex: 5,
-                    child: _recentPdfCard(),
-                  ),
+                  Expanded(flex: 5, child: _recentReportsCard()),
                   const SizedBox(width: 16),
-                  Expanded(
-                    flex: 4,
-                    child: _pendingReportsCard(),
-                  ),
+                  Expanded(flex: 4, child: _openRequirementsCard()),
                 ],
               );
             },
@@ -332,84 +272,98 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  List<_ReportFileData> _filteredReports() {
-    final query = searchText.trim().toLowerCase();
-
-    return reports.where((report) {
-      final matchesSearch = query.isEmpty ||
-          report.title.toLowerCase().contains(query) ||
-          report.fileName.toLowerCase().contains(query) ||
-          report.senderName.toLowerCase().contains(query) ||
-          report.senderRole.toLowerCase().contains(query) ||
-          report.department.toLowerCase().contains(query);
-
-      final matchesDepartment =
-          selectedDepartment == 'ทุกฝ่าย' ||
-          report.department == selectedDepartment;
-
-      final matchesType =
-          selectedReportType == 'ทุกประเภท' ||
-          report.reportType == selectedReportType;
-
-      final matchesFile =
-          selectedFileType == 'ทุกไฟล์' ||
-          report.fileType == selectedFileType;
-
-      final matchesStatus =
-          selectedStatus == 'ทุกสถานะ' ||
-          report.status == selectedStatus;
-
-      return matchesSearch &&
-          matchesDepartment &&
-          matchesType &&
-          matchesFile &&
-          matchesStatus;
-    }).toList();
+  /// Failure stated on the page. Without it an unreachable backend renders as
+  /// a school that has filed no reports at all.
+  Widget _loadErrorBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 20,
+            color: Color(0xFFB91C1C),
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'โหลดทะเบียนรายงานไม่สำเร็จ ตัวเลขและรายการด้านล่างจึงยังไม่ทราบ',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFB91C1C),
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: _loading ? null : _load,
+            child: const Text('ลองใหม่'),
+          ),
+        ],
+      ),
+    );
   }
 
+  // -------------------------------------------------------------------------
+  // Summary
+  // -------------------------------------------------------------------------
+
   Widget _summaryCards() {
-    const items = [
-      _ReportSummary(
+    final s = _summary;
+    // '—' rather than 0: an unread figure and a figure of zero are different
+    // statements, and only one of them is safe to act on.
+    String figure(int Function(SchoolReportSummary s) pick) =>
+        s == null ? '—' : '${pick(s)}';
+
+    final items = <_ReportSummaryCard>[
+      _ReportSummaryCard(
         title: 'รายงานทั้งหมด',
-        value: '128',
-        subtitle: 'ภาคเรียนปัจจุบัน',
+        value: figure((s) => s.totalReports),
+        subtitle: 'ในทะเบียนของโรงเรียน',
         icon: Icons.folder_copy_rounded,
         color: AppPalette.softPink,
       ),
-      _ReportSummary(
-        title: 'PDF',
-        value: '102',
-        subtitle: '79.7% ของไฟล์ทั้งหมด',
-        icon: Icons.picture_as_pdf_rounded,
-        color: AppPalette.softPink2,
-      ),
-      _ReportSummary(
-        title: 'ส่งวันนี้',
-        value: '8',
-        subtitle: 'จาก 6 ฝ่าย',
+      _ReportSummaryCard(
+        title: 'ส่งเดือนนี้',
+        value: figure((s) => s.submittedThisMonth),
+        subtitle: 'นับตามวันที่ส่งจริง',
         icon: Icons.upload_file_rounded,
         color: AppPalette.softBlue,
       ),
-      _ReportSummary(
+      _ReportSummaryCard(
         title: 'รอตรวจ',
-        value: '12',
-        subtitle: 'ต้องตรวจภายในสัปดาห์นี้',
+        value: figure((s) => s.awaitingReview),
+        subtitle: 'ยังไม่ได้ตัดสิน',
         icon: Icons.rate_review_rounded,
         color: AppPalette.softCream,
       ),
-      _ReportSummary(
+      _ReportSummaryCard(
+        title: 'อนุมัติแล้ว',
+        value: figure((s) => s.approved),
+        subtitle: 'ผ่านการตรวจ',
+        icon: Icons.verified_rounded,
+        color: AppPalette.softMint,
+      ),
+      _ReportSummaryCard(
         title: 'ต้องแก้ไข',
-        value: '3',
+        value: figure((s) => s.needsRevision),
         subtitle: 'ส่งกลับผู้จัดทำแล้ว',
         icon: Icons.edit_document,
         color: AppPalette.softPink2,
       ),
-      _ReportSummary(
+      _ReportSummaryCard(
         title: 'เกินกำหนด',
-        value: '2',
-        subtitle: 'ควรติดตามผู้รับผิดชอบ',
+        value: figure((s) => s.overdueRequirements),
+        // Named precisely: it counts รายการที่สั่งให้ส่ง, not files.
+        subtitle: 'รายการที่เลยกำหนดส่ง',
         icon: Icons.warning_amber_rounded,
-        color: AppPalette.softMint,
+        color: AppPalette.softPink2,
       ),
     ];
 
@@ -426,8 +380,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           itemCount: items.length,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columns,
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
@@ -449,8 +402,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                     width: 31,
                     height: 31,
                     decoration: BoxDecoration(
-                      color:
-                          AppPalette.tint(Colors.white, 0.82),
+                      color: AppPalette.tint(Colors.white, 0.82),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -495,11 +447,12 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  Widget _recentPdfCard() {
-    final pdfs = reports
-        .where((report) => report.fileType == 'PDF')
-        .take(5)
-        .toList();
+  // -------------------------------------------------------------------------
+  // Recent + requirements
+  // -------------------------------------------------------------------------
+
+  Widget _recentReportsCard() {
+    final recent = _reports.take(5).toList();
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -508,28 +461,38 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'PDF ล่าสุดที่ส่งเข้าระบบ',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            'รายงานล่าสุดที่ส่งเข้าระบบ',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
-            'แสดงชื่อไฟล์ ผู้ส่ง ฝ่าย และเวลาที่ส่ง เพื่อให้ตรวจสอบแหล่งที่มาของรายงานได้ทันที',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            'ชื่อไฟล์ ผู้ส่ง ฝ่าย และเวลาที่ส่ง เพื่อให้ตรวจแหล่งที่มาได้ทันที',
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
-          ...pdfs.map(_recentPdfTile),
+          if (_loading)
+            _notice(icon: Icons.hourglass_empty_rounded, title: 'กำลังโหลด')
+          else if (_loadFailed)
+            _notice(
+              icon: Icons.cloud_off_rounded,
+              title: 'โหลดรายงานล่าสุดไม่สำเร็จ',
+            )
+          else if (recent.isEmpty)
+            _notice(
+              icon: Icons.folder_open_rounded,
+              title: 'ยังไม่มีรายงานส่งเข้ามา',
+              detail: 'เมื่อฝ่ายใดส่งไฟล์เข้าทะเบียน รายการจะขึ้นที่นี่',
+            )
+          else
+            ...recent.map(_recentReportTile),
         ],
       ),
     );
   }
 
-  Widget _recentPdfTile(_ReportFileData report) {
+  Widget _recentReportTile(SchoolReport report) {
+    final color = _fileColor(report.fileType);
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => _showReportDetail(report),
@@ -537,17 +500,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         margin: const EdgeInsets.only(bottom: 9),
         padding: const EdgeInsets.all(11),
         decoration: BoxDecoration(
-          color: AppPalette.tint(
-            AppPalette.danger,
-            0.045,
-          ),
+          color: AppPalette.tint(color, 0.045),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppPalette.tint(
-              AppPalette.danger,
-              0.10,
-            ),
-          ),
+          border: Border.all(color: AppPalette.tint(color, 0.10)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,23 +511,19 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
               width: 39,
               height: 39,
               decoration: BoxDecoration(
-                color: AppPalette.tint(
-                  AppPalette.danger,
-                  0.11,
-                ),
+                color: AppPalette.tint(color, 0.11),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(
-                Icons.picture_as_pdf_rounded,
+              child: Icon(
+                _fileIconData(report.fileType),
                 size: 20,
-                color: AppPalette.danger,
+                color: color,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     report.fileName,
@@ -585,7 +536,8 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'ส่งโดย ${report.senderName} • ${report.department}',
+                    'ส่งโดย ${report.submitterName} • '
+                    '${report.departmentName ?? 'ไม่ระบุฝ่าย'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -594,8 +546,10 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                     ),
                   ),
                   const SizedBox(height: 3),
+                  // No page count: nothing on the server can count the pages
+                  // of an uploaded file, and the old tile printed one anyway.
                   Text(
-                    '${report.submittedAt} • ${report.fileSize} • ${report.pages} หน้า',
+                    '${_dateTimeLabel(report.submittedAt)} • ${report.sizeLabel}',
                     style: const TextStyle(
                       fontSize: 8.2,
                       color: AppPalette.textMuted,
@@ -605,14 +559,14 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
               ),
             ),
             const SizedBox(width: 7),
-            _statusTag(report.status),
+            _statusTag(report.statusLabel),
           ],
         ),
       ),
     );
   }
 
-  Widget _pendingReportsCard() {
+  Widget _openRequirementsCard() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
@@ -621,36 +575,46 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         children: [
           const Text(
             'รายงานที่กำลังรอส่ง',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
-            'ดูผู้รับผิดชอบ กำหนดส่ง และจำนวนที่ส่งแล้ว',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            'กำหนดส่ง จำนวนฝ่ายที่ส่งแล้ว และฝ่ายที่ยังไม่ส่ง',
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
-          ...pendingReports.map(_pendingReportTile),
+          if (_loading)
+            _notice(icon: Icons.hourglass_empty_rounded, title: 'กำลังโหลด')
+          else if (_loadFailed)
+            _notice(
+              icon: Icons.cloud_off_rounded,
+              title: 'โหลดรายการที่รอส่งไม่สำเร็จ',
+            )
+          else if (_requirements.isEmpty)
+            _notice(
+              icon: Icons.event_available_rounded,
+              title: 'ไม่มีรายการที่ค้างส่ง',
+              detail:
+                  'ผู้ดูแลระบบโรงเรียนเป็นผู้กำหนดว่ารายงานใดต้องส่ง '
+                  'และให้ฝ่ายใดส่งบ้าง',
+            )
+          else
+            ..._requirements.map(_requirementTile),
         ],
       ),
     );
   }
 
-  Widget _pendingReportTile(_PendingReportData item) {
+  Widget _requirementTile(ReportRequirement item) {
+    final color = item.isOverdue ? AppPalette.danger : AppPalette.warning;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.tint(item.color, 0.06),
+        color: AppPalette.tint(color, 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppPalette.tint(item.color, 0.14),
-        ),
+        border: Border.all(color: AppPalette.tint(color, 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -664,7 +628,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           ),
           const SizedBox(height: 3),
           Text(
-            '${item.responsible} • ${item.department}',
+            item.reportTypeLabel,
             style: const TextStyle(
               fontSize: 8.7,
               color: AppPalette.textMuted,
@@ -675,52 +639,65 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
             children: [
               Expanded(
                 child: Text(
-                  'กำหนดส่ง ${item.dueDate}',
+                  item.dueDate == null
+                      ? 'ไม่ได้กำหนดวันส่ง'
+                      : 'กำหนดส่ง ${_dateLabel(item.dueDate!)}',
                   style: const TextStyle(
                     fontSize: 8.7,
                     color: AppPalette.textMuted,
                   ),
                 ),
               ),
-              Text(
-                item.status,
-                style: TextStyle(
-                  fontSize: 8.8,
-                  fontWeight: FontWeight.w700,
-                  color: item.color,
+              if (item.isOverdue)
+                Text(
+                  'เกินกำหนด',
+                  style: TextStyle(
+                    fontSize: 8.8,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 7),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
-              value: item.total == 0
+              value: item.expectedCount == 0
                   ? 0
-                  : item.submitted / item.total,
+                  : item.filedCount / item.expectedCount,
               minHeight: 6,
               backgroundColor: AppPalette.softTag,
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(item.color),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
           const SizedBox(height: 5),
           Text(
-            'ส่งแล้ว ${item.submitted}/${item.total}',
-            style: const TextStyle(
-              fontSize: 8,
-              color: AppPalette.textMuted,
-            ),
+            'ส่งแล้ว ${item.filedCount}/${item.expectedCount} ฝ่าย',
+            style: const TextStyle(fontSize: 8, color: AppPalette.textMuted),
           ),
+          // The old card stopped at "3/6". Naming who is missing is the part
+          // the director can act on.
+          if (item.missingDepartments.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              'ยังไม่ส่ง: ${item.missingDepartments.join(' • ')}',
+              style: const TextStyle(
+                fontSize: 8,
+                color: AppPalette.textMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _allReportsSection(
-    List<_ReportFileData> filtered,
-  ) {
+  // -------------------------------------------------------------------------
+  // The register itself
+  // -------------------------------------------------------------------------
+
+  Widget _allReportsSection(List<SchoolReport> filtered) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -730,18 +707,13 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         children: [
           const Text(
             'ไฟล์รายงานทั้งหมด',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
-            'ค้นหาจากชื่อรายงาน ชื่อไฟล์ ผู้ส่ง หรือตำแหน่ง และกรองตามฝ่าย ประเภทรายงาน ประเภทไฟล์ หรือสถานะ',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            'ค้นหาจากชื่อรายงาน ชื่อไฟล์ ผู้ส่ง หรือตำแหน่ง '
+            'และกรองตามฝ่าย ประเภทรายงาน ประเภทไฟล์ หรือสถานะ',
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           _filtersArea(),
@@ -749,7 +721,11 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           Row(
             children: [
               Text(
-                'พบ ${filtered.length} ไฟล์',
+                _loading
+                    ? 'กำลังโหลด...'
+                    : _loadFailed
+                    ? 'ยังไม่ทราบจำนวน'
+                    : 'พบ ${filtered.length} ไฟล์',
                 style: const TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -760,17 +736,35 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
               if (_hasActiveFilters())
                 TextButton.icon(
                   onPressed: _clearFilters,
-                  icon: const Icon(
-                    Icons.refresh_rounded,
-                    size: 16,
-                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
                   label: const Text('ล้างตัวกรอง'),
                 ),
             ],
           ),
           const SizedBox(height: 8),
-          if (filtered.isEmpty)
-            _emptyReports()
+          if (_loading)
+            _notice(icon: Icons.hourglass_empty_rounded, title: 'กำลังโหลด')
+          else if (_loadFailed)
+            _notice(
+              icon: Icons.cloud_off_rounded,
+              title: 'โหลดทะเบียนรายงานไม่สำเร็จ',
+              detail: 'ยังไม่ทราบว่ามีรายงานอยู่กี่ไฟล์',
+            )
+          else if (_reports.isEmpty)
+            _notice(
+              icon: Icons.folder_open_rounded,
+              title: 'ยังไม่มีรายงานในทะเบียน',
+              detail: 'ยังไม่มีฝ่ายใดส่งไฟล์เข้ามา',
+            )
+          else if (filtered.isEmpty)
+            // A filtered-to-nothing list is not an empty register, and the
+            // two must not read the same.
+            _notice(
+              icon: Icons.find_in_page_rounded,
+              title: 'ไม่พบไฟล์รายงานตามเงื่อนไข',
+              detail: 'มีรายงานในทะเบียน ${_reports.length} ไฟล์ '
+                  'แต่ไม่มีไฟล์ที่ตรงกับตัวกรองที่เลือก',
+            )
           else
             ...filtered.map(_reportFileTile),
         ],
@@ -784,12 +778,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         final compact = constraints.maxWidth < 900;
 
         final search = TextField(
-          onChanged: (value) {
-            setState(() => searchText = value);
-          },
+          onChanged: (value) => setState(() => searchText = value),
           decoration: InputDecoration(
-            hintText:
-                'ค้นหาชื่อรายงาน ไฟล์ ผู้ส่ง หรือฝ่าย...',
+            hintText: 'ค้นหาชื่อรายงาน ไฟล์ ผู้ส่ง หรือฝ่าย...',
             hintStyle: const TextStyle(fontSize: 9.5),
             prefixIcon: const Icon(
               Icons.search_rounded,
@@ -804,20 +795,18 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppPalette.border),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppPalette.border),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
           ),
         );
 
         final department = _dropdown(
-          value: selectedDepartment,
-          items: departments,
+          value: _safeSelection(selectedDepartment, _departmentOptions),
+          items: _departmentOptions,
           icon: Icons.account_tree_rounded,
           onChanged: (value) {
             if (value == null) return;
@@ -825,20 +814,20 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           },
         );
 
-        final type = _dropdown(
-          value: selectedReportType,
-          items: reportTypes,
-          icon: Icons.description_rounded,
+        final reportType = _dropdown(
+          value: _safeSelection(selectedReportType, _reportTypeOptions),
+          items: _reportTypeOptions,
+          icon: Icons.event_note_rounded,
           onChanged: (value) {
             if (value == null) return;
             setState(() => selectedReportType = value);
           },
         );
 
-        final file = _dropdown(
-          value: selectedFileType,
-          items: fileTypes,
-          icon: Icons.attach_file_rounded,
+        final fileType = _dropdown(
+          value: _safeSelection(selectedFileType, _fileTypeOptions),
+          items: _fileTypeOptions,
+          icon: Icons.insert_drive_file_rounded,
           onChanged: (value) {
             if (value == null) return;
             setState(() => selectedFileType = value);
@@ -846,8 +835,8 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         );
 
         final status = _dropdown(
-          value: selectedStatus,
-          items: statuses,
+          value: _safeSelection(selectedStatus, _statusOptions),
+          items: _statusOptions,
           icon: Icons.fact_check_rounded,
           onChanged: (value) {
             if (value == null) return;
@@ -859,18 +848,18 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           return Column(
             children: [
               search,
-              const SizedBox(height: 8),
+              const SizedBox(height: 9),
               Row(
                 children: [
                   Expanded(child: department),
                   const SizedBox(width: 8),
-                  Expanded(child: type),
+                  Expanded(child: reportType),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 9),
               Row(
                 children: [
-                  Expanded(child: file),
+                  Expanded(child: fileType),
                   const SizedBox(width: 8),
                   Expanded(child: status),
                 ],
@@ -879,29 +868,17 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           );
         }
 
-        return Column(
+        return Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: search,
-                ),
-                const SizedBox(width: 9),
-                Expanded(child: department),
-                const SizedBox(width: 9),
-                Expanded(child: type),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(child: file),
-                const SizedBox(width: 9),
-                Expanded(child: status),
-                const Spacer(flex: 4),
-              ],
-            ),
+            Expanded(flex: 3, child: search),
+            const SizedBox(width: 9),
+            Expanded(flex: 2, child: department),
+            const SizedBox(width: 9),
+            Expanded(flex: 2, child: reportType),
+            const SizedBox(width: 9),
+            Expanded(flex: 2, child: fileType),
+            const SizedBox(width: 9),
+            Expanded(flex: 2, child: status),
           ],
         );
       },
@@ -915,9 +892,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: AppPalette.pageBg,
         borderRadius: BorderRadius.circular(14),
@@ -925,28 +900,24 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppPalette.primaryPink,
-          ),
-          const SizedBox(width: 6),
+          Icon(icon, size: 17, color: AppPalette.primaryPink),
+          const SizedBox(width: 7),
           Expanded(
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: value,
                 isExpanded: true,
                 style: const TextStyle(
-                  fontSize: 9.5,
+                  fontSize: 10,
                   color: AppPalette.textDark,
                 ),
                 items: items
                     .map(
-                      (item) =>
-                          DropdownMenuItem<String>(
+                      (item) => DropdownMenuItem<String>(
                         value: item,
                         child: Text(
                           item,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -961,7 +932,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  Widget _reportFileTile(_ReportFileData report) {
+  Widget _reportFileTile(SchoolReport report) {
     final fileColor = _fileColor(report.fileType);
     final statusColor = _statusColor(report.status);
 
@@ -978,21 +949,17 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact =
-                constraints.maxWidth < 760;
+            final compact = constraints.maxWidth < 760;
 
             if (compact) {
               return Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       _fileIcon(report),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: _reportMainInfo(report),
-                      ),
+                      Expanded(child: _reportMainInfo(report)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -1000,23 +967,15 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                     spacing: 7,
                     runSpacing: 7,
                     children: [
-                      _smallTag(
-                        report.fileType,
-                        fileColor,
-                      ),
-                      _smallTag(
-                        report.reportType,
-                        report.color,
-                      ),
-                      _smallTag(
-                        report.status,
-                        statusColor,
-                      ),
+                      _smallTag(report.fileTypeLabel, fileColor),
+                      _smallTag(report.reportTypeLabel, AppPalette.learningBlue),
+                      _smallTag(report.statusLabel, statusColor),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'ส่งโดย ${report.senderName} • ${report.submittedAt}',
+                    'ส่งโดย ${report.submitterName} • '
+                    '${_dateTimeLabel(report.submittedAt)}',
                     style: const TextStyle(
                       fontSize: 8.5,
                       color: AppPalette.textMuted,
@@ -1030,49 +989,28 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
               children: [
                 _fileIcon(report),
                 const SizedBox(width: 11),
-                Expanded(
-                  flex: 3,
-                  child: _reportMainInfo(report),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: _listInfo(
-                    'ผู้ส่ง',
-                    report.senderName,
-                  ),
-                ),
+                Expanded(flex: 3, child: _reportMainInfo(report)),
+                Expanded(flex: 2, child: _listInfo('ผู้ส่ง', report.submitterName)),
                 Expanded(
                   flex: 2,
                   child: _listInfo(
                     'ฝ่าย',
-                    report.department,
+                    report.departmentName ?? 'ไม่ระบุ',
                   ),
                 ),
-                Expanded(
-                  child: _listInfo(
-                    'ประเภท',
-                    report.fileType,
-                  ),
-                ),
-                Expanded(
-                  child: _listInfo(
-                    'ขนาด',
-                    report.fileSize,
-                  ),
-                ),
+                Expanded(child: _listInfo('ประเภท', report.fileTypeLabel)),
+                Expanded(child: _listInfo('ขนาด', report.sizeLabel)),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 9,
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color:
-                        AppPalette.tint(statusColor, 0.10),
-                    borderRadius:
-                        BorderRadius.circular(20),
+                    color: AppPalette.tint(statusColor, 0.10),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    report.status,
+                    report.statusLabel,
                     style: TextStyle(
                       fontSize: 8.4,
                       fontWeight: FontWeight.w700,
@@ -1093,7 +1031,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  Widget _fileIcon(_ReportFileData report) {
+  Widget _fileIcon(SchoolReport report) {
     final color = _fileColor(report.fileType);
 
     return Container(
@@ -1103,15 +1041,11 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         color: AppPalette.tint(color, 0.10),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Icon(
-        _fileIconData(report.fileType),
-        size: 21,
-        color: color,
-      ),
+      child: Icon(_fileIconData(report.fileType), size: 21, color: color),
     );
   }
 
-  Widget _reportMainInfo(_ReportFileData report) {
+  Widget _reportMainInfo(SchoolReport report) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1119,30 +1053,21 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           report.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 10.8,
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontSize: 10.8, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 2),
         Text(
           report.fileName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 8.7,
-            color: AppPalette.textMuted,
-          ),
+          style: const TextStyle(fontSize: 8.7, color: AppPalette.textMuted),
         ),
         const SizedBox(height: 2),
         Text(
-          '${report.reportType} • ${report.period}',
+          '${report.reportTypeLabel} • ${_periodLabel(report)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 8.2,
-            color: AppPalette.textMuted,
-          ),
+          style: const TextStyle(fontSize: 8.2, color: AppPalette.textMuted),
         ),
       ],
     );
@@ -1153,10 +1078,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 8.1,
-            color: AppPalette.textMuted,
-          ),
+          style: const TextStyle(fontSize: 8.1, color: AppPalette.textMuted),
         ),
         const SizedBox(height: 2),
         Text(
@@ -1164,10 +1086,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 8.8,
-            fontWeight: FontWeight.w700,
-          ),
+          style: const TextStyle(fontSize: 8.8, fontWeight: FontWeight.w700),
         ),
       ],
     );
@@ -1175,10 +1094,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
 
   Widget _smallTag(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: AppPalette.tint(color, 0.09),
         borderRadius: BorderRadius.circular(20),
@@ -1194,19 +1110,16 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  Widget _statusTag(String status) {
-    final color = _statusColor(status);
+  Widget _statusTag(String label) {
+    final color = _statusColorByLabel(label);
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: AppPalette.tint(color, 0.10),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status,
+        label,
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.w700,
@@ -1216,99 +1129,52 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  bool _hasActiveFilters() {
-    return searchText.isNotEmpty ||
-        selectedDepartment != 'ทุกฝ่าย' ||
-        selectedReportType != 'ทุกประเภท' ||
-        selectedFileType != 'ทุกไฟล์' ||
-        selectedStatus != 'ทุกสถานะ';
-  }
-
-  void _clearFilters() {
-    setState(() {
-      searchText = '';
-      selectedDepartment = 'ทุกฝ่าย';
-      selectedReportType = 'ทุกประเภท';
-      selectedFileType = 'ทุกไฟล์';
-      selectedStatus = 'ทุกสถานะ';
-    });
-  }
-
-  Widget _emptyReports() {
+  Widget _notice({
+    required IconData icon,
+    required String title,
+    String? detail,
+  }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 30,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
       decoration: BoxDecoration(
         color: AppPalette.pageBg,
         borderRadius: BorderRadius.circular(18),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(
-            Icons.find_in_page_rounded,
-            size: 34,
-            color: AppPalette.textMuted,
-          ),
-          SizedBox(height: 8),
+          Icon(icon, size: 30, color: AppPalette.textMuted),
+          const SizedBox(height: 8),
           Text(
-            'ไม่พบไฟล์รายงานตามเงื่อนไข',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
           ),
+          if (detail != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              detail,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 9.6,
+                height: 1.45,
+                color: AppPalette.textMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Color _fileColor(String fileType) {
-    switch (fileType) {
-      case 'PDF':
-        return AppPalette.danger;
-      case 'Excel':
-        return AppPalette.success;
-      case 'Word':
-        return AppPalette.learningBlue;
-      default:
-        return AppPalette.textMuted;
-    }
-  }
+  // -------------------------------------------------------------------------
+  // Detail + review
+  // -------------------------------------------------------------------------
 
-  IconData _fileIconData(String fileType) {
-    switch (fileType) {
-      case 'PDF':
-        return Icons.picture_as_pdf_rounded;
-      case 'Excel':
-        return Icons.table_chart_rounded;
-      case 'Word':
-        return Icons.description_rounded;
-      default:
-        return Icons.insert_drive_file_rounded;
-    }
-  }
-
-  Color _statusColor(String status) {
-    switch (status) {
-      case 'อนุมัติแล้ว':
-        return AppPalette.success;
-      case 'รอตรวจ':
-        return AppPalette.warning;
-      case 'ต้องแก้ไข':
-        return AppPalette.danger;
-      case 'เกินกำหนด':
-        return AppPalette.danger;
-      default:
-        return AppPalette.learningBlue;
-    }
-  }
-
-  void _showReportDetail(_ReportFileData report) {
+  void _showReportDetail(SchoolReport report) {
     final fileColor = _fileColor(report.fileType);
     final statusColor = _statusColor(report.status);
+    final busy = _busyReports.contains(report.reportId);
 
     showDialog<void>(
       context: context,
@@ -1322,15 +1188,11 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
             borderRadius: BorderRadius.circular(24),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 720,
-              maxHeight: 760,
-            ),
+            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 760),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
@@ -1338,12 +1200,8 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                         width: 46,
                         height: 46,
                         decoration: BoxDecoration(
-                          color: AppPalette.tint(
-                            fileColor,
-                            0.10,
-                          ),
-                          borderRadius:
-                              BorderRadius.circular(14),
+                          color: AppPalette.tint(fileColor, 0.10),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Icon(
                           _fileIconData(report.fileType),
@@ -1354,15 +1212,13 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                       const SizedBox(width: 11),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               report.title,
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight:
-                                    FontWeight.w800,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1370,19 +1226,15 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                               report.fileName,
                               style: const TextStyle(
                                 fontSize: 9.5,
-                                color:
-                                    AppPalette.textMuted,
+                                color: AppPalette.textMuted,
                               ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        onPressed: () =>
-                            Navigator.pop(dialogContext),
-                        icon: const Icon(
-                          Icons.close_rounded,
-                        ),
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close_rounded),
                       ),
                     ],
                   ),
@@ -1391,107 +1243,71 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                     spacing: 7,
                     runSpacing: 7,
                     children: [
-                      _smallTag(
-                        report.fileType,
-                        fileColor,
-                      ),
-                      _smallTag(
-                        report.reportType,
-                        report.color,
-                      ),
-                      _smallTag(
-                        report.status,
-                        statusColor,
-                      ),
+                      _smallTag(report.fileTypeLabel, fileColor),
+                      _smallTag(report.reportTypeLabel, AppPalette.learningBlue),
+                      _smallTag(report.statusLabel, statusColor),
                     ],
                   ),
                   const SizedBox(height: 15),
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _detailSectionTitle(
-                            'ข้อมูลไฟล์',
-                          ),
-                          _detailRow(
-                            'ชื่อไฟล์',
-                            report.fileName,
-                          ),
-                          _detailRow(
-                            'ประเภทไฟล์',
-                            report.fileType,
-                          ),
-                          _detailRow(
-                            'ขนาดไฟล์',
-                            report.fileSize,
-                          ),
-                          if (report.pages > 0)
-                            _detailRow(
-                              'จำนวนหน้า',
-                              '${report.pages} หน้า',
-                            ),
-                          _detailRow(
-                            'ช่วงข้อมูล',
-                            report.period,
-                          ),
+                          _detailSectionTitle('ข้อมูลไฟล์'),
+                          _detailRow('ชื่อไฟล์', report.fileName),
+                          _detailRow('ประเภทไฟล์', report.fileTypeLabel),
+                          _detailRow('ขนาดไฟล์', report.sizeLabel),
+                          // จำนวนหน้า is gone: no column, and no way to
+                          // compute one from an arbitrary upload.
+                          _detailRow('ช่วงข้อมูล', _periodLabel(report)),
                           const SizedBox(height: 13),
-                          _detailSectionTitle(
-                            'ข้อมูลผู้ส่ง',
-                          ),
-                          _detailRow(
-                            'ผู้ส่ง',
-                            report.senderName,
-                          ),
+                          _detailSectionTitle('ข้อมูลผู้ส่ง'),
+                          _detailRow('ผู้ส่ง', report.submitterName),
                           _detailRow(
                             'ตำแหน่ง',
-                            report.senderRole,
+                            report.submitterPosition ?? 'ยังไม่ได้ระบุตำแหน่ง',
                           ),
                           _detailRow(
                             'ฝ่าย',
-                            report.department,
+                            report.departmentName ?? 'ไม่ได้สังกัดฝ่าย',
                           ),
                           _detailRow(
                             'ส่งเมื่อ',
-                            report.submittedAt,
+                            _dateTimeLabel(report.submittedAt),
                           ),
+                          if (report.requirementTitle != null)
+                            _detailRow('ส่งตามรายการ', report.requirementTitle!),
                           const SizedBox(height: 13),
-                          _detailSectionTitle(
-                            'รายละเอียดรายงาน',
-                          ),
+                          _detailSectionTitle('รายละเอียดรายงาน'),
                           Text(
-                            report.description,
+                            report.description ?? 'ผู้ส่งไม่ได้กรอกรายละเอียด',
                             style: const TextStyle(
                               fontSize: 9.7,
                               height: 1.5,
-                              color:
-                                  AppPalette.textMuted,
+                              color: AppPalette.textMuted,
                             ),
                           ),
                           const SizedBox(height: 13),
-                          _detailSectionTitle(
-                            'หมายเหตุ / ประเด็นสำคัญ',
-                          ),
+                          _detailSectionTitle('ผลการตรวจ'),
                           Container(
                             width: double.infinity,
-                            padding:
-                                const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppPalette.tint(
-                                report.color,
-                                0.06,
-                              ),
-                              borderRadius:
-                                  BorderRadius.circular(14),
+                              color: AppPalette.tint(statusColor, 0.06),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: Text(
-                              report.remark,
+                              report.reviewedAt == null
+                                  ? 'ยังไม่ได้ตรวจ'
+                                  : '${report.statusLabel} โดย '
+                                        '${report.reviewerName ?? 'ไม่ทราบผู้ตรวจ'} '
+                                        'เมื่อ ${_dateTimeLabel(report.reviewedAt!)}'
+                                        '${report.reviewNote == null ? '' : '\n${report.reviewNote}'}',
                               style: const TextStyle(
                                 fontSize: 9.7,
                                 height: 1.5,
-                                color:
-                                    AppPalette.textMuted,
+                                color: AppPalette.textMuted,
                               ),
                             ),
                           ),
@@ -1502,42 +1318,43 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                   const SizedBox(height: 12),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final compact =
-                          constraints.maxWidth < 520;
+                      final compact = constraints.maxWidth < 520;
 
-                      final viewButton =
-                          OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _showMessage(
-                            'เปิดดู ${report.fileName}',
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.visibility_rounded,
-                          size: 16,
-                        ),
-                        label: const Text('เปิดดูไฟล์'),
+                      final downloadButton = OutlinedButton.icon(
+                        onPressed: busy
+                            ? null
+                            : () => _openReport(dialogContext, report),
+                        icon: const Icon(Icons.download_rounded, size: 16),
+                        label: const Text('เปิด / ดาวน์โหลด'),
                       );
 
-                      final downloadButton =
-                          FilledButton.icon(
+                      final reviseButton = OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppPalette.danger,
+                        ),
+                        onPressed: busy
+                            ? null
+                            : () => _askForRevision(dialogContext, report),
+                        icon: const Icon(Icons.edit_document, size: 16),
+                        label: const Text('ให้แก้ไข'),
+                      );
+
+                      final approveButton = FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor:
-                              AppPalette.primaryPink,
+                          backgroundColor: AppPalette.primaryPink,
                         ),
-                        onPressed: () {
-                          Navigator.pop(dialogContext);
-                          _showMessage(
-                            'เริ่มดาวน์โหลด ${report.fileName}',
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.download_rounded,
-                          size: 16,
+                        onPressed: busy || report.isApproved
+                            ? null
+                            : () => _review(
+                                dialogContext,
+                                report,
+                                'approved',
+                                null,
+                              ),
+                        icon: const Icon(Icons.check_rounded, size: 16),
+                        label: Text(
+                          report.isApproved ? 'อนุมัติแล้ว' : 'อนุมัติ',
                         ),
-                        label:
-                            const Text('ดาวน์โหลด'),
                       );
 
                       if (compact) {
@@ -1545,12 +1362,17 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                           children: [
                             SizedBox(
                               width: double.infinity,
-                              child: viewButton,
+                              child: downloadButton,
                             ),
                             const SizedBox(height: 8),
                             SizedBox(
                               width: double.infinity,
-                              child: downloadButton,
+                              child: reviseButton,
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: approveButton,
                             ),
                           ],
                         );
@@ -1558,11 +1380,11 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
 
                       return Row(
                         children: [
-                          Expanded(child: viewButton),
+                          Expanded(child: downloadButton),
                           const SizedBox(width: 9),
-                          Expanded(
-                            child: downloadButton,
-                          ),
+                          Expanded(child: reviseButton),
+                          const SizedBox(width: 9),
+                          Expanded(child: approveButton),
                         ],
                       );
                     },
@@ -1576,15 +1398,164 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
+  Future<void> _openReport(BuildContext dialogContext, SchoolReport report) async {
+    setState(() => _busyReports.add(report.reportId));
+    try {
+      final url =
+          await (widget.loadDownloadUrl?.call(report.reportId) ??
+              SchoolReportService.getDownloadUrl(report.reportId));
+      final uri = Uri.tryParse(url);
+      if (uri == null) throw StateError('invalid_download_url');
+      final launched = await launchUrl(
+        uri,
+        webOnlyWindowName: '_blank',
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) throw StateError('launch_failed');
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
+    } catch (e) {
+      debugPrint('report download failed: $e');
+      // The raw error never reaches the screen.
+      _showMessage('เปิดไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    } finally {
+      if (mounted) setState(() => _busyReports.remove(report.reportId));
+    }
+  }
+
+  Future<void> _askForRevision(
+    BuildContext dialogContext,
+    SchoolReport report,
+  ) async {
+    final controller = TextEditingController();
+    final note = await showDialog<String>(
+      context: dialogContext,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ส่งกลับให้แก้ไข'),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'ต้องแก้อะไร',
+            hintText: 'ระบุให้ผู้จัดทำทราบว่าต้องแก้ส่วนไหน',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('ส่งกลับ'),
+          ),
+        ],
+      ),
+    );
+    if (note == null) return;
+    if (note.isEmpty) {
+      // The backend refuses this too; saying so here saves a round trip.
+      _showMessage('ต้องระบุเหตุผลก่อนส่งกลับให้แก้ไข');
+      return;
+    }
+    if (!dialogContext.mounted) return;
+    await _review(dialogContext, report, 'needs_revision', note);
+  }
+
+  /// Writes, then re-reads the register and confirms the row really changed
+  /// before saying anything succeeded.
+  Future<void> _review(
+    BuildContext dialogContext,
+    SchoolReport report,
+    String status,
+    String? note,
+  ) async {
+    setState(() => _busyReports.add(report.reportId));
+    try {
+      await (widget.reviewReport?.call(report.reportId, status, note) ??
+          SchoolReportService.reviewReport(
+            reportId: report.reportId,
+            status: status,
+            note: note,
+          ));
+
+      final fresh = await (widget.loadReports?.call() ??
+          SchoolReportService.listReports());
+      final updated = fresh
+          .where((r) => r.reportId == report.reportId)
+          .firstOrNull;
+      if (updated == null || updated.status != status) {
+        throw StateError('backend_review_not_confirmed');
+      }
+
+      if (!mounted) return;
+      setState(() => _reports = fresh);
+      // The summary counts by status, so it is stale the moment one changes.
+      final summary = await (widget.loadSummary?.call() ??
+          SchoolReportService.getSummary());
+      if (mounted) setState(() => _summary = summary);
+
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
+      _showMessage(
+        status == 'approved' ? 'อนุมัติรายงานแล้ว' : 'ส่งกลับให้แก้ไขแล้ว',
+      );
+    } catch (e) {
+      debugPrint('review failed: $e');
+      _showMessage('บันทึกผลการตรวจไม่สำเร็จ สถานะยังไม่เปลี่ยน');
+    } finally {
+      if (mounted) setState(() => _busyReports.remove(report.reportId));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Submit
+  // -------------------------------------------------------------------------
+
+  Future<void> _pickAndSubmitReport() async {
+    final form = await showDialog<_ReportDraft>(
+      context: context,
+      builder: (ctx) => _SubmitReportDialog(departments: _departments),
+    );
+    if (form == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      await (widget.submitReport?.call(
+            title: form.title,
+            reportType: form.reportType,
+            fileName: form.fileName,
+            bytes: form.bytes,
+            departmentId: form.departmentId,
+            description: form.description,
+          ) ??
+          SchoolReportService.submitReport(
+            title: form.title,
+            reportType: form.reportType,
+            fileName: form.fileName,
+            bytes: form.bytes,
+            departmentId: form.departmentId,
+            description: form.description,
+          ));
+      if (!mounted) return;
+      _showMessage('ส่งรายงานเข้าทะเบียนแล้ว');
+      await _load();
+    } catch (e) {
+      debugPrint('submit report failed: $e');
+      _showMessage('ส่งรายงานไม่สำเร็จ ไฟล์ยังไม่ถูกบันทึกในทะเบียน');
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Small helpers
+  // -------------------------------------------------------------------------
+
   Widget _detailSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-        ),
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -1593,8 +1564,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 110,
@@ -1622,83 +1592,248 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
   }
+
+  static String _two(int v) => v.toString().padLeft(2, '0');
+
+  static String _dateLabel(DateTime d) =>
+      '${_two(d.day)}/${_two(d.month)}/${d.year + 543}';
+
+  static String _dateTimeLabel(DateTime d) =>
+      '${_dateLabel(d)} • ${_two(d.hour)}:${_two(d.minute)} น.';
+
+  /// The period the report covers, or a statement that the submitter did not
+  /// give one — never a made-up range.
+  static String _periodLabel(SchoolReport r) {
+    if (r.periodStart == null && r.periodEnd == null) return 'ไม่ได้ระบุช่วง';
+    if (r.periodEnd == null) return _dateLabel(r.periodStart!);
+    if (r.periodStart == null) return _dateLabel(r.periodEnd!);
+    if (r.periodStart == r.periodEnd) return _dateLabel(r.periodStart!);
+    return '${_dateLabel(r.periodStart!)} - ${_dateLabel(r.periodEnd!)}';
+  }
+
+  Color _fileColor(String fileType) {
+    switch (fileType) {
+      case 'pdf':
+        return AppPalette.danger;
+      case 'excel':
+        return AppPalette.success;
+      case 'word':
+        return AppPalette.learningBlue;
+      default:
+        return AppPalette.textMuted;
+    }
+  }
+
+  IconData _fileIconData(String fileType) {
+    switch (fileType) {
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
+      case 'excel':
+        return Icons.table_chart_rounded;
+      case 'word':
+        return Icons.description_rounded;
+      case 'image':
+        return Icons.image_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'approved':
+        return AppPalette.success;
+      case 'under_review':
+        return AppPalette.warning;
+      case 'needs_revision':
+        return AppPalette.danger;
+      default:
+        return AppPalette.learningBlue;
+    }
+  }
+
+  Color _statusColorByLabel(String label) => _statusColor(
+    SchoolReport.statusLabels.entries
+            .where((e) => e.value == label)
+            .map((e) => e.key)
+            .firstOrNull ??
+        label,
+  );
 }
 
-class _ReportSummary {
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-
-  const _ReportSummary({
+class _ReportSummaryCard {
+  const _ReportSummaryCard({
     required this.title,
     required this.value,
     required this.subtitle,
     required this.icon,
     required this.color,
   });
+
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
 }
 
-class _ReportFileData {
-  final String title;
-  final String fileName;
-  final String fileType;
-  final String fileSize;
-  final int pages;
-  final String senderName;
-  final String senderRole;
-  final String department;
-  final String reportType;
-  final String period;
-  final String submittedAt;
-  final String status;
-  final String description;
-  final String remark;
-  final Color color;
-
-  const _ReportFileData({
+class _ReportDraft {
+  const _ReportDraft({
     required this.title,
-    required this.fileName,
-    required this.fileType,
-    required this.fileSize,
-    required this.pages,
-    required this.senderName,
-    required this.senderRole,
-    required this.department,
     required this.reportType,
-    required this.period,
-    required this.submittedAt,
-    required this.status,
-    required this.description,
-    required this.remark,
-    required this.color,
+    required this.fileName,
+    required this.bytes,
+    this.departmentId,
+    this.description,
   });
+
+  final String title;
+  final String reportType;
+  final String fileName;
+  final Uint8List bytes;
+  final String? departmentId;
+  final String? description;
 }
 
-class _PendingReportData {
-  final String title;
-  final String responsible;
-  final String department;
-  final String dueDate;
-  final int submitted;
-  final int total;
-  final String status;
-  final Color color;
+/// Collects the file and its metadata. The submit button stays disabled until
+/// a file is actually attached, rather than accepting a submission that has
+/// nothing to store.
+class _SubmitReportDialog extends StatefulWidget {
+  const _SubmitReportDialog({required this.departments});
 
-  const _PendingReportData({
-    required this.title,
-    required this.responsible,
-    required this.department,
-    required this.dueDate,
-    required this.submitted,
-    required this.total,
-    required this.status,
-    required this.color,
-  });
+  final List<SchoolDepartment> departments;
+
+  @override
+  State<_SubmitReportDialog> createState() => _SubmitReportDialogState();
+}
+
+class _SubmitReportDialogState extends State<_SubmitReportDialog> {
+  final TextEditingController _title = TextEditingController();
+  final TextEditingController _description = TextEditingController();
+  String _reportType = 'monthly';
+  String? _departmentId;
+  String? _fileName;
+  Uint8List? _bytes;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(withData: true);
+    final file = result?.files.singleOrNull;
+    if (file == null || file.bytes == null) return;
+    setState(() {
+      _fileName = file.name;
+      _bytes = file.bytes;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSubmit = _bytes != null && _title.text.trim().isNotEmpty;
+
+    return AlertDialog(
+      title: const Text('ส่งรายงานเข้าทะเบียน'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _title,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'ชื่อรายงาน'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _reportType,
+                decoration: const InputDecoration(labelText: 'ประเภทรายงาน'),
+                items: SchoolReport.reportTypeLabels.entries
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e.key,
+                        child: Text(e.value),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _reportType = v ?? 'monthly'),
+              ),
+              const SizedBox(height: 12),
+              // Only ฝ่าย the school actually has. Empty when none exist yet,
+              // which is a real state rather than a list of six defaults.
+              DropdownButtonFormField<String?>(
+                value: _departmentId,
+                decoration: InputDecoration(
+                  labelText: widget.departments.isEmpty
+                      ? 'ยังไม่มีฝ่ายในระบบ'
+                      : 'ฝ่ายผู้ส่ง',
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('ไม่ระบุฝ่าย'),
+                  ),
+                  ...widget.departments.map(
+                    (d) => DropdownMenuItem<String?>(
+                      value: d.departmentId,
+                      child: Text(d.name),
+                    ),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _departmentId = v),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _description,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'รายละเอียด (ไม่บังคับ)',
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _pickFile,
+                icon: const Icon(Icons.attach_file_rounded, size: 16),
+                label: Text(_fileName ?? 'เลือกไฟล์'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('ยกเลิก'),
+        ),
+        FilledButton(
+          onPressed: canSubmit
+              ? () => Navigator.pop(
+                  context,
+                  _ReportDraft(
+                    title: _title.text.trim(),
+                    reportType: _reportType,
+                    fileName: _fileName!,
+                    bytes: _bytes!,
+                    departmentId: _departmentId,
+                    description: _description.text.trim().isEmpty
+                        ? null
+                        : _description.text.trim(),
+                  ),
+                )
+              : null,
+          child: const Text('ส่ง'),
+        ),
+      ],
+    );
+  }
 }
