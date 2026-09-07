@@ -7,7 +7,24 @@ import 'issue_binding_code_page.dart';
 import 'parent_link_review_page.dart';
 
 class UserListPage extends StatefulWidget {
-  const UserListPage({super.key});
+  const UserListPage({
+    super.key,
+    this.loadUsers,
+    this.updateProfile,
+    this.updateRole,
+    this.suspendUser,
+    this.reactivateUser,
+  });
+
+  /// Injectable seams for tests — production leaves these null and uses the
+  /// real service (same pattern as school_admin's connection tests).
+  final Future<List<UserModel>> Function()? loadUsers;
+  final Future<void> Function({required String uid, required String name})?
+  updateProfile;
+  final Future<void> Function({required String uid, required UserRole role})?
+  updateRole;
+  final Future<void> Function(String uid)? suspendUser;
+  final Future<void> Function(String uid)? reactivateUser;
 
   @override
   State<UserListPage> createState() => _UserListPageState();
@@ -37,7 +54,7 @@ class _UserListPageState extends State<UserListPage> {
     if (!mounted) return;
     setState(() => isLoading = true);
     try {
-      final result = await UserAdminService.getAllUsers();
+      final result = await (widget.loadUsers ?? UserAdminService.getAllUsers)();
       if (mounted) {
         setState(() {
           users = result;
@@ -220,7 +237,10 @@ class _UserListPageState extends State<UserListPage> {
                 }
 
                 try {
-                  await AuthService.updateProfile(uid: user.uid, name: newName);
+                  await (widget.updateProfile ?? AuthService.updateProfile)(
+                    uid: user.uid,
+                    name: newName,
+                  );
                   if (!mounted) return;
                   Navigator.pop(dialogContext);
                   await loadUsers();
@@ -350,7 +370,7 @@ class _UserListPageState extends State<UserListPage> {
                 FilledButton.icon(
                   onPressed: () async {
                     try {
-                      await UserAdminService.updateRole(
+                      await (widget.updateRole ?? UserAdminService.updateRole)(
                         uid: user.uid,
                         role: selectedRole,
                       );
@@ -435,7 +455,9 @@ class _UserListPageState extends State<UserListPage> {
             FilledButton.icon(
               onPressed: () async {
                 try {
-                  await UserAdminService.deleteUser(user.uid);
+                  await (widget.suspendUser ?? UserAdminService.deleteUser)(
+                    user.uid,
+                  );
                   if (!mounted) return;
                   Navigator.pop(dialogContext);
                   await loadUsers();
@@ -515,7 +537,9 @@ class _UserListPageState extends State<UserListPage> {
             FilledButton.icon(
               onPressed: () async {
                 try {
-                  await UserAdminService.reactivateUser(user.uid);
+                  await (widget.reactivateUser ?? UserAdminService.reactivateUser)(
+                    user.uid,
+                  );
                   if (!mounted) return;
                   Navigator.pop(dialogContext);
                   await loadUsers();
@@ -1311,7 +1335,12 @@ class _UserListPageState extends State<UserListPage> {
                                         children: [
                                           Icon(Icons.edit_outlined, size: 18, color: Color(0xFF475569)),
                                           SizedBox(width: 10),
-                                          Text('แก้ไขชื่อผู้ใช้'),
+                                          Flexible(
+                                            child: Text(
+                                              'แก้ไขชื่อผู้ใช้',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1322,7 +1351,12 @@ class _UserListPageState extends State<UserListPage> {
                                         children: [
                                           Icon(Icons.manage_accounts_outlined, size: 18, color: Color(0xFF475569)),
                                           SizedBox(width: 10),
-                                          Text('เปลี่ยนสิทธิ์และบทบาท'),
+                                          Flexible(
+                                            child: Text(
+                                              'เปลี่ยนสิทธิ์และบทบาท',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -1338,11 +1372,14 @@ class _UserListPageState extends State<UserListPage> {
                                             color: user.isSuspended ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
                                           ),
                                           const SizedBox(width: 10),
-                                          Text(
-                                            user.isSuspended ? 'เปิดใช้งานบัญชี' : 'ระงับการใช้งาน',
-                                            style: TextStyle(
-                                              color: user.isSuspended ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
-                                              fontWeight: FontWeight.w700,
+                                          Flexible(
+                                            child: Text(
+                                              user.isSuspended ? 'เปิดใช้งานบัญชี' : 'ระงับการใช้งาน',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: user.isSuspended ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                             ),
                                           ),
                                         ],
