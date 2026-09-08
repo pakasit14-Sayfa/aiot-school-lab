@@ -69,7 +69,30 @@ Color _colorForExtension(String ext) {
 }
 
 class TeacherKnowledgeLibraryPage extends StatefulWidget {
-  const TeacherKnowledgeLibraryPage({super.key});
+  const TeacherKnowledgeLibraryPage({
+    super.key,
+    this.loadCourses,
+    this.listFiles,
+    this.uploadFile,
+    this.getDownloadUrl,
+    this.hasSessionOverride,
+  });
+
+  /// Read/write seams threaded to the corresponding CourseService/
+  /// CourseFileService static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<CourseFile>> Function(String courseId)? listFiles;
+  final Future<void> Function({
+    required String courseId,
+    required String fileName,
+    required Uint8List bytes,
+  })?
+  uploadFile;
+  final Future<String> Function(String fileId)? getDownloadUrl;
+
+  /// Overrides AuthService.sessionToken != null for tests, since that's a
+  /// static field the seams above can't otherwise replace.
+  final bool? hasSessionOverride;
 
   @override
   State<TeacherKnowledgeLibraryPage> createState() =>
@@ -104,8 +127,11 @@ class _TeacherKnowledgeLibraryPageState
     });
 
     try {
-      if (AuthService.sessionToken != null) {
-        final courses = await CourseService.listMyCourses();
+      final hasSession =
+          widget.hasSessionOverride ?? (AuthService.sessionToken != null);
+      if (hasSession) {
+        final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+        final courses = await loadCourses();
         if (courses.isEmpty) {
           if (mounted) {
             setState(() {
@@ -134,7 +160,8 @@ class _TeacherKnowledgeLibraryPageState
           final c = courses[i];
           List<CourseFile> files = [];
           try {
-            files = await CourseFileService.listFiles(c.id);
+            final listFiles = widget.listFiles ?? CourseFileService.listFiles;
+            files = await listFiles(c.id);
           } catch (_) {}
 
           final mappedFiles = files.map((f) {
@@ -207,7 +234,9 @@ class _TeacherKnowledgeLibraryPageState
 
     final targetSubject = _subjects[result.subjectIndex];
 
-    if (AuthService.sessionToken != null && !targetSubject.id.startsWith('mock-')) {
+    final hasSession =
+        widget.hasSessionOverride ?? (AuthService.sessionToken != null);
+    if (hasSession && !targetSubject.id.startsWith('mock-')) {
       // Real upload to Supabase Storage
       try {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -219,7 +248,8 @@ class _TeacherKnowledgeLibraryPageState
         );
 
         if (result.bytes != null) {
-          await CourseFileService.uploadFile(
+          final upload = widget.uploadFile ?? CourseFileService.uploadFile;
+          await upload(
             courseId: targetSubject.id,
             fileName: result.fileName,
             bytes: result.bytes!,
@@ -237,12 +267,12 @@ class _TeacherKnowledgeLibraryPageState
             ),
           );
         }
-      } catch (e) {
+      } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('อัปโหลดไฟล์ไม่สำเร็จ: $e'),
-              backgroundColor: const Color(0xFFEF4444),
+            const SnackBar(
+              content: Text('อัปโหลดไฟล์ไม่สำเร็จ'),
+              backgroundColor: Color(0xFFEF4444),
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -284,7 +314,8 @@ class _TeacherKnowledgeLibraryPageState
   // จะถูกเข้าใจผิดว่าเป็นไฟล์ mock)
   Future<void> _downloadFile(TeacherLibraryFile file) async {
     try {
-      final url = await CourseFileService.getDownloadUrl(file.id);
+      final getUrl = widget.getDownloadUrl ?? CourseFileService.getDownloadUrl;
+      final url = await getUrl(file.id);
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -299,12 +330,12 @@ class _TeacherKnowledgeLibraryPageState
           );
         }
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('ไม่สามารถดาวน์โหลดไฟล์ได้: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('ไม่สามารถดาวน์โหลดไฟล์ได้'),
+            backgroundColor: Color(0xFFEF4444),
             behavior: SnackBarBehavior.floating,
           ),
         );
