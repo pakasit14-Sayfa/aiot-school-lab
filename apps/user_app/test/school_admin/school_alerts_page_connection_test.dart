@@ -202,12 +202,63 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น CSV'));
     await tester.pump();
 
     expect(downloadedFilename, contains('alerts_'));
+    expect(downloadedFilename, endsWith('.csv'));
     expect(downloadedBytes, isNotNull);
     final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
     expect(csv, contains('DEV-1'));
+    expect(find.textContaining('ส่งออกรายงานเหตุแจ้งเตือน'), findsOneWidget);
+  });
+
+  testWidgets('export downloads a real Excel file of the filtered alerts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final controller = SchoolAdminAlertsController(
+      loadAlerts: () async => [_alert(id: '1', status: 'new')],
+      acknowledgeAlert: (alertId) async {},
+      resolveAlert: (alertId, {note}) async {},
+    );
+    addTearDown(controller.dispose);
+
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAlertsPage(
+          controller: controller,
+          loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+          downloadBytesOverride:
+              ({
+                required String filename,
+                required List<int> bytes,
+                required String mimeType,
+              }) {
+                downloadedFilename = filename;
+                downloadedBytes = bytes;
+              },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น Excel'));
+    await tester.pump();
+
+    expect(downloadedFilename, endsWith('.xlsx'));
+    expect(downloadedBytes, isNotNull);
+    expect(downloadedBytes![0], 0x50);
+    expect(downloadedBytes![1], 0x4B);
     expect(find.textContaining('ส่งออกรายงานเหตุแจ้งเตือน'), findsOneWidget);
   });
 }

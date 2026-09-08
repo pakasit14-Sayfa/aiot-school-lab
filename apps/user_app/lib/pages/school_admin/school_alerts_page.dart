@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -207,28 +208,27 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     return value;
   }
 
-  void _exportAlerts() {
-    final alerts = _filteredAlerts;
-    if (alerts.isEmpty) {
-      _showMessage('ไม่มีเหตุแจ้งเตือนให้ส่งออกตามตัวกรองปัจจุบัน');
-      return;
-    }
+  static const List<String> _alertsCsvHeader = [
+    'id',
+    'title',
+    'detail',
+    'category',
+    'severity',
+    'status',
+    'building',
+    'room',
+    'source',
+    'created_at',
+    'recipient',
+  ];
 
-    final header = <String>[
-      'id',
-      'title',
-      'detail',
-      'category',
-      'severity',
-      'status',
-      'building',
-      'room',
-      'source',
-      'created_at',
-      'recipient',
-    ];
-    final rows = <List<String>>[
-      header,
+  /// Shared by both CSV and Excel export so the two formats can never drift
+  /// apart. Returns null when the current filter matches nothing.
+  List<List<String>>? _buildAlertRows() {
+    final alerts = _filteredAlerts;
+    if (alerts.isEmpty) return null;
+    return <List<String>>[
+      _alertsCsvHeader,
       for (final alert in alerts)
         [
           alert.id,
@@ -244,6 +244,14 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
           alert.recipient,
         ],
     ];
+  }
+
+  void _exportAlerts() {
+    final rows = _buildAlertRows();
+    if (rows == null) {
+      _showMessage('ไม่มีเหตุแจ้งเตือนให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
     final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
 
     final doDownload = widget.downloadBytesOverride ?? downloadBytes;
@@ -254,7 +262,39 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
       mimeType: 'text/csv',
     );
 
-    _showMessage('ส่งออกรายงานเหตุแจ้งเตือน ${alerts.length} รายการแล้ว');
+    _showMessage('ส่งออกรายงานเหตุแจ้งเตือน ${rows.length - 1} รายการแล้ว (CSV)');
+  }
+
+  void _exportAlertsExcel() {
+    final rows = _buildAlertRows();
+    if (rows == null) {
+      _showMessage('ไม่มีเหตุแจ้งเตือนให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook[workbook.getDefaultSheet() ?? 'Sheet1'];
+    for (final row in rows) {
+      sheet.appendRow(row.map(xls.TextCellValue.new).toList());
+    }
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      _showMessage('สร้างไฟล์ Excel ไม่สำเร็จ');
+      return;
+    }
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'alerts_${DateTime.now().toIso8601String().split('T').first}.xlsx',
+      bytes: bytes,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    _showMessage(
+      'ส่งออกรายงานเหตุแจ้งเตือน ${rows.length - 1} รายการแล้ว (Excel)',
+    );
   }
 
   int get _newCount => _alerts.where((alert) => alert.status == 'ใหม่').length;
@@ -676,10 +716,23 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                   // DoD asks for controls without a backend to be disabled —
                   // an admin should be able to see what is unavailable
                   // without having to press it.
-                  OutlinedButton.icon(
-                    onPressed: _exportAlerts,
-                    icon: const Icon(Icons.download_rounded),
-                    label: const Text('ส่งออกรายงาน'),
+                  PopupMenuButton<String>(
+                    tooltip: 'ส่งออกรายงาน',
+                    onSelected: (value) => value == 'csv'
+                        ? _exportAlerts()
+                        : _exportAlertsExcel(),
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
+                      PopupMenuItem(
+                        value: 'excel',
+                        child: Text('ส่งออกเป็น Excel'),
+                      ),
+                    ],
+                    child: OutlinedButton.icon(
+                      onPressed: null,
+                      icon: const Icon(Icons.download_rounded),
+                      label: const Text('ส่งออกรายงาน'),
+                    ),
                   ),
                   Tooltip(
                     message:
