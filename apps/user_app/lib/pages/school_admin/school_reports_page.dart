@@ -1,10 +1,26 @@
+import 'dart:convert';
+
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../../theme/school_admin_palette.dart';
+import '../../utils/web_download.dart';
+
+typedef ReportsDownloadBytes =
+    void Function({
+      required String filename,
+      required List<int> bytes,
+      required String mimeType,
+    });
 
 class SchoolReportsPage extends StatefulWidget {
-  const SchoolReportsPage({super.key, this.loadSummary, this.loadLogs});
+  const SchoolReportsPage({
+    super.key,
+    this.loadSummary,
+    this.loadLogs,
+    this.downloadBytesOverride,
+  });
 
   /// Injectable read seams, same pattern as the already-connected School
   /// Admin pages. Production passes nothing and the real service is used;
@@ -12,6 +28,9 @@ class SchoolReportsPage extends StatefulWidget {
   /// deterministically without a live Supabase client.
   final Future<SchoolAdminDashboardSummary> Function()? loadSummary;
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+  // Seam for tests: lets a test prove the export button actually calls a
+  // download instead of the old always-"still in development" SnackBar.
+  final ReportsDownloadBytes? downloadBytesOverride;
 
   @override
   State<SchoolReportsPage> createState() => _SchoolReportsPageState();
@@ -120,10 +139,73 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  void _createReport(String format) {
-    _message(
-      'ระบบสร้างรายงานรูปแบบ $format ยังอยู่ระหว่างการพัฒนาและยังไม่เชื่อมต่อระบบหลังบ้าน',
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  /// Shared by both CSV and Excel export so the two formats can never drift
+  /// apart in content. No RPC computes a per-report-type breakdown, so this
+  /// exports the same real summary counts shown on screen — null when there
+  /// is nothing loaded yet to export.
+  List<List<String>>? _buildReportRows() {
+    final s = _summaryData;
+    if (s == null) return null;
+    return <List<String>>[
+      ['metric', 'value'],
+      ['students_count', '${s.studentsCount}'],
+      ['devices_count', '${s.devicesCount}'],
+      ['devices_online', '${s.devicesOnline}'],
+      ['buildings_count', '${s.buildingsCount}'],
+      ['rooms_count', '${s.roomsCount}'],
+      ['open_alerts_count', '${s.openAlertsCount}'],
+    ];
+  }
+
+  void _exportReport() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      _message('ยังไม่มีข้อมูลสำหรับส่งออก');
+      return;
+    }
+    final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'school_report_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
     );
+    _message('ส่งออกรายงานแล้ว (CSV)');
+  }
+
+  void _exportReportExcel() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      _message('ยังไม่มีข้อมูลสำหรับส่งออก');
+      return;
+    }
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook[workbook.getDefaultSheet() ?? 'Sheet1'];
+    for (final row in rows) {
+      sheet.appendRow(row.map(xls.TextCellValue.new).toList());
+    }
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      _message('สร้างไฟล์ Excel ไม่สำเร็จ');
+      return;
+    }
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'school_report_${DateTime.now().toIso8601String().split('T').first}.xlsx',
+      bytes: bytes,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    _message('ส่งออกรายงานแล้ว (Excel)');
   }
 
   @override
@@ -209,15 +291,23 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              OutlinedButton.icon(
-                onPressed: () => _createReport('Excel'),
-                icon: const Icon(Icons.table_view_rounded),
-                label: const Text('ส่งออก Excel'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _createReport('PDF'),
-                icon: const Icon(Icons.picture_as_pdf_rounded),
-                label: const Text('สร้าง PDF'),
+              PopupMenuButton<String>(
+                tooltip: 'ส่งออกรายงาน',
+                onSelected: (value) =>
+                    value == 'csv' ? _exportReport() : _exportReportExcel(),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
+                  PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
+                ],
+                child: FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.file_download_outlined),
+                  label: const Text('ส่งออกรายงาน'),
+                  style: FilledButton.styleFrom(
+                    disabledBackgroundColor: SchoolAdminPalette.primaryDark,
+                    disabledForegroundColor: Colors.white,
+                  ),
+                ),
               ),
             ],
           );
@@ -615,7 +705,7 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
             ),
             SizedBox(height: 8),
             Text(
-              'ระบบสร้างรายงานและส่งออกไฟล์ยังไม่พร้อมใช้งานในเวอร์ชันนี้',
+              'ระบบยังไม่เก็บประวัติไฟล์รายงานที่เคยส่งออกไว้ในเวอร์ชันนี้',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
@@ -624,7 +714,7 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
             ),
             SizedBox(height: 4),
             Text(
-              'การส่งออกข้อมูลเป็นไฟล์ PDF และ Excel อยู่ระหว่างการพัฒนาระบบหลังบ้าน',
+              'กดปุ่ม "ส่งออกรายงาน" ด้านบนเพื่อดาวน์โหลดข้อมูลปัจจุบันเป็น CSV หรือ Excel ได้ทันที',
               style: TextStyle(
                 fontSize: 11,
                 color: SchoolAdminPalette.textSecondary,

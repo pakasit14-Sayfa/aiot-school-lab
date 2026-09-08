@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +45,7 @@ Future<void> _pump(
   WidgetTester tester, {
   required Future<SchoolAdminDashboardSummary> Function() loadSummary,
   required Future<List<SchoolAdminAuditLog>> Function() loadLogs,
+  ReportsDownloadBytes? downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1400, 2400);
   tester.view.devicePixelRatio = 1;
@@ -53,7 +55,11 @@ Future<void> _pump(
   });
   await tester.pumpWidget(
     MaterialApp(
-      home: SchoolReportsPage(loadSummary: loadSummary, loadLogs: loadLogs),
+      home: SchoolReportsPage(
+        loadSummary: loadSummary,
+        loadLogs: loadLogs,
+        downloadBytesOverride: downloadBytesOverride,
+      ),
     ),
   );
 }
@@ -207,4 +213,104 @@ void main() {
     expect(find.text('โหลดข้อมูลรายงานไม่สำเร็จ กรุณาลองใหม่'), findsNothing);
     expect(find.text('321'), findsOneWidget);
   });
+
+  testWidgets('export downloads a real CSV built from the loaded summary', (
+    tester,
+  ) async {
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+    await _pump(
+      tester,
+      loadSummary: () async => _summary(students: 55, alerts: 3),
+      loadLogs: () async => <SchoolAdminAuditLog>[],
+      downloadBytesOverride:
+          ({
+            required String filename,
+            required List<int> bytes,
+            required String mimeType,
+          }) {
+            downloadedFilename = filename;
+            downloadedBytes = bytes;
+          },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น CSV'));
+    await tester.pump();
+
+    expect(downloadedFilename, contains('school_report_'));
+    expect(downloadedFilename, endsWith('.csv'));
+    expect(downloadedBytes, isNotNull);
+    final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
+    expect(csv, contains('students_count,55'));
+    expect(csv, contains('open_alerts_count,3'));
+    expect(find.text('ส่งออกรายงานแล้ว (CSV)'), findsOneWidget);
+  });
+
+  testWidgets('export downloads a real Excel file built from the loaded summary', (
+    tester,
+  ) async {
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+    await _pump(
+      tester,
+      loadSummary: () async => _summary(),
+      loadLogs: () async => <SchoolAdminAuditLog>[],
+      downloadBytesOverride:
+          ({
+            required String filename,
+            required List<int> bytes,
+            required String mimeType,
+          }) {
+            downloadedFilename = filename;
+            downloadedBytes = bytes;
+          },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น Excel'));
+    await tester.pump();
+
+    expect(downloadedFilename, endsWith('.xlsx'));
+    expect(downloadedBytes, isNotNull);
+    // .xlsx is a zip archive — 'PK' magic bytes confirm a real file was
+    // encoded, not an empty/placeholder byte list.
+    expect(downloadedBytes![0], 0x50);
+    expect(downloadedBytes![1], 0x4B);
+    expect(find.text('ส่งออกรายงานแล้ว (Excel)'), findsOneWidget);
+  });
+
+  testWidgets(
+    'export with no data loaded yet refuses instead of downloading an empty file',
+    (tester) async {
+      var downloadCalled = false;
+      final gate = Completer<SchoolAdminDashboardSummary>();
+      await _pump(
+        tester,
+        loadSummary: () => gate.future,
+        loadLogs: () async => <SchoolAdminAuditLog>[],
+        downloadBytesOverride:
+            ({
+              required String filename,
+              required List<int> bytes,
+              required String mimeType,
+            }) {
+              downloadCalled = true;
+            },
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('ส่งออกรายงาน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ส่งออกเป็น CSV'));
+      await tester.pump();
+
+      expect(downloadCalled, isFalse);
+      expect(find.text('ยังไม่มีข้อมูลสำหรับส่งออก'), findsOneWidget);
+    },
+  );
 }
