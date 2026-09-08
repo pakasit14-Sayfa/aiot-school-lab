@@ -2390,6 +2390,8 @@ Foreign keys:
 
 ### list_report_requirements(p_token text, p_only_open boolean DEFAULT false) -> TABLE(requirement_id uuid, title character varying, description text, report_type text, period_start date, period_end date, due_date date, expected_count integer, filed_count integer, is_overdue boolean, missing_departments text[]) (SECURITY DEFINER, plpgsql)
 
+### list_role_permission_matrix(p_token text) -> TABLE(function_name text, allowed_roles text[]) (SECURITY DEFINER, plpgsql)
+
 ### list_school_admin_audit_logs(p_token text, p_limit integer DEFAULT 20) -> TABLE(id bigint, action text, target text, detail text, actor_name text, actor_role text, created_at timestamp with time zone) (SECURITY DEFINER, plpgsql)
 
 ### list_school_alerts(p_token text, p_status text DEFAULT NULL::text) -> TABLE(id uuid, device_id uuid, device_name text, device_code text, school_id uuid, threshold_id uuid, metric text, value numeric, triggered_at timestamp with time zone, status text, acknowledged_by uuid, acknowledged_by_name text, acknowledged_at timestamp with time zone) (SECURITY DEFINER, plpgsql)
