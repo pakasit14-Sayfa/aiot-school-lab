@@ -55,7 +55,32 @@ class _GradingItemMock {
 const _allFilter = 'ทั้งหมด';
 
 class TeacherGradingPage extends StatefulWidget {
-  const TeacherGradingPage({super.key});
+  const TeacherGradingPage({
+    super.key,
+    this.listMyCourses,
+    this.listAssignments,
+    this.listSubmissions,
+    this.createAssignment,
+    this.publishAssignment,
+  });
+
+  /// Read/write seams threaded to the corresponding CourseService/
+  /// AssignmentService static calls in production.
+  final Future<List<CourseSummary>> Function()? listMyCourses;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  listAssignments;
+  final Future<List<SubmissionRoster>> Function(String assignmentId)?
+  listSubmissions;
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  createAssignment;
+  final Future<void> Function(String assignmentId)? publishAssignment;
 
   @override
   State<TeacherGradingPage> createState() => _TeacherGradingPageState();
@@ -82,12 +107,17 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
       _loadError = null;
     });
     try {
-      final courses = await CourseService.listMyCourses();
+      final loadCourses = widget.listMyCourses ?? CourseService.listMyCourses;
+      final loadAssignments =
+          widget.listAssignments ?? AssignmentService.listAssignments;
+      final loadSubmissions =
+          widget.listSubmissions ?? AssignmentService.listSubmissions;
+      final courses = await loadCourses();
       final items = <_GradingItemMock>[];
       for (final c in courses) {
         List<AssignmentSummary> assignments;
         try {
-          assignments = await AssignmentService.listAssignments(c.id);
+          assignments = await loadAssignments(c.id);
         } catch (_) {
           assignments = const [];
         }
@@ -95,7 +125,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
           var submitted = 0;
           var total = 0;
           try {
-            final roster = await AssignmentService.listSubmissions(a.id);
+            final roster = await loadSubmissions(a.id);
             total = roster.length;
             submitted = roster.where((r) => r.status != 'not_submitted').length;
           } catch (_) {
@@ -150,10 +180,10 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
         _courses = courses;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดใบงานไม่สำเร็จ: $e';
+        _loadError = 'โหลดใบงานไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -197,7 +227,11 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _CreateWorksheetSheet(courses: _courses),
+      builder: (context) => _CreateWorksheetSheet(
+        courses: _courses,
+        createAssignment: widget.createAssignment,
+        publishAssignment: widget.publishAssignment,
+      ),
     );
     if (created == null) return;
     await _loadRealAssignments();
@@ -630,9 +664,23 @@ class _CreatedWorksheetResult {
 }
 
 class _CreateWorksheetSheet extends StatefulWidget {
-  const _CreateWorksheetSheet({required this.courses});
+  const _CreateWorksheetSheet({
+    required this.courses,
+    this.createAssignment,
+    this.publishAssignment,
+  });
 
   final List<CourseSummary> courses;
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  createAssignment;
+  final Future<void> Function(String assignmentId)? publishAssignment;
 
   @override
   State<_CreateWorksheetSheet> createState() => _CreateWorksheetSheetState();
@@ -667,13 +715,17 @@ class _CreateWorksheetSheetState extends State<_CreateWorksheetSheet> {
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final assignmentId = await AssignmentService.createAssignment(
+      final create =
+          widget.createAssignment ?? AssignmentService.createAssignment;
+      final publish =
+          widget.publishAssignment ?? AssignmentService.publishAssignment;
+      final assignmentId = await create(
         courseId: course.id,
         type: 'worksheet',
         title: _titleCtrl.text.trim(),
       );
       if (_isPublished) {
-        await AssignmentService.publishAssignment(assignmentId);
+        await publish(assignmentId);
       }
       if (!mounted) return;
       Navigator.pop(
@@ -683,13 +735,13 @@ class _CreateWorksheetSheetState extends State<_CreateWorksheetSheet> {
           isPublished: _isPublished,
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('สร้างใบงานไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('สร้างใบงานไม่สำเร็จ'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
     }
