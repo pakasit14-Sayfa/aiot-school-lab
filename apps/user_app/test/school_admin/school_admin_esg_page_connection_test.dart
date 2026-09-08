@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -304,30 +305,86 @@ void main() {
     );
   });
 
-  testWidgets('export is disabled instead of reporting a file it never made', (
+  testWidgets('export downloads a real CSV built from the loaded figures', (
     tester,
   ) async {
-    await _pump(tester, energySummary: () async => _energy);
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    tester.view.physicalSize = const Size(1400, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAdminEsgPage(
+          loadEnergyScore: () async => _energyScore,
+          loadWaterScore: () async => _waterScore,
+          loadEnergySummary: () async => _energy,
+          loadWaterSummary: () async => _water,
+          loadSchedules: () async => const <DeviceSchedule>[],
+          downloadBytesOverride:
+              ({
+                required String filename,
+                required List<int> bytes,
+                required String mimeType,
+              }) {
+                downloadedFilename = filename;
+                downloadedBytes = bytes;
+              },
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
-    final label = find.text('ส่งออกรายงาน ESG (ยังไม่เปิดใช้งาน)');
-    expect(label, findsOneWidget);
-    final button = tester.widget<ButtonStyleButton>(
-      find
-          .ancestor(
-            of: label,
-            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-          )
-          .first,
-    );
-    expect(button.onPressed, isNull);
-
-    await tester.tap(label, warnIfMissed: false);
+    await tester.tap(find.text('ส่งออกรายงาน ESG'));
     await tester.pump();
-    expect(find.byType(SnackBar), findsNothing);
-    expect(
-      find.text('ดาวน์โหลดรายงาน ESG ประจำเดือน (PDF/Excel) เรียบร้อยแล้ว'),
-      findsNothing,
+
+    expect(downloadedFilename, contains('esg_report_'));
+    expect(downloadedBytes, isNotNull);
+    final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
+    expect(csv, contains('energy_total_kwh'));
+    expect(csv, contains('1000.0'));
+    expect(find.text('ส่งออกรายงาน ESG แล้ว'), findsOneWidget);
+  });
+
+  testWidgets('export with no measured data refuses instead of downloading an empty file', (
+    tester,
+  ) async {
+    var downloadCalled = false;
+    await _pump(tester);
+    await tester.pumpAndSettle();
+
+    // No override supplied above via _pump, so rebuild directly with one
+    // that would flag if called.
+    tester.view.physicalSize = const Size(1400, 2600);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAdminEsgPage(
+          loadEnergyScore: () async => null,
+          loadWaterScore: () async => null,
+          loadEnergySummary: () async => null,
+          loadWaterSummary: () async => null,
+          loadSchedules: () async => const <DeviceSchedule>[],
+          downloadBytesOverride:
+              ({
+                required String filename,
+                required List<int> bytes,
+                required String mimeType,
+              }) {
+                downloadCalled = true;
+              },
+        ),
+      ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน ESG'));
+    await tester.pump();
+
+    expect(downloadCalled, isFalse);
+    expect(find.text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก'), findsOneWidget);
   });
 }

@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../../theme/school_admin_palette.dart';
+import '../../utils/web_download.dart';
 
 /// Grid emission factor for purchased electricity, kg CO₂e per kWh.
 ///
@@ -17,6 +20,12 @@ typedef EsgScoreLoader = Future<UtilityEfficiencyScore?> Function();
 typedef EsgEnergySummaryLoader = Future<EnergyUsageSummary?> Function();
 typedef EsgWaterSummaryLoader = Future<WaterUsageSummary?> Function();
 typedef EsgScheduleLoader = Future<List<DeviceSchedule>> Function();
+typedef EsgDownloadBytes =
+    void Function({
+      required String filename,
+      required List<int> bytes,
+      required String mimeType,
+    });
 
 class SchoolAdminEsgPage extends StatefulWidget {
   const SchoolAdminEsgPage({
@@ -30,6 +39,7 @@ class SchoolAdminEsgPage extends StatefulWidget {
     this.loadEnergySummary,
     this.loadWaterSummary,
     this.loadSchedules,
+    this.downloadBytesOverride,
   });
 
   final UtilityEfficiencyScore? initialEnergyScore;
@@ -42,6 +52,9 @@ class SchoolAdminEsgPage extends StatefulWidget {
   final EsgEnergySummaryLoader? loadEnergySummary;
   final EsgWaterSummaryLoader? loadWaterSummary;
   final EsgScheduleLoader? loadSchedules;
+  // Seam for tests: lets a test prove the export button actually calls a
+  // download instead of the old always-succeeds SnackBar with no file.
+  final EsgDownloadBytes? downloadBytesOverride;
 
   @override
   State<SchoolAdminEsgPage> createState() => _SchoolAdminEsgPageState();
@@ -129,6 +142,68 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
 
   WaterUsageSummary? get _measuredWater =>
       (_waterSummary?.deviceCount ?? 0) > 0 ? _waterSummary : null;
+
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportEsgReport() {
+    final energy = _measuredEnergy;
+    final water = _measuredWater;
+    if (energy == null && water == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
+    final rows = <List<String>>[
+      ['metric', 'value', 'unit'],
+      if (_energyScore?.score != null)
+        ['energy_efficiency_score', '${_energyScore!.score}', 'score/100'],
+      if (_waterScore?.score != null)
+        ['water_efficiency_score', '${_waterScore!.score}', 'score/100'],
+      if (energy != null) ...[
+        ['energy_device_count', '${energy.deviceCount}', 'devices'],
+        ['energy_total_kwh', '${energy.totalKwh}', 'kWh'],
+        [
+          'energy_estimated_cost',
+          '${energy.estimatedCostThb}',
+          'THB',
+        ],
+        [
+          'energy_carbon_estimate',
+          (energy.totalKwh * kGridEmissionFactorKgCo2ePerKwh).toStringAsFixed(
+            2,
+          ),
+          'kg CO2e',
+        ],
+      ],
+      if (water != null) ...[
+        ['water_device_count', '${water.deviceCount}', 'devices'],
+        ['water_total_m3', '${water.totalM3}', 'm3'],
+        ['water_estimated_cost', '${water.estimatedCostThb}', 'THB'],
+      ],
+    ];
+    final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'esg_report_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งออกรายงาน ESG แล้ว')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,26 +384,19 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                   color: Color(0xFF64748B),
                 ),
               ),
-              // Disabled, not removed: schools do have to submit these figures
-              // upward. But no export pipeline exists, and this button used to
-              // answer every click with "ดาวน์โหลดรายงาน ESG … เรียบร้อยแล้ว"
-              // while producing no file.
-              Tooltip(
-                message: 'ยังไม่เปิดใช้งาน — ระบบส่งออกไฟล์ยังไม่พร้อมใช้งาน',
-                child: FilledButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.file_download_outlined, size: 16),
-                  label: const Text('ส่งออกรายงาน ESG (ยังไม่เปิดใช้งาน)'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SchoolAdminPalette.primaryDark,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+              FilledButton.icon(
+                onPressed: _exportEsgReport,
+                icon: const Icon(Icons.file_download_outlined, size: 16),
+                label: const Text('ส่งออกรายงาน ESG'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SchoolAdminPalette.primaryDark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
