@@ -12,7 +12,12 @@ import 'student_redesign_palette.dart';
 /// เฉพาะส่วนที่ครูยืนยันแล้วเท่านั้น (GPA/trend/badge ยังไม่มี backend จริง
 /// ไม่เพิ่มกลับ)
 class StudentScorePage extends StatefulWidget {
-  const StudentScorePage({super.key});
+  const StudentScorePage({super.key, this.loadGrades, this.loadGScore});
+
+  /// Read seams threaded to the corresponding GradeService/GScoreService
+  /// static calls in production.
+  final Future<List<CourseGrade>> Function()? loadGrades;
+  final Future<List<MyGScoreEntry>> Function()? loadGScore;
 
   @override
   State<StudentScorePage> createState() => _StudentScorePageState();
@@ -36,20 +41,19 @@ class _StudentScorePageState extends State<StudentScorePage> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        GradeService.listMyGrades(),
-        GScoreService.listMyGScore(),
-      ]);
+      final loadGrades = widget.loadGrades ?? GradeService.listMyGrades;
+      final loadGScore = widget.loadGScore ?? GScoreService.listMyGScore;
+      final results = await Future.wait([loadGrades(), loadGScore()]);
       if (!mounted) return;
       setState(() {
         _grades = results[0] as List<CourseGrade>;
         _gScoreEntries = results[1] as List<MyGScoreEntry>;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
