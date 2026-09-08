@@ -51,7 +51,49 @@ class AssignmentModel {
 }
 
 class TeacherAssignmentEditorPage extends StatefulWidget {
-  const TeacherAssignmentEditorPage({super.key});
+  const TeacherAssignmentEditorPage({
+    super.key,
+    this.loadCourses,
+    this.loadAssignmentsForCourse,
+    this.loadCourseStudents,
+    this.loadSubmissions,
+    this.listMyRubrics,
+    this.updateAssignment,
+    this.createAssignment,
+    this.publishAssignment,
+  });
+
+  /// Read seams threaded to the corresponding CourseService/
+  /// AssignmentService static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
+  final Future<List<CourseStudent>> Function(String courseId)?
+  loadCourseStudents;
+  final Future<List<SubmissionRoster>> Function(String assignmentId)?
+  loadSubmissions;
+
+  /// Threaded down to the create/edit form sheet's own seams — see
+  /// openAssignmentFormModal for what each one replaces in production.
+  final Future<List<RubricModel>> Function()? listMyRubrics;
+  final Future<void> Function({
+    required String assignmentId,
+    String? title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  updateAssignment;
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  createAssignment;
+  final Future<void> Function(String assignmentId)? publishAssignment;
 
   @override
   State<TeacherAssignmentEditorPage> createState() =>
@@ -62,6 +104,26 @@ void openAssignmentFormModal(
   BuildContext context, {
   AssignmentModel? assignment,
   ValueChanged<AssignmentModel>? onSave,
+  Future<List<RubricModel>> Function()? listMyRubrics,
+  Future<List<CourseSummary>> Function()? loadCoursesForNew,
+  Future<void> Function({
+    required String assignmentId,
+    String? title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  updateAssignment,
+  Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  createAssignment,
+  Future<void> Function(String assignmentId)? publishAssignment,
 }) {
   showModalBottomSheet(
     context: context,
@@ -70,6 +132,11 @@ void openAssignmentFormModal(
     builder: (ctx) => _AssignmentFormSheet(
       assignment: assignment,
       onSave: onSave ?? (_) {},
+      listMyRubrics: listMyRubrics,
+      loadCoursesForNew: loadCoursesForNew,
+      updateAssignment: updateAssignment,
+      createAssignment: createAssignment,
+      publishAssignment: publishAssignment,
     ),
   );
 }
@@ -95,19 +162,27 @@ class _TeacherAssignmentEditorPageState
   Future<void> _loadRealAssignments() async {
     if (mounted) setState(() => _loading = true);
     try {
-      final courses = await CourseService.listMyCourses();
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadAssignments =
+          widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
+      final loadStudents =
+          widget.loadCourseStudents ?? CourseService.listCourseStudents;
+      final loadSubmissions =
+          widget.loadSubmissions ?? AssignmentService.listSubmissions;
+
+      final courses = await loadCourses();
       if (courses.isEmpty) {
         if (mounted) setState(() => _loading = false);
         return;
       }
       final course = courses.first;
-      final list = await AssignmentService.listAssignments(course.id);
+      final list = await loadAssignments(course.id);
 
       // นับนักเรียนในวิชาครั้งเดียว ใช้ร่วมกันทุกใบงานของวิชานี้ แทน
       // hardcode 28/30 ตายตัวทุกใบงาน
       int totalStudents = 0;
       try {
-        final roster = await CourseService.listCourseStudents(course.id);
+        final roster = await loadStudents(course.id);
         totalStudents = roster.length;
       } catch (_) {
         // เหลือ 0 — โชว์ 'ยังไม่มีข้อมูล' ตรงๆ ดีกว่าเดา
@@ -117,7 +192,7 @@ class _TeacherAssignmentEditorPageState
       for (final a in list) {
         int submittedCount = 0;
         try {
-          final subs = await AssignmentService.listSubmissions(a.id);
+          final subs = await loadSubmissions(a.id);
           submittedCount = subs
               .where((s) => s.submittedAt != null)
               .length;
@@ -167,6 +242,11 @@ class _TeacherAssignmentEditorPageState
     openAssignmentFormModal(
       context,
       assignment: existingAssignment,
+      listMyRubrics: widget.listMyRubrics,
+      loadCoursesForNew: widget.loadCourses,
+      updateAssignment: widget.updateAssignment,
+      createAssignment: widget.createAssignment,
+      publishAssignment: widget.publishAssignment,
       onSave: (savedItem) {
         setState(() {
           final idx = _assignments.indexWhere((a) => a.id == savedItem.id);
@@ -758,10 +838,38 @@ class _AssignmentCardItem extends StatelessWidget {
 
 /// Modal Sheet สำหรับสร้าง/แก้ไขใบงาน
 class _AssignmentFormSheet extends StatefulWidget {
-  const _AssignmentFormSheet({required this.assignment, required this.onSave});
+  const _AssignmentFormSheet({
+    required this.assignment,
+    required this.onSave,
+    this.listMyRubrics,
+    this.loadCoursesForNew,
+    this.updateAssignment,
+    this.createAssignment,
+    this.publishAssignment,
+  });
 
   final AssignmentModel? assignment;
   final ValueChanged<AssignmentModel> onSave;
+  final Future<List<RubricModel>> Function()? listMyRubrics;
+  final Future<List<CourseSummary>> Function()? loadCoursesForNew;
+  final Future<void> Function({
+    required String assignmentId,
+    String? title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  updateAssignment;
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  createAssignment;
+  final Future<void> Function(String assignmentId)? publishAssignment;
 
   @override
   State<_AssignmentFormSheet> createState() => _AssignmentFormSheetState();
@@ -801,7 +909,8 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
 
   Future<void> _loadRubrics() async {
     try {
-      final list = await RubricService.listMyRubrics();
+      final listRubrics = widget.listMyRubrics ?? RubricService.listMyRubrics;
+      final list = await listRubrics();
       if (!mounted) return;
       setState(() {
         _rubrics = list;
@@ -838,6 +947,11 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     String realCourseName;
 
     try {
+      final update = widget.updateAssignment ?? AssignmentService.updateAssignment;
+      final create = widget.createAssignment ?? AssignmentService.createAssignment;
+      final publishFn = widget.publishAssignment ?? AssignmentService.publishAssignment;
+      final loadCourses = widget.loadCoursesForNew ?? CourseService.listMyCourses;
+
       if (widget.assignment != null) {
         // แก้ไขใบงานเดิม — ใช้วิชาเดิมของใบงาน ไม่ใช่ courses.first เสมอ
         // (บั๊กเดียวกับที่เคยแก้ใน exam_builder/lesson_editor — ครูมีหลาย
@@ -845,14 +959,14 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
         realCourseId = widget.assignment!.courseId;
         realCourseName = widget.assignment!.courseName;
         assignedId = widget.assignment!.id;
-        await AssignmentService.updateAssignment(
+        await update(
           assignmentId: assignedId,
           title: title,
           instructions: _instructionsController.text.trim(),
           rubricId: _selectedRubricId,
         );
       } else {
-        final courses = await CourseService.listMyCourses();
+        final courses = await loadCourses();
         if (courses.isEmpty) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -873,7 +987,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
             ? 'project'
             : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework');
 
-        assignedId = await AssignmentService.createAssignment(
+        assignedId = await create(
           courseId: course.id,
           type: typeEnum,
           title: title,
@@ -883,15 +997,14 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       }
 
       if (publish) {
-        await AssignmentService.publishAssignment(assignedId);
+        await publishFn(assignedId);
       }
-    } catch (e) {
-      debugPrint('Error saving assignment to Supabase: $e');
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('บันทึกใบงานไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('บันทึกใบงานไม่สำเร็จ กรุณาลองใหม่'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
       return;
@@ -1080,35 +1193,40 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.groups_rounded,
-                                color: Color(0xFF0284C7),
-                              ),
-                              SizedBox(width: 10),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'กำหนดเป็นงานกลุ่ม',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: TeacherPalette.ink,
-                                    ),
+                          const Expanded(
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.groups_rounded,
+                                  color: Color(0xFF0284C7),
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'กำหนดเป็นงานกลุ่ม',
+                                        style: TextStyle(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: TeacherPalette.ink,
+                                        ),
+                                      ),
+                                      Text(
+                                        'นักเรียนทำโจทย์ร่วมกันและส่งงานเพียง 1 คนต่อกลุ่ม',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: TeacherPalette.muted,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    'นักเรียนทำโจทย์ร่วมกันและส่งงานเพียง 1 คนต่อกลุ่ม',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: TeacherPalette.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                           Switch(
                             value: _isGroupWork,
@@ -1126,12 +1244,14 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'ผูก Rubric เกณฑ์การประเมิน',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: TeacherPalette.ink,
+                        const Expanded(
+                          child: Text(
+                            'ผูก Rubric เกณฑ์การประเมิน',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: TeacherPalette.ink,
+                            ),
                           ),
                         ),
                         TextButton.icon(
