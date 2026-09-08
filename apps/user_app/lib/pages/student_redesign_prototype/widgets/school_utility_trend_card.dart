@@ -6,9 +6,31 @@ import 'package:shared_core/shared_core.dart';
 import 'student_redesign_palette.dart';
 
 class SchoolUtilityTrendCard extends StatefulWidget {
-  const SchoolUtilityTrendCard({super.key, this.height});
+  const SchoolUtilityTrendCard({
+    super.key,
+    this.height,
+    this.getEnergyUsageSummary,
+    this.getWaterUsageSummary,
+    this.getEnergyUsageTrend,
+    this.getWaterUsageTrend,
+    this.getEnergyEfficiencyScore,
+    this.getWaterEfficiencyScore,
+  });
 
   final double? height;
+
+  /// Read seams threaded to the corresponding UtilityService static calls
+  /// in production.
+  final Future<EnergyUsageSummary?> Function({String period})?
+  getEnergyUsageSummary;
+  final Future<WaterUsageSummary?> Function({String period})?
+  getWaterUsageSummary;
+  final Future<List<UtilityTrendPoint>> Function({int days})?
+  getEnergyUsageTrend;
+  final Future<List<UtilityTrendPoint>> Function({int days})?
+  getWaterUsageTrend;
+  final Future<UtilityEfficiencyScore?> Function()? getEnergyEfficiencyScore;
+  final Future<UtilityEfficiencyScore?> Function()? getWaterEfficiencyScore;
 
   @override
   State<SchoolUtilityTrendCard> createState() =>
@@ -50,13 +72,26 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
 
   Future<void> _load() async {
     try {
+      final getEnergySummary =
+          widget.getEnergyUsageSummary ?? UtilityService.getEnergyUsageSummary;
+      final getWaterSummary =
+          widget.getWaterUsageSummary ?? UtilityService.getWaterUsageSummary;
+      final getEnergyTrend =
+          widget.getEnergyUsageTrend ?? UtilityService.getEnergyUsageTrend;
+      final getWaterTrend =
+          widget.getWaterUsageTrend ?? UtilityService.getWaterUsageTrend;
+      final getEnergyScore = widget.getEnergyEfficiencyScore ??
+          UtilityService.getEnergyEfficiencyScore;
+      final getWaterScore = widget.getWaterEfficiencyScore ??
+          UtilityService.getWaterEfficiencyScore;
+
       final results = await Future.wait([
-        UtilityService.getEnergyUsageSummary(period: 'week'),
-        UtilityService.getWaterUsageSummary(period: 'week'),
-        UtilityService.getEnergyUsageTrend(days: 7),
-        UtilityService.getWaterUsageTrend(days: 7),
-        UtilityService.getEnergyEfficiencyScore(),
-        UtilityService.getWaterEfficiencyScore(),
+        getEnergySummary(period: 'week'),
+        getWaterSummary(period: 'week'),
+        getEnergyTrend(days: 7),
+        getWaterTrend(days: 7),
+        getEnergyScore(),
+        getWaterScore(),
       ]);
       if (!mounted) return;
       setState(() {
