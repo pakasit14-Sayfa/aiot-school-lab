@@ -640,8 +640,33 @@ Student/Parent/Executive แทบไม่มี ทั้งที่ Teacher 
 คนละไฟล์). `flutter test` เต็ม: 563 ผ่าน/8 fail เท่าเดิม (baseline เดิม
 ทั้ง 8 ไม่มี regression ใหม่) push เข้า `gitlab` แล้ว (`36de820`..`9ebcb83`)
 
-**เหลือ**: `teacher_aiot_dashboard_page.dart`, `teacher_incident_inbox_page.dart`
-(2 ใน 7 ไฟล์ที่แก้บั๊กไปแล้วแต่ยังไม่มี test), `teacher_courses_page.dart`
-(ปุ่มแก้ไขใบงาน), `teacher_redesign_prototype_page.dart` (role switcher/
-ปฏิทิน) — ยังไม่ได้ทำในรอบนี้. Student lane ก็ยังเหลือ ~11 หน้าเหมือนเดิม
-(ดูรายการด้านบน). Parent/Executive lane ยังไม่ได้เริ่มเลย
+### ปิด Teacher lane: เก็บ 2 ไฟล์สุดท้ายที่แก้บั๊กไปแล้วแต่ไม่มี test
+
+ผู้ใช้ขอให้เก็บ `teacher_aiot_dashboard_page.dart`/`teacher_incident_inbox_page.dart`
+ให้ครบก่อนย้ายไป Student lane:
+
+- **`teacher_aiot_dashboard_page.dart`** (commit `c9b0351`) — เพิ่ม seam
+  `listSchoolDevices`/`getAllDeviceSensors`/`listThresholds`/`setThreshold`/
+  `listAlerts`/`acknowledgeAlert` 5 เทส: อุปกรณ์จริง 0 ตัวโชว์ empty state
+  สุจริต ไม่ใช่การ์ดปลอม, อุปกรณ์+เซนเซอร์จริงโชว์ข้อมูลจริง, alert 0 จริง
+  โชว์ empty state, กด "รับทราบ Alert" เรียก RPC จริงด้วย alert id จริง,
+  รับทราบพังโชว์ข้อความสุภาพ. เจอ+แก้ leaked error 1 จุด (export dialog)
+- **`teacher_incident_inbox_page.dart`** (commit `5639dfa`) — เพิ่ม seam
+  `actionsOverride` (ใช้ `StaffEmergencyActions` ตัวเดียวกับที่
+  `teacher_incident_detail_page_test.dart` ทดสอบอยู่แล้ว)/
+  `loadEmergencyEvents`/`loadIncidentReports`/`watchIncidents`/
+  `watchEmergencyEvents` 4 เทส: เหตุจริงโชว์เหตุผล/ห้อง/ผู้แจ้งจริง ไม่มี
+  แบนเนอร์ "เวลาแก้ไขเฉลี่ย" ปลอมหลงเหลือ, 0 เหตุจริงโชว์ list ว่างสุจริต,
+  ปุ่ม "รับเรื่อง" บน list เรียก controller จริงและสะท้อนสถานะ confirmed
+  จริง, โหลดพังโชว์ error banner จริงไม่ใช่ค้างข้อมูลเก่าเงียบๆ
+
+รวม 9 เทสใหม่ (5+4) **ปิดครบทั้ง 7/7 ไฟล์ Teacher lane ที่แก้บั๊กไปในเซสชันนี้
+— ทุกไฟล์มี connection test คุ้มครองการแก้ของตัวเองแล้ว**. `flutter test`
+เต็ม: 572 ผ่าน/8 fail เท่าเดิม (ไม่มี regression ใหม่) push เข้า `gitlab`
+แล้ว (`c9b0351`, `5639dfa`)
+
+**เหลือ**: `teacher_courses_page.dart` (ปุ่มแก้ไขใบงาน),
+`teacher_redesign_prototype_page.dart` (role switcher/ปฏิทิน) — คนละบั๊ก
+คนละรอบ ยังไม่ได้เขียน test ให้. Student lane เหลือ ~11 หน้าเหมือนเดิม
+(ดูรายการด้านบน) — **กำลังเริ่มทำต่อ**. Parent/Executive lane ยังไม่ได้
+เริ่มเลย
