@@ -446,3 +446,17 @@ Focused page tests: 12/12 passed. User-app full regression: 507 passed / 22
 pre-existing failures. Analyzer remained at core 0, shared_ui 4 infos and app
 156 findings, with no findings in the changed files. Browser checked all three
 layouts and successfully looked up the real CCTV fixture. No backend changes.
+
+### 2026-09-08 — Meeting detail visual alignment
+
+User supplied a meeting-detail screenshot and requested the same redesign.
+Applied the shared pink workspace and hero, paired attendees/agenda and
+resolutions/attachments on wide screens, and kept minutes full-width. Original
+minutes and addenda have separate blue/mint reading panels; destructive buttons
+are red and completion green. Existing role gates, dialogs and write/read
+verification remain unchanged.
+
+Meeting widget suite: 5/5 passed. App regression: 507 passed / 22 existing
+failures. Analyzer unchanged (core 0, shared_ui 4 infos, app 156 findings), no
+findings in meeting_detail_page. Opened the real finalized QA meeting in the
+browser and verified the new sections with its existing data; no QA mutations.
