@@ -34,6 +34,24 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
   bool _cameraStarted = true;
   String? _lastCode;
 
+  // ประวัติการสแกนในเซสชันนี้ — เดิมเป็น 3 แถว hardcode ตายตัว
+  // ('DEV-PM-0004' ฯลฯ) ไม่มีตาราง DB ใดเก็บประวัติการสแกนเลย จึงเก็บจริง
+  // เฉพาะระหว่างเปิดหน้านี้อยู่ (ไม่รอดการปิด/เปิดแอปใหม่ — ตรงตามที่มีจริง
+  // ไม่ใช่ preteend ว่ามี persistence ข้ามเซสชัน)
+  final List<_ScanHistoryEntry> _history = [];
+
+  void _recordScan(String code) {
+    setState(() {
+      _history.insert(0, _ScanHistoryEntry(code: code, time: DateTime.now()));
+    });
+  }
+
+  /// จุดเข้าสำหรับ widget test เหมือน [lookupDeviceForTest] — เลี่ยงต้องกด
+  /// ผ่าน dialog/bottom sheet จริงเพื่อตรวจแค่ว่าบันทึกประวัติแล้วหรือยัง
+  @visibleForTesting
+  List<String> get historyForTest =>
+      _history.map((e) => e.code).toList(growable: false);
+
   @override
   void dispose() {
     _scannerController.dispose();
@@ -56,6 +74,7 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
       _lastCode = value;
     });
 
+    _recordScan(value);
     _showScanResult(value);
   }
 
@@ -386,9 +405,14 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
       },
     );
 
-    controller.dispose();
+    // ห้าม dispose ทันทีที่ตรงนี้ — dialog ยังมี exit transition ที่อ้างถึง
+    // controller อยู่ในเฟรมเดียวกัน dispose ก่อนจะพังด้วย
+    // "TextEditingController was used after being disposed" เลื่อนไปหลังเฟรม
+    // ปัจจุบันแทน
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
 
     if (result != null && mounted) {
+      _recordScan(result);
       _showScanResult(result);
     }
   }
@@ -404,36 +428,41 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(18),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'ประวัติการสแกนล่าสุด',
+                    const Text(
+                      'ประวัติการสแกนในเซสชันนี้',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w900,
                         color: SchoolAdminPalette.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 12),
-                    _ScanHistoryRow(
-                      code: 'DEV-PM-0004',
-                      detail: 'SPS30 • ห้อง B-101',
-                      time: 'วันนี้ 10:30 น.',
-                    ),
-                    SizedBox(height: 8),
-                    _ScanHistoryRow(
-                      code: 'KIT-LAB1-01',
-                      detail: 'ชุดฝึก AIoT • LAB-01',
-                      time: 'วันนี้ 09:55 น.',
-                    ),
-                    SizedBox(height: 8),
-                    _ScanHistoryRow(
-                      code: 'DEV-AIR-0002',
-                      detail: 'ENS160 • LAB-01',
-                      time: 'เมื่อวาน 16:20 น.',
-                    ),
+                    const SizedBox(height: 12),
+                    if (_history.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'ยังไม่มีการสแกนในเซสชันนี้',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: SchoolAdminPalette.textSecondary,
+                          ),
+                        ),
+                      )
+                    else
+                      ..._history.take(10).map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ScanHistoryRow(
+                            code: e.code,
+                            time:
+                                '${e.time.hour.toString().padLeft(2, '0')}:${e.time.minute.toString().padLeft(2, '0')} น.',
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -963,14 +992,9 @@ class _RoundActionButton extends StatelessWidget {
 }
 
 class _ScanHistoryRow extends StatelessWidget {
-  const _ScanHistoryRow({
-    required this.code,
-    required this.detail,
-    required this.time,
-  });
+  const _ScanHistoryRow({required this.code, required this.time});
 
   final String code;
-  final String detail;
   final String time;
 
   @override
@@ -996,25 +1020,13 @@ class _ScanHistoryRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  code,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
-                ),
-                Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                ),
-              ],
+            child: Text(
+              code,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: SchoolAdminPalette.textPrimary,
+              ),
             ),
           ),
           Text(
@@ -1033,6 +1045,12 @@ class _ScanHistoryRow extends StatelessWidget {
 /// ผลการค้นหาอุปกรณ์จากรหัสที่สแกนได้ — แยก "ไม่พบ" ออกจาก "ค้นไม่สำเร็จ"
 /// ไม่ให้ผู้ใช้เข้าใจว่าอุปกรณ์ไม่มีอยู่ทั้งที่จริงระบบมีปัญหา
 enum _LookupState { idle, loading, found, notFound, failed }
+
+class _ScanHistoryEntry {
+  const _ScanHistoryEntry({required this.code, required this.time});
+  final String code;
+  final DateTime time;
+}
 
 class _DeviceInfoRow extends StatelessWidget {
   const _DeviceInfoRow({required this.label, required this.value});

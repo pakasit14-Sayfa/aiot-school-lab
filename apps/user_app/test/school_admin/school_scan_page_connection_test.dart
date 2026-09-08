@@ -142,4 +142,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('กำลังค้นหาอุปกรณ์…'), findsNothing);
   });
+
+  testWidgets('scan history starts honestly empty, not the old fake 3 rows', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 2000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      _ScanHarness(page: SchoolScanPage(loadDevices: () async => [])),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.history_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ยังไม่มีการสแกนในเซสชันนี้'), findsOneWidget);
+    // The old hardcoded rows must never come back.
+    expect(find.text('DEV-PM-0004'), findsNothing);
+    expect(find.text('KIT-LAB1-01'), findsNothing);
+    expect(find.text('DEV-AIR-0002'), findsNothing);
+  });
+
+  testWidgets(
+    'manually entering a code records a real history entry',
+    (tester) async {
+      tester.view.physicalSize = const Size(1200, 2000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(
+        _ScanHarness(page: SchoolScanPage(loadDevices: () async => [])),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('กรอกรหัส'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'MANUAL-CODE-42');
+      await tester.tap(find.text('ค้นหา'));
+      await tester.pumpAndSettle();
+
+      // The scan-result sheet shows the raw value straight away — proof the
+      // manual-entry path reached _recordScan/_showScanResult.
+      expect(find.text('MANUAL-CODE-42'), findsOneWidget);
+
+      final state = tester.state(find.byType(SchoolScanPage)) as dynamic;
+      // ignore: avoid_dynamic_calls
+      expect(state.historyForTest, contains('MANUAL-CODE-42'));
+    },
+  );
 }
