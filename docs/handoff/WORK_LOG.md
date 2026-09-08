@@ -320,3 +320,39 @@ failure message and ตกลง; dismissing it returned to the still-open incid
 Docker/Supabase was not running, so live RPC role gates and authenticated acceptance
 remain unverified in this session. Temporary fixture entrypoint/server were removed
 after the check. This verifies the close controls, not all emergency-page mock content.
+
+
+## Authenticated browser acceptance — bug 1, 2026-09-08
+
+Follow-up after the user started Docker/Supabase. The existing
+`supabase_edge_runtime_aiot-school-lab` container was still stopped; starting it
+restored the supported auth-sign-in/auth-verify-otp flow. Logged in through the
+actual app at localhost:8765 using the seeded executive account and the normal
+local-dev OTP autofill. DB inspection confirmed a valid executive session, without
+reading or publishing its token. The four live close/list RPC definitions all take
+`p_token`, are SECURITY DEFINER, and permit the executive role within its school.
+
+The test school had no open incidents/events before seeding. Inserted three labeled
+incident fixtures and one event fixture there; no existing records were changed.
+All closures below were performed through browser clicks on the actual page and
+production Dart service/controller paths, not mocks or direct SQL close updates.
+
+| Fixture / browser control | Row ID | Observed database result |
+|---|---|---|
+| LIVE-HERO / main close button | 02762d86-91ee-4027-8a27-48d6b0251420 | resolved; closed_at set; executive closer; one close action and audit |
+| LIVE-MODAL / SOS dialog | 9c682048-0e67-4452-a3b0-202d0083de6d | resolved; closed_at set; executive closer; one close action and audit |
+| LIVE-DETAIL / event detail | a710f64f-2a9b-4d35-bff7-fd69bc55c32e | resolved; closed_at set; executive closer; one close action and audit |
+| LIVE-HARDWARE / main close button | 5d96082e-8dfc-42ee-900e-42eba1ed2831 | closed; closed_at and review_note set; warning_light_on=false |
+
+Labels use the prefix `CODEX-BUG1-20260908-`. After each SOS close, the page kept
+showing the remaining active event; it did not declare an all-clear prematurely.
+After the final hardware-event close, the browser showed the success message,
+zero active SOS/events, and closed history rows. A manual refresh re-read the same
+canonical state. Final SQL counts: zero open labeled incident/event fixtures.
+Closed test rows are retained as labeled evidence. No physical device was operated,
+no schema/RPC changed, and no failure was injected into the live backend; negative
+cases remain covered by the earlier widget tests and fixture browser checks.
+
+The app, local Supabase services, and OTP Edge Function remain running for the user.
+This resolves the earlier live-DB verification limitation for bug 1's close paths;
+it is not a full-page DoD or other-bug completion claim.
