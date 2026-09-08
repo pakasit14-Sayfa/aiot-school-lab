@@ -23,11 +23,23 @@ typedef GradesDownloadBytes =
     });
 
 class TeacherGradesPage extends StatefulWidget {
-  const TeacherGradesPage({super.key, this.downloadBytesOverride});
+  const TeacherGradesPage({
+    super.key,
+    this.downloadBytesOverride,
+    this.loadCourses,
+    this.loadCourseGrades,
+    this.confirmGrade,
+  });
 
   // Seam for tests: lets a test prove the export button actually calls a
   // download instead of the old always-"generating..." SnackBar with no file.
   final GradesDownloadBytes? downloadBytesOverride;
+
+  /// Read/write seams threaded to the corresponding CourseService/
+  /// GradeService static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<GradeRecord>> Function(String courseId)? loadCourseGrades;
+  final Future<void> Function(String recordId)? confirmGrade;
 
   @override
   State<TeacherGradesPage> createState() => _TeacherGradesPageState();
@@ -76,12 +88,15 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       _error = null;
     });
     try {
-      final courses = await CourseService.listMyCourses();
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadGrades =
+          widget.loadCourseGrades ?? GradeService.listCourseGrades;
+      final courses = await loadCourses();
       final summaries = <_CourseGradeSummary>[];
       for (final c in courses) {
         List<GradeRecord> records;
         try {
-          records = await GradeService.listCourseGrades(c.id);
+          records = await loadGrades(c.id);
         } catch (_) {
           records = const [];
         }
@@ -98,10 +113,10 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
         _summaries = summaries;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลคะแนนไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลคะแนนไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -110,7 +125,8 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
   Future<void> _confirm(GradeRecord record) async {
     setState(() => _confirming.add(record.id));
     try {
-      await GradeService.confirmGrade(record.id);
+      final confirm = widget.confirmGrade ?? GradeService.confirmGrade;
+      await confirm(record.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -120,11 +136,11 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
         ),
       );
       await _load();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ยืนยันคะแนนไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('ยืนยันคะแนนไม่สำเร็จ')));
     } finally {
       if (mounted) setState(() => _confirming.remove(record.id));
     }
