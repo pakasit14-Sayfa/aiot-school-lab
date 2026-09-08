@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -150,17 +151,14 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
     return value;
   }
 
-  void _exportEsgReport() {
+  /// Shared by both CSV and Excel export so the two formats can never drift
+  /// apart in content. Returns null when there is nothing measured to export.
+  List<List<String>>? _buildReportRows() {
     final energy = _measuredEnergy;
     final water = _measuredWater;
-    if (energy == null && water == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
-      );
-      return;
-    }
+    if (energy == null && water == null) return null;
 
-    final rows = <List<String>>[
+    return <List<String>>[
       ['metric', 'value', 'unit'],
       if (_energyScore?.score != null)
         ['energy_efficiency_score', '${_energyScore!.score}', 'score/100'],
@@ -169,11 +167,7 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
       if (energy != null) ...[
         ['energy_device_count', '${energy.deviceCount}', 'devices'],
         ['energy_total_kwh', '${energy.totalKwh}', 'kWh'],
-        [
-          'energy_estimated_cost',
-          '${energy.estimatedCostThb}',
-          'THB',
-        ],
+        ['energy_estimated_cost', '${energy.estimatedCostThb}', 'THB'],
         [
           'energy_carbon_estimate',
           (energy.totalKwh * kGridEmissionFactorKgCo2ePerKwh).toStringAsFixed(
@@ -188,6 +182,17 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
         ['water_estimated_cost', '${water.estimatedCostThb}', 'THB'],
       ],
     ];
+  }
+
+  void _exportEsgReport() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
     final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
 
     final doDownload = widget.downloadBytesOverride ?? downloadBytes;
@@ -200,7 +205,47 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งออกรายงาน ESG แล้ว')),
+        const SnackBar(content: Text('ส่งออกรายงาน ESG แล้ว (CSV)')),
+      );
+    }
+  }
+
+  void _exportEsgReportExcel() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook[workbook.getDefaultSheet() ?? 'Sheet1'];
+    for (final row in rows) {
+      sheet.appendRow(row.map(xls.TextCellValue.new).toList());
+    }
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')),
+        );
+      }
+      return;
+    }
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'esg_report_${DateTime.now().toIso8601String().split('T').first}.xlsx',
+      bytes: bytes,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งออกรายงาน ESG แล้ว (Excel)')),
       );
     }
   }
@@ -384,19 +429,28 @@ class _SchoolAdminEsgPageState extends State<SchoolAdminEsgPage> {
                   color: Color(0xFF64748B),
                 ),
               ),
-              FilledButton.icon(
-                onPressed: _exportEsgReport,
-                icon: const Icon(Icons.file_download_outlined, size: 16),
-                label: const Text('ส่งออกรายงาน ESG'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: SchoolAdminPalette.primaryDark,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              PopupMenuButton<String>(
+                tooltip: 'ส่งออกรายงาน ESG',
+                onSelected: (value) =>
+                    value == 'csv' ? _exportEsgReport() : _exportEsgReportExcel(),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
+                  PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
+                ],
+                child: FilledButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.file_download_outlined, size: 16),
+                  label: const Text('ส่งออกรายงาน ESG'),
+                  style: FilledButton.styleFrom(
+                    disabledBackgroundColor: SchoolAdminPalette.primaryDark,
+                    disabledForegroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),

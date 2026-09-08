@@ -340,14 +340,65 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ส่งออกรายงาน ESG'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น CSV'));
     await tester.pump();
 
     expect(downloadedFilename, contains('esg_report_'));
+    expect(downloadedFilename, endsWith('.csv'));
     expect(downloadedBytes, isNotNull);
     final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
     expect(csv, contains('energy_total_kwh'));
     expect(csv, contains('1000.0'));
-    expect(find.text('ส่งออกรายงาน ESG แล้ว'), findsOneWidget);
+    expect(find.text('ส่งออกรายงาน ESG แล้ว (CSV)'), findsOneWidget);
+  });
+
+  testWidgets('export downloads a real Excel file built from the loaded figures', (
+    tester,
+  ) async {
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    tester.view.physicalSize = const Size(1400, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAdminEsgPage(
+          loadEnergyScore: () async => _energyScore,
+          loadWaterScore: () async => _waterScore,
+          loadEnergySummary: () async => _energy,
+          loadWaterSummary: () async => _water,
+          loadSchedules: () async => const <DeviceSchedule>[],
+          downloadBytesOverride:
+              ({
+                required String filename,
+                required List<int> bytes,
+                required String mimeType,
+              }) {
+                downloadedFilename = filename;
+                downloadedBytes = bytes;
+              },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน ESG'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น Excel'));
+    await tester.pump();
+
+    expect(downloadedFilename, endsWith('.xlsx'));
+    expect(downloadedBytes, isNotNull);
+    // .xlsx is a zip archive — 'PK' magic bytes confirm a real file was
+    // encoded, not an empty/placeholder byte list.
+    expect(downloadedBytes![0], 0x50);
+    expect(downloadedBytes![1], 0x4B);
+    expect(find.text('ส่งออกรายงาน ESG แล้ว (Excel)'), findsOneWidget);
   });
 
   testWidgets('export with no measured data refuses instead of downloading an empty file', (
@@ -382,6 +433,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ส่งออกรายงาน ESG'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น CSV'));
     await tester.pump();
 
     expect(downloadCalled, isFalse);
