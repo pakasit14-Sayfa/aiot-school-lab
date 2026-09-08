@@ -100,7 +100,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
             scope: 'เกณฑ์การประเมินโรงเรียน',
             isLocked: r.usedCount > 0,
             usedCount: r.usedCount,
-            updatedAt: 'ล่าสุด',
+            updatedAt: 'ยังไม่มีข้อมูล', // ไม่มี timestamp จริงจาก RPC ให้ใช้
             criteria: d.criteria
                 .map(
                   (c) => RubricCriterion(
@@ -127,7 +127,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
             scope: 'เกณฑ์การประเมินโรงเรียน',
             isLocked: r.usedCount > 0,
             usedCount: r.usedCount,
-            updatedAt: 'ล่าสุด',
+            updatedAt: 'ยังไม่มีข้อมูล',
             criteria: [],
           );
         }
@@ -156,6 +156,72 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
     }
   }
 
+  /// เดิม "คัดลอกเป็น Rubric ใหม่" ไม่เคยเรียก backend เลย — สร้าง id ปลอมใน
+  /// เครื่อง (`'rubric-${millisecondsSinceEpoch}'`) แล้วโชว์ว่าสำเร็จ พอรีเฟรช
+  /// หน้าสำเนานั้นก็หายไปเพราะไม่เคยถูกบันทึกจริง ตอนนี้เรียก
+  /// RubricService.createRubric จริง แล้วค่อยเพิ่มตัวที่ backend คืนมา
+  /// (มี id จริง) เข้าลิสต์
+  Future<void> _duplicateRubric(RubricModel sourceRubric) async {
+    try {
+      final criteriaPayload = sourceRubric.criteria
+          .map(
+            (c) => {
+              'name': c.title,
+              'description': '',
+              'max_score': c.maxPoints,
+              'levels': c.levels
+                  .map(
+                    (l) => {
+                      'name': l.name,
+                      'score': l.score,
+                      'description': l.description,
+                    },
+                  )
+                  .toList(),
+            },
+          )
+          .toList();
+
+      final newTitle = '${sourceRubric.title} (สำเนา)';
+      final newId = await RubricService.createRubric(
+        title: newTitle,
+        description: sourceRubric.description,
+        criteria: criteriaPayload,
+      );
+
+      final dup = RubricModel(
+        id: newId,
+        title: newTitle,
+        description: sourceRubric.description,
+        scope: sourceRubric.scope,
+        isLocked: false,
+        usedCount: 0,
+        updatedAt: 'วันนี้',
+        criteria: sourceRubric.criteria,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _rubrics.insert(0, dup);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('คัดลอก Rubric เป็นฉบับใหม่ที่แก้ไขได้เรียบร้อย'),
+          backgroundColor: Color(0xFF0EA5E9),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('คัดลอก Rubric ไม่สำเร็จ กรุณาลองใหม่'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      debugPrint('TeacherRubricPage duplicate failed: $e');
+    }
+  }
+
   void _openCreateEditForm({RubricModel? existingRubric}) {
     showModalBottomSheet(
       context: context,
@@ -181,44 +247,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
             ),
           );
         },
-        onDuplicate: (sourceRubric) {
-          final dup = RubricModel(
-            id: 'rubric-${DateTime.now().millisecondsSinceEpoch}',
-            title: '${sourceRubric.title} (สำเนา)',
-            description: sourceRubric.description,
-            scope: sourceRubric.scope,
-            isLocked: false,
-            usedCount: 0,
-            updatedAt: 'วันนี้',
-            criteria: sourceRubric.criteria
-                .map(
-                  (c) => RubricCriterion(
-                    id: 'c-${DateTime.now().microsecondsSinceEpoch}',
-                    title: c.title,
-                    maxPoints: c.maxPoints,
-                    levels: c.levels
-                        .map(
-                          (l) => RubricLevel(
-                            name: l.name,
-                            score: l.score,
-                            description: l.description,
-                          ),
-                        )
-                        .toList(),
-                  ),
-                )
-                .toList(),
-          );
-          setState(() {
-            _rubrics.insert(0, dup);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('คัดลอก Rubric เป็นฉบับใหม่ที่แก้ไขได้เรียบร้อย'),
-              backgroundColor: Color(0xFF0EA5E9),
-            ),
-          );
-        },
+        onDuplicate: (sourceRubric) => _duplicateRubric(sourceRubric),
       ),
     );
   }
@@ -244,8 +273,6 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
           r.scope.contains(_searchQuery);
       if (_filterScope == 'ล็อกแล้ว') {
         return matchQuery && r.isLocked;
-      } else if (_filterScope == 'ใช้ร่วมข้ามวิชา') {
-        return matchQuery && r.scope.contains('ข้ามวิชา');
       }
       return matchQuery;
     }).toList();
@@ -323,9 +350,15 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
                           ),
                         ),
                         const SizedBox(width: 10),
+                        // เดิมมี 'ใช้ร่วมข้ามวิชา' เป็นตัวเลือกกรองด้วย แต่
+                        // ไม่มีคอลัมน์ scope ใน DB เลย — ทุก rubric ที่โหลด
+                        // จาก backend ถูก hardcode เป็น 'เกณฑ์การประเมิน
+                        // โรงเรียน' เสมอ ตัวกรองนี้กรองอะไรไม่ได้จริงมาตั้งแต่
+                        // ต้น (แค่ทำงานกับสำเนาที่สร้างในเซสชันปัจจุบันก่อน
+                        // รีเฟรชเท่านั้น) เอาออก เหลือแค่ตัวกรองที่ใช้ได้จริง
                         Wrap(
                           spacing: 8,
-                          children: ['ทั้งหมด', 'ใช้ร่วมข้ามวิชา', 'ล็อกแล้ว']
+                          children: ['ทั้งหมด', 'ล็อกแล้ว']
                               .map(
                                 (f) => ChoiceChip(
                                   label: Text(f),
@@ -1129,42 +1162,11 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-
-                    // Scope Selector Dropdown
-                    DropdownButtonFormField<String>(
-                      value: _scope,
-                      onChanged: _isLocked
-                          ? null
-                          : (val) {
-                              if (val != null) setState(() => _scope = val);
-                            },
-                      decoration: InputDecoration(
-                        labelText: 'ขอบเขตการใช้งาน',
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'ใช้ร่วมข้ามวิชา',
-                          child: Text(
-                            'ใช้ร่วมข้ามวิชา (แชร์ให้ครูท่านอื่นใช้ได้)',
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'ม.5/2 การออกแบบเทคโนโลยี',
-                          child: Text('เฉพาะรายวิชา ม.5/2 การออกแบบเทคโนโลยี'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'ม.4/1 วิทยาการคำนวณ',
-                          child: Text('เฉพาะรายวิชา ม.4/1 วิทยาการคำนวณ'),
-                        ),
-                      ],
-                    ),
-
+                    // เดิมมี dropdown "ขอบเขตการใช้งาน" ให้เลือก ('ใช้ร่วม
+                    // ข้ามวิชา', หรือรายวิชาที่ hardcode ชื่อไว้ตายตัวเช่น
+                    // 'ม.5/2 การออกแบบเทคโนโลยี') แต่ไม่มี RPC ใดรับค่านี้
+                    // เลย — เลือกแล้วหายไปเงียบๆ ทุกครั้งที่บันทึก เอาออก
+                    // แทนปล่อยให้เลือกได้แล้วทิ้งของที่เลือก
                     const SizedBox(height: 24),
 
                     // Criteria List Section
