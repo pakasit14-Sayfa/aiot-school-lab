@@ -539,3 +539,50 @@ Audit 25 หน้าฝั่งครู (`teacher_redesign_prototype/`) อ�
 **สรุป**: Teacher lane 24/24 ไฟล์ (25 หน้า ลบ storybook dev-only) DoD
 ครบแล้วเท่าที่ audit รอบนี้ครอบคลุม ทั้งหมด push เข้า `gitlab` แล้ว
 (`1a659f3`..`99ff093`)
+
+### ปิด 3 ticket ค้างจาก MASTER_PLAN (1.1 / 1.2 / 1.4) — verify เองก่อนขีดถูก
+
+หลังปิด 7 ไฟล์ข้างบน ผู้ใช้ถามว่า ticket เก่าที่ MASTER_PLAN ยังไม่ขีดถูก
+(1.1 fake button ×3, 1.2 hardcode 8 จุดใน `teacher_redesign_prototype_page`,
+1.4 ทดสอบ cross-school SOS ในเบราว์เซอร์) คืออะไร แล้วสั่งให้ตรวจ/แก้ต่อ
+ตามกติกา CLAUDE.md ห้ามขีดถูกจากรายงานเฉยๆ ต้อง verify เอง — ผลตรวจ:
+
+- **1.1**: `teacher_profile_page.dart` — เมนูที่ไม่มี backend ทุกอันมี
+  `onTap: null` (ปิดสุจริตแล้วจาก commit `0f03100` ก่อนหน้านี้) ไม่มี
+  fake-success เหลือ. `teacher_courses_page.dart` — ไล่ตรวจ snackbar
+  "สำเร็จ" ทุกอัน ทุกอันเรียก service จริงก่อนโชว์ผลจริง **ไม่มีบั๊กเหลือ
+  ไม่ต้องแก้อะไร**
+
+- **1.2**: ให้ subagent อ่านทั้งไฟล์ `teacher_redesign_prototype_page.dart`
+  (6,621 บรรทัด) เจอ **2 บั๊กจริงที่ commit `669ab76` (แก้กล้องปลอม/variant
+  B-C ปลอม) ยังไม่ครอบคลุม** — แก้ในcommit `9b6250c`:
+  - `_TeacherProfilePill` ปุ่ม "สลับสิทธิ์การทำงาน" บนแถบบนสุด (ทุกความกว้าง
+    หน้าจอ) โชว์ 3 บทบาท/แผนก/ห้องโฮมรูมที่แต่งขึ้นเองล้วนๆ ไม่เกี่ยวกับครู
+    ที่ล็อกอินอยู่เลย กดเลือกอันไหนก็ได้ snackbar บอก "สลับสำเร็จ" ทั้งที่
+    ไม่มี RPC ไม่มี state เปลี่ยนอะไรเลย — **ร้ายแรงกว่าจุดอื่นเพราะขัดกับ
+    การตัดสินใจด้านความปลอดภัยที่บันทึกไว้ใน HANDOFF.md ("Multi-role
+    login"): ตั้งใจไม่ทำสลับ role ในแอปเพราะ session ที่พิสูจน์ตัวผ่าน role
+    สิทธิ์ต่ำจะเลื่อนไปใช้ role สิทธิ์สูงได้โดยไม่เคยผ่าน OTP ของ role นั้น
+    เลย** ต้อง logout/login ใหม่เท่านั้นถึงจะสลับได้จริง — แก้ให้โชว์ role
+    จริงจาก `currentUserModel.allRoles` พร้อมข้อความบอกตรงๆ ว่าต้อง
+    logout ก่อนถึงจะสลับได้
+  - `_MiniCalendarCard` "วันนี้" freeze ไว้ที่ 6 ส.ค. 2569 ตายตัว
+    (`_mockToday`) จุดกิจกรรมวันที่ 13/20/27 แต่งขึ้นเองไม่เกี่ยวกับกิจกรรม
+    จริงเลย — แก้เป็น `DateTime.now()` และดึงจุดกิจกรรมจริงจาก
+    `CalendarService.listSchoolCalendarEvents()`
+  - `TeacherMock` class ที่ยังเหลืออยู่ตรวจแล้วเป็นแค่ config เมนู sidebar
+    (label/icon) ไม่ใช่ fake data ที่โชว์เป็นของจริง — ไม่ใช่บั๊ก
+
+- **1.4**: local มีโรงเรียนเดียว (`โรงเรียนทดสอบ`/`TEST01`) ทดสอบข้าม
+  โรงเรียนในเบราว์เซอร์จริงไม่ได้ ใช้วิธีเดียวกับที่โปรเจกต์ verify
+  backend guarantee อยู่แล้วแทน — เพิ่ม pgTAP ใน
+  `19_incident_reports.test.sql` (test 6b, commit `899750c`) ยืนยันว่า
+  `list_incident_reports` ของครูโรงเรียนอื่นไม่เห็นเหตุการณ์โรงเรียน A
+  เลยสักแถว (ของเดิมมีแค่ test 8d ที่เช็ค `list_incident_actions` ระดับ
+  รายเหตุการณ์เดียว ไม่เคยเช็คระดับ list) — **ผ่าน 22/22 ยืนยัน isolation
+  ทำงานถูกต้องจริง** แม้ชื่อไฟล์ migration
+  `broadcast_all_incidents_to_all_staff.sql` จะฟังดูน่าตกใจ แต่ broadcast
+  แค่ภายใน `v_actor.school_id` เท่านั้น ไม่เคยข้ามโรงเรียน
+
+รัน `flutter test` ทั้งชุดหลังแก้ทั้ง 3 จุด: 526 ผ่าน/8 fail เท่าเดิมทุก
+ตัว (ไม่มี regression ใหม่) push เข้า `gitlab` แล้ว (`9b6250c`, `899750c`)
