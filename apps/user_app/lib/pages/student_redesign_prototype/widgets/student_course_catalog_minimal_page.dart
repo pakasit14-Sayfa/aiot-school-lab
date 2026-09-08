@@ -44,9 +44,27 @@ class _CourseCardData {
 }
 
 class StudentCourseCatalogMinimalPage extends StatefulWidget {
-  const StudentCourseCatalogMinimalPage({super.key, this.showAppBar = true});
+  const StudentCourseCatalogMinimalPage({
+    super.key,
+    this.showAppBar = true,
+    this.loadCourses,
+    this.getCourse,
+    this.listLessons,
+    this.loadAssignmentsForCourse,
+    this.loadSubmissionVersions,
+  });
 
   final bool showAppBar;
+
+  /// Read seams threaded to the corresponding CourseService/LessonService/
+  /// AssignmentService static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<CourseDetail> Function(String courseId)? getCourse;
+  final Future<List<LessonSummary>> Function(String courseId)? listLessons;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
+  final Future<List<SubmissionVersion>> Function(String assignmentId)?
+  loadSubmissionVersions;
 
   @override
   State<StudentCourseCatalogMinimalPage> createState() =>
@@ -102,18 +120,26 @@ class _StudentCourseCatalogMinimalPageState
       _error = null;
     });
     try {
-      final courses = (await CourseService.listMyCourses())
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final getCourse = widget.getCourse ?? CourseService.getCourse;
+      final listLessons = widget.listLessons ?? LessonService.listLessons;
+      final loadAssignments =
+          widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
+      final loadVersions = widget.loadSubmissionVersions ??
+          AssignmentService.listMySubmissionVersions;
+
+      final courses = (await loadCourses())
           .where((c) => c.isActive)
           .toList();
 
       final details = await Future.wait(
-        courses.map((c) => CourseService.getCourse(c.id)),
+        courses.map((c) => getCourse(c.id)),
       );
       final lessonLists = await Future.wait(
-        courses.map((c) => LessonService.listLessons(c.id)),
+        courses.map((c) => listLessons(c.id)),
       );
       final assignmentLists = await Future.wait(
-        courses.map((c) => AssignmentService.listAssignments(c.id)),
+        courses.map((c) => loadAssignments(c.id)),
       );
 
       final cards = <_CourseCardData>[];
@@ -126,9 +152,7 @@ class _StudentCourseCatalogMinimalPageState
             .where((a) => a.isPublished)
             .toList();
         final submissionChecks = await Future.wait(
-          publishedAssignments.map(
-            (a) => AssignmentService.listMySubmissionVersions(a.id),
-          ),
+          publishedAssignments.map((a) => loadVersions(a.id)),
         );
         final submittedCount = submissionChecks
             .where((s) => s.isNotEmpty)
@@ -154,10 +178,10 @@ class _StudentCourseCatalogMinimalPageState
         _cards = cards;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
