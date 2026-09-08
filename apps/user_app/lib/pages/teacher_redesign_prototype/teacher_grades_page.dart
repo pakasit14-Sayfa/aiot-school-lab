@@ -5,14 +5,29 @@
 // listCourseGrades) + รายการรอยืนยัน (confirmedAt == null) ที่ครูกดยืนยันได้
 // จริงผ่าน GradeService.confirmGrade — ตรงตามหลักการ "ครูยืนยันขั้นสุดท้าย
 // เสมอ" ที่ล็อกไว้ในวอลต์
+import 'dart:convert';
+
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../utils/web_download.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
+typedef GradesDownloadBytes =
+    void Function({
+      required String filename,
+      required List<int> bytes,
+      required String mimeType,
+    });
+
 class TeacherGradesPage extends StatefulWidget {
-  const TeacherGradesPage({super.key});
+  const TeacherGradesPage({super.key, this.downloadBytesOverride});
+
+  // Seam for tests: lets a test prove the export button actually calls a
+  // download instead of the old always-"generating..." SnackBar with no file.
+  final GradesDownloadBytes? downloadBytesOverride;
 
   @override
   State<TeacherGradesPage> createState() => _TeacherGradesPageState();
@@ -115,6 +130,88 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
     }
   }
 
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  /// ใช้ร่วมกันทั้ง CSV และ Excel กันข้อมูลสองฟอร์แมตเพี้ยนไม่ตรงกัน
+  List<List<String>>? _buildReportRows() {
+    if (_summaries.every((s) => s.records.isEmpty)) return null;
+    final rows = <List<String>>[
+      ['subject', 'student', 'score', 'max_score', 'status', 'confirmed_at'],
+    ];
+    for (final s in _summaries) {
+      for (final r in s.records) {
+        rows.add([
+          s.subjectName,
+          '${r.studentFirstName} ${r.studentLastName}',
+          '${r.score}',
+          '${r.maxScore}',
+          r.status,
+          r.confirmedAt?.toIso8601String() ?? '',
+        ]);
+      }
+    }
+    return rows;
+  }
+
+  void _exportCsv() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')));
+      return;
+    }
+    final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'grades_report_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานคะแนนแล้ว (CSV)')));
+  }
+
+  void _exportExcel() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')));
+      return;
+    }
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook[workbook.getDefaultSheet() ?? 'Sheet1'];
+    for (final row in rows) {
+      sheet.appendRow(row.map(xls.TextCellValue.new).toList());
+    }
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')));
+      return;
+    }
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'grades_report_${DateTime.now().toIso8601String().split('T').first}.xlsx',
+      bytes: bytes,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ส่งออกรายงานคะแนนแล้ว (Excel)')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final allPending = _summaries.expand((s) => s.pending).length;
@@ -132,17 +229,11 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
         PopupMenuButton<String>(
           tooltip: 'Export รายงาน',
           icon: const Icon(Icons.file_download_outlined),
-          onSelected: (format) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('กำลังสร้างไฟล์ $format ของรายงานคะแนนนี้...'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
+          onSelected: (format) =>
+              format == 'csv' ? _exportCsv() : _exportExcel(),
           itemBuilder: (context) => const [
-            PopupMenuItem(value: 'PDF', child: Text('Export เป็น PDF')),
-            PopupMenuItem(value: 'Excel', child: Text('Export เป็น Excel')),
+            PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
+            PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
           ],
         ),
       ],
