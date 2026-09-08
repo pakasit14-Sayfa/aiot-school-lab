@@ -220,6 +220,89 @@ void main() {
   );
 
   testWidgets(
+    'the role filter dropdown only offers real roles, never the old fake labels',
+    (tester) async {
+      await _pump(
+        tester,
+        loadUsers: () async => [
+          _user(role: UserRole.teacher),
+          _user(uid: 'u-2', role: UserRole.executive),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ทุกบทบาท'));
+      await tester.pumpAndSettle();
+
+      // Real UserRole.label values for the roles actually present.
+      expect(find.text(UserRole.teacher.label), findsWidgets);
+      expect(find.text(UserRole.executive.label), findsWidgets);
+
+      // The old fake labels never matched anything and must never appear.
+      expect(find.text('ครูผู้สอน'), findsNothing);
+      expect(find.text('ครูประจำอาคาร'), findsNothing);
+      expect(find.text('ฝ่ายบริหาร'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'selecting a real role filters the user list correctly',
+    (tester) async {
+      await _pump(
+        tester,
+        loadUsers: () async => [
+          _user(uid: 'u-teacher', name: 'ครูเอ', role: UserRole.teacher),
+          _user(uid: 'u-exec', name: 'ผู้บริหารบี', role: UserRole.executive),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ครูเอ'), findsOneWidget);
+      expect(find.text('ผู้บริหารบี'), findsOneWidget);
+
+      await tester.tap(find.text('ทุกบทบาท'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(UserRole.executive.label).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ผู้บริหารบี'), findsOneWidget);
+      expect(find.text('ครูเอ'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the user detail sheet shows real permissions from the matrix, never the old fabricated bullets',
+    (tester) async {
+      await _pump(
+        tester,
+        loadUsers: () async => [_user(role: UserRole.teacher)],
+        loadPermissionMatrix: () async => const [
+          RolePermissionEntry(
+            functionName: 'create_course',
+            allowedRoles: ['teacher'],
+          ),
+          RolePermissionEntry(
+            functionName: 'archive_school_device',
+            allowedRoles: ['school_admin'],
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ครู สมศรี'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('create_course'), findsOneWidget);
+      expect(find.text('archive_school_device'), findsNothing);
+      expect(find.textContaining('จากตารางสิทธิ์จริง'), findsOneWidget);
+
+      // None of the old invented bullet text must ever appear again.
+      expect(find.text('ดูชั้นเรียนที่รับผิดชอบ'), findsNothing);
+      expect(find.text('ดูอาคารและห้องในพื้นที่รับผิดชอบ'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'searching the matrix filters to matching function names',
     (tester) async {
       await _pump(

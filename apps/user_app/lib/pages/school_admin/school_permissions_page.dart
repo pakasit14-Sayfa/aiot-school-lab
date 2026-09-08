@@ -84,6 +84,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
               name: u.name,
               email: u.email,
               role: roles.map((r) => r.label).join(' · '),
+              roles: roles,
               scope: u.building.isNotEmpty
                   ? u.building
                   : (u.room.isNotEmpty ? u.room : 'ทุกอาคาร'),
@@ -148,7 +149,8 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
           user.scope.toLowerCase().contains(keyword);
 
       final bool matchesRole =
-          _selectedRole == 'ทุกบทบาท' || user.role == _selectedRole;
+          _selectedRole == 'ทุกบทบาท' ||
+          user.roles.any((r) => r.label == _selectedRole);
 
       final bool matchesStatus =
           _selectedStatus == 'ทุกสถานะ' || user.status == _selectedStatus;
@@ -461,6 +463,11 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                     name: name,
                                     email: email,
                                     role: role,
+                                    // สแกฟโฟลด์ชั่วคราวแค่ส่ง role/id กลับไปให้
+                                    // _saveUserPermissions เรียก updateRole
+                                    // จริง แล้วโหลดข้อมูลจริงทับใหม่ทันที —
+                                    // ฟิลด์นี้ไม่เคยถูกใช้แสดงผล
+                                    roles: const [],
                                     scope: scope,
                                     status: status,
                                     lastUpdated: 'เมื่อสักครู่',
@@ -534,18 +541,18 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
         return UserRole.parent;
       case 'ครูผู้สอน':
       case 'ครูประจำชั้น':
-      case 'ครูประจำอาคาร':
       default:
         return UserRole.teacher;
     }
   }
 
+  // 'ครูประจำอาคาร' เคยเป็นตัวเลือกที่ 3 ในนี้ — role นั้นถูกยุบรวมเข้า
+  // school_admin ไปแล้วตั้งแต่ 2026-08-25 (ดู CLAUDE.md) ไม่มีความหมายอะไร
+  // ในระบบอีกต่อไป แม้แต่เป็นแค่ label UI
   String _defaultScopeForRole(String role) {
     switch (role) {
       case 'ครูประจำชั้น':
         return 'ม.1/1';
-      case 'ครูประจำอาคาร':
-        return 'อาคารเรียน A';
       case 'ฝ่ายบริหาร':
         return 'ทุกอาคาร';
       default:
@@ -568,16 +575,17 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
     required String selectedRole,
     required ValueChanged<String> onSelected,
   }) {
+    // เดิมมี 'ครูประจำอาคาร' เป็นตัวเลือกที่ 3 — role นั้นยุบรวมเข้า
+    // school_admin ไปแล้วตั้งแต่ 2026-08-25 ไม่มีอยู่จริงแม้แต่เป็น label
     final List<(String, IconData, Color)> roles = [
       ('ครูผู้สอน', Icons.menu_book_rounded, const Color(0xFF4F6078)),
       ('ครูประจำชั้น', Icons.school_rounded, SchoolAdminPalette.primaryDark),
-      ('ครูประจำอาคาร', Icons.apartment_rounded, SchoolAdminPalette.green),
       ('ฝ่ายบริหาร', Icons.business_center_rounded, SchoolAdminPalette.secondary),
     ];
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        final double width = (constraints.maxWidth - 24) / 4;
+        final double width = (constraints.maxWidth - 16) / 3;
         final bool wrap = width < 120;
 
         return wrap
@@ -798,7 +806,10 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                         value: user.updatedBy,
                       ),
                       const SizedBox(height: 14),
-                      _RolePermissionList(role: user.role),
+                      _RolePermissionList(
+                        roles: user.roles,
+                        matrix: _permissionMatrix,
+                      ),
                       const SizedBox(height: 14),
                       Row(
                         children: [
@@ -1431,15 +1442,19 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
             ),
           );
 
+          // เดิม items เป็นป้ายที่แต่งขึ้นเอง ('ครูผู้สอน'/'ครูประจำอาคาร' ฯลฯ)
+          // ไม่ตรงกับ UserRole.label จริงสักคำ ('ครูประจำห้อง'/'ผู้บริหาร')
+          // filter บทบาทเลยไม่เคยกรองอะไรได้จริงเลยตั้งแต่แรก — ตอนนี้สร้าง
+          // จาก role จริงที่มีคนถืออยู่ (_roleCounts) 'รอตรวจสอบ' ในสถานะก็
+          // เป็นค่าที่ user.status ไม่มีทางเป็นได้เลย (มีแค่ 'ใช้งาน'/'ระงับ')
           final Widget role = _PermissionFilterDropdown(
             label: 'บทบาท',
             value: _selectedRole,
-            items: const [
+            items: [
               'ทุกบทบาท',
-              'ครูผู้สอน',
-              'ครูประจำชั้น',
-              'ครูประจำอาคาร',
-              'ฝ่ายบริหาร',
+              ...UserRole.values
+                  .where((r) => (_roleCounts[r] ?? 0) > 0)
+                  .map((r) => r.label),
             ],
             onChanged: (String value) {
               setState(() => _selectedRole = value);
@@ -1449,7 +1464,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
           final Widget status = _PermissionFilterDropdown(
             label: 'สถานะ',
             value: _selectedStatus,
-            items: const ['ทุกสถานะ', 'ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
+            items: const ['ทุกสถานะ', 'ใช้งาน', 'ระงับ'],
             onChanged: (String value) {
               setState(() => _selectedStatus = value);
             },
@@ -1743,8 +1758,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
           _PermissionGuideRow(
             number: '2',
             title: 'กำหนดขอบเขตให้ชัด',
-            detail:
-                'ครูประจำชั้นให้เข้าถึงเฉพาะห้องของตน และครูประจำอาคารให้เข้าถึงเฉพาะอาคารที่รับผิดชอบ',
+            detail: 'ครูประจำชั้นให้เข้าถึงเฉพาะห้องของตน',
           ),
           SizedBox(height: 8),
           _PermissionGuideRow(
@@ -2371,17 +2385,21 @@ class _RoleBadge extends StatelessWidget {
 
   final String value;
 
+  // เดิมเทียบกับ 'ครูประจำชั้น'/'ครูประจำอาคาร'/'ฝ่ายบริหาร' ตรงๆ ทั้งที่
+  // ค่าจริงจาก UserRole.label คือ 'ครูประจำห้อง'/'ผู้บริหาร' (คนละคำ) และอาจ
+  // เป็นสตริงหลาย role ต่อกันด้วย ' · ' — เงื่อนไขเดิมจึงไม่ตรงอะไรเลยเสมอ
+  // ใช้ contains() เทียบกับ label จริงของ UserRole แทน
   Color get color {
-    switch (value) {
-      case 'ครูประจำชั้น':
-        return SchoolAdminPalette.primaryDark;
-      case 'ครูประจำอาคาร':
-        return SchoolAdminPalette.green;
-      case 'ฝ่ายบริหาร':
-        return SchoolAdminPalette.secondary;
-      default:
-        return const Color(0xFF4F6078);
+    if (value.contains(UserRole.schoolAdmin.label)) {
+      return SchoolAdminPalette.primaryDark;
     }
+    if (value.contains(UserRole.executive.label)) {
+      return SchoolAdminPalette.secondary;
+    }
+    if (value.contains(UserRole.superAdmin.label)) {
+      return SchoolAdminPalette.green;
+    }
+    return const Color(0xFF4F6078);
   }
 
   @override
@@ -2727,44 +2745,28 @@ class _PermissionPreviewBox extends StatelessWidget {
 }
 
 class _RolePermissionList extends StatelessWidget {
-  const _RolePermissionList({required this.role});
+  const _RolePermissionList({required this.roles, required this.matrix});
 
-  final String role;
+  final List<UserRole> roles;
+  final List<RolePermissionEntry> matrix;
 
-  List<String> get permissions {
-    switch (role) {
-      case 'ครูประจำชั้น':
-        return const [
-          'ดูนักเรียนเฉพาะห้องที่รับผิดชอบ',
-          'รับแจ้งเตือนนักเรียนในห้อง',
-          'ดูรายงานเฉพาะห้องของตน',
-          'ดูอุปกรณ์ที่ผูกกับห้อง',
-        ];
-      case 'ครูประจำอาคาร':
-        return const [
-          'ดูอาคารและห้องในพื้นที่รับผิดชอบ',
-          'ดูอุปกรณ์และชุดฝึกในอาคาร',
-          'ดูไฟ น้ำ และคุณภาพอากาศของอาคาร',
-          'รับแจ้งเตือนเหตุผิดปกติของอาคาร',
-        ];
-      case 'ฝ่ายบริหาร':
-        return const [
-          'ดูภาพรวมโรงเรียน',
-          'ดูรายงานทุกส่วนที่ได้รับอนุญาต',
-          'ดูข้อมูลอาคารและทรัพยากร',
-          'ดูการแจ้งเตือนและ Log',
-        ];
-      default:
-        return const [
-          'ดูชั้นเรียนที่รับผิดชอบ',
-          'ดูอุปกรณ์ที่ใช้ในการสอน',
-          'ดูรายงานที่เกี่ยวกับตนเอง',
-        ];
-    }
+  /// เดิมเป็นลิสต์ข้อความที่แต่งขึ้นเองทั้งหมด (4 บรรทัดต่อ role) และ switch
+  /// เทียบกับ label ปลอมที่ไม่มีทางตรงกับ user.role จริงเลย ('ครูประจำชั้น'/
+  /// 'ครูประจำอาคาร' ไม่ใช่ UserRole.label) ทำให้ทุกคนเห็นข้อความ default
+  /// เดียวกันเสมอไม่ว่า role จริงจะเป็นอะไร ตอนนี้ดึงจาก
+  /// `list_role_permission_matrix` จริง — ชื่อฟังก์ชันที่ role นี้เข้าถึงได้
+  List<String> get _accessibleFunctions {
+    final values = roles.map((r) => r.value).toSet();
+    return matrix
+        .where((e) => e.allowedRoles?.any(values.contains) ?? false)
+        .map((e) => e.functionName)
+        .toList()
+      ..sort();
   }
 
   @override
   Widget build(BuildContext context) {
+    final functions = _accessibleFunctions;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
@@ -2776,41 +2778,58 @@ class _RolePermissionList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'สิทธิ์หลัก',
-            style: TextStyle(
+          Text(
+            'สิทธิ์หลัก (จากตารางสิทธิ์จริง ${functions.length} รายการ)',
+            style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w900,
               color: SchoolAdminPalette.textPrimary,
             ),
           ),
           const SizedBox(height: 9),
-          ...permissions.map((String item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 7),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.check_circle_rounded,
-                    size: 17,
-                    color: SchoolAdminPalette.green,
-                  ),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(
-                      item,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        height: 1.45,
-                        color: SchoolAdminPalette.textPrimary,
+          if (matrix.isEmpty)
+            const Text(
+              'ยังไม่มีข้อมูลตารางสิทธิ์',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            )
+          else if (functions.isEmpty)
+            const Text(
+              'ไม่พบฟังก์ชันที่ระบุว่าบทบาทนี้เข้าถึงได้ในตารางสิทธิ์',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            )
+          else
+            ...functions.take(8).map((String item) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 7),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      size: 17,
+                      color: SchoolAdminPalette.green,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          height: 1.45,
+                          color: SchoolAdminPalette.textPrimary,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );
@@ -3256,6 +3275,7 @@ class _PermissionUser {
     required this.name,
     required this.email,
     required this.role,
+    required this.roles,
     required this.scope,
     required this.status,
     required this.lastUpdated,
@@ -3266,6 +3286,11 @@ class _PermissionUser {
   final String name;
   final String email;
   final String role;
+  // เดิม filter/badge เทียบกับ `role` (สตริง label ต่อกันด้วย ' · ') ตรงๆ
+  // กับป้ายที่แต่งขึ้นเอง ('ครูประจำชั้น' ฯลฯ) ซึ่งไม่ตรงกับ UserRole.label
+  // จริงเลยสักคำ ('ครูประจำห้อง' ฯลฯ) ทำให้ filter ใช้ไม่ได้จริงมาตลอด —
+  // เก็บ role จริงแยกไว้ให้ filter/badge/permission-list เทียบได้ถูกต้อง
+  final List<UserRole> roles;
   final String scope;
   final String status;
   final String lastUpdated;
@@ -3281,6 +3306,7 @@ class _PermissionUser {
       name: name,
       email: email,
       role: role,
+      roles: roles,
       scope: scope,
       status: status ?? this.status,
       lastUpdated: lastUpdated ?? this.lastUpdated,
