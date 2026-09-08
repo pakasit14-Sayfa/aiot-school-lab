@@ -2415,8 +2415,9 @@ class _TeacherRightPanel extends StatelessWidget {
 }
 
 /// ปฏิทินย่อประจำเดือน แบบเดียวกับ "Upcoming Check-ups" ใน reference —
-/// mock ตายตัวไว้ที่เดือนปัจจุบัน ยังไม่เชื่อมกิจกรรมจริง แค่ไฮไลต์
-/// "วันนี้" กับวันที่มีคาบสอน/นัดหมายไว้เป็นตัวอย่าง
+/// "วันนี้" คือวันที่จริงของเครื่อง วันที่มีจุดคือมีกิจกรรมจริงจาก
+/// `list_calendar_events` (เดิมเคย mock ตายตัวไว้ที่ 6 ส.ค. 2569 กับวันที่
+/// 13/20/27 แต่งขึ้นเอง ไม่เกี่ยวกับกิจกรรมจริงเลย)
 class _MiniCalendarCard extends StatefulWidget {
   const _MiniCalendarCard();
 
@@ -2425,11 +2426,10 @@ class _MiniCalendarCard extends StatefulWidget {
 }
 
 class _MiniCalendarCardState extends State<_MiniCalendarCard> {
-  // "วันนี้" ของ mock ทั้งแอปคือพุธ 5/6 ส.ค. 2569 (ดู _TeacherTopBar) — ยึด
-  // วันเดียวกันไว้ตรงนี้เพื่อให้ปฏิทินตรงกับข้อความหัวหน้าจอ
-  static final DateTime _mockToday = DateTime(2026, 8, 6);
-  late DateTime _displayedMonth = DateTime(_mockToday.year, _mockToday.month);
+  final DateTime _today = DateTime.now();
+  late DateTime _displayedMonth = DateTime(_today.year, _today.month);
   int? _selectedDay;
+  List<CalendarEventItem> _events = const [];
 
   static const _thaiMonths = [
     'มกราคม',
@@ -2446,7 +2446,31 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
     'ธันวาคม',
   ];
   static const _weekdays = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
-  static const _markedDays = {13, 20, 27};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEvents();
+  }
+
+  Future<void> _loadEvents() async {
+    try {
+      final events = await CalendarService.listSchoolCalendarEvents();
+      if (!mounted) return;
+      setState(() => _events = events);
+    } catch (_) {
+      // เงียบพอ — ปฏิทินยังใช้งานได้ปกติ แค่ไม่มีจุดกิจกรรม
+    }
+  }
+
+  Set<int> get _markedDaysInDisplayedMonth => _events
+      .where(
+        (e) =>
+            e.startDate.year == _displayedMonth.year &&
+            e.startDate.month == _displayedMonth.month,
+      )
+      .map((e) => e.startDate.day)
+      .toSet();
 
   void _changeMonth(int delta) {
     setState(() {
@@ -2475,9 +2499,10 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
       0,
     ).day;
     final isCurrentMonth =
-        _displayedMonth.year == _mockToday.year &&
-        _displayedMonth.month == _mockToday.month;
-    final todayDay = isCurrentMonth ? _mockToday.day : null;
+        _displayedMonth.year == _today.year &&
+        _displayedMonth.month == _today.month;
+    final todayDay = isCurrentMonth ? _today.day : null;
+    final markedDays = _markedDaysInDisplayedMonth;
 
     return _GlassCard(
       padding: const EdgeInsets.all(18),
@@ -2556,7 +2581,7 @@ class _MiniCalendarCardState extends State<_MiniCalendarCard> {
               if (day < 1) return const SizedBox.shrink();
               final isToday = day == todayDay;
               final isSelected = day == _selectedDay;
-              final isMarked = _markedDays.contains(day);
+              final isMarked = markedDays.contains(day);
               return InkWell(
                 borderRadius: BorderRadius.circular(999),
                 onTap: () => setState(() => _selectedDay = day),
@@ -5335,6 +5360,15 @@ class _TeacherProfilePill extends StatelessWidget {
   const _TeacherProfilePill();
 
   void _showRoleSwitcherModal(BuildContext context) {
+    // ตั้งใจไม่มีสลับสิทธิ์ในแอป (no in-app role switch) — ตัดสินใจไว้ตอน
+    // ทำ multi-role login เพราะสลับ role โดยไม่ยืนยันตัวตนใหม่จะเปิดช่องให้
+    // session ที่พิสูจน์ตัวผ่าน role สิทธิ์ต่ำ เลื่อนไปใช้ role สิทธิ์สูงได้
+    // โดยไม่เคยผ่าน OTP ของ role นั้นเลย — ต้อง logout แล้ว login ใหม่เท่านั้น
+    // (ดู docs/handoff/HANDOFF.md หัวข้อ "Multi-role login")
+    final roles = currentUserModel?.allRoles.isNotEmpty == true
+        ? currentUserModel!.allRoles
+        : [if (currentUserModel != null) currentUserModel!.role];
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -5351,13 +5385,13 @@ class _TeacherProfilePill extends StatelessWidget {
             const Row(
               children: [
                 Icon(
-                  Icons.swap_horiz_rounded,
+                  Icons.badge_outlined,
                   color: TeacherPalette.primary,
                   size: 24,
                 ),
                 SizedBox(width: 10),
                 Text(
-                  'สลับสิทธิ์การทำงาน (Active Role)',
+                  'บทบาทของบัญชีนี้',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w900,
@@ -5367,31 +5401,23 @@ class _TeacherProfilePill extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'เลือกสิทธิ์ในการเข้าถึงเมนูและข้อมูลของโรงเรียน (สำหรับผู้มีหลายบทบาท)',
-              style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+            Text(
+              roles.length > 1
+                  ? 'บัญชีนี้มีหลายบทบาท ระบบไม่รองรับการสลับบทบาทในแอประหว่างใช้งาน '
+                        '— ต้องออกจากระบบแล้วเข้าสู่ระบบใหม่เพื่อเลือกบทบาทที่ต้องการ '
+                        '(ยืนยันตัวตนใหม่ทุกครั้งเพื่อความปลอดภัย)'
+                  : 'บัญชีนี้มีบทบาทเดียว',
+              style: const TextStyle(fontSize: 12, color: TeacherPalette.muted),
             ),
             const SizedBox(height: 16),
-            _buildRoleOption(
-              context,
-              roleName: 'ครูประจำชั้น (Homeroom Teacher)',
-              sub: 'ม.5/2 • เข้าถึงข้อมูลนักเรียนและบรรยากาศห้องเรียน',
-              isSelected: true,
-            ),
-            const SizedBox(height: 10),
-            _buildRoleOption(
-              context,
-              roleName: 'ครูผู้สอนรายวิชา (Subject Teacher)',
-              sub: 'กลุ่มสาระวิทยาศาสตร์และเทคโนโลยี • จัดการวิชาและตรวจงาน',
-              isSelected: false,
-            ),
-            const SizedBox(height: 10),
-            _buildRoleOption(
-              context,
-              roleName: 'หัวหน้าหมวดวิชา (Head of Department)',
-              sub: 'อนุมัติเกณฑ์ Rubric และดูภาพรวมการสอนทั้งหมวด',
-              isSelected: false,
-            ),
+            for (final role in roles) ...[
+              _buildRoleOption(
+                context,
+                roleName: role.label,
+                isCurrent: role == currentUserModel?.role,
+              ),
+              const SizedBox(height: 10),
+            ],
           ],
         ),
       ),
@@ -5401,71 +5427,41 @@ class _TeacherProfilePill extends StatelessWidget {
   Widget _buildRoleOption(
     BuildContext context, {
     required String roleName,
-    required String sub,
-    required bool isSelected,
+    required bool isCurrent,
   }) {
-    return InkWell(
-      onTap: () {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('สลับสิทธิ์การทำงานเป็น "$roleName" เรียบร้อยแล้ว'),
-            backgroundColor: TeacherPalette.primary,
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(14),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? TeacherPalette.primary.withValues(alpha: 0.08)
-              : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected
-                ? TeacherPalette.primary
-                : const Color(0xFFE2E8F0),
-          ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isCurrent
+            ? TeacherPalette.primary.withValues(alpha: 0.08)
+            : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isCurrent ? TeacherPalette.primary : const Color(0xFFE2E8F0),
         ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-              color: isSelected
-                  ? TeacherPalette.primary
-                  : const Color(0xFF94A3B8),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    roleName,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w800,
-                      color: isSelected
-                          ? TeacherPalette.primary
-                          : TeacherPalette.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    sub,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: TeacherPalette.muted,
-                    ),
-                  ),
-                ],
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isCurrent
+                ? Icons.radio_button_checked_rounded
+                : Icons.radio_button_off_rounded,
+            color: isCurrent
+                ? TeacherPalette.primary
+                : const Color(0xFF94A3B8),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              roleName,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: isCurrent ? TeacherPalette.primary : TeacherPalette.ink,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
