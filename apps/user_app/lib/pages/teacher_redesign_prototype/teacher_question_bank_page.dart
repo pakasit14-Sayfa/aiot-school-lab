@@ -40,19 +40,19 @@ class BankQuestion {
 /// by one.
 class BankQuestionSet {
   const BankQuestionSet({
+    required this.quizId,
     required this.name,
     required this.kind,
     required this.subject,
     required this.description,
-    required this.questionIndexes,
     this.questions = const [],
   });
 
+  final String quizId;
   final String name;
   final String kind; // e.g. ก่อนเรียน / หลังเรียน / เก็บคะแนน
   final String subject;
   final String description;
-  final List<int> questionIndexes;
   final List<BankQuestion> questions;
 }
 
@@ -89,13 +89,39 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
           final kindLabel = q.type == 'pre_test'
               ? 'ก่อนเรียน'
               : (q.type == 'post_test' ? 'หลังเรียน' : 'เก็บคะแนน');
+
+          // เดิมไม่มี RPC ให้ดึงคำถามในชุดข้อสอบเลย ทุกชุดจึงโชว์ "0 ข้อ"
+          // ตายตัวเสมอ ไม่ว่าจะมีคำถามจริงกี่ข้อ (list_quiz_questions ใหม่)
+          List<BankQuestion> questions = const [];
+          try {
+            final real = await QuizService.listQuizQuestions(q.id);
+            questions = real.map((question) {
+              final correctIdx = question.choices.indexWhere(
+                (c) => c.isCorrect,
+              );
+              return BankQuestion(
+                questionText: question.question,
+                subject: course.subjectName,
+                type: question.type == 'essay'
+                    ? BankQuestionType.essay
+                    : BankQuestionType.multipleChoice,
+                options: question.choices.map((c) => c.text).toList(),
+                correctIndex: correctIdx >= 0 ? correctIdx : 0,
+                score: question.points.round(),
+              );
+            }).toList();
+          } catch (e) {
+            debugPrint('Error loading questions for quiz ${q.id}: $e');
+          }
+
           loadedSets.add(
             BankQuestionSet(
+              quizId: q.id,
               name: q.title,
               kind: kindLabel,
               subject: course.subjectName,
               description: 'ชุดข้อสอบ $kindLabel - ${course.subjectName}',
-              questionIndexes: [],
+              questions: questions,
             ),
           );
         }
@@ -251,7 +277,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
-                                '${set.questionIndexes.length} ข้อ',
+                                '${set.questions.length} ข้อ',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10.5,
@@ -314,8 +340,18 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
     );
   }
 
+  /// รวมคำถามจริงของทุกชุดที่ติ๊กเลือกไว้ ส่งกลับให้หน้าที่เปิดมา (เช่น
+  /// exam builder ที่รอผลผ่าน `Navigator.push<List<BankQuestion>>` อยู่แล้ว)
+  /// — เดิมหน้านี้ไม่เคย pop ค่ากลับเลยสักครั้ง ต่อให้ติ๊กเลือกไว้เท่าไหร่
+  /// ก็ไม่มีผลอะไรกับหน้าที่เรียกมา
+  List<BankQuestion> get _selectedQuestions => _selectedSetIds
+      .where((i) => i < _questionSets.length)
+      .expand((i) => _questionSets[i].questions)
+      .toList();
+
   @override
   Widget build(BuildContext context) {
+    final selectedCount = _selectedQuestions.length;
     return Scaffold(
       backgroundColor: TeacherPalette.card,
       body: TeacherMockPageShell(
@@ -343,10 +379,34 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                 ),
               ),
               _buildSetsList(),
+              if (selectedCount > 0) const SizedBox(height: 90),
             ],
           );
         },
       ),
+      bottomNavigationBar: selectedCount == 0
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: FilledButton.icon(
+                  onPressed: () =>
+                      Navigator.pop(context, _selectedQuestions),
+                  icon: const Icon(Icons.check_circle_rounded, size: 18),
+                  label: Text('ยืนยันการเลือก ($selectedCount ข้อ)'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: TeacherPalette.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }

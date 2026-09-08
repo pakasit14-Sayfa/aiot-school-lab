@@ -29,6 +29,56 @@ class QuizSummary {
   );
 }
 
+class QuizQuestionChoice {
+  const QuizQuestionChoice({
+    required this.id,
+    required this.text,
+    required this.isCorrect,
+  });
+
+  final String id;
+  final String text;
+  final bool isCorrect;
+
+  factory QuizQuestionChoice.fromMap(Map<String, dynamic> map) =>
+      QuizQuestionChoice(
+        id: map['id'] as String,
+        text: map['text'] as String? ?? '',
+        isCorrect: map['is_correct'] as bool? ?? false,
+      );
+}
+
+class QuizQuestionSummary {
+  const QuizQuestionSummary({
+    required this.id,
+    required this.type,
+    required this.question,
+    required this.points,
+    required this.choices,
+  });
+
+  final String id;
+  final String type;
+  final String question;
+  final num points;
+  final List<QuizQuestionChoice> choices;
+
+  factory QuizQuestionSummary.fromRow(Map<String, dynamic> row) {
+    final rawChoices = row['choices'] as List<dynamic>? ?? const [];
+    return QuizQuestionSummary(
+      id: row['question_id'] as String,
+      type: row['type'] as String,
+      question: row['question'] as String? ?? '',
+      points: row['points'] as num? ?? 1,
+      choices: rawChoices
+          .map(
+            (c) => QuizQuestionChoice.fromMap(c as Map<String, dynamic>),
+          )
+          .toList(),
+    );
+  }
+}
+
 class QuizAttemptResult {
   const QuizAttemptResult({
     required this.attemptId,

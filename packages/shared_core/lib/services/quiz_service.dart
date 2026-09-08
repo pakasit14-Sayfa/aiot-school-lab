@@ -23,6 +23,24 @@ class QuizService {
         .toList();
   }
 
+  static Future<List<QuizQuestionSummary>> listQuizQuestions(
+    String quizId,
+  ) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows =
+        await supabase.rpc(
+              'list_quiz_questions',
+              params: {'p_token': token, 'p_quiz_id': quizId},
+            )
+            as List;
+    return rows
+        .map(
+          (row) => QuizQuestionSummary.fromRow(row as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   static Future<QuizForStudent> getQuizForStudent(String quizId) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
