@@ -308,3 +308,27 @@ Done from a report alone.
 > งานของวันที่ 2026-09-06 (energy · esg · device_control · การตรวจย้อน 5 หน้า)
 > เคยถูกสรุปซ้ำไว้ตรงนี้ — ลบออกแล้วเพราะ commit เก็บครบกว่าและแก้ย้อนหลังไม่ได้
 > ดูด้วย `SINCE='2026-09-06' ./scripts/state.sh --log`
+
+## 2026-09-08 — sensor_ingest ไม่อัปเดต last_seen_at + production migration ค้าง 17 ไฟล์
+- เจ้าของทดสอบเชื่อมเซนเซอร์จริงผ่านบัญชี `www.pakasit14@gmail.com` (production,
+  ไม่ใช่ local dev) แล้วสงสัยว่าทำไมหน้าอุปกรณ์ดูเหมือนไม่มีอะไรเปลี่ยน
+- ตรวจ production ตรง ๆ พบว่าเซนเซอร์ส่งข้อมูลเข้า `sensor_readings` จริง
+  ต่อเนื่องทุก ~15 วินาที (เชื่อมต่อสำเร็จ ไม่ใช่บั๊ก) แต่ `sensor_ingest`
+  RPC อัปเดตแค่ `devices.status='online'` **ไม่เคยอัปเดต `last_seen_at`**
+  เลย ทำให้คอลัมน์นี้ค้างที่ค่าตอนลงทะเบียนตลอดไป (เจอเคสจริง: ห่างกัน 11 วัน)
+- **แก้แล้ว**: migration `20260908010000_sensor_ingest_update_last_seen_at.sql`
+  เพิ่ม `last_seen_at = now()` เข้าไปใน `UPDATE devices` ประโยคเดิม — ไม่กระทบ
+  performance เพิ่ม (รวมอยู่ใน statement เดียวกัน) และไม่กระทบ dashboard
+  online-count (ใช้ `status='online' OR last_seen_at>=15min` อยู่แล้ว)
+  ทดสอบด้วย pgTAP `44_sensor_ingest_last_seen_at.test.sql` (4 tests ผ่านหมด)
+- **บั๊กที่เจอแต่ยังไม่แก้ (แยกเรื่อง คนละขนาดงาน)**: `devices.status` ไม่มี
+  cron ไหนคอยตรวจจับอุปกรณ์ที่เงียบไปนานแล้วให้กลับเป็น `'offline'` —
+  เคยตั้งเป็น `'online'` ครั้งเดียวจะค้างแบบนั้นตลอดกาล แปลว่าตัวเลข
+  "อุปกรณ์ออนไลน์" บน dashboard จะนับอุปกรณ์ที่หยุดส่งข้อมูลไปแล้วนานแค่ไหน
+  ก็ตามว่าออนไลน์อยู่ดี ต้องมี cron ใหม่หรือเปลี่ยน logic การนับถึงจะแก้ได้จริง
+- ระหว่างทางพบว่า production **ไม่เคย apply migration ตั้งแต่ 2026-08-31**
+  (ค้างสะสม 17 ไฟล์ — ระบบประชุม, staff attendance/requests, permission
+  matrix, incident visibility, parent RLS ฯลฯ) เจ้าของยืนยันให้ push
+  ทั้งหมดพร้อมกัน (`npx supabase db push --linked --include-all`) —
+  ตอนนี้ production sync กับ local migration history แล้ว
+- Commit: `c20dd39`
