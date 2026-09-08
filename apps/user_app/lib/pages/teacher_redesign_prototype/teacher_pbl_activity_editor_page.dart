@@ -18,6 +18,7 @@
 // เลย) ถ้าจะทำให้ถูกต้องสมบูรณ์ ต้องเพิ่มคอลัมน์/RPC ใหม่
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart' hide RubricModel;
+import 'package:shared_core/shared_core.dart' as core show RubricModel;
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart'
@@ -39,9 +40,36 @@ const _pblTopics = [
 ];
 
 class TeacherPblActivityEditorPage extends StatefulWidget {
-  const TeacherPblActivityEditorPage({super.key, required this.courseId});
+  const TeacherPblActivityEditorPage({
+    super.key,
+    required this.courseId,
+    this.listTeachingKitDevices,
+    this.listMyRubrics,
+    this.getRubric,
+    this.createAssignment,
+    this.publishAssignment,
+  });
 
   final String courseId;
+
+  /// Read/write seams threaded to the corresponding AiotLabService/
+  /// RubricService/AssignmentService static calls in production.
+  /// listMyRubrics/getRubric return the shared_core RubricModel, imported
+  /// under the `core` prefix since this file's own RubricModel (from
+  /// teacher_rubric_page.dart) shadows the unprefixed name.
+  final Future<List<AiotLabDeviceItem>> Function()? listTeachingKitDevices;
+  final Future<List<core.RubricModel>> Function()? listMyRubrics;
+  final Future<core.RubricModel> Function(String rubricId)? getRubric;
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? instructions,
+    DateTime? dueAt,
+    String? rubricId,
+  })?
+  createAssignment;
+  final Future<void> Function(String assignmentId)? publishAssignment;
 
   @override
   State<TeacherPblActivityEditorPage> createState() =>
@@ -79,23 +107,24 @@ class _TeacherPblActivityEditorPageState
       _loadError = null;
     });
     try {
-      final results = await Future.wait([
-        AiotLabService.listTeachingKitDevices(),
-        RubricService.listMyRubrics(),
-      ]);
+      final loadDevices =
+          widget.listTeachingKitDevices ??
+          AiotLabService.listTeachingKitDevices;
+      final loadRubrics = widget.listMyRubrics ?? RubricService.listMyRubrics;
+      final results = await Future.wait([loadDevices(), loadRubrics()]);
       final allDevices = results[0] as List<AiotLabDeviceItem>;
       if (!mounted) return;
       setState(() {
         _devices = allDevices
             .where((d) => d.courseId == widget.courseId)
             .toList();
-        _rubricSummaries = results[1] as List;
+        _rubricSummaries = results[1];
         _loadingOptions = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดข้อมูลอุปกรณ์/เกณฑ์ประเมินไม่สำเร็จ: $e';
+        _loadError = 'โหลดข้อมูลอุปกรณ์/เกณฑ์ประเมินไม่สำเร็จ';
         _loadingOptions = false;
       });
     }
@@ -104,7 +133,8 @@ class _TeacherPblActivityEditorPageState
   Future<void> _pickRubric(String rubricId) async {
     setState(() => _loadingRubricDetail = true);
     try {
-      final d = await RubricService.getRubric(rubricId);
+      final getRubric = widget.getRubric ?? RubricService.getRubric;
+      final d = await getRubric(rubricId);
       final rubric = RubricModel(
         id: d.id,
         title: d.title,
@@ -136,12 +166,12 @@ class _TeacherPblActivityEditorPageState
         _selectedRubric = rubric;
         _loadingRubricDetail = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _loadingRubricDetail = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('โหลดเกณฑ์ไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('โหลดเกณฑ์ไม่สำเร็จ')));
     }
   }
 
@@ -179,13 +209,21 @@ class _TeacherPblActivityEditorPageState
         '${_isGroupWork ? 'งานกลุ่ม' : 'งานเดี่ยว'}';
 
     try {
-      final pblId = await AssignmentService.createAssignment(
+      final create =
+          widget.createAssignment ?? AssignmentService.createAssignment;
+      final publish =
+          widget.publishAssignment ?? AssignmentService.publishAssignment;
+      final pblId = await create(
         courseId: widget.courseId,
         type: 'project',
         title: 'PBL: ${_selectedTopic ?? "โครงงาน AIoT"}',
         instructions: instructions,
+        // BR2 บังคับเลือก Rubric ก่อนเผยแพร่เสมอ (ดู _canGoNextFromStep3) —
+        // ต้องส่งค่านี้ไปด้วย ไม่งั้น Rubric ที่ครูเลือกจะหายไปเงียบๆ แม้
+        // RPC และคอลัมน์ rubric_id จะรองรับอยู่แล้ว (20260824100000)
+        rubricId: _selectedRubric?.id,
       );
-      await AssignmentService.publishAssignment(pblId);
+      await publish(pblId);
 
       if (!mounted) return;
       setState(() => _publishing = false);
@@ -199,13 +237,13 @@ class _TeacherPblActivityEditorPageState
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _publishing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เผยแพร่ไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('เผยแพร่ไม่สำเร็จ'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
     }
