@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
@@ -19,7 +21,42 @@ class _AssignmentWithCourse {
 }
 
 class StudentAssignmentsPage extends StatefulWidget {
-  const StudentAssignmentsPage({super.key});
+  const StudentAssignmentsPage({
+    super.key,
+    this.loadCourses,
+    this.loadAssignmentsForCourse,
+    this.loadSubmissionVersions,
+    this.getAssignmentDetail,
+    this.getAttachmentDownloadUrl,
+    this.pickFiles,
+    this.submitAssignment,
+    this.uploadAttachment,
+  });
+
+  /// Read/write seams threaded to the corresponding CourseService/
+  /// AssignmentService static calls in production — widget tests supply
+  /// these to drive the list load and the submit sheet (including the
+  /// real signed-URL attachment upload) without a live Supabase client.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
+  final Future<List<SubmissionVersion>> Function(String assignmentId)?
+  loadSubmissionVersions;
+  final Future<AssignmentDetail> Function(String assignmentId)?
+  getAssignmentDetail;
+  final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
+  final Future<List<PlatformFile>?> Function()? pickFiles;
+  final Future<({int version, String submissionVersionId})> Function({
+    required String assignmentId,
+    required String content,
+  })?
+  submitAssignment;
+  final Future<String> Function({
+    required String submissionVersionId,
+    required String fileName,
+    required Uint8List bytes,
+  })?
+  uploadAttachment;
 
   @override
   State<StudentAssignmentsPage> createState() => _StudentAssignmentsPageState();
@@ -55,11 +92,17 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
       _error = null;
     });
     try {
-      final courses = (await CourseService.listMyCourses())
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadAssignments =
+          widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
+      final loadVersions = widget.loadSubmissionVersions ??
+          AssignmentService.listMySubmissionVersions;
+
+      final courses = (await loadCourses())
           .where((c) => c.isActive)
           .toList();
       final assignmentLists = await Future.wait(
-        courses.map((c) => AssignmentService.listAssignments(c.id)),
+        courses.map((c) => loadAssignments(c.id)),
       );
 
       final published = <(AssignmentSummary, CourseSummary)>[];
@@ -70,9 +113,7 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
       }
 
       final submissionChecks = await Future.wait(
-        published.map(
-          (e) => AssignmentService.listMySubmissionVersions(e.$1.id),
-        ),
+        published.map((e) => loadVersions(e.$1.id)),
       );
 
       final items = <_AssignmentWithCourse>[];
@@ -102,7 +143,7 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -419,7 +460,16 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
       children: items.map((item) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: AssignmentCard(item: item, onSubmitted: _load),
+          child: AssignmentCard(
+            item: item,
+            onSubmitted: _load,
+            getAssignmentDetail: widget.getAssignmentDetail,
+            loadPreviousVersions: widget.loadSubmissionVersions,
+            getAttachmentDownloadUrl: widget.getAttachmentDownloadUrl,
+            pickFiles: widget.pickFiles,
+            submitAssignment: widget.submitAssignment,
+            uploadAttachment: widget.uploadAttachment,
+          ),
         );
       }).toList(),
     );
@@ -491,10 +541,41 @@ class _SummaryStatTile extends StatelessWidget {
 /// อัปโหลดผ่าน signed URL (submission-attachment-upload Edge Function)
 /// เหมือนแพทเทิร์นเดียวกับ lesson-material/quiz-attachment
 class _AssignmentSubmitSheet extends StatefulWidget {
-  const _AssignmentSubmitSheet({required this.item, required this.onSubmitted});
+  const _AssignmentSubmitSheet({
+    required this.item,
+    required this.onSubmitted,
+    this.getAssignmentDetail,
+    this.loadPreviousVersions,
+    this.getAttachmentDownloadUrl,
+    this.pickFiles,
+    this.submitAssignment,
+    this.uploadAttachment,
+  });
 
   final _AssignmentWithCourse item;
   final VoidCallback onSubmitted;
+
+  /// Read/write seams threaded to the corresponding AssignmentService
+  /// static calls (and file_picker) in production — widget tests supply
+  /// these to drive the submit/edit flow, including the real signed-URL
+  /// attachment upload, without a live Supabase client or file picker.
+  final Future<AssignmentDetail> Function(String assignmentId)?
+  getAssignmentDetail;
+  final Future<List<SubmissionVersion>> Function(String assignmentId)?
+  loadPreviousVersions;
+  final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
+  final Future<List<PlatformFile>?> Function()? pickFiles;
+  final Future<({int version, String submissionVersionId})> Function({
+    required String assignmentId,
+    required String content,
+  })?
+  submitAssignment;
+  final Future<String> Function({
+    required String submissionVersionId,
+    required String fileName,
+    required Uint8List bytes,
+  })?
+  uploadAttachment;
 
   @override
   State<_AssignmentSubmitSheet> createState() => _AssignmentSubmitSheetState();
@@ -520,14 +601,14 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
 
   Future<void> _loadDetail() async {
     try {
-      final detail = await AssignmentService.getAssignment(
-        widget.item.assignment.id,
-      );
+      final getDetail =
+          widget.getAssignmentDetail ?? AssignmentService.getAssignment;
+      final detail = await getDetail(widget.item.assignment.id);
       if (!mounted) return;
       setState(() => _detail = detail);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _detailError = 'โหลดรายละเอียดไม่สำเร็จ: $e');
+      setState(() => _detailError = 'โหลดรายละเอียดไม่สำเร็จ');
     }
   }
 
@@ -536,9 +617,9 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   Future<void> _loadPreviousSubmission() async {
     setState(() => _loadingPrevious = true);
     try {
-      final versions = await AssignmentService.listMySubmissionVersions(
-        widget.item.assignment.id,
-      );
+      final loadVersions = widget.loadPreviousVersions ??
+          AssignmentService.listMySubmissionVersions;
+      final versions = await loadVersions(widget.item.assignment.id);
       if (!mounted) return;
       if (versions.isNotEmpty) {
         final latest = versions.first;
@@ -556,33 +637,36 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
 
   Future<void> _openPreviousAttachment(SubmissionAttachment attachment) async {
     try {
-      final url = await AssignmentService.getSubmissionAttachmentDownloadUrl(
-        attachment.id,
-      );
+      final getUrl = widget.getAttachmentDownloadUrl ??
+          AssignmentService.getSubmissionAttachmentDownloadUrl;
+      final url = await getUrl(attachment.id);
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         await launchUrl(uri);
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
     }
   }
 
   Future<void> _pickFiles() async {
     try {
-      final result = await FilePicker.platform.pickFiles(withData: true);
-      if (result == null) return;
-      setState(() => _pickedFiles.addAll(result.files));
-    } catch (e) {
+      final pick = widget.pickFiles ??
+          () async => (await FilePicker.platform.pickFiles(withData: true))
+              ?.files;
+      final files = await pick();
+      if (files == null) return;
+      setState(() => _pickedFiles.addAll(files));
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ')));
     }
   }
 
@@ -591,7 +675,10 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final result = await AssignmentService.submitAssignment(
+      final submit = widget.submitAssignment ?? AssignmentService.submitAssignment;
+      final upload =
+          widget.uploadAttachment ?? AssignmentService.uploadSubmissionAttachment;
+      final result = await submit(
         assignmentId: widget.item.assignment.id,
         content: _controller.text.trim(),
       );
@@ -599,7 +686,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       for (final file in _pickedFiles) {
         final bytes = file.bytes;
         if (bytes == null) continue;
-        await AssignmentService.uploadSubmissionAttachment(
+        await upload(
           submissionVersionId: result.submissionVersionId,
           fileName: file.name,
           bytes: bytes,
@@ -615,10 +702,10 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      messenger.showSnackBar(SnackBar(content: Text('ส่งงานไม่สำเร็จ: $e')));
+      messenger.showSnackBar(const SnackBar(content: Text('ส่งงานไม่สำเร็จ กรุณาลองใหม่')));
     }
   }
 
@@ -881,10 +968,36 @@ class AssignmentCard extends StatelessWidget {
     super.key,
     required this.item,
     required this.onSubmitted,
+    this.getAssignmentDetail,
+    this.loadPreviousVersions,
+    this.getAttachmentDownloadUrl,
+    this.pickFiles,
+    this.submitAssignment,
+    this.uploadAttachment,
   });
 
   final _AssignmentWithCourse item;
   final VoidCallback onSubmitted;
+
+  /// Threaded down to the submit sheet's own seams — see
+  /// _AssignmentSubmitSheet for what each one replaces in production.
+  final Future<AssignmentDetail> Function(String assignmentId)?
+  getAssignmentDetail;
+  final Future<List<SubmissionVersion>> Function(String assignmentId)?
+  loadPreviousVersions;
+  final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
+  final Future<List<PlatformFile>?> Function()? pickFiles;
+  final Future<({int version, String submissionVersionId})> Function({
+    required String assignmentId,
+    required String content,
+  })?
+  submitAssignment;
+  final Future<String> Function({
+    required String submissionVersionId,
+    required String fileName,
+    required Uint8List bytes,
+  })?
+  uploadAttachment;
 
   ({String label, Color color, Color bg, IconData icon}) get _status {
     if (item.submitted) {
@@ -938,8 +1051,16 @@ class AssignmentCard extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) =>
-          _AssignmentSubmitSheet(item: item, onSubmitted: onSubmitted),
+      builder: (_) => _AssignmentSubmitSheet(
+        item: item,
+        onSubmitted: onSubmitted,
+        getAssignmentDetail: getAssignmentDetail,
+        loadPreviousVersions: loadPreviousVersions,
+        getAttachmentDownloadUrl: getAttachmentDownloadUrl,
+        pickFiles: pickFiles,
+        submitAssignment: submitAssignment,
+        uploadAttachment: uploadAttachment,
+      ),
     );
   }
 
