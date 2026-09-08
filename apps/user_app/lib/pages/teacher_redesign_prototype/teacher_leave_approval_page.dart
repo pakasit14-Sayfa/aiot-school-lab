@@ -4,7 +4,24 @@ import 'teacher_shared_widgets.dart';
 import 'teacher_redesign_prototype_page.dart';
 
 class TeacherLeaveApprovalPage extends StatefulWidget {
-  const TeacherLeaveApprovalPage({super.key});
+  const TeacherLeaveApprovalPage({
+    super.key,
+    this.listPendingLeaveRequests,
+    this.reviewLeaveRequest,
+    this.getAttachmentDownloadUrl,
+  });
+
+  /// Read/write seams threaded to the corresponding LeaveService static
+  /// calls in production.
+  final Future<List<LeaveRequestForReview>> Function()?
+  listPendingLeaveRequests;
+  final Future<void> Function({
+    required String leaveId,
+    required String status,
+    String? reviewNote,
+  })?
+  reviewLeaveRequest;
+  final Future<String> Function(String leaveId)? getAttachmentDownloadUrl;
 
   @override
   State<TeacherLeaveApprovalPage> createState() => _TeacherLeaveApprovalPageState();
@@ -27,16 +44,18 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
       _loadError = null;
     });
     try {
-      final items = await LeaveService.listPendingLeaveRequests();
+      final loadRequests =
+          widget.listPendingLeaveRequests ?? LeaveService.listPendingLeaveRequests;
+      final items = await loadRequests();
       if (!mounted) return;
       setState(() {
         _requests = items;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดคำขอลาไม่สำเร็จ: $e';
+        _loadError = 'โหลดคำขอลาไม่สำเร็จ';
         _isLoading = false;
       });
     }
@@ -44,7 +63,8 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
 
   Future<void> _reviewRequest(String leaveId, String status) async {
     try {
-      await LeaveService.reviewLeaveRequest(
+      final review = widget.reviewLeaveRequest ?? LeaveService.reviewLeaveRequest;
+      await review(
         leaveId: leaveId,
         status: status,
         reviewNote: status == 'approved' ? 'อนุมัติผ่านแอป' : 'ไม่อนุมัติผ่านแอป',
@@ -56,17 +76,19 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
       );
 
       _fetchRequests();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+        const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')),
       );
     }
   }
 
   Future<void> _viewAttachment(String leaveId) async {
     try {
-      final url = await LeaveService.getAttachmentDownloadUrl(leaveId);
+      final getUrl =
+          widget.getAttachmentDownloadUrl ?? LeaveService.getAttachmentDownloadUrl;
+      final url = await getUrl(leaveId);
       if (!mounted) return;
       showDialog(
         context: context,
@@ -86,10 +108,10 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e')),
+        const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')),
       );
     }
   }
@@ -275,12 +297,16 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
             ),
           );
         }
-        return ListView.builder(
+        // Not ListView.builder: TeacherMockPageShell already wraps its
+        // builder() result in a SingleChildScrollView, so a nested
+        // ListView here gets unbounded height and crashes with "Vertical
+        // viewport was given unbounded height" the moment there's at
+        // least one real pending request.
+        return Padding(
           padding: const EdgeInsets.all(24),
-          itemCount: _requests.length,
-          itemBuilder: (context, index) {
-            return _buildRequestCard(_requests[index]);
-          },
+          child: Column(
+            children: [for (final r in _requests) _buildRequestCard(r)],
+          ),
         );
       },
     );
