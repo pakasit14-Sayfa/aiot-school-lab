@@ -19,7 +19,30 @@ String _categoryLabel(IncidentCategory category) =>
     : 'แจ้งเหตุผิดปกติ';
 
 class StudentSafetyPage extends StatefulWidget {
-  const StudentSafetyPage({super.key});
+  const StudentSafetyPage({
+    super.key,
+    this.loadRoom,
+    this.loadIncidents,
+    this.submitIncident,
+    this.loadIncidentDetail,
+    this.watchIncidents,
+  });
+
+  /// Read/write seams threaded to the corresponding IncidentService static
+  /// calls in production — widget tests supply these to drive the SOS
+  /// submit flow and history list without a live Supabase client.
+  final Future<MyStudentRoom?> Function()? loadRoom;
+  final Future<List<MyIncidentReport>> Function()? loadIncidents;
+  final Future<String> Function({
+    required IncidentCategory category,
+    String? room,
+    String? reason,
+    String? severity,
+  })?
+  submitIncident;
+  final Future<IncidentReportDetail> Function(String incidentId)?
+  loadIncidentDetail;
+  final Stream<List<Map<String, dynamic>>> Function()? watchIncidents;
 
   @override
   State<StudentSafetyPage> createState() => _StudentSafetyPageState();
@@ -37,7 +60,8 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
   void initState() {
     super.initState();
     _load();
-    _incidentSub = IncidentService.streamIncidentReports().listen((_) {
+    final watch = widget.watchIncidents ?? IncidentService.streamIncidentReports;
+    _incidentSub = watch().listen((_) {
       if (mounted) _load();
     });
   }
@@ -51,8 +75,11 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final room = await IncidentService.getMyStudentRoom();
-      final incidents = await IncidentService.listMyIncidentReports();
+      final loadRoom = widget.loadRoom ?? IncidentService.getMyStudentRoom;
+      final loadIncidents =
+          widget.loadIncidents ?? IncidentService.listMyIncidentReports;
+      final room = await loadRoom();
+      final incidents = await loadIncidents();
       if (!mounted) return;
       setState(() {
         _room = room?.room;
@@ -92,7 +119,8 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
     String reason,
     String severity,
   ) async {
-    await IncidentService.createIncidentReport(
+    final submit = widget.submitIncident ?? IncidentService.createIncidentReport;
+    await submit(
       category: category,
       room: room.trim().isEmpty ? null : room.trim(),
       reason: reason.trim().isEmpty ? null : reason.trim(),
@@ -220,7 +248,9 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return FutureBuilder<IncidentReportDetail>(
-          future: IncidentService.getIncidentReport(incident.id),
+          future: (widget.loadIncidentDetail ?? IncidentService.getIncidentReport)(
+            incident.id,
+          ),
           builder: (context, snapshot) {
             return Container(
               decoration: const BoxDecoration(
