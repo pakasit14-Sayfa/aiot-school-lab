@@ -16,7 +16,23 @@ import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSectionCard;
 
 class TeacherParentBindingApprovalPage extends StatefulWidget {
-  const TeacherParentBindingApprovalPage({super.key});
+  const TeacherParentBindingApprovalPage({
+    super.key,
+    this.listParentLinks,
+    this.approveParentLink,
+    this.rejectParentLink,
+    this.requestParentLinkSecondReview,
+  });
+
+  /// Read/write seams threaded to the corresponding ParentBindingService
+  /// static calls in production.
+  final Future<List<ParentLink>> Function({String status, String? schoolId})?
+  listParentLinks;
+  final Future<void> Function(String parentLinkId)? approveParentLink;
+  final Future<void> Function(String parentLinkId, {String? reason})?
+  rejectParentLink;
+  final Future<void> Function(String parentLinkId, {required String reason})?
+  requestParentLinkSecondReview;
 
   @override
   State<TeacherParentBindingApprovalPage> createState() =>
@@ -42,18 +58,18 @@ class _TeacherParentBindingApprovalPageState
       _loadError = null;
     });
     try {
-      final links = await ParentBindingService.listParentLinks(
-        status: 'pending',
-      );
+      final loadLinks =
+          widget.listParentLinks ?? ParentBindingService.listParentLinks;
+      final links = await loadLinks(status: 'pending');
       if (!mounted) return;
       setState(() {
         _pending = links;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดคำขอผูกบัญชีไม่สำเร็จ: $e';
+        _loadError = 'โหลดคำขอผูกบัญชีไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -99,7 +115,9 @@ class _TeacherParentBindingApprovalPageState
     if (confirmed != true) return;
     setState(() => _busy.add(link.id));
     try {
-      await ParentBindingService.approveParentLink(link.id);
+      final approve =
+          widget.approveParentLink ?? ParentBindingService.approveParentLink;
+      await approve(link.id);
       if (!mounted) return;
       _showSnack(
         'อนุมัติการผูกบัญชีของ ${link.parentName} แล้ว',
@@ -113,7 +131,7 @@ class _TeacherParentBindingApprovalPageState
         return;
       }
       if (!mounted) return;
-      _showSnack('อนุมัติไม่สำเร็จ: $e', TeacherPalette.red);
+      _showSnack('อนุมัติไม่สำเร็จ', TeacherPalette.red);
     } finally {
       if (mounted) setState(() => _busy.remove(link.id));
     }
@@ -125,66 +143,71 @@ class _TeacherParentBindingApprovalPageState
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'พบความเสี่ยงผลประโยชน์ทับซ้อน',
-          style: TextStyle(fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'ระบบตรวจพบว่าคุณอาจมีความเสี่ยงผลประโยชน์ทับซ้อนกับคำขอนี้ '
-              'ไม่สามารถอนุมัติเองได้ — ต้องส่งให้ผู้อนุมัติคนอื่นตรวจสอบซ้ำ',
-              style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'ระบุเหตุผล เช่น เป็นผู้ปกครองของนักเรียนคนนี้เอง...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'พบความเสี่ยงผลประโยชน์ทับซ้อน',
+            style: TextStyle(fontSize: 16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'ระบบตรวจพบว่าคุณอาจมีความเสี่ยงผลประโยชน์ทับซ้อนกับคำขอนี้ '
+                'ไม่สามารถอนุมัติเองได้ — ต้องส่งให้ผู้อนุมัติคนอื่นตรวจสอบซ้ำ',
+                style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'ระบุเหตุผล เช่น เป็นผู้ปกครองของนักเรียนคนนี้เอง...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('ยกเลิก'),
+            ),
+            FilledButton(
+              onPressed: reasonCtrl.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFD97706),
+              ),
+              child: const Text('ส่งตรวจสอบซ้ำ'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก'),
-          ),
-          FilledButton(
-            onPressed: reasonCtrl.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFD97706),
-            ),
-            child: const Text('ส่งตรวจสอบซ้ำ'),
-          ),
-        ],
       ),
     );
     if (confirmed != true) return;
     try {
-      await ParentBindingService.requestParentLinkSecondReview(
-        link.id,
-        reason: reasonCtrl.text.trim(),
-      );
+      final requestSecondReview =
+          widget.requestParentLinkSecondReview ??
+          ParentBindingService.requestParentLinkSecondReview;
+      await requestSecondReview(link.id, reason: reasonCtrl.text.trim());
       if (!mounted) return;
       _showSnack(
         'ส่งคำขอของ ${link.parentName} ให้ตรวจสอบซ้ำแล้ว',
         const Color(0xFFD97706),
       );
       await _load();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      _showSnack('ส่งตรวจสอบซ้ำไม่สำเร็จ: $e', TeacherPalette.red);
+      _showSnack('ส่งตรวจสอบซ้ำไม่สำเร็จ', TeacherPalette.red);
     }
   }
 
@@ -192,58 +215,64 @@ class _TeacherParentBindingApprovalPageState
     final reasonCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('ปฏิเสธคำขอ', style: TextStyle(fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'ระบุเหตุผลที่ปฏิเสธ (จำเป็น) เพื่อแจ้งให้ผู้ปกครองติดต่อโรงเรียน',
-              style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'เช่น ข้อมูลไม่ตรงกับทะเบียนนักเรียน...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text('ปฏิเสธคำขอ', style: TextStyle(fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'ระบุเหตุผลที่ปฏิเสธ (จำเป็น) เพื่อแจ้งให้ผู้ปกครองติดต่อโรงเรียน',
+                style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: reasonCtrl,
+                maxLines: 2,
+                onChanged: (_) => setDialogState(() {}),
+                decoration: InputDecoration(
+                  hintText: 'เช่น ข้อมูลไม่ตรงกับทะเบียนนักเรียน...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('ยกเลิก'),
+            ),
+            FilledButton(
+              onPressed: reasonCtrl.text.trim().isEmpty
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: TeacherPalette.red,
+              ),
+              child: const Text('ปฏิเสธคำขอ'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก'),
-          ),
-          FilledButton(
-            onPressed: reasonCtrl.text.trim().isEmpty
-                ? null
-                : () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: TeacherPalette.red),
-            child: const Text('ปฏิเสธคำขอ'),
-          ),
-        ],
       ),
     );
     if (confirmed != true) return;
     setState(() => _busy.add(link.id));
     try {
-      await ParentBindingService.rejectParentLink(
-        link.id,
-        reason: reasonCtrl.text.trim(),
-      );
+      final reject =
+          widget.rejectParentLink ?? ParentBindingService.rejectParentLink;
+      await reject(link.id, reason: reasonCtrl.text.trim());
       if (!mounted) return;
       _showSnack('ปฏิเสธคำขอของ ${link.parentName} แล้ว', TeacherPalette.red);
       await _load();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      _showSnack('ปฏิเสธคำขอไม่สำเร็จ: $e', TeacherPalette.red);
+      _showSnack('ปฏิเสธคำขอไม่สำเร็จ', TeacherPalette.red);
     } finally {
       if (mounted) setState(() => _busy.remove(link.id));
     }
