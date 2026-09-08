@@ -28,12 +28,23 @@ class _StudentRosterEntry {
 }
 
 class TeacherStudentsPage extends StatefulWidget {
-  const TeacherStudentsPage({super.key, this.initialRoomFilter});
+  const TeacherStudentsPage({
+    super.key,
+    this.initialRoomFilter,
+    this.loadCourses,
+    this.loadCourseStudents,
+  });
 
   /// ห้องที่ให้กรองไว้ล่วงหน้าตอนเปิดหน้า — ใช้เวลากดมาจากหน้ารายละเอียด
   /// วิชา (ครูอยากเห็นเฉพาะนักเรียนของวิชานั้น ไม่ใช่ทุกวิชาปนกัน) ปล่อย
   /// ว่างไว้ถ้าเปิดจากเมนูหลัก (เห็นนักเรียนทุกห้อง)
   final List<String>? initialRoomFilter;
+
+  /// Read seams threaded to the corresponding CourseService static calls
+  /// in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<CourseStudent>> Function(String courseId)?
+  loadCourseStudents;
 
   @override
   State<TeacherStudentsPage> createState() => _TeacherStudentsPageState();
@@ -57,13 +68,16 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
       _loadError = null;
     });
     try {
-      final courses = await CourseService.listMyCourses();
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadStudents =
+          widget.loadCourseStudents ?? CourseService.listCourseStudents;
+      final courses = await loadCourses();
       final roster = <_StudentRosterEntry>[];
       for (final c in courses) {
         final room = c.room ?? c.gradeLevel ?? c.subjectName;
         List<CourseStudent> students;
         try {
-          students = await CourseService.listCourseStudents(c.id);
+          students = await loadStudents(c.id);
         } catch (_) {
           students = const [];
         }
@@ -84,10 +98,10 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
         _roster = roster;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดรายชื่อนักเรียนไม่สำเร็จ: $e';
+        _loadError = 'โหลดรายชื่อนักเรียนไม่สำเร็จ';
         _loading = false;
       });
     }
