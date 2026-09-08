@@ -5,9 +5,37 @@ import 'package:url_launcher/url_launcher.dart';
 import 'student_redesign_palette.dart';
 
 class StudentLessonViewPage extends StatefulWidget {
-  const StudentLessonViewPage({super.key, required this.lessonId});
+  const StudentLessonViewPage({
+    super.key,
+    required this.lessonId,
+    this.getLesson,
+    this.getCourse,
+    this.updateProgress,
+    this.markComplete,
+    this.getSensorHistory,
+    this.getMaterialDownloadUrl,
+  });
 
   final String lessonId;
+
+  /// Read/write seams threaded to the corresponding LessonService/
+  /// CourseService/AiotLabService static calls in production.
+  final Future<LessonDetail> Function(String lessonId)? getLesson;
+  final Future<CourseDetail> Function(String courseId)? getCourse;
+  final Future<void> Function({
+    required String lessonId,
+    required num progressPct,
+  })?
+  updateProgress;
+  final Future<void> Function(String lessonId)? markComplete;
+  final Future<List<SensorDataPoint>> Function({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  })?
+  getSensorHistory;
+  final Future<String> Function(String materialId)? getMaterialDownloadUrl;
 
   @override
   State<StudentLessonViewPage> createState() => _StudentLessonViewPageState();
@@ -36,15 +64,19 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
     });
 
     try {
-      final lesson = await LessonService.getLesson(widget.lessonId);
+      final getLesson = widget.getLesson ?? LessonService.getLesson;
+      final getCourse = widget.getCourse ?? CourseService.getCourse;
+      final updateProgress = widget.updateProgress ?? LessonService.updateProgress;
+
+      final lesson = await getLesson(widget.lessonId);
       CourseDetail? course;
       try {
-        course = await CourseService.getCourse(lesson.courseId);
+        course = await getCourse(lesson.courseId);
       } catch (_) {}
 
       // Auto update progress when opening lesson
       try {
-        await LessonService.updateProgress(
+        await updateProgress(
           lessonId: widget.lessonId,
           progressPct: lesson.progressPct ?? 50,
         );
@@ -64,10 +96,10 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
           _fetchSensorHistory(link);
         }
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'ไม่สามารถโหลดข้อมูลบทเรียนได้: $e';
+          _error = 'ไม่สามารถโหลดข้อมูลบทเรียนได้';
           _loading = false;
         });
       }
@@ -79,7 +111,9 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
     try {
       final from =
           link.timeStart ?? DateTime.now().subtract(const Duration(hours: 24));
-      final points = await AiotLabService.getSensorHistory(
+      final getHistory =
+          widget.getSensorHistory ?? AiotLabService.getSensorHistory;
+      final points = await getHistory(
         deviceId: link.deviceId,
         metric: link.metric,
         from: from,
@@ -106,7 +140,8 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
 
     setState(() => _isMarkingComplete = true);
     try {
-      await LessonService.markComplete(widget.lessonId);
+      final complete = widget.markComplete ?? LessonService.markComplete;
+      await complete(widget.lessonId);
       if (!mounted) return;
       setState(() {
         _lesson = LessonDetail(
@@ -131,13 +166,13 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _isMarkingComplete = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาด: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่'),
+          backgroundColor: Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -149,9 +184,9 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
       // Uploaded files (image/video/file) store a Storage path, not a
       // directly-reachable URL — resolve a short-lived signed URL first.
       // Only 'link' materials are already a real external URL.
-      final url = mat.type == 'link'
-          ? mat.url
-          : await LessonService.getMaterialDownloadUrl(mat.id);
+      final getDownloadUrl =
+          widget.getMaterialDownloadUrl ?? LessonService.getMaterialDownloadUrl;
+      final url = mat.type == 'link' ? mat.url : await getDownloadUrl(mat.id);
 
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
