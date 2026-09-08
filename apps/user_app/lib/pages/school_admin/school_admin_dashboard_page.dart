@@ -33,6 +33,7 @@ class SchoolAdminDashboardPage extends StatefulWidget {
     this.loadWater,
     this.loadSensor,
     this.loadMetricsWithData,
+    this.loadSummary,
   });
 
   /// Read seams for the home page's resource card, threaded down to
@@ -44,6 +45,12 @@ class SchoolAdminDashboardPage extends StatefulWidget {
   final Future<SensorModel?> Function()? loadSensor;
   final Future<Set<String>> Function()? loadMetricsWithData;
 
+  /// Feeds the real school name into the sidebar/drawer scope card. Kept
+  /// separate from `_HomeSummaryGrid`'s own summary load (same RPC, but
+  /// that widget only mounts on the home tab — the sidebar/drawer are
+  /// always on screen regardless of which menu item is selected).
+  final Future<SchoolAdminDashboardSummary> Function()? loadSummary;
+
   @override
   State<SchoolAdminDashboardPage> createState() =>
       _SchoolAdminDashboardPageState();
@@ -52,6 +59,28 @@ class SchoolAdminDashboardPage extends StatefulWidget {
 class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
   int _selectedIndex = 0;
   bool _profileOpen = false;
+
+  // ชื่อโรงเรียนจริงสำหรับการ์ดใน sidebar/drawer — เดิม _SchoolScopeCard
+  // hardcode 'โรงเรียนเทศบาล ๑ (สังกัด สถ.)' ตายตัวให้ทุกโรงเรียนเห็นเหมือนกัน
+  String? _schoolName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSchoolName();
+  }
+
+  Future<void> _loadSchoolName() async {
+    try {
+      final summary = await (widget.loadSummary?.call() ??
+          SchoolAdminPlatformService().fetchDashboardSummary());
+      if (!mounted) return;
+      setState(() => _schoolName = summary.schoolName);
+    } catch (e) {
+      debugPrint('SchoolAdminDashboardPage fetchDashboardSummary failed: $e');
+      // เงียบพอ — การ์ดจะโชว์ 'ยังไม่มีข้อมูล' แทนการลองซ้ำเงียบ ๆ ไม่รู้จบ
+    }
+  }
 
   static const List<_MenuItemData> _menuItems = [
     _MenuItemData('หน้าหลัก', Icons.dashboard_rounded),
@@ -265,6 +294,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                   selectedIndex: _selectedIndex,
                   onSelect: _openPage,
                   onOpenProfile: _openProfile,
+                  schoolName: _schoolName,
                 ),
               ),
               Expanded(
@@ -310,6 +340,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         selectedIndex: _selectedIndex,
         onSelect: _openPage,
         onOpenProfile: _openProfile,
+        schoolName: _schoolName,
       ),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -381,12 +412,14 @@ class _DesktopSidebar extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onOpenProfile,
+    this.schoolName,
   });
 
   final List<_MenuItemData> items;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onOpenProfile;
+  final String? schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -425,7 +458,7 @@ class _DesktopSidebar extends StatelessWidget {
                   onTap: onOpenProfile,
                 ),
                 const SizedBox(height: 8),
-                const _SchoolScopeCard(),
+                _SchoolScopeCard(schoolName: schoolName),
               ],
             ),
           ),
@@ -441,12 +474,14 @@ class _MobileDrawer extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.onOpenProfile,
+    this.schoolName,
   });
 
   final List<_MenuItemData> items;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final VoidCallback onOpenProfile;
+  final String? schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -496,7 +531,7 @@ class _MobileDrawer extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 8),
-                  const _SchoolScopeCard(),
+                  _SchoolScopeCard(schoolName: schoolName),
                 ],
               ),
             ),
@@ -690,9 +725,13 @@ class _UserCard extends StatelessWidget {
               width: 1.0,
             ),
           ),
-          child: const Row(
+          // เดิม hardcode 'ผู้ดูแลโรงเรียน (Admin)' / 'admin@aiot-school.ac.th'
+          // ตายตัว — ทุกคนที่ล็อกอินเห็นชื่อ/อีเมลเดียวกันหมด ไม่ว่าใครเป็นคนใช้
+          // currentUserModel เป็น global ที่ auth_service ตั้งไว้ตอนล็อกอินแล้ว
+          // อยู่แล้ว (ใช้แบบเดียวกันใน school_admin_profile_page.dart)
+          child: Row(
             children: [
-              CircleAvatar(
+              const CircleAvatar(
                 radius: 19,
                 backgroundColor: Color(0xFFF8FAFC),
                 child: Icon(
@@ -701,28 +740,28 @@ class _UserCard extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              SizedBox(width: 10),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'ผู้ดูแลโรงเรียน (Admin)',
+                      currentUserModel?.name ?? 'ยังไม่มีข้อมูล',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF0F172A),
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
-                      'admin@aiot-school.ac.th',
+                      currentUserModel?.email ?? 'ยังไม่มีข้อมูล',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF64748B),
@@ -731,7 +770,7 @@ class _UserCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
+              const Icon(
                 Icons.chevron_right_rounded,
                 color: Color(0xFF64748B),
                 size: 19,
@@ -745,7 +784,12 @@ class _UserCard extends StatelessWidget {
 }
 
 class _SchoolScopeCard extends StatelessWidget {
-  const _SchoolScopeCard();
+  const _SchoolScopeCard({this.schoolName});
+
+  // เดิม hardcode 'โรงเรียนเทศบาล ๑ (สังกัด สถ.)' ตายตัว — ทุกโรงเรียนที่ใช้
+  // ระบบนี้เห็นชื่อโรงเรียนเดียวกันหมด ตอนนี้รับชื่อจริงจาก
+  // fetchDashboardSummary() ผ่าน state ของหน้าหลัก null ระหว่างโหลด/ล้มเหลว
+  final String? schoolName;
 
   @override
   Widget build(BuildContext context) {
@@ -759,9 +803,9 @@ class _SchoolScopeCard extends StatelessWidget {
           width: 1.0,
         ),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 17,
             backgroundColor: Color(0xFFF8FAFC),
             child: Icon(
@@ -770,24 +814,24 @@ class _SchoolScopeCard extends StatelessWidget {
               size: 18,
             ),
           ),
-          SizedBox(width: 9),
+          const SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'โรงเรียนเทศบาล ๑ (สังกัด สถ.)',
+                  schoolName ?? 'ยังไม่มีข้อมูล',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF0F172A),
                   ),
                 ),
-                SizedBox(height: 1),
-                Text(
+                const SizedBox(height: 1),
+                const Text(
                   'ระบบบริหารจัดการสถานศึกษา',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

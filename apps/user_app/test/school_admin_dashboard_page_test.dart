@@ -211,4 +211,45 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SchoolStudentsPage), findsOneWidget);
   });
+
+  testWidgets(
+    'the sidebar/drawer user card shows the real logged-in user, never the old fake admin identity',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SchoolAdminDashboardPage(
+            loadSummary: () async => const SchoolAdminDashboardSummary(
+              schoolId: 'sch-1',
+              schoolName: 'โรงเรียนจริงจากระบบ',
+              schoolCode: 'REAL-1',
+              studentsCount: 0,
+              teachersCount: 0,
+              devicesCount: 0,
+              devicesOnline: 0,
+              buildingsCount: 0,
+              roomsCount: 0,
+              openAlertsCount: 0,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // currentUserModel is set in setUp() above — the card must reflect
+      // that, not a hardcoded 'ผู้ดูแลโรงเรียน (Admin)' shown to everyone.
+      expect(find.text('แอดมินโรงเรียน'), findsOneWidget);
+      expect(find.text('schooladmin@aiot-school-lab.local'), findsOneWidget);
+      expect(find.text('ผู้ดูแลโรงเรียน (Admin)'), findsNothing);
+      expect(find.text('admin@aiot-school.ac.th'), findsNothing);
+
+      // The school-scope card must show the real school name, not the old
+      // hardcoded placeholder shared by every school.
+      expect(find.text('โรงเรียนจริงจากระบบ'), findsOneWidget);
+      expect(find.text('โรงเรียนเทศบาล ๑ (สังกัด สถ.)'), findsNothing);
+    },
+  );
 }

@@ -22,11 +22,27 @@ SchoolAdminAuditLog _log({String action = 'เข้าสู่ระบบ'}) 
   createdAt: DateTime(2026, 9, 1),
 );
 
+SchoolAdminDashboardSummary _summary({String schoolName = 'โรงเรียนทดสอบ'}) =>
+    SchoolAdminDashboardSummary(
+      schoolId: 'school-1',
+      schoolName: schoolName,
+      schoolCode: 'TEST-1',
+      studentsCount: 0,
+      teachersCount: 0,
+      devicesCount: 0,
+      devicesOnline: 0,
+      buildingsCount: 0,
+      roomsCount: 0,
+      openAlertsCount: 0,
+    );
+
 Future<void> _pump(
   WidgetTester tester, {
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
+  Future<SchoolAdminDashboardSummary> Function()? loadSummary,
   Future<void> Function({required String uid, required String name})?
   updateProfile,
+  Future<void> Function()? signOutAllDevices,
 }) async {
   tester.view.physicalSize = const Size(1400, 2600);
   tester.view.devicePixelRatio = 1;
@@ -47,7 +63,9 @@ Future<void> _pump(
     MaterialApp(
       home: SchoolAdminProfilePage(
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
+        loadSummary: loadSummary ?? () async => _summary(),
         updateProfile: updateProfile,
+        signOutAllDevices: signOutAllDevices,
       ),
     ),
   );
@@ -160,6 +178,124 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ยังไม่รองรับการบันทึก'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'the real school name is rendered, and the old fake placeholder never appears',
+    (tester) async {
+      await _pump(
+        tester,
+        loadSummary: () async => _summary(schoolName: 'โรงเรียนจริงจากระบบ'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('โรงเรียนจริงจากระบบ'), findsWidgets);
+      expect(find.text('โรงเรียนตัวอย่าง AIoT Smart Lab'), findsNothing);
+      expect(find.text('AIoT Smart Lab • โรงเรียนตัวอย่าง'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'fields with no real data source say so, instead of showing an invented value',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      // last-login time and the security-anomaly claim used to be
+      // hardcoded ('09:20 น.' / 'ไม่พบการเข้าสู่ระบบผิดปกติ') regardless of
+      // what actually happened on this account — neither is backed by any
+      // RPC, so both must say so honestly now.
+      expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
+      expect(find.text('09:20 น.'), findsNothing);
+      expect(find.text('ไม่พบการเข้าสู่ระบบผิดปกติ'), findsNothing);
+      expect(find.text('18 มิถุนายน 2569'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '"เปลี่ยนรหัสผ่าน" explains the real OTP flow instead of faking a change',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'เปลี่ยนรหัสผ่าน'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('OTP'), findsOneWidget);
+      expect(find.text('รับทราบ'), findsOneWidget);
+      // No password fields in the dialog — the old 3-field dialog claimed a
+      // change that never reached the backend, and must never come back.
+      expect(find.text('รหัสผ่านปัจจุบัน'), findsNothing);
+      expect(find.text('รหัสผ่านใหม่'), findsNothing);
+
+      await tester.tap(find.text('รับทราบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('เปลี่ยนรหัสผ่านแล้ว'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '"ดูอุปกรณ์" is disabled — no RPC lists active sessions',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      final button = find.widgetWithText(OutlinedButton, 'ดูอุปกรณ์');
+      expect(button, findsOneWidget);
+      expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+    },
+  );
+
+  testWidgets(
+    '"ออกจากระบบทุกอุปกรณ์" calls the real sign-out-all RPC and is honest that it includes this device',
+    (tester) async {
+      var calls = 0;
+      await _pump(
+        tester,
+        signOutAllDevices: () async {
+          calls++;
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยืนยันออกจากระบบทุกอุปกรณ์'), findsOneWidget);
+      expect(find.textContaining('รวมถึงเครื่องนี้ด้วย'), findsWidgets);
+
+      await tester.tap(find.text('ยืนยัน'));
+      await tester.pumpAndSettle();
+
+      expect(calls, 1, reason: 'confirming must actually call the real RPC');
+      // The old copy claimed only *other* devices were affected — false,
+      // since auth_sign_out_all revokes every session including this one.
+      expect(find.text('ออกจากระบบอุปกรณ์อื่น'), findsNothing);
+      expect(find.text('ออกจากระบบอุปกรณ์อื่นแล้ว'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a failed sign-out-all surfaces a real error, not a silent fake success',
+    (tester) async {
+      await _pump(
+        tester,
+        signOutAllDevices: () async {
+          throw StateError('network down');
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ออกจากระบบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ยืนยัน'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'), findsOneWidget);
     },
   );
 }

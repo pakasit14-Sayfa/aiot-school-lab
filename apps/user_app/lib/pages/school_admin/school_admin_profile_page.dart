@@ -8,7 +8,9 @@ class SchoolAdminProfilePage extends StatefulWidget {
     super.key,
     this.onBack,
     this.loadLogs,
+    this.loadSummary,
     this.updateProfile,
+    this.signOutAllDevices,
   });
 
   final VoidCallback? onBack;
@@ -16,8 +18,10 @@ class SchoolAdminProfilePage extends StatefulWidget {
   /// Injectable seams for tests — production leaves these null and uses the
   /// real service (same pattern as school_resources_page).
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+  final Future<SchoolAdminDashboardSummary> Function()? loadSummary;
   final Future<void> Function({required String uid, required String name})?
   updateProfile;
+  final Future<void> Function()? signOutAllDevices;
 
   @override
   State<SchoolAdminProfilePage> createState() => _SchoolAdminProfilePageState();
@@ -61,6 +65,10 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   bool _logsFailed = false;
   bool _savingProfile = false;
 
+  // ชื่อโรงเรียนจริง — เดิม hardcode 'โรงเรียนตัวอย่าง AIoT Smart Lab' ไว้ 2 จุด
+  // ไม่มี field โรงเรียนใน UserModel เลยดึงจาก dashboard summary ที่มีอยู่แล้ว
+  String? _schoolName;
+
   @override
   void initState() {
     super.initState();
@@ -73,6 +81,20 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
       if (user.email.isNotEmpty) _emailController.text = user.email;
     }
     _loadLogs();
+    _loadSchoolName();
+  }
+
+  Future<void> _loadSchoolName() async {
+    try {
+      final summary = await (widget.loadSummary?.call() ??
+          SchoolAdminPlatformService().fetchDashboardSummary());
+      if (!mounted) return;
+      setState(() => _schoolName = summary.schoolName);
+    } catch (e) {
+      debugPrint('SchoolAdminProfilePage fetchDashboardSummary failed: $e');
+      // เงียบพอ ไม่ใช่ข้อมูลหลักของหน้านี้ — ช่อง "โรงเรียน" จะขึ้น
+      // 'ยังไม่มีข้อมูล' ต่อไปแทนที่จะพยายามอีกรอบ
+    }
   }
 
   Future<void> _loadLogs() async {
@@ -302,142 +324,54 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     }
   }
 
-  Future<void> _changePassword() async {
-    final TextEditingController currentController = TextEditingController();
-    final TextEditingController newController = TextEditingController();
-    final TextEditingController confirmController = TextEditingController();
-
-    bool hideCurrent = true;
-    bool hideNew = true;
-    bool hideConfirm = true;
-
-    final bool? saved = await showDialog<bool>(
+  /// เดิม dialog นี้เก็บรหัสผ่านปัจจุบัน/ใหม่/ยืนยัน แล้วโชว์ "เปลี่ยนรหัสผ่านแล้ว"
+  /// โดยไม่เรียก backend เลยสักครั้ง — ผู้ใช้ที่เชื่อว่าเปลี่ยนแล้วจะยังคง
+  /// ใช้รหัสผ่านเดิมต่อไปโดยไม่รู้ตัว
+  ///
+  /// ไม่มี RPC `change_password(p_token, old, new)` ในระบบ — เส้นทางที่มีจริง
+  /// คือ `request_password_reset_otp` + `confirm_password_reset` ซึ่งเป็น
+  /// email-OTP flow (ยืนยันผ่านรหัสที่ส่งไปอีเมล) ไม่ใช่กรอกรหัสเดิม จึงต้อง
+  /// มีหน้าของตัวเอง ไม่ใช่ปลอมไว้หลังปุ่มนี้ — เหมือนที่แก้ไว้แล้วใน
+  /// director_settings_page.dart
+  void _changePassword() {
+    showDialog<void>(
       context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              insetPadding: const EdgeInsets.all(16),
-              title: const Text('เปลี่ยนรหัสผ่าน'),
-              content: SizedBox(
-                width: 540,
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: currentController,
-                        obscureText: hideCurrent,
-                        decoration: InputDecoration(
-                          labelText: 'รหัสผ่านปัจจุบัน',
-                          prefixIcon: const Icon(Icons.lock_outline_rounded),
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                hideCurrent = !hideCurrent;
-                              });
-                            },
-                            icon: Icon(
-                              hideCurrent
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: newController,
-                        obscureText: hideNew,
-                        decoration: InputDecoration(
-                          labelText: 'รหัสผ่านใหม่',
-                          prefixIcon: const Icon(Icons.password_rounded),
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                hideNew = !hideNew;
-                              });
-                            },
-                            icon: Icon(
-                              hideNew
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: confirmController,
-                        obscureText: hideConfirm,
-                        decoration: InputDecoration(
-                          labelText: 'ยืนยันรหัสผ่านใหม่',
-                          prefixIcon: const Icon(Icons.password_rounded),
-                          suffixIcon: IconButton(
-                            onPressed: () {
-                              setDialogState(() {
-                                hideConfirm = !hideConfirm;
-                              });
-                            },
-                            icon: Icon(
-                              hideConfirm
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'รหัสผ่านควรมีอย่างน้อย 8 ตัวอักษร และคาดเดาได้ยาก',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: SchoolAdminPalette.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: const Text('ยกเลิก'),
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    final String current = currentController.text.trim();
-                    final String next = newController.text.trim();
-                    final String confirm = confirmController.text.trim();
-
-                    if (current.isEmpty || next.length < 8 || next != confirm) {
-                      _message(
-                        'กรุณาตรวจรหัสผ่านปัจจุบัน และยืนยันรหัสผ่านใหม่ให้ตรงกัน',
-                      );
-                      return;
-                    }
-
-                    Navigator.of(dialogContext).pop(true);
-                  },
-                  icon: const Icon(Icons.save_rounded),
-                  label: const Text('เปลี่ยนรหัสผ่าน'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('เปลี่ยนรหัสผ่าน'),
+        content: const Text(
+          'การเปลี่ยนรหัสผ่านต้องยืนยันผ่านรหัส OTP ที่ส่งไปยังอีเมลของบัญชี '
+          'ยังไม่เปิดใช้งานจากหน้านี้ — ใช้ "ลืมรหัสผ่าน" ที่หน้าเข้าสู่ระบบแทน',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('รับทราบ'),
+          ),
+        ],
+      ),
     );
+  }
 
-    currentController.dispose();
-    newController.dispose();
-    confirmController.dispose();
+  /// เดิมปุ่มนี้แค่โชว์ dialog ยืนยันแล้วบอก "ออกจากระบบอุปกรณ์อื่นแล้ว" โดยไม่
+  /// เรียก backend เลย — ตอนนี้เรียก `auth_sign_out_all` จริงผ่าน
+  /// `AuthService.signOutAllDevices()` ซึ่งเพิกถอนทุก session ของบัญชีนี้
+  /// **รวมถึงเครื่องนี้เองด้วย** (ไม่มีเส้นทาง RPC ที่เพิกถอนเฉพาะเครื่องอื่น)
+  /// ป้ายและข้อความยืนยันด้านล่างเลยเขียนตรงตามพฤติกรรมจริง ไม่ใช่ "อุปกรณ์อื่น"
+  Future<void> _signOutAllDevices() async {
+    final bool confirmed = await _confirm(
+      title: 'ยืนยันออกจากระบบทุกอุปกรณ์',
+      message:
+          'ทุกเครื่องที่เข้าสู่ระบบด้วยบัญชีนี้จะต้องเข้าสู่ระบบใหม่ รวมถึงเครื่องนี้ด้วย ต้องการดำเนินการต่อหรือไม่',
+    );
+    if (!confirmed || !mounted) return;
 
-    if (saved == true && mounted) {
-      _message('เปลี่ยนรหัสผ่านแล้ว');
+    try {
+      await (widget.signOutAllDevices?.call() ??
+          AuthService.signOutAllDevices());
+    } catch (e) {
+      debugPrint('SchoolAdminProfilePage signOutAllDevices failed: $e');
+      if (!mounted) return;
+      _message('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่');
     }
   }
 
@@ -580,9 +514,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                           ),
                         ),
                         const SizedBox(height: 3),
-                        const Text(
-                          'AIoT Smart Lab • โรงเรียนตัวอย่าง',
-                          style: TextStyle(
+                        Text(
+                          _schoolName ?? 'ยังไม่มีข้อมูล',
+                          style: const TextStyle(
                             fontSize: 11,
                             color: SchoolAdminPalette.textSecondary,
                           ),
@@ -659,32 +593,38 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   }
 
   Widget _buildAccountSummary() {
-    const List<_ProfileSummary> items = [
+    // 'เข้าใช้ล่าสุด' และ 'ความปลอดภัย' เดิม hardcode '09:20 น.' และ 'ปกติ /
+    // ไม่พบการเข้าสู่ระบบผิดปกติ' ตายตัว — ไม่มี RPC ใดคืนเวลาล็อกอินล่าสุด
+    // หรือผลตรวจจับความผิดปกติเลย เปลี่ยนเป็น 'ยังไม่มีข้อมูล' แทนการอ้าง
+    // สิ่งที่ระบบไม่เคยวัด 'สถานะบัญชี' ใช้ currentUserModel.status จริง
+    // (ไม่ hardcode 'ใช้งาน' เพราะ enum อาจเป็นค่าอื่นได้ในอนาคต)
+    final String accountStatus = currentUserModel?.status ?? 'ยังไม่มีข้อมูล';
+    final List<_ProfileSummary> items = [
       _ProfileSummary(
         title: 'สถานะบัญชี',
-        value: 'ใช้งาน',
-        detail: 'บัญชีพร้อมใช้งานตามปกติ',
+        value: accountStatus,
+        detail: 'สถานะบัญชีตามระบบปัจจุบัน',
         icon: Icons.verified_user_rounded,
         color: SchoolAdminPalette.green,
       ),
-      _ProfileSummary(
+      const _ProfileSummary(
         title: 'เข้าใช้ล่าสุด',
-        value: '09:20 น.',
-        detail: 'วันนี้ • Chrome',
+        value: 'ยังไม่มีข้อมูล',
+        detail: 'ระบบยังไม่เก็บเวลาเข้าสู่ระบบล่าสุดในเวอร์ชันนี้',
         icon: Icons.schedule_rounded,
         color: SchoolAdminPalette.primaryDark,
       ),
-      _ProfileSummary(
+      const _ProfileSummary(
         title: 'สิทธิ์',
         value: 'ผู้ดูแล',
         detail: 'ดูแลข้อมูลภายในโรงเรียน',
         icon: Icons.admin_panel_settings_rounded,
         color: Color(0xFF4F6078),
       ),
-      _ProfileSummary(
+      const _ProfileSummary(
         title: 'ความปลอดภัย',
-        value: 'ปกติ',
-        detail: 'ไม่พบการเข้าสู่ระบบผิดปกติ',
+        value: 'ยังไม่มีข้อมูล',
+        detail: 'ระบบยังไม่มีการตรวจจับความผิดปกติในการเข้าสู่ระบบในเวอร์ชันนี้',
         icon: Icons.security_rounded,
         color: SchoolAdminPalette.secondary,
       ),
@@ -841,18 +781,20 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
               ),
               SizedBox(
                 width: width,
-                child: const _ReadOnlyProfileField(
+                child: _ReadOnlyProfileField(
                   icon: Icons.school_rounded,
                   label: 'โรงเรียน',
-                  value: 'โรงเรียนตัวอย่าง AIoT Smart Lab',
+                  value: _schoolName ?? 'ยังไม่มีข้อมูล',
                 ),
               ),
               SizedBox(
                 width: width,
+                // ไม่มีคอลัมน์ created_at ของบัญชีที่ RPC ใดส่งมาให้หน้านี้เลย
+                // (ต่างจาก audit_logs ที่มีแค่เหตุการณ์ ไม่ใช่วันสร้างบัญชี)
                 child: const _ReadOnlyProfileField(
                   icon: Icons.calendar_month_rounded,
                   label: 'สร้างบัญชีเมื่อ',
-                  value: '18 มิถุนายน 2569',
+                  value: 'ยังไม่มีข้อมูล',
                 ),
               ),
             ],
@@ -917,33 +859,23 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
             onPressed: _changePassword,
           ),
           const SizedBox(height: 9),
+          // ไม่มี RPC ใดที่คืนรายการ session/อุปกรณ์ที่ล็อกอินอยู่ — ปุ่มเดิม
+          // กดแล้วไม่เปิดอะไรจริง ปิดไว้พร้อมเหตุผลแทนการกดแล้วไม่มีอะไรเกิดขึ้น
           _ProfileActionRow(
             icon: Icons.devices_rounded,
             title: 'อุปกรณ์ที่เข้าสู่ระบบ',
-            detail: 'Chrome บน Windows • ใช้งานล่าสุดวันนี้ 09:20 น.',
+            detail: 'ยังไม่มีระบบแสดงรายการอุปกรณ์/เซสชันที่ล็อกอินอยู่ในเวอร์ชันนี้',
             buttonText: 'ดูอุปกรณ์',
-            onPressed: () {
-              _message('เปิดรายการอุปกรณ์ที่เข้าสู่ระบบ');
-            },
+            onPressed: null,
           ),
           const SizedBox(height: 9),
           _ProfileActionRow(
             icon: Icons.logout_rounded,
-            title: 'ออกจากระบบอุปกรณ์อื่น',
-            detail: 'ให้อุปกรณ์อื่นทั้งหมดต้องเข้าสู่ระบบใหม่',
+            title: 'ออกจากระบบทุกอุปกรณ์',
+            detail: 'เพิกถอน session ทุกเครื่องของบัญชีนี้ รวมถึงเครื่องนี้ด้วย',
             buttonText: 'ออกจากระบบ',
             danger: true,
-            onPressed: () async {
-              final bool confirmed = await _confirm(
-                title: 'ยืนยันออกจากระบบอุปกรณ์อื่น',
-                message:
-                    'อุปกรณ์อื่นทั้งหมดของบัญชีนี้จะต้องเข้าสู่ระบบใหม่ ต้องการดำเนินการต่อหรือไม่',
-              );
-
-              if (confirmed && mounted) {
-                _message('ออกจากระบบอุปกรณ์อื่นแล้ว');
-              }
-            },
+            onPressed: _signOutAllDevices,
           ),
         ],
       ),
@@ -1275,7 +1207,7 @@ class _ProfileActionRow extends StatelessWidget {
   final String title;
   final String detail;
   final String buttonText;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool danger;
 
   @override
