@@ -50,6 +50,7 @@ Future<void> _pump(
   WidgetTester tester, {
   Future<List<UserModel>> Function()? loadUsers,
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
+  Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -62,6 +63,8 @@ Future<void> _pump(
       home: SchoolPermissionsPage(
         loadUsers: loadUsers ?? () async => <UserModel>[],
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
+        loadPermissionMatrix:
+            loadPermissionMatrix ?? () async => <RolePermissionEntry>[],
       ),
     ),
   );
@@ -168,6 +171,83 @@ void main() {
         find.descendant(of: exportButton, matching: find.text('ส่งออกรายการ')),
         findsOneWidget,
       );
+    },
+  );
+
+  // The permission matrix used to be 7 fully hand-written "modules" with a
+  // column for "ครูประจำอาคาร" — a role merged away on 2026-08-25 (see
+  // CLAUDE.md). It now renders whatever list_role_permission_matrix
+  // actually reports for each RPC, scanned live from the RPC's own body.
+  testWidgets(
+    'the permission matrix shows a real function and its real roles, never the old fake modules',
+    (tester) async {
+      await _pump(
+        tester,
+        loadPermissionMatrix: () async => const [
+          RolePermissionEntry(
+            functionName: 'create_course',
+            allowedRoles: ['teacher', 'school_admin'],
+          ),
+          RolePermissionEntry(
+            functionName: '_assert_school_admin',
+            allowedRoles: null,
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ตารางสิทธิ์ตามบทบาท'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('create_course'), findsOneWidget);
+      expect(find.text('ครู'), findsOneWidget);
+      // Also appears on this tab's real role-overview card (same label,
+      // shared_core's UserRole.schoolAdmin.label) — at least one is enough.
+      expect(find.text('แอดมินโรงเรียน'), findsWidgets);
+
+      // The old fake matrix's fabricated content must never appear again.
+      expect(find.text('ข้อมูลนักเรียน'), findsNothing);
+      expect(find.text('ครูประจำอาคาร'), findsNothing);
+      expect(find.text('เฉพาะที่สอน'), findsNothing);
+
+      // A function with no scannable role-check pattern says so honestly.
+      expect(find.text('_assert_school_admin'), findsOneWidget);
+      expect(
+        find.text('ไม่พบรูปแบบการตรวจสิทธิ์ที่สแกนได้อัตโนมัติ'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'searching the matrix filters to matching function names',
+    (tester) async {
+      await _pump(
+        tester,
+        loadPermissionMatrix: () async => const [
+          RolePermissionEntry(
+            functionName: 'create_course',
+            allowedRoles: ['teacher'],
+          ),
+          RolePermissionEntry(
+            functionName: 'list_school_alerts',
+            allowedRoles: ['school_admin'],
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ตารางสิทธิ์ตามบทบาท'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('create_course'), findsOneWidget);
+      expect(find.text('list_school_alerts'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).last, 'alerts');
+      await tester.pumpAndSettle();
+
+      expect(find.text('create_course'), findsNothing);
+      expect(find.text('list_school_alerts'), findsOneWidget);
     },
   );
 }

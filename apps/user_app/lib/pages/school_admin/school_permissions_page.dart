@@ -4,12 +4,18 @@ import 'package:shared_core/shared_core.dart';
 import 'theme/school_admin_palette.dart';
 
 class SchoolPermissionsPage extends StatefulWidget {
-  const SchoolPermissionsPage({super.key, this.loadUsers, this.loadLogs});
+  const SchoolPermissionsPage({
+    super.key,
+    this.loadUsers,
+    this.loadLogs,
+    this.loadPermissionMatrix,
+  });
 
   /// Injectable seams for tests — production leaves these null and uses the
   /// real service (same pattern as school_resources_page).
   final Future<List<UserModel>> Function()? loadUsers;
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+  final Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix;
 
   @override
   State<SchoolPermissionsPage> createState() => _SchoolPermissionsPageState();
@@ -24,6 +30,14 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
 
   List<_PermissionUser> _users = [];
   List<_PermissionLog> _logs = [];
+  List<RolePermissionEntry> _permissionMatrix = [];
+
+  /// จำนวนจริงต่อบทบาท นับจาก membership ใน all_roles ทั้งหมด (บัญชีเดียวถือ
+  /// ได้หลาย role) ไม่ใช่ตัวเลขพิมพ์มือ — ของเดิมใน `_buildRoleOverview()`
+  /// เคย hardcode "2 คน"/"1 คน" ทุกบทบาทตายตัว
+  Map<UserRole, int> _roleCounts = {};
+  final TextEditingController _matrixSearchController =
+      TextEditingController();
 
   /// แยก loading / data / empty / error — เดิม `catch (_) {}` กลืน error
   /// ทำให้ "โหลดไม่สำเร็จ" กับ "ยังไม่มีผู้ใช้" หน้าตาเหมือนกันทุกประการ
@@ -47,8 +61,18 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
       final users = await (widget.loadUsers ?? UserAdminService.getAllUsers)();
       final logs = await (widget.loadLogs ??
           () => SchoolAdminPlatformService().fetchAuditLogs(limit: 20))();
+      final matrix =
+          await (widget.loadPermissionMatrix ??
+              RolePermissionMatrixService.listMatrix)();
       if (mounted) {
         setState(() {
+          _permissionMatrix = matrix;
+          _roleCounts = {
+            for (final role in UserRole.values)
+              role: users
+                  .where((u) => <UserRole>{u.role, ...u.allRoles}.contains(role))
+                  .length,
+          };
           _users = users.map((u) {
             // บัญชีเดียวถือได้หลาย role — `u.role` คือ role เดียวที่ถูกยุบมา
             // (ตัวที่ได้รับล่าสุด) การแสดงแค่ตัวนั้นบนหน้า "จัดการสิทธิ์"
@@ -101,7 +125,16 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _matrixSearchController.dispose();
     super.dispose();
+  }
+
+  List<RolePermissionEntry> get _filteredPermissionMatrix {
+    final keyword = _matrixSearchController.text.trim().toLowerCase();
+    if (keyword.isEmpty) return _permissionMatrix;
+    return _permissionMatrix
+        .where((entry) => entry.functionName.toLowerCase().contains(keyword))
+        .toList();
   }
 
   List<_PermissionUser> get _filteredUsers {
@@ -1237,34 +1270,52 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   }
 
   Widget _buildRoleOverview() {
-    const List<_RoleData> roles = [
+    // ของเดิม hardcode "2 คน"/"1 คน" ทุกบทบาทตายตัว และมี "ครูประจำชั้น"/
+    // "ครูประจำอาคาร" เป็นบทบาทแยก ทั้งที่ระบบจริงไม่มีบทบาทพวกนี้เลย (เป็นแค่
+    // งาน/ขอบเขตของ teacher คนเดียวกัน, ส่วนอาคารยุบรวมเป็น school_admin ไป
+    // ตั้งแต่ 2026-08-25) ตอนนี้แสดงบทบาทจริง 6 ตัวของระบบพร้อมจำนวนคนจริง
+    final List<_RoleData> roles = [
       _RoleData(
-        title: 'ครูผู้สอน',
+        title: UserRole.teacher.label,
         subtitle: 'ดูข้อมูลชั้นเรียนและอุปกรณ์ที่เกี่ยวข้องกับวิชาที่สอน',
         icon: Icons.school_outlined,
-        color: Color(0xFF4F6078),
-        userCount: '2 คน',
+        color: const Color(0xFF4F6078),
+        userCount: '${_roleCounts[UserRole.teacher] ?? 0} คน',
       ),
       _RoleData(
-        title: 'ครูประจำชั้น',
-        subtitle: 'ดูนักเรียนในห้อง รับแจ้งเตือน และติดตามงานประจำชั้น',
-        icon: Icons.co_present_rounded,
+        title: UserRole.schoolAdmin.label,
+        subtitle: 'จัดการผู้ใช้งาน สิทธิ์ และการตั้งค่าระดับโรงเรียน',
+        icon: Icons.admin_panel_settings_outlined,
         color: SchoolAdminPalette.primaryDark,
-        userCount: '2 คน',
+        userCount: '${_roleCounts[UserRole.schoolAdmin] ?? 0} คน',
       ),
       _RoleData(
-        title: 'ครูประจำอาคาร',
-        subtitle: 'ดูอุปกรณ์ ทรัพยากร และการแจ้งเตือนเฉพาะอาคาร',
-        icon: Icons.apartment_rounded,
-        color: SchoolAdminPalette.green,
-        userCount: '1 คน',
-      ),
-      _RoleData(
-        title: 'ฝ่ายบริหาร',
+        title: UserRole.executive.label,
         subtitle: 'ดูภาพรวม รายงาน และข้อมูลทุกส่วนที่ได้รับอนุญาต',
         icon: Icons.business_center_rounded,
         color: SchoolAdminPalette.secondary,
-        userCount: '1 คน',
+        userCount: '${_roleCounts[UserRole.executive] ?? 0} คน',
+      ),
+      _RoleData(
+        title: UserRole.student.label,
+        subtitle: 'เข้าถึงข้อมูลการเรียนและกิจกรรมของตนเอง',
+        icon: Icons.backpack_outlined,
+        color: SchoolAdminPalette.green,
+        userCount: '${_roleCounts[UserRole.student] ?? 0} คน',
+      ),
+      _RoleData(
+        title: UserRole.parent.label,
+        subtitle: 'ติดตามข้อมูลของบุตรหลานที่ผูกบัญชีไว้',
+        icon: Icons.family_restroom_outlined,
+        color: const Color(0xFF7C3AED),
+        userCount: '${_roleCounts[UserRole.parent] ?? 0} คน',
+      ),
+      _RoleData(
+        title: UserRole.superAdmin.label,
+        subtitle: 'ดูแลระบบทุกโรงเรียนในเครือ',
+        icon: Icons.shield_outlined,
+        color: const Color(0xFFB91C1C),
+        userCount: '${_roleCounts[UserRole.superAdmin] ?? 0} คน',
       ),
     ];
 
@@ -1297,125 +1348,61 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
     );
   }
 
+  /// ตารางสิทธิ์จริง อ่านสดจาก `list_role_permission_matrix` — สแกน
+  /// `pg_get_functiondef()` ของทุก RPC หา `v_actor.role not in (...)` แล้ว
+  /// สกัดรายชื่อ role ที่ผ่านเงื่อนไขจริง ไม่ใช่ตารางที่พิมพ์มือ (ของเดิม
+  /// เป็น 7 "โมดูล" แต่งขึ้นเอง คอลัมน์ "ครูประจำอาคาร" เป็น role ที่ยุบไป
+  /// รวมกับ school_admin ตั้งแต่ 2026-08-25 แล้ว) ดู
+  /// DECISIONS_2026-09-07.md ข้อ 5
   Widget _buildPermissionMatrix() {
-    const List<_MatrixRowData> rows = [
-      _MatrixRowData(
-        module: 'ข้อมูลนักเรียน',
-        teacher: 'เฉพาะที่สอน',
-        homeroom: 'เฉพาะห้องตนเอง',
-        building: '-',
-        management: 'ดูได้',
-      ),
-      _MatrixRowData(
-        module: 'ครูและบุคลากร',
-        teacher: '-',
-        homeroom: '-',
-        building: '-',
-        management: 'ดูได้',
-      ),
-      _MatrixRowData(
-        module: 'อาคารและห้อง',
-        teacher: 'ดูได้',
-        homeroom: 'ดูได้',
-        building: 'เฉพาะอาคาร',
-        management: 'ดูได้',
-      ),
-      _MatrixRowData(
-        module: 'อุปกรณ์ / ชุดฝึก',
-        teacher: 'เฉพาะที่ใช้',
-        homeroom: 'เฉพาะห้อง',
-        building: 'เฉพาะอาคาร',
-        management: 'ดูได้',
-      ),
-      _MatrixRowData(
-        module: 'ไฟ / น้ำ / อากาศ',
-        teacher: '-',
-        homeroom: 'ดูห้องตนเอง',
-        building: 'เฉพาะอาคาร',
-        management: 'ดูได้',
-      ),
-      _MatrixRowData(
-        module: 'การแจ้งเตือน',
-        teacher: 'เฉพาะของตน',
-        homeroom: 'เฉพาะห้อง',
-        building: 'เฉพาะอาคาร',
-        management: 'ดูได้',
-      ),
-      _MatrixRowData(
-        module: 'รายงาน',
-        teacher: 'เฉพาะของตน',
-        homeroom: 'เฉพาะห้อง',
-        building: 'เฉพาะอาคาร',
-        management: 'ดูได้',
-      ),
-    ];
+    final entries = _filteredPermissionMatrix;
 
     return _PermissionSectionCard(
-      title: 'ตารางสิทธิ์ตามบทบาท',
-      subtitle: 'ช่วยให้เห็นภาพว่าแต่ละบทบาทเข้าถึงส่วนใดได้บ้าง',
-      padding: EdgeInsets.zero,
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          if (constraints.maxWidth >= 850) {
-            return Table(
-              border: const TableBorder(
-                top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-                horizontalInside: BorderSide(
-                  color: Color(0xFFF1F5F9),
-                  width: 1,
+      title: 'ตารางสิทธิ์ตามบทบาท (ของจริงจากฐานข้อมูล)',
+      subtitle:
+          'สแกนจากเงื่อนไขตรวจสิทธิ์จริงในฟังก์ชันของระบบ ${_permissionMatrix.length} รายการ',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _matrixSearchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'ค้นหาชื่อฟังก์ชัน',
+              prefixIcon: const Icon(Icons.search_rounded),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (entries.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  _permissionMatrix.isEmpty
+                      ? 'ยังไม่มีข้อมูลตารางสิทธิ์'
+                      : 'ไม่พบฟังก์ชันที่ตรงกับคำค้นหา',
+                  style: const TextStyle(
+                    color: SchoolAdminPalette.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              columnWidths: const {
-                0: FlexColumnWidth(1.45),
-                1: FlexColumnWidth(1.1),
-                2: FlexColumnWidth(1.15),
-                3: FlexColumnWidth(1.15),
-                4: FlexColumnWidth(1.05),
-              },
-              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-              children: [
-                const TableRow(
-                  decoration: BoxDecoration(
-                    color: Color(0xFFF8FAFC),
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-                    ),
-                  ),
-                  children: [
-                    _PermissionTableHeaderCell(text: 'ข้อมูล / ฟังก์ชัน'),
-                    _PermissionTableHeaderCell(text: 'ครูผู้สอน'),
-                    _PermissionTableHeaderCell(text: 'ครูประจำชั้น'),
-                    _PermissionTableHeaderCell(text: 'ครูประจำอาคาร'),
-                    _PermissionTableHeaderCell(text: 'ฝ่ายบริหาร'),
-                  ],
-                ),
-                ...rows.map((_MatrixRowData row) {
-                  return TableRow(
-                    children: [
-                      _PermissionTableModuleCell(text: row.module),
-                      _PermissionTableValueCell(value: row.teacher),
-                      _PermissionTableValueCell(value: row.homeroom),
-                      _PermissionTableValueCell(value: row.building),
-                      _PermissionTableValueCell(value: row.management),
-                    ],
-                  );
-                }),
-              ],
-            );
-          }
-
-          return Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: rows.map((_MatrixRowData row) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _MatrixMobileCard(data: row),
-                );
-              }).toList(),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 480),
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: entries.length,
+                separatorBuilder: (_, _) =>
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                itemBuilder: (context, index) =>
+                    _PermissionMatrixRow(entry: entries[index]),
+              ),
             ),
-          );
-        },
+        ],
       ),
     );
   }
@@ -2485,171 +2472,90 @@ class _PermissionBadge extends StatelessWidget {
   }
 }
 
-class _PermissionTableHeaderCell extends StatelessWidget {
-  const _PermissionTableHeaderCell({required this.text});
+/// หนึ่งแถว = หนึ่ง RPC จริง + role ที่ผ่านเงื่อนไข `not in (...)` ของมันจริง
+/// (`entry.allowedRoles == null` แปลว่า RPC ตัวนี้ตรวจสิทธิ์ด้วยแพทเทิร์นอื่น
+/// ที่สแกนอัตโนมัติแบบนี้ดึงออกมาไม่ได้ — บอกตรง ๆ ว่าไม่ทราบ ดีกว่าเดา)
+class _PermissionMatrixRow extends StatelessWidget {
+  const _PermissionMatrixRow({required this.entry});
 
-  final String text;
+  final RolePermissionEntry entry;
 
   @override
   Widget build(BuildContext context) {
+    final roles = entry.allowedRoles;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 18),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w900,
-          color: SchoolAdminPalette.textPrimary,
-        ),
-      ),
-    );
-  }
-}
-
-class _PermissionTableModuleCell extends StatelessWidget {
-  const _PermissionTableModuleCell({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-          color: SchoolAdminPalette.textPrimary,
-        ),
-      ),
-    );
-  }
-}
-
-class _PermissionTableValueCell extends StatelessWidget {
-  const _PermissionTableValueCell({required this.value});
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
-      child: Center(child: _MatrixBadge(value: value, expanded: true)),
-    );
-  }
-}
-
-class _MatrixBadge extends StatelessWidget {
-  const _MatrixBadge({required this.value, this.expanded = false});
-
-  final String value;
-  final bool expanded;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool disabled = value == '-';
-    final Color color = disabled
-        ? SchoolAdminPalette.textMuted
-        : value == 'ดูได้'
-        ? SchoolAdminPalette.green
-        : SchoolAdminPalette.primaryDark;
-
-    final Widget badge = Container(
-      width: expanded ? double.infinity : null,
-      constraints: expanded
-          ? const BoxConstraints(minHeight: 34)
-          : const BoxConstraints(minWidth: 96),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withAlpha(disabled ? 8 : 16),
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: color.withAlpha(disabled ? 20 : 38)),
-      ),
-      child: Text(
-        disabled ? 'ไม่มีสิทธิ์' : value,
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          height: 1.2,
-          fontWeight: FontWeight.w900,
-          color: color,
-        ),
-      ),
-    );
-
-    return badge;
-  }
-}
-
-class _MatrixMobileCard extends StatelessWidget {
-  const _MatrixMobileCard({required this.data});
-
-  final _MatrixRowData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            data.module,
+            entry.functionName,
             style: const TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'monospace',
               color: SchoolAdminPalette.textPrimary,
             ),
           ),
-          const SizedBox(height: 9),
-          _MatrixMobileRow(label: 'ครูผู้สอน', value: data.teacher),
-          _MatrixMobileRow(label: 'ครูประจำชั้น', value: data.homeroom),
-          _MatrixMobileRow(label: 'ครูประจำอาคาร', value: data.building),
-          _MatrixMobileRow(label: 'ฝ่ายบริหาร', value: data.management),
+          const SizedBox(height: 6),
+          if (roles == null)
+            const Text(
+              'ไม่พบรูปแบบการตรวจสิทธิ์ที่สแกนได้อัตโนมัติ',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: SchoolAdminPalette.textMuted,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: roles
+                  .map((role) => _MatrixRoleBadge(role: role))
+                  .toList(),
+            ),
         ],
       ),
     );
   }
 }
 
-class _MatrixMobileRow extends StatelessWidget {
-  const _MatrixMobileRow({required this.label, required this.value});
+class _MatrixRoleBadge extends StatelessWidget {
+  const _MatrixRoleBadge({required this.role});
 
-  final String label;
-  final String value;
+  final String role;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: SchoolAdminPalette.textSecondary,
-              ),
-            ),
-          ),
-          _MatrixBadge(value: value),
-        ],
+    final label = _roleLabels[role] ?? role;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: SchoolAdminPalette.primaryDark.withAlpha(16),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: SchoolAdminPalette.primaryDark.withAlpha(38)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w800,
+          color: SchoolAdminPalette.primaryDark,
+        ),
       ),
     );
   }
 }
+
+const Map<String, String> _roleLabels = {
+  'super_admin': 'ผู้ดูแลระบบสูงสุด',
+  'school_admin': 'แอดมินโรงเรียน',
+  'teacher': 'ครู',
+  'executive': 'ผู้บริหาร',
+  'student': 'นักเรียน',
+  'parent': 'ผู้ปกครอง',
+};
 
 class _PermissionFilterDropdown extends StatelessWidget {
   const _PermissionFilterDropdown({
@@ -3342,22 +3248,6 @@ class _RoleData {
   final IconData icon;
   final Color color;
   final String userCount;
-}
-
-class _MatrixRowData {
-  const _MatrixRowData({
-    required this.module,
-    required this.teacher,
-    required this.homeroom,
-    required this.building,
-    required this.management,
-  });
-
-  final String module;
-  final String teacher;
-  final String homeroom;
-  final String building;
-  final String management;
 }
 
 class _PermissionUser {
