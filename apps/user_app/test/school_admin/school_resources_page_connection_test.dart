@@ -220,14 +220,49 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น CSV'));
     await tester.pump();
 
     expect(downloadedFilename, contains('resources_report_'));
+    expect(downloadedFilename, endsWith('.csv'));
     expect(downloadedBytes, isNotNull);
     final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
     expect(csv, contains('electricity'));
     expect(csv, contains('water'));
-    expect(find.text('ส่งออกรายงานแล้ว'), findsOneWidget);
+    expect(find.text('ส่งออกรายงานแล้ว (CSV)'), findsOneWidget);
+  });
+
+  testWidgets('export downloads a real Excel file built from the loaded figures', (
+    tester,
+  ) async {
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    await _pump(
+      tester,
+      downloadBytesOverride:
+          ({
+            required String filename,
+            required List<int> bytes,
+            required String mimeType,
+          }) {
+            downloadedFilename = filename;
+            downloadedBytes = bytes;
+          },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ส่งออกเป็น Excel'));
+    await tester.pump();
+
+    expect(downloadedFilename, endsWith('.xlsx'));
+    expect(downloadedBytes, isNotNull);
+    expect(downloadedBytes![0], 0x50);
+    expect(downloadedBytes![1], 0x4B);
+    expect(find.text('ส่งออกรายงานแล้ว (Excel)'), findsOneWidget);
   });
 
   testWidgets('loading is not shown as an empty state', (tester) async {
