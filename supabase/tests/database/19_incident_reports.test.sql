@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(22);
 
 insert into packages (id, name, license_type)
 values ('99100000-0000-0000-0000-000000000001', 'Incident test package', 'perpetual');
@@ -112,6 +112,16 @@ select is(
   (select count(*)::integer from list_incident_reports('inc-teacher-scope-token', null)),
   1,
   'a teacher in the room scope sees the incident report'
+);
+
+-- 6b. a teacher at a *different* school (MASTER_PLAN ticket 1.4: cross-school
+-- SOS isolation) sees none of school A's incidents — the "broadcast to
+-- every teacher" policy in 20260831020000 broadcasts within v_actor.school_id
+-- only, it never crosses the school_id boundary itself
+select is(
+  (select count(*)::integer from list_incident_reports('inc-teacher-otherschool-token', null)),
+  0,
+  'a teacher at a different school sees zero of school A''s incident reports'
 );
 
 -- 7. any teacher in the school can acknowledge the broadcast incident
