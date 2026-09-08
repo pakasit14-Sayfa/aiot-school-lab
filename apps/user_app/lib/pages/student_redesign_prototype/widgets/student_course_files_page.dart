@@ -27,7 +27,16 @@ const _imageExtensions = {'JPG', 'JPEG', 'PNG', 'GIF', 'WEBP', 'BMP'};
 bool _isImageType(String typeLabel) => _imageExtensions.contains(typeLabel);
 
 class StudentCourseFilesPage extends StatefulWidget {
-  const StudentCourseFilesPage({super.key});
+  const StudentCourseFilesPage({
+    super.key,
+    this.loadCourses,
+    this.listFiles,
+  });
+
+  /// Read seams threaded to the corresponding CourseService/
+  /// CourseFileService static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<CourseFile>> Function(String courseId)? listFiles;
 
   @override
   State<StudentCourseFilesPage> createState() => _StudentCourseFilesPageState();
@@ -104,11 +113,13 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
       _error = null;
     });
     try {
-      final courses = (await CourseService.listMyCourses())
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadFiles = widget.listFiles ?? CourseFileService.listFiles;
+      final courses = (await loadCourses())
           .where((c) => c.isActive)
           .toList();
       final fileLists = await Future.wait(
-        courses.map((c) => CourseFileService.listFiles(c.id)),
+        courses.map((c) => loadFiles(c.id)),
       );
       final groups = <_CourseFileGroup>[];
       for (var i = 0; i < courses.length; i++) {
@@ -127,10 +138,10 @@ class _StudentCourseFilesPageState extends State<StudentCourseFilesPage> {
         _selectedGroupIndex = 0;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -564,9 +575,12 @@ class _DocumentFoldPainter extends CustomPainter {
 }
 
 class CourseFileCard extends StatefulWidget {
-  const CourseFileCard({super.key, required this.file});
+  const CourseFileCard({super.key, required this.file, this.getDownloadUrl});
 
   final CourseFile file;
+
+  /// Read seam threaded to CourseFileService.getDownloadUrl in production.
+  final Future<String> Function(String fileId)? getDownloadUrl;
 
   @override
   State<CourseFileCard> createState() => _CourseFileCardState();
@@ -588,13 +602,14 @@ class _CourseFileCardState extends State<CourseFileCard> {
       _error = null;
     });
     try {
-      final url = await CourseFileService.getDownloadUrl(widget.file.id);
+      final getUrl = widget.getDownloadUrl ?? CourseFileService.getDownloadUrl;
+      final url = await getUrl(widget.file.id);
       final uri = Uri.parse(url);
       final launched = await launchUrl(uri, webOnlyWindowName: '_blank');
       if (!launched) throw Exception('เปิดลิงก์ไม่สำเร็จ');
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'ดาวน์โหลดไม่สำเร็จ: $e');
+      setState(() => _error = 'ดาวน์โหลดไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _opening = false);
     }
@@ -608,10 +623,11 @@ class _CourseFileCardState extends State<CourseFileCard> {
     });
     String? url;
     try {
-      url = await CourseFileService.getDownloadUrl(widget.file.id);
-    } catch (e) {
+      final getUrl = widget.getDownloadUrl ?? CourseFileService.getDownloadUrl;
+      url = await getUrl(widget.file.id);
+    } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'เปิดรูปภาพไม่สำเร็จ: $e');
+      setState(() => _error = 'เปิดรูปภาพไม่สำเร็จ');
     } finally {
       if (mounted) setState(() => _opening = false);
     }
