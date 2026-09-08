@@ -460,3 +460,82 @@ Commit: `7c091b4`. `flutter analyze` สะอาดทั้ง 2 ไฟล์ 
 จาก 19/23 ทำเสร็จหมดแล้ว) เหลืองานแยกที่ไม่ใช่ DoD gap: `school_import_page`
 ยังบล็อกการ import นักเรียน/ครูด้วยเหตุผลความปลอดภัย (`Test1234!` เดาได้)
 ตามที่ตั้งใจไว้ — ไม่ใช่บั๊ก เป็นการตัดสินใจที่ยังไม่แก้
+
+## 2026-09-08: Teacher lane audit + fix ทั้ง 7 ไฟล์ที่มีบั๊กจริง
+
+Audit 25 หน้าฝั่งครู (`teacher_redesign_prototype/`) อ่านเต็มไฟล์ทุกไฟล์
+พบ 12 ไฟล์มีบั๊ก fake-data/fake-success จริง ใหญ่สุดคือแจ้งเตือนกล้อง
+รักษาความปลอดภัยปลอมที่ติดค้างเปิดถาวรให้ครูทุกคนเห็น (แก้ไปแล้วก่อนหน้า
+เซสชันนี้) เซสชันนี้แก้ 7 ไฟล์ที่เหลือจากแผนลำดับความสำคัญ ทั้งหมด
+`flutter analyze` สะอาด รัน `flutter test` ทั้งชุด 526 ผ่าน/8 fail
+(fail ทั้ง 8 เป็นของเดิมอยู่แล้ว อยู่ฝั่ง Executive/`director_*` ที่ Codex
+กำลังทำ กับ `school_admin_empty_and_error_states_test.dart` 1 เคสที่ไม่ได้
+แตะ — ไม่มีอันไหนถดถอยใหม่จากงานนี้)
+
+### แก้แล้ว: `teacher_rubric_page.dart` (commit `1a659f3`)
+- ปุ่ม "ทำสำเนา" (`_duplicateRubric`) โชว์ toast สำเร็จโดยไม่เรียก backend
+  เลย — แก้ให้เรียก `RubricService.createRubric` จริง
+- ฟอร์มมี dropdown "ขอบเขต" ที่ไม่มีคอลัมน์รองรับ — ลบออก
+- filter chip 'ใช้ร่วมข้ามวิชา' เทียบกับ field ที่ไม่มีใครตั้งค่าเลย
+  กรองอะไรไม่ได้จริง — ลบออก
+
+### แก้แล้ว: `teacher_aiot_dashboard_page.dart` (commit `5ebc4dc`)
+- `_getMockDevices`/`_getMockThresholds`/`_getMockAlerts` โผล่มาแทนที่ทุก
+  ครั้งที่ list จริงว่างเปล่า — ครูที่ไม่มีอุปกรณ์จริงเห็นการ์ดอุปกรณ์อยู่ดี
+  ลบ mock generator + isEmpty guard ทั้งหมด เพิ่ม loading/empty state จริง
+  ต่อแท็บ
+
+### แก้แล้ว: `teacher_knowledge_library_page.dart` (commit `3038191`)
+- `_loadFallbackMock()` อยู่ใน catch block — โหลดล้มเหลวจริง (network/RPC/
+  auth) กลายเป็นห้องสมุดปลอมที่ดูสมจริง ครูไม่มีทางรู้ว่า error อยู่
+  แก้เป็น error state แยกจากกันชัดเจน
+
+### แก้แล้ว: `teacher_grades_page.dart` (commit `7af0fb4`)
+- เมนู export PDF/Excel ไม่มี handler เลย กดแล้วไม่มีอะไรเกิดขึ้นและไม่มี
+  error — เพิ่ม export CSV/Excel จริงด้วย pattern เดียวกับหน้า School Admin
+  (`downloadBytes()` + `excel` package)
+
+### แก้แล้ว: `teacher_incident_inbox_page.dart` (commit `0588a82`)
+- แบนเนอร์ "เวลาแก้ไขเฉลี่ย" เป็น string ตายตัว ไม่ได้คำนวณจากข้อมูลจริง
+  เลย — ครูทุกโรงเรียนเห็นตัวเลขเดียวกันหมด ลบออก พร้อมลบ branch
+  mock-fallback ที่ตายแล้ว (unreachable) ในการ์ด SOS ที่ยัง active
+
+### แก้แล้ว: `teacher_assignment_editor_page.dart` + `teacher_courses_page.dart`
+### + `teacher_storybook_page.dart` (commit `94ea879`)
+- `submittedCount`/`totalStudents` ในหน้าแก้ไขใบงานเป็นตัวเลขที่แต่งขึ้นเอง
+  ล้วนๆ ไม่มี dropdown เลือก rubric จริงทั้งที่ backend มี rubric อยู่แล้ว
+  และตอนแก้ไข (edit) เซฟลง `courses.first.id` เสมอ ไม่ใช่ course จริงของ
+  assignment นั้น — แก้ assignment ในวิชา B เสี่ยงย้ายไปวิชา A แบบเงียบๆ
+- ระหว่างแก้เจอบั๊กเดียวกันซ้ำใน `teacher_courses_page.dart` (ปุ่ม
+  "แก้ไขใบงาน" สร้าง `AssignmentModel` ปลอมทั้งก้อนเหมือนกัน) แก้ให้ใช้
+  ข้อมูลจริงด้วยเลย ไม่ใช่แค่แก้ให้ compile ผ่าน
+- ต้องขยาย RPC `list_assignments` เพิ่ม instructions/is_group/rubric_id/
+  rubric_title/created_at (migration `20260908040000`, ต้อง DROP FUNCTION
+  ก่อนเพราะ `RETURNS TABLE` เปลี่ยนรูปคอลัมน์ไม่ได้ด้วย `CREATE OR REPLACE`)
+  และส่ง `rubric_id` ผ่าน create/update_assignment
+- sensor-metric binding ในหน้าแก้ไขใบงานยังปิดไว้พร้อมข้อความบอกตรงๆ ว่า
+  ยังไม่มี backend รองรับ — ไม่ใช่บั๊ก เป็นของที่ยังไม่ได้สร้าง
+- `teacher_storybook_page.dart` (dev-only ไปไม่ถึงจากแอปจริง) ใส่ค่า
+  placeholder แค่ให้ compile ผ่านหลังขยาย `AssignmentModel`
+
+### แก้แล้ว: `teacher_question_bank_page.dart` (commit `3c1ae27`)
+- ไม่มี RPC ลิสต์คำถามของ quiz เลย ป้ายจำนวนข้อโชว์ "0 ข้อ" ตายตัวทุก quiz
+  เพิ่ม RPC `list_quiz_questions` ใหม่ (เช็คสิทธิ์เจ้าของวิชา, pgTAP 4 เคส,
+  migration `20260908050000`) + `QuizService.listQuizQuestions` เพิ่มปุ่ม
+  "ยืนยันการเลือก (N ข้อ)" ที่ `teacher_exam_builder_page.dart`'s
+  `_importFromBank()` รอรับอยู่แล้วผ่าน `Navigator.push<List<BankQuestion>>`
+  แต่ไม่เคยมีอะไรส่งกลับไปจริง
+
+### แก้ regression ที่เจอระหว่างรัน full test suite: `school_admin_dashboard_page.dart` (commit `99ff093`)
+- sidebar ชื่อโรงเรียน (แก้ไปใน `7c091b4` ก่อนหน้านี้) ไม่มี flag แยก
+  "กำลังโหลด" ออกจาก "โหลดเสร็จแล้วแต่ไม่มีข้อมูล" ทำให้ทุกเฟรมก่อน RPC
+  ตอบกลับโชว์ 'ยังไม่มีข้อมูล' เหมือนกับตอนล้มเหลวจริง — เพิ่ม
+  `_schoolNameLoading` โชว์ '…' ระหว่างโหลดแทน
+- `school_admin_dashboard_resource_test.dart` ไม่เคยตั้งค่า
+  `currentUserModel` มาก่อน ชนกับ fallback 'ยังไม่มีข้อมูล' ของ `_UserCard`
+  ที่ `7c091b4` เปลี่ยนจาก hardcode ปลอมมาเป็นของจริง — แก้ตาม pattern
+  เดียวกับ `school_admin_dashboard_page_test.dart`
+
+**สรุป**: Teacher lane 24/24 ไฟล์ (25 หน้า ลบ storybook dev-only) DoD
+ครบแล้วเท่าที่ audit รอบนี้ครอบคลุม ทั้งหมด push เข้า `gitlab` แล้ว
+(`1a659f3`..`99ff093`)
