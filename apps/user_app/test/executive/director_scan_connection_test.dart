@@ -43,9 +43,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('ค้นหาไม่สำเร็จ'), findsOneWidget);
       expect(find.textContaining('private error'), findsNothing);
+      await tester.ensureVisible(find.text('ลองอีกครั้ง'));
       await tester.tap(find.text('ลองอีกครั้ง'));
       await tester.pumpAndSettle();
       expect(find.text('ไม่พบอุปกรณ์ในโรงเรียน'), findsOneWidget);
+      await tester.ensureVisible(find.text('ค้นหา'));
       await tester.tap(find.text('ค้นหา'));
       await tester.pumpAndSettle();
       expect(find.text('อุปกรณ์จริง'), findsOneWidget);

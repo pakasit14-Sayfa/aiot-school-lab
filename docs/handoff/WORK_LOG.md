@@ -416,3 +416,18 @@ Local Supabase and the port-8766 Flutter web server remain available for review.
 Production deployment and publishing the Git branch are separate from these local
 verification results. The earlier auto-review rejection of the GitHub push has
 not been overridden by the QA-minutes approval.
+
+### 2026-09-08 — User-requested executive visual refresh
+
+User explicitly selected all three pages (meetings, learning, scan) and the
+existing pink palette with rounded cards. Added scoped workspace styling,
+gradient headers, learning metric tiles and minutes status pills. Existing
+controllers, RPCs and authorization rules remain intact. Scan's retry widget
+test now scrolls to the button before tapping, as a user would on a short screen.
+
+User-app regression: 507 passed / 22 existing failures, unchanged. Analyzer:
+shared_core clean; shared_ui 4 existing infos; user_app 156 existing findings,
+no new findings in changed files. Browser review at port 8766 displayed actual
+learning totals, verified meeting search's no-match state and found the real
+CCTV device by ID. Small-phone learning/scan coverage passed within regression.
+Physical camera capture and publishing are still outside this visual verification.
