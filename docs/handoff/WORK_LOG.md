@@ -516,3 +516,31 @@ Browser QA remains deferred by the user; this page is not claimed fully verified
 in-browser. No push or production deployment. Remaining executive gaps include
 CCTV inventory/actions, calendar meeting integration and classroom aggregates;
 unsupported domains require actual backend capability before enabling actions.
+
+### 2026-09-08 — Meetings connected to executive academic calendar
+
+User deferred CCTV image integration until the camera/stream approach is known
+and requested calendar integration next. Added DirectorCalendarController to
+combine existing school events/schedules with MeetingService.list. Live local
+list_meeting_records/list_meetings definitions confirm custom-session validation,
+staff allowlist, school scoping and _can_see_meeting visibility. No migrations or
+permission changes. Local-time start/end, location, organizer, attendee count and
+status come from the same records as the meetings page.
+
+The month list includes every visible meeting in date order. Entries offer the
+existing meeting detail route and reload on return. Cancelled/completed records
+remain in the calendar but are excluded from upcoming reminders. Replaced the
+old fixed August 2026 cutoff. Loading now shows unknown summary counts instead
+of zero; refresh clears stale records and failures remain distinct from empty.
+Meetings are shown on their start date, without recurrence or spanning-day UI.
+
+Focused calendar tests: 8/8, including pending meeting source, merged event data,
+local-time display, cancelled state/detail action, empty and source failures.
+Three-package state analysis has zero errors; final app analyze retains 156
+existing findings. Browser QA remains deferred by the user. Local web hot restart
+requested for the updated build; no production deployment or push.
+
+Final app regression: 516 passed / 22 existing failures, compared with 513/22
+before this ticket. Logs are outside Git in ../bug3-validation/calendar-focused.log,
+calendar-regression-final.log and calendar-analyze-final.log. Web hot restart
+completed successfully; this is build verification, not browser interaction QA.

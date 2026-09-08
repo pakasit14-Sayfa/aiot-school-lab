@@ -1,5 +1,22 @@
 # Executive (ผู้บริหาร / Director) — backend capability survey
 
+## Academic calendar update — 2026-09-08 (browser QA pending)
+
+The executive calendar now combines school events and schedules with
+`MeetingService.list()` through `DirectorCalendarController`. The live local
+`list_meeting_records` delegates to `list_meetings`, which validates the custom
+session, staff role, school and `_can_see_meeting` visibility. No new RPC or
+schema is needed. Meeting start dates use local time, with real end time,
+location, organizer, attendee count and status in details. The monthly meeting
+list is chronological and no longer silently truncates to four entries.
+
+Meeting entries open the existing permission-checked detail page and reload the
+calendar on return. Cancelled/completed meetings remain in history but do not
+generate upcoming reminders. A hardcoded August 2026 upcoming cutoff was replaced
+with the current date. Source failure shows error rather than successful empty
+data. Meetings are placed on their start date; this does not add recurring-event
+or multi-day spanning layout. Browser QA remains deferred as requested.
+
 ## Overview update — 2026-09-08 (browser QA pending)
 
 `director_overview_page` now uses `DirectorOverviewController` and existing
