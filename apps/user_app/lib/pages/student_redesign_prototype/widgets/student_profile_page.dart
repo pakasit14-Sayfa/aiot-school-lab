@@ -13,10 +13,26 @@ class StudentProfilePage extends StatefulWidget {
     super.key,
     this.onViewScore,
     this.onViewAssignments,
+    this.loadCourses,
+    this.loadGrades,
+    this.loadAssignmentsForCourse,
+    this.loadSubmissionVersions,
+    this.signOut,
   });
 
   final VoidCallback? onViewScore;
   final VoidCallback? onViewAssignments;
+
+  /// Read/write seams threaded to the corresponding CourseService/
+  /// GradeService/AssignmentService/AuthService static calls in
+  /// production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<CourseGrade>> Function()? loadGrades;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
+  final Future<List<SubmissionVersion>> Function(String assignmentId)?
+  loadSubmissionVersions;
+  final Future<void> Function()? signOut;
 
   @override
   State<StudentProfilePage> createState() => _StudentProfilePageState();
@@ -43,24 +59,28 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        CourseService.listMyCourses(),
-        GradeService.listMyGrades(),
-      ]);
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadGrades = widget.loadGrades ?? GradeService.listMyGrades;
+      final loadAssignments =
+          widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
+      final loadVersions = widget.loadSubmissionVersions ??
+          AssignmentService.listMySubmissionVersions;
+
+      final results = await Future.wait([loadCourses(), loadGrades()]);
       final courses = (results[0] as List<CourseSummary>)
           .where((c) => c.isActive)
           .toList();
       final grades = results[1] as List<CourseGrade>;
 
       final assignmentLists = await Future.wait(
-        courses.map((c) => AssignmentService.listAssignments(c.id)),
+        courses.map((c) => loadAssignments(c.id)),
       );
       final published = <AssignmentSummary>[];
       for (final list in assignmentLists) {
         published.addAll(list.where((a) => a.isPublished));
       }
       final submissionChecks = await Future.wait(
-        published.map((a) => AssignmentService.listMySubmissionVersions(a.id)),
+        published.map((a) => loadVersions(a.id)),
       );
       final submittedCount = submissionChecks.where((v) => v.isNotEmpty).length;
 
@@ -79,17 +99,18 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         _gradedCourseCount = confirmedGrades.length;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
   }
 
   Future<void> _signOut() async {
-    await AuthService.signOut();
+    final doSignOut = widget.signOut ?? AuthService.signOut;
+    await doSignOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginPage()),
