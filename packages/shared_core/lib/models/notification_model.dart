@@ -1,3 +1,12 @@
+class NotificationCategory {
+  NotificationCategory.fromRow(Map<String, dynamic> r)
+    : category = r['category'] as String,
+      total = (r['total'] as num).toInt(),
+      unread = (r['unread'] as num).toInt();
+  final String category;
+  final int total, unread;
+}
+
 class AppNotification {
   final String id;
   final String type;

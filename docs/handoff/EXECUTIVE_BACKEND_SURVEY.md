@@ -1,7 +1,11 @@
 # Executive (ผู้บริหาร / Director) — backend capability survey
 
-**Ticket 3.0 of `docs/handoff/MASTER_PLAN_2026-09-06.md`. Analysis only — no code was changed.**
-Date: 2026-09-06.
+**Historical survey: ticket 3.0 of `docs/handoff/MASTER_PLAN_2026-09-06.md`, 2026-09-06.**
+
+**Bug 3 update, 2026-09-08:** meetings, learning and device lookup are now connected
+in `codex/fix-executive-bug-3`. Their sections below describe the new implementation.
+The baseline facts describe the original survey date, not the current schema.
+Current role gates were checked against the running local database.
 
 Purpose: before anyone writes UI code for the 11 unfinished Executive pages, establish
 *per piece of data* whether the backend can already serve it. Every RPC named below was
@@ -20,7 +24,7 @@ is a guessed function name.
 
 Effort classes: `reuse-only` · `needs-role-widening` · `needs-new-RPC` · `needs-new-schema`.
 
-## Baseline facts confirmed during this survey
+## Historical baseline facts — 2026-09-06 (superseded by later migrations)
 
 - 270 distinct `create or replace function` names across the migrations (the "207" in the
   master plan comes from a lowercase-only grep; a case-insensitive grep finds 270,
@@ -39,44 +43,51 @@ Effort classes: `reuse-only` · `needs-role-widening` · `needs-new-RPC` · `nee
 
 ---
 
-# Part 1 — the six fully-disconnected pages
+# Part 1 — pages originally disconnected
 
-## 3.5 `director_learning_page.dart` (2,815 lines) — ภาพรวมนักเรียน
+## 3.5 `director_learning_page.dart` — connected, 2026-09-08
 
-| what it must show (real director need) | verdict | exact RPC / table | notes |
-|---|---|---|---|
-| นักเรียนทั้งหมด / จำนวนห้องเรียน | **A** | `get_classrooms_overview(p_token)` → `room_count, course_count, active_student_count, assignments_due_this_week`; gate `('executive','school_admin')` | already wrapped: `ExecutiveService.getClassroomsOverview()` |
-| Head-count by role (ครู/นักเรียน/ผู้ปกครอง) | **A** | `count_school_users_by_role(p_token)`, gate `('school_admin','super_admin','executive')` (`20260816000000_executive_school_stats.sql`) | `UserAdminService.countUsersByRole()` |
-| สายการเรียน (programs) + จำนวนนักเรียน + เกรดเฉลี่ยต่อสาย | **A** | `get_learning_track_overview(p_token)` → `track_id, name, color, sort_order, student_count, room_count, avg_grade_percent`; gate `('school_admin','executive','super_admin')` | `LearningTrackService.getOverview()` — this is a **direct replacement** for the hardcoded `programs` list (3 entries). `avg_grade_percent` replaces the fake `averageGpa`. |
-| แยกตามระดับชั้น ม.1–ม.6 (`gradeData`, 85 lines): นักเรียน/ห้อง per grade | **A (partial)** | `list_learning_track_rooms(p_token)` → `grade_level, room, student_count, track_id, track_name`; gate = `_assert_school_admin` **BUT** grep shows `20260829030000_learning_tracks.sql:324` widened it to `('school_admin','executive','super_admin')` — verify the live definition before relying on it | gives students/rooms per grade. Attendance/behaviour/environment columns of `gradeData` are **C/D**, see below. |
-| มาเรียนวันนี้ % (school-wide), ขาด, มาสาย | **C** | tables `homeroom_attendance_records` (student_id, grade_level, room, class_date, status) and `attendance_records` (course-scoped). Only `list_homeroom_attendance(p_token, p_grade_level, p_room, p_class_date)` exists — **one room at a time**, no school-wide aggregate | need `get_school_attendance_summary(p_token, p_date)` returning `(total, present, absent, late, leave)` and `list_attendance_by_grade(p_token, p_date)` returning per-grade rows. Gate helper `_assert_homeroom_access` already accepts `executive`. |
-| เคสดูแลช่วยเหลือ (`urgentStudents`, 37 lines) | **B** | `list_student_support_cases(p_token, p_course_id, p_status)` → case_id, student_name, category, risk_level, status, title, notes, intervention_count. Gate: `if v_actor.role <> 'teacher' and v_actor.role <> 'school_admin'` — **executive rejected** | widen in a new migration. Service exists: `StudentSupportService.listCases()`. This is the single highest-value widening on the whole Executive surface. |
-| นักเรียนกลุ่มเสี่ยงอัตโนมัติ (งานค้าง/ขาดเรียน/เกรดต่ำ) | **B** | `list_students_needing_attention(p_token)` → student_id, student_name, reason, detail, action_label, severity. Gate: `IF v_actor.role != 'teacher'` — **executive rejected**, and its body is scoped to *the calling teacher's own courses* | widening alone is not enough: needs a school-wide variant (`p_scope`/school branch) since the CTEs join `course_teachers.teacher_id = v_actor.user_id`. Treat as **B + body change**. Service: `StudentSupportService.listAutoFlaggedStudents()`. |
-| การลาของนักเรียน | **A** | `list_leave_requests_for_review(p_token, p_status)`, gate `('teacher','school_admin','executive')` | `LeaveService.listPendingLeaveRequests()` |
-| `followUps` (4 director action cards) | **D** | no table for director follow-up items / มติสั่งการ | these are narrative summaries; either compute them from the above real numbers in Dart, or drop them. Do **not** invent a table for prose. |
-| โครงการเยี่ยมบ้าน 93.8% | **D** | no home-visit table | drop or product decision |
+Page → `DirectorLearningController` → existing domain services → custom-session RPCs.
 
-**Effort class: needs-role-widening + needs-new-RPC.** ~60% of this page is reachable today
-(programs, tracks, head counts, leave, classroom overview). The at-risk/support sections need
-two role widenings; the daily attendance strip needs one new aggregate RPC.
+| Information | Current source and behavior |
+|---|---|
+| Current school counts | `ExecutiveService.getClassroomsOverview()`: active students, physical room registry, courses, assignments due within seven days. Counts are not historical enrollment totals. |
+| Learning tracks and scores | `LearningTrackService.getOverview()`; confirmed score average is a percentage, never GPA. Missing scores remain unknown. |
+| Daily homeroom attendance | New `list_school_homeroom_attendance(p_token,p_class_date)`, via `HomeroomService.listSchoolAttendance()`. Uses the current active student cohort; missing records remain unknown. Attendance rate uses only recorded students and is absent when none are recorded. |
+| Grade / track filters | Options come from real attendance and track data. Track-room mapping uses `list_learning_track_rooms`. These filters apply to the attendance section; score cards explicitly describe the whole track. Date changes re-fetch attendance and discard stale responses. |
+| Student support | Existing `StudentSupportService.listCases/listInterventions`, now executive-readable within the active school. Case status filters and history show real data. Cross-school intervention reads are rejected. |
+| Unsupported functions | Executive automatic risk detection, SDQ, home visits, grants, follow-up commands and learning exports are not implemented; the page explains the gaps and disables the corresponding actions. |
 
-## 3.7 `director_meetings_page.dart` (2,216 lines) — ประชุมและนัดหมาย
+Migration `20260908020000_executive_learning_reads.sql` adds the daily aggregate,
+widens read permissions only, and fixes varchar/text result types in the existing
+case-list RPC. The track overview also excludes unmatched LEFT JOIN rows from
+the classroom count: a track with no students returns zero rooms, not one.
+**Live correction to the original survey:** the room-list RPC was
+still admin-only before this migration; the earlier grep-based claim was wrong.
+The existing two room-read denial assertions in pgTAP 34 now assert the authorized
+read behavior; write-denial assertions remain unchanged.
 
-| what it must show | verdict | exact RPC / table | notes |
-|---|---|---|---|
-| รายการประชุม (127 lines): หัวข้อ, วัน+**เวลา**, ห้อง, ผู้เข้าร่วม, สถานะ, วาระ, มติ | **D** | **no table**. `school_events` is the closest thing and it has only `id, school_id, title, location, start_date, end_date, event_type, description` — **no time-of-day, no attendees, no agenda, no minutes, no organiser**, and `event_type` is constrained to `('holiday','public_holiday','exam','activity','study')` — there is no `'meeting'` value (`20260903010000_school_events_calendar_types_and_rpc.sql:22`) | |
-| คำขอเข้าพบ / นัดหมายผู้อำนวยการ (37 lines) | **D** | no table, no RPC, no notification type for it | |
-| สรุปการ์ด (ประชุมสัปดาห์นี้ / รอตอบรับ / …) | **D** | derived from the above | |
+## 3.7 `director_meetings_page.dart` — connected, 2026-09-08
 
-**Effort class: needs-new-schema.** This is the page master-plan 3.7 already flags as a
-decision. Two honest options, and only these two:
-1. **Disable / hide the tab** (0.3 session) — remove it from `director_navigation_shell.dart`.
-2. **Build it for real** — new tables `meetings`, `meeting_attendees`, `meeting_requests`
-   (+ minutes), ~6 RPCs, a `MeetingService`. That is a feature, not a wiring task.
+The former “no schema / product decision” assessment is obsolete. Decisions were
+made in `DECISIONS_2026-09-07.md`, and migrations `20260907030000`,
+`040000`, and `050000` already provided the meetings and request backend.
 
-A tempting middle path — reuse `school_events` with a new `'meeting'` event_type — is
-**not sufficient**: no start/end time, no attendee list, no accept/decline. Recommend not
-half-building it on `school_events`.
+| Function | Current implementation |
+|---|---|
+| Register and creation | Typed `MeetingService` and controllers; real staff/department/group selection, school-wide expansion, backend meeting number/year, search and type filters. Creation verifies canonical visibility and attendees. |
+| Responses and privacy | Accept/postpone for private summons, no decline; group decline supports an empty optional note. Teachers enter via their notifications center and use the shared register without organizer actions. Private meetings are visible only to parties and school administrators. |
+| Agenda, guests and attendance | Real agenda/presenter/order, external name/organization, and organizer checklist. Initial attendance is unknown; an explicit checklist submission records presence/absence. |
+| Minutes and resolutions | Draft → immutable final → append-only statements. “No minutes required” differs from missing minutes. Assignee, due date and resolution status are persisted and read back. |
+| Notifications, requests, calendar | Real category totals/unread counts, two-stage request review, and staff calendar. Request approval is distinct from creating the meeting. |
+| Files and documents | Private `meeting-files` bucket; new upload/download Edge Functions, signed URLs and canonical attachment verification. Web export creates escaped UTF-8 HTML with a print/save-PDF button. |
+| Reminders | Advance reminders remain disabled with a reason; no scheduled reminder job exists. |
+
+Migration `20260908010000_meeting_read_contract.sql` provides aggregate read
+contracts, closes the unrelated-executive private-meeting visibility gap, and
+grants the two Edge Function access-check RPCs to `service_role`. Private minutes
+reads still go through the audited backend reader. Writes show success only after
+reading back and verifying the canonical record.
 
 ## 3.2 `director_teachers_page.dart` (1,927 lines) — ครูและบุคลากร
 
@@ -151,22 +162,26 @@ utilities (`get_energy_usage_summary`/`get_water_usage_summary`/trends/efficienc
 learning tracks. That is `reuse-only` and needs zero backend. It is a different page from
 the "inbox of PDFs sent by departments" that is currently mocked.
 
-## 3.4 `director_scan_page.dart` (1,082 lines) — สแกน QR
+## 3.4 `director_scan_page.dart` — real device identity, 2026-09-08
 
-| what it must show | verdict | exact RPC / table | notes |
-|---|---|---|---|
-| สแกนบัตรครู → แสดงชื่อ/รหัส/กลุ่มสาระ/ตำแหน่ง (`teachers`, 25 lines) | **D** | no staff ID-card/QR identity, no `position`/`subject group` columns | |
-| "เข้างานแล้ว 07:52 น." — staff check-in by scan | **D** | no staff attendance table (confirmed above) | this is the core of the page and it is entirely unmodelled |
-| สแกนชุดฝึก/อุปกรณ์ → ชื่อ, รหัส, หมวด, สถานะ (`kits`, 25 lines) | **A (identity only)** | `devices` has `kit_code`, `device_code`, `name`, `type`, `status`, `location`, `building`, `room`. `list_school_devices(p_token)` gate is `('school_admin','super_admin','teacher','executive')` (`20260826080000_allow_executive_list_school_devices.sql`) — **executive explicitly allowed**; also `list_teaching_kit_devices(p_token)` = **B** (`('teacher','school_admin')`) | scanning a `kit_code` and resolving it to a real device is doable **today** with `LessonService.listSchoolDevices()` / `RealtimeService`; a nicer `get_device_by_code(p_token, p_code)` would be **C** |
-| "กำลังถูกยืม / ยืมโดย ม.6/1 / กำหนดคืน 25 ส.ค." | **D** | no lending/loan table anywhere | |
-| `recent` scan history (7 entries) | **D** | no scan-event table (`audit_logs` could host it, but nothing writes scan events) | |
+Page → `DirectorScanController` → `LessonService.getSchoolDeviceByCode()` →
+new `get_school_device_by_code(p_token,p_code)` in migration
+`20260908030000_school_device_identity.sql`.
 
-Note: the existing `create_terminal_pairing_session` / `claim_terminal_pairing_session` /
-`peek_terminal_pairing_session` / `check_terminal_pairing_status` RPCs are a **QR pairing
-flow for classroom terminals** — unrelated to this page's purpose. Do not repurpose them.
+- Manual entry and camera scanning use the actual entered/detected value.
+- Lookup matches an exact device code, kit code, or UUID in the actor's school.
+  Missing and ambiguous codes never select an arbitrary device.
+- Displays actual registry name, type, status and location. A registry status
+  does not imply availability for borrowing.
+- Initial, loading, error, not-found and found states are distinct.
+- Staff-card identity/check-in, lending and persisted scan history remain
+  unsupported, with disabled controls and visible reasons. No terminal-pairing
+  RPC is repurposed.
 
-**Effort class: needs-new-schema** (staff check-in + equipment lending), with one
-`reuse-only` slice (resolve a scanned kit/device code against `devices`).
+**Live correction to the original survey:** `list_school_devices` permits
+executives but returns only ID/name/type/location/status. Its Dart
+`DeviceOption` does not expose kit/device codes. The new lookup RPC fills that
+read-contract gap without changing the old RPC's return type.
 
 ## 3.6 `director_settings_page.dart` (1,790 lines) — ตั้งค่า
 

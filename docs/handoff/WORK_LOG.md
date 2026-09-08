@@ -357,3 +357,62 @@ cases remain covered by the earlier widget tests and fixture browser checks.
 The app, local Supabase services, and OTP Edge Function remain running for the user.
 This resolves the earlier live-DB verification limitation for bug 1's close paths;
 it is not a full-page DoD or other-bug completion claim.
+
+## 2026-09-08 — Bug 3 live browser / local DB verification
+
+These are interaction and environment observations, not a replacement for the
+implementation commit. Preview: http://127.0.0.1:8766/ (the older 8765 tab is not
+the current server). Worktree: `bug3-executive`, branch
+`codex/fix-executive-bug-3`, based on Bug 2 commit `c21d6f8`.
+
+- Signed in as the seeded executive and teacher through the normal browser
+  password + dev OTP flow; did not enable remember-device.
+- Created **BUG3 QA ประชุมทดสอบการบันทึก**, ID
+  `1a8235de-d233-481d-b6a2-2c21d651e49c`, group meeting number 1/2569,
+  10 September 2026 at 09:00 local, location ห้องทดสอบ local.
+  Added the teacher, agenda ตรวจการเชื่อมต่อข้อมูลจริง, and a minutes draft.
+- The automatic approval reviewer initially rejected the immutable finalization.
+  The user explicitly answered **อนุมัติปิดรายงาน QA**. Finalization was then
+  completed. SQL and browser both confirmed final minutes, unchanged original
+  body, one appended statement, and no draft editor. The fixture is retained for
+  the user to inspect.
+- The teacher's finalized-minutes notification opened the meetings register,
+  then the QA detail. Clicking accept and save produced a canonical
+  **ตอบรับแล้ว** result for that teacher. Organizer-only controls were absent.
+- Uploaded `bug3-qa.txt` (59 bytes) through the real signed upload Edge
+  Function, registered metadata, verified the canonical detail, downloaded the
+  exact same bytes; invalid tokens were rejected by both file endpoints.
+  This used a local QA script outside the Git worktree and did not print tokens.
+- Clicked the printable-document export in the browser; escaped HTML content
+  is covered by a document test. Physical printing/save-PDF and camera capture
+  have not been verified on actual hardware.
+- Learning page showed **3 active students**, no confirmed attendance records,
+  one profiled student and two without a class profile. All stayed unknown.
+  Grade filtering and selecting 7 September instead of 8 September re-read the
+  chosen date. The live profile stores a full room label (`ม.4/1`), which
+  exposed and prompted the duplicated-grade display fix.
+- Desktop scan entry opened the real lookup page. `BUG3-NOT-FOUND` returned
+  not found. UUID `d364bb51-99aa-4cdb-b698-7f899eb22cad` returned
+  กล้อง CCTV ทางเข้าหลัก, online, อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก,
+  matching SQL. No missing device/kit code was invented. No equipment was actuated.
+- Read-only Standards and Spec reviews concluded with no remaining findings.
+  The review reproduced a phantom classroom count for an empty learning track;
+  its new pgTAP assertion failed before the aggregate fix and passed afterward.
+
+Final automated verification: focused app tests 16/16; focused core tests 13/13;
+new pgTAP 43/44/45 totals 55/55. Full app suite 507 pass / 22 existing failures;
+core 60 / 1 existing assignment-model failure; shared_ui 14 / 1 existing ListTile
+assertion, also reproduced on the original Desktop checkout. Analyze: core clean,
+shared_ui 4 info, user_app 156 warning/info, zero errors across all three.
+
+The latest complete pgTAP run executed 796 assertions. The unchanged auth/session
+suite 03 intermittently failed assertions 12–13 (sign-out-all checks after the
+session-cap fixture), then passed 19/19 in an isolated repeat without code changes.
+Legacy fixtures 14 and 16 abort because they still insert removed
+`facility_manager` enum values. These are recorded failures, not a green full-suite
+claim. All Bug 3 backend assertions pass.
+
+Local Supabase and the port-8766 Flutter web server remain available for review.
+Production deployment and publishing the Git branch are separate from these local
+verification results. The earlier auto-review rejection of the GitHub push has
+not been overridden by the QA-minutes approval.

@@ -201,6 +201,14 @@ class _DirectorNavigationShellState extends State<DirectorNavigationShell> {
             ),
           ),
         ),
+        if (isDesktop)
+          IconButton(
+            tooltip: 'สแกน / ค้นหาอุปกรณ์',
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const DirectorScanPage()),
+            ),
+          ),
         _topIcon(Icons.search_rounded),
         const SizedBox(width: 8),
         Stack(
