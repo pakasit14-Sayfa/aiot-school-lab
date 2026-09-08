@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/school_admin/controllers/school_admin_alerts_controller.dart';
@@ -125,10 +127,7 @@ void main() {
   ) async {
     await _pumpWith(tester, [_alert(id: '1', status: 'new')]);
 
-    for (final label in <String>[
-      'ส่งออกรายงาน (ยังไม่เปิดใช้งาน)',
-      'รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)',
-    ]) {
+    for (final label in <String>['รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)']) {
       final finder = find.text(label);
       expect(finder, findsOneWidget, reason: label);
       final button = tester.widget<ButtonStyleButton>(
@@ -164,5 +163,51 @@ void main() {
     ]) {
       expect(find.text(snack), findsNothing, reason: snack);
     }
+  });
+
+  testWidgets('export downloads a real CSV of the filtered alerts', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final controller = SchoolAdminAlertsController(
+      loadAlerts: () async => [_alert(id: '1', status: 'new')],
+      acknowledgeAlert: (alertId) async {},
+      resolveAlert: (alertId, {note}) async {},
+    );
+    addTearDown(controller.dispose);
+
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAlertsPage(
+          controller: controller,
+          loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+          downloadBytesOverride:
+              ({
+                required String filename,
+                required List<int> bytes,
+                required String mimeType,
+              }) {
+                downloadedFilename = filename;
+                downloadedBytes = bytes;
+              },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pump();
+
+    expect(downloadedFilename, contains('alerts_'));
+    expect(downloadedBytes, isNotNull);
+    final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
+    expect(csv, contains('DEV-1'));
+    expect(find.textContaining('ส่งออกรายงานเหตุแจ้งเตือน'), findsOneWidget);
   });
 }

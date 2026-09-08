@@ -1,18 +1,35 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../utils/web_download.dart';
 import 'controllers/school_admin_alerts_controller.dart';
 import 'controllers/school_admin_async_state.dart';
 import 'theme/school_admin_palette.dart';
 
 typedef SchoolAdminAuditLogsLoader =
     Future<List<SchoolAdminAuditLog>> Function();
+typedef SchoolAlertsDownloadBytes =
+    void Function({
+      required String filename,
+      required List<int> bytes,
+      required String mimeType,
+    });
 
 class SchoolAlertsPage extends StatefulWidget {
-  const SchoolAlertsPage({super.key, this.controller, this.loadAuditLogs});
+  const SchoolAlertsPage({
+    super.key,
+    this.controller,
+    this.loadAuditLogs,
+    this.downloadBytesOverride,
+  });
 
   final SchoolAdminAlertsController? controller;
   final SchoolAdminAuditLogsLoader? loadAuditLogs;
+  // Seam for tests: lets a test prove the export button actually calls a
+  // download instead of the old always-disabled button with a tooltip.
+  final SchoolAlertsDownloadBytes? downloadBytesOverride;
 
   @override
   State<SchoolAlertsPage> createState() => _SchoolAlertsPageState();
@@ -181,6 +198,63 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
           matchesStatus &&
           matchesBuilding;
     }).toList();
+  }
+
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportAlerts() {
+    final alerts = _filteredAlerts;
+    if (alerts.isEmpty) {
+      _showMessage('ไม่มีเหตุแจ้งเตือนให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+
+    final header = <String>[
+      'id',
+      'title',
+      'detail',
+      'category',
+      'severity',
+      'status',
+      'building',
+      'room',
+      'source',
+      'created_at',
+      'recipient',
+    ];
+    final rows = <List<String>>[
+      header,
+      for (final alert in alerts)
+        [
+          alert.id,
+          alert.title,
+          alert.detail,
+          alert.category,
+          alert.severity,
+          alert.status,
+          alert.building,
+          alert.room,
+          alert.source,
+          alert.createdAt,
+          alert.recipient,
+        ],
+    ];
+    final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'alerts_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    _showMessage('ส่งออกรายงานเหตุแจ้งเตือน ${alerts.length} รายการแล้ว');
   }
 
   int get _newCount => _alerts.where((alert) => alert.status == 'ใหม่').length;
@@ -597,18 +671,15 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  // Both were tappable and answered with a "ยังไม่เชื่อมต่อ"
-                  // snackbar. Honest, but the DoD asks for controls without a
-                  // backend to be disabled — an admin should be able to see
-                  // what is unavailable without having to press it.
-                  Tooltip(
-                    message:
-                        'ยังไม่เปิดใช้งาน — ระบบส่งออกไฟล์ยังไม่พร้อมใช้งาน',
-                    child: OutlinedButton.icon(
-                      onPressed: null,
-                      icon: const Icon(Icons.download_rounded),
-                      label: const Text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)'),
-                    ),
+                  // The "acknowledge all" control below was tappable and
+                  // answered with a "ยังไม่เชื่อมต่อ" snackbar. Honest, but the
+                  // DoD asks for controls without a backend to be disabled —
+                  // an admin should be able to see what is unavailable
+                  // without having to press it.
+                  OutlinedButton.icon(
+                    onPressed: _exportAlerts,
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('ส่งออกรายงาน'),
                   ),
                   Tooltip(
                     message:
