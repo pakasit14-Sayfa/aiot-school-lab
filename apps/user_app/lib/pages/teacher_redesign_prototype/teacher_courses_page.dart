@@ -5084,23 +5084,35 @@ class _CourseAssignmentListTabWidgetState
                       children: [
                         OutlinedButton.icon(
                           onPressed: () {
+                            // เดิมสร้าง instructions/rubric/จำนวนส่งงานปลอม
+                            // ทั้งหมดตอนกด "แก้ไขใบงาน" ทับข้อมูลจริงของ
+                            // ใบงานนี้เงียบๆ (a มาจาก AssignmentService.
+                            // listAssignments ซึ่งตอนนี้คืน instructions/
+                            // rubric จริงอยู่แล้ว) ใช้ค่าจริงจาก a แทน
                             final model = AssignmentModel(
                               id: a.id,
+                              courseId: widget.course.id ?? '',
                               title: a.title,
-                              instructions:
-                                  'อ่านและทำแบบบันทึกสังเกตการณ์ค่าเซนเซอร์ตามคำสั่งในใบงาน',
+                              instructions: a.instructions ?? '',
                               type: 'ใบงานทดลอง',
                               courseName: widget.course.name,
-                              dueDate:
-                                  a.dueAt?.toIso8601String() ??
-                                  '25 ส.ค. 2569 (23:59 น.)',
-                              status: 'เผยแพร่แล้ว',
-                              isGroupWork: false,
-                              rubricTitle: 'เกณฑ์มาตรฐาน',
-                              attachedSensorMetrics: ['PM2.5'],
-                              submittedCount: 1,
-                              totalStudents: 1,
-                              updatedAt: 'วันนี้',
+                              dueDate: a.dueAt != null
+                                  ? a.dueAt!
+                                        .toLocal()
+                                        .toString()
+                                        .substring(0, 16)
+                                  : 'ไม่มีกำหนดส่ง',
+                              status: a.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
+                              isGroupWork: a.isGroup,
+                              rubricId: a.rubricId,
+                              rubricTitle:
+                                  a.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
+                              attachedSensorMetrics: const [],
+                              submittedCount: 0,
+                              totalStudents: 0,
+                              updatedAt: a.createdAt != null
+                                  ? 'สร้างเมื่อ ${a.createdAt!.toLocal().toString().substring(0, 10)}'
+                                  : 'ยังไม่มีข้อมูล',
                             );
                             openAssignmentFormModal(
                               context,

@@ -6684,6 +6684,8 @@ class _MembersGradientAreaChartPainter extends CustomPainter {
 Widget _buildSoftGlassAssignmentCardsSection() {
   final mockAssignments = [
     AssignmentModel(
+      courseId: 'demo-course',
+      rubricId: null,
       id: 'assign-1',
       title: 'ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5 ในห้องเรียน',
       instructions:
@@ -6700,6 +6702,8 @@ Widget _buildSoftGlassAssignmentCardsSection() {
       updatedAt: '10 ส.ค. 2026',
     ),
     AssignmentModel(
+      courseId: 'demo-course',
+      rubricId: null,
       id: 'assign-2',
       title: 'การบ้านบทที่ 2: วงจรรวมและการต่อสายสัญญาณไมโครคอนโทรลเลอร์',
       instructions:
@@ -6716,6 +6720,8 @@ Widget _buildSoftGlassAssignmentCardsSection() {
       updatedAt: '08 ส.ค. 2026',
     ),
     AssignmentModel(
+      courseId: 'demo-course',
+      rubricId: null,
       id: 'assign-3',
       title: 'โครงงานปลายภาค: ระบบเตือนภัยและเปิดพัดลมระบายอากาศอัตโนมัติ',
       instructions:

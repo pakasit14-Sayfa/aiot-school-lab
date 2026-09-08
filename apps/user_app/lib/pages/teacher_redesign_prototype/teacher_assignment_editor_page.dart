@@ -15,12 +15,14 @@ import 'teacher_shared_widgets.dart' show TeacherMockPageShell, TeacherSearchInp
 class AssignmentModel {
   AssignmentModel({
     required this.id,
+    required this.courseId,
     required this.title,
     required this.instructions,
     required this.type, // 'ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT'
     required this.courseName,
     required this.dueDate,
     required this.isGroupWork,
+    required this.rubricId,
     required this.rubricTitle,
     required this.attachedSensorMetrics,
     required this.status, // 'ร่าง', 'เผยแพร่แล้ว'
@@ -30,12 +32,14 @@ class AssignmentModel {
   });
 
   String id;
+  String courseId;
   String title;
   String instructions;
   String type;
   String courseName;
   String dueDate;
   bool isGroupWork;
+  String? rubricId;
   String rubricTitle;
   List<String> attachedSensorMetrics;
   String status;
@@ -76,103 +80,87 @@ class _TeacherAssignmentEditorPageState
   String _selectedTab =
       'ทั้งหมด'; // 'ทั้งหมด', 'เผยแพร่แล้ว', 'ร่าง', 'งานกลุ่ม'
 
-  late List<AssignmentModel> _assignments;
+  // เดิม seed ด้วยใบงานตัวอย่าง 3 ใบตอนเปิดหน้า แล้วเขียนทับแค่ตอน
+  // `list.isNotEmpty` — วิชาที่ยังไม่มีใบงานจริงเลยจะเห็นใบงานตัวอย่างค้าง
+  // อยู่ตลอดไป ตอนนี้เริ่มจากลิสต์ว่างจริง
+  List<AssignmentModel> _assignments = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _assignments = _getMockAssignments();
     _loadRealAssignments();
   }
 
   Future<void> _loadRealAssignments() async {
+    if (mounted) setState(() => _loading = true);
     try {
       final courses = await CourseService.listMyCourses();
-      if (courses.isNotEmpty) {
-        final courseId = courses.first.id;
-        final list = await AssignmentService.listAssignments(courseId);
-        if (mounted && list.isNotEmpty) {
-          setState(() {
-            _assignments = list.map((a) {
-              return AssignmentModel(
-                id: a.id,
-                title: a.title,
-                instructions: '',
-                type: a.type == 'project'
-                    ? 'โครงงาน AIoT'
-                    : (a.type == 'experiment' ? 'ใบงานทดลอง' : 'การบ้าน'),
-                courseName: courses.first.subjectName,
-                dueDate: a.dueAt != null
-                    ? a.dueAt!.toLocal().toString().substring(0, 16)
-                    : 'ไม่มีกำหนดส่ง',
-                isGroupWork: a.type == 'project',
-                rubricTitle: 'เกณฑ์มาตรฐาน',
-                attachedSensorMetrics: [],
-                status: a.status == 'published' ? 'เผยแพร่แล้ว' : 'ร่าง',
-                submittedCount: 0,
-                totalStudents: 30,
-                updatedAt: 'อัปเดตล่าสุด',
-              );
-            }).toList();
-          });
-        }
+      if (courses.isEmpty) {
+        if (mounted) setState(() => _loading = false);
+        return;
       }
+      final course = courses.first;
+      final list = await AssignmentService.listAssignments(course.id);
+
+      // นับนักเรียนในวิชาครั้งเดียว ใช้ร่วมกันทุกใบงานของวิชานี้ แทน
+      // hardcode 28/30 ตายตัวทุกใบงาน
+      int totalStudents = 0;
+      try {
+        final roster = await CourseService.listCourseStudents(course.id);
+        totalStudents = roster.length;
+      } catch (_) {
+        // เหลือ 0 — โชว์ 'ยังไม่มีข้อมูล' ตรงๆ ดีกว่าเดา
+      }
+
+      final mapped = <AssignmentModel>[];
+      for (final a in list) {
+        int submittedCount = 0;
+        try {
+          final subs = await AssignmentService.listSubmissions(a.id);
+          submittedCount = subs
+              .where((s) => s.submittedAt != null)
+              .length;
+        } catch (_) {
+          // เหลือ 0 — ไม่ใช่ของปลอม แค่ยังไม่รู้ค่าจริง
+        }
+
+        mapped.add(
+          AssignmentModel(
+            id: a.id,
+            courseId: course.id,
+            title: a.title,
+            instructions: a.instructions ?? '',
+            type: a.type == 'project'
+                ? 'โครงงาน AIoT'
+                : (a.type == 'experiment' ? 'ใบงานทดลอง' : 'การบ้าน'),
+            courseName: course.subjectName,
+            dueDate: a.dueAt != null
+                ? a.dueAt!.toLocal().toString().substring(0, 16)
+                : 'ไม่มีกำหนดส่ง',
+            isGroupWork: a.isGroup,
+            rubricId: a.rubricId,
+            rubricTitle: a.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
+            attachedSensorMetrics: const [],
+            status: a.status == 'published' ? 'เผยแพร่แล้ว' : 'ร่าง',
+            submittedCount: submittedCount,
+            totalStudents: totalStudents,
+            updatedAt: a.createdAt != null
+                ? 'สร้างเมื่อ ${a.createdAt!.toLocal().toString().substring(0, 10)}'
+                : 'ยังไม่มีข้อมูล',
+          ),
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _assignments = mapped;
+        _loading = false;
+      });
     } catch (e) {
       debugPrint('Error loading assignments from RPC: $e');
+      if (mounted) setState(() => _loading = false);
     }
-  }
-
-  List<AssignmentModel> _getMockAssignments() {
-    return [
-      AssignmentModel(
-        id: 'assign-1',
-        title: 'ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5 ในห้องเรียน',
-        instructions:
-            'ให้นักเรียนใช้ชุดทดลอง AIoT อ่านค่า PM2.5 บันทึกค่าลงตาราง และวิเคราะห์ช่วงเวลาที่มีฝุ่นสูง พร้อมเสนอแนวทางแก้ไข',
-        type: 'ใบงานทดลอง',
-        courseName: 'ม.5/2 การออกแบบเทคโนโลยี',
-        dueDate: '15 ส.ค. 2026 (23:59 น.)',
-        isGroupWork: true,
-        rubricTitle: 'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-        attachedSensorMetrics: ['PM2.5', 'อุณหภูมิ', 'ความชื้น'],
-        status: 'เผยแพร่แล้ว',
-        submittedCount: 22,
-        totalStudents: 28,
-        updatedAt: '10 ส.ค. 2026',
-      ),
-      AssignmentModel(
-        id: 'assign-2',
-        title: 'การบ้านบทที่ 2: วงจรรวมและการต่อสายสัญญาณไมโครคอนโทรลเลอร์',
-        instructions:
-            'วาดไดอะแกรมการต่อวงจรเซนเซอร์วัดความชื้นป้อนเข้ากับ ESP32 พร้อมเขียนคำอธิบายการทำงาน',
-        type: 'การบ้าน',
-        courseName: 'ม.5/2 การออกแบบเทคโนโลยี',
-        dueDate: '18 ส.ค. 2026 (17:00 น.)',
-        isGroupWork: false,
-        rubricTitle: 'เกณฑ์ตรวจใบงานทดลองเซนเซอร์ (ม.5/2)',
-        attachedSensorMetrics: ['อุณหภูมิ'],
-        status: 'เผยแพร่แล้ว',
-        submittedCount: 14,
-        totalStudents: 28,
-        updatedAt: '11 ส.ค. 2026',
-      ),
-      AssignmentModel(
-        id: 'assign-3',
-        title: 'โครงงานปลายภาค: ระบบเตือนภัยและเปิดพัดลมระบายอากาศอัตโนมัติ',
-        instructions:
-            'ออกแบบและสร้างต้นแบบฮาร์ดแวร์ AIoT ที่สามารถตรวจจับอุณหภูมิเกิน threshold แล้วสั่งเปิดพัดลมโมดูลรีเลย์อัตโนมัติ',
-        type: 'โครงงาน AIoT',
-        courseName: 'ม.5/2 การออกแบบเทคโนโลยี',
-        dueDate: '30 ส.ค. 2026 (23:59 น.)',
-        isGroupWork: true,
-        rubricTitle: 'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-        attachedSensorMetrics: ['อุณหภูมิ', 'รีเลย์พัดลม', 'PM2.5'],
-        status: 'ร่าง',
-        submittedCount: 0,
-        totalStudents: 28,
-        updatedAt: '12 ส.ค. 2026',
-      ),
-    ];
   }
 
   void _openCreateEditForm({AssignmentModel? existingAssignment}) {
@@ -326,7 +314,12 @@ class _TeacherAssignmentEditorPageState
               const SizedBox(height: 20),
 
               // Assignment Cards Loop
-              if (filtered.isEmpty)
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (filtered.isEmpty)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(40),
@@ -780,16 +773,14 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
   late TextEditingController _dueDateController;
   late String _type;
   late bool _isGroupWork;
-  late String _selectedRubric;
-  late List<String> _selectedSensors;
 
-  final List<String> _availableSensors = [
-    'PM2.5',
-    'อุณหภูมิ',
-    'ความชื้น',
-    'ดัชนี UV',
-    'รีเลย์พัดลม',
-  ];
+  // เดิม dropdown "เลือก Rubric" เป็นสตริง hardcode ตายตัว 1 ค่า และ
+  // `_handleSave` ไม่เคยส่ง rubric ที่เลือกไปที่ backend เลย ทั้งที่
+  // assignments.rubric_id มีอยู่จริงและ create_assignment/update_assignment
+  // รับ p_rubric_id อยู่แล้ว — ตอนนี้โหลด rubric จริงและส่งค่าจริง
+  List<RubricModel> _rubrics = [];
+  bool _rubricsLoading = true;
+  String? _selectedRubricId;
 
   @override
   void initState() {
@@ -804,11 +795,22 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     );
     _type = a?.type ?? 'ใบงานทดลอง';
     _isGroupWork = a?.isGroupWork ?? false;
-    _selectedRubric =
-        a?.rubricTitle ?? 'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)';
-    _selectedSensors = List.from(
-      a?.attachedSensorMetrics ?? ['PM2.5', 'อุณหภูมิ'],
-    );
+    _selectedRubricId = a?.rubricId;
+    _loadRubrics();
+  }
+
+  Future<void> _loadRubrics() async {
+    try {
+      final list = await RubricService.listMyRubrics();
+      if (!mounted) return;
+      setState(() {
+        _rubrics = list;
+        _rubricsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading rubrics: $e');
+      if (mounted) setState(() => _rubricsLoading = false);
+    }
   }
 
   @override
@@ -832,43 +834,51 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     }
 
     String assignedId;
-    String realCourseName = 'ม.5/2 การออกแบบเทคโนโลยี';
+    String realCourseId;
+    String realCourseName;
 
     try {
-      final courses = await CourseService.listMyCourses();
-      if (courses.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน',
-            ),
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
-        return;
-      }
-
-      final course = courses.first;
-      realCourseName = course.subjectName;
-
-      final typeEnum = _type == 'โครงงาน AIoT'
-          ? 'project'
-          : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework');
-
-      if (widget.assignment == null) {
-        assignedId = await AssignmentService.createAssignment(
-          courseId: course.id,
-          type: typeEnum,
-          title: title,
-          instructions: _instructionsController.text.trim(),
-        );
-      } else {
+      if (widget.assignment != null) {
+        // แก้ไขใบงานเดิม — ใช้วิชาเดิมของใบงาน ไม่ใช่ courses.first เสมอ
+        // (บั๊กเดียวกับที่เคยแก้ใน exam_builder/lesson_editor — ครูมีหลาย
+        // วิชา courses.first อาจไม่ใช่วิชาของใบงานนี้เลย)
+        realCourseId = widget.assignment!.courseId;
+        realCourseName = widget.assignment!.courseName;
         assignedId = widget.assignment!.id;
         await AssignmentService.updateAssignment(
           assignmentId: assignedId,
           title: title,
           instructions: _instructionsController.text.trim(),
+          rubricId: _selectedRubricId,
+        );
+      } else {
+        final courses = await CourseService.listMyCourses();
+        if (courses.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน',
+              ),
+              backgroundColor: Color(0xFFEF4444),
+            ),
+          );
+          return;
+        }
+        final course = courses.first;
+        realCourseId = course.id;
+        realCourseName = course.subjectName;
+
+        final typeEnum = _type == 'โครงงาน AIoT'
+            ? 'project'
+            : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework');
+
+        assignedId = await AssignmentService.createAssignment(
+          courseId: course.id,
+          type: typeEnum,
+          title: title,
+          instructions: _instructionsController.text.trim(),
+          rubricId: _selectedRubricId,
         );
       }
 
@@ -887,20 +897,30 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       return;
     }
 
+    final selectedRubricTitle = _selectedRubricId == null
+        ? 'ยังไม่ได้กำหนด Rubric'
+        : (_rubrics
+                  .where((r) => r.id == _selectedRubricId)
+                  .map((r) => r.title)
+                  .firstOrNull ??
+              'ยังไม่ได้กำหนด Rubric');
+
     final newAssignment = AssignmentModel(
       id: assignedId,
+      courseId: realCourseId,
       title: title,
       instructions: _instructionsController.text.trim(),
       type: _type,
       courseName: realCourseName,
       dueDate: _dueDateController.text.trim(),
       isGroupWork: _isGroupWork,
-      rubricTitle: _selectedRubric,
-      attachedSensorMetrics: _selectedSensors,
+      rubricId: _selectedRubricId,
+      rubricTitle: selectedRubricTitle,
+      attachedSensorMetrics: widget.assignment?.attachedSensorMetrics ?? const [],
       status: publish ? 'เผยแพร่แล้ว' : 'ร่าง',
       submittedCount: widget.assignment?.submittedCount ?? 0,
-      totalStudents: widget.assignment?.totalStudents ?? 28,
-      updatedAt: 'วันนี้',
+      totalStudents: widget.assignment?.totalStudents ?? 0,
+      updatedAt: widget.assignment?.updatedAt ?? 'สร้างเมื่อวันนี้',
     );
 
     widget.onSave(newAssignment);
@@ -1129,37 +1149,55 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: _selectedRubric,
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedRubric = val);
-                      },
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    // เดิม dropdown มีตัวเลือกที่แต่งขึ้นเอง 4 ตัวเลือกตายตัว
+                    // เลือกแล้วไม่เคยถูกส่งไป backend เลย — ตอนนี้โหลด rubric
+                    // จริงของครูคนนี้ผ่าน RubricService และส่ง rubricId จริง
+                    if (_rubricsLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         ),
-                      ),
-                      items: {
-                        'เกณฑ์ประเมินโครงงาน STEM & AIoT (มาตรฐานโรงเรียน)',
-                        'เกณฑ์ตรวจใบงานทดลองเซนเซอร์ (ม.5/2)',
-                        'เกณฑ์มาตรฐาน',
-                        'ไม่มี Rubric (ประเมินคะแนนดิบ)',
-                        _selectedRubric,
-                      }
-                          .map(
-                            (r) => DropdownMenuItem(
-                              value: r,
-                              child: Text(r),
+                      )
+                    else
+                      DropdownButtonFormField<String?>(
+                        value: _selectedRubricId,
+                        onChanged: (val) =>
+                            setState(() => _selectedRubricId = val),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: const Color(0xFFF8FAFC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('ไม่มี Rubric (ประเมินคะแนนดิบ)'),
+                          ),
+                          ..._rubrics.map(
+                            (r) => DropdownMenuItem<String?>(
+                              value: r.id,
+                              child: Text(
+                                r.title,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          )
-                          .toList(),
-                    ),
+                          ),
+                        ],
+                      ),
 
                     const SizedBox(height: 20),
 
-                    // AIoT Sensors Selector Section
+                    // AIoT Sensors Selector Section — เดิมมีชิปให้เลือกแต่ไม่
+                    // เคยถูกส่งไป backend เลย (ไม่มี RPC เขียนลง
+                    // assignment_sensor_datasets จากหน้านี้) ปิดไว้พร้อม
+                    // เหตุผลแทนให้เลือกได้แล้วทิ้งของที่เลือก
                     const Text(
                       'ผูกชุดข้อมูลเซนเซอร์ AIoT (สำหรับให้โจทย์ดึงค่า)',
                       style: TextStyle(
@@ -1168,43 +1206,13 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                         color: TeacherPalette.ink,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: _availableSensors.map((sensor) {
-                        final isSelected = _selectedSensors.contains(sensor);
-                        return FilterChip(
-                          label: Text(sensor),
-                          selected: isSelected,
-                          onSelected: (sel) {
-                            setState(() {
-                              if (sel) {
-                                _selectedSensors.add(sensor);
-                              } else {
-                                _selectedSensors.remove(sensor);
-                              }
-                            });
-                          },
-                          selectedColor: const Color(
-                            0xFF0284C7,
-                          ).withValues(alpha: 0.15),
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? const Color(0xFF0284C7)
-                                : TeacherPalette.muted,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          side: BorderSide(
-                            color: isSelected
-                                ? const Color(0xFF0284C7)
-                                : const Color(0xFFE2E8F0),
-                          ),
-                        );
-                      }).toList(),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'ยังไม่รองรับการผูกชุดข้อมูลเซนเซอร์จากหน้านี้ในเวอร์ชันนี้',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: TeacherPalette.muted,
+                      ),
                     ),
                   ],
                 ),

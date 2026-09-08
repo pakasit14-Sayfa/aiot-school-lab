@@ -34,15 +34,25 @@ class AssignmentSummary {
   final String id;
   final String type;
   final String title;
+  final String? instructions;
+  final bool isGroup;
   final DateTime? dueAt;
   final String status;
+  final String? rubricId;
+  final String? rubricTitle;
+  final DateTime? createdAt;
 
   const AssignmentSummary({
     required this.id,
     required this.type,
     required this.title,
+    this.instructions,
+    this.isGroup = false,
     required this.dueAt,
     required this.status,
+    this.rubricId,
+    this.rubricTitle,
+    this.createdAt,
   });
 
   factory AssignmentSummary.fromRow(Map<String, dynamic> row) =>
@@ -50,10 +60,17 @@ class AssignmentSummary {
         id: row['assignment_id'] as String,
         type: row['type'] as String,
         title: row['title'] as String,
+        instructions: row['instructions'] as String?,
+        isGroup: row['is_group'] as bool? ?? false,
         dueAt: row['due_at'] == null
             ? null
             : DateTime.parse(row['due_at'] as String).toUtc(),
         status: row['status'] as String,
+        rubricId: row['rubric_id'] as String?,
+        rubricTitle: row['rubric_title'] as String?,
+        createdAt: row['created_at'] == null
+            ? null
+            : DateTime.parse(row['created_at'] as String).toUtc(),
       );
 
   bool get isPublished => status == 'published';

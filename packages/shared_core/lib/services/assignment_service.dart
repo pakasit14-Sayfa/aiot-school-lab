@@ -13,6 +13,10 @@ class AssignmentService {
     required String title,
     String? instructions,
     DateTime? dueAt,
+    // rubric_id มีจริงบน assignments (และ RPC รับ p_rubric_id อยู่แล้ว) แต่
+    // ไม่เคยมีใครส่งค่านี้จาก Dart เลย — teacher_assignment_editor_page.dart
+    // เคยให้ครูเลือก rubric ในฟอร์มแล้วทิ้งค่านั้นไปเงียบๆ ตอนบันทึก
+    String? rubricId,
   }) async {
     final rows =
         await supabase.rpc(
@@ -24,6 +28,7 @@ class AssignmentService {
                 'p_title': title.trim(),
                 'p_instructions': instructions,
                 'p_due_at': dueAt?.toUtc().toIso8601String(),
+                'p_rubric_id': rubricId,
               },
             )
             as List;
@@ -36,6 +41,7 @@ class AssignmentService {
     String? title,
     String? instructions,
     DateTime? dueAt,
+    String? rubricId,
   }) async {
     await supabase.rpc(
       'update_assignment',
@@ -45,6 +51,7 @@ class AssignmentService {
         'p_title': title?.trim(),
         'p_instructions': instructions,
         'p_due_at': dueAt?.toUtc().toIso8601String(),
+        'p_rubric_id': rubricId,
       },
     );
   }
