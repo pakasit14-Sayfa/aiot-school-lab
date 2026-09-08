@@ -70,7 +70,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('กำลังโหลด…'), findsOneWidget);
+    // Shows in the preview and insights sections too now that both derive
+    // from the same summary load instead of rendering fabricated content.
+    expect(find.text('กำลังโหลด…'), findsWidgets);
     expect(
       find.textContaining('ยังไม่มีข้อมูล'),
       findsNothing,
@@ -95,8 +97,53 @@ void main() {
     // A real 0 must show as 0, never as an empty state — that distinction is
     // the whole point of separating "no data" from "data that happens to be 0".
     expect(find.text('0'), findsWidgets);
-    expect(find.text('3 / 24'), findsOneWidget);
+    // Appears on both the summary card and the preview's metric card now
+    // that the preview shows real counts instead of a fabricated chart.
+    expect(find.text('3 / 24'), findsWidgets);
   });
+
+  testWidgets(
+    'the report preview shows real counts, never the old fabricated chart',
+    (tester) async {
+      await _pump(
+        tester,
+        loadSummary: () async =>
+            _summary(devices: 10, online: 7, alerts: 3, students: 55),
+        loadLogs: () async => <SchoolAdminAuditLog>[],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('7 / 10'), findsOneWidget);
+      expect(find.text('3 รายการ'), findsOneWidget);
+      // The old chart/metrics were hardcoded values unrelated to any data
+      // source and must never appear again.
+      expect(find.text('386 kWh'), findsNothing);
+      expect(find.text('146 / 152'), findsNothing);
+      expect(find.text('แนวโน้มข้อมูลในช่วงที่เลือก'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'insights are derived from real data, never the old fabricated claims',
+    (tester) async {
+      await _pump(
+        tester,
+        loadSummary: () async =>
+            _summary(devices: 10, online: 10, alerts: 0, students: 42),
+        loadLogs: () async => <SchoolAdminAuditLog>[],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('อุปกรณ์ออนไลน์ครบ'), findsOneWidget);
+      expect(find.text('ไม่มีการแจ้งเตือนค้าง'), findsOneWidget);
+      expect(find.text('มีนักเรียนลงทะเบียนในระบบทั้งหมด 42 คน'), findsOneWidget);
+      // The old insights invented specific, unsourced claims that must
+      // never reappear. (PM2.5 still legitimately appears as a report-type
+      // label elsewhere on this page, so it isn't checked here.)
+      expect(find.textContaining('14%'), findsNothing);
+      expect(find.textContaining('96.4%'), findsNothing);
+    },
+  );
 
   testWidgets('an empty log list says so honestly instead of staying blank', (
     tester,

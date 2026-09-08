@@ -457,85 +457,140 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
   }
 
   Widget _preview() {
+    final s = _summaryData;
+    // No backend computes a time-series trend or a per-report-type metric
+    // breakdown for this page (school_admin_energy_page /
+    // school_resources_page own that for their specific domains). This used
+    // to be a hand-drawn chart with values like '386 kWh' and '+4.2%' typed
+    // in directly — numbers that never came from anywhere. Show the real
+    // counts we do have instead of fabricating a trend we can't back up.
+    final metrics = s == null
+        ? <_Metric>[]
+        : [
+            _Metric('นักเรียนในระบบ', '${s.studentsCount} คน'),
+            _Metric(
+              'อุปกรณ์ออนไลน์',
+              '${s.devicesOnline} / ${s.devicesCount}',
+            ),
+            _Metric('อาคาร / ห้อง', '${s.buildingsCount} / ${s.roomsCount}'),
+            _Metric('การแจ้งเตือนที่รอตรวจสอบ', '${s.openAlertsCount} รายการ'),
+          ];
     return _section(
       'ตัวอย่างรายงาน: $_reportType',
       'ช่วง $_period • $_building • $_room',
-      LayoutBuilder(
-        builder: (context, c) {
-          const chart = _Chart();
-          const metrics = Column(
-            children: [
-              _Metric('การใช้ไฟฟ้า', '386 kWh', '+4.2%', false),
-              SizedBox(height: 9),
-              _Metric('การใช้น้ำ', '18.4 m³', '-2.1%', true),
-              SizedBox(height: 9),
-              _Metric('อุปกรณ์ออนไลน์', '146 / 152', '96.1%', true),
-              SizedBox(height: 9),
-              _Metric('แจ้งเตือนเร่งด่วน', '2 รายการ', 'ต้องติดตาม', false),
-            ],
-          );
-          if (c.maxWidth < 850) {
-            return const Column(
-              children: [chart, SizedBox(height: 12), metrics],
-            );
-          }
-          return const Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(flex: 6, child: chart),
-              SizedBox(width: 14),
-              Expanded(flex: 4, child: metrics),
-            ],
-          );
-        },
-      ),
+      metrics.isEmpty
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                vertical: 24,
+                horizontal: 16,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _loading ? 'กำลังโหลด…' : 'ยังไม่มีข้อมูลสำหรับตัวอย่างรายงาน',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, c) {
+                int columns = c.maxWidth < 700 ? 1 : 2;
+                const gap = 10.0;
+                final w = (c.maxWidth - (columns - 1) * gap) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: metrics
+                      .map((m) => SizedBox(width: w, child: _MetricCard(m)))
+                      .toList(),
+                );
+              },
+            ),
     );
   }
 
   Widget _insights() {
-    const data = [
-      _Insight(
-        'ไฟฟ้าเพิ่มขึ้น',
-        'อาคารปฏิบัติการใช้ไฟสูงกว่าค่าเฉลี่ยของช่วงเดียวกันประมาณ 14%',
-        Icons.bolt_rounded,
-        SchoolAdminPalette.secondary,
-      ),
-      _Insight(
-        'อุปกรณ์ควรตรวจสอบ',
-        'พบอุปกรณ์ 6 รายการที่ออฟไลน์ มีคำเตือน หรือส่งข้อมูลไม่ต่อเนื่อง',
-        Icons.memory_rounded,
-        SchoolAdminPalette.red,
-      ),
-      _Insight(
-        'คุณภาพอากาศส่วนใหญ่ปกติ',
-        'พื้นที่ส่วนใหญ่ยังอยู่ในเกณฑ์ปกติ แต่ A-201 มีค่า PM2.5 สูงขึ้น',
-        Icons.air_rounded,
-        SchoolAdminPalette.green,
-      ),
-      _Insight(
-        'การเข้าเรียนอยู่ในเกณฑ์ดี',
-        'การเข้าเรียนเฉลี่ยวันนี้ 96.4% รายการขาดเรียนส่งให้ครูประจำชั้นแล้ว',
-        Icons.school_rounded,
-        Color(0xFF4F6078),
-      ),
-    ];
+    final s = _summaryData;
+    // These used to be 4 hand-written claims ('อาคารปฏิบัติการใช้ไฟสูงกว่า
+    // ค่าเฉลี่ย 14%', 'การเข้าเรียนเฉลี่ยวันนี้ 96.4%'...) with no backend
+    // behind any of them — invented every time regardless of the school's
+    // real state. Built from the same summary the cards above already load;
+    // no interpretive claim we can't support with a real number.
+    final data = s == null
+        ? <_Insight>[]
+        : [
+            _Insight(
+              s.devicesCount - s.devicesOnline > 0
+                  ? 'มีอุปกรณ์ออฟไลน์'
+                  : 'อุปกรณ์ออนไลน์ครบ',
+              s.devicesCount - s.devicesOnline > 0
+                  ? 'อุปกรณ์ออฟไลน์ ${s.devicesCount - s.devicesOnline} จากทั้งหมด ${s.devicesCount} เครื่อง'
+                  : 'อุปกรณ์ทั้งหมด ${s.devicesCount} เครื่องออนไลน์อยู่',
+              Icons.memory_rounded,
+              s.devicesCount - s.devicesOnline > 0
+                  ? SchoolAdminPalette.red
+                  : SchoolAdminPalette.green,
+            ),
+            _Insight(
+              s.openAlertsCount > 0 ? 'มีการแจ้งเตือนรอตรวจสอบ' : 'ไม่มีการแจ้งเตือนค้าง',
+              s.openAlertsCount > 0
+                  ? 'มีการแจ้งเตือน ${s.openAlertsCount} รายการที่ยังไม่ได้ตรวจสอบ'
+                  : 'ไม่มีการแจ้งเตือนที่รอตรวจสอบในขณะนี้',
+              Icons.notifications_active_rounded,
+              s.openAlertsCount > 0
+                  ? SchoolAdminPalette.red
+                  : SchoolAdminPalette.green,
+            ),
+            _Insight(
+              'นักเรียนในระบบ',
+              'มีนักเรียนลงทะเบียนในระบบทั้งหมด ${s.studentsCount} คน',
+              Icons.school_rounded,
+              SchoolAdminPalette.primaryDark,
+            ),
+            _Insight(
+              'อาคารและห้อง',
+              'มี ${s.buildingsCount} อาคาร รวม ${s.roomsCount} ห้องที่เปิดใช้งาน',
+              Icons.apartment_rounded,
+              SchoolAdminPalette.secondary,
+            ),
+          ];
     return _section(
       'ประเด็นสำคัญจากข้อมูล',
       'สรุปสิ่งที่ควรเห็นก่อนเปิดรายงานฉบับเต็ม',
-      LayoutBuilder(
-        builder: (context, c) {
-          int columns = c.maxWidth < 760 ? 1 : 2;
-          const gap = 10.0;
-          final w = (c.maxWidth - (columns - 1) * gap) / columns;
-          return Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: data
-                .map((e) => SizedBox(width: w, child: _InsightCard(e)))
-                .toList(),
-          );
-        },
-      ),
+      data.isEmpty
+          ? Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                vertical: 24,
+                horizontal: 16,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _loading ? 'กำลังโหลด…' : 'ยังไม่มีข้อมูลสำหรับสรุปประเด็นสำคัญ',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, c) {
+                int columns = c.maxWidth < 760 ? 1 : 2;
+                const gap = 10.0;
+                final w = (c.maxWidth - (columns - 1) * gap) / columns;
+                return Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: data
+                      .map((e) => SizedBox(width: w, child: _InsightCard(e)))
+                      .toList(),
+                );
+              },
+            ),
     );
   }
 
@@ -812,149 +867,32 @@ class _Drop extends StatelessWidget {
   );
 }
 
-class _Chart extends StatelessWidget {
-  const _Chart();
+class _MetricCard extends StatelessWidget {
+  const _MetricCard(this.data);
+  final _Metric data;
   @override
   Widget build(BuildContext context) => Container(
-    height: 270,
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(13),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(17),
       border: Border.all(color: SchoolAdminPalette.border),
     ),
-    child: const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    child: Row(
       children: [
-        Text(
-          'แนวโน้มข้อมูลในช่วงที่เลือก',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-            color: SchoolAdminPalette.textPrimary,
+        Expanded(
+          child: Text(
+            data.title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
           ),
         ),
-        SizedBox(height: 14),
-        Expanded(
-          child: CustomPaint(painter: _LinePainter(), child: SizedBox.expand()),
-        ),
-        SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('ต้นช่วง', style: _axis),
-            Text('กลางช่วง', style: _axis),
-            Text('ล่าสุด', style: _axis),
-          ],
+        Text(
+          data.value,
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
         ),
       ],
     ),
   );
-}
-
-const _axis = TextStyle(fontSize: 10.5, color: SchoolAdminPalette.textMuted);
-
-class _LinePainter extends CustomPainter {
-  const _LinePainter();
-  static const values = [
-    0.42,
-    0.56,
-    0.48,
-    0.68,
-    0.63,
-    0.78,
-    0.72,
-    0.84,
-    0.76,
-    0.88,
-    0.81,
-    0.91,
-  ];
-  @override
-  void paint(Canvas canvas, Size size) {
-    final grid = Paint()
-      ..color = SchoolAdminPalette.border.withAlpha(90)
-      ..strokeWidth = 1;
-    for (int i = 0; i <= 4; i++) {
-      final y = size.height * i / 4;
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
-    }
-    final line = Paint()
-      ..color = SchoolAdminPalette.primaryDark
-      ..strokeWidth = 2.4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final path = Path();
-    for (int i = 0; i < values.length; i++) {
-      final x = size.width * i / (values.length - 1);
-      final y = size.height - values[i] * size.height;
-
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    canvas.drawPath(path, line);
-    final point = Paint()..color = SchoolAdminPalette.primaryDark;
-    for (int i = 0; i < values.length; i++) {
-      final x = size.width * i / (values.length - 1);
-      final y = size.height - values[i] * size.height;
-      canvas.drawCircle(Offset(x, y), 3.2, point);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _Metric extends StatelessWidget {
-  const _Metric(this.title, this.value, this.change, this.good);
-  final String title, value, change;
-  final bool good;
-  @override
-  Widget build(BuildContext context) {
-    final color = good ? SchoolAdminPalette.green : SchoolAdminPalette.red;
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: color.withAlpha(15),
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: Text(
-              change,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w900,
-                color: color,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _InsightCard extends StatelessWidget {
@@ -1144,4 +1082,9 @@ class _Insight {
 class _ReportLog {
   const _ReportLog(this.time, this.action, this.detail, this.by);
   final String time, action, detail, by;
+}
+
+class _Metric {
+  const _Metric(this.title, this.value);
+  final String title, value;
 }
