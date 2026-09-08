@@ -5,6 +5,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+// เลี่ยงชนชื่อกับ class RubricModel ในไฟล์นี้เอง (โมเดล UI คนละก้อนกับ
+// ของ backend) — ใช้ prefix เฉพาะจุดที่ต้องอ้างถึงชนิดจริงจาก RubricService
+import 'package:shared_core/models/rubric_model.dart' as rubric_backend;
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart'
@@ -65,7 +68,34 @@ class RubricModel {
 }
 
 class TeacherRubricPage extends StatefulWidget {
-  const TeacherRubricPage({super.key});
+  const TeacherRubricPage({
+    super.key,
+    this.listMyRubrics,
+    this.getRubric,
+    this.createRubric,
+    this.updateRubric,
+  });
+
+  /// Read/write seams threaded to the corresponding RubricService static
+  /// calls in production — widget tests supply these to drive the list
+  /// load, the duplicate flow, and the create/edit form without a live
+  /// Supabase client.
+  final Future<List<rubric_backend.RubricModel>> Function()? listMyRubrics;
+  final Future<rubric_backend.RubricModel> Function(String rubricId)?
+  getRubric;
+  final Future<String> Function({
+    required String title,
+    String? description,
+    List<Map<String, dynamic>>? criteria,
+  })?
+  createRubric;
+  final Future<void> Function({
+    required String rubricId,
+    required String title,
+    String? description,
+    List<Map<String, dynamic>>? criteria,
+  })?
+  updateRubric;
 
   @override
   State<TeacherRubricPage> createState() => _TeacherRubricPageState();
@@ -87,12 +117,14 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
   Future<void> _loadRubrics() async {
     setState(() => _isLoading = true);
     try {
-      final backendRubrics = await RubricService.listMyRubrics();
+      final listRubrics = widget.listMyRubrics ?? RubricService.listMyRubrics;
+      final getRubricDetail = widget.getRubric ?? RubricService.getRubric;
+      final backendRubrics = await listRubrics();
       final loadedList = <RubricModel>[];
       for (final r in backendRubrics) {
         RubricModel? detail;
         try {
-          final d = await RubricService.getRubric(r.id);
+          final d = await getRubricDetail(r.id);
           detail = RubricModel(
             id: d.id,
             title: d.title,
@@ -140,16 +172,16 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _rubrics = [];
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('โหลด Rubric ไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('โหลด Rubric ไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }
@@ -183,7 +215,8 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
           .toList();
 
       final newTitle = '${sourceRubric.title} (สำเนา)';
-      final newId = await RubricService.createRubric(
+      final create = widget.createRubric ?? RubricService.createRubric;
+      final newId = await create(
         title: newTitle,
         description: sourceRubric.description,
         criteria: criteriaPayload,
@@ -248,6 +281,8 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
           );
         },
         onDuplicate: (sourceRubric) => _duplicateRubric(sourceRubric),
+        createRubric: widget.createRubric,
+        updateRubric: widget.updateRubric,
       ),
     );
   }
@@ -764,11 +799,26 @@ class _RubricFormSheet extends StatefulWidget {
     required this.rubric,
     required this.onSave,
     required this.onDuplicate,
+    this.createRubric,
+    this.updateRubric,
   });
 
   final RubricModel? rubric;
   final ValueChanged<RubricModel> onSave;
   final ValueChanged<RubricModel> onDuplicate;
+  final Future<String> Function({
+    required String title,
+    String? description,
+    List<Map<String, dynamic>>? criteria,
+  })?
+  createRubric;
+  final Future<void> Function({
+    required String rubricId,
+    required String title,
+    String? description,
+    List<Map<String, dynamic>>? criteria,
+  })?
+  updateRubric;
 
   @override
   State<_RubricFormSheet> createState() => _RubricFormSheetState();
@@ -937,17 +987,19 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
           )
           .toList();
 
+      final create = widget.createRubric ?? RubricService.createRubric;
+      final update = widget.updateRubric ?? RubricService.updateRubric;
       final String rubricId;
       if (isEdit) {
         rubricId = widget.rubric!.id;
-        await RubricService.updateRubric(
+        await update(
           rubricId: rubricId,
           title: title,
           description: _descController.text.trim(),
           criteria: payloadCriteria,
         );
       } else {
-        rubricId = await RubricService.createRubric(
+        rubricId = await create(
           title: title,
           description: _descController.text.trim(),
           criteria: payloadCriteria,
@@ -969,14 +1021,12 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
       if (mounted) {
         Navigator.pop(context);
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEdit
-                  ? 'บันทึก Rubric ไม่สำเร็จ: $e'
-                  : 'สร้าง Rubric ไม่สำเร็จ: $e',
+              isEdit ? 'บันทึก Rubric ไม่สำเร็จ กรุณาลองใหม่' : 'สร้าง Rubric ไม่สำเร็จ กรุณาลองใหม่',
             ),
             backgroundColor: const Color(0xFFEF4444),
           ),
@@ -1173,12 +1223,14 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'รายการเกณฑ์การประเมินย่อย',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: TeacherPalette.ink,
+                        const Expanded(
+                          child: Text(
+                            'รายการเกณฑ์การประเมินย่อย',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: TeacherPalette.ink,
+                            ),
                           ),
                         ),
                         if (!_isLocked)
