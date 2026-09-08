@@ -332,3 +332,15 @@ Done from a report alone.
   ทั้งหมดพร้อมกัน (`npx supabase db push --linked --include-all`) —
   ตอนนี้ production sync กับ local migration history แล้ว
 - Commit: `c20dd39`
+- **ต่อยอด**: `poll_device_commands` (ที่รีเลย์/กล้องเรียกประจำแทน
+  `sensor_ingest` ที่มันไม่เคยเรียก) มีช่องโหว่เดียวกัน — ไม่เคยอัปเดต
+  `status`/`last_seen_at` เลย แปลว่าอุปกรณ์ประเภทนี้ไม่มี heartbeat จริง
+  ตั้งแต่แรก แก้แล้วด้วย migration
+  `20260908020000_poll_device_commands_update_last_seen_at.sql` + pgTAP
+  `45_poll_device_commands_last_seen_at.test.sql` (3 tests ผ่านหมด),
+  push เข้า production แล้ว, commit `de77fec`
+- **ยังไม่ทำ (ตั้งใจ)**: cron ตรวจ staleness แล้ว mark `'offline'` เอง —
+  ต้องรู้ polling interval จริงของเฟิร์มแวร์ก่อน (โค้ดเฟิร์มแวร์ไม่ได้อยู่ใน
+  repo นี้ ดู `docs/handoff/SENSOR_GATEWAY_INTEGRATION.md`) ไม่งั้นตั้ง
+  threshold ผิดจะเกิด false-offline กับอุปกรณ์ที่โพลไม่ถี่โดยตั้งใจ (เช่น
+  ประหยัดแบต) ต้องคุยกับทีมฮาร์ดแวร์ก่อนถึงจะทำต่อได้
