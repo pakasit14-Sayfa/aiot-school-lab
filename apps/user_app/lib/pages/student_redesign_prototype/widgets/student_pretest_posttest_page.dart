@@ -19,7 +19,37 @@ class _QuizWithCourse {
 }
 
 class StudentPretestPosttestPage extends StatefulWidget {
-  const StudentPretestPosttestPage({super.key});
+  const StudentPretestPosttestPage({
+    super.key,
+    this.loadCourses,
+    this.loadQuizzesForCourse,
+    this.loadLatestAttempt,
+    this.getQuizForStudent,
+    this.startQuizAttempt,
+    this.saveQuizAnswer,
+    this.submitQuizAttempt,
+  });
+
+  /// Read/write seams threaded to the corresponding CourseService/
+  /// QuizService static calls in production — widget tests supply these
+  /// to drive the list load and the full attempt flow (start/save/submit)
+  /// without a live Supabase client.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<QuizSummary>> Function(String courseId)?
+  loadQuizzesForCourse;
+  final Future<QuizAttemptResult?> Function(String quizId)? loadLatestAttempt;
+  final Future<QuizForStudent> Function(String quizId)? getQuizForStudent;
+  final Future<({String attemptId, DateTime startedAt})> Function(
+    String quizId,
+  )?
+  startQuizAttempt;
+  final Future<void> Function({
+    required String attemptId,
+    required String questionId,
+    required Map<String, dynamic> answer,
+  })?
+  saveQuizAnswer;
+  final Future<num> Function(String attemptId)? submitQuizAttempt;
 
   @override
   State<StudentPretestPosttestPage> createState() =>
@@ -44,11 +74,17 @@ class _StudentPretestPosttestPageState
       _error = null;
     });
     try {
-      final courses = (await CourseService.listMyCourses())
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadQuizzes =
+          widget.loadQuizzesForCourse ?? QuizService.listCourseQuizzes;
+      final loadAttempt =
+          widget.loadLatestAttempt ?? QuizService.getMyLatestQuizAttempt;
+
+      final courses = (await loadCourses())
           .where((c) => c.isActive)
           .toList();
       final quizLists = await Future.wait(
-        courses.map((c) => QuizService.listCourseQuizzes(c.id)),
+        courses.map((c) => loadQuizzes(c.id)),
       );
 
       final published = <(QuizSummary, String)>[];
@@ -59,7 +95,7 @@ class _StudentPretestPosttestPageState
       }
 
       final attempts = await Future.wait(
-        published.map((e) => QuizService.getMyLatestQuizAttempt(e.$1.id)),
+        published.map((e) => loadAttempt(e.$1.id)),
       );
 
       final items = <_QuizWithCourse>[];
@@ -81,7 +117,7 @@ class _StudentPretestPosttestPageState
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -107,7 +143,15 @@ class _StudentPretestPosttestPageState
 
     final result = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => _QuizTakingPage(quizId: item.quiz.id)),
+      MaterialPageRoute(
+        builder: (_) => _QuizTakingPage(
+          quizId: item.quiz.id,
+          getQuizForStudent: widget.getQuizForStudent,
+          startQuizAttempt: widget.startQuizAttempt,
+          saveQuizAnswer: widget.saveQuizAnswer,
+          submitQuizAttempt: widget.submitQuizAttempt,
+        ),
+      ),
     );
     if (result == true) _load();
   }
@@ -360,9 +404,27 @@ class _QuizCard extends StatelessWidget {
 }
 
 class _QuizTakingPage extends StatefulWidget {
-  const _QuizTakingPage({required this.quizId});
+  const _QuizTakingPage({
+    required this.quizId,
+    this.getQuizForStudent,
+    this.startQuizAttempt,
+    this.saveQuizAnswer,
+    this.submitQuizAttempt,
+  });
 
   final String quizId;
+  final Future<QuizForStudent> Function(String quizId)? getQuizForStudent;
+  final Future<({String attemptId, DateTime startedAt})> Function(
+    String quizId,
+  )?
+  startQuizAttempt;
+  final Future<void> Function({
+    required String attemptId,
+    required String questionId,
+    required Map<String, dynamic> answer,
+  })?
+  saveQuizAnswer;
+  final Future<num> Function(String attemptId)? submitQuizAttempt;
 
   @override
   State<_QuizTakingPage> createState() => _QuizTakingPageState();
@@ -397,8 +459,11 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
       _error = null;
     });
     try {
-      final quiz = await QuizService.getQuizForStudent(widget.quizId);
-      final attempt = await QuizService.startQuizAttempt(widget.quizId);
+      final getQuiz = widget.getQuizForStudent ?? QuizService.getQuizForStudent;
+      final startAttempt =
+          widget.startQuizAttempt ?? QuizService.startQuizAttempt;
+      final quiz = await getQuiz(widget.quizId);
+      final attempt = await startAttempt(widget.quizId);
       if (!mounted) return;
       setState(() {
         _quiz = quiz;
@@ -408,7 +473,7 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดแบบทดสอบไม่สำเร็จ: $e';
+        _error = 'โหลดแบบทดสอบไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -418,11 +483,14 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
     if (_attemptId == null || _quiz == null) return;
     setState(() => _submitting = true);
     try {
+      final saveAnswer = widget.saveQuizAnswer ?? QuizService.saveQuizAnswer;
+      final submitAttempt =
+          widget.submitQuizAttempt ?? QuizService.submitQuizAttempt;
       for (final question in _quiz!.questions) {
         if (question.type == 'short_answer') {
           final text = _shortAnswerControllers[question.id]?.text.trim();
           if (text != null && text.isNotEmpty) {
-            await QuizService.saveQuizAnswer(
+            await saveAnswer(
               attemptId: _attemptId!,
               questionId: question.id,
               answer: {'text': text},
@@ -431,7 +499,7 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
         } else {
           final choiceId = _selectedChoice[question.id];
           if (choiceId != null) {
-            await QuizService.saveQuizAnswer(
+            await saveAnswer(
               attemptId: _attemptId!,
               questionId: question.id,
               answer: {'choice_id': choiceId},
@@ -439,7 +507,7 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
           }
         }
       }
-      final score = await QuizService.submitQuizAttempt(_attemptId!);
+      final score = await submitAttempt(_attemptId!);
       if (!mounted) return;
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -450,7 +518,7 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
       setState(() => _submitting = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ส่งไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('ส่งไม่สำเร็จ กรุณาลองใหม่')));
     }
   }
 
@@ -539,12 +607,12 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
       } else {
         await launchUrl(uri);
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('เปิดไฟล์แนบไม่สำเร็จ'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
     }
