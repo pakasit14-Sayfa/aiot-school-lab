@@ -50,8 +50,8 @@ class SchoolResourcesPage extends StatefulWidget {
 
 class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   _ResourcePeriod _period = _ResourcePeriod.daily;
-  String _selectedBuilding = 'ทุกอาคาร';
-  String _selectedRoom = 'ทุกห้อง';
+  final String _selectedBuilding = 'ทุกอาคาร';
+  final String _selectedRoom = 'ทุกห้อง';
   bool _isLoading = false;
   /// ป้าย "IoT Live Sync" เคยเป็น `final bool = true` ติดค้างเสมอ — ขึ้นเป็น
   /// สีเขียวแม้ในโรงเรียนที่ไม่มีมิเตอร์สักตัวและไม่มีข้อมูลไหลเข้าเลย
@@ -988,107 +988,79 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
             ),
           );
 
-          final Widget buildingFilter = DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              value: _selectedBuilding,
-              isExpanded: true,
-              isDense: true,
-              decoration: InputDecoration(
-                labelText: 'เลือกอาคาร',
-                prefixIcon: const Icon(
-                  Icons.apartment_rounded,
-                  color: Color(0xFF64748B),
-                  size: 20,
+          // เดิม dropdown ทั้งสองนี้ setState ตัวเองได้ แต่ _selectedBuilding/
+          // _selectedRoom ไม่เคยถูกส่งเข้าการโหลดข้อมูลไฟฟ้า/น้ำเลยสักจุด —
+          // เลือกอาคาร/ห้องแล้วไม่กรองอะไรจริง ไม่มี RPC ระดับอาคาร/ห้องให้
+          // หน้านี้เรียกด้วย (ตารางการใช้งานรายอาคารด้านล่างเองก็แสดง
+          // honest empty state ด้วยเหตุผลเดียวกัน) ปิดไว้พร้อม tooltip แทน
+          // ปล่อยให้เลือกได้แต่ไม่มีผลอะไรจริง
+          final Widget buildingFilter = Tooltip(
+            message: 'ยังไม่มีระบบแยกข้อมูลไฟฟ้า/น้ำรายอาคารในเวอร์ชันนี้',
+            child: DropdownButtonHideUnderline(
+              child: DropdownButtonFormField<String>(
+                value: _selectedBuilding,
+                isExpanded: true,
+                isDense: true,
+                decoration: InputDecoration(
+                  labelText: 'เลือกอาคาร',
+                  prefixIcon: const Icon(
+                    Icons.apartment_rounded,
+                    color: Color(0xFF64748B),
+                    size: 20,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
+                items: const [
+                  DropdownMenuItem(value: 'ทุกอาคาร', child: Text('ทุกอาคาร')),
+                ],
+                onChanged: null,
               ),
-              items: const [
-                DropdownMenuItem(value: 'ทุกอาคาร', child: Text('ทุกอาคาร')),
-                DropdownMenuItem(
-                  value: 'อาคารเรียน A',
-                  child: Text('อาคารเรียน A'),
-                ),
-                DropdownMenuItem(
-                  value: 'อาคารเรียน B',
-                  child: Text('อาคารเรียน B'),
-                ),
-                DropdownMenuItem(
-                  value: 'อาคารปฏิบัติการ',
-                  child: Text('อาคารปฏิบัติการ'),
-                ),
-                DropdownMenuItem(
-                  value: 'อาคารอำนวยการ',
-                  child: Text('อาคารอำนวยการ'),
-                ),
-                DropdownMenuItem(value: 'โรงอาหาร', child: Text('โรงอาหาร')),
-              ],
-              onChanged: (String? value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedBuilding = value;
-                    _selectedRoom = 'ทุกห้อง';
-                  });
-                }
-              },
             ),
           );
 
-          final Widget roomFilter = DropdownButtonHideUnderline(
-            child: DropdownButtonFormField<String>(
-              value: _selectedRoom,
-              isExpanded: true,
-              isDense: true,
-              decoration: InputDecoration(
-                labelText: 'เลือกห้อง / โซน',
-                prefixIcon: const Icon(
-                  Icons.meeting_room_rounded,
-                  color: Color(0xFF64748B),
-                  size: 20,
+          final Widget roomFilter = Tooltip(
+            message: 'ยังไม่มีระบบแยกข้อมูลไฟฟ้า/น้ำรายห้องในเวอร์ชันนี้',
+            child: DropdownButtonHideUnderline(
+              child: DropdownButtonFormField<String>(
+                value: _selectedRoom,
+                isExpanded: true,
+                isDense: true,
+                decoration: InputDecoration(
+                  labelText: 'เลือกห้อง / โซน',
+                  prefixIcon: const Icon(
+                    Icons.meeting_room_rounded,
+                    color: Color(0xFF64748B),
+                    size: 20,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
+                items: const [
+                  DropdownMenuItem(value: 'ทุกห้อง', child: Text('ทุกห้อง')),
+                ],
+                onChanged: null,
               ),
-              items: const [
-                DropdownMenuItem(value: 'ทุกห้อง', child: Text('ทุกห้อง')),
-                DropdownMenuItem(value: 'ห้อง 101', child: Text('ห้อง 101')),
-                DropdownMenuItem(value: 'ห้อง 102', child: Text('ห้อง 102')),
-                DropdownMenuItem(value: 'ห้อง 201', child: Text('ห้อง 201')),
-                DropdownMenuItem(value: 'ห้อง 202', child: Text('ห้อง 202')),
-                DropdownMenuItem(
-                  value: 'ห้องปฏิบัติการ 1',
-                  child: Text('ห้องปฏิบัติการ 1'),
-                ),
-                DropdownMenuItem(
-                  value: 'ห้องปฏิบัติการ 2',
-                  child: Text('ห้องปฏิบัติการ 2'),
-                ),
-              ],
-              onChanged: (String? value) {
-                if (value != null) {
-                  setState(() => _selectedRoom = value);
-                }
-              },
             ),
           );
 
@@ -1213,22 +1185,40 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
             accentColor: const Color(0xFF0284C7),
             accentBg: const Color(0xFFE0F2FE),
           ),
+          // เดิม 'PM2.5 18.2' / '0.21 tCO2e' hardcode ตายตัว ไม่มี RPC ใดใน
+          // หน้านี้ให้ค่าคุณภาพอากาศ/คาร์บอนระดับโรงเรียนเลย บอกตรง ๆ แทน
           _buildKpiCard(
             title: 'คุณภาพอากาศ & ESG',
-            value: 'PM2.5 18.2',
-            subValue: 'เกณฑ์ดีเยี่ยม • 0.21 tCO2e',
-            trendText: 'อากาศบริสุทธิ์',
+            value: 'ยังไม่มีข้อมูล',
+            subValue: 'ยังไม่มีระบบวัดคุณภาพอากาศระดับโรงเรียนในเวอร์ชันนี้',
+            trendText: '—',
             isPositive: true,
             icon: Icons.eco_rounded,
             accentColor: const Color(0xFF16A34A),
             accentBg: const Color(0xFFDCFCE7),
           ),
+          // เดิม '2 จุดเฝ้าระวัง' / 'อาคารปฏิบัติการ / อาคาร B' hardcode
+          // ไม่เกี่ยวอะไรกับ _alerts ที่หน้านี้โหลดจริงอยู่แล้วเลย ตอนนี้นับ
+          // จาก sensor_alerts จริง
           _buildKpiCard(
             title: 'จุดตรวจจับความผิดปกติ',
-            value: '2 จุดเฝ้าระวัง',
-            subValue: 'อาคารปฏิบัติการ / อาคาร B',
-            trendText: 'ต้องตรวจสอบด่วน',
-            isPositive: false,
+            value: _alertsLoading
+                ? 'กำลังโหลด…'
+                : '${_alerts.length} จุดเฝ้าระวัง',
+            subValue: _alertsLoading
+                ? 'กำลังโหลด…'
+                : (_alerts.isEmpty
+                      ? 'ไม่มีจุดที่ต้องเฝ้าระวังในขณะนี้'
+                      : _alerts
+                            .take(2)
+                            .map((a) => a.deviceName)
+                            .join(' / ')),
+            trendText: _alertsLoading
+                ? '—'
+                : (_alerts.any((a) => a.status == 'new')
+                      ? 'ต้องตรวจสอบด่วน'
+                      : 'ไม่มีรายการเร่งด่วน'),
+            isPositive: _alertsLoading || _alerts.isEmpty,
             icon: Icons.warning_amber_rounded,
             accentColor: const Color(0xFFDC2626),
             accentBg: const Color(0xFFFEE2E2),
@@ -2177,23 +2167,36 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                 ],
               ),
               const SizedBox(height: 14),
+              // เดิมทั้ง 3 แถวนี้ hardcode 'ออนไลน์ N / N จุด (100%)' ตายตัว
+              // ไม่มี RPC ใดในหน้านี้บอกสถานะออนไลน์รายมิเตอร์เลย มีแค่จำนวน
+              // มิเตอร์ที่ backend เห็นจริง (_energyDeviceCount/_waterDeviceCount
+              // ที่หน้านี้โหลดอยู่แล้ว) — บอกเท่าที่รู้จริง ไม่อ้างเปอร์เซ็นต์
+              // ออนไลน์ที่ไม่มีข้อมูลรองรับ
               _buildIoTMeterStatusRow(
                 title: 'สมาร์ตมิเตอร์ไฟฟ้า (Modbus RTU)',
-                detail: 'ออนไลน์ 12 / 12 จุด (100%)',
+                detail: _isLoading
+                    ? 'กำลังโหลด…'
+                    : (_energyDeviceCount > 0
+                          ? 'มีมิเตอร์ที่วัดค่าได้จริง $_energyDeviceCount เครื่อง'
+                          : 'ยังไม่มีข้อมูล'),
                 icon: Icons.electric_meter_rounded,
                 color: const Color(0xFFD97706),
               ),
               const SizedBox(height: 10),
               _buildIoTMeterStatusRow(
                 title: 'มิเตอร์น้ำดิจิทัล (Ultrasonic)',
-                detail: 'ออนไลน์ 8 / 8 จุด (100%)',
+                detail: _isLoading
+                    ? 'กำลังโหลด…'
+                    : (_waterDeviceCount > 0
+                          ? 'มีมิเตอร์ที่วัดค่าได้จริง $_waterDeviceCount เครื่อง'
+                          : 'ยังไม่มีข้อมูล'),
                 icon: Icons.water_drop_rounded,
                 color: const Color(0xFF0284C7),
               ),
               const SizedBox(height: 10),
               _buildIoTMeterStatusRow(
                 title: 'เซนเซอร์สภาพอากาศ & PM2.5 (LoRaWAN)',
-                detail: 'ออนไลน์ 18 / 18 จุด (100%)',
+                detail: 'ยังไม่มีระบบวัดคุณภาพอากาศระดับโรงเรียนในเวอร์ชันนี้',
                 icon: Icons.air_rounded,
                 color: const Color(0xFF16A34A),
               ),

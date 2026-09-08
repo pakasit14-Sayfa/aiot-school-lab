@@ -181,7 +181,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('มิเตอร์ไฟอาคาร 1'), findsOneWidget);
+    // Appears both in the anomaly list and in the (now real) KPI card that
+    // summarizes alert device names — both are legitimate, so findsWidgets.
+    expect(find.textContaining('มิเตอร์ไฟอาคาร 1'), findsWidgets);
     // The fabricated ones must not come back.
     expect(find.textContaining('เปิดเครื่องปรับอากาศทิ้งไว้'), findsNothing);
     expect(find.textContaining('0.35 m³/ชม.'), findsNothing);
@@ -275,4 +277,101 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('กำลังโหลด…'), findsNothing);
   });
+
+  testWidgets(
+    'the air-quality/ESG KPI card is honest about having no data source',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('คุณภาพอากาศ & ESG'), findsOneWidget);
+      // The old card claimed a specific PM2.5 reading and carbon figure that
+      // no RPC in this file ever produces.
+      expect(find.textContaining('PM2.5 18.2'), findsNothing);
+      expect(find.textContaining('0.21 tCO2e'), findsNothing);
+      expect(find.textContaining('อากาศบริสุทธิ์'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the anomaly-count KPI card reflects real loaded alerts, not a fixed "2 จุดเฝ้าระวัง"',
+    (tester) async {
+      await _pump(
+        tester,
+        alerts: () async => [
+          SchoolSensorAlertRecord(
+            id: 'a1',
+            deviceId: 'd1',
+            deviceName: 'มิเตอร์ไฟอาคาร 1',
+            deviceCode: 'ELEC-01',
+            schoolId: 's1',
+            metric: 'energy_kwh',
+            value: 620,
+            triggeredAt: DateTime(2026, 9, 7, 9, 5),
+            status: 'new',
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 จุดเฝ้าระวัง'), findsOneWidget);
+      // The old fixed count/location string must never come back.
+      expect(find.text('2 จุดเฝ้าระวัง'), findsNothing);
+      expect(find.text('อาคารปฏิบัติการ / อาคาร B'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'zero real alerts shows a real zero, not the old fabricated count',
+    (tester) async {
+      await _pump(tester, alerts: () async => const []);
+      await tester.pumpAndSettle();
+
+      expect(find.text('0 จุดเฝ้าระวัง'), findsOneWidget);
+      expect(find.text('ไม่มีจุดที่ต้องเฝ้าระวังในขณะนี้'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'IoT meter status rows show real device counts, never a fabricated 100% online',
+    (tester) async {
+      await _pump(
+        tester,
+        energySummary: (_) async => _energy(devices: 5),
+        waterSummary: (_) async => _water(devices: 3),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('มีมิเตอร์ที่วัดค่าได้จริง 5 เครื่อง'), findsOneWidget);
+      expect(find.text('มีมิเตอร์ที่วัดค่าได้จริง 3 เครื่อง'), findsOneWidget);
+      // The old hardcoded online-status rows must never come back.
+      expect(find.textContaining('12 / 12 จุด (100%)'), findsNothing);
+      expect(find.textContaining('8 / 8 จุด (100%)'), findsNothing);
+      expect(find.textContaining('18 / 18 จุด (100%)'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the building/room filters are disabled — no per-building or per-room utility RPC exists',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      final buildingDropdown = find.byWidgetPredicate(
+        (w) =>
+            w is DropdownButtonFormField<String> &&
+            w.initialValue == 'ทุกอาคาร',
+      );
+      expect(buildingDropdown, findsOneWidget);
+      expect(
+        tester.widget<DropdownButtonFormField<String>>(buildingDropdown).onChanged,
+        isNull,
+      );
+
+      // The old fake building/room options must never appear again — they
+      // never filtered anything even when the dropdown was interactive.
+      expect(find.text('อาคารเรียน A'), findsNothing);
+      expect(find.text('ห้องปฏิบัติการ 1'), findsNothing);
+    },
+  );
 }
