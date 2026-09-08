@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -155,7 +156,9 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
     return value;
   }
 
-  void _exportReport() {
+  /// Shared by both CSV and Excel export so the two formats can never drift
+  /// apart. Returns null when there is nothing measured to export.
+  List<List<String>>? _buildReportRows() {
     final energy = (_energySummary?.deviceCount ?? 0) > 0
         ? _energySummary
         : null;
@@ -166,13 +169,10 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
         water == null &&
         _energyTrend.isEmpty &&
         _waterTrend.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
-      );
-      return;
+      return null;
     }
 
-    final rows = <List<String>>[
+    return <List<String>>[
       ['section', 'metric', 'value', 'unit'],
       if (energy != null) ...[
         ['summary', 'energy_device_count', '${energy.deviceCount}', 'devices'],
@@ -209,6 +209,17 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
           'm3',
         ],
     ];
+  }
+
+  void _exportReport() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
     final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
 
     final doDownload = widget.downloadBytesOverride ?? downloadBytes;
@@ -220,9 +231,49 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานแล้ว')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งออกรายงานแล้ว (CSV)')),
+      );
+    }
+  }
+
+  void _exportReportExcel() {
+    final rows = _buildReportRows();
+    if (rows == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
+    final workbook = xls.Excel.createExcel();
+    final sheet = workbook[workbook.getDefaultSheet() ?? 'Sheet1'];
+    for (final row in rows) {
+      sheet.appendRow(row.map(xls.TextCellValue.new).toList());
+    }
+    final bytes = workbook.encode();
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')),
+        );
+      }
+      return;
+    }
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'energy_report_${DateTime.now().toIso8601String().split('T').first}.xlsx',
+      bytes: bytes,
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งออกรายงานแล้ว (Excel)')),
+      );
     }
   }
 
@@ -342,20 +393,29 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              OutlinedButton.icon(
-                onPressed: _exportReport,
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text("ส่งออกรายงาน"),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
+              PopupMenuButton<String>(
+                tooltip: 'ส่งออกรายงาน',
+                onSelected: (value) =>
+                    value == 'csv' ? _exportReport() : _exportReportExcel(),
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
+                  PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
+                ],
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text("ส่งออกรายงาน"),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    disabledForegroundColor: const Color(0xFF334155),
                   ),
-                  side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  foregroundColor: const Color(0xFF334155),
                 ),
               ),
               IconButton(
