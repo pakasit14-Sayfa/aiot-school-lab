@@ -102,7 +102,31 @@ class AiotAlertModel {
 }
 
 class TeacherAiotDashboardPage extends StatefulWidget {
-  const TeacherAiotDashboardPage({super.key});
+  const TeacherAiotDashboardPage({
+    super.key,
+    this.listSchoolDevices,
+    this.getAllDeviceSensors,
+    this.listThresholds,
+    this.setThreshold,
+    this.listAlerts,
+    this.acknowledgeAlert,
+  });
+
+  /// Read/write seams threaded to the corresponding LessonService/
+  /// RealtimeService static calls in production.
+  final Future<List<DeviceOption>> Function()? listSchoolDevices;
+  final Future<Map<String, SensorModel>> Function()? getAllDeviceSensors;
+  final Future<List<Map<String, dynamic>>> Function()? listThresholds;
+  final Future<void> Function({
+    required String metric,
+    required double min,
+    required double max,
+    bool isActive,
+  })?
+  setThreshold;
+  final Future<List<Map<String, dynamic>>> Function({String? status})?
+  listAlerts;
+  final Future<void> Function(String alertId)? acknowledgeAlert;
 
   @override
   State<TeacherAiotDashboardPage> createState() =>
@@ -145,9 +169,13 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
   Future<void> _loadRealDevices() async {
     try {
-      final list = await LessonService.listSchoolDevices();
+      final listDevices =
+          widget.listSchoolDevices ?? LessonService.listSchoolDevices;
+      final getSensors =
+          widget.getAllDeviceSensors ?? RealtimeService.getAllDeviceSensors;
+      final list = await listDevices();
       if (!mounted) return;
-      final sensorsByDevice = await RealtimeService.getAllDeviceSensors();
+      final sensorsByDevice = await getSensors();
       setState(() {
         _devices = list.map((d) {
           final location = d.location != null
@@ -185,7 +213,9 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
   Future<void> _loadRealThresholds() async {
     try {
-      final rows = await RealtimeService.listThresholds();
+      final loadThresholds =
+          widget.listThresholds ?? RealtimeService.listThresholds;
+      final rows = await loadThresholds();
       if (!mounted) return;
       setState(() {
         _thresholds = rows.map((row) {
@@ -209,9 +239,10 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
   Future<void> _saveThresholds() async {
     try {
+      final save = widget.setThreshold ?? RealtimeService.setThreshold;
       for (final th in _thresholds) {
         if (th.metricKey.isEmpty) continue;
-        await RealtimeService.setThreshold(
+        await save(
           metric: th.metricKey,
           min: th.minThreshold,
           max: th.maxThreshold,
@@ -226,12 +257,12 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
         ),
       );
       await _loadRealThresholds();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('บันทึกไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+        const SnackBar(
+          content: Text('บันทึกไม่สำเร็จ กรุณาลองใหม่'),
+          backgroundColor: Color(0xFFDC2626),
         ),
       );
     }
@@ -239,7 +270,8 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
   Future<void> _loadRealAlerts() async {
     try {
-      final rows = await RealtimeService.listAlerts();
+      final loadAlerts = widget.listAlerts ?? RealtimeService.listAlerts;
+      final rows = await loadAlerts();
       if (!mounted) return;
       setState(() {
         _alerts = rows.map((row) {
@@ -273,7 +305,9 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
   Future<void> _acknowledgeAlert(AiotAlertModel alert) async {
     try {
-      await RealtimeService.acknowledgeAlert(alert.id);
+      final acknowledge =
+          widget.acknowledgeAlert ?? RealtimeService.acknowledgeAlert;
+      await acknowledge(alert.id);
       if (!mounted) return;
       setState(() => alert.isAcknowledged = true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -284,12 +318,12 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
           backgroundColor: const Color(0xFF10B981),
         ),
       );
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('รับทราบไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+        const SnackBar(
+          content: Text('รับทราบไม่สำเร็จ กรุณาลองใหม่'),
+          backgroundColor: Color(0xFFDC2626),
         ),
       );
     }
@@ -433,10 +467,10 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
             try {
               await action();
               if (ctx.mounted) Navigator.pop(ctx);
-            } catch (e) {
+            } catch (_) {
               setDialogState(() => busy = false);
               messenger.showSnackBar(
-                SnackBar(content: Text('ส่งออกไฟล์ไม่สำเร็จ: $e')),
+                const SnackBar(content: Text('ส่งออกไฟล์ไม่สำเร็จ')),
               );
             }
           }
