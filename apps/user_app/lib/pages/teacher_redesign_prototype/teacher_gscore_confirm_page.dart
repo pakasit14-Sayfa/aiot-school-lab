@@ -12,7 +12,16 @@ import 'teacher_shared_widgets.dart'
     show TeacherMockPageShell, TeacherSectionCard;
 
 class TeacherGScoreConfirmPage extends StatefulWidget {
-  const TeacherGScoreConfirmPage({super.key});
+  const TeacherGScoreConfirmPage({
+    super.key,
+    this.listPendingGScore,
+    this.confirmGScore,
+  });
+
+  /// Read/write seams threaded to the corresponding GScoreService static
+  /// calls in production.
+  final Future<List<PendingGScoreEntry>> Function()? listPendingGScore;
+  final Future<void> Function(String entryId)? confirmGScore;
 
   @override
   State<TeacherGScoreConfirmPage> createState() =>
@@ -37,16 +46,18 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
       _loadError = null;
     });
     try {
-      final pending = await GScoreService.listPendingGScore();
+      final loadPending =
+          widget.listPendingGScore ?? GScoreService.listPendingGScore;
+      final pending = await loadPending();
       if (!mounted) return;
       setState(() {
         _pending = pending;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดรายการรออนุมัติไม่สำเร็จ: $e';
+        _loadError = 'โหลดรายการรออนุมัติไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -55,18 +66,19 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
   Future<void> _confirm(PendingGScoreEntry entry) async {
     setState(() => _confirming.add(entry.id));
     try {
-      await GScoreService.confirmGScore(entry.id);
+      final confirm = widget.confirmGScore ?? GScoreService.confirmGScore;
+      await confirm(entry.id);
       if (!mounted) return;
       setState(() {
         _pending.removeWhere((e) => e.id == entry.id);
         _confirming.remove(entry.id);
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _confirming.remove(entry.id));
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ยืนยันไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('ยืนยันไม่สำเร็จ')));
     }
   }
 
