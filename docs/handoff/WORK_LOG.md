@@ -460,3 +460,35 @@ Meeting widget suite: 5/5 passed. App regression: 507 passed / 22 existing
 failures. Analyzer unchanged (core 0, shared_ui 4 infos, app 156 findings), no
 findings in meeting_detail_page. Opened the real finalized QA meeting in the
 browser and verified the new sections with its existing data; no QA mutations.
+
+### 2026-09-08 — Executive notifications connection (browser QA pending)
+
+Replaced the main notification page's seeded incidents, swallowed errors and
+local-only read flags with a controller and NotificationService operations.
+Categories come from the existing category RPC; priority is displayed only when
+present in payload. Missing priority is explicitly unknown. Search, read-state
+and time filters apply to the latest 50 entries in the selected category, visibly
+documented on the page. Bulk read covers the entire user's inbox, not just the
+visible subset. Existing notifications are per user (no school_id column); this
+does not redefine them as active-school-specific messages.
+
+New local RPCs get_my_notification and mark_all_my_notifications_read validate
+the custom session and constrain reads/writes to its user. Individual writes
+verify the exact canonical row; bulk writes verify unread category counts.
+Meeting payload IDs open MeetingDetailPage with its existing backend permission
+check; other source navigation is explicitly disabled until supported. Payload
+URLs are never opened. No invented urgency or incident workflow states remain.
+
+Validation: new app tests 3/3; pgTAP 46 8/8 including >100 notifications, invalid
+tokens, other users/schools and idempotency. Full regression: app 510 passed / 22
+existing failures, shared_core 60/1 existing, shared_ui 14/1 existing. Analyzer
+app 156 existing findings, shared_ui 4 existing infos; shared_core clean after
+braces cleanup. The migration was applied to the running local DB only.
+
+Browser QA was attempted but not completed: executive@aiot-school-lab.local has
+reached its 10 login OTPs / 24 hours quota. Verified rate_limited from auth edge
+and the count read-only; no rate limit bypass/reset. First slot releases around
+2026-09-08 17:10 Asia/Bangkok. Remaining: login, open main notifications, read QA
+item, refresh, open its meeting source; bulk read persistence in browser.
+Fixture 99829999-0000-0000-0000-000000000001 is labeled QA in the test executive
+inbox and refers to the existing finalized QA meeting. Publishing remains pending.
