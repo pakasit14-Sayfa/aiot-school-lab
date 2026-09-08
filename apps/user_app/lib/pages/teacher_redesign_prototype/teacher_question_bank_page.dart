@@ -57,7 +57,20 @@ class BankQuestionSet {
 }
 
 class TeacherQuestionBankPage extends StatefulWidget {
-  const TeacherQuestionBankPage({super.key});
+  const TeacherQuestionBankPage({
+    super.key,
+    this.loadCourses,
+    this.listQuizzesForCourse,
+    this.listQuizQuestions,
+  });
+
+  /// Read seams threaded to the corresponding CourseService/QuizService
+  /// static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<QuizSummary>> Function(String courseId)?
+  listQuizzesForCourse;
+  final Future<List<QuizQuestionSummary>> Function(String quizId)?
+  listQuizQuestions;
 
   @override
   State<TeacherQuestionBankPage> createState() =>
@@ -80,11 +93,16 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
   Future<void> _loadQuestionBank() async {
     setState(() => _isLoading = true);
     try {
-      final courses = await CourseService.listMyCourses();
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final listQuizzes =
+          widget.listQuizzesForCourse ?? QuizService.listCourseQuizzes;
+      final listQuestions =
+          widget.listQuizQuestions ?? QuizService.listQuizQuestions;
+      final courses = await loadCourses();
       final loadedSets = <BankQuestionSet>[];
 
       for (final course in courses) {
-        final quizzes = await QuizService.listCourseQuizzes(course.id);
+        final quizzes = await listQuizzes(course.id);
         for (final q in quizzes) {
           final kindLabel = q.type == 'pre_test'
               ? 'ก่อนเรียน'
@@ -94,7 +112,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
           // ตายตัวเสมอ ไม่ว่าจะมีคำถามจริงกี่ข้อ (list_quiz_questions ใหม่)
           List<BankQuestion> questions = const [];
           try {
-            final real = await QuizService.listQuizQuestions(q.id);
+            final real = await listQuestions(q.id);
             questions = real.map((question) {
               final correctIdx = question.choices.indexWhere(
                 (c) => c.isCorrect,
@@ -133,16 +151,16 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
           _questionSets = [];
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('โหลดคลังคำถามไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('โหลดคลังคำถามไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }
