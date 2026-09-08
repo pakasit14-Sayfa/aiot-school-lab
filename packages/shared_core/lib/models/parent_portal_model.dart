@@ -150,6 +150,8 @@ class StudentAttendanceItem {
   bool get isLate => status == 'late';
   bool get isAbsent => status == 'absent';
   bool get isExcused => status == 'excused';
+  bool get isAttended => isPresent || isLate;
+  bool get hasKnownStatus => isAttended || isAbsent || isExcused;
 
   factory StudentAttendanceItem.fromRow(Map<String, dynamic> row) {
     return StudentAttendanceItem(
@@ -158,7 +160,7 @@ class StudentAttendanceItem {
       courseName: row['course_name'] as String? ?? '',
       courseCode: row['course_code'] as String? ?? '',
       classDate: DateTime.parse(row['class_date'] as String),
-      status: row['status'] as String? ?? 'present',
+      status: row['status'] as String? ?? 'unknown',
       note: row['note'] as String?,
       markedAt: DateTime.parse(row['marked_at'] as String),
     );

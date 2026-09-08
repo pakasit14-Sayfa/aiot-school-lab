@@ -105,6 +105,22 @@ RPC คืน 200 แต่แถวไม่เปลี่ยน (เช่น
 
 ## 🟡 บั๊ก 2 — ไม่รู้สถานะ กลายเป็น "มาเรียน"
 
+> **อัปเดต 2026-09-08 — บั๊ก 2:** แก้ decoder ให้ row ที่ไม่มี `status` เป็น
+> `unknown` และเพิ่ม classification กลาง `isAttended` / `hasKnownStatus` แล้ว
+> หน้า Parent ทั้งการมาเรียน, Dashboard และ Learning แสดง `ไม่ทราบสถานะ`
+> แทนค่าดิบ และคำนวณอัตราจาก record ที่มีสถานะยืนยันแล้วเท่านั้น จึงไม่นับ unknown
+> เป็นทั้งมาเรียนหรือขาดเรียน
+>
+> หลักฐาน: unit test ของ model **1/1 ผ่าน**; widget tests ของ Parent ที่เกี่ยวข้อง
+> **17/17 ผ่าน**; full `user_app` **493 ผ่าน / 22 fail เดิม** (เพิ่ม 8 test โดยไม่เพิ่ม
+> failure); full `shared_core` **47 ผ่าน / 1 fail เดิม** ใน assignment model;
+> analyze ทั้งสามแพ็กเกจไม่มี error ใหม่ (`shared_core` 0, `shared_ui` 4 info,
+> `user_app` 157 warning/info เดิม) เปิดเบราว์เซอร์จริงด้วยบัญชี parent แล้ว
+> หน้าการมาเรียนแสดง empty state และการ์ด `ไม่ทราบสถานะ 0 คาบ` โดยไม่มี overflow
+> ฐานข้อมูลปัจจุบันบังคับ attendance status เป็น NOT NULL อยู่แล้ว งานนี้จึงเป็น
+> defensive hardening สำหรับ response ที่ขาด field/เปลี่ยนรูปในอนาคต ไม่มี migration
+> หรือ pgTAP เพิ่ม
+
 **ไฟล์:** `packages/shared_core/lib/models/parent_portal_model.dart` **บรรทัด 161**
 
 ```dart
