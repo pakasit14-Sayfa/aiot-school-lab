@@ -405,6 +405,58 @@ Done from a report alone.
 
 Commit: `7c091b4`. `flutter analyze` สะอาดทั้ง 2 ไฟล์ push เข้า `gitlab` แล้ว
 
-**สรุป School Admin ตอนนี้**: 19/23 หน้า DoD ครบ (17 เดิม + profile/dashboard
-ที่เพิ่งปิด) เหลือ 4 หน้าที่รู้จุดชัดแล้วรอแก้ (permissions role เก่า,
-resources 3 การ์ดปลอม, buildings หลายจุดรวม RPC, scan ประวัติปลอม)
+### แก้แล้ววันนี้: `school_buildings_page.dart` (commit `ea8d1c5`)
+- RPC `list_school_rooms` hardcode `devices_count=0`/`training_kits_count=0`/
+  `resource_status='ปกติ'` ทุกห้องเสมอ (บั๊กอยู่ที่ SQL) — แก้ให้ join จริงกับ
+  `devices` เหมือน `list_school_buildings` ทำอยู่แล้ว (migration
+  `20260908030000`) `floor` ไม่ fabricate `'ชั้น 1'` อีกต่อไป
+- `SchoolRoomRecord` (shared_core model) มี fallback ปลอมซ้อนอีกชั้น
+  (`?? 'ชั้น 1'`, `?? 'ปกติ'`) — แก้เป็น nullable จริง
+- ลบบล็อก "รายการที่ควรตรวจสอบ" ที่ปลอมทั้งบล็อก, ปิด 3 ปุ่ม
+  fake-navigation, filter ประเภทห้อง/สถานะ ดึงจากข้อมูลจริงแทน hardcode,
+  audit log ใช้ `_logTypeFor` แทน `type: 'success'` ตายตัว
+- pgTAP 5 เคส + widget test 4 เคสใหม่ (รวม 12/12) push production แล้ว
+
+### แก้แล้ววันนี้: `school_scan_page.dart` (commit `b33e55d`)
+- "ประวัติการสแกนล่าสุด" เคย hardcode 3 แถวตายตัว ไม่มีตาราง DB เก็บ
+  ประวัติสแกนเลย — เปลี่ยนเป็นเก็บจริงในเซสชัน (`_history`) ทั้งจากกล้องและ
+  กรอกรหัสเอง โชว์ honest empty state เมื่อยังไม่สแกน
+- เจอบั๊ก crash จริงระหว่างทาง: `_enterCodeManually` dispose
+  `TextEditingController` ทันทีหลัง dialog ปิด ทั้งที่ exit transition ยัง
+  ใช้อยู่ — throw "used after being disposed" แก้ด้วย
+  `addPostFrameCallback`
+- test เพิ่ม 2 เคส รวม 7/7 ผ่าน
+
+### แก้แล้ววันนี้: `school_permissions_page.dart` (commit `cb06a9b`)
+- **เจอว่าใหญ่กว่าที่คิด**: filter บทบาท, `_RoleBadge`, และการ์ด "สิทธิ์หลัก"
+  เทียบกับ label ที่แต่งขึ้นเอง ('ครูผู้สอน'/'ครูประจำอาคาร'/'ฝ่ายบริหาร')
+  ที่ไม่ตรงกับ `UserRole.label` จริงสักคำ ('ครูประจำห้อง'/'ผู้บริหาร')
+  — filter บทบาทไม่เคยกรองอะไรได้จริงเลยตั้งแต่แรก ไม่ใช่แค่ role เก่า
+  โผล่มาเฉยๆ
+- filter บทบาทตอนนี้สร้างจาก role จริงที่มีคนถือ (`_roleCounts`)
+  `_RoleBadge` เทียบกับ label จริง การ์ด "สิทธิ์หลัก" ดึงจาก
+  `list_role_permission_matrix` จริงแทนข้อความ 4 บรรทัดที่แต่งขึ้นเอง
+  (เพิ่ม `roles: List<UserRole>` ใน `_PermissionUser`)
+- ลบ 'ครูประจำอาคาร' ออกจาก edit-role dialog/`_parseRole`/
+  `_defaultScopeForRole`, ลบตัวเลือก 'รอตรวจสอบ' ที่ `user.status` ไม่มี
+  ทางเป็นได้เลย
+- test เพิ่ม 4 เคส รวม 12/12 ผ่าน
+
+### แก้แล้ววันนี้: `school_resources_page.dart` (commit `1c622dd`)
+- การ์ด KPI "คุณภาพอากาศ & ESG" (`PM2.5 18.2`/`0.21 tCO2e` hardcode) —
+  ไม่มี RPC วัดคุณภาพอากาศระดับโรงเรียนเลย เปลี่ยนเป็น "ยังไม่มีข้อมูล"
+- การ์ด KPI "จุดตรวจจับความผิดปกติ" (`2 จุดเฝ้าระวัง` hardcode ไม่เกี่ยว
+  กับ `_alerts` ที่หน้านี้โหลดจริงอยู่แล้ว) — ตอนนี้นับจาก sensor_alerts จริง
+- 3 แถวสถานะ IoT meter (`ออนไลน์ N/N จุด (100%)` hardcode ทุกแถว) —
+  ไฟฟ้า/น้ำใช้ `_energyDeviceCount`/`_waterDeviceCount` จริงที่หน้านี้โหลด
+  อยู่แล้ว (ไม่อ้างเปอร์เซ็นต์ออนไลน์ที่ไม่มีข้อมูลรองรับ), PM2.5 บอกตรงๆ
+  ว่ายังไม่มี
+- filter อาคาร/ห้อง — เดิม setState ตัวเองได้แต่ไม่เคยส่งเข้าการโหลดข้อมูล
+  เลย กรองอะไรไม่ได้จริง ปิดไว้พร้อม tooltip
+- test เพิ่ม 5 เคส รวม 16/16 ผ่าน
+
+**สรุป School Admin ตอนนี้: 23/23 หน้า DoD ครบทั้งหมด** (ปิดครบใน
+เซสชันเดียวกับที่ audit — permissions/resources/buildings/scan ที่เหลือ
+จาก 19/23 ทำเสร็จหมดแล้ว) เหลืองานแยกที่ไม่ใช่ DoD gap: `school_import_page`
+ยังบล็อกการ import นักเรียน/ครูด้วยเหตุผลความปลอดภัย (`Test1234!` เดาได้)
+ตามที่ตั้งใจไว้ — ไม่ใช่บั๊ก เป็นการตัดสินใจที่ยังไม่แก้
