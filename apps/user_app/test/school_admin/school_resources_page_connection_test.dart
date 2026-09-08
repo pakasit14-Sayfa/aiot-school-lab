@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,6 +45,7 @@ Future<void> _pump(
   Future<List<UtilityTrendPoint>> Function(int)? energyTrend,
   Future<UtilityEfficiencyScore?> Function()? energyScore,
   Future<List<SchoolSensorAlertRecord>> Function()? alerts,
+  SchoolResourcesDownloadBytes? downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1600, 3600);
   tester.view.devicePixelRatio = 1;
@@ -61,6 +63,7 @@ Future<void> _pump(
         loadEnergyScore: energyScore ?? () async => null,
         loadWaterScore: () async => null,
         loadAlerts: alerts ?? () async => const [],
+        downloadBytesOverride: downloadBytesOverride,
       ),
     ),
   );
@@ -196,29 +199,35 @@ void main() {
     );
   });
 
-  testWidgets('the export button is disabled rather than faking success', (
+  testWidgets('export downloads a real CSV built from the loaded figures', (
     tester,
   ) async {
-    await _pump(tester);
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    await _pump(
+      tester,
+      downloadBytesOverride:
+          ({
+            required String filename,
+            required List<int> bytes,
+            required String mimeType,
+          }) {
+            downloadedFilename = filename;
+            downloadedBytes = bytes;
+          },
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)'), findsOneWidget);
+    await tester.tap(find.text('ส่งออกรายงาน'));
+    await tester.pump();
 
-    // Matched by predicate, not by type: `FilledButton.icon(...)` builds a
-    // private `_FilledButtonWithIcon`, and Flutter's finders compare
-    // runtimeType exactly, so find.byType(FilledButton) misses it entirely.
-    // The same trap already produced a batch of false failures in this repo.
-    final disabled = find.byWidgetPredicate(
-      (w) => w is ButtonStyleButton && w.onPressed == null,
-    );
-    expect(
-      find.descendant(
-        of: disabled,
-        matching: find.text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)'),
-      ),
-      findsOneWidget,
-      reason: 'the export control must be genuinely disabled, not just relabelled',
-    );
+    expect(downloadedFilename, contains('resources_report_'));
+    expect(downloadedBytes, isNotNull);
+    final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
+    expect(csv, contains('electricity'));
+    expect(csv, contains('water'));
+    expect(find.text('ส่งออกรายงานแล้ว'), findsOneWidget);
   });
 
   testWidgets('loading is not shown as an empty state', (tester) async {

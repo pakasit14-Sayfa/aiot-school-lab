@@ -1,9 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../utils/web_download.dart';
 import 'theme/school_admin_palette.dart';
 
 enum _ResourcePeriod { daily, weekly, monthly, yearly }
+
+typedef SchoolResourcesDownloadBytes =
+    void Function({
+      required String filename,
+      required List<int> bytes,
+      required String mimeType,
+    });
 
 class SchoolResourcesPage extends StatefulWidget {
   const SchoolResourcesPage({
@@ -15,6 +25,7 @@ class SchoolResourcesPage extends StatefulWidget {
     this.loadEnergyScore,
     this.loadWaterScore,
     this.loadAlerts,
+    this.downloadBytesOverride,
   });
 
   /// Injectable read seams, same pattern as the other connected School Admin
@@ -28,6 +39,9 @@ class SchoolResourcesPage extends StatefulWidget {
   final Future<UtilityEfficiencyScore?> Function()? loadEnergyScore;
   final Future<UtilityEfficiencyScore?> Function()? loadWaterScore;
   final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
+  // Seam for tests: lets a test prove the export button actually calls a
+  // download instead of the old always-disabled button with a tooltip.
+  final SchoolResourcesDownloadBytes? downloadBytesOverride;
 
   @override
   State<SchoolResourcesPage> createState() => _SchoolResourcesPageState();
@@ -99,6 +113,56 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 
   _ChartSeries get _electricity => _electricitySeries ?? _placeholderSeries();
   _ChartSeries get _water => _waterSeries ?? _placeholderSeries();
+
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportReport() {
+    if (_electricitySeries == null && _waterSeries == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
+    List<List<String>> seriesRows(String name, _ChartSeries series) => [
+      [name, 'total', series.total, ''],
+      [name, 'cost', series.cost, ''],
+      [name, 'previous_period', series.previous, ''],
+      [name, 'change', series.change, ''],
+      [name, 'peak', series.peakValue, ''],
+      [name, 'average', series.avgValue, ''],
+      [name, 'lowest', series.lowestValue, ''],
+      for (var i = 0; i < series.labels.length; i++)
+        [name, 'trend_${series.labels[i]}', '${series.values[i]}', ''],
+    ];
+
+    final rows = <List<String>>[
+      ['section', 'metric', 'value', 'unit'],
+      if (_electricitySeries != null)
+        ...seriesRows('electricity', _electricitySeries!),
+      if (_waterSeries != null) ...seriesRows('water', _waterSeries!),
+    ];
+    final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'resources_report_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานแล้ว')));
+    }
+  }
 
   /// ค่าที่ backend รองรับจริง — ตรวจจากตัวฟังก์ชันในฐานข้อมูล ไม่ใช่เดา
   String get _periodParam {
@@ -795,25 +859,19 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                   ),
                 ),
               ),
-              // ไม่มี pipeline สร้างไฟล์รายงานในระบบ ปุ่มนี้เคยขึ้นว่า "สำเร็จ"
-              // ทั้งที่ไม่มีไฟล์ใดถูกสร้างเลย จึงปิดไว้พร้อมบอกเหตุผล
-              Tooltip(
-                message:
-                    'ยังไม่รองรับการส่งออกไฟล์รายงาน — ฟีเจอร์นี้ยังไม่ได้เชื่อมกับเซิร์ฟเวอร์',
-                child: FilledButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.file_download_outlined, size: 17),
-                  label: const Text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SchoolAdminPalette.primaryDark,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+              FilledButton.icon(
+                onPressed: _exportReport,
+                icon: const Icon(Icons.file_download_outlined, size: 17),
+                label: const Text('ส่งออกรายงาน'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SchoolAdminPalette.primaryDark,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
