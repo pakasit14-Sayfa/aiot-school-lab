@@ -344,3 +344,67 @@ Done from a report alone.
   repo นี้ ดู `docs/handoff/SENSOR_GATEWAY_INTEGRATION.md`) ไม่งั้นตั้ง
   threshold ผิดจะเกิด false-offline กับอุปกรณ์ที่โพลไม่ถี่โดยตั้งใจ (เช่น
   ประหยัดแบต) ต้องคุยกับทีมฮาร์ดแวร์ก่อนถึงจะทำต่อได้
+
+## 2026-09-08 — School Admin re-audit เต็ม 23 หน้า + แก้ profile/dashboard sidebar
+เจ้าของขอให้ตรวจ School Admin ใหม่ทั้งหมด (หลังตอบเรื่อง `school_scan_page`
+ผิดไปครั้งหนึ่งว่า "ไม่ import shared_core" ทั้งที่จริงต่อแล้ว — สับสนกับ
+`director_scan_page` ของ Executive) ส่งเอเจนต์ 3 ตัวขนานกันอ่านเต็มไฟล์ 20
+หน้าที่เหลือ (แบ่งคนละ ~7 หน้า) บวกกับที่ตรวจเองแล้ว 2 หน้า (`school_reports_page`,
+`school_scan_page`) รวม 23 หน้า — **ผลตรวจจริง (ไม่ใช่เดา)**:
+
+**17/23 หน้า DoD ครบ สะอาดจริง**: `attendance_settings` `cctv`
+`device_control` `device_schedule` `energy` `esg` `import` `learning_tracks`
+`settings` `students` `teachers` `incident_inbox` `leave_approval`
+`report_requirements` `alerts` `devices` `reports`
+
+**6/23 หน้ามีของปลอมจริง ระบุจุดได้ชัด**:
+- `school_admin_dashboard_page.dart` — การ์ด sidebar/drawer hardcode ชื่อ/
+  อีเมล/ชื่อโรงเรียนปลอมให้ทุกคนเห็นเหมือนกันไม่ว่าใครล็อกอิน — **แก้แล้ว**
+- `school_admin_profile_page.dart` — ปุ่ม fake-success 3 ปุ่ม
+  ("เปลี่ยนรหัสผ่าน" ไม่เรียก backend เลย, "ออกจากระบบอุปกรณ์อื่น" ไม่เรียก
+  backend, "ดูอุปกรณ์" ไม่เปิดอะไรจริง) + ฟิลด์ hardcode 5 จุด (เวลาล็อกอิน
+  ล่าสุด, สถานะความปลอดภัย, ชื่อโรงเรียน, วันที่สร้างบัญชี) — **แก้แล้ว**
+- `school_permissions_page.dart` — dialog แก้ไขสิทธิ์ยังเสนอ role
+  `ครูประจำอาคาร` ที่ยุบไปแล้ว 25 ส.ค. (`_buildRoleSelectorChips` ฯลฯ) —
+  cosmetic ไม่ทำข้อมูลพัง (`_parseRole` map เป็น teacher เบื้องหลัง) —
+  **ยังไม่แก้**
+- `school_resources_page.dart` — การ์ด KPI ปลอม 3 ใบ (PM2.5/ESG, จุด
+  ผิดปกติ, IoT online 100% ตายตัวทุกแถว) + filter อาคาร/ห้อง 2 ตัวที่ไม่
+  กรองอะไรจริง — **ยังไม่แก้**
+- `school_buildings_page.dart` — เจอเยอะสุด: บล็อก "รายการที่ควรตรวจสอบ"
+  ปลอมทั้งบล็อก, ปุ่ม fake-navigation 3 ปุ่ม, RPC `list_school_rooms` เอง
+  hardcode `devices_count=0`/`training_kits_count=0`/`status='ปกติ'` ทุกห้อง
+  เสมอ (บั๊กอยู่ที่ SQL ไม่ใช่ Dart), audit log ทุกแถว map เป็น
+  `type: 'success'` เขียวหมด, filter ประเภทห้อง/สถานะมีตัวเลือกที่กรองไม่ได้
+  จริง — **ยังไม่แก้**
+- `school_scan_page.dart` — ค้นหาอุปกรณ์จริง แต่ "ประวัติการสแกน" ปลอม
+  100% (3 แถว hardcode) — **ยังไม่แก้**
+
+### แก้แล้ววันนี้: `school_admin_profile_page.dart`
+- "เปลี่ยนรหัสผ่าน" — ไม่มี RPC `change_password(old, new)` ในระบบ มีแค่
+  `request_password_reset_otp`+`confirm_password_reset` (email-OTP flow)
+  เปลี่ยนเป็น dialog อธิบายตรงๆ ให้ไปใช้ "ลืมรหัสผ่าน" ที่หน้า login แทน —
+  เหมือนแพทเทิร์นที่แก้ไว้แล้วใน `director_settings_page.dart`
+- "ออกจากระบบอุปกรณ์อื่น" → ต่อ `AuthService.signOutAllDevices()`
+  (`auth_sign_out_all`) จริง เปลี่ยนชื่อเป็น "ออกจากระบบทุกอุปกรณ์" เพราะ RPC
+  เพิกถอนทุก session **รวมเครื่องนี้ด้วย** ไม่มีทางเพิกถอนแค่เครื่องอื่น
+- "ดูอุปกรณ์" — ไม่มี RPC list session ใดๆ เลย ปิดปุ่มพร้อมเหตุผลแทนกดแล้ว
+  ไม่มีอะไรเกิดขึ้น
+- ฟิลด์ hardcode: "โรงเรียน" ดึงจาก `fetchDashboardSummary().schoolName`
+  จริง, "สถานะบัญชี" ใช้ `currentUserModel.status` จริง, "เข้าใช้ล่าสุด"/
+  "ความปลอดภัย"/"สร้างบัญชีเมื่อ" ไม่มี RPC รองรับเลย เปลี่ยนเป็น
+  "ยังไม่มีข้อมูล" ตรงๆ
+- test เพิ่ม 7 เคส รวมไฟล์ 13/13 ผ่าน
+
+### แก้แล้ววันนี้: `school_admin_dashboard_page.dart`
+- `_UserCard` (sidebar/drawer) ใช้ `currentUserModel.name`/`.email` จริง
+  แทน hardcode `'ผู้ดูแลโรงเรียน (Admin)'`/`'admin@aiot-school.ac.th'`
+- `_SchoolScopeCard` โหลดชื่อโรงเรียนจริงผ่าน `fetchDashboardSummary()`
+  (seam `loadSummary` ใหม่) แทน hardcode `'โรงเรียนเทศบาล ๑ (สังกัด สถ.)'`
+- test เพิ่ม 1 เคส รวมไฟล์ 4/4 ผ่าน
+
+Commit: `7c091b4`. `flutter analyze` สะอาดทั้ง 2 ไฟล์ push เข้า `gitlab` แล้ว
+
+**สรุป School Admin ตอนนี้**: 19/23 หน้า DoD ครบ (17 เดิม + profile/dashboard
+ที่เพิ่งปิด) เหลือ 4 หน้าที่รู้จุดชัดแล้วรอแก้ (permissions role เก่า,
+resources 3 การ์ดปลอม, buildings หลายจุดรวม RPC, scan ประวัติปลอม)
