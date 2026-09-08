@@ -63,6 +63,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
   // ชื่อโรงเรียนจริงสำหรับการ์ดใน sidebar/drawer — เดิม _SchoolScopeCard
   // hardcode 'โรงเรียนเทศบาล ๑ (สังกัด สถ.)' ตายตัวให้ทุกโรงเรียนเห็นเหมือนกัน
   String? _schoolName;
+  bool _schoolNameLoading = true;
 
   @override
   void initState() {
@@ -75,10 +76,15 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
       final summary = await (widget.loadSummary?.call() ??
           SchoolAdminPlatformService().fetchDashboardSummary());
       if (!mounted) return;
-      setState(() => _schoolName = summary.schoolName);
+      setState(() {
+        _schoolName = summary.schoolName;
+        _schoolNameLoading = false;
+      });
     } catch (e) {
       debugPrint('SchoolAdminDashboardPage fetchDashboardSummary failed: $e');
       // เงียบพอ — การ์ดจะโชว์ 'ยังไม่มีข้อมูล' แทนการลองซ้ำเงียบ ๆ ไม่รู้จบ
+      if (!mounted) return;
+      setState(() => _schoolNameLoading = false);
     }
   }
 
@@ -295,6 +301,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
                   onSelect: _openPage,
                   onOpenProfile: _openProfile,
                   schoolName: _schoolName,
+                  schoolNameLoading: _schoolNameLoading,
                 ),
               ),
               Expanded(
@@ -341,6 +348,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
         onSelect: _openPage,
         onOpenProfile: _openProfile,
         schoolName: _schoolName,
+        schoolNameLoading: _schoolNameLoading,
       ),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -413,6 +421,7 @@ class _DesktopSidebar extends StatelessWidget {
     required this.onSelect,
     required this.onOpenProfile,
     this.schoolName,
+    this.schoolNameLoading = false,
   });
 
   final List<_MenuItemData> items;
@@ -420,6 +429,7 @@ class _DesktopSidebar extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final VoidCallback onOpenProfile;
   final String? schoolName;
+  final bool schoolNameLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -458,7 +468,10 @@ class _DesktopSidebar extends StatelessWidget {
                   onTap: onOpenProfile,
                 ),
                 const SizedBox(height: 8),
-                _SchoolScopeCard(schoolName: schoolName),
+                _SchoolScopeCard(
+                  schoolName: schoolName,
+                  loading: schoolNameLoading,
+                ),
               ],
             ),
           ),
@@ -475,6 +488,7 @@ class _MobileDrawer extends StatelessWidget {
     required this.onSelect,
     required this.onOpenProfile,
     this.schoolName,
+    this.schoolNameLoading = false,
   });
 
   final List<_MenuItemData> items;
@@ -482,6 +496,7 @@ class _MobileDrawer extends StatelessWidget {
   final ValueChanged<int> onSelect;
   final VoidCallback onOpenProfile;
   final String? schoolName;
+  final bool schoolNameLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -531,7 +546,10 @@ class _MobileDrawer extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 8),
-                  _SchoolScopeCard(schoolName: schoolName),
+                  _SchoolScopeCard(
+                    schoolName: schoolName,
+                    loading: schoolNameLoading,
+                  ),
                 ],
               ),
             ),
@@ -784,12 +802,15 @@ class _UserCard extends StatelessWidget {
 }
 
 class _SchoolScopeCard extends StatelessWidget {
-  const _SchoolScopeCard({this.schoolName});
+  const _SchoolScopeCard({this.schoolName, this.loading = false});
 
   // เดิม hardcode 'โรงเรียนเทศบาล ๑ (สังกัด สถ.)' ตายตัว — ทุกโรงเรียนที่ใช้
   // ระบบนี้เห็นชื่อโรงเรียนเดียวกันหมด ตอนนี้รับชื่อจริงจาก
   // fetchDashboardSummary() ผ่าน state ของหน้าหลัก null ระหว่างโหลด/ล้มเหลว
   final String? schoolName;
+  // แยก "กำลังโหลด" ออกจาก "โหลดเสร็จแล้วแต่ไม่มีข้อมูล/ล้มเหลว" —
+  // ไม่งั้นเฟรมแรกจะโชว์ 'ยังไม่มีข้อมูล' เสมอก่อนที่ RPC จะตอบกลับด้วยซ้ำ
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -821,7 +842,7 @@ class _SchoolScopeCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  schoolName ?? 'ยังไม่มีข้อมูล',
+                  loading ? '…' : (schoolName ?? 'ยังไม่มีข้อมูล'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

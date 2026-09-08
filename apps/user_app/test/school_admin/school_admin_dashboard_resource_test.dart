@@ -31,6 +31,19 @@ WaterUsageSummary _water({double m3 = 9.5, int devices = 2}) =>
       disclaimer: '',
     );
 
+SchoolAdminDashboardSummary _summary() => const SchoolAdminDashboardSummary(
+  schoolId: 'school-1',
+  schoolName: 'โรงเรียนทดสอบ',
+  schoolCode: 'TEST-1',
+  studentsCount: 0,
+  teachersCount: 0,
+  devicesCount: 0,
+  devicesOnline: 0,
+  buildingsCount: 0,
+  roomsCount: 0,
+  openAlertsCount: 0,
+);
+
 Future<void> _pump(
   WidgetTester tester, {
   Future<EnergyUsageSummary?> Function()? loadEnergy,
@@ -51,12 +64,35 @@ Future<void> _pump(
         loadWater: loadWater ?? () async => _water(),
         loadSensor: loadSensor ?? () async => null,
         loadMetricsWithData: loadMetricsWithData ?? () async => <String>{},
+        // seam ใหม่จาก sidebar identity fix — ไม่เกี่ยวกับสิ่งที่ไฟล์นี้
+        // ทดสอบ (การ์ดทรัพยากรพลังงาน/น้ำ) ให้ resolve จริงเสมอกันชน
+        // กับ 'ยังไม่มีข้อมูล' ที่ sidebar โชว์ตอน RPC จริงล้มในเทส
+        loadSummary: () async => _summary(),
       ),
     ),
   );
 }
 
 void main() {
+  setUp(() {
+    // _UserCard falls back to 'ยังไม่มีข้อมูล' for a signed-out user (fixed
+    // in 7c091b4 to stop showing a fake 'admin@aiot-school.ac.th'); that
+    // fallback collides with this file's own 'ยังไม่มีข้อมูล' assertions
+    // unless a real signed-in user is present, same as
+    // school_admin_dashboard_page_test.dart.
+    currentUserModel = const UserModel(
+      uid: 'u-admin-1',
+      name: 'แอดมินโรงเรียน',
+      email: 'schooladmin@aiot-school-lab.local',
+      role: UserRole.schoolAdmin,
+      schoolId: 'sch-1',
+    );
+  });
+
+  tearDown(() {
+    currentUserModel = null;
+  });
+
   testWidgets('real utility totals are rendered, not invented ones', (
     tester,
   ) async {
