@@ -17,6 +17,16 @@ can't drift from reality the way a hand-maintained doc would).
 
 ## Current School Admin data-connection pass (2026-09-04)
 
+> **✅ Update 2026-09-08: this pass is finished.** School Admin is now
+> **23/23 pages DoD-complete** (not the 5/20 this section's log entries
+> below describe mid-progress) — permissions/resources/buildings/scan
+> were the last 4, closed in a single session after re-auditing all 23
+> pages with 3 parallel agents reading every file in full. See
+> `WORK_LOG.md`'s 2026-09-08 entries and `MASTER_PLAN_2026-09-06.md`
+> Phase 2 (all ticked) for exactly what changed in each file. `task_plan.md`
+> referenced below no longer exists (deleted 2026-09-06, superseded by
+> `MASTER_PLAN_2026-09-06.md`) — the log entries are kept here as history.
+
 The master implementation map is `task_plan.md`. Work proceeds page by page, and every newly connected page must rerun its own tests plus every previously connected School Admin regression test.
 
 Alerts is committed as `c8346ff`, CCTV as `830e20a`, and Device schedules as `b27f843`. Incident inbox committed as `866d774` (evidence corrected in a follow-up commit, `f073049`). Learning tracks is the fifth connected page (not yet committed as of this writing — see the 2026-09-05 entry below). All five pages use small injectable controllers over RPC-backed services. Incident acknowledge/close refetch canonical data before reporting success, use a per-item mutation lock, preserve the close note/dialog on failure, and load details through a new school-scoped staff RPC. Empty cards use `ยังไม่มีข้อมูล`.

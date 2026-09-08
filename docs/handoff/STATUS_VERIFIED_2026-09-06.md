@@ -46,10 +46,11 @@
 
 `HANDOFF.md` ถูก (เคยสงสัยว่าผิด แต่ผลจากการอ่านไฟล์จริงยืนยันว่าถูก)
 
-### 1.6 School Admin — 5 หน้าผ่านเกณฑ์เต็ม
+### 1.6 School Admin — เดิม 5 หน้าผ่านเกณฑ์เต็ม (2026-09-06) → **23/23 หน้าครบทั้งหมดแล้ว (2026-09-08)**
 
 Alerts · CCTV · Device schedule · Incident inbox · Learning tracks
-(มี controller + pgTAP + widget test ครบ)
+(มี controller + pgTAP + widget test ครบ) — ตอนนี้อีก 18 หน้าที่เหลือก็ผ่าน
+DoD ครบเช่นกัน รายละเอียดดู `WORK_LOG.md` หัวข้อ 2026-09-08
 
 ---
 
@@ -59,7 +60,7 @@ Alerts · CCTV · Device schedule · Incident inbox · Learning tracks
 |---|---|---|
 | แก้ audit-log null-school leak | migration + pgTAP 9/9 + apply local | **ยังไม่ apply ขึ้น production** |
 | CI pipeline | ไฟล์ config มีครบ | ยังไม่รู้ว่ารันผ่านไหม |
-| School Admin 14 หน้าที่เหลือ | ต่อ backend แล้วทุกหน้า | ยังไม่ผ่าน DoD (empty-state 13 หน้า, loading/error 6 หน้า, ตารางปลอม 4 หน้า) |
+| ~~School Admin 14 หน้าที่เหลือ~~ | ✅ **ปิดครบแล้ว 2026-09-08** — School Admin ทั้ง 23/23 หน้าผ่าน DoD เต็ม (audit ด้วย agent คู่ขนาน 3 ตัวอ่านทุกไฟล์เต็ม ไม่ใช่ grep แล้วแก้ 4 หน้าสุดท้าย: permissions/resources/buildings/scan) ดู `WORK_LOG.md` 2026-09-08 | — |
 | Executive 5 หน้า | โหลดข้อมูลจริงบางส่วน | ยังแสดงตารางปลอมทับ (`classrooms` 205 บรรทัด, `cameras` 105) |
 | Super Admin 10 หน้า | ต่อ backend ครบ | ขาด `ยังไม่มีข้อมูล` 9/10 หน้า, ไม่แยก loading/error 3 หน้า |
 

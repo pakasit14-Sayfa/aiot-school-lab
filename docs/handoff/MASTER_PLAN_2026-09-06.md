@@ -164,18 +164,23 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 
 ทำทีละ ticket ตามลำดับ แต่ละอันจบด้วย DoD เต็ม
 
+> ✅ **ปิดแล้ว 2026-09-08 — School Admin 23/23 หน้า DoD ครบทั้งหมด**
+> (ยกเว้น 2.10 ที่ตั้งใจปล่อยบล็อกไว้ด้วยเหตุผลความปลอดภัย ไม่ใช่ของค้าง)
+> รายละเอียดการตรวจ/แก้แต่ละหน้าอยู่ใน `WORK_LOG.md` หัวข้อวันที่ 2026-09-08
+> (audit เต็ม 23 หน้าด้วย agent คู่ขนาน 3 ตัว อ่านทุกไฟล์เต็ม ไม่ใช่ grep)
+
 | | ID | หน้า | หมายเหตุจาก audit | เซสชัน |
 |---|---|---|---|---:|
-| [ ] | 2.1 | Permissions | hardcode `roles`(29) `rows`(50) · ไม่มี empty-state | 1 |
-| [ ] | 2.2 | Dashboard + Resources + Energy + ESG | ทำรวดเดียว ใช้ Utility snapshot ร่วมกัน · `resources` hardcode `buildings`(71) | 2.5 |
-| [ ] | 2.3 | Device control | ต้องแยก `queued`/`acknowledged`/`applied` ห้ามบอกว่าสำเร็จตอนแค่ queue | 1.5 |
-| [ ] | 2.4 | Reports | hardcode `data`×3 · export ทำได้เฉพาะจากแถวจริง | 1.5 |
-| [ ] | 2.5 | Buildings + Rooms | อ่านจริงแล้ว แต่ CRUD ยังปลอม — RPC บางส่วนมีแล้วจาก bulk-import | 2 |
-| [ ] | 2.6 | Students + Teachers | ต้องเขียน RPC mutation ใหม่ · homeroom ต้อง atomic | 2 |
-| [ ] | 2.7 | Devices | | 1.5 |
-| [ ] | 2.8 | Settings + Profile | ต้องนิยาม schema settings ระดับโรงเรียน | 1.5 |
-| [ ] | 2.9 | **Scan** | ❌ ไม่ import shared_core เลย — ต่อจากศูนย์ | 2 |
-| [ ] | 2.10 | 🔐 **Import + credential lifecycle** | **blocker**: สร้างผู้ใช้ด้วย `Test1234!` ไม่บังคับเปลี่ยน — ต้องแก้ก่อนเปิดใช้ import | 2 |
+| [x] | 2.1 | Permissions | ✅ **ปิดแล้ว 2026-09-08** — เมทริกซ์สิทธิ์จริง (`f2a4d17`/`8b00c76`/`873dbc2`) + filter บทบาท/badge/การ์ดสิทธิ์ที่พังทั้งระบบ (เทียบ label ผิดคำมาตั้งแต่แรก) แก้ครบ (`cb06a9b`) |
+| [x] | 2.2 | Dashboard + Resources + Energy + ESG | ✅ **ปิดแล้ว** — Energy/ESG/Device-control เสร็จ 2026-09-06, export จริงเพิ่ม 2026-09-07/08 (S3), Dashboard sidebar identity ปลอมแก้ 2026-09-08 (`7c091b4`), Resources 3 การ์ด KPI ปลอมสุดท้ายแก้ 2026-09-08 (`1c622dd`) |
+| [x] | 2.3 | Device control | ✅ ปิดแล้ว 2026-09-06 — แยก queued/acknowledged/applied ครบ ยืนยันสะอาดอีกครั้งตอน audit 2026-09-08 |
+| [x] | 2.4 | Reports | ✅ **ปิดแล้ว 2026-09-08** — insights/กราฟปลอม + export ปลอม แก้ครบ (`1202caf`/`f0e71e8`) |
+| [x] | 2.5 | Buildings + Rooms | ✅ **ปิดแล้ว 2026-09-08** — เจอบั๊กอยู่ที่ RPC `list_school_rooms` เอง (hardcode count/status ทุกห้อง) ไม่ใช่แค่ Dart แก้ทั้ง SQL+Dart (`ea8d1c5`) |
+| [x] | 2.6 | Students + Teachers | ✅ ยืนยันสะอาดแล้วตอน audit 2026-09-08 — mutation เขียนแล้วอ่านย้อนกลับมายืนยันก่อนบอกสำเร็จ ไม่มีของปลอม |
+| [x] | 2.7 | Devices | ✅ ยืนยันสะอาดแล้วตอน audit 2026-09-08 |
+| [x] | 2.8 | Settings + Profile | ✅ Settings สะอาดอยู่แล้ว · Profile มี fake-success 3 ปุ่ม + ฟิลด์ hardcode 5 จุด แก้ครบ 2026-09-08 (`7c091b4`) |
+| [x] | 2.9 | **Scan** | ✅ **ปิดแล้ว 2026-09-08** — เอกสารนี้เขียนผิดไว้ว่า "ไม่ import shared_core" ทั้งที่จริงต่อ backend แล้วตั้งแต่ก่อนหน้า เหลือแค่ประวัติสแกนปลอมที่แก้แล้ว (`b33e55d`, เจอ crash bug จริงแถมมาด้วย) |
+| [ ] | 2.10 | 🔐 **Import + credential lifecycle** | **blocker ยังไม่แก้ ตั้งใจ**: สร้างผู้ใช้ด้วย `Test1234!` ไม่บังคับเปลี่ยน — import นักเรียน/ครูยังถูกบล็อกไว้ด้วยเหตุผลนี้ (ตรวจแล้วว่ายังบล็อกอยู่จริง 2026-09-08) |
 
 ---
 
