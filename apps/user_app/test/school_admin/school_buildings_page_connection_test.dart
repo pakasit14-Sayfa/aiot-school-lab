@@ -200,4 +200,71 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'the monitoring section says so honestly instead of showing invented alerts',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('ยังไม่มีระบบตรวจจับความผิดปกติระดับอาคาร/ห้องในเวอร์ชันนี้'),
+        findsOneWidget,
+      );
+      // The old alerts were hardcoded and unrelated to any loaded data —
+      // they must never come back.
+      expect(find.textContaining('LAB-02'), findsNothing);
+      expect(find.textContaining('อาคารกีฬา'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    '"กำหนดครูประจำอาคาร" is disabled — no RPC assigns a building owner',
+    (tester) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      final tile = find.ancestor(
+        of: find.text('กำหนดครูประจำอาคาร'),
+        matching: find.byType(InkWell),
+      );
+      expect(tile, findsOneWidget);
+      expect(tester.widget<InkWell>(tile).onTap, isNull);
+    },
+  );
+
+  testWidgets(
+    'room type/status filters only ever offer values that actually appear in the data',
+    (tester) async {
+      await _pump(
+        tester,
+        loadRooms: () async => [
+          _room(id: 'r-1', name: 'ห้องเรียน 101', code: 'A-101'),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      // The dead options this used to offer regardless of data must never
+      // reappear — they never matched a real room in this codebase.
+      expect(find.text('ห้องประชุม'), findsNothing);
+      expect(find.text('ห้องสำนักงาน'), findsNothing);
+      expect(find.text('ห้องเก็บอุปกรณ์'), findsNothing);
+      expect(find.text('ปิดใช้งาน'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'audit log rows infer type from the action instead of hardcoding success',
+    (tester) async {
+      await _pump(
+        tester,
+        loadLogs: () async => [_log(action: 'ลบห้อง')],
+      );
+      await tester.pumpAndSettle();
+
+      // A delete action must not render with the same green "success" color
+      // every action used to get regardless of what actually happened.
+      expect(find.text('ลบห้อง • อาคาร 1'), findsOneWidget);
+    },
+  );
 }

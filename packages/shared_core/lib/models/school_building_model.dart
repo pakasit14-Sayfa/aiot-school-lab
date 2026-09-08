@@ -49,14 +49,19 @@ class SchoolRoomRecord {
   final String buildingName;
   final String name;
   final String code;
-  final String floor;
+  // Nullable — `floor` has no schema-level default, so a genuinely-unset
+  // floor must stay null rather than being papered over with a fabricated
+  // 'ชั้น 1'. Same for `resourceStatus`: there's no RPC/column anywhere
+  // that measures a room's "resource status", so it's always null now
+  // instead of a hardcoded 'ปกติ' claiming a health check that never ran.
+  final String? floor;
   final String roomType;
   final int capacity;
   final String teacherName;
   final int devicesCount;
   final int trainingKitsCount;
   final String status;
-  final String resourceStatus;
+  final String? resourceStatus;
 
   const SchoolRoomRecord({
     required this.id,
@@ -65,14 +70,14 @@ class SchoolRoomRecord {
     required this.buildingName,
     required this.name,
     required this.code,
-    required this.floor,
+    this.floor,
     required this.roomType,
     required this.capacity,
     required this.teacherName,
     required this.devicesCount,
     required this.trainingKitsCount,
     required this.status,
-    required this.resourceStatus,
+    this.resourceStatus,
   });
 
   factory SchoolRoomRecord.fromRow(Map<String, dynamic> row) {
@@ -83,14 +88,14 @@ class SchoolRoomRecord {
       buildingName: row['building_name']?.toString() ?? '',
       name: row['name']?.toString() ?? '',
       code: row['code']?.toString() ?? '',
-      floor: row['floor']?.toString() ?? 'ชั้น 1',
+      floor: row['floor']?.toString(),
       roomType: row['room_type']?.toString() ?? 'ห้องเรียน',
       capacity: (row['capacity'] as num?)?.toInt() ?? 30,
       teacherName: row['teacher_name']?.toString() ?? '',
       devicesCount: (row['devices_count'] as num?)?.toInt() ?? 0,
       trainingKitsCount: (row['training_kits_count'] as num?)?.toInt() ?? 0,
       status: row['status']?.toString() ?? 'active',
-      resourceStatus: row['resource_status']?.toString() ?? 'ปกติ',
+      resourceStatus: row['resource_status']?.toString(),
     );
   }
 }

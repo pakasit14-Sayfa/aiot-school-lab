@@ -77,14 +77,17 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                 code: r.code,
                 name: r.name,
                 building: r.buildingName,
-                floor: r.floor,
+                // เดิม RPC/model fabricate 'ชั้น 1' และ 'ปกติ' เมื่อไม่มีค่า
+                // ตอนนี้เป็น null จริงจากต้นทาง จึงต้องบอกตรงๆ ว่ายังไม่มีข้อมูล
+                // แทนการเดาแทนโรงเรียน
+                floor: r.floor ?? 'ยังไม่มีข้อมูล',
                 type: r.roomType,
                 capacity: r.capacity,
                 teacher: r.teacherName,
                 devices: r.devicesCount,
                 trainingKits: r.trainingKitsCount,
                 status: r.status == 'active' ? 'พร้อมใช้งาน' : 'ตรวจสอบ',
-                resourceStatus: r.resourceStatus,
+                resourceStatus: r.resourceStatus ?? 'ยังไม่มีข้อมูล',
               ),
             )
             .toList();
@@ -98,7 +101,11 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                 target: l.target,
                 detail: l.detail.isNotEmpty ? l.detail : l.target,
                 by: l.actorName,
-                type: 'success',
+                // เดิม hardcode 'success' ทุกแถวเขียวหมด ทั้งที่ audit_logs
+                // ไม่มีคอลัมน์ผลลัพธ์เก็บไว้เลย — อนุมานจากชื่อ action
+                // เท่าที่บอกได้จริงเหมือนที่แก้ไว้แล้วใน
+                // school_admin_profile_page.dart
+                type: _logTypeFor(l.action),
               ),
             )
             .toList();
@@ -160,6 +167,19 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
 
   int get _totalDevices =>
       _buildings.fold<int>(0, (sum, item) => sum + item.devices);
+
+  /// `audit_logs` ไม่ได้เก็บสถานะสำเร็จ/ล้มเหลวไว้ ชื่อ action จึงเป็นสิ่งเดียว
+  /// ที่ใช้อนุมานได้ อะไรที่บอกไม่ได้ให้เป็นกลาง ดีกว่าเดาว่าสำเร็จ
+  String _logTypeFor(String action) {
+    final a = action.toLowerCase();
+    if (a.contains('fail') || a.contains('denied') || a.contains('revoke')) {
+      return 'danger';
+    }
+    if (a.contains('delete') || a.contains('suspend') || a.contains('archive')) {
+      return 'warning';
+    }
+    return 'neutral';
+  }
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(
@@ -376,26 +396,31 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(sheetContext).pop();
-                              _showMessage(
-                                'เปิดหน้าอุปกรณ์ของ ${room.code} แล้ว',
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          // เดิมกดแล้วโชว์ 'เปิดหน้าอุปกรณ์ของ ... แล้ว' แต่ไม่
+                          // ได้เปิดอะไรจริง — ยังไม่มีทางกรองหน้าอุปกรณ์ตามห้อง
+                          // ปิดไว้พร้อมเหตุผลแทนปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้น
+                          child: Tooltip(
+                            message: 'หน้าอุปกรณ์ยังไม่รองรับการกรองตามห้องในเวอร์ชันนี้',
+                            child: OutlinedButton.icon(
+                              onPressed: null,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0xFFE2E8F0),
+                                ),
                               ),
-                              side: const BorderSide(color: Color(0xFFE2E8F0)),
-                            ),
-                            icon: const Icon(Icons.memory_rounded, size: 18),
-                            label: const Text(
-                              'ดูอุปกรณ์',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: SchoolAdminPalette.textSecondary,
+                              icon: const Icon(Icons.memory_rounded, size: 18),
+                              label: const Text(
+                                'ดูอุปกรณ์',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  color: SchoolAdminPalette.textSecondary,
+                                ),
                               ),
                             ),
                           ),
@@ -628,13 +653,15 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
         icon: Icons.add_home_work_rounded,
         onTap: () => _openRoomForm(),
       ),
+      // เดิมกดแล้วโชว์ 'เปิดการกำหนดครูประจำอาคาร' โดยไม่เปิดอะไรจริง — และ
+      // role 'ครูประจำอาคาร' เองก็ถูกยุบรวมเข้า school_admin ไปแล้วตั้งแต่
+      // 25 ส.ค. ไม่มี RPC ใดรองรับการกำหนดผู้รับผิดชอบระดับอาคารแบบนี้เลย
       _BuildingQuickActionData(
         title: 'กำหนดครูประจำอาคาร',
         subtitle: 'ระบุผู้รับผิดชอบและรับแจ้งเตือน',
         icon: Icons.engineering_rounded,
-        onTap: () {
-          _showMessage('เปิดการกำหนดครูประจำอาคาร');
-        },
+        onTap: null,
+        disabledReason: 'ยังไม่มีระบบกำหนดผู้รับผิดชอบระดับอาคารในเวอร์ชันนี้',
       ),
       _BuildingQuickActionData(
         title: 'ตรวจพื้นที่ผิดปกติ',
@@ -828,16 +855,17 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
             },
           );
 
+          // เดิม items เป็นลิสต์ hardcode 5/4 ตัวเลือกที่ไม่ตรงกับข้อมูลจริง
+          // เลย — ห้องมีแค่ 'ห้องเรียน'/'ห้องปฏิบัติการ' จริง (ดู seed) และ
+          // สถานะห้องมีแค่ 'พร้อมใช้งาน'/'ตรวจสอบ' (ไม่มี CRUD ให้สร้างค่าอื่น
+          // ได้เลย) ตัวเลือกที่เหลือกรองไม่ได้จริงสักครั้ง — เปลี่ยนเป็นสร้าง
+          // จากข้อมูลที่โหลดจริงเหมือนตัวกรองอาคารด้านบน
           final Widget type = _BuildingFilterDropdown(
             label: 'ประเภทห้อง',
             value: _selectedType,
-            items: const [
+            items: [
               'ทุกประเภท',
-              'ห้องเรียน',
-              'ห้องปฏิบัติการ',
-              'ห้องประชุม',
-              'ห้องสำนักงาน',
-              'ห้องเก็บอุปกรณ์',
+              ..._rooms.map((r) => r.type).toSet(),
             ],
             onChanged: (String value) {
               setState(() => _selectedType = value);
@@ -847,7 +875,10 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
           final Widget status = _BuildingFilterDropdown(
             label: 'สถานะ',
             value: _selectedStatus,
-            items: const ['ทุกสถานะ', 'พร้อมใช้งาน', 'ตรวจสอบ', 'ปิดใช้งาน'],
+            items: [
+              'ทุกสถานะ',
+              ..._rooms.map((r) => r.status).toSet(),
+            ],
             onChanged: (String value) {
               setState(() => _selectedStatus = value);
             },
@@ -1024,16 +1055,15 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                                     case 'edit':
                                       _openRoomForm(room: room);
                                       break;
-                                    case 'devices':
-                                      _showMessage(
-                                        'เปิดรายการอุปกรณ์ของ ${room.code}',
-                                      );
-                                      break;
                                     case 'delete':
                                       _deleteRoom(room);
                                       break;
                                   }
                                 },
+                                // เดิมมีตัวเลือก 'ดูอุปกรณ์ในห้อง' ที่กดแล้วโชว์
+                                // snackbar เฉยๆ ไม่เปิดอะไรจริง — ยังไม่มีทาง
+                                // กรองหน้าอุปกรณ์ตามห้อง เอาออกแทนตัวเลือกที่
+                                // กดแล้วไม่มีอะไรเกิดขึ้น
                                 itemBuilder: (BuildContext context) {
                                   return [
                                     const PopupMenuItem(
@@ -1061,20 +1091,6 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                                           ),
                                           SizedBox(width: 10),
                                           Text('แก้ไขห้อง'),
-                                        ],
-                                      ),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'devices',
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.devices_rounded,
-                                            size: 18,
-                                            color: Color(0xFF475569),
-                                          ),
-                                          SizedBox(width: 10),
-                                          Text('ดูอุปกรณ์ในห้อง'),
                                         ],
                                       ),
                                     ),
@@ -1130,35 +1146,24 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
   Widget _buildMonitoring() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
+        // เดิมเป็น _BuildingAlertRow 3 แถว hardcode ตายตัว
+        // ('LAB-02 • อาคารปฏิบัติการ • 2 อุปกรณ์' ฯลฯ) ไม่มี RPC ใดในระบบ
+        // ให้รายการ "จุดที่ควรตรวจสอบ" ระดับอาคาร/ห้องเลย — แสดงตรงๆ ว่ายัง
+        // ไม่มีข้อมูลแทนการเดา
         const Widget alerts = _BuildingSectionCard(
           title: 'รายการที่ควรตรวจสอบ',
           subtitle: 'รวมพื้นที่ที่อุปกรณ์หรือการใช้ทรัพยากรมีความผิดปกติ',
-          child: Column(
-            children: [
-              _BuildingAlertRow(
-                icon: Icons.memory_rounded,
-                title: 'อุปกรณ์ออฟไลน์',
-                detail: 'LAB-02 • อาคารปฏิบัติการ • 2 อุปกรณ์',
-                status: 'เร่งด่วน',
-                color: SchoolAdminPalette.red,
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: Text(
+                'ยังไม่มีระบบตรวจจับความผิดปกติระดับอาคาร/ห้องในเวอร์ชันนี้',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
               ),
-              SizedBox(height: 9),
-              _BuildingAlertRow(
-                icon: Icons.water_drop_rounded,
-                title: 'การใช้น้ำสูงกว่าปกติ',
-                detail: 'B-101 • อาคารเรียน B',
-                status: 'ตรวจสอบ',
-                color: SchoolAdminPalette.secondary,
-              ),
-              SizedBox(height: 9),
-              _BuildingAlertRow(
-                icon: Icons.sensors_rounded,
-                title: 'เซนเซอร์อาคารกีฬารอตรวจสอบ',
-                detail: 'อาคารกีฬา • 1 จุด',
-                status: 'ติดตาม',
-                color: SchoolAdminPalette.primaryDark,
-              ),
-            ],
+            ),
           ),
         );
 
@@ -1456,7 +1461,7 @@ class _BuildingQuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final Widget card = Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
@@ -1522,6 +1527,17 @@ class _BuildingQuickActionCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (data.onTap == null) {
+      return Opacity(
+        opacity: 0.55,
+        child: Tooltip(
+          message: data.disabledReason ?? 'ยังไม่เปิดใช้งาน',
+          child: card,
+        ),
+      );
+    }
+    return card;
   }
 }
 
@@ -1561,6 +1577,18 @@ class _BuildingRoomsBrowserSheetState
   List<String> get _floors {
     final List<String> values = widget.rooms
         .map((_RoomRecord room) => room.floor)
+        .toSet()
+        .toList();
+
+    values.sort();
+    return values;
+  }
+
+  // เดิม dropdown สถานะด้านล่างมีตัวเลือก 'ปิดใช้งาน' hardcode ตายตัว ทั้งที่
+  // room.status ไม่เคยเป็นค่านั้นได้เลย (map แค่ 'พร้อมใช้งาน'/'ตรวจสอบ')
+  List<String> get _statuses {
+    final List<String> values = widget.rooms
+        .map((_RoomRecord room) => room.status)
         .toSet()
         .toList();
 
@@ -1954,22 +1982,16 @@ class _BuildingRoomsBrowserSheetState
                     child: DropdownButton<String>(
                       value: _selectedStatus,
                       isExpanded: true,
-                      items: const [
-                        DropdownMenuItem<String>(
+                      items: [
+                        const DropdownMenuItem<String>(
                           value: 'ทุกสถานะ',
                           child: Text('ทุกสถานะ'),
                         ),
-                        DropdownMenuItem<String>(
-                          value: 'พร้อมใช้งาน',
-                          child: Text('พร้อมใช้งาน'),
-                        ),
-                        DropdownMenuItem<String>(
-                          value: 'ตรวจสอบ',
-                          child: Text('ตรวจสอบ'),
-                        ),
-                        DropdownMenuItem<String>(
-                          value: 'ปิดใช้งาน',
-                          child: Text('ปิดใช้งาน'),
+                        ..._statuses.map(
+                          (s) => DropdownMenuItem<String>(
+                            value: s,
+                            child: Text(s),
+                          ),
                         ),
                       ],
                       onChanged: (String? value) {
@@ -2202,10 +2224,16 @@ class _BuildingRoomBrowserCard extends StatelessWidget {
     return SchoolAdminPalette.red;
   }
 
+  // ไม่มีสัญญาณ 'resource_status' จริงจาก backend เลย (ดู
+  // list_school_rooms) 'ยังไม่มีข้อมูล' ต้องเป็นสีกลาง ไม่ใช่แดง — แดงคือ
+  // "มีปัญหา" ซึ่งเป็นการเดาเกินสิ่งที่ระบบรู้จริงเหมือนกับที่เคย hardcode
+  // 'ปกติ' เขียวมาก่อน
   Color get _resourceColor {
-    return room.resourceStatus == 'ปกติ'
-        ? SchoolAdminPalette.green
-        : SchoolAdminPalette.red;
+    if (room.resourceStatus == 'ปกติ') return SchoolAdminPalette.green;
+    if (room.resourceStatus == 'ยังไม่มีข้อมูล') {
+      return SchoolAdminPalette.textMuted;
+    }
+    return SchoolAdminPalette.red;
   }
 
   @override
@@ -2990,65 +3018,6 @@ class _BuildingFilterDropdown extends StatelessWidget {
 }
 
 
-class _BuildingAlertRow extends StatelessWidget {
-  const _BuildingAlertRow({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.status,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String title;
-  final String detail;
-  final String status;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Row(
-        children: [
-          _BuildingIconBox(icon: icon, color: color),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    height: 1.35,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          _BuildingBadge(label: status, color: color),
-        ],
-      ),
-    );
-  }
-}
-
 class _BuildingManagerRow extends StatelessWidget {
   const _BuildingManagerRow({required this.building});
 
@@ -3377,12 +3346,14 @@ class _BuildingQuickActionData {
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    this.disabledReason,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String? disabledReason;
 }
 
 class _BuildingRecord {
