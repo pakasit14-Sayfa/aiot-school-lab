@@ -618,26 +618,6 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(
-                      Icons.check_circle_outline_rounded,
-                      size: 13,
-                      color: Color(0xFF059669),
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'ปิดเหตุเมื่อ 10:48 น. (ระงับเหตุใน 6 นาที)',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF047857),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -914,45 +894,45 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     final activeEvt = _activeRealEmergencyEvent;
     final bool hasActiveReal = activeIncident != null || activeEvt != null;
 
+    // เดิมมี fallback ท้ายสุดของทุกตัวแปรด้านล่างเป็นเหตุการณ์ปลอมล้วน
+    // ('นักเรียนหญิงหมดสติระหว่างเรียนคณิตศาสตร์...', 'ครูสมหญิง ใจดี' ฯลฯ)
+    // แต่ widget นี้ถูกเรียกจาก _sosPanel() เฉพาะตอน `!sosResolved` เท่านั้น
+    // และ `sosResolved = inc == null && evt == null` เสมอ — แปลว่า
+    // activeIncident/activeEvt ต้องมีตัวใดตัวหนึ่งไม่เป็น null จริง ทาง
+    // fallback ปลอมจึงเป็นโค้ดที่ไปไม่ถึงจริง (unreachable) เอาออกเพื่อไม่
+    // ให้เป็นความเสี่ยง regression ในอนาคต
+    assert(
+      hasActiveReal,
+      '_sosActiveCard ถูกเรียกได้เฉพาะตอนมีเหตุจริงเท่านั้น',
+    );
+
     final titleText = activeIncident != null
         ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
             ? 'SOS จากนักเรียน ห้อง ${activeIncident.room}'
             : 'SOS จากนักเรียน')
-        : (activeEvt != null
-            ? 'เหตุฉุกเฉินจาก ${activeEvt.deviceName}'
-            : 'SOS จากนักเรียน ห้อง ม.3/2');
+        : 'เหตุฉุกเฉินจาก ${activeEvt!.deviceName}';
 
     final reasonText = activeIncident != null
         ? 'ประเภทเหตุ: ${activeIncident.reason ?? "สัญญาณฉุกเฉิน (SOS)"}'
-        : (activeEvt != null
-            ? 'ประเภทเหตุ: ปุ่มกดแจ้งเหตุฉุกเฉิน'
-            : 'ประเภทเหตุ: เจ็บป่วยฉุกเฉิน (นักเรียนหมดสติในคาบเรียน)');
+        : 'ประเภทเหตุ: ปุ่มกดแจ้งเหตุฉุกเฉิน';
 
     final locationChip = activeIncident != null
         ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
             ? 'ห้อง ${activeIncident.room}'
             : 'บริเวณโรงเรียน')
-        : (activeEvt != null
-            ? activeEvt.location
-            : 'อาคาร 3 ชั้น 2');
+        : activeEvt!.location;
 
     final sensorChip = activeIncident != null
         ? 'แอปนักเรียน (SOS)'
-        : (activeEvt != null
-            ? activeEvt.deviceName
-            : 'ปุ่ม SOS ห้อง ม.3/2');
+        : activeEvt!.deviceName;
 
     final reporterChip = activeIncident != null
         ? 'ผู้แจ้ง: ${activeIncident.reporterName.isNotEmpty ? activeIncident.reporterName : "นักเรียน"}'
-        : (activeEvt != null
-            ? 'ไม่มี (แจ้งเตือนจากอุปกรณ์)'
-            : 'ผู้แจ้ง: ครูสมหญิง ใจดี');
+        : 'ไม่มี (แจ้งเตือนจากอุปกรณ์)';
 
     final timeChip = activeIncident != null
         ? 'แจ้งเมื่อ ${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, '0')}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, '0')} น.'
-        : (activeEvt != null
-            ? 'แจ้งเมื่อ ${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, '0')}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, '0')} น.'
-            : 'แจ้งเมื่อ 10:42:18 น.');
+        : 'แจ้งเมื่อ ${activeEvt!.triggeredAt.toLocal().hour.toString().padLeft(2, '0')}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, '0')} น.';
 
     final timerText = activeIncident != null
         ? () {
@@ -961,22 +941,18 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
             if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
             return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
           }()
-        : (activeEvt != null
-            ? () {
-                final diff = DateTime.now().toUtc().difference(activeEvt.triggeredAt.toUtc());
-                if (diff.inMinutes < 1) return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
-                if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
-                return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
-              }()
-            : 'แจ้งมา 28 วินาทีที่แล้ว');
+        : () {
+            final diff = DateTime.now().toUtc().difference(activeEvt!.triggeredAt.toUtc());
+            if (diff.inMinutes < 1) return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
+            if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
+            return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
+          }();
 
     final narrativeText = activeIncident != null
         ? (activeIncident.reason != null && activeIncident.reason!.isNotEmpty
             ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือ: "${activeIncident.reason}" กำลังประสานผู้ที่เกี่ยวข้องเข้าช่วยเหลือทันที'
             : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS')
-        : (activeEvt != null
-            ? 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt.location}'
-            : 'นักเรียนหญิงหมดสติระหว่างเรียนคณิตศาสตร์ ครูประจำวิชากำลังปฐมพยาบาลเบื้องต้น ประสานครูห้องพยาบาลและครูเวรเข้าช่วยเหลือ ระบบส่งพิกัดให้ผู้อำนวยการและครูเวรแล้ว');
+        : 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt!.location}';
 
     return Container(
       width: double.infinity,
