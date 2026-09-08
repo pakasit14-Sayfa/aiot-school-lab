@@ -79,6 +79,10 @@ class TeacherKnowledgeLibraryPage extends StatefulWidget {
 class _TeacherKnowledgeLibraryPageState
     extends State<TeacherKnowledgeLibraryPage> {
   bool _isLoading = true;
+  // เดิม error ใดๆ (session หมดอายุ, RPC ล้ม, ฯลฯ) ถูกกลืนแล้วสลับไปโชว์
+  // ห้องสมุดปลอม 2 วิชา ('AIoT สมาร์ตแล็บ'/'ฟิสิกส์ประยุกต์') ทันทีโดยไม่มี
+  // error banner เลย — ครูจะเห็นข้อมูลที่ดูสมจริงทั้งที่จริงคือโหลดพัง
+  bool _hasError = false;
   List<TeacherLibrarySubject> _subjects = [];
   int _selectedIndex = 0;
 
@@ -94,7 +98,10 @@ class _TeacherKnowledgeLibraryPageState
   }
 
   Future<void> _loadLibraryData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
 
     try {
       if (AuthService.sessionToken != null) {
@@ -165,62 +172,22 @@ class _TeacherKnowledgeLibraryPageState
           });
         }
       } else {
-        _loadFallbackMock();
+        if (!mounted) return;
+        setState(() {
+          _subjects = [];
+          _isLoading = false;
+          _hasError = true;
+        });
       }
-    } catch (_) {
-      _loadFallbackMock();
+    } catch (e) {
+      debugPrint('TeacherKnowledgeLibraryPage load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _subjects = [];
+        _isLoading = false;
+        _hasError = true;
+      });
     }
-  }
-
-  void _loadFallbackMock() {
-    if (!mounted) return;
-    setState(() {
-      _subjects = [
-        TeacherLibrarySubject(
-          id: 'mock-1',
-          code: 'AIOT-501',
-          name: 'AIoT สมาร์ตแล็บ',
-          icon: Icons.memory_rounded,
-          color: TeacherPalette.primary,
-          files: [
-            TeacherLibraryFile(
-              id: 'f1',
-              name: 'แผนการสอน_AIoT-501.pdf',
-              typeLabel: 'PDF',
-              sizeLabel: '1.8 MB',
-              color: _colorForExtension('PDF'),
-              category: 'เอกสารประจำวิชา',
-            ),
-            TeacherLibraryFile(
-              id: 'f2',
-              name: 'โมเดล 3D_เซนเซอร์ PM2.5.glb',
-              typeLabel: '3D',
-              sizeLabel: '5.6 MB',
-              color: _colorForExtension('GLB'),
-              category: 'บทที่ 13',
-            ),
-          ],
-        ),
-        TeacherLibrarySubject(
-          id: 'mock-2',
-          code: 'PHYS-302',
-          name: 'ฟิสิกส์ประยุกต์',
-          icon: Icons.bolt_rounded,
-          color: TeacherPalette.skyDeep,
-          files: [
-            TeacherLibraryFile(
-              id: 'f4',
-              name: 'แผนการสอน_PHYS-302.pdf',
-              typeLabel: 'PDF',
-              sizeLabel: '1.2 MB',
-              color: _colorForExtension('PDF'),
-              category: 'เอกสารประจำวิชา',
-            ),
-          ],
-        ),
-      ];
-      _isLoading = false;
-    });
   }
 
   Future<void> _openUploadSheet() async {
@@ -310,43 +277,38 @@ class _TeacherKnowledgeLibraryPageState
     }
   }
 
+  // เดิมเช็ค "เป็นไฟล์ mock หรือไม่" จาก id ขึ้นต้นด้วย 'f' — ตอนนี้ไม่มีไฟล์
+  // mock ในหน้านี้แล้ว (ลบ _loadFallbackMock ทิ้งไปแล้ว) ทุกไฟล์ที่แสดงเป็น
+  // ไฟล์จริงจาก CourseFileService เสมอ จึงเรียก getDownloadUrl ตรงๆ ได้เลย
+  // ไม่ต้องเดาจาก id อีกต่อไป (เดิมมีความเสี่ยงที่ id จริงขึ้นต้นด้วย 'f'
+  // จะถูกเข้าใจผิดว่าเป็นไฟล์ mock)
   Future<void> _downloadFile(TeacherLibraryFile file) async {
-    if (AuthService.sessionToken != null && !file.id.startsWith('f')) {
-      try {
-        final url = await CourseFileService.getDownloadUrl(file.id);
-        final uri = Uri.parse(url);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('เปิดลิงก์ดาวน์โหลด: "${file.name}"'),
-                backgroundColor: const Color(0xFF10B981),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        }
-      } catch (e) {
+    try {
+      final url = await CourseFileService.getDownloadUrl(file.id);
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('ไม่สามารถดาวน์โหลดไฟล์ได้: $e'),
-              backgroundColor: const Color(0xFFEF4444),
+              content: Text('เปิดลิงก์ดาวน์โหลด: "${file.name}"'),
+              backgroundColor: const Color(0xFF10B981),
               behavior: SnackBarBehavior.floating,
             ),
           );
         }
       }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('กำลังเปิดไฟล์: "${file.name}"'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ไม่สามารถดาวน์โหลดไฟล์ได้: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -392,6 +354,43 @@ class _TeacherKnowledgeLibraryPageState
         ),
       ],
       builder: (context, isDesktop) {
+        // แยก "โหลดไม่สำเร็จ" ออกจาก "ไม่มีรายวิชาจริง" — เดิมทั้งสองเคส
+        // กลืนรวมกันเป็นห้องสมุดปลอมที่ดูเหมือนโหลดสำเร็จ
+        if (_hasError) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 40,
+                  color: Color(0xFFEF4444),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'โหลดข้อมูลคลังความรู้ไม่สำเร็จ',
+                  style: TextStyle(
+                    color: TeacherPalette.ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _loadLibraryData,
+                  child: const Text('ลองใหม่'),
+                ),
+              ],
+            ),
+          );
+        }
         if (_subjects.isEmpty) {
           return Container(
             width: double.infinity,
