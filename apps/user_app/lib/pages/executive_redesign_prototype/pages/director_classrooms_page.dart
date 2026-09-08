@@ -3,6 +3,8 @@ import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
+import '../widgets/classroom_attendance_card.dart';
+import '../controllers/classroom_attendance_controller.dart';
 
 /// Read seams so loading / data / empty / failure can each be driven in a test.
 typedef ClassroomsOverviewLoader = Future<ClassroomsOverviewItem?> Function();
@@ -90,21 +92,14 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   String selectedTrack = 'ทุกสายการเรียน';
   String selectedAssignmentFilter = 'ทั้งหมด';
 
-  final List<String> grades = const [
+  List<String> get grades => [
     'ทุกระดับชั้น',
-    'ม.1',
-    'ม.2',
-    'ม.3',
-    'ม.4',
-    'ม.5',
-    'ม.6',
+    ...({for (final r in classrooms) r.grade}.toList()..sort()),
   ];
 
-  final List<String> tracks = const [
+  List<String> get tracks => [
     'ทุกสายการเรียน',
-    'ทั่วไป',
-    'วิทย์ - คณิต',
-    'สายภาษา',
+    ...({for (final r in classrooms) r.track}.toList()..sort()),
   ];
 
   final List<String> assignmentFilters = const [
@@ -153,41 +148,13 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
           roomNumber: h.room,
           homeroomTeacher: h.teacherName ?? 'ยังไม่มีครูประจำชั้น',
           students: h.studentCount,
-          nextClass: _nextClassFor(h.room),
+          nextClass: 'ยังจับคู่รายห้องไม่ได้',
           color: palette[i % palette.length],
         ),
       );
     }
     rows.sort((a, b) => a.room.compareTo(b.room));
     return rows;
-  }
-
-  /// The next scheduled period for a room, from the real timetable. Returns a
-  /// plain "ไม่มีคาบ" rather than inventing one.
-  String _nextClassFor(String room) {
-    final now = DateTime.now();
-    final today = now.weekday;
-    final nowMinutes = now.hour * 60 + now.minute;
-
-    int? toMinutes(String hhmm) {
-      final parts = hhmm.split(':');
-      if (parts.length < 2) return null;
-      final h = int.tryParse(parts[0]);
-      final m = int.tryParse(parts[1]);
-      if (h == null || m == null) return null;
-      return h * 60 + m;
-    }
-
-    final todays =
-        _schedules
-            .where((s) => s.room == room && s.dayOfWeek == today)
-            .where((s) => (toMinutes(s.startTime) ?? -1) >= nowMinutes)
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    if (todays.isEmpty) return 'ไม่มีคาบที่เหลือวันนี้';
-    final next = todays.first;
-    return '${next.subjectName} ${next.startTime.substring(0, 5)}';
   }
 
   @override
@@ -863,6 +830,14 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
           const SizedBox(height: 14),
           _roomSummaryCards(room),
           const SizedBox(height: 16),
+          ClassroomAttendanceCard(
+            key: ValueKey(room.room),
+            controller: ClassroomAttendanceController(
+              grade: room.grade,
+              room: room.roomNumber,
+            ),
+          ),
+          const SizedBox(height: 16),
 
           LayoutBuilder(
             builder: (context, constraints) {
@@ -1247,7 +1222,7 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              'ยังไม่มีข้อมูลรายห้องสำหรับการมาเรียน งานค้าง หรือการติดตามนักเรียน '
+              'ยังไม่มีข้อมูลสรุปรายห้องสำหรับงานค้างหรือการติดตามนักเรียน '
               'ดูรายละเอียดได้ที่หน้าของครูประจำชั้นและระบบดูแลช่วยเหลือนักเรียน',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -1558,8 +1533,8 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'ดูรายวิชา ครูผู้สอน และสถานะการเรียนของแต่ละคาบ',
+          Text(
+            'มีตารางสอนทั้งโรงเรียน ${_schedules.length} คาบ แต่ยังจับคู่กับกลุ่มนักเรียนห้องนี้ไม่ได้ เลขห้องเรียนในตารางสอนไม่ใช่รหัสกลุ่มนักเรียน',
             style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
@@ -1847,33 +1822,8 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   List<_SubjectPerformance> _subjectsFor(_ClassroomData room) =>
       const <_SubjectPerformance>[];
 
-  /// The room's real timetable for today, from `list_all_school_schedules`.
-  ///
-  /// Was a const list of six periods with invented teacher names — ครูจิราพร
-  /// ตั้งใจ and others — and a "สอนแล้ว / กำลังสอน" status that nothing
-  /// tracks. The RPC gives subject, room, day and start/end time; whether a
-  /// teacher actually started a period on time is not recorded anywhere, so
-  /// no status is claimed.
-  List<_TimetableItem> _timetableFor(_ClassroomData room) {
-    final today = DateTime.now().weekday;
-    final todays =
-        _schedules
-            .where((s) => s.room == room.roomNumber && s.dayOfWeek == today)
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    return [
-      for (final s in todays)
-        _TimetableItem(
-          time: s.startTime.substring(0, 5),
-          subject: s.subjectName,
-          teacher: '',
-          room: s.room ?? room.roomNumber,
-          status: '',
-          color: AppPalette.learningBlue,
-        ),
-    ];
-  }
+  /// A physical teaching location does not identify a student cohort.
+  List<_TimetableItem> _timetableFor(_ClassroomData room) => const [];
 
   /// Empty: nothing records homeroom-teacher activity per room.
   List<_TeacherActivity> _teacherActivitiesFor(_ClassroomData room) =>

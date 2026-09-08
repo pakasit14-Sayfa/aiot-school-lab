@@ -1,5 +1,26 @@
 # Executive (ผู้บริหาร / Director) — backend capability survey
 
+## Classroom attendance update — 2026-09-08 (partial connection)
+
+Room details now read `HomeroomService.listSchoolAttendance` through
+`ClassroomAttendanceController`, matching BOTH raw grade and room. Date selection,
+refresh, loading, empty, failure and confirmed counts are distinct. Unknown
+attendance is never classified as absent; percentage uses present + late over
+recorded students only, with the denominator visible. Historical dates use the
+current active cohort, not a reconstructed historical enrollment list. The live
+local RPC confirms executive access and current school/year scoping.
+
+Grade and track filters now derive from real classroom rows. Removed unsafe
+schedule matching on bare room number: `class_schedules.room` is a teaching
+location and the school schedule RPC does not identify a grade/cohort. The UI
+now explicitly says that a per-class timetable cannot yet be matched; no
+cross-grade schedule is presented as confirmed. This supersedes earlier claims
+that the per-room next period was connected correctly.
+
+Still incomplete: course/cohort timetable mapping, per-room assignments and
+subject score aggregates, support case summary, and rooms without homeroom
+assignment coverage. Browser verification remains deferred by the user.
+
 ## Academic calendar update — 2026-09-08 (browser QA pending)
 
 The executive calendar now combines school events and schedules with

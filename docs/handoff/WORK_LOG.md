@@ -544,3 +544,31 @@ Final app regression: 516 passed / 22 existing failures, compared with 513/22
 before this ticket. Logs are outside Git in ../bug3-validation/calendar-focused.log,
 calendar-regression-final.log and calendar-analyze-final.log. Web hot restart
 completed successfully; this is build verification, not browser interaction QA.
+
+### 2026-09-08 — Classroom attendance and unsafe schedule matching
+
+Continued the next executive connection task after calendar, with CCTV streaming
+still deferred by the user. Room details now show real dated homeroom attendance
+via an existing domain service and a dedicated controller. Both grade and room
+must match. Unknowns remain unknown; percentage labels its recorded denominator
+and current active cohort. Stale async date results are discarded. Added retry
+and date selection with loading/empty/error/data states.
+
+Live local list_school_homeroom_attendance allows executive and scopes active
+students to the actor school/current academic year. No SQL change. Inspection
+also found list_all_school_schedules exposes physical room text without cohort
+identity: the old bare room-number comparison could mix different grades.
+Disabled that interpretation and display an explicit unmatched explanation.
+Grade/track filters now use actual room data rather than fixed example options.
+
+Focused tests: 9/9, including four new attendance tests for loading/empty,
+cross-grade isolation, unknowns, error/retry, recorded denominator and stale-date
+responses. Remaining: actual course/cohort mapping, assignment/score/support
+aggregates, rooms outside homeroom coverage and deferred browser QA. This is a
+partial room connection, not a claim that every classroom feature is complete.
+
+Final regression: user_app 520 passed / 22 existing failures (previous 516/22).
+All three packages analyzed without errors; final app analysis retains 156
+existing findings. Logs: ../bug3-validation/classrooms-focused.log,
+classrooms-regression.log and classrooms-analyze-final.log. Local web hot restart
+completed successfully. Browser QA is deferred; no push or production deployment.
