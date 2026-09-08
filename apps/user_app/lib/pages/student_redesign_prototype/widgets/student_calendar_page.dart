@@ -73,7 +73,31 @@ class _CalendarEvent {
 enum _EventFilter { all, schedule, assignment, personal }
 
 class StudentCalendarPage extends StatefulWidget {
-  const StudentCalendarPage({super.key});
+  const StudentCalendarPage({
+    super.key,
+    this.loadCourses,
+    this.loadSchedule,
+    this.loadTasks,
+    this.loadAssignmentsForCourse,
+    this.createTask,
+    this.deleteTask,
+    this.toggleTask,
+  });
+
+  /// Read/write seams, threaded through to the corresponding
+  /// CourseService/CalendarService/AssignmentService static calls in
+  /// production — widget tests supply these to drive real/empty/error
+  /// states and verify mutations without a live Supabase client.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<ClassScheduleSlot>> Function()? loadSchedule;
+  final Future<List<PersonalTask>> Function()? loadTasks;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
+  final Future<void> Function({required String title, required DateTime dueAt})?
+  createTask;
+  final Future<void> Function(String taskId)? deleteTask;
+  final Future<void> Function({required String taskId, required bool done})?
+  toggleTask;
 
   @override
   State<StudentCalendarPage> createState() => _StudentCalendarPageState();
@@ -102,13 +126,14 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final courses = await CourseService.listMyCourses();
-      final schedule = await CalendarService.listMySchedule();
-      final tasks = await CalendarService.listMyPersonalTasks();
+      final courses = await (widget.loadCourses ?? CourseService.listMyCourses)();
+      final schedule = await (widget.loadSchedule ?? CalendarService.listMySchedule)();
+      final tasks = await (widget.loadTasks ?? CalendarService.listMyPersonalTasks)();
 
       final assignmentEvents = <_CalendarEvent>[];
       for (final course in courses) {
-        final assignments = await AssignmentService.listAssignments(course.id);
+        final assignments = await (widget.loadAssignmentsForCourse ??
+            AssignmentService.listAssignments)(course.id);
         for (final a in assignments) {
           if (!a.isPublished || a.dueAt == null) continue;
           final due = a.dueAt!.toLocal();
@@ -284,12 +309,17 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
       hour,
       minute,
     );
-    await CalendarService.createPersonalTask(title: title, dueAt: dueAt);
+    final create =
+        widget.createTask ??
+        ({required String title, required DateTime dueAt}) =>
+            CalendarService.createPersonalTask(title: title, dueAt: dueAt);
+    await create(title: title, dueAt: dueAt);
     await _load();
   }
 
   Future<void> _removeEvent(_CalendarEvent event) async {
-    await CalendarService.deletePersonalTask(event.id);
+    final delete = widget.deleteTask ?? CalendarService.deletePersonalTask;
+    await delete(event.id);
     if (!mounted) return;
     setState(() {
       if (_selectedEvent?.id == event.id) _selectedEvent = null;
@@ -298,10 +328,8 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
   }
 
   Future<void> _toggleDone(_CalendarEvent event) async {
-    await CalendarService.togglePersonalTask(
-      taskId: event.id,
-      done: !event.done,
-    );
+    final toggle = widget.toggleTask ?? CalendarService.togglePersonalTask;
+    await toggle(taskId: event.id, done: !event.done);
     await _load();
   }
 
