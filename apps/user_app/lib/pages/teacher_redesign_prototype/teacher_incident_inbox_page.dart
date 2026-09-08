@@ -115,7 +115,25 @@ class _EmergencyEvent {
 }
 
 class TeacherIncidentInboxPage extends StatefulWidget {
-  const TeacherIncidentInboxPage({super.key});
+  const TeacherIncidentInboxPage({
+    super.key,
+    this.actionsOverride,
+    this.loadEmergencyEvents,
+    this.loadIncidentReports,
+    this.watchIncidents,
+    this.watchEmergencyEvents,
+  });
+
+  /// Read seams threaded to the corresponding EmergencyService/
+  /// IncidentService static calls in production, plus an injectable
+  /// [StaffEmergencyActions] (same controller the already-tested detail
+  /// page takes) so tests can drive acknowledge/close without a live
+  /// Supabase client.
+  final StaffEmergencyActions? actionsOverride;
+  final Future<List<EmergencyEventItem>> Function()? loadEmergencyEvents;
+  final Future<List<TeacherIncidentReport>> Function()? loadIncidentReports;
+  final Stream<List<Map<String, dynamic>>> Function()? watchIncidents;
+  final Stream<List<Map<String, dynamic>>> Function()? watchEmergencyEvents;
 
   @override
   State<TeacherIncidentInboxPage> createState() =>
@@ -193,7 +211,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   @override
   void initState() {
     super.initState();
-    _actions = StaffEmergencyActions(
+    _actions = widget.actionsOverride ?? StaffEmergencyActions(
       acknowledgeIncident: IncidentService.acknowledgeIncidentReport,
       acknowledgeHardware: EmergencyService.acknowledgeEmergencyEvent,
       escalateIncident: IncidentService.escalateIncidentReport,
@@ -204,12 +222,17 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       readStatus: _readEventStatus,
       saveIncidentNote: IncidentService.addIncidentAction,
       readLatestIncidentNote: _readLatestIncidentNote,
-    )..addListener(_actionsChanged);
+    );
+    _actions.addListener(_actionsChanged);
     _loadRealData();
-    _incidentSub = IncidentService.streamIncidentReports().listen((_) {
+    final watchIncidents =
+        widget.watchIncidents ?? IncidentService.streamIncidentReports;
+    final watchEmergency =
+        widget.watchEmergencyEvents ?? EmergencyService.streamEmergencyEvents;
+    _incidentSub = watchIncidents().listen((_) {
       if (mounted) _loadRealData();
     });
-    _emergencySub = EmergencyService.streamEmergencyEvents().listen((_) {
+    _emergencySub = watchEmergency().listen((_) {
       if (mounted) _loadRealData();
     });
   }
@@ -228,9 +251,13 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     final generation = ++_loadGeneration;
     setState(() { _isLoadingRealData = true; _loadError = null; });
     try {
+      final loadEmergency =
+          widget.loadEmergencyEvents ?? EmergencyService.listEmergencyEvents;
+      final loadIncidents = widget.loadIncidentReports ??
+          IncidentService.listStaffIncidentReports;
       final results = await Future.wait<dynamic>([
-        EmergencyService.listEmergencyEvents(),
-        IncidentService.listStaffIncidentReports(),
+        loadEmergency(),
+        loadIncidents(),
       ]);
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
