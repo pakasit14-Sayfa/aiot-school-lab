@@ -16,6 +16,8 @@ class StudentLessonsPage extends StatefulWidget {
     this.showAppBar = true,
     this.courseId,
     this.courseName,
+    this.loadCourses,
+    this.listLessons,
   });
 
   /// false เมื่อฝังเป็นแท็บในเชลล์นำทาง (มี AppBar/title ของตัวเองอยู่แล้ว)
@@ -25,6 +27,11 @@ class StudentLessonsPage extends StatefulWidget {
   /// ระบุ จะโหลดบทเรียนรวมทุกวิชาที่ลงทะเบียนเหมือนเดิม
   final String? courseId;
   final String? courseName;
+
+  /// Read seams threaded to the corresponding CourseService/LessonService
+  /// static calls in production.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<LessonSummary>> Function(String courseId)? listLessons;
 
   @override
   State<StudentLessonsPage> createState() => _StudentLessonsPageState();
@@ -47,9 +54,11 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
       _error = null;
     });
     try {
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadLessons = widget.listLessons ?? LessonService.listLessons;
       final items = <_LessonWithCourse>[];
       if (widget.courseId != null) {
-        final lessons = await LessonService.listLessons(widget.courseId!);
+        final lessons = await loadLessons(widget.courseId!);
         for (final lesson in lessons.where((l) => l.isPublished)) {
           items.add(
             _LessonWithCourse(
@@ -59,11 +68,11 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
           );
         }
       } else {
-        final courses = (await CourseService.listMyCourses())
+        final courses = (await loadCourses())
             .where((c) => c.isActive)
             .toList();
         final lessonLists = await Future.wait(
-          courses.map((c) => LessonService.listLessons(c.id)),
+          courses.map((c) => loadLessons(c.id)),
         );
         for (var i = 0; i < courses.length; i++) {
           for (final lesson in lessonLists[i].where((l) => l.isPublished)) {
@@ -86,10 +95,10 @@ class _StudentLessonsPageState extends State<StudentLessonsPage> {
         _lessons = items;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลไม่สำเร็จ';
         _loading = false;
       });
     }
