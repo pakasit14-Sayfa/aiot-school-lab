@@ -281,6 +281,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
     TeacherIncidentReport? incident,
     EmergencyEventItem? emergencyEvent,
     required String resolutionNote,
+    bool fromDialog = false,
   }) async {
     const failureMessage = 'ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่';
     try {
@@ -301,7 +302,24 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
       return true;
     } catch (error) {
       debugPrint('director_emergency_page: close failed: $error');
-      _showMessage(failureMessage);
+      if (!mounted) return false;
+      if (fromDialog) {
+        // A page SnackBar is obscured by the dialog's modal barrier.
+        await showDialog<void>(
+          context: context,
+          builder: (feedbackContext) => AlertDialog(
+            content: const Text(failureMessage),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(feedbackContext).pop(),
+                child: const Text('ตกลง'),
+              ),
+            ],
+          ),
+        );
+      } else {
+        _showMessage(failureMessage);
+      }
       return false;
     }
   }
@@ -917,6 +935,24 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
     // emergency page — the one screen where a director must be able to trust
     // that what is drawn is happening.
     if (_activeSosIncident == null && _activeRealEmergencyEvent == null) {
+      // An empty initial snapshot is not a confirmed all-clear.
+      if (_isLoadingRealData) {
+        return const Card(
+          child: SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: EdgeInsets.all(26),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 12),
+                  Text('กำลังตรวจสอบสถานะเหตุฉุกเฉิน'),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
       return _noActiveEmergencyCard();
     }
     if (sosResolved) {
@@ -4094,6 +4130,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                               await _closeAndConfirmEmergency(
                                                 incident: inc,
                                                 emergencyEvent: evt,
+                                                fromDialog: true,
                                                 resolutionNote:
                                                     'ผู้อำนวยการรับเรื่องและระงับเหตุเรียบร้อย',
                                               );
@@ -4725,6 +4762,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                       await _closeAndConfirmEmergency(
                                         incident: incident,
                                         emergencyEvent: emergencyEvent,
+                                        fromDialog: true,
                                         resolutionNote: 'ปิดเหตุโดยผู้อำนวยการ',
                                       );
                                   if (closed && dialogContext.mounted) {

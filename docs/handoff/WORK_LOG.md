@@ -307,3 +307,16 @@ Done from a report alone.
 > งานของวันที่ 2026-09-06 (energy · esg · device_control · การตรวจย้อน 5 หน้า)
 > เคยถูกสรุปซ้ำไว้ตรงนี้ — ลบออกแล้วเพราะ commit เก็บครบกว่าและแก้ย้อนหลังไม่ได้
 > ดูด้วย `SINCE='2026-09-06' ./scripts/state.sh --log`
+
+
+## Browser verification — director emergency close, 2026-09-08
+
+Clicked the real DirectorEmergencyPage using temporary localhost-only injected fixtures
+(no backend writes): hero RPC failure and unconfirmed write preserved the open SOS;
+confirmed success removed the active SOS and updated the history status. Both SOS and
+event-detail failures initially rendered the page SnackBar behind the modal barrier.
+After the feedback fix, the browser accessibility tree exposed an Alert with the human
+failure message and ตกลง; dismissing it returned to the still-open incident.
+Docker/Supabase was not running, so live RPC role gates and authenticated acceptance
+remain unverified in this session. Temporary fixture entrypoint/server were removed
+after the check. This verifies the close controls, not all emergency-page mock content.
