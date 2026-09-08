@@ -1,5 +1,21 @@
 # Executive (ผู้บริหาร / Director) — backend capability survey
 
+## Overview update — 2026-09-08 (browser QA pending)
+
+`director_overview_page` now uses `DirectorOverviewController` and existing
+custom-session domain services for registered user counts, device inventory,
+incident report totals, learning tracks, inbox messages and 7/30-day utility
+trends. The running local DB confirms that incident totals include all reports,
+not only open incidents; user counts are current registry counts, not historical
+or active-only enrollment. Charts show actual returned dates only.
+
+Mock graphs, teacher distribution percentages, important-event examples and
+fake detail dialogs were removed. Unsupported teacher workload breakdowns show
+an explicit unavailable explanation. Existing real sensor streams remain.
+Loading/error/retry/empty/data states are covered by focused tests; full app
+regression is 513 passed / 22 existing failures. Browser verification is deferred
+by the user while connecting remaining pages, so this is not a full DoD claim.
+
 **Historical survey: ticket 3.0 of `docs/handoff/MASTER_PLAN_2026-09-06.md`, 2026-09-06.**
 
 **Bug 3 update, 2026-09-08:** meetings, learning and device lookup are now connected

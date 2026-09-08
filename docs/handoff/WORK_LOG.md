@@ -492,3 +492,27 @@ and the count read-only; no rate limit bypass/reset. First slot releases around
 item, refresh, open its meeting source; bulk read persistence in browser.
 Fixture 99829999-0000-0000-0000-000000000001 is labeled QA in the test executive
 inbox and refers to the existing finalized QA meeting. Publishing remains pending.
+
+### 2026-09-08 — Executive overview real-data connection
+
+Replaced overview mock graphs, briefing examples, teacher percentages and fake
+detail dialogs with a controller using existing domain services. Summary cards
+show current registered users, all incident reports and registered devices;
+learning tracks show confirmed percentages. Latest inbox messages navigate to
+notifications. Utility charts reload real readings for 7/30 days and preserve
+missing dates as unknown. Existing sensor streams were extracted into a widget.
+Teacher workload distribution remains explicitly unavailable, without invented
+values. No schema or RPC changes were needed. Live local RPC definitions were
+checked for incident totals, user count semantics and energy date aggregation.
+
+Validation: focused connection tests 3/3; desktop/mobile overview layout audit
+1/1. The layout test now injects both sensor streams to avoid real polling.
+Final full user_app regression: 513 passed / 22 existing failures (no increase).
+Three-package state analysis reports zero errors; user_app has 156 existing
+findings. Logs: ../bug3-validation/overview-test-user_app-final.log,
+overview-analyze.log and overview-state.log (outside repository).
+
+Browser QA remains deferred by the user; this page is not claimed fully verified
+in-browser. No push or production deployment. Remaining executive gaps include
+CCTV inventory/actions, calendar meeting integration and classroom aggregates;
+unsupported domains require actual backend capability before enabling actions.
