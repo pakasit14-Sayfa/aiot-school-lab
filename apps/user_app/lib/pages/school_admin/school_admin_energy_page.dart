@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
+import '../../utils/web_download.dart';
 
 /// Read seams so loading / data / empty / error can each be driven in a test
 /// without a live Supabase client — the same pattern as the School Admin
@@ -9,6 +13,12 @@ typedef EnergySummaryLoader =
 typedef WaterSummaryLoader = Future<WaterUsageSummary?> Function(String period);
 typedef UtilityTrendLoader = Future<List<UtilityTrendPoint>> Function();
 typedef UtilityScoreLoader = Future<UtilityEfficiencyScore?> Function();
+typedef EnergyPageDownloadBytes =
+    void Function({
+      required String filename,
+      required List<int> bytes,
+      required String mimeType,
+    });
 
 class SchoolAdminEnergyPage extends StatefulWidget {
   const SchoolAdminEnergyPage({
@@ -25,6 +35,7 @@ class SchoolAdminEnergyPage extends StatefulWidget {
     this.loadWaterTrend,
     this.loadEnergyScore,
     this.loadWaterScore,
+    this.downloadBytesOverride,
   });
 
   final EnergyUsageSummary? initialEnergySummary;
@@ -40,6 +51,9 @@ class SchoolAdminEnergyPage extends StatefulWidget {
   final UtilityTrendLoader? loadWaterTrend;
   final UtilityScoreLoader? loadEnergyScore;
   final UtilityScoreLoader? loadWaterScore;
+  // Seam for tests: lets a test prove the export button actually calls a
+  // download instead of the old always-succeeds SnackBar with no file.
+  final EnergyPageDownloadBytes? downloadBytesOverride;
 
   @override
   State<SchoolAdminEnergyPage> createState() => _SchoolAdminEnergyPageState();
@@ -132,6 +146,84 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
   String _figure(String? text) {
     if (text != null) return text;
     return _hasError ? 'โหลดไม่สำเร็จ' : 'ยังไม่มีข้อมูล';
+  }
+
+  String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportReport() {
+    final energy = (_energySummary?.deviceCount ?? 0) > 0
+        ? _energySummary
+        : null;
+    final water = (_waterSummary?.deviceCount ?? 0) > 0
+        ? _waterSummary
+        : null;
+    if (energy == null &&
+        water == null &&
+        _energyTrend.isEmpty &&
+        _waterTrend.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก')),
+      );
+      return;
+    }
+
+    final rows = <List<String>>[
+      ['section', 'metric', 'value', 'unit'],
+      if (energy != null) ...[
+        ['summary', 'energy_device_count', '${energy.deviceCount}', 'devices'],
+        ['summary', 'energy_total_kwh', '${energy.totalKwh}', 'kWh'],
+        [
+          'summary',
+          'energy_estimated_cost',
+          '${energy.estimatedCostThb}',
+          'THB',
+        ],
+      ],
+      if (water != null) ...[
+        ['summary', 'water_device_count', '${water.deviceCount}', 'devices'],
+        ['summary', 'water_total_m3', '${water.totalM3}', 'm3'],
+        [
+          'summary',
+          'water_estimated_cost',
+          '${water.estimatedCostThb}',
+          'THB',
+        ],
+      ],
+      for (final point in _energyTrend)
+        [
+          'energy_trend',
+          point.day.toIso8601String().split('T').first,
+          '${point.value}',
+          'kWh',
+        ],
+      for (final point in _waterTrend)
+        [
+          'water_trend',
+          point.day.toIso8601String().split('T').first,
+          '${point.value}',
+          'm3',
+        ],
+    ];
+    final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
+
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'energy_report_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('﻿$csv'),
+      mimeType: 'text/csv',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานแล้ว')));
+    }
   }
 
   @override
@@ -250,27 +342,20 @@ class _SchoolAdminEnergyPageState extends State<SchoolAdminEnergyPage> {
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // Disabled rather than removed: exporting is a real requirement
-              // (schools submit these figures upward), but no export pipeline
-              // exists anywhere in the system. It used to answer every click
-              // with "เตรียมส่งออก… เรียบร้อย" while producing no file at all.
-              Tooltip(
-                message: 'ยังไม่เปิดใช้งาน — ระบบส่งออกไฟล์ยังไม่พร้อมใช้งาน',
-                child: OutlinedButton.icon(
-                  onPressed: null,
-                  icon: const Icon(Icons.download_rounded, size: 18),
-                  label: const Text("ส่งออกรายงาน (ยังไม่เปิดใช้งาน)"),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 11,
-                    ),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    foregroundColor: const Color(0xFF334155),
+              OutlinedButton.icon(
+                onPressed: _exportReport,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text("ส่งออกรายงาน"),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
                   ),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  foregroundColor: const Color(0xFF334155),
                 ),
               ),
               IconButton(

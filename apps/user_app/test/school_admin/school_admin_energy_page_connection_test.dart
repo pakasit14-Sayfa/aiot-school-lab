@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +48,7 @@ Future<void> _pump(
   UtilityTrendLoader? waterTrend,
   UtilityScoreLoader? energyScore,
   UtilityScoreLoader? waterScore,
+  EnergyPageDownloadBytes? downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1400, 2600);
   tester.view.devicePixelRatio = 1;
@@ -63,6 +65,7 @@ Future<void> _pump(
         loadWaterTrend: waterTrend ?? () async => const <UtilityTrendPoint>[],
         loadEnergyScore: energyScore ?? () async => null,
         loadWaterScore: waterScore ?? () async => null,
+        downloadBytesOverride: downloadBytesOverride,
       ),
     ),
   );
@@ -289,35 +292,61 @@ void main() {
     }
   });
 
-  testWidgets('export is disabled instead of reporting a file it never made', (
+  testWidgets('export downloads a real CSV built from the loaded figures', (
     tester,
   ) async {
-    await _pump(tester, energy: (_) async => _energy);
+    String? downloadedFilename;
+    List<int>? downloadedBytes;
+
+    await _pump(
+      tester,
+      energy: (_) async => _energy,
+      water: (_) async => _water,
+      downloadBytesOverride:
+          ({
+            required String filename,
+            required List<int> bytes,
+            required String mimeType,
+          }) {
+            downloadedFilename = filename;
+            downloadedBytes = bytes;
+          },
+    );
     await tester.pumpAndSettle();
 
-    final label = find.text('ส่งออกรายงาน (ยังไม่เปิดใช้งาน)');
-    expect(label, findsOneWidget);
-    // `OutlinedButton.icon` builds a private subclass, and `find.byType`
-    // compares the exact runtime type — match on the supertype instead.
-    final button = tester.widget<ButtonStyleButton>(
-      find
-          .ancestor(
-            of: label,
-            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-          )
-          .first,
-    );
-    expect(button.onPressed, isNull);
-    expect(button.enabled, isFalse);
-
-    // And it stays inert when pressed: no snackbar, no claim of a file.
-    await tester.tap(label, warnIfMissed: false);
+    await tester.tap(find.text('ส่งออกรายงาน'));
     await tester.pump();
-    expect(find.byType(SnackBar), findsNothing);
 
-    expect(
-      find.text('เตรียมส่งออกรายงานสรุปพลังงานเป็น Excel/PDF เรียบร้อย'),
-      findsNothing,
-    );
+    expect(downloadedFilename, contains('energy_report_'));
+    expect(downloadedBytes, isNotNull);
+    final csv = utf8.decode(downloadedBytes!, allowMalformed: true);
+    expect(csv, contains('energy_total_kwh'));
+    expect(csv, contains('4520.5'));
+    expect(find.text('ส่งออกรายงานแล้ว'), findsOneWidget);
   });
+
+  testWidgets(
+    'export with no measured data refuses instead of downloading an empty file',
+    (tester) async {
+      var downloadCalled = false;
+      await _pump(
+        tester,
+        downloadBytesOverride:
+            ({
+              required String filename,
+              required List<int> bytes,
+              required String mimeType,
+            }) {
+              downloadCalled = true;
+            },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('ส่งออกรายงาน'));
+      await tester.pump();
+
+      expect(downloadCalled, isFalse);
+      expect(find.text('ยังไม่มีข้อมูลพลังงาน/น้ำให้ส่งออก'), findsOneWidget);
+    },
+  );
 }
