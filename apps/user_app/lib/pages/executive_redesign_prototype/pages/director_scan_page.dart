@@ -32,9 +32,17 @@ class _DirectorScanPageState extends State<DirectorScanPage> {
     await controller.search(result);
   }
 
-  Widget card(String title, List<Widget> children) => DirectorWorkspaceCard(
+  Widget card(
+    String title,
+    List<Widget> children, {
+    Color accent = AppPalette.primaryPinkDark,
+    Color surface = Colors.white,
+    IconData icon = Icons.qr_code_2,
+  }) => DirectorWorkspaceCard(
     title: title,
-    icon: Icons.qr_code_2,
+    icon: icon,
+    accent: accent,
+    surface: surface,
     children: children,
   );
   String known(String? value) =>
@@ -60,117 +68,186 @@ class _DirectorScanPageState extends State<DirectorScanPage> {
                   icon: Icons.qr_code_scanner,
                 ),
                 const SizedBox(height: 20),
-                card('ค้นหาอุปกรณ์ของโรงเรียน', [
-                  const Text(
-                    'ใช้รหัสอุปกรณ์ รหัสชุดฝึก หรือ ID จากทะเบียนอุปกรณ์',
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: code,
-                    onChanged: (_) => controller.clear(),
-                    onSubmitted: controller.search,
-                    decoration: const InputDecoration(
-                      labelText: 'รหัสอุปกรณ์',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: controller.loading
-                            ? null
-                            : () => controller.search(code.text),
-                        icon: const Icon(Icons.search),
-                        label: const Text('ค้นหา'),
+                DirectorWorkspaceGrid(
+                  children: [
+                    card('ค้นหาอุปกรณ์ของโรงเรียน', [
+                      const Text(
+                        'ใช้รหัสอุปกรณ์ รหัสชุดฝึก หรือ ID จากทะเบียนอุปกรณ์',
                       ),
-                      OutlinedButton.icon(
-                        onPressed: controller.loading ? null : scan,
-                        icon: const Icon(Icons.qr_code_scanner),
-                        label: const Text('เปิดกล้องสแกนรหัส'),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: code,
+                        onChanged: (_) => controller.clear(),
+                        onSubmitted: controller.search,
+                        decoration: const InputDecoration(
+                          labelText: 'รหัสอุปกรณ์',
+                          border: OutlineInputBorder(),
+                        ),
                       ),
-                    ],
-                  ),
-                ]),
-                if (controller.loading)
-                  card('กำลังค้นหาอุปกรณ์', [const LinearProgressIndicator()])
-                else if (controller.error != null)
-                  card('ค้นหาไม่สำเร็จ', [
-                    Text(controller.error!),
-                    TextButton(
-                      onPressed: () => controller.search(code.text),
-                      child: const Text('ลองอีกครั้ง'),
-                    ),
-                  ])
-                else if (device != null)
-                  card('พบอุปกรณ์ในทะเบียน', [
-                    Text(
-                      device.name,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: controller.loading
+                                ? null
+                                : () => controller.search(code.text),
+                            icon: const Icon(Icons.search),
+                            label: const Text('ค้นหา'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: controller.loading ? null : scan,
+                            icon: const Icon(Icons.qr_code_scanner),
+                            label: const Text('เปิดกล้องสแกนรหัส'),
+                          ),
+                        ],
                       ),
-                    ),
-                    Text('รหัสอุปกรณ์: ${known(device.deviceCode)}'),
-                    Text('รหัสชุดฝึก: ${known(device.kitCode)}'),
-                    SelectableText('ID: ${device.id}'),
-                    Text('ประเภท: ${device.type}'),
-                    Text(
-                      'สถานะในทะเบียน: ${switch (device.status) {
-                        'online' => 'ออนไลน์',
-                        'offline' => 'ออฟไลน์',
-                        'maintenance' => 'ซ่อมบำรุง',
-                        _ => device.status,
-                      }}',
-                    ),
-                    Text('สถานที่: ${known(device.location)}'),
-                    Text(
-                      'อาคาร: ${known(device.building)} · ห้อง: ${known(device.room)}',
-                    ),
-                  ])
-                else if (controller.searched)
-                  card('ไม่พบอุปกรณ์ในโรงเรียน', [
-                    Text('รหัสที่ค้นหา: ${controller.code}'),
-                    const Text(
-                      'ตรวจสอบรหัสบนป้ายหรือทะเบียนอุปกรณ์แล้วลองใหม่',
-                    ),
-                  ])
-                else
-                  card('ยังไม่ได้ค้นหาอุปกรณ์', [
-                    const Text(
-                      'กรอกรหัสหรือเปิดกล้องสแกนเพื่ออ่านข้อมูลจากทะเบียน',
-                    ),
-                  ]),
-                card('บัตรบุคลากร', [
-                  const Text(
-                    'ยังไม่มีระบบเชื่อมรหัสบนบัตรกับตัวบุคลากร จึงยังยืนยันตัวตนหรือบันทึกเวลาเข้างานจากหน้านี้ไม่ได้',
-                  ),
-                  const OutlinedButton(
-                    onPressed: null,
-                    child: Text('สแกนบัตร / บันทึกเวลาเข้างาน'),
-                  ),
-                ]),
-                card('ยืม–คืนและประวัติการสแกน', [
-                  const Text(
-                    'ยังไม่มีทะเบียนยืม–คืนและระบบบันทึกประวัติการสแกน การค้นหานี้แสดงข้อมูลอุปกรณ์เท่านั้น',
-                  ),
-                  const Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      OutlinedButton(
-                        onPressed: null,
-                        child: Text('บันทึกยืม–คืน'),
+                    ]),
+                    if (controller.loading)
+                      card('กำลังค้นหาอุปกรณ์', [
+                        const LinearProgressIndicator(),
+                      ])
+                    else if (controller.error != null)
+                      card('ค้นหาไม่สำเร็จ', [
+                        Text(controller.error!),
+                        TextButton(
+                          onPressed: () => controller.search(code.text),
+                          child: const Text('ลองอีกครั้ง'),
+                        ),
+                      ])
+                    else if (device != null)
+                      card(
+                        'พบอุปกรณ์ในทะเบียน',
+                        [
+                          Text(
+                            device.name,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppPalette.softBlue,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'รหัสอุปกรณ์: ${known(device.deviceCode)}',
+                                ),
+                                Text('รหัสชุดฝึก: ${known(device.kitCode)}'),
+                                SelectableText('ID: ${device.id}'),
+                                Text('ประเภท: ${device.type}'),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          DirectorStatusPill(
+                            icon: Icons.circle,
+                            color: switch (device.status) {
+                              'online' => AppPalette.success,
+                              'maintenance' => AppPalette.warning,
+                              _ => AppPalette.textMuted,
+                            },
+                            label:
+                                'สถานะในทะเบียน: ${switch (device.status) {
+                                  'online' => 'ออนไลน์',
+                                  'offline' => 'ออฟไลน์',
+                                  'maintenance' => 'ซ่อมบำรุง',
+                                  _ => device.status,
+                                }}',
+                          ),
+                          const SizedBox(height: 12),
+                          Text('สถานที่: ${known(device.location)}'),
+                          Text(
+                            'อาคาร: ${known(device.building)} · ห้อง: ${known(device.room)}',
+                          ),
+                        ],
+                        accent: const Color(0xFF356A9A),
+                        icon: Icons.devices_outlined,
+                      )
+                    else if (controller.searched)
+                      card('ไม่พบอุปกรณ์ในโรงเรียน', [
+                        Text('รหัสที่ค้นหา: ${controller.code}'),
+                        const Text(
+                          'ตรวจสอบรหัสบนป้ายหรือทะเบียนอุปกรณ์แล้วลองใหม่',
+                        ),
+                      ])
+                    else
+                      card(
+                        'ยังไม่ได้ค้นหาอุปกรณ์',
+                        [
+                          const Text(
+                            'กรอกรหัสหรือเปิดกล้องสแกนเพื่ออ่านข้อมูลจากทะเบียน',
+                          ),
+                        ],
+                        accent: const Color(0xFF356A9A),
+                        surface: AppPalette.softBlue,
+                        icon: Icons.manage_search,
                       ),
-                      OutlinedButton(
-                        onPressed: null,
-                        child: Text('ประวัติการสแกน'),
-                      ),
-                    ],
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    'บริการเพิ่มเติม · ยังไม่เปิดใช้งาน',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.textMuted,
+                    ),
                   ),
-                ]),
+                ),
+                DirectorWorkspaceGrid(
+                  children: [
+                    card(
+                      'บัตรบุคลากร',
+                      [
+                        const Text(
+                          'ยังไม่มีระบบเชื่อมรหัสบนบัตรกับตัวบุคลากร จึงยังยืนยันตัวตนหรือบันทึกเวลาเข้างานจากหน้านี้ไม่ได้',
+                        ),
+                        const OutlinedButton(
+                          onPressed: null,
+                          child: Text('สแกนบัตร / บันทึกเวลาเข้างาน'),
+                        ),
+                      ],
+                      accent: AppPalette.textMuted,
+                      surface: AppPalette.softTag,
+                      icon: Icons.badge_outlined,
+                    ),
+                    card(
+                      'ยืม–คืนและประวัติการสแกน',
+                      [
+                        const Text(
+                          'ยังไม่มีทะเบียนยืม–คืนและระบบบันทึกประวัติการสแกน การค้นหานี้แสดงข้อมูลอุปกรณ์เท่านั้น',
+                        ),
+                        const Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: null,
+                              child: Text('บันทึกยืม–คืน'),
+                            ),
+                            OutlinedButton(
+                              onPressed: null,
+                              child: Text('ประวัติการสแกน'),
+                            ),
+                          ],
+                        ),
+                      ],
+                      accent: AppPalette.textMuted,
+                      surface: AppPalette.softTag,
+                      icon: Icons.history,
+                    ),
+                  ],
+                ),
               ],
             ),
           );

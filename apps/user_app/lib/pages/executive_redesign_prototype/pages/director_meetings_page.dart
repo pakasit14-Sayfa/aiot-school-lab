@@ -201,76 +201,93 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                     padding: EdgeInsets.all(20),
                     child: Text('ไม่พบประชุมที่ตรงกับตัวกรอง'),
                   ),
-                for (final m in records)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(24),
-                        onTap: () => open(m.id),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: directorWhiteCard(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                DirectorWorkspaceGrid(
+                  children: [
+                    for (final m in records)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(24),
+                            onTap: () => open(m.id),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: directorWhiteCard(),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    m.isPrivate
-                                        ? Icons.lock_outline
-                                        : Icons.groups_outlined,
-                                    size: 22,
-                                    color: AppPalette.primaryPinkDark,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      m.title,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        m.isPrivate
+                                            ? Icons.lock_outline
+                                            : Icons.groups_outlined,
+                                        size: 22,
+                                        color: AppPalette.primaryPinkDark,
                                       ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          m.title,
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const Icon(Icons.chevron_right),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 18),
+                                  const Divider(
+                                    height: 1,
+                                    color: AppPalette.border,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    '${m.numberLabel} · ${meetingStatus(m.status)}',
+                                  ),
+                                  Text(
+                                    '${meetingDate(m.startAt)} · ${m.location?.isNotEmpty == true ? m.location : 'ยังไม่ระบุสถานที่'}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF356A9A),
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.8,
                                     ),
                                   ),
-                                  const Icon(Icons.chevron_right),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'ผู้เข้าร่วม ${m.attendeeCount} คน · ตอบรับ ${m.acceptedCount} · รอตอบรับ ${m.pendingCount}',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      DirectorStatusPill(
+                                        label: m.minutesLabel,
+                                        color: const Color(0xFF356A9A),
+                                        icon: Icons.description_outlined,
+                                      ),
+                                      if (m.pendingCount > 0)
+                                        DirectorStatusPill(
+                                          label:
+                                              'รอตอบรับ ${m.pendingCount} คน',
+                                          color: const Color(0xFF956419),
+                                          icon: Icons.schedule,
+                                        ),
+                                    ],
+                                  ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '${m.numberLabel} · ${meetingStatus(m.status)}',
-                              ),
-                              Text(
-                                '${meetingDate(m.startAt)} · ${m.location?.isNotEmpty == true ? m.location : 'ยังไม่ระบุสถานที่'}',
-                              ),
-                              Text(
-                                'ผู้เข้าร่วม ${m.attendeeCount} คน · ตอบรับ ${m.acceptedCount} · รอตอบรับ ${m.pendingCount}',
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppPalette.primaryPinkSoft,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  m.minutesLabel,
-                                  style: const TextStyle(
-                                    color: AppPalette.primaryPinkDark,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
+                  ],
+                ),
               ],
             ],
           ),

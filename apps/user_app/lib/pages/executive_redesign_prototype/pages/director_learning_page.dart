@@ -38,15 +38,27 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     if (date != null && mounted) await controller.load(onDate: date);
   }
 
-  Widget card(String title, List<Widget> children) => DirectorWorkspaceCard(
+  Widget card(
+    String title,
+    List<Widget> children, {
+    Color accent = AppPalette.primaryPinkDark,
+    Color surface = Colors.white,
+    IconData icon = Icons.school_outlined,
+  }) => DirectorWorkspaceCard(
     title: title,
-    icon: Icons.school_outlined,
+    icon: icon,
+    accent: accent,
+    surface: surface,
     children: children,
   );
-  Widget metric(String title, String value) => Container(
+  Widget metric(
+    String title,
+    String value, {
+    Color color = AppPalette.primaryPinkDark,
+  }) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: AppPalette.primaryPinkSoft,
+      color: color.withAlpha(22),
       borderRadius: BorderRadius.circular(18),
     ),
     width: 180,
@@ -56,10 +68,10 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
         Text(title),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w800,
-            color: AppPalette.primaryPinkDark,
+            color: color,
           ),
         ),
       ],
@@ -135,14 +147,17 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                       metric(
                         'ห้องในทะเบียนสถานที่',
                         '${controller.overview!.roomCount} ห้อง',
+                        color: const Color(0xFF356A9A),
                       ),
                       metric(
                         'รายวิชา',
                         '${controller.overview!.courseCount} วิชา',
+                        color: const Color(0xFF467A65),
                       ),
                       metric(
                         'งานครบกำหนดใน 7 วัน',
                         '${controller.overview!.assignmentsDueThisWeek} งาน',
+                        color: const Color(0xFF956419),
                       ),
                     ],
                   ),
@@ -217,109 +232,138 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                       ),
                     ),
                 ]),
-                card('สายการเรียนและคะแนน', [
-                  const Text(
-                    'จำนวนตามทะเบียนปีการศึกษาปัจจุบัน คะแนนเฉลี่ยคิดจากคะแนนที่ยืนยันแล้วของทั้งสายการเรียน',
-                  ),
-                  const SizedBox(height: 12),
-                  if (controller.tracks.isEmpty)
-                    const Text('ยังไม่มีข้อมูลสายการเรียน'),
-                  for (final t in controller.tracks)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            t.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${t.studentCount} คน · ${t.roomCount} ห้องเรียน',
-                          ),
-                          Text(
-                            t.avgGradePercent == null
-                                ? 'ยังไม่มีคะแนนที่ยืนยันแล้ว'
-                                : 'คะแนนเฉลี่ย ${t.avgGradePercent!.toStringAsFixed(1)}%',
-                          ),
-                        ],
-                      ),
-                    ),
-                ]),
-                card('ระบบดูแลช่วยเหลือนักเรียน', [
-                  const Text('รายการที่ครูบันทึกในระบบ ทั้งหมดของโรงเรียน'),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ChoiceChip(
-                        label: const Text('ทุกสถานะ'),
-                        selected: selectedStatus == null,
-                        onSelected: (_) => setState(() => caseStatus = null),
-                      ),
-                      for (final status in statuses)
-                        ChoiceChip(
-                          label: Text(
-                            controller.cases
-                                .firstWhere((c) => c.status == status)
-                                .statusLabel,
-                          ),
-                          selected: selectedStatus == status,
-                          onSelected: (_) =>
-                              setState(() => caseStatus = status),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (cases.isEmpty)
-                    const Text('ยังไม่มีเคสดูแลช่วยเหลือในตัวกรองนี้'),
-                  for (final c in cases)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${c.studentName} · ${c.title}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text('${c.categoryLabel} · ${c.statusLabel}'),
-                          if (c.notes?.isNotEmpty == true) Text(c.notes!),
-                          TextButton(
-                            onPressed: () => showHistory(c),
-                            child: Text('ดูประวัติ (${c.interventionCount})'),
-                          ),
-                        ],
-                      ),
-                    ),
-                ]),
-              ],
-              card('งานติดตามที่ยังไม่รองรับ', [
-                const Text(
-                  'ยังไม่มีข้อมูลสรุปเยี่ยมบ้าน ทุนการศึกษา SDQ หรือระบบสั่งการจากผู้บริหาร การประเมินความเสี่ยงอัตโนมัติยังไม่รองรับขอบเขตทั้งโรงเรียน',
-                ),
-                const SizedBox(height: 8),
-                const Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                DirectorWorkspaceGrid(
                   children: [
-                    OutlinedButton(
-                      onPressed: null,
-                      child: Text('สั่งการติดตาม'),
+                    card(
+                      'สายการเรียนและคะแนน',
+                      [
+                        const Text(
+                          'จำนวนตามทะเบียนปีการศึกษาปัจจุบัน คะแนนเฉลี่ยคิดจากคะแนนที่ยืนยันแล้วของทั้งสายการเรียน',
+                        ),
+                        const SizedBox(height: 12),
+                        if (controller.tracks.isEmpty)
+                          const Text('ยังไม่มีข้อมูลสายการเรียน'),
+                        for (final t in controller.tracks)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  t.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '${t.studentCount} คน · ${t.roomCount} ห้องเรียน',
+                                ),
+                                Text(
+                                  t.avgGradePercent == null
+                                      ? 'ยังไม่มีคะแนนที่ยืนยันแล้ว'
+                                      : 'คะแนนเฉลี่ย ${t.avgGradePercent!.toStringAsFixed(1)}%',
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                      accent: const Color(0xFF356A9A),
+                      icon: Icons.auto_stories_outlined,
                     ),
-                    OutlinedButton(
-                      onPressed: null,
-                      child: Text('รายงานเยี่ยมบ้าน / SDQ'),
-                    ),
-                    OutlinedButton(
-                      onPressed: null,
-                      child: Text('ส่งออกรายงานการเรียน'),
+                    card(
+                      'ระบบดูแลช่วยเหลือนักเรียน',
+                      [
+                        const Text(
+                          'รายการที่ครูบันทึกในระบบ ทั้งหมดของโรงเรียน',
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('ทุกสถานะ'),
+                              selected: selectedStatus == null,
+                              onSelected: (_) =>
+                                  setState(() => caseStatus = null),
+                            ),
+                            for (final status in statuses)
+                              ChoiceChip(
+                                label: Text(
+                                  controller.cases
+                                      .firstWhere((c) => c.status == status)
+                                      .statusLabel,
+                                ),
+                                selected: selectedStatus == status,
+                                onSelected: (_) =>
+                                    setState(() => caseStatus = status),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (cases.isEmpty)
+                          const Text('ยังไม่มีเคสดูแลช่วยเหลือในตัวกรองนี้'),
+                        for (final c in cases)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${c.studentName} · ${c.title}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text('${c.categoryLabel} · ${c.statusLabel}'),
+                                if (c.notes?.isNotEmpty == true) Text(c.notes!),
+                                TextButton(
+                                  onPressed: () => showHistory(c),
+                                  child: Text(
+                                    'ดูประวัติ (${c.interventionCount})',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                      accent: const Color(0xFF467A65),
+                      icon: Icons.volunteer_activism_outlined,
                     ),
                   ],
                 ),
-                const Text('การส่งออกรายงานการเรียนยังไม่เปิดใช้งาน'),
-              ]),
+              ],
+              card(
+                'งานติดตามที่ยังไม่รองรับ',
+                [
+                  const Text(
+                    'ยังไม่มีข้อมูลสรุปเยี่ยมบ้าน ทุนการศึกษา SDQ หรือระบบสั่งการจากผู้บริหาร การประเมินความเสี่ยงอัตโนมัติยังไม่รองรับขอบเขตทั้งโรงเรียน',
+                  ),
+                  const SizedBox(height: 8),
+                  const Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton(
+                        onPressed: null,
+                        child: Text('สั่งการติดตาม'),
+                      ),
+                      OutlinedButton(
+                        onPressed: null,
+                        child: Text('รายงานเยี่ยมบ้าน / SDQ'),
+                      ),
+                      OutlinedButton(
+                        onPressed: null,
+                        child: Text('ส่งออกรายงานการเรียน'),
+                      ),
+                    ],
+                  ),
+                  const Text('การส่งออกรายงานการเรียนยังไม่เปิดใช้งาน'),
+                ],
+                accent: AppPalette.textMuted,
+                surface: AppPalette.softTag,
+                icon: Icons.lock_outline,
+              ),
             ],
           ),
         ),

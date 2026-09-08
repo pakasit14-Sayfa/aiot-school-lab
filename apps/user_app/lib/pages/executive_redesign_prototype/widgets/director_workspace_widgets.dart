@@ -92,10 +92,13 @@ class DirectorWorkspaceCard extends StatelessWidget {
     required this.title,
     required this.children,
     this.icon = Icons.dashboard_outlined,
+    this.accent = AppPalette.primaryPinkDark,
+    this.surface = Colors.white,
   });
   final String title;
   final List<Widget> children;
   final IconData icon;
+  final Color accent, surface;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -103,9 +106,9 @@ class DirectorWorkspaceCard extends StatelessWidget {
     margin: const EdgeInsets.only(bottom: 20),
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: surface,
       borderRadius: BorderRadius.circular(24),
-      border: Border.all(color: AppPalette.border),
+      border: Border.all(color: accent.withAlpha(45)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,10 +118,10 @@ class DirectorWorkspaceCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: AppPalette.primaryPinkSoft,
+                color: accent.withAlpha(22),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: AppPalette.primaryPinkDark, size: 20),
+              child: Icon(icon, color: accent, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -134,7 +137,63 @@ class DirectorWorkspaceCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 18),
+        Divider(height: 1, color: accent.withAlpha(35)),
+        const SizedBox(height: 18),
         ...children,
+      ],
+    ),
+  );
+}
+
+/// Independent sections remain in reading order when stacked on small screens.
+class DirectorWorkspaceGrid extends StatelessWidget {
+  const DirectorWorkspaceGrid({super.key, required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 850 ? 2 : 1;
+      final width = (constraints.maxWidth - (columns - 1) * 20) / columns;
+      return Wrap(
+        spacing: 20,
+        children: [
+          for (final child in children) SizedBox(width: width, child: child),
+        ],
+      );
+    },
+  );
+}
+
+class DirectorStatusPill extends StatelessWidget {
+  const DirectorStatusPill({
+    super.key,
+    required this.label,
+    required this.color,
+    required this.icon,
+  });
+  final String label;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: color.withAlpha(22),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
+        ),
       ],
     ),
   );

@@ -431,3 +431,18 @@ no new findings in changed files. Browser review at port 8766 displayed actual
 learning totals, verified meeting search's no-match state and found the real
 CCTV device by ID. Small-phone learning/scan coverage passed within regression.
 Physical camera capture and publishing are still outside this visual verification.
+
+### 2026-09-08 — Layout and section-color refinement
+
+Follow-up user request: cleaner placement and clearer color separation across
+the three executive pages. Desktop scan now places search and results side by
+side, with unavailable services in a separate muted section. Learning separates
+track information and student support into blue/green sections, and summary
+tiles use distinct tints. Meeting records use a responsive card grid, blue date
+and document accents, and amber pending-response badges. All grids stack on
+narrow screens; badges include text and icons in addition to color.
+
+Focused page tests: 12/12 passed. User-app full regression: 507 passed / 22
+pre-existing failures. Analyzer remained at core 0, shared_ui 4 infos and app
+156 findings, with no findings in the changed files. Browser checked all three
+layouts and successfully looked up the real CCTV fixture. No backend changes.
