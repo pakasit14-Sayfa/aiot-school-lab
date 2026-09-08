@@ -589,3 +589,59 @@ Audit 25 หน้าฝั่งครู (`teacher_redesign_prototype/`) อ�
 
 รัน `flutter test` ทั้งชุดหลังแก้ทั้ง 3 จุด: 526 ผ่าน/8 fail เท่าเดิมทุก
 ตัว (ไม่มี regression ใหม่) push เข้า `gitlab` แล้ว (`9b6250c`, `899750c`)
+
+### เขียน connection test ให้ Teacher lane 5/7 ไฟล์ที่แก้ไปแล้วแต่ไม่มี test เลย
+
+ผู้ใช้ขอให้เริ่มเก็บช่องว่าง connection test ของ Teacher lane (ที่ตรวจพบตอน
+สรุปสถานะรวมทุกสิทธิ์ — School Admin/Super Admin มี test ครบ แต่ Teacher/
+Student/Parent/Executive แทบไม่มี ทั้งที่ Teacher แก้บั๊กไป 14+ จุดแล้ว)
+เลือกเริ่มจาก 5 ไฟล์ที่แก้บั๊กไปในเซสชันก่อนหน้าแต่ไม่เคยมี test คุ้มครอง
+เลยสักตัว (`teacher_aiot_dashboard_page.dart`/`teacher_incident_inbox_page.dart`
+ยังเหลือ ยังไม่ได้ทำ):
+
+- **`teacher_rubric_page.dart`** (commit `36de820`) — เพิ่ม seam
+  `listMyRubrics`/`getRubric`/`createRubric`/`updateRubric` (ต้อง import
+  `shared_core`'s `RubricModel` ผ่าน prefix `rubric_backend` เพราะไฟล์นี้มี
+  local class ชื่อชนกัน) 5 เทส: ปุ่ม "คัดลอกเป็น Rubric ใหม่" เรียก
+  `createRubric` จริงพร้อม payload ถูกต้อง, error ไม่รั่ว, ฟอร์มสร้างใหม่ก็
+  เรียก RPC จริงเหมือนกัน. เจอ+แก้ leaked error 2 จุด + overflow 1 จุด
+  (Row หัวข้อ "รายการเกณฑ์การประเมินย่อย" ไม่มี Expanded)
+- **`teacher_grades_page.dart`** (commit `3d2761d`) — เพิ่ม seam
+  `loadCourses`/`loadCourseGrades`/`confirmGrade` (มี `downloadBytesOverride`
+  อยู่แล้ว) 5 เทส: export CSV มีข้อมูลจริงในไฟล์ (ตรวจด้วย `utf8.decode`),
+  export Excel เป็น ZIP จริง (PK magic bytes), export ตอนไม่มีข้อมูลปฏิเสธ
+  ไม่ใช่ดาวน์โหลดไฟล์เปล่า, ยืนยันคะแนนเรียก RPC จริง. เจอ+แก้ leaked error
+  2 จุด
+- **`teacher_question_bank_page.dart`** (commit `d84604c`) — เพิ่ม seam
+  `loadCourses`/`listQuizzesForCourse`/`listQuizQuestions` 2 เทส: จำนวนข้อ
+  จริงไม่ใช่ "0 ข้อ" ตายตัว, กดยืนยันการเลือกแล้ว `Navigator.pop` คืนคำถาม
+  จริง (เนื้อหา/ตัวเลือก/คำตอบถูกต้อง) กลับไปหน้าที่เรียก ไม่ใช่ลิสต์ว่าง.
+  เจอ+แก้ leaked error 1 จุด
+- **`teacher_assignment_editor_page.dart`** (commit `a272d13`) — เพิ่ม seam
+  ทั้งหน้าลิสต์ (`loadCourses`/`loadAssignmentsForCourse`/
+  `loadCourseStudents`/`loadSubmissions`) และหน้าฟอร์มที่ threading ผ่าน
+  `openAssignmentFormModal` ลงไปถึง private form sheet
+  (`listMyRubrics`/`updateAssignment`/`createAssignment`/
+  `publishAssignment`) 2 เทส: ส่งแล้ว N/M คน มาจากข้อมูลจริง ไม่ใช่เลขแต่ง,
+  แก้ไขใบงานเรียก `updateAssignment` ด้วย assignment id จริง + rubric ที่
+  เลือกจริง **โดยไม่เรียก `loadCourses` ซ้ำเลย** (พิสูจน์ตรงว่าไม่ได้ใช้
+  `courses.first` แบบบั๊กเดิม). เจอ+แก้ overflow 2 จุด (สวิตช์งานกลุ่ม,
+  หัวข้อ Rubric) + leaked error 1 จุด
+- **`teacher_knowledge_library_page.dart`** (commit `9ebcb83`) — เพิ่ม seam
+  `loadCourses`/`listFiles`/`uploadFile`/`getDownloadUrl` +
+  `hasSessionOverride` (เพราะ `AuthService.sessionToken` เป็น static field
+  seam อื่นแตะไม่ถึง) 5 เทส: โหลดพังจริงโชว์ error state ไม่ใช่ห้องสมุดปลอม
+  2 วิชาแบบเดิม, signed-out ก็โชว์ error เดียวกัน, ไฟล์จริงโชว์ชื่อ/ขนาด
+  จริง, ดาวน์โหลดเรียก RPC ด้วย file id จริง, ดาวน์โหลดพังโชว์ข้อความสุภาพ.
+  เจอ+แก้ leaked error 2 จุด
+
+รวม 19 เทสใหม่ (5+5+2+2+5) ทั้งหมดผ่าน + แก้บั๊กที่เจอระหว่างทางรวม 9 จุด
+(leaked raw error 7 จุด, Row overflow 3 จุด — นับซ้ำ 1 จุดที่เจอสองครั้ง
+คนละไฟล์). `flutter test` เต็ม: 563 ผ่าน/8 fail เท่าเดิม (baseline เดิม
+ทั้ง 8 ไม่มี regression ใหม่) push เข้า `gitlab` แล้ว (`36de820`..`9ebcb83`)
+
+**เหลือ**: `teacher_aiot_dashboard_page.dart`, `teacher_incident_inbox_page.dart`
+(2 ใน 7 ไฟล์ที่แก้บั๊กไปแล้วแต่ยังไม่มี test), `teacher_courses_page.dart`
+(ปุ่มแก้ไขใบงาน), `teacher_redesign_prototype_page.dart` (role switcher/
+ปฏิทิน) — ยังไม่ได้ทำในรอบนี้. Student lane ก็ยังเหลือ ~11 หน้าเหมือนเดิม
+(ดูรายการด้านบน). Parent/Executive lane ยังไม่ได้เริ่มเลย
