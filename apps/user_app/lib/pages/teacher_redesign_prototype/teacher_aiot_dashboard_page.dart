@@ -113,17 +113,31 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  late List<AiotDeviceModel> _devices;
-  late List<ThresholdSettingModel> _thresholds;
-  late List<AiotAlertModel> _alerts;
+  // เดิม seed _devices/_thresholds/_alerts ด้วยข้อมูลตัวอย่างตอนเปิดหน้า
+  // แล้วเขียนทับแค่ตอน `list.isNotEmpty` — โรงเรียนที่ไม่มีอุปกรณ์/threshold
+  // จริงเลยจะเห็นข้อมูลตัวอย่างค้างอยู่ตลอดไปโดยไม่รู้ตัวว่าเป็นของปลอม
+  // ตอนนี้เริ่มจากลิสต์ว่างจริง มี flag โหลดแยกให้ UI บอกสถานะตรงๆ
+  List<AiotDeviceModel> _devices = const [];
+  List<ThresholdSettingModel> _thresholds = const [];
+  List<AiotAlertModel> _alerts = const [];
+  bool _devicesLoading = true;
+  bool _thresholdsLoading = true;
+  bool _alertsLoading = true;
+
+  /// ป้ายชื่อ/หน่วยของแต่ละ metric — ค่าคงที่ของ UI (เหมือน label ภาษา)
+  /// ไม่ใช่ข้อมูลที่ต้องมาจาก backend แยกจากค่า min/max/isActive จริงที่มา
+  /// จาก RealtimeService.listThresholds() เสมอ
+  static const Map<String, (String, String)> _metricLabels = {
+    'pm25': ('ฝุ่น PM2.5', 'µg/m³'),
+    'temperature': ('อุณหภูมิห้องเรียน', '°C'),
+    'humidity': ('ความชื้นสัมพัทธ์', '%RH'),
+    'light_lux': ('ความเข้มแสง', 'lux'),
+  };
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _devices = _getMockDevices();
-    _thresholds = _getMockThresholds();
-    _alerts = _getMockAlerts();
     _loadRealDevices();
     _loadRealThresholds();
     _loadRealAlerts();
@@ -132,7 +146,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
   Future<void> _loadRealDevices() async {
     try {
       final list = await LessonService.listSchoolDevices();
-      if (!mounted || list.isEmpty) return;
+      if (!mounted) return;
       final sensorsByDevice = await RealtimeService.getAllDeviceSensors();
       setState(() {
         _devices = list.map((d) {
@@ -161,39 +175,32 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                 : 'ยังไม่มีข้อมูลเซนเซอร์',
           );
         }).toList();
+        _devicesLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading real school devices: $e');
+      if (mounted) setState(() => _devicesLoading = false);
     }
   }
 
   Future<void> _loadRealThresholds() async {
     try {
       final rows = await RealtimeService.listThresholds();
-      if (!mounted || rows.isEmpty) return;
+      if (!mounted) return;
       setState(() {
         _thresholds = rows.map((row) {
           final metric = row['metric']?.toString() ?? '';
-          final existing = _thresholds.firstWhere(
-            (t) => t.metricKey == metric,
-            orElse: () => ThresholdSettingModel(
-              metricKey: metric,
-              metricName: metric,
-              unit: '',
-              minThreshold: 0,
-              maxThreshold: 0,
-              isAlertEnabled: true,
-            ),
-          );
+          final label = _metricLabels[metric];
           return ThresholdSettingModel(
             metricKey: metric,
-            metricName: existing.metricName,
-            unit: existing.unit,
+            metricName: label?.$1 ?? metric,
+            unit: label?.$2 ?? '',
             minThreshold: (row['min_value'] as num?)?.toDouble() ?? 0,
             maxThreshold: (row['max_value'] as num?)?.toDouble() ?? 0,
             isAlertEnabled: row['is_active'] == true,
           );
         }).toList();
+        _thresholdsLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading real thresholds: $e');
@@ -250,9 +257,11 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
             isAcknowledged: row['status'] != 'new',
           );
         }).toList();
+        _alertsLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading real alerts: $e');
+      if (mounted) setState(() => _alertsLoading = false);
     }
   }
 
@@ -260,109 +269,6 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
   void dispose() {
     _tabController.dispose();
     super.dispose();
-  }
-
-  List<AiotDeviceModel> _getMockDevices() {
-    return [
-      AiotDeviceModel(
-        id: 'dev-01',
-        name: 'AIoT-Node-01',
-        location: 'ห้องเรียน ม.5/2 (อาคารเรียน 5 ชั้น 3)',
-        isOnline: true,
-        pm25: 18.5,
-        temperature: 28.5,
-        humidity: 62.0,
-        lightLux: 420.0,
-        relayActive: true,
-        lastUpdated: 'เมื่อสักครู่',
-      ),
-      AiotDeviceModel(
-        id: 'dev-02',
-        name: 'AIoT-Node-02',
-        location: 'ห้องปฏิบัติการคอมพิวเตอร์ 2 (อาคาร 3)',
-        isOnline: true,
-        pm25: 12.0,
-        temperature: 25.0,
-        humidity: 55.0,
-        lightLux: 180.0,
-        relayActive: false,
-        lastUpdated: '1 นาทีที่แล้ว',
-      ),
-      AiotDeviceModel(
-        id: 'dev-03',
-        name: 'AIoT-Node-03',
-        location: 'ห้องเรียน ม.4/1 (อาคารเรียน 4)',
-        isOnline: false,
-        pm25: 0.0,
-        temperature: 0.0,
-        humidity: 0.0,
-        lightLux: 0.0,
-        relayActive: false,
-        lastUpdated: 'ขาดการเชื่อมต่อ (10 นาทีที่แล้ว)',
-      ),
-    ];
-  }
-
-  List<ThresholdSettingModel> _getMockThresholds() {
-    return [
-      ThresholdSettingModel(
-        metricKey: 'pm25',
-        metricName: 'ฝุ่น PM2.5',
-        unit: 'µg/m³',
-        minThreshold: 0,
-        maxThreshold: 37.5,
-        isAlertEnabled: true,
-      ),
-      ThresholdSettingModel(
-        metricKey: 'temperature',
-        metricName: 'อุณหภูมิห้องเรียน',
-        unit: '°C',
-        minThreshold: 20,
-        maxThreshold: 33.0,
-        isAlertEnabled: true,
-      ),
-      ThresholdSettingModel(
-        metricKey: 'humidity',
-        metricName: 'ความชื้นสัมพัทธ์',
-        unit: '%RH',
-        minThreshold: 40,
-        maxThreshold: 75.0,
-        isAlertEnabled: true,
-      ),
-      ThresholdSettingModel(
-        metricKey: 'light_lux',
-        metricName: 'ความเข้มแสง',
-        unit: 'lux',
-        minThreshold: 100,
-        maxThreshold: 800.0,
-        isAlertEnabled: true,
-      ),
-    ];
-  }
-
-  List<AiotAlertModel> _getMockAlerts() {
-    return [
-      AiotAlertModel(
-        id: 'alert-01',
-        deviceName: 'AIoT-Node-01',
-        location: 'ห้องเรียน ม.5/2',
-        metricName: 'ความเข้มแสงสูงเกินมาตรฐาน',
-        triggerValue: '850 lux',
-        thresholdLimit: 'สูงสุดไม่เกิน 800 lux',
-        triggerTime: '13:45 น. (วันนี้)',
-        isAcknowledged: false,
-      ),
-      AiotAlertModel(
-        id: 'alert-02',
-        deviceName: 'AIoT-Node-03',
-        location: 'ห้องเรียน ม.4/1',
-        metricName: 'เซนเซอร์ขาดการติดต่อ (Offline)',
-        triggerValue: 'No Signal',
-        thresholdLimit: 'Heartbeat Timeout 5 min',
-        triggerTime: '13:20 น. (วันนี้)',
-        isAcknowledged: true,
-      ),
-    ];
   }
 
   Future<void> _acknowledgeAlert(AiotAlertModel alert) async {
@@ -740,6 +646,20 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
   }
 
   Widget _buildRealtimeTab() {
+    if (_devicesLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_devices.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'ยังไม่มีอุปกรณ์ AIoT ที่ลงทะเบียนไว้ในระบบ',
+            style: TextStyle(color: TeacherPalette.muted),
+          ),
+        ),
+      );
+    }
     return ListView.separated(
       itemCount: _devices.length,
       separatorBuilder: (context, index) => const SizedBox(height: 16),
@@ -1011,7 +931,18 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                 ),
               ),
               const SizedBox(height: 20),
-              Column(
+              if (_thresholdsLoading)
+                const Center(child: CircularProgressIndicator())
+              else if (_thresholds.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'ยังไม่มีการตั้งค่า Threshold ในระบบ',
+                    style: TextStyle(color: TeacherPalette.muted),
+                  ),
+                )
+              else
+                Column(
                 children: _thresholds.map((th) {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 14),
@@ -1128,6 +1059,20 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
   }
 
   Widget _buildAlertsTab() {
+    if (_alertsLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_alerts.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'ยังไม่มีการแจ้งเตือนในระบบ',
+            style: TextStyle(color: TeacherPalette.muted),
+          ),
+        ),
+      );
+    }
     return ListView.separated(
       itemCount: _alerts.length,
       separatorBuilder: (context, index) => const SizedBox(height: 14),
