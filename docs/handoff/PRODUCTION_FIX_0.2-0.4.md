@@ -100,56 +100,86 @@ from pg_proc where proname = 'list_school_admin_audit_logs';
 
 ## ขั้นที่ 3.5 — 🔐 ปิดสิทธิ์อนุมัติผูกบัญชีผู้ปกครองที่กว้างเกินไป (เพิ่ม 2026-09-09)
 
+> **ผลตรวจ production จริง 2026-09-09: `homeroom_assignments = 0 แถว` ·
+> นักเรียนที่ยังไม่มีห้อง = 3 คน** → **แยกรัน 2 ขั้น อย่ารันรวดเดียว**
+> ถ้ารัน 3.5b ตอนนี้จะไม่มีครูคนไหนอนุมัติได้เลยทั้งโรงเรียน
+
 ปัญหา 2 ข้อที่ยังเปิดอยู่บน production:
 
 1. **ครูทุกคนเห็นคำขอผูกบัญชีของทั้งโรงเรียน** — `list_parent_links` กรองแค่
    "นักเรียนอยู่โรงเรียนเดียวกัน" ครูคนไหนก็เห็นชื่อนักเรียนทุกคน + **ชื่อและ
    อีเมลผู้ปกครอง** ทั้งที่ `approve_parent_link` ให้อนุมัติได้แคบกว่านั้นมาก
 2. **ครูที่แค่สอนวิชาก็อนุมัติได้** — สเปก STK-1a ระบุว่าเป็นครูประจำชั้น แต่
-   RPC เช็คแค่ `course_teachers ⋈ course_students` ครูสอนวิชาใดก็ได้ที่เจอเด็ก
-   สัปดาห์ละคาบจึงตัดสินได้ว่าใครมีสิทธิ์เห็นข้อมูลเด็กคนนั้น
+   RPC เช็คแค่ `course_teachers ⋈ course_students`
 
-แก้แล้ว 2 migration ทดสอบผ่านบน local (pgTAP 48: 7/7 · 49: 9/9)
+> คำสั่งด้านล่างใช้พาธไฟล์แบบสัมพัทธ์ — **ต้อง `cd ~/my_first_app` ก่อน**
+> (ถ้ารันจาก `~` จะหาไฟล์ migration ไม่เจอ)
 
-> **ตรวจความพร้อมของข้อมูลก่อนรัน** — หลังแก้ ครูจะอนุมัติได้เฉพาะห้องที่ตัวเอง
-> เป็นครูประจำชั้น ถ้าโรงเรียนยังไม่ได้กรอกข้อมูลนี้ คำขอจะไปกองที่ฝ่ายทะเบียน
-> (ไม่ตัน แต่ควรรู้ตัวเลขก่อน):
->
-> ```bash
-> npx supabase db query --linked "
-> select
->   (select count(*) from homeroom_assignments) as กำหนดครูประจำชั้นแล้วกี่แถว,
->   (select count(*) from users u join user_roles r on r.user_id = u.id
->     where r.role = 'student') as นักเรียนทั้งหมด,
->   (select count(*) from users u join user_roles r on r.user_id = u.id
->     where r.role = 'student'
->       and not exists (select 1 from student_profiles sp where sp.student_id = u.id)
->   ) as นักเรียนที่ยังไม่มีห้อง;
-> "
-> ```
->
-> `นักเรียนที่ยังไม่มีห้อง` คือจำนวนเคสที่ครูจะอนุมัติไม่ได้เลย ต้องให้แอดมิน
-> อนุมัติแทน ถ้าเลขนี้สูงมาก ให้กรอกห้อง/ครูประจำชั้นให้ครบก่อนค่อยรันขั้นนี้
+---
+
+### ขั้น 3.5a — ปิดรอยรั่วของรายการ ✅ รันได้เลย ไม่มีเงื่อนไข
+
+หดให้ครูเห็นเฉพาะคำขอที่ตัวเองอนุมัติได้อยู่แล้ว — **ไม่เปลี่ยนว่าใครอนุมัติได้**
+จึงไม่มีใครทำงานที่เคยทำได้ไม่ได้ ปิดเรื่องอีเมลผู้ปกครองรั่วได้ทันที
 
 ```bash
+cd ~/my_first_app
 npx supabase db query --linked \
   --file supabase/migrations/20260909000000_scope_list_parent_links_to_approver.sql
-npx supabase db query --linked \
-  --file supabase/migrations/20260909010000_parent_link_homeroom_teacher_only.sql
-```
 
-**บันทึกลงประวัติ migration:**
-
-```bash
 npx supabase db query --linked "
-insert into supabase_migrations.schema_migrations (version, name) values
-  ('20260909000000','scope_list_parent_links_to_approver'),
-  ('20260909010000','parent_link_homeroom_teacher_only')
+insert into supabase_migrations.schema_migrations (version, name)
+values ('20260909000000','scope_list_parent_links_to_approver')
 on conflict (version) do nothing;
 "
 ```
 
-**ตรวจผล:**
+**ตรวจผล — ต้องได้ `t`:**
+
+```bash
+npx supabase db query --linked "
+select pg_get_functiondef(oid) like '%course_teachers%' as รายการกรองตามครูผู้สอนแล้ว
+from pg_proc where proname = 'list_parent_links';
+"
+```
+
+---
+
+### ขั้น 3.5b — บีบเป็นครูประจำชั้น ⏸ **รอจนกว่าจะกรอกครูประจำชั้นครบ**
+
+**เงื่อนไขก่อนรัน:** `homeroom_assignments` ต้องมีข้อมูลของปีการศึกษาปัจจุบัน
+ครบทุกห้องที่มีนักเรียน (ห้องละ 2 คนได้ตามปกติ) กรอกได้จากแอป:
+**School Admin → ครูและบุคลากร → กำหนดครูประจำชั้น** (ใส่ทีละคน กดซ้ำเพื่อเพิ่มคนที่ 2)
+
+เช็คซ้ำก่อนรันทุกครั้ง:
+
+```bash
+npx supabase db query --linked "
+select
+  (select count(*) from homeroom_assignments) as กำหนดครูประจำชั้นแล้วกี่แถว,
+  (select count(*) from users u join user_roles r on r.user_id = u.id
+    where r.role = 'student'
+      and not exists (select 1 from student_profiles sp where sp.student_id = u.id)
+  ) as นักเรียนที่ยังไม่มีห้อง;
+"
+```
+
+`นักเรียนที่ยังไม่มีห้อง` = จำนวนเคสที่ครูจะอนุมัติไม่ได้ ต้องให้แอดมินอนุมัติแทน
+(ไม่ตัน แต่ควรรู้ตัวเลขก่อน — วัดได้ 3 คน เมื่อ 2026-09-09)
+
+```bash
+cd ~/my_first_app
+npx supabase db query --linked \
+  --file supabase/migrations/20260909010000_parent_link_homeroom_teacher_only.sql
+
+npx supabase db query --linked "
+insert into supabase_migrations.schema_migrations (version, name)
+values ('20260909010000','parent_link_homeroom_teacher_only')
+on conflict (version) do nothing;
+"
+```
+
+**ตรวจผล — ต้องได้ `1 | t | t | t`:**
 
 ```bash
 npx supabase db query --linked "
@@ -164,7 +194,7 @@ select
 "
 ```
 
-**ต้องได้ `1 | t | t | t`** — ถ้าตัวใดเป็น `f` แปลว่า migration ไม่ติดครบ อย่าไปต่อ
+**ย้อนกลับ 3.5b ได้** โดยรัน `20260909000000` ทับอีกครั้ง (กลับไปเป็นกฎครูผู้สอน)
 
 ---
 
