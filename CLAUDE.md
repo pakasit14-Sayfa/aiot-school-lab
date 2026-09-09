@@ -128,7 +128,11 @@ from what a fresh `db reset` reproduces. Verify with:
 — should be all `t`.
 
 **Second test student, for multi-child Parent testing (added 2026-09-04, runtime-only —
-does NOT survive `supabase db reset`):** `student2@aiot-school-lab.local` /
+does NOT survive `supabase db reset`). ⚠️ CHECKED 2026-09-09: this account is GONE
+from the local DB — a `db reset` on 2026-09-08 wiped it exactly as warned here
+(`student@` was re-created 2026-09-08 08:06), so `parent@` currently has only ONE
+linked child and the student-switcher cannot be tested until someone re-creates it.
+Putting it in `supabase/seed.sql` would end this recurring loss:** `student2@aiot-school-lab.local` /
 `Test1234!` (student_code `STU002`), linked to `parent@aiot-school-lab.local`
 as an approved second child (`relationship: มารดา`). Created as a privileged maintenance-seeded runtime fixture through the legacy
 `redeem_parent_binding_code` implementation after a later role-merge migration

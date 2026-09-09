@@ -353,6 +353,186 @@ begin
   end if;
 end $$;
 
+-- =====================================================================
+-- 2026-09-09: มิเตอร์ไฟ/น้ำ/อากาศ + ค่าที่วัดได้จริง (local dev)
+--
+-- ทำไมต้องมีบล็อกนี้: `sensor_readings` ว่างเปล่า 0 แถวมาตลอด ทำให้ทุกหน้า
+-- ที่ใช้ utility RPC (พลังงาน/น้ำ/ESG/การ์ดอากาศของนักเรียน) ขึ้น
+-- "ยังไม่มีข้อมูล" เสมอ — ตรวจไม่ได้เลยว่าหน้าพวกนี้ทำงานถูกไหม และเป็น
+-- เหตุผลที่ fallback ปลอมเคยถูกใส่ไว้ปิดบังข้อนี้
+--
+-- 2 สาเหตุที่ทำให้ว่าง แก้ทั้งคู่ในบล็อกนี้:
+--   1. บล็อก lesson_sensor_links (บรรทัด ~157) ค้นหา device ชื่อ
+--      'เซนเซอร์ PM2.5 โถงกลาง' *ก่อน* บล็อกที่สร้าง device นั้น (บรรทัด ~262)
+--      ตอน db reset ครั้งแรกจึงได้ null เสมอ แล้วข้ามการ insert readings ไป
+--      เงียบ ๆ — บล็อกนี้อยู่ท้ายไฟล์ อุปกรณ์ครบแล้วแน่นอน
+--   2. ไม่เคยมี device ชนิด energy_meter / water_meter เลยสักตัว ซึ่งเป็น
+--      เงื่อนไข `d.type = 'energy_meter'` ใน get_energy_usage_summary/_trend
+--      (น้ำก็เช่นกัน) ต่อให้มี readings ก็จะรวมได้ 0 อยู่ดี
+--
+-- ช่วงเวลา 70 วันเป็นค่าต่ำสุดที่ทำให้ get_energy_efficiency_score คืนคะแนน
+-- จริงได้ เพราะมันเทียบเดือนปัจจุบันกับเดือนก่อนหน้า ถ้าเดือนก่อนไม่มีข้อมูล
+-- (v_previous <= 0) มันจะคืน null ตามที่ออกแบบไว้
+--
+-- ค่าที่ใส่เป็นค่าสังเคราะห์สำหรับ dev เท่านั้น ไม่ใช่ค่าที่วัดจากของจริง
+-- =====================================================================
+do $$
+declare
+  v_school_id uuid;
+  v_super_admin_id uuid;
+  v_teacher_id uuid;
+  v_energy_dev uuid;
+  v_water_dev uuid;
+  v_air_dev uuid;
+  v_pm25_dev uuid;
+  v_lesson_id uuid;
+begin
+  select id into v_school_id from schools where school_code = 'TEST01';
+  select id into v_super_admin_id from users where email = 'admin@aiot-school-lab.local';
+  select id into v_teacher_id from users where email = 'teacher@aiot-school-lab.local';
+  if v_school_id is null or v_super_admin_id is null then
+    return;
+  end if;
+
+  -- อุปกรณ์วัดที่ยังขาด — ต้องมี type ตรงกับที่ RPC กรอง ไม่งั้นรวมยอดได้ 0
+  if not exists (select 1 from devices where school_id = v_school_id and type = 'energy_meter') then
+    insert into devices (school_id, type, name, location, building, status, registered_by)
+    values (v_school_id, 'energy_meter', 'มิเตอร์ไฟฟ้า อาคาร 3', 'อาคาร 3 (วิทยาศาสตร์) · ห้องไฟฟ้า', 'อาคาร 3', 'online', v_super_admin_id);
+  end if;
+  if not exists (select 1 from devices where school_id = v_school_id and type = 'water_meter') then
+    insert into devices (school_id, type, name, location, building, status, registered_by)
+    values (v_school_id, 'water_meter', 'มิเตอร์น้ำ อาคาร 3', 'อาคาร 3 (วิทยาศาสตร์) · ห้องปั๊มน้ำ', 'อาคาร 3', 'online', v_super_admin_id);
+  end if;
+  if not exists (select 1 from devices where school_id = v_school_id and type = 'air_quality_sensor') then
+    insert into devices (school_id, type, name, location, building, status, registered_by)
+    values (v_school_id, 'air_quality_sensor', 'เซนเซอร์อากาศ ห้องเรียน ม.4/1', 'อาคาร 3 (วิทยาศาสตร์) · ห้อง ม.4/1', 'อาคาร 3', 'online', v_super_admin_id);
+  end if;
+
+  -- devices.building เป็น null ทั้ง 9 ตัวที่ seed ไว้เดิม ทำให้ตัวกรอง
+  -- "อาคาร" ในหน้า School Admin/Executive ไม่มีอะไรให้กรองเลย
+  update devices set building = 'อาคาร 3'
+  where school_id = v_school_id and building is null;
+
+  select id into v_energy_dev from devices where school_id = v_school_id and type = 'energy_meter' limit 1;
+  select id into v_water_dev  from devices where school_id = v_school_id and type = 'water_meter' limit 1;
+  select id into v_air_dev    from devices where school_id = v_school_id and type = 'air_quality_sensor' limit 1;
+  select id into v_pm25_dev   from devices where school_id = v_school_id and name = 'เซนเซอร์ PM2.5 โถงกลาง' limit 1;
+
+  -- ไฟฟ้า: รายชั่วโมง 70 วัน · กลางวันวันธรรมดากินไฟมากกว่ากลางคืน/วันหยุด
+  -- เพื่อให้กราฟแนวโน้มมีรูปร่างจริง ไม่ใช่เส้นแบน
+  if v_energy_dev is not null
+     and not exists (select 1 from sensor_readings where device_id = v_energy_dev) then
+    insert into sensor_readings (device_id, metric, ts, value)
+    select
+      v_energy_dev, 'energy_kwh', ts,
+      round((
+        case when extract(isodow from ts) >= 6 then 1.2
+             when extract(hour from ts) between 7 and 16 then 8.5
+             when extract(hour from ts) between 17 and 20 then 3.4
+             else 1.1 end
+        + (random() * 0.8)
+      )::numeric, 2)
+    from generate_series(date_trunc('hour', now()) - interval '70 days',
+                         date_trunc('hour', now()), interval '1 hour') as ts;
+  end if;
+
+  -- น้ำ: ทุก 4 ชั่วโมง 70 วัน
+  if v_water_dev is not null
+     and not exists (select 1 from sensor_readings where device_id = v_water_dev) then
+    insert into sensor_readings (device_id, metric, ts, value)
+    select
+      v_water_dev, 'water_m3', ts,
+      round((
+        case when extract(isodow from ts) >= 6 then 0.15
+             when extract(hour from ts) between 8 and 16 then 1.8
+             else 0.4 end
+        + (random() * 0.25)
+      )::numeric, 3)
+    from generate_series(date_trunc('hour', now()) - interval '70 days',
+                         date_trunc('hour', now()), interval '4 hours') as ts;
+  end if;
+
+  -- อากาศในห้องเรียน: รายชั่วโมง 3 วัน ครบ 4 metric ที่การ์ดอากาศฝั่ง
+  -- นักเรียนอ่าน (pm25 / temperature / humidity / light_lux) — ค่ากลางคืน
+  -- มืดและเย็นกว่า เพื่อให้เห็นว่าเป็นข้อมูลจริงที่เปลี่ยนตามเวลา
+  if v_air_dev is not null
+     and not exists (select 1 from sensor_readings where device_id = v_air_dev) then
+    insert into sensor_readings (device_id, metric, ts, value)
+    select v_air_dev, m.metric::metric_type, ts,
+      case m.metric
+        when 'pm25'        then round((12 + (random() * 26))::numeric, 1)
+        when 'temperature' then round((26 + (case when extract(hour from ts) between 10 and 16 then 4 else 0 end) + random() * 2)::numeric, 1)
+        when 'humidity'    then round((55 + (random() * 15))::numeric, 1)
+        when 'co2'         then round((450 + (case when extract(hour from ts) between 8 and 15 then 350 else 0 end) + random() * 80)::numeric, 0)
+        else round((case when extract(hour from ts) between 6 and 18 then 320 + random() * 240 else random() * 12 end)::numeric, 0)
+      end
+    from generate_series(date_trunc('hour', now()) - interval '3 days',
+                         date_trunc('hour', now()), interval '1 hour') as ts
+    cross join (values ('pm25'), ('temperature'), ('humidity'), ('light_lux'), ('co2')) as m(metric);
+  end if;
+
+  -- ซ่อมของเดิม: ค่า PM2.5 ของบทเรียน + lesson_sensor_links ที่ไม่เคยถูก
+  -- สร้างจริงเพราะปัญหาลำดับที่อธิบายไว้ด้านบน
+  if v_pm25_dev is not null
+     and not exists (select 1 from sensor_readings where device_id = v_pm25_dev) then
+    insert into sensor_readings (device_id, metric, ts, value)
+    select v_pm25_dev, 'pm25', ts,
+           round((14 + (random() * 22))::numeric, 1)
+    from generate_series(date_trunc('hour', now()) - interval '2 days',
+                         date_trunc('hour', now()), interval '1 hour') as ts;
+  end if;
+
+  select l.id into v_lesson_id
+  from lessons l
+  join courses c on c.id = l.course_id
+  where l.title = 'บทที่ 1: รู้จักเซนเซอร์ PM2.5' and c.school_id = v_school_id
+  limit 1;
+
+  if v_lesson_id is not null and v_pm25_dev is not null
+     and not exists (select 1 from lesson_sensor_links where lesson_id = v_lesson_id) then
+    insert into lesson_sensor_links (lesson_id, device_id, metric, time_start, time_end, caption)
+    values (v_lesson_id, v_pm25_dev, 'pm25', now() - interval '24 hours', now(),
+            'ข้อมูลการวัดค่าฝุ่น PM2.5 ย้อนหลัง 24 ชั่วโมง');
+  end if;
+
+  -- เกณฑ์เตือน: ไม่มีสักแถว แปลว่า sensor_ingest ไม่มีทางสร้าง sensor_alerts
+  -- ได้เลย หน้าแจ้งเตือนทุกหน้าจึงว่างถาวรโดยที่ไม่ได้พัง
+  if not exists (select 1 from thresholds where school_id = v_school_id) then
+    insert into thresholds (school_id, device_id, metric, min_value, max_value, is_active, created_by)
+    values
+      (v_school_id, v_air_dev, 'pm25', null, 37.5, true, v_super_admin_id),
+      (v_school_id, v_air_dev, 'co2', null, 1000, true, v_super_admin_id),
+      (v_school_id, null, 'temperature', 18, 35, true, v_super_admin_id);
+  end if;
+end $$;
+
+-- แจ้งเตือน 2 รายการที่ผูกกับ threshold จริงด้านบน — ไม่มีสักแถวใน
+-- sensor_alerts แปลว่าหน้าแจ้งเตือนของ School Admin/Super Admin/ครู
+-- ทดสอบไม่ได้เลย (ว่างเปล่าโดยไม่ได้พัง แยกไม่ออกจากพัง)
+-- sensor_ingest จะสร้างของจริงเพิ่มเองเมื่ออุปกรณ์ส่งค่าเกินเกณฑ์
+do $$
+declare
+  v_school_id uuid;
+  v_air_dev uuid;
+  v_th_pm25 uuid;
+  v_th_co2 uuid;
+begin
+  select id into v_school_id from schools where school_code = 'TEST01';
+  if v_school_id is null then return; end if;
+
+  select id into v_air_dev from devices where school_id = v_school_id and type = 'air_quality_sensor' limit 1;
+  select id into v_th_pm25 from thresholds where school_id = v_school_id and metric = 'pm25' limit 1;
+  select id into v_th_co2  from thresholds where school_id = v_school_id and metric = 'co2' limit 1;
+
+  if v_air_dev is not null and v_th_pm25 is not null
+     and not exists (select 1 from sensor_alerts sa join devices d on d.id = sa.device_id where d.school_id = v_school_id) then
+    insert into sensor_alerts (threshold_id, device_id, metric, value, triggered_at, status)
+    values
+      (v_th_pm25, v_air_dev, 'pm25', 41.8, now() - interval '3 hours', 'new'),
+      (coalesce(v_th_co2, v_th_pm25), v_air_dev, 'co2', 1180, now() - interval '26 hours', 'new');
+  end if;
+end $$;
+
 -- Quick reference: everything logs in with password Test1234!
 -- (except admin@aiot-school-lab.local, which uses ChangeMe123! from the
 -- bootstrap migration).
