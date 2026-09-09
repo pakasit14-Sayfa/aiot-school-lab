@@ -10,7 +10,14 @@ import 'lesson_view_page.dart';
 class CourseDetailPage extends StatefulWidget {
   final String courseId;
 
-  const CourseDetailPage({super.key, required this.courseId});
+  const CourseDetailPage({
+    super.key,
+    required this.courseId,
+    this.loadCourse,
+  });
+
+  /// Seam สำหรับเทสต์ — โปรดักชันปล่อยเป็น null แล้วใช้ service จริง
+  final Future<CourseDetail> Function(String courseId)? loadCourse;
 
   @override
   State<CourseDetailPage> createState() => _CourseDetailPageState();
@@ -33,14 +40,21 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
   Future<void> _loadCourse() async {
     setState(() => _isLoadingCourse = true);
     try {
-      final result = await CourseService.getCourse(widget.courseId);
+      final loader = widget.loadCourse ?? CourseService.getCourse;
+      final result = await loader(widget.courseId);
       if (!mounted) return;
       setState(() => _course = result);
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โหลดข้อมูลรายวิชาไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('โหลดข้อมูลรายวิชาไม่สำเร็จ: $e')));
+      ).showSnackBar(
+        const SnackBar(
+          content: Text('โหลดข้อมูลรายวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoadingCourse = false);
     }
@@ -79,10 +93,12 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
         ),
       );
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โพสต์ไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('โพสต์ไม่สำเร็จ: $e')));
+      ).showSnackBar(SnackBar(content: Text('โพสต์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')));
     }
   }
 
@@ -457,8 +473,10 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
       if (!mounted) return;
       setState(() => _posts = result);
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โหลดกระดานสนทนาไม่สำเร็จ — $e');
       if (!mounted) return;
-      setState(() => _errorMessage = 'โหลดกระดานสนทนาไม่สำเร็จ: $e');
+      setState(() => _errorMessage = 'โหลดกระดานสนทนาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -516,9 +534,11 @@ class _PostsFeedSectionState extends State<_PostsFeedSection> {
                       Navigator.pop(sheetContext);
                       await reload();
                     } catch (e) {
+                      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+                      debugPrint('StudentCourseDetailPage: ส่งความเห็นไม่สำเร็จ — $e');
                       if (!sheetContext.mounted) return;
                       ScaffoldMessenger.of(sheetContext).showSnackBar(
-                        SnackBar(content: Text('ส่งความเห็นไม่สำเร็จ: $e')),
+                        SnackBar(content: Text('ส่งความเห็นไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')),
                       );
                     }
                   },
@@ -766,8 +786,10 @@ class _LessonsSectionState extends State<_LessonsSection> {
       if (!mounted) return;
       setState(() => _lessons = result);
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โหลดบทเรียนไม่สำเร็จ — $e');
       if (!mounted) return;
-      setState(() => _errorMessage = 'โหลดบทเรียนไม่สำเร็จ: $e');
+      setState(() => _errorMessage = 'โหลดบทเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -930,8 +952,10 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
       if (!mounted) return;
       setState(() => _assignments = result);
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โหลดงานไม่สำเร็จ — $e');
       if (!mounted) return;
-      setState(() => _errorMessage = 'โหลดงานไม่สำเร็จ: $e');
+      setState(() => _errorMessage = 'โหลดงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -948,10 +972,12 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
       detail = results[0] as AssignmentDetail;
       versions = results[1] as List<SubmissionVersion>;
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โหลดรายละเอียดงานไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('โหลดรายละเอียดงานไม่สำเร็จ: $e')));
+      ).showSnackBar(SnackBar(content: Text('โหลดรายละเอียดงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')));
       return;
     }
 
@@ -1080,9 +1106,11 @@ class _AssignmentsSectionState extends State<_AssignmentsSection> {
                         ),
                       );
                     } catch (e) {
+                      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+                      debugPrint('StudentCourseDetailPage: ส่งงานไม่สำเร็จ — $e');
                       if (!sheetContext.mounted) return;
                       ScaffoldMessenger.of(sheetContext).showSnackBar(
-                        SnackBar(content: Text('ส่งงานไม่สำเร็จ: $e')),
+                        SnackBar(content: Text('ส่งงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')),
                       );
                     }
                   },
@@ -1230,8 +1258,10 @@ class _FilesSectionState extends State<_FilesSection> {
       if (!mounted) return;
       setState(() => _files = result);
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: โหลดรายชื่อไฟล์ไม่สำเร็จ — $e');
       if (!mounted) return;
-      setState(() => _errorMessage = 'โหลดรายชื่อไฟล์ไม่สำเร็จ: $e');
+      setState(() => _errorMessage = 'โหลดรายชื่อไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -1245,10 +1275,12 @@ class _FilesSectionState extends State<_FilesSection> {
       final launched = await launchUrl(uri, webOnlyWindowName: '_blank');
       if (!launched) throw Exception('launch_failed');
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseDetailPage: ดาวน์โหลดไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ดาวน์โหลดไม่สำเร็จ: $e')));
+      ).showSnackBar(SnackBar(content: Text('ดาวน์โหลดไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')));
     } finally {
       if (mounted) setState(() => _downloadingFileId = null);
     }

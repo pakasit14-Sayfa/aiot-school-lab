@@ -4,9 +4,18 @@ import 'package:shared_core/shared_core.dart';
 
 /// Professional Enterprise Lesson View Page (Clean, Emoji-Free Layout)
 class LessonViewPage extends StatefulWidget {
-  const LessonViewPage({super.key, required this.lessonId});
+  const LessonViewPage({
+    super.key,
+    required this.lessonId,
+    this.loadLesson,
+    this.markCompleteFn,
+  });
 
   final String lessonId;
+
+  /// Seams สำหรับเทสต์ — โปรดักชันปล่อยเป็น null แล้วใช้ service จริง
+  final Future<LessonDetail> Function(String lessonId)? loadLesson;
+  final Future<void> Function(String lessonId)? markCompleteFn;
 
   @override
   State<LessonViewPage> createState() => _LessonViewPageState();
@@ -31,7 +40,8 @@ class _LessonViewPageState extends State<LessonViewPage> {
       errorMessage = null;
     });
     try {
-      final result = await LessonService.getLesson(widget.lessonId);
+      final loader = widget.loadLesson ?? LessonService.getLesson;
+      final result = await loader(widget.lessonId);
       if (!mounted) return;
       setState(() => lesson = result);
 
@@ -44,8 +54,10 @@ class _LessonViewPageState extends State<LessonViewPage> {
         );
       }
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentLessonViewPage: โหลดบทเรียนไม่สำเร็จ — $e');
       if (!mounted) return;
-      setState(() => errorMessage = 'โหลดบทเรียนไม่สำเร็จ: $e');
+      setState(() => errorMessage = 'โหลดบทเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -54,7 +66,8 @@ class _LessonViewPageState extends State<LessonViewPage> {
   Future<void> markComplete() async {
     setState(() => isMarkingComplete = true);
     try {
-      await LessonService.markComplete(widget.lessonId);
+      final complete = widget.markCompleteFn ?? LessonService.markComplete;
+      await complete(widget.lessonId);
       setState(() {
         lesson = LessonDetail(
           id: lesson!.id,
@@ -77,10 +90,12 @@ class _LessonViewPageState extends State<LessonViewPage> {
         ),
       );
     } catch (e) {
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentLessonViewPage: บันทึกสถานะไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('บันทึกสถานะไม่สำเร็จ: $e')));
+      ).showSnackBar(SnackBar(content: Text('บันทึกสถานะไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')));
     } finally {
       if (mounted) setState(() => isMarkingComplete = false);
     }

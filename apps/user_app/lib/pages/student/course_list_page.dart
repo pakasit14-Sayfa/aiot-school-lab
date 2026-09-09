@@ -4,7 +4,12 @@ import 'package:shared_core/shared_core.dart';
 import 'course_detail_page.dart';
 
 class CourseListPage extends StatefulWidget {
-  const CourseListPage({super.key});
+  const CourseListPage({super.key, this.loadCoursesFn});
+
+  /// Seam สำหรับเทสต์ — โปรดักชันปล่อยเป็น null แล้วใช้ service จริง
+  /// (หน้านี้เข้าถึงได้จริงจากการล็อกอินด้วย QR: student_qr_login_page →
+  /// '/home' → HomePage → หน้านี้ ไม่ใช่ dead code อย่างที่เคยเข้าใจผิด)
+  final Future<List<CourseSummary>> Function()? loadCoursesFn;
 
   @override
   State<CourseListPage> createState() => _CourseListPageState();
@@ -27,10 +32,13 @@ class _CourseListPageState extends State<CourseListPage> {
       errorMessage = null;
     });
     try {
-      final result = await CourseService.listMyCourses();
+      final loader = widget.loadCoursesFn ?? CourseService.listMyCourses;
+      final result = await loader();
       if (mounted) setState(() => courses = result);
     } catch (e) {
-      if (mounted) setState(() => errorMessage = 'โหลดรายวิชาไม่สำเร็จ: $e');
+      // ไม่โชว์ข้อความ exception ดิบให้นักเรียนเห็น — log ไว้ debug แทน
+      debugPrint('StudentCourseListPage: โหลดรายวิชาไม่สำเร็จ — $e');
+      if (mounted) setState(() => errorMessage = 'โหลดรายวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
