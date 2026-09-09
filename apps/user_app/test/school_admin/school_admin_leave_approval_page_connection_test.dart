@@ -228,4 +228,28 @@ void main() {
     expect(find.text('ปฏิเสธ'), findsNothing);
     expect(find.textContaining('ตัดสินใจโดย ผู้ดูแลระบบ'), findsOneWidget);
   });
+
+  /// เดิม `catch (_)` แค่ปิดสถานะโหลด — ใบลาที่แนบใบรับรองแพทย์มาแต่โหลด
+  /// ไฟล์แนบไม่สำเร็จจะขึ้นว่า "ไม่มีไฟล์แนบ" ซึ่งอาจทำให้ผู้อนุมัติปฏิเสธ
+  /// ใบลาเพราะคิดว่าครูไม่ได้แนบหลักฐาน
+  testWidgets('โหลดไฟล์แนบไม่สำเร็จ ต้องไม่ขึ้นว่า "ไม่มีไฟล์แนบ"', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadRequests: ({status}) async => [_request()],
+      loadAttachments: (id) async => throw Exception('attachments_unreachable'),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ครู สมศรี'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('โหลดไฟล์แนบไม่สำเร็จ'),
+      findsOneWidget,
+    );
+    expect(find.text('ไม่มีไฟล์แนบ'), findsNothing);
+    expect(find.textContaining('attachments_unreachable'), findsNothing);
+  });
 }

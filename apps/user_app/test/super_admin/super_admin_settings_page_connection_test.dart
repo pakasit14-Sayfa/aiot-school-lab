@@ -211,4 +211,20 @@ void main() {
 
     expect(find.text('บันทึกการตั้งค่าแล้ว'), findsOneWidget);
   });
+
+  /// เดิม `catch (_)` แค่ปิดสถานะโหลด — "อ่าน audit log ไม่ได้" จึงอ่านเหมือน
+  /// "ยังไม่มีใครแก้ไขค่าอะไรเลย" บนหน้าตั้งค่าระดับแพลตฟอร์ม
+  testWidgets('ประวัติการแก้ไขโหลดพัง ต้องบอกตรง ๆ ไม่ใช่ "ยังไม่มีประวัติการแก้ไข"', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadAuditLogs: () async => throw Exception('logs_unreachable'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('โหลดประวัติการแก้ไขไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ยังไม่มีประวัติการแก้ไข'), findsNothing);
+    expect(find.textContaining('logs_unreachable'), findsNothing);
+  });
 }

@@ -51,6 +51,13 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
   List<SchoolSensorAlertRecord> _alerts = [];
   List<SchoolAdminAuditLog> _logs = [];
 
+  /// เดิม 2 ก้อนนี้ `catch (_)` แล้วตั้งลิสต์เป็นว่าง — "โหลดไม่สำเร็จ" กับ
+  /// "ยังไม่มีแจ้งเตือน/ยังไม่มีกิจกรรม" จึงหน้าตาเหมือนกันเป๊ะ ซึ่งบนหน้า
+  /// สรุปของ Super Admin แปลว่าอาจอ่านว่า "ทุกโรงเรียนปกติดี" ทั้งที่ระบบ
+  /// แจ้งเตือนพังอยู่
+  bool _alertsFailed = false;
+  bool _logsFailed = false;
+
   int _totalDevices = 0;
   int _onlineDevices = 0;
   int _totalUsers = 0;
@@ -71,10 +78,14 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
 
     try {
       final schools = await (widget.loadSchools ?? _platformService.fetchSchools)();
+      bool alertsFailed = false;
+      bool logsFailed = false;
       List<SchoolSensorAlertRecord> alertRecords = [];
       try {
         alertRecords = await (widget.loadAlerts ?? IncidentService.listSchoolAlerts)();
-      } catch (_) {
+      } catch (e) {
+        debugPrint('SuperAdminHubPage: listSchoolAlerts failed: $e');
+        alertsFailed = true;
         alertRecords = [];
       }
 
@@ -82,7 +93,9 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
       try {
         logRecords = await (widget.loadAuditLogs ??
             () => _platformService.fetchAuditLogs(limit: 10))();
-      } catch (_) {
+      } catch (e) {
+        debugPrint('SuperAdminHubPage: fetchAuditLogs failed: $e');
+        logsFailed = true;
         logRecords = [];
       }
 
@@ -102,6 +115,8 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
         _schools = schools;
         _alerts = alertRecords;
         _logs = logRecords;
+        _alertsFailed = alertsFailed;
+        _logsFailed = logsFailed;
         _totalDevices = totalDev;
         _onlineDevices = onlineDev;
         _totalUsers = totalU;
@@ -437,6 +452,8 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
         _schools.where((s) => s.status == 'active').length;
     final int openAlerts =
         _alerts.where((a) => a.status == 'open' || a.status == 'pending').length;
+    // โหลดแจ้งเตือนไม่สำเร็จต้องไม่กลายเป็นเลข 0 ที่อ่านว่า "ไม่มีเหตุ"
+    final String openAlertsText = _alertsFailed ? 'โหลดไม่สำเร็จ' : '$openAlerts';
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -484,9 +501,11 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
           _metricCard(
             Icons.warning_amber_rounded,
             'เหตุแจ้งเตือน',
-            '$openAlerts',
-            'รอดำเนินการตรวจสอบ',
-            openAlerts > 0 ? AppPalette.carnivalRed : AppPalette.gardenGreen,
+            openAlertsText,
+            _alertsFailed ? 'อ่านข้อมูลแจ้งเตือนไม่ได้' : 'รอดำเนินการตรวจสอบ',
+            _alertsFailed || openAlerts > 0
+                ? AppPalette.carnivalRed
+                : AppPalette.gardenGreen,
             () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -814,9 +833,15 @@ class _SuperAdminHubPageState extends State<SuperAdminHubPage> {
       ),
       child: _logs.isEmpty
           ? _empty(
-              Icons.history_toggle_off_rounded,
-              'ยังไม่มีประวัติกิจกรรม',
-              'การเปลี่ยนแปลงสิทธิ์และคำสั่งควบคุมจะแสดงที่นี่',
+              _logsFailed
+                  ? Icons.error_outline_rounded
+                  : Icons.history_toggle_off_rounded,
+              _logsFailed
+                  ? 'โหลดประวัติกิจกรรมไม่สำเร็จ'
+                  : 'ยังไม่มีประวัติกิจกรรม',
+              _logsFailed
+                  ? 'ลองใหม่อีกครั้ง — ข้อมูลนี้ยังไม่ได้ถูกอ่านจากระบบ'
+                  : 'การเปลี่ยนแปลงสิทธิ์และคำสั่งควบคุมจะแสดงที่นี่',
             )
           : Column(
               children: [

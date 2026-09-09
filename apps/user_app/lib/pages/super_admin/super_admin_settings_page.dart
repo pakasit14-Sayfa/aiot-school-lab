@@ -77,6 +77,10 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
   String _backupTime = '02:00 น.';
 
   bool _isLoadingLogs = true;
+
+  /// เดิม `catch (_)` แค่ปิดสถานะโหลด — "อ่าน audit log ไม่ได้" จึงอ่านเหมือน
+  /// "ยังไม่มีใครแก้ไขค่าอะไรเลย"
+  bool _logsFailed = false;
   final List<SchoolAdminAuditLog> _logs = [];
 
   bool _isLoadingSettings = true;
@@ -145,9 +149,11 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
           ..addAll(logs);
         _isLoadingLogs = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SuperAdminSettingsPage: audit logs load failed: $e');
       if (mounted) {
         setState(() {
+          _logsFailed = true;
           _isLoadingLogs = false;
         });
       }
@@ -591,9 +597,15 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
             )
           : _logs.isEmpty
               ? _empty(
-                  Icons.history_toggle_off_rounded,
-                  'ยังไม่มีประวัติการแก้ไข',
-                  'การเปลี่ยนแปลงค่าและการสั่งการจะแสดงที่นี่',
+                  _logsFailed
+                      ? Icons.error_outline_rounded
+                      : Icons.history_toggle_off_rounded,
+                  _logsFailed
+                      ? 'โหลดประวัติการแก้ไขไม่สำเร็จ'
+                      : 'ยังไม่มีประวัติการแก้ไข',
+                  _logsFailed
+                      ? 'ยังไม่ได้อ่านข้อมูลจากระบบ — ไม่ได้แปลว่าไม่มีการแก้ไข'
+                      : 'การเปลี่ยนแปลงค่าและการสั่งการจะแสดงที่นี่',
                 )
               : Column(
                   children: [

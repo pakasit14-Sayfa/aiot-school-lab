@@ -321,6 +321,11 @@ class _LeaveDetailSheet extends StatefulWidget {
 
 class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
   bool _isLoadingAttachments = true;
+
+  /// เดิม `catch (_)` แค่ปิดสถานะโหลด — ใบลาที่แนบใบรับรองแพทย์มาแต่โหลด
+  /// ไฟล์แนบไม่สำเร็จ จะขึ้นว่า "ไม่มีไฟล์แนบ" ซึ่งอาจทำให้ผู้อนุมัติปฏิเสธ
+  /// ใบลาเพราะคิดว่าไม่มีหลักฐาน
+  bool _attachmentsFailed = false;
   List<StaffLeaveAttachment> _attachments = [];
   final _noteController = TextEditingController();
   bool _isSubmitting = false;
@@ -343,11 +348,16 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
       if (!mounted) return;
       setState(() {
         _attachments = rows;
+        _attachmentsFailed = false;
         _isLoadingAttachments = false;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SchoolAdminLeaveApprovalPage: attachments load failed: $e');
       if (!mounted) return;
-      setState(() => _isLoadingAttachments = false);
+      setState(() {
+        _attachmentsFailed = true;
+        _isLoadingAttachments = false;
+      });
     }
   }
 
@@ -412,6 +422,37 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: LinearProgressIndicator(),
+                  )
+                else if (_attachmentsFailed)
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.error_outline_rounded,
+                        size: 16,
+                        color: Color(0xFFDC2626),
+                      ),
+                      const SizedBox(width: 6),
+                      const Expanded(
+                        child: Text(
+                          'โหลดไฟล์แนบไม่สำเร็จ — ยังไม่ทราบว่ามีเอกสารแนบหรือไม่',
+                          style: TextStyle(
+                            color: Color(0xFFDC2626),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _isLoadingAttachments = true;
+                            _attachmentsFailed = false;
+                          });
+                          _loadAttachments();
+                        },
+                        child: const Text('ลองใหม่'),
+                      ),
+                    ],
                   )
                 else if (_attachments.isEmpty)
                   Text(

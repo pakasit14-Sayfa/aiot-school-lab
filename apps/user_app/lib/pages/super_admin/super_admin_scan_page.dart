@@ -62,6 +62,11 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
   String? _lastCode;
 
   bool _isLoadingDevices = true;
+
+  /// เดิม `catch (_)` แค่ปิดสถานะโหลด — รายการอุปกรณ์ที่โหลดพังจึงดูเหมือน
+  /// "โรงเรียนนี้ยังไม่มีอุปกรณ์" ทำให้สแกน QR แล้วขึ้น "ไม่พบอุปกรณ์" ทั้งที่
+  /// อุปกรณ์มีจริงแต่ระบบอ่านรายการไม่ได้
+  bool _devicesFailed = false;
   List<DeviceControlItemRecord> _devices = [];
   final List<_ScanHistoryEntry> _history = [];
 
@@ -84,10 +89,17 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
       if (!mounted) return;
       setState(() {
         _devices = data.devices;
+        _devicesFailed = false;
         _isLoadingDevices = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingDevices = false);
+    } catch (e) {
+      debugPrint('SuperAdminScanPage: fetchDeviceControlData failed: $e');
+      if (mounted) {
+        setState(() {
+          _devicesFailed = true;
+          _isLoadingDevices = false;
+        });
+      }
     }
   }
 
@@ -470,6 +482,41 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: LinearProgressIndicator(),
+                    )
+                  else if (_devicesFailed)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: AppPalette.carnivalRed,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'โหลดรายการอุปกรณ์ไม่สำเร็จ — ผลการสแกนอาจขึ้นว่า'
+                              'ไม่พบอุปกรณ์ทั้งที่มีอยู่จริง',
+                              style: TextStyle(
+                                color: AppPalette.carnivalRed,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _isLoadingDevices = true;
+                                _devicesFailed = false;
+                              });
+                              _loadDevices();
+                            },
+                            child: const Text('ลองใหม่'),
+                          ),
+                        ],
+                      ),
                     ),
                   _buildScannerCard(mobile),
                   const SizedBox(height: 18),

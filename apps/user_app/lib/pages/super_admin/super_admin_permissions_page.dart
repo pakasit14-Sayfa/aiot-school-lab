@@ -62,6 +62,12 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
   /// หน้า School Admin เปลี่ยนมาใช้ RPC ตัวเดียวกันนี้ไปแล้วใน `873dbc2`
   List<RolePermissionEntry> _permissionMatrix = <RolePermissionEntry>[];
 
+  /// เดิมคำเชิญกับ audit log `catch (_)` แล้วตั้งเป็นลิสต์ว่าง — "โหลด
+  /// ไม่สำเร็จ" จึงอ่านเหมือน "ไม่มีคำเชิญค้าง / ยังไม่มีประวัติ" ซึ่งบน
+  /// หน้าจัดการสิทธิ์แปลว่าอาจสรุปผิดว่าไม่มีใครรอสิทธิ์อยู่
+  bool _invitationsFailed = false;
+  bool _logsFailed = false;
+
   String _roleFilter = 'ทุกบทบาท';
   String _schoolFilter = 'ทุกโรงเรียน';
   String _statusFilter = 'ทุกสถานะ';
@@ -93,17 +99,25 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       final List<SchoolPlatformRecord> schoolRecords =
           await (widget.loadSchools ?? _platformService.fetchSchools)();
 
+      bool invitationsFailed = false;
+
+      bool logsFailed = false;
+
       List<StaffInvitation> invitationRecords = [];
       try {
         invitationRecords = await InvitationService.listInvitations();
-      } catch (_) {
+      } catch (e) {
+        debugPrint('SuperAdminPermissionsPage: invitations load failed: $e');
+        invitationsFailed = true;
         invitationRecords = [];
       }
 
       List<SchoolAdminAuditLog> logRecords = [];
       try {
         logRecords = await _platformService.fetchAuditLogs(limit: 10);
-      } catch (_) {
+      } catch (e) {
+        debugPrint('SuperAdminPermissionsPage: audit logs load failed: $e');
+        logsFailed = true;
         logRecords = [];
       }
 
@@ -146,6 +160,8 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
 
       setState(() {
         _permissionMatrix = matrix;
+        _invitationsFailed = invitationsFailed;
+        _logsFailed = logsFailed;
 
         _users
           ..clear()
@@ -1349,9 +1365,15 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       ),
       child: _invitations.isEmpty
           ? _empty(
-              Icons.mark_email_read_rounded,
-              'ไม่มีคำเชิญค้างอยู่',
-              'ผู้ใช้ที่ได้รับคำเชิญตอบรับครบแล้ว',
+              _invitationsFailed
+                  ? Icons.error_outline_rounded
+                  : Icons.mark_email_read_rounded,
+              _invitationsFailed
+                  ? 'โหลดรายการคำเชิญไม่สำเร็จ'
+                  : 'ไม่มีคำเชิญค้างอยู่',
+              _invitationsFailed
+                  ? 'ยังไม่ได้อ่านข้อมูลจากระบบ — ไม่ได้แปลว่าไม่มีคำเชิญค้าง'
+                  : 'ผู้ใช้ที่ได้รับคำเชิญตอบรับครบแล้ว',
             )
           : LayoutBuilder(
               builder: (BuildContext context, BoxConstraints constraints) {
@@ -1735,9 +1757,15 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
       ),
       child: _logs.isEmpty
           ? _empty(
-              Icons.history_toggle_off_rounded,
-              'ยังไม่มีประวัติการเข้าใช้งาน',
-              'บันทึกกิจกรรมความปลอดภัยและสิทธิ์จะปรากฏที่นี่',
+              _logsFailed
+                  ? Icons.error_outline_rounded
+                  : Icons.history_toggle_off_rounded,
+              _logsFailed
+                  ? 'โหลดประวัติการเข้าใช้งานไม่สำเร็จ'
+                  : 'ยังไม่มีประวัติการเข้าใช้งาน',
+              _logsFailed
+                  ? 'ยังไม่ได้อ่านข้อมูลจากระบบ — ไม่ได้แปลว่าไม่มีกิจกรรม'
+                  : 'บันทึกกิจกรรมความปลอดภัยและสิทธิ์จะปรากฏที่นี่',
             )
           : Column(
               children: <Widget>[

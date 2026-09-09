@@ -3,11 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/super_admin/super_admin_hub_page.dart';
 import 'package:shared_core/shared_core.dart';
 
-/// Pins loading / data / empty apart for the platform hub's summary
-/// metrics, school list, and audit log feed — a failed load of the alerts
-/// or logs sub-fetch is already caught-and-emptied in the page itself
-/// (documented as a known "empty vs error" conflation for those two), so
-/// this only asserts the schools fetch (the one with a real error banner).
+/// Pins loading / data / empty / error apart for the platform hub's summary
+/// metrics, school list, and audit log feed. The alerts and logs sub-fetches
+/// used to be caught-and-emptied, so a failed read looked exactly like
+/// "no alerts, nothing happened" on the platform's top-level summary — that
+/// conflation is fixed and pinned below.
 
 SchoolPlatformRecord _school({
   String id = 's-1',
@@ -129,5 +129,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('เปลี่ยนสิทธิ์ผู้ใช้'), findsOneWidget);
+  });
+
+  group('โหลดไม่สำเร็จ ต้องไม่อ่านเป็น "ไม่มีเหตุ"', () {
+    testWidgets('แจ้งเตือนโหลดพัง — การ์ดต้องไม่ขึ้นเลข 0 สีเขียว', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        loadSchools: () async => <SchoolPlatformRecord>[_school()],
+        loadAlerts: () async => throw Exception('alerts_unreachable'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('โหลดไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('อ่านข้อมูลแจ้งเตือนไม่ได้'), findsOneWidget);
+      // ข้อความ exception ดิบต้องไม่หลุดขึ้นจอ
+      expect(find.textContaining('alerts_unreachable'), findsNothing);
+    });
+
+    testWidgets('ประวัติกิจกรรมโหลดพัง — ต้องบอกว่าโหลดไม่สำเร็จ ไม่ใช่ "ยังไม่มีประวัติ"', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        loadSchools: () async => <SchoolPlatformRecord>[_school()],
+        loadAuditLogs: () async => throw Exception('logs_unreachable'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('โหลดประวัติกิจกรรมไม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ยังไม่มีประวัติกิจกรรม'), findsNothing);
+      expect(find.textContaining('logs_unreachable'), findsNothing);
+    });
+
+    testWidgets('ทุกอย่างโหลดสำเร็จแต่ว่างจริง ต้องยังขึ้น "ยังไม่มีประวัติกิจกรรม"', (
+      tester,
+    ) async {
+      await _pump(tester, loadSchools: () async => <SchoolPlatformRecord>[_school()]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่มีประวัติกิจกรรม'), findsOneWidget);
+      expect(find.text('โหลดประวัติกิจกรรมไม่สำเร็จ'), findsNothing);
+      expect(find.text('โหลดไม่สำเร็จ'), findsNothing);
+    });
   });
 }

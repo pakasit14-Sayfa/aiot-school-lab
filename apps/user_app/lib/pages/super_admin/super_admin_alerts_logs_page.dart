@@ -48,6 +48,10 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
   final List<SchoolPlatformRecord> _schools = <SchoolPlatformRecord>[];
   final List<SchoolAdminAuditLog> _activityLogs = <SchoolAdminAuditLog>[];
 
+  /// เดิม `catch (_)` แล้วตั้งลิสต์ว่าง — บนหน้าที่ชื่อว่า "แจ้งเตือนและ
+  /// ประวัติ" การอ่านไม่ได้กับ "ไม่มีอะไรเกิดขึ้น" ต้องแยกจากกันให้ชัด
+  bool _logsFailed = false;
+
   String _severityFilter = 'ทุกระดับ';
   String _statusFilter = 'ทุกสถานะ';
   String _schoolFilter = 'ทุกโรงเรียน';
@@ -80,11 +84,14 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
       final List<SchoolSensorAlertRecord> alertRecords =
           await (widget.loadAlerts ?? IncidentService.listSchoolAlerts)();
 
+      bool logsFailed = false;
       List<SchoolAdminAuditLog> logRecords = [];
       try {
         logRecords = await (widget.loadAuditLogs ??
             () => _platformService.fetchAuditLogs(limit: 15))();
-      } catch (_) {
+      } catch (e) {
+        debugPrint('SuperAdminAlertsLogsPage: audit logs load failed: $e');
+        logsFailed = true;
         logRecords = [];
       }
 
@@ -138,6 +145,7 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
           ..clear()
           ..addAll(schoolRecords);
 
+        _logsFailed = logsFailed;
         _activityLogs
           ..clear()
           ..addAll(logRecords);
@@ -1243,9 +1251,15 @@ class _SuperAdminAlertsLogsPageState extends State<SuperAdminAlertsLogsPage> {
       ),
       child: _activityLogs.isEmpty
           ? _empty(
-              Icons.history_toggle_off_rounded,
-              'ยังไม่มีประวัติกิจกรรม',
-              'บันทึกกิจกรรมการสั่งการและแก้ไขระบบจะปรากฏที่นี่',
+              _logsFailed
+                  ? Icons.error_outline_rounded
+                  : Icons.history_toggle_off_rounded,
+              _logsFailed
+                  ? 'โหลดประวัติกิจกรรมไม่สำเร็จ'
+                  : 'ยังไม่มีประวัติกิจกรรม',
+              _logsFailed
+                  ? 'ยังไม่ได้อ่านข้อมูลจากระบบ — ไม่ได้แปลว่าไม่มีกิจกรรม'
+                  : 'บันทึกกิจกรรมการสั่งการและแก้ไขระบบจะปรากฏที่นี่',
             )
           : Column(
               children: <Widget>[

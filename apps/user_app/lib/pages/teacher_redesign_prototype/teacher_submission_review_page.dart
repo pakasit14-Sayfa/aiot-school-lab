@@ -17,6 +17,7 @@
 // Log: coi_flag ต้องไม่ให้ client ตั้งเอง) ไม่ต้องมีช่องให้ครูติ๊กเลย
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart' hide RubricModel;
+import 'package:shared_core/shared_core.dart' as core show RubricModel;
 import 'package:url_launcher/url_launcher.dart';
 
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
@@ -59,12 +60,48 @@ class TeacherSubmissionRosterPage extends StatefulWidget {
     required this.courseId,
     required this.worksheetTitle,
     required this.courseLabel,
+    this.listSubmissions,
+    this.listMyRubrics,
+    this.getRubric,
+    this.createGrade,
+    this.updateGrade,
+    this.confirmGrade,
+    this.giveFeedback,
+    this.getSubmissionAttachmentDownloadUrl,
   });
 
   final String assignmentId;
   final String courseId;
   final String worksheetTitle;
   final String courseLabel;
+
+  /// Read/write seams threaded to the corresponding AssignmentService/
+  /// RubricService/GradeService static calls in production.
+  final Future<List<SubmissionRoster>> Function(String assignmentId)?
+  listSubmissions;
+  final Future<List<core.RubricModel>> Function()? listMyRubrics;
+  final Future<core.RubricModel> Function(String rubricId)? getRubric;
+  final Future<String> Function({
+    required String studentId,
+    required String courseId,
+    required num score,
+    required num maxScore,
+  })?
+  createGrade;
+  final Future<void> Function({
+    required String gradeId,
+    required num score,
+    required num maxScore,
+  })?
+  updateGrade;
+  final Future<void> Function(String gradeId)? confirmGrade;
+  final Future<void> Function({
+    required String submissionId,
+    required String body,
+  })?
+  giveFeedback;
+  final Future<String> Function(String attachmentId)?
+  getSubmissionAttachmentDownloadUrl;
 
   @override
   State<TeacherSubmissionRosterPage> createState() =>
@@ -95,9 +132,12 @@ class _TeacherSubmissionRosterPageState
       _loadError = null;
     });
     try {
+      final loadSubmissions =
+          widget.listSubmissions ?? AssignmentService.listSubmissions;
+      final loadRubrics = widget.listMyRubrics ?? RubricService.listMyRubrics;
       final results = await Future.wait([
-        AssignmentService.listSubmissions(widget.assignmentId),
-        RubricService.listMyRubrics(),
+        loadSubmissions(widget.assignmentId),
+        loadRubrics(),
       ]);
       final submissions = (results[0] as List<SubmissionRoster>)
           .where((s) => s.status != 'not_submitted')
@@ -126,10 +166,10 @@ class _TeacherSubmissionRosterPageState
         _rubricSummaries = results[1] as List;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดรายชื่อนักเรียนไม่สำเร็จ: $e';
+        _loadError = 'โหลดรายชื่อนักเรียนไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -138,7 +178,8 @@ class _TeacherSubmissionRosterPageState
   Future<void> _pickRubric(String rubricId) async {
     setState(() => _loadingRubric = true);
     try {
-      final d = await RubricService.getRubric(rubricId);
+      final getRubric = widget.getRubric ?? RubricService.getRubric;
+      final d = await getRubric(rubricId);
       final rubric = RubricModel(
         id: d.id,
         title: d.title,
@@ -170,12 +211,12 @@ class _TeacherSubmissionRosterPageState
         _selectedRubric = rubric;
         _loadingRubric = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _loadingRubric = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('โหลดเกณฑ์ไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('โหลดเกณฑ์ไม่สำเร็จ')));
     }
   }
 
@@ -191,9 +232,12 @@ class _TeacherSubmissionRosterPageState
     if (result == null || !mounted) return;
 
     try {
+      final create = widget.createGrade ?? GradeService.createGrade;
+      final update = widget.updateGrade ?? GradeService.updateGrade;
+      final feedback = widget.giveFeedback ?? AssignmentService.giveFeedback;
       String gradeId;
       if (entry.gradeId == null) {
-        gradeId = await GradeService.createGrade(
+        gradeId = await create(
           studentId: entry.studentId,
           courseId: widget.courseId,
           score: result.score,
@@ -201,17 +245,14 @@ class _TeacherSubmissionRosterPageState
         );
       } else {
         gradeId = entry.gradeId!;
-        await GradeService.updateGrade(
+        await update(
           gradeId: gradeId,
           score: result.score,
           maxScore: rubric.totalMaxPoints,
         );
       }
       if (result.feedback.isNotEmpty) {
-        await AssignmentService.giveFeedback(
-          submissionId: entry.submissionId,
-          body: result.feedback,
-        );
+        await feedback(submissionId: entry.submissionId, body: result.feedback);
       }
       if (!mounted) return;
       setState(() {
@@ -219,44 +260,46 @@ class _TeacherSubmissionRosterPageState
         entry.score = result.score;
         entry.maxScore = rubric.totalMaxPoints;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('บันทึกคะแนนไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('บันทึกคะแนนไม่สำเร็จ')));
     }
   }
 
   Future<void> _confirmGrade(_RosterEntry entry) async {
     if (entry.gradeId == null) return;
     try {
-      await GradeService.confirmGrade(entry.gradeId!);
+      final confirm = widget.confirmGrade ?? GradeService.confirmGrade;
+      await confirm(entry.gradeId!);
       if (!mounted) return;
       setState(() => entry.confirmed = true);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ยืนยันคะแนนไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('ยืนยันคะแนนไม่สำเร็จ')));
     }
   }
 
   Future<void> _openAttachment(SubmissionAttachment attachment) async {
     try {
-      final url = await AssignmentService.getSubmissionAttachmentDownloadUrl(
-        attachment.id,
-      );
+      final getUrl =
+          widget.getSubmissionAttachmentDownloadUrl ??
+          AssignmentService.getSubmissionAttachmentDownloadUrl;
+      final url = await getUrl(attachment.id);
       final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         await launchUrl(uri);
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
     }
   }
 
