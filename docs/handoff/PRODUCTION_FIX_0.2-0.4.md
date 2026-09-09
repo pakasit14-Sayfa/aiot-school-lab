@@ -1,4 +1,4 @@
-# คำสั่งปิดช่องโหว่บน production (ticket 0.2–0.4)
+# คำสั่งปิดช่องโหว่บน production (ticket 0.2–0.4 + สิทธิ์อนุมัติผู้ปกครอง)
 
 Claude ถูกระบบความปลอดภัยบล็อกไม่ให้ link/เขียน production จึงเตรียมคำสั่งไว้ให้รันเอง
 รันตามลำดับ **1 → 2 → 3** และหยุดทันทีถ้าขั้นไหนผลไม่ตรงกับที่คาด
@@ -98,6 +98,76 @@ from pg_proc where proname = 'list_school_admin_audit_logs';
 
 ---
 
+## ขั้นที่ 3.5 — 🔐 ปิดสิทธิ์อนุมัติผูกบัญชีผู้ปกครองที่กว้างเกินไป (เพิ่ม 2026-09-09)
+
+ปัญหา 2 ข้อที่ยังเปิดอยู่บน production:
+
+1. **ครูทุกคนเห็นคำขอผูกบัญชีของทั้งโรงเรียน** — `list_parent_links` กรองแค่
+   "นักเรียนอยู่โรงเรียนเดียวกัน" ครูคนไหนก็เห็นชื่อนักเรียนทุกคน + **ชื่อและ
+   อีเมลผู้ปกครอง** ทั้งที่ `approve_parent_link` ให้อนุมัติได้แคบกว่านั้นมาก
+2. **ครูที่แค่สอนวิชาก็อนุมัติได้** — สเปก STK-1a ระบุว่าเป็นครูประจำชั้น แต่
+   RPC เช็คแค่ `course_teachers ⋈ course_students` ครูสอนวิชาใดก็ได้ที่เจอเด็ก
+   สัปดาห์ละคาบจึงตัดสินได้ว่าใครมีสิทธิ์เห็นข้อมูลเด็กคนนั้น
+
+แก้แล้ว 2 migration ทดสอบผ่านบน local (pgTAP 48: 7/7 · 49: 9/9)
+
+> **ตรวจความพร้อมของข้อมูลก่อนรัน** — หลังแก้ ครูจะอนุมัติได้เฉพาะห้องที่ตัวเอง
+> เป็นครูประจำชั้น ถ้าโรงเรียนยังไม่ได้กรอกข้อมูลนี้ คำขอจะไปกองที่ฝ่ายทะเบียน
+> (ไม่ตัน แต่ควรรู้ตัวเลขก่อน):
+>
+> ```bash
+> npx supabase db query --linked "
+> select
+>   (select count(*) from homeroom_assignments) as กำหนดครูประจำชั้นแล้วกี่แถว,
+>   (select count(*) from users u join user_roles r on r.user_id = u.id
+>     where r.role = 'student') as นักเรียนทั้งหมด,
+>   (select count(*) from users u join user_roles r on r.user_id = u.id
+>     where r.role = 'student'
+>       and not exists (select 1 from student_profiles sp where sp.student_id = u.id)
+>   ) as นักเรียนที่ยังไม่มีห้อง;
+> "
+> ```
+>
+> `นักเรียนที่ยังไม่มีห้อง` คือจำนวนเคสที่ครูจะอนุมัติไม่ได้เลย ต้องให้แอดมิน
+> อนุมัติแทน ถ้าเลขนี้สูงมาก ให้กรอกห้อง/ครูประจำชั้นให้ครบก่อนค่อยรันขั้นนี้
+
+```bash
+npx supabase db query --linked \
+  --file supabase/migrations/20260909000000_scope_list_parent_links_to_approver.sql
+npx supabase db query --linked \
+  --file supabase/migrations/20260909010000_parent_link_homeroom_teacher_only.sql
+```
+
+**บันทึกลงประวัติ migration:**
+
+```bash
+npx supabase db query --linked "
+insert into supabase_migrations.schema_migrations (version, name) values
+  ('20260909000000','scope_list_parent_links_to_approver'),
+  ('20260909010000','parent_link_homeroom_teacher_only')
+on conflict (version) do nothing;
+"
+```
+
+**ตรวจผล:**
+
+```bash
+npx supabase db query --linked "
+select
+  (select count(*) from pg_proc where proname = '_is_homeroom_teacher_of') as มีฟังก์ชันกลางแล้ว,
+  (select pg_get_functiondef(oid) like '%_is_homeroom_teacher_of%'
+     from pg_proc where proname = 'approve_parent_link') as อนุมัติใช้กฎครูประจำชั้น,
+  (select pg_get_functiondef(oid) like '%_is_homeroom_teacher_of%'
+     from pg_proc where proname = 'reject_parent_link') as ปฏิเสธใช้กฎครูประจำชั้น,
+  (select pg_get_functiondef(oid) like '%_is_homeroom_teacher_of%'
+     from pg_proc where proname = 'list_parent_links') as รายการใช้กฎครูประจำชั้น;
+"
+```
+
+**ต้องได้ `1 | t | t | t`** — ถ้าตัวใดเป็น `f` แปลว่า migration ไม่ติดครบ อย่าไปต่อ
+
+---
+
 ## ขั้นที่ 4 — ตรวจว่า migration ทุกตัวขึ้น production ครบ
 
 โปรเจกต์นี้มีประวัติ **"ไฟล์ migration มีอยู่ แต่ไม่เคยถูกรันจริง"** ซ้ำหลายรอบ
@@ -149,5 +219,5 @@ grant execute on function redeem_parent_binding_code(text,text,text,text,text,te
 
 ## เสร็จแล้วบอก Claude
 
-ส่งผลลัพธ์ของขั้นที่ 2, 3, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
+ส่งผลลัพธ์ของขั้นที่ 2, 3, 3.5, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
 ใน `MASTER_PLAN_2026-09-06.md` ให้ — **จะไม่ติ๊กจนกว่าจะเห็นผลลัพธ์จริง**
