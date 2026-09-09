@@ -87,6 +87,12 @@ void main() {
     // page: _records.isEmpty is true either way (nothing loaded), so both
     // render together — the important thing is the error banner shows up
     // instead of being swallowed.
-    expect(find.textContaining('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
+    expect(
+      find.text('โหลดภาพรวมการเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+      findsOneWidget,
+    );
+    // เดิมหน้านี้เอา e.toString() ไปต่อท้ายข้อความแล้วโชว์ทั้งดุ้น
+    expect(find.textContaining('rpc rejected'), findsNothing);
+    expect(find.textContaining('StateError'), findsNothing);
   });
 }

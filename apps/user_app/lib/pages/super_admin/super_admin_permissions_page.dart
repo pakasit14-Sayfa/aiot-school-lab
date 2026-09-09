@@ -137,7 +137,12 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
         final isActive = u.status == 'active';
 
         loadedUsers.add(_UserAccount(
-          id: 'USR-${(i + 1).toString().padLeft(4, '0')}',
+          // เดิมสร้างรหัสแสดงผลเอง `USR-0001` จาก **ลำดับในลิสต์** แล้วเอาไป
+          // โชว์ในกล่องรายละเอียดผู้ใช้และใส่คอลัมน์ `user_id` ของ CSV ด้วย
+          // — คนละคนได้รหัสเดียวกันเมื่อลิสต์เปลี่ยนลำดับ และคนเดิมได้รหัส
+          // ใหม่ทุกครั้งที่มีคนถูกเพิ่ม/ระงับ ทั้งที่หน้าตาเหมือนรหัสประจำตัว
+          // จริงที่เอาไปอ้างอิงข้ามระบบได้ ตอนนี้ใช้ uid จริงจากฐานข้อมูล
+          id: u.uid,
           dbId: u.uid,
           name: u.name.isNotEmpty ? u.name : u.email.split('@').first,
           email: u.email,
@@ -2399,7 +2404,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              '${user.id} • ${user.email}',
+                              '${_shortId(user.id)} • ${user.email}',
                               style: const TextStyle(
                                 color: AppPalette.textSecondary,
                                 fontSize: 11,
@@ -2795,6 +2800,10 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
 
     _message('ส่งออก Audit Log ${_logs.length} รายการแล้ว');
   }
+
+  /// uid จริงยาว 36 ตัวอักษร ตัดให้อ่านง่ายบนจอ — CSV ยังส่งออกตัวเต็ม
+  /// เพื่อให้เอาไป join กับระบบอื่นได้จริง
+  String _shortId(String id) => id.length > 8 ? '${id.substring(0, 8)}…' : id;
 
   Color _roleColor(String role) {
     if (role == 'Super Admin') return AppPalette.carnivalRed;

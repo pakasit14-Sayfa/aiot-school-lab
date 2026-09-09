@@ -38,9 +38,6 @@ class SchoolReportsPage extends StatefulWidget {
 
 class _SchoolReportsPageState extends State<SchoolReportsPage> {
   String _reportType = 'ภาพรวมโรงเรียน';
-  String _period = 'เดือนนี้';
-  String _building = 'ทุกอาคาร';
-  String _room = 'ทุกห้อง';
 
   SchoolAdminDashboardSummary? _summaryData;
   List<_ReportLog> _logs = [];
@@ -226,8 +223,6 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
                   _summary(),
                   const SizedBox(height: 14),
                   _reportTypes(),
-                  const SizedBox(height: 14),
-                  _filters(),
                   const SizedBox(height: 14),
                   _preview(),
                   const SizedBox(height: 14),
@@ -478,74 +473,6 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
     );
   }
 
-  Widget _filters() {
-    final period = _Drop('ช่วงเวลา', Icons.date_range_rounded, _period, const [
-      'วันนี้',
-      '7 วันล่าสุด',
-      'เดือนนี้',
-      'เดือนที่แล้ว',
-      'ปีนี้',
-    ], (v) => setState(() => _period = v));
-    final building = _Drop('อาคาร', Icons.apartment_rounded, _building, const [
-      'ทุกอาคาร',
-      'อาคารเรียน A',
-      'อาคารเรียน B',
-      'อาคารปฏิบัติการ',
-      'อาคารอำนวยการ',
-      'อาคารกีฬา',
-    ], (v) => setState(() => _building = v));
-    final room = _Drop('ห้อง', Icons.meeting_room_rounded, _room, const [
-      'ทุกห้อง',
-      'A-101',
-      'A-102',
-      'A-201',
-      'B-101',
-      'LAB-01',
-      'LAB-02',
-    ], (v) => setState(() => _room = v));
-    return _section(
-      'กำหนดข้อมูลในรายงาน',
-      'เลือกช่วงเวลา อาคาร และห้องก่อนสร้างรายงาน',
-      LayoutBuilder(
-        builder: (context, c) {
-          final reset = OutlinedButton.icon(
-            onPressed: () => setState(() {
-              _period = 'เดือนนี้';
-              _building = 'ทุกอาคาร';
-              _room = 'ทุกห้อง';
-            }),
-            icon: const Icon(Icons.restart_alt_rounded),
-            label: const Text('ค่าเริ่มต้น'),
-          );
-          if (c.maxWidth < 780) {
-            return Column(
-              children: [
-                period,
-                const SizedBox(height: 10),
-                building,
-                const SizedBox(height: 10),
-                room,
-                const SizedBox(height: 10),
-                Align(alignment: Alignment.centerRight, child: reset),
-              ],
-            );
-          }
-          return Row(
-            children: [
-              Expanded(child: period),
-              const SizedBox(width: 10),
-              Expanded(child: building),
-              const SizedBox(width: 10),
-              Expanded(child: room),
-              const SizedBox(width: 10),
-              reset,
-            ],
-          );
-        },
-      ),
-    );
-  }
-
   Widget _preview() {
     final s = _summaryData;
     // No backend computes a time-series trend or a per-report-type metric
@@ -567,7 +494,13 @@ class _SchoolReportsPageState extends State<SchoolReportsPage> {
           ];
     return _section(
       'ตัวอย่างรายงาน: $_reportType',
-      'ช่วง $_period • $_building • $_room',
+      // เดิมบรรทัดนี้เขียนว่า "ช่วง <ช่วงเวลา> • <อาคาร> • <ห้อง>" ตามค่าที่
+      // เลือกจาก dropdown 3 ตัวด้านบน — แต่ไม่มีตัวไหนกรองข้อมูลจริงเลย
+      // สักตัว (ค่าถูกใช้พิมพ์บรรทัดนี้อย่างเดียว) ผู้ดูแลจึงเลือก "อาคารเรียน B"
+      // แล้วอ่านตัวเลขทั้งโรงเรียนโดยเข้าใจว่าเป็นของอาคารนั้น dropdown ทั้ง 3
+      // ถูกลบทิ้ง และบรรทัดนี้บอกขอบเขตจริงของข้อมูลแทน
+      'ภาพรวมทั้งโรงเรียน ณ เวลาที่โหลดล่าสุด — เวอร์ชันนี้ยังไม่รองรับการแยก'
+      'ตามช่วงเวลา อาคาร ห้อง หรือประเภทรายงานที่เลือก',
       metrics.isEmpty
           ? Container(
               width: double.infinity,
@@ -924,34 +857,6 @@ class _TypeCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    ),
-  );
-}
-
-class _Drop extends StatelessWidget {
-  const _Drop(this.label, this.icon, this.value, this.items, this.onChanged);
-  final String label;
-  final IconData icon;
-  final String value;
-  final List<String> items;
-  final ValueChanged<String> onChanged;
-  @override
-  Widget build(BuildContext context) => InputDecorator(
-    decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
-    child: DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: value,
-        isExpanded: true,
-        isDense: true,
-        items: items
-            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-            .toList(),
-        onChanged: (v) {
-          if (v != null) {
-            onChanged(v);
-          }
-        },
       ),
     ),
   );

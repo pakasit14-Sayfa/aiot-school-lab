@@ -313,4 +313,30 @@ void main() {
       expect(find.text('ยังไม่มีข้อมูลสำหรับส่งออก'), findsOneWidget);
     },
   );
+
+  /// หน้านี้เคยมี dropdown "ช่วงเวลา / อาคาร / ห้อง" ที่ไม่ได้กรองอะไรเลย —
+  /// ค่าที่เลือกถูกเอาไปพิมพ์เป็นหัวข้อ "ช่วง เดือนนี้ • อาคารเรียน B • A-101"
+  /// เหนือตัวเลขของทั้งโรงเรียน ผู้ดูแลจึงอ่านตัวเลขรวมโดยเข้าใจว่าเป็นของ
+  /// อาคารเดียว แถมชื่ออาคาร/ห้องในลิสต์ก็เป็นชื่อที่แต่งขึ้น ไม่มีในฐานข้อมูล
+  testWidgets('ต้องไม่มีตัวกรองอาคาร/ห้องที่กรองอะไรไม่ได้จริง', (tester) async {
+    await _pump(
+      tester,
+      loadSummary: () async => _summary(),
+      loadLogs: () async => const <SchoolAdminAuditLog>[],
+    );
+    await tester.pumpAndSettle();
+
+    // ชื่ออาคาร/ห้องที่แต่งขึ้นต้องไม่เหลืออยู่
+    expect(find.text('อาคารเรียน A'), findsNothing);
+    expect(find.text('อาคารเรียน B'), findsNothing);
+    expect(find.text('LAB-01'), findsNothing);
+    expect(find.text('A-101'), findsNothing);
+    expect(find.text('กำหนดข้อมูลในรายงาน'), findsNothing);
+
+    // และต้องบอกขอบเขตจริงของตัวเลขแทน
+    expect(
+      find.textContaining('ภาพรวมทั้งโรงเรียน ณ เวลาที่โหลดล่าสุด'),
+      findsOneWidget,
+    );
+  });
 }

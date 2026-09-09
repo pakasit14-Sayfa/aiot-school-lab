@@ -235,4 +235,34 @@ void main() {
       expect(find.text('Support'), findsNothing);
     });
   });
+
+  /// รหัสผู้ใช้ที่โชว์และส่งออก CSV เคยเป็น `USR-0001` ที่สร้างจาก **ลำดับใน
+  /// ลิสต์** — ดูเหมือนรหัสประจำตัวจริงแต่เปลี่ยนไปมาทุกครั้งที่ลิสต์เปลี่ยน
+  testWidgets('รหัสผู้ใช้ต้องมาจาก uid จริง ไม่ใช่ลำดับในลิสต์', (tester) async {
+    await _pump(
+      tester,
+      loadUsers: () async => [
+        _teacher(uid: 'aaaaaaaa-1111-2222-3333-444444444444', name: 'ครู สมศรี'),
+        _teacher(
+          uid: 'bbbbbbbb-5555-6666-7777-888888888888',
+          name: 'ครู สมชาย',
+          email: 'somchai@aiot-school-lab.local',
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('USR-0001'), findsNothing);
+    expect(find.textContaining('USR-0002'), findsNothing);
+
+    final detailButton = find.text('รายละเอียด').first;
+    await tester.ensureVisible(detailButton);
+    await tester.pumpAndSettle();
+    await tester.tap(detailButton);
+    await tester.pumpAndSettle();
+
+    // กล่องรายละเอียดโชว์ uid จริงแบบย่อ (เต็มยาว 36 ตัว อ่านไม่ไหวบนจอ)
+    expect(find.textContaining('aaaaaaaa'), findsWidgets);
+    expect(find.textContaining('USR-'), findsNothing);
+  });
 }

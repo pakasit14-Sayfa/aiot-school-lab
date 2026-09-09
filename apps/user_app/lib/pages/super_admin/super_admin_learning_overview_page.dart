@@ -58,10 +58,13 @@ class _SuperAdminLearningOverviewPageState
         _isLoading = false;
       });
     } catch (e) {
+      // เดิมเก็บ e.toString() ไปโชว์ทั้งดุ้นบนจอ — ผู้ดูแลระบบเห็น stack/
+      // PostgrestException ดิบแทนที่จะเป็นข้อความที่ทำอะไรต่อได้
+      debugPrint('SuperAdminLearningOverviewPage: load failed: $e');
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _loadError = e.toString();
+        _loadError = 'โหลดภาพรวมการเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
       });
     }
   }
@@ -109,7 +112,7 @@ class _SuperAdminLearningOverviewPageState
                         borderRadius: BorderRadius.circular(18),
                       ),
                       child: Text(
-                        'โหลดข้อมูลไม่สำเร็จ: $_loadError',
+                        _loadError!,
                         style: const TextStyle(
                           color: AppPalette.carnivalRed,
                           fontWeight: FontWeight.w700,
