@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'student/course_list_page.dart';
+import 'student_redesign_prototype/widgets/student_score_page.dart';
 import 'notifications_page.dart';
 import 'coming_soon_page.dart';
 import 'aiot_dashboard_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.loadNotifications});
+
+  /// Seam สำหรับเทสต์ — โปรดักชันปล่อยเป็น null แล้วใช้ service จริง
+  final Future<List<AppNotification>> Function()? loadNotifications;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -22,11 +26,19 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadUnreadCount() async {
-    final notifications = await NotificationService.listMyNotifications();
-    if (mounted) {
-      setState(
-        () => unreadCount = notifications.where((n) => n.isUnread).length,
-      );
+    try {
+      final loader =
+          widget.loadNotifications ?? NotificationService.listMyNotifications;
+      final notifications = await loader();
+      if (mounted) {
+        setState(
+          () => unreadCount = notifications.where((n) => n.isUnread).length,
+        );
+      }
+    } catch (e) {
+      // เดิมไม่มี try/catch เลย — โหลดพังกลายเป็น unhandled async error
+      // ป้ายจำนวนแจ้งเตือนค้างที่ 0 เหมือนเดิม แต่ตอนนี้มีร่องรอยให้ debug
+      debugPrint('HomePage: listMyNotifications failed: $e');
     }
   }
 
@@ -198,16 +210,14 @@ class _HomePageState extends State<HomePage> {
           title: 'คะแนนของฉัน',
           icon: Icons.bar_chart_rounded,
           color: const Color(0xFFF39C12),
+          // เดิมปุ่มนี้เปิด ComingSoonPage ("เร็ว ๆ นี้") ทั้งที่ระบบมีหน้าคะแนน
+          // ที่ต่อ GradeService/GScoreService จริงอยู่แล้ว — นักเรียนที่ล็อกอิน
+          // ด้วย QR (แท็บเล็ตในแล็บ) จึงถูกบอกว่าฟีเจอร์ยังไม่มี ทั้งที่เพื่อน
+          // ที่ล็อกอินปกติเปิดหน้าเดียวกันนี้ได้จาก 3 ทางในเลน redesign
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => const ComingSoonPage(
-                  title: 'คะแนนของฉัน',
-                  icon: Icons.bar_chart_rounded,
-                  color: Color(0xFFF39C12),
-                ),
-              ),
+              MaterialPageRoute(builder: (_) => const StudentScorePage()),
             );
           },
         ),
