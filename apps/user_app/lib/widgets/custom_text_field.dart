@@ -12,6 +12,10 @@ class CustomTextField extends StatelessWidget {
     this.obscureText = false,
     this.suffixIcon,
     this.validator,
+    this.autofillHints,
+    this.textInputAction,
+    this.onFieldSubmitted,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -23,12 +27,24 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
 
+  /// ทั้ง 4 ตัวนี้ใส่ทีหลัง (ค่าเริ่มต้น null = พฤติกรรมเดิมทุกหน้า) —
+  /// หน้า login ต้องใช้เพื่อให้ตัวจัดการรหัสผ่านเติมให้ได้ และกด Enter
+  /// จากคีย์บอร์ดแล้วส่งฟอร์มได้ ซึ่งสำคัญมากบนเว็บ/แท็บเล็ต
+  final List<String>? autofillHints;
+  final TextInputAction? textInputAction;
+  final void Function(String)? onFieldSubmitted;
+  final FocusNode? focusNode;
+
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      autofillHints: autofillHints,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onFieldSubmitted,
       decoration: InputDecoration(
         labelText: labelText,
         hintText: hintText,
