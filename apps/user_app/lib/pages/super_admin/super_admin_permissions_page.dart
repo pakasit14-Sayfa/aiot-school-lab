@@ -16,6 +16,7 @@ class SuperAdminPermissionsPage extends StatefulWidget {
     this.updateRole,
     this.suspendUser,
     this.reactivateUser,
+    this.loadPermissionMatrix,
   });
 
   /// True when embedded in [SuperAdminNavigationShell]'s desktop sidebar
@@ -31,6 +32,7 @@ class SuperAdminPermissionsPage extends StatefulWidget {
   updateRole;
   final Future<void> Function(String uid)? suspendUser;
   final Future<void> Function(String uid)? reactivateUser;
+  final Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix;
 
   @override
   State<SuperAdminPermissionsPage> createState() =>
@@ -52,6 +54,13 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
   final List<SchoolPlatformRecord> _schools = <SchoolPlatformRecord>[];
   final List<StaffInvitation> _invitations = <StaffInvitation>[];
   final List<SchoolAdminAuditLog> _logs = <SchoolAdminAuditLog>[];
+
+  /// ตารางสิทธิ์จริง อ่านสดจาก `list_role_permission_matrix` ซึ่งสแกน
+  /// `pg_get_functiondef()` ของทุก RPC หา `v_actor.role not in (...)` —
+  /// แทนที่ตาราง 8 ช่องที่เคยพิมพ์มือไว้ในไฟล์นี้ (`_PermissionSet`)
+  /// ซึ่งเป็น "บทบาทนี้ควรทำอะไรได้" ไม่ใช่ "จริง ๆ แล้วทำอะไรได้"
+  /// หน้า School Admin เปลี่ยนมาใช้ RPC ตัวเดียวกันนี้ไปแล้วใน `873dbc2`
+  List<RolePermissionEntry> _permissionMatrix = <RolePermissionEntry>[];
 
   String _roleFilter = 'ทุกบทบาท';
   String _schoolFilter = 'ทุกโรงเรียน';
@@ -128,11 +137,16 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
               : 'ทุกโรงเรียนและทุกอุปกรณ์',
           status: isActive ? _UserStatus.active : _UserStatus.suspended,
           lastActive: isActive ? 'ใช้งานได้' : 'ระงับการใช้งาน',
-          permissions: _defaultPermissionsForRole(displayRole),
         ));
       }
 
+      final List<RolePermissionEntry> matrix =
+          await (widget.loadPermissionMatrix ??
+              RolePermissionMatrixService.listMatrix)();
+
       setState(() {
+        _permissionMatrix = matrix;
+
         _users
           ..clear()
           ..addAll(loadedUsers);
@@ -1179,7 +1193,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
             ),
           ),
           const SizedBox(height: 12),
-          _permissionSummary(user.permissions),
+          _permissionSummary(user),
           const SizedBox(height: 12),
           Row(
             children: <Widget>[
@@ -1242,14 +1256,37 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     );
   }
 
-  Widget _permissionSummary(_PermissionSet permissions) {
-    final List<String> granted = permissions.grantedLabels;
+  /// ชื่อฟังก์ชันจริงที่บทบาทเหล่านี้เรียกได้ ตามตารางสิทธิ์ที่อ่านจากฐาน
+  /// ข้อมูล — `allowedRoles` เป็น null แปลว่าฟังก์ชันนั้นไม่ได้ใช้รูปแบบ
+  /// `v_actor.role not in (...)` ที่สแกนได้ ไม่ใช่ว่า "ไม่มีสิทธิ์" จึงไม่นับ
+  List<String> _functionsForRoles(Set<String> roleValues) {
+    final List<String> names = _permissionMatrix
+        .where(
+          (RolePermissionEntry e) =>
+              e.allowedRoles?.any(roleValues.contains) ?? false,
+        )
+        .map((RolePermissionEntry e) => e.functionName)
+        .toList();
+    names.sort();
+    return names;
+  }
+
+  Widget _permissionSummary(_UserAccount user) {
+    final List<String> granted = _functionsForRoles(
+      <String>{for (final UserRole r in user.allRoles) r.value},
+    );
+    if (_permissionMatrix.isEmpty) {
+      return const Text(
+        'ยังไม่มีข้อมูลตารางสิทธิ์',
+        style: TextStyle(color: AppPalette.textSecondary, fontSize: 10),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
-          'สิทธิ์ที่ได้รับ',
+        Text(
+          'ฟังก์ชันที่เรียกได้จริง ${granted.length} รายการ',
           style: TextStyle(
             color: AppPalette.textPrimary,
             fontSize: 11,
@@ -1435,85 +1472,73 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
   // 7. Role Matrix Panel
   // ===========================================================================
 
+  /// เดิมเป็นตาราง 8 คอลัมน์ที่พิมพ์มือไว้ในไฟล์นี้ (ดูภาพรวม/โรงเรียน/
+  /// อุปกรณ์/ควบคุม/ผู้ใช้/Log/รายงาน/Support) — เป็น "บทบาทนี้ควรทำอะไรได้"
+  /// ที่ไม่มีอะไรผูกกับ RBAC จริงเลย ถ้าโมเดลสิทธิ์ในฐานข้อมูลเปลี่ยน ตาราง
+  /// นี้ก็ยังโชว์ของเดิมต่อไปโดยไม่มีใครรู้ ตอนนี้ดึงจาก
+  /// `list_role_permission_matrix` จริงตัวเดียวกับที่หน้า School Admin ใช้
   Widget _buildRoleMatrixPanel() {
     final List<_RoleTemplate> roles = <_RoleTemplate>[
-      _RoleTemplate(
+      const _RoleTemplate(
         name: 'Super Admin',
+        roleValue: 'super_admin',
         description: 'จัดการระบบทั้งหมดและทุกโรงเรียนในแพลตฟอร์ม',
         color: AppPalette.carnivalRed,
-        permissions: _PermissionSet.fullAccess(),
       ),
-      _RoleTemplate(
+      const _RoleTemplate(
         name: 'School Admin',
+        roleValue: 'school_admin',
         description: 'จัดการโรงเรียน ผู้ใช้ และอุปกรณ์ภายในโรงเรียน',
         color: AppPalette.deepBlue,
-        permissions: _PermissionSet(
-          viewDashboard: true,
-          manageSchools: false,
-          manageDevices: true,
-          controlDevices: true,
-          manageUsers: true,
-          viewLogs: true,
-          exportReports: true,
-          supportMode: false,
-        ),
       ),
-      _RoleTemplate(
+      const _RoleTemplate(
         name: 'Teacher',
+        roleValue: 'teacher',
         description: 'จัดการการสอน บทเรียน การบ้าน และนักเรียนในชั้น',
         color: AppPalette.gardenGreen,
-        permissions: _PermissionSet(
-          viewDashboard: true,
-          manageSchools: false,
-          manageDevices: false,
-          controlDevices: true,
-          manageUsers: false,
-          viewLogs: true,
-          exportReports: true,
-          supportMode: false,
-        ),
       ),
-      _RoleTemplate(
+      const _RoleTemplate(
         name: 'Executive',
+        roleValue: 'executive',
         description: 'ดูรายงานภาพรวม สถิติพลังงาน และแดชบอร์ดผู้บริหาร',
         color: AppPalette.circusYellow,
-        permissions: _PermissionSet(
-          viewDashboard: true,
-          manageSchools: false,
-          manageDevices: false,
-          controlDevices: false,
-          manageUsers: false,
-          viewLogs: true,
-          exportReports: true,
-          supportMode: false,
-        ),
       ),
-      _RoleTemplate(
-        name: 'Student & Parent',
-        description: 'เข้าถึงบทเรียน การส่งงาน และการติดตามผลการเรียน',
+      const _RoleTemplate(
+        name: 'Student',
+        roleValue: 'student',
+        description: 'เข้าถึงบทเรียน การส่งงาน และผลการเรียนของตัวเอง',
         color: AppPalette.textSecondary,
-        permissions: _PermissionSet(
-          viewDashboard: false,
-          manageSchools: false,
-          manageDevices: false,
-          controlDevices: false,
-          manageUsers: false,
-          viewLogs: false,
-          exportReports: false,
-          supportMode: false,
-        ),
+      ),
+      const _RoleTemplate(
+        name: 'Parent',
+        roleValue: 'parent',
+        description: 'ติดตามผลการเรียนและการมาเรียนของบุตรหลาน',
+        color: AppPalette.textSecondary,
       ),
     ];
 
-    return _panel(
-      title: 'บทบาทและขอบเขตสิทธิ์ของระบบ (Role Matrix)',
-      trailing: TextButton.icon(
-        onPressed: () => _message(
-          'บทบาทในระบบถูกกำหนดตามมาตรฐานความปลอดภัย RBAC',
+    if (_permissionMatrix.isEmpty) {
+      return _panel(
+        title: 'บทบาทและขอบเขตสิทธิ์ของระบบ (Role Matrix)',
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(
+            child: Text(
+              'ยังไม่มีข้อมูลตารางสิทธิ์',
+              style: TextStyle(
+                color: AppPalette.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ),
-        icon: const Icon(Icons.info_outline_rounded),
-        label: const Text('คำอธิบายสิทธิ์'),
-      ),
+      );
+    }
+
+    return _panel(
+      title:
+          'บทบาทและขอบเขตสิทธิ์ของระบบ (Role Matrix) — จากฐานข้อมูลจริง '
+          '${_permissionMatrix.length} ฟังก์ชัน',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           if (constraints.maxWidth < 820) {
@@ -1532,7 +1557,7 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
             child: DataTable(
               headingRowHeight: 48,
               dataRowMinHeight: 72,
-              dataRowMaxHeight: 78,
+              dataRowMaxHeight: 96,
               columnSpacing: 30,
               horizontalMargin: 16,
               headingTextStyle: const TextStyle(
@@ -1541,62 +1566,73 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
               ),
               columns: const <DataColumn>[
                 DataColumn(label: Text('บทบาท')),
-                DataColumn(label: Text('ดูภาพรวม')),
-                DataColumn(label: Text('โรงเรียน')),
-                DataColumn(label: Text('อุปกรณ์')),
-                DataColumn(label: Text('ควบคุม')),
-                DataColumn(label: Text('ผู้ใช้')),
-                DataColumn(label: Text('Log')),
-                DataColumn(label: Text('รายงาน')),
-                DataColumn(label: Text('Support')),
+                DataColumn(label: Text('ฟังก์ชันที่เรียกได้จริง')),
+                DataColumn(label: Text('ตัวอย่างฟังก์ชัน')),
               ],
-              rows: roles
-                  .map(
-                    (_RoleTemplate role) => DataRow(
-                      cells: <DataCell>[
-                        DataCell(
-                          SizedBox(
-                            width: 190,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  role.name,
-                                  style: TextStyle(
-                                    color: role.color,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  role.description,
-                                  maxLines: 2,
-                                  softWrap: true,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: AppPalette.textSecondary,
-                                    fontSize: 9.5,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ],
+              rows: roles.map((_RoleTemplate role) {
+                final List<String> functions = _functionsForRoles(
+                  <String>{role.roleValue},
+                );
+                return DataRow(
+                  cells: <DataCell>[
+                    DataCell(
+                      SizedBox(
+                        width: 190,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              role.name,
+                              style: TextStyle(
+                                color: role.color,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
+                            const SizedBox(height: 2),
+                            Text(
+                              role.description,
+                              maxLines: 2,
+                              softWrap: true,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: AppPalette.textSecondary,
+                                fontSize: 9.5,
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        '${functions.length} รายการ',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: 340,
+                        child: Text(
+                          functions.isEmpty
+                              ? 'ไม่พบฟังก์ชันที่ระบุว่าบทบาทนี้เข้าถึงได้'
+                              : functions.take(3).join(', '),
+                          maxLines: 3,
+                          softWrap: true,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppPalette.textSecondary,
+                            fontSize: 10,
+                            height: 1.25,
                           ),
                         ),
-                        DataCell(_permissionIcon(role.permissions.viewDashboard)),
-                        DataCell(_permissionIcon(role.permissions.manageSchools)),
-                        DataCell(_permissionIcon(role.permissions.manageDevices)),
-                        DataCell(_permissionIcon(role.permissions.controlDevices)),
-                        DataCell(_permissionIcon(role.permissions.manageUsers)),
-                        DataCell(_permissionIcon(role.permissions.viewLogs)),
-                        DataCell(_permissionIcon(role.permissions.exportReports)),
-                        DataCell(_permissionIcon(role.permissions.supportMode)),
-                      ],
+                      ),
                     ),
-                  )
-                  .toList(),
+                  ],
+                );
+              }).toList(),
             ),
           );
         },
@@ -1648,10 +1684,19 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
             ],
           ),
           const SizedBox(height: 12),
+          Text(
+            'เรียกได้จริง ${_functionsForRoles(<String>{role.roleValue}).length} ฟังก์ชัน',
+            style: const TextStyle(
+              color: AppPalette.textSecondary,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             runSpacing: 6,
-            children: role.permissions.grantedLabels
+            children: _functionsForRoles(<String>{role.roleValue}).take(4)
                 .map(
                   (String permission) => Container(
                     padding: const EdgeInsets.symmetric(
@@ -1679,17 +1724,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     );
   }
 
-  Widget _permissionIcon(bool allowed) {
-    return Icon(
-      allowed ? Icons.check_circle_rounded : Icons.remove_circle_outline_rounded,
-      color: allowed ? AppPalette.gardenGreen : AppPalette.softBeige,
-      size: 19,
-    );
-  }
-
-  // ===========================================================================
-  // 8. Audit & Access Logs Panel
-  // ===========================================================================
 
   Widget _buildAccessLogsPanel() {
     return _panel(
@@ -2405,39 +2439,83 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        for (final _PermissionEntry entry
-                            in user.permissions.entries)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
-                            child: Row(
-                              children: <Widget>[
-                                Icon(
-                                  entry.allowed
-                                      ? Icons.check_circle_rounded
-                                      : Icons.cancel_outlined,
-                                  color: entry.allowed
-                                      ? AppPalette.gardenGreen
-                                      : AppPalette.softBeige,
-                                  size: 19,
+                        Builder(
+                          builder: (BuildContext context) {
+                            final List<String> functions = _functionsForRoles(
+                              <String>{
+                                for (final UserRole r in user.allRoles) r.value,
+                              },
+                            );
+                            if (_permissionMatrix.isEmpty) {
+                              return const Text(
+                                'ยังไม่มีข้อมูลตารางสิทธิ์',
+                                style: TextStyle(
+                                  color: AppPalette.textSecondary,
+                                  fontSize: 11.5,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    entry.label,
-                                    style: TextStyle(
-                                      color: entry.allowed
-                                          ? AppPalette.textPrimary
-                                          : AppPalette.textSecondary,
-                                      fontSize: 11.5,
-                                      fontWeight: entry.allowed
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                    ),
+                              );
+                            }
+                            if (functions.isEmpty) {
+                              return const Text(
+                                'ไม่พบฟังก์ชันที่ระบุว่าบทบาทนี้เข้าถึงได้ในตารางสิทธิ์',
+                                style: TextStyle(
+                                  color: AppPalette.textSecondary,
+                                  fontSize: 11.5,
+                                ),
+                              );
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'เรียกได้จริง ${functions.length} ฟังก์ชัน',
+                                  style: const TextStyle(
+                                    color: AppPalette.textPrimary,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
+                                const SizedBox(height: 6),
+                                for (final String name in functions.take(12))
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 3,
+                                    ),
+                                    child: Row(
+                                      children: <Widget>[
+                                        const Icon(
+                                          Icons.check_circle_rounded,
+                                          color: AppPalette.gardenGreen,
+                                          size: 15,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            name,
+                                            style: const TextStyle(
+                                              color: AppPalette.textSecondary,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                if (functions.length > 12)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      '+ อีก ${functions.length - 12} ฟังก์ชัน',
+                                      style: const TextStyle(
+                                        color: AppPalette.textSecondary,
+                                        fontSize: 10.5,
+                                      ),
+                                    ),
+                                  ),
                               ],
-                            ),
-                          ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -2690,58 +2768,6 @@ class _SuperAdminPermissionsPageState extends State<SuperAdminPermissionsPage> {
     _message('ส่งออก Audit Log ${_logs.length} รายการแล้ว');
   }
 
-  _PermissionSet _defaultPermissionsForRole(String role) {
-    if (role == 'Super Admin') {
-      return _PermissionSet.fullAccess();
-    }
-    if (role == 'School Admin') {
-      return _PermissionSet(
-        viewDashboard: true,
-        manageSchools: false,
-        manageDevices: true,
-        controlDevices: true,
-        manageUsers: true,
-        viewLogs: true,
-        exportReports: true,
-        supportMode: false,
-      );
-    }
-    if (role == 'Teacher') {
-      return _PermissionSet(
-        viewDashboard: true,
-        manageSchools: false,
-        manageDevices: false,
-        controlDevices: true,
-        manageUsers: false,
-        viewLogs: true,
-        exportReports: true,
-        supportMode: false,
-      );
-    }
-    if (role == 'Executive') {
-      return _PermissionSet(
-        viewDashboard: true,
-        manageSchools: false,
-        manageDevices: false,
-        controlDevices: false,
-        manageUsers: false,
-        viewLogs: true,
-        exportReports: true,
-        supportMode: false,
-      );
-    }
-    return _PermissionSet(
-      viewDashboard: false,
-      manageSchools: false,
-      manageDevices: false,
-      controlDevices: false,
-      manageUsers: false,
-      viewLogs: false,
-      exportReports: false,
-      supportMode: false,
-    );
-  }
-
   Color _roleColor(String role) {
     if (role == 'Super Admin') return AppPalette.carnivalRed;
     if (role == 'School Admin') return AppPalette.deepBlue;
@@ -2842,7 +2868,6 @@ class _UserAccount {
   String scope;
   _UserStatus status;
   String lastActive;
-  _PermissionSet permissions;
 
   _UserAccount({
     required this.id,
@@ -2857,7 +2882,6 @@ class _UserAccount {
     required this.scope,
     required this.status,
     required this.lastActive,
-    required this.permissions,
   });
 
   bool hasRole(UserRole targetRole) {
@@ -2871,64 +2895,6 @@ class _UserAccount {
     if (hasRole(UserRole.teacher)) return 3;
     return 4;
   }
-}
-
-class _PermissionSet {
-  bool viewDashboard;
-  bool manageSchools;
-  bool manageDevices;
-  bool controlDevices;
-  bool manageUsers;
-  bool viewLogs;
-  bool exportReports;
-  bool supportMode;
-
-  _PermissionSet({
-    required this.viewDashboard,
-    required this.manageSchools,
-    required this.manageDevices,
-    required this.controlDevices,
-    required this.manageUsers,
-    required this.viewLogs,
-    required this.exportReports,
-    required this.supportMode,
-  });
-
-  factory _PermissionSet.fullAccess() {
-    return _PermissionSet(
-      viewDashboard: true,
-      manageSchools: true,
-      manageDevices: true,
-      controlDevices: true,
-      manageUsers: true,
-      viewLogs: true,
-      exportReports: true,
-      supportMode: true,
-    );
-  }
-
-  List<_PermissionEntry> get entries => <_PermissionEntry>[
-        _PermissionEntry('ดูหน้าภาพรวม', viewDashboard),
-        _PermissionEntry('จัดการโรงเรียน', manageSchools),
-        _PermissionEntry('จัดการอุปกรณ์', manageDevices),
-        _PermissionEntry('ควบคุมอุปกรณ์', controlDevices),
-        _PermissionEntry('จัดการผู้ใช้และสิทธิ์', manageUsers),
-        _PermissionEntry('ดูประวัติ Log', viewLogs),
-        _PermissionEntry('ส่งออกรายงาน', exportReports),
-        _PermissionEntry('เข้า Support Mode', supportMode),
-      ];
-
-  List<String> get grantedLabels => entries
-      .where((_PermissionEntry entry) => entry.allowed)
-      .map((_PermissionEntry entry) => entry.label)
-      .toList();
-}
-
-class _PermissionEntry {
-  final String label;
-  final bool allowed;
-
-  const _PermissionEntry(this.label, this.allowed);
 }
 
 class _PriorityItem {
@@ -2950,15 +2916,15 @@ class _PriorityItem {
 }
 
 class _RoleTemplate {
+  final String roleValue;
   final String name;
   final String description;
   final Color color;
-  final _PermissionSet permissions;
 
   const _RoleTemplate({
+    required this.roleValue,
     required this.name,
     required this.description,
     required this.color,
-    required this.permissions,
   });
 }

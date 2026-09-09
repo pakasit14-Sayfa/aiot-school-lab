@@ -29,6 +29,7 @@ Future<void> _pump(
   Future<List<UserModel>> Function()? loadUsers,
   Future<void> Function(String uid)? suspendUser,
   Future<void> Function(String uid)? reactivateUser,
+  Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -43,6 +44,10 @@ Future<void> _pump(
         loadSchools: () async => <SchoolPlatformRecord>[],
         suspendUser: suspendUser,
         reactivateUser: reactivateUser,
+        // ตารางสิทธิ์เป็นข้อมูลหลักของหน้านี้เหมือน user list — โหลดไม่ได้ =
+        // ทั้งหน้าขึ้น error ไม่ใช่แอบโชว์ตารางเปล่าเหมือนไม่มีสิทธิ์เลย
+        loadPermissionMatrix:
+            loadPermissionMatrix ?? () async => <RolePermissionEntry>[],
       ),
     ),
   );
@@ -164,5 +169,70 @@ void main() {
     expect(find.text('ไม่สามารถระงับ Super Admin หลักจากหน้านี้ได้'), findsOneWidget);
     // The confirmation dialog must never even open for this case.
     expect(find.text('ระงับการใช้งานบัญชี'), findsNothing);
+  });
+
+  /// เมทริกซ์สิทธิ์ของหน้านี้เคยเป็นตาราง 8 ช่องที่พิมพ์มือไว้ในไฟล์เพจเอง
+  /// (ดูภาพรวม/โรงเรียน/อุปกรณ์/ควบคุม/ผู้ใช้/Log/รายงาน/Support) ซึ่งไม่ได้
+  /// ผูกกับ RBAC จริงเลย — หน้า School Admin ย้ายไปใช้ RPC
+  /// `list_role_permission_matrix` จริงแล้วใน `873dbc2` เทสต์ชุดนี้ล็อกไว้ว่า
+  /// ฝั่ง Super Admin ก็อ่านของจริงเหมือนกัน
+  group('ตารางสิทธิ์ตามบทบาท', () {
+    testWidgets('แสดงจำนวนฟังก์ชันจริงต่อบทบาท ไม่ใช่ตารางที่พิมพ์มือ', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        loadPermissionMatrix: () async => const <RolePermissionEntry>[
+          RolePermissionEntry(
+            functionName: 'list_schools_for_super_admin',
+            allowedRoles: <String>['super_admin'],
+          ),
+          RolePermissionEntry(
+            functionName: 'list_school_users',
+            allowedRoles: <String>['super_admin', 'school_admin'],
+          ),
+          RolePermissionEntry(
+            functionName: 'list_my_courses',
+            allowedRoles: <String>['teacher'],
+          ),
+          // allowedRoles = null คือฟังก์ชันที่สแกนรูปแบบสิทธิ์ไม่ได้ ต้องไม่
+          // ถูกนับให้บทบาทไหนเลย ไม่ใช่เดาว่าใครเข้าถึงได้
+          RolePermissionEntry(
+            functionName: 'some_unscannable_function',
+            allowedRoles: null,
+          ),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      // หัวข้อบอกจำนวนฟังก์ชันจริงที่อ่านมาได้
+      expect(
+        find.textContaining('จากฐานข้อมูลจริง 4 ฟังก์ชัน'),
+        findsOneWidget,
+      );
+
+      // คอลัมน์ 8 ช่องที่แต่งขึ้นต้องไม่เหลืออยู่
+      expect(find.text('Support'), findsNothing);
+      expect(find.text('ควบคุม'), findsNothing);
+
+      // super_admin เรียกได้ 2 ตัว, teacher 1 ตัว, parent 0 ตัว
+      expect(find.text('2 รายการ'), findsOneWidget);
+      // school_admin (list_school_users) และ teacher (list_my_courses) ได้คนละ 1
+      expect(find.text('1 รายการ'), findsNWidgets(2));
+      expect(find.text('0 รายการ'), findsWidgets);
+      expect(find.textContaining('list_schools_for_super_admin'), findsWidgets);
+      // ฟังก์ชันที่สแกนไม่ได้ต้องไม่ถูกยกให้บทบาทใด
+      expect(find.textContaining('some_unscannable_function'), findsNothing);
+    });
+
+    testWidgets('ตารางสิทธิ์ว่างต้องบอกตรง ๆ ไม่ใช่โชว์ตารางที่พิมพ์มือแทน', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ยังไม่มีข้อมูลตารางสิทธิ์'), findsWidgets);
+      expect(find.text('Support'), findsNothing);
+    });
   });
 }

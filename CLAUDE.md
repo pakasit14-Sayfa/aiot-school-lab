@@ -127,19 +127,17 @@ from what a fresh `db reset` reproduces. Verify with:
 `select encrypted_password = crypt('Test1234!', encrypted_password) from auth.users;`
 — should be all `t`.
 
-**Second test student, for multi-child Parent testing (added 2026-09-04, runtime-only —
-does NOT survive `supabase db reset`). ⚠️ CHECKED 2026-09-09: this account is GONE
-from the local DB — a `db reset` on 2026-09-08 wiped it exactly as warned here
-(`student@` was re-created 2026-09-08 08:06), so `parent@` currently has only ONE
-linked child and the student-switcher cannot be tested until someone re-creates it.
-Putting it in `supabase/seed.sql` would end this recurring loss:** `student2@aiot-school-lab.local` /
+**Second test student, for multi-child Parent testing — `student2@aiot-school-lab.local`.
+Was runtime-only from 2026-09-04 and did NOT survive `supabase db reset`; it was in fact
+silently lost to a reset on 2026-09-08, leaving `parent@` with one child and the
+student-switcher untested. Since 2026-09-09 it lives in `supabase/seed.sql`, so a reset
+recreates it. Verified: `list_my_linked_students` returns 2 children:** `student2@aiot-school-lab.local` /
 `Test1234!` (student_code `STU002`), linked to `parent@aiot-school-lab.local`
-as an approved second child (`relationship: มารดา`). Created as a privileged maintenance-seeded runtime fixture through the legacy
-`redeem_parent_binding_code` implementation after a later role-merge migration
-had accidentally re-granted that deprecated endpoint to `anon`/`authenticated`.
-The 20260904000000 hardening migration revokes it again. This fixture setup was
-not the supported parent-signup flow and does not validate that flow; the app
-uses `request_parent_binding_otp` followed by `confirm_parent_binding`.
+as an approved second child (`relationship: มารดา`). The seed writes the `parent_links` row directly, the same way the first child is
+seeded — it is not the supported parent-signup flow and does not validate it; the
+app uses `request_parent_binding_otp` followed by `confirm_parent_binding`. (The
+original runtime fixture went through the legacy `redeem_parent_binding_code`
+endpoint, which the 20260904000000 hardening migration has since revoked.)
 Has no `student_profiles` row and no grades/attendance/course data, so
 every student-scoped Parent page correctly shows `ยังไม่มีข้อมูล` for this child — that
 is expected, it exists only to give the Parent test account 2 linked children

@@ -533,6 +533,75 @@ begin
   end if;
 end $$;
 
+-- =====================================================================
+-- ลูกคนที่ 2 ของ parent@aiot-school-lab.local — student2@aiot-school-lab.local
+--
+-- ทำไมต้อง seed: fixture นี้เคยถูกสร้างด้วยมือตอน runtime (2026-09-04) แล้ว
+-- **หายไปทุกครั้งที่ `supabase db reset`** — ตรวจ 2026-09-09 พบว่ามันหายไป
+-- จริงแล้วรอบหนึ่ง (มีคน reset เมื่อ 2026-09-08) ทำให้ parent@ เหลือลูกคนเดียว
+-- และตัวสลับนักเรียน (student-switcher) ที่ใช้ร่วมกันทุกหน้าฝั่งผู้ปกครอง
+-- ทดสอบไม่ได้เลยโดยที่ไม่มีใครรู้ตัว — ปัญหาเดียวกับ dual-role fixture ด้านบน
+-- ที่แก้ด้วยการย้ายมา seed ไปแล้ว
+--
+-- ของเดิมถูกสร้างผ่าน `redeem_parent_binding_code` (endpoint ที่เลิกใช้แล้วและ
+-- ถูก revoke สิทธิ์ไปใน 20260904000000) — ที่นี่เขียนแถวลง parent_links ตรง ๆ
+-- แบบเดียวกับลูกคนแรกด้านบน ไม่ได้จำลอง flow สมัครจริง (ของจริงคือ
+-- request_parent_binding_otp → confirm_parent_binding)
+--
+-- **จงใจไม่สร้าง student_profiles / คะแนน / วิชา ให้** — จุดประสงค์ของ fixture
+-- นี้คือให้ผู้ปกครองมีลูก 2 คนไว้สลับ และให้ลูกคนที่ 2 เป็นเคส "ยังไม่มีข้อมูล"
+-- ที่ถูกต้อง ทุกหน้าที่ผูกกับนักเรียนจึงต้องขึ้น ยังไม่มีข้อมูล สำหรับเด็กคนนี้
+-- =====================================================================
+do $$
+declare
+  v_school_id uuid;
+  v_super_admin_id uuid;
+  v_parent_id uuid;
+  v_student2_id uuid;
+  v_code_id uuid;
+begin
+  select id into v_school_id from schools where school_code = 'TEST01';
+  select id into v_super_admin_id from users where email = 'admin@aiot-school-lab.local';
+  select id into v_parent_id from users where email = 'parent@aiot-school-lab.local';
+  if v_school_id is null or v_super_admin_id is null or v_parent_id is null then
+    return;
+  end if;
+
+  select id into v_student2_id from users where email = 'student2@aiot-school-lab.local';
+  if v_student2_id is null then
+    insert into users (school_id, email, password_hash, first_name, last_name, created_by, student_code)
+    values (
+      v_school_id, 'student2@aiot-school-lab.local', crypt('Test1234!', gen_salt('bf')),
+      'นักเรียนสอง', 'ทดสอบ', v_super_admin_id, 'STU002'
+    )
+    returning id into v_student2_id;
+  end if;
+
+  if not exists (
+    select 1 from user_roles where user_id = v_student2_id and role = 'student' and school_id = v_school_id
+  ) then
+    insert into user_roles (user_id, role, school_id, granted_by)
+    values (v_student2_id, 'student', v_school_id, v_super_admin_id);
+  end if;
+
+  if not exists (
+    select 1 from parent_links where parent_id = v_parent_id and student_id = v_student2_id
+  ) then
+    insert into parent_binding_codes (
+      school_id, student_id, code_hash, code_hint, expires_at, status, issued_by, redeemed_by, redeemed_at
+    ) values (
+      v_school_id, v_student2_id, encode(digest('PARENT-LINK-CODE-002', 'sha256'), 'hex'),
+      'DE02', now() + interval '30 days', 'redeemed', v_super_admin_id, v_parent_id, now()
+    ) returning id into v_code_id;
+
+    insert into parent_links (
+      student_id, parent_id, relationship, binding_code_id, status, requested_at, approved_by, approved_at
+    ) values (
+      v_student2_id, v_parent_id, 'มารดา', v_code_id, 'approved', now(), v_super_admin_id, now()
+    );
+  end if;
+end $$;
+
 -- Quick reference: everything logs in with password Test1234!
 -- (except admin@aiot-school-lab.local, which uses ChangeMe123! from the
 -- bootstrap migration).
