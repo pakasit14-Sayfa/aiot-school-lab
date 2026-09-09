@@ -27,8 +27,9 @@
 
 | จุด | สภาพ |
 |---|---|
-| `redeem_parent_binding_code` | เปิดให้ `anon` เรียกได้ — ข้าม OTP ผูก parent↔student เปิดค้างตั้งแต่ 2026-09-04 |
-| audit-log null-school leak | แก้แล้วแต่ **apply แค่ local** — เช็คเอาต์นี้ไม่มี linked project |
+| ~~`redeem_parent_binding_code`~~ | ✅ **ปิดแล้วบน production 2026-09-09** — `has_function_privilege` = `false \| false` (เปิดค้างมาตั้งแต่ 2026-09-04) |
+| ~~audit-log null-school leak~~ | ✅ **apply ขึ้น production แล้ว 2026-09-09** — ไม่มีเงื่อนไข `school_id IS NULL` เหลือแล้ว |
+| สิทธิ์อนุมัติผูกบัญชีผู้ปกครอง (พบใหม่ 2026-09-09) | ⚠️ **ปิดครึ่งเดียว** — 3.5a (ครูเห็นเฉพาะคำขอที่ตัวเองอนุมัติได้) ขึ้น production แล้ว · 3.5b (บีบเป็นครูประจำชั้น) **ยังไม่ขึ้น** เพราะ production มี `homeroom_assignments` = 0 แถว ถ้ารันตอนนี้จะไม่มีครูคนไหนอนุมัติได้เลย |
 
 ### 🔴 B. งานยังไม่ push — 6 commits อยู่บนเครื่องเดียว
 
@@ -140,9 +141,9 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 | | ID | งาน | ต้องทำหลัง | จบเมื่อ |
 |---|---|---|---|---|
 | [x] | 0.1 | `git push` ขึ้น gitlab | — | ✅ **เสร็จ 2026-09-06** — push 11 commits (`e3fd2d2..66b83a2`) · remote ตรงกับ local แล้ว |
-| [ ] | 0.2 | 🔐 ปิด `redeem_parent_binding_code` บน production | 0.1 + **ผู้ใช้อนุญาต** | REST เรียกแล้วได้ `42501` และ `has_function_privilege`=false |
-| [ ] | 0.3 | 🔐 apply `20260905040000` (audit-log leak) ขึ้น production | 0.2 | school_admin จริงอ่าน log null-school ไม่ได้ + บันทึกใน `schema_migrations` |
-| [ ] | 0.4 | ตรวจ migration ทุกตัวว่าขึ้น production ครบ | 0.3 | `migration list` local ตรงกับ remote ทุกแถว |
+| [x] | 0.2 | 🔐 ปิด `redeem_parent_binding_code` บน production | 0.1 + **ผู้ใช้อนุญาต** | ✅ **เสร็จ 2026-09-09 บน production จริง** — เจ้าของรัน `revoke execute ... from anon, authenticated` เอง (Claude ถูกบล็อกไม่ให้เขียน production) หลักฐาน: `has_function_privilege` ก่อนแก้ = `true \| true` หลังแก้ = **`false \| false`** ตามที่เห็นในเทอร์มินัลจริง คำสั่งอยู่ใน `PRODUCTION_FIX_0.2-0.4.md` ขั้นที่ 2 |
+| [x] | 0.3 | 🔐 apply `20260905040000` (audit-log leak) ขึ้น production | 0.2 | ✅ **เสร็จ 2026-09-09 บน production จริง** — รัน migration + บันทึกลง `schema_migrations` แล้ว หลักฐาน: `pg_get_functiondef(...) like '%school_id IS NULL%'` = **`false`** (ไม่มีเงื่อนไขรั่วแล้ว) และ `has_function_privilege('service_role', ...)` = **`false`** |
+| [ ] | 0.4 | ตรวจ migration ทุกตัวว่าขึ้น production ครบ | 0.3 | `migration list` local ตรงกับ remote ทุกแถว — **ยังไม่ได้รัน `npx supabase migration list --linked` ห้ามติ๊กจนกว่าจะเห็นผลจริง** |
 | [ ] | 0.5 | ใส่ fixture dual-role ลง `seed.sql` | — | `db reset` แล้ว teacher ยังมี 2 role |
 | [x] | 0.6 | ลบ dead code + ปิด route `/prototype/*` | — | ✅ **เสร็จ 2026-09-06** (`66b83a2`) — ลบ 9 ไฟล์ + test ล้าสมัย 2 ไฟล์ รวม **-10,121 บรรทัด** · route `/prototype/*` ถูกครอบ `isPrototypeMode` แล้วทั้ง `routes:` และ `onGenerateRoute` · analyze 0 error/0 warning · build web ผ่าน · test fail คงที่ 16 ชุดเดิม |
 

@@ -74,8 +74,9 @@ DoD ครบเช่นกัน รายละเอียดดู `WORK_LO
 
 | เรื่อง | สภาพ |
 |---|---|
-| `redeem_parent_binding_code` | **ยังเปิดให้ `anon` เรียกได้บน production** — ข้าม OTP ผูก parent↔student เปิดค้างตั้งแต่ 2026-09-04 |
-| audit-log null-school leak | แก้แล้วแต่ยังอยู่แค่ local |
+| ~~`redeem_parent_binding_code`~~ | ✅ **ปิดแล้วบน production 2026-09-09** — เจ้าของรัน revoke เอง (Claude เขียน production ไม่ได้) ตรวจซ้ำได้ `false \| false` |
+| ~~audit-log null-school leak~~ | ✅ **ขึ้น production แล้ว 2026-09-09** — `like '%school_id IS NULL%'` = false, service_role ถูก revoke |
+| สิทธิ์อนุมัติผูกบัญชีผู้ปกครอง | ⚠️ **ครึ่งเดียว** — ครูไม่เห็นคำขอของทั้งโรงเรียนแล้ว (3.5a ขึ้น production 2026-09-09) แต่กฎ "ต้องเป็นครูประจำชั้น" (3.5b) ยังไม่ขึ้น เพราะ production ยังไม่กำหนดครูประจำชั้นสักห้อง (0 แถว) |
 
 ### 3.2 งานยังไม่ push — 7 commits อยู่บนเครื่องเดียว
 
