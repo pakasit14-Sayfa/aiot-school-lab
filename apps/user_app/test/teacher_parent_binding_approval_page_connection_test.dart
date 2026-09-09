@@ -120,4 +120,23 @@ void main() {
     expect(find.text('โหลดคำขอผูกบัญชีไม่สำเร็จ'), findsOneWidget);
     expect(find.textContaining('backend detail'), findsNothing);
   });
+
+  /// ตั้งแต่ migration 20260909010000 ครูเห็น/อนุมัติได้เฉพาะนักเรียนในห้องที่
+  /// ตัวเองเป็นครูประจำชั้น — ครูที่เคยเห็นคำขอทั้งโรงเรียนจะเห็นหน้าว่างเปล่า
+  /// จึงต้องบอกขอบเขตไว้ ไม่ใช่ปล่อยให้เข้าใจว่าระบบพัง
+  testWidgets('หน้าว่างต้องบอกด้วยว่าเห็นเฉพาะห้องที่ตัวเองเป็นครูประจำชั้น', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      listParentLinks: ({status = 'pending', schoolId}) async => [],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่มีคำขอรออนุมัติแล้ว'), findsOneWidget);
+    expect(
+      find.textContaining('เฉพาะคำขอของนักเรียนในห้องที่คุณเป็น'),
+      findsOneWidget,
+    );
+  });
 }

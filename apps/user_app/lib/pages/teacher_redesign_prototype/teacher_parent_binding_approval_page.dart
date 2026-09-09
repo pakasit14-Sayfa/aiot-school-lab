@@ -4,6 +4,11 @@
 // School Admin/งานทะเบียน (ไม่ใช่ผู้ปกครอง) ต่อจาก STK-1 ที่ผู้ปกครองยื่นคำ
 // ขอผูกบัญชีไว้ (ดู parent_redesign_prototype/parent_binding_page.dart)
 //
+// 2026-09-09: backend บังคับตามสเปกนี้จริงแล้ว — เดิม RPC เช็คแค่ว่าครูคนนั้น
+// "สอนวิชาที่เด็กลงทะเบียน" ครูสอนวิชาใดก็ได้จึงอนุมัติได้ ตอนนี้ต้องเป็น
+// ครูประจำชั้นของห้องเด็กคนนั้น (ห้องหนึ่งมีครูประจำชั้นได้หลายคน อนุมัติได้
+// ทุกคน) ดู migration 20260909010000 + pgTAP 49
+//
 // backend จริงบังคับ CoI (ผลประโยชน์ทับซ้อน) ฝั่งเซิร์ฟเวอร์อยู่แล้ว —
 // approve_parent_link จะ throw 'coi_self_approval_blocked' เองถ้าผู้อนุมัติ
 // มีความเสี่ยง ไม่ต้องเดาด้วย client heuristic (ชื่อ-สกุลตรงกัน) แบบเดิม
@@ -341,12 +346,32 @@ class _TeacherParentBindingApprovalPageState
                   ? const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(
-                        child: Text(
-                          'ไม่มีคำขอรออนุมัติแล้ว',
-                          style: TextStyle(
-                            color: TeacherPalette.muted,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        // ตั้งแต่ migration 20260909010000 ครูเห็น/อนุมัติได้
+                        // เฉพาะนักเรียนในห้องที่ตัวเองเป็นครูประจำชั้น ครูที่
+                        // เคยเห็นคำขอทั้งโรงเรียนจะเห็นว่างเปล่าโดยไม่รู้ว่า
+                        // ทำไม จึงต้องบอกขอบเขตไว้ตรงนี้
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'ไม่มีคำขอรออนุมัติแล้ว',
+                              style: TextStyle(
+                                color: TeacherPalette.muted,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'หน้านี้แสดงเฉพาะคำขอของนักเรียนในห้องที่คุณเป็น'
+                              'ครูประจำชั้น — คำขอของห้องอื่นให้ฝ่ายทะเบียนหรือ'
+                              'ผู้ดูแลโรงเรียนเป็นผู้อนุมัติ',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: TeacherPalette.muted,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     )
