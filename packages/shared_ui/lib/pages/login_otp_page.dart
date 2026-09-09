@@ -66,14 +66,35 @@ class _LoginOtpPageState extends State<LoginOtpPage> {
       );
       if (!mounted) return;
       widget.onVerified(user);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorText = 'รหัสไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว';
+        _errorText = _messageForFailure(e);
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+
+  /// เดิม `catch (_)` เหมารวมทุก error เป็น "รหัสไม่ถูกต้อง" — ตอน backend ล่ม
+  /// (Edge Function `auth-verify-otp` ต่อไม่ได้ / เน็ตหลุด) ผู้ใช้จะถูกบอกว่า
+  /// รหัสตัวเองผิด แล้วนั่งกรอกใหม่วนไปเรื่อย ๆ ทั้งที่ไม่มีรหัสไหนผ่านได้เลย
+  /// เจอจริงตอนทดสอบ 2026-09-09: Docker ดับ → Supabase ลง → หน้านี้ยังยืนยันว่า
+  /// "รหัสไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว"
+  ///
+  /// ตัว Edge Function จงใจตอบ 200 พร้อม `session: null` ทั้งกรณีรหัสผิดและ
+  /// กรณีตัวเองพัง เพื่อไม่ให้เดาได้ว่ารหัสถูกหรือผิด (anti-enumeration) —
+  /// **ไม่แก้ตรงนั้น** สิ่งที่ฝั่งแอปแยกออกได้จริงคือ "เรียกไปไม่ถึง" ต่างหาก
+  static String _messageForFailure(Object error) {
+    final isRejectedCode =
+        error is Exception &&
+        error.toString().contains('invalid_or_expired_otp');
+    if (isRejectedCode) {
+      return 'รหัสไม่ถูกต้อง หมดอายุ หรือถูกใช้แล้ว';
+    }
+    return 'เชื่อมต่อระบบยืนยันตัวตนไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่ '
+        '(ไม่ใช่เพราะรหัสผิด)';
   }
 
   void _autofillDevCode() {
