@@ -142,7 +142,8 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$DB"; then
     | awk -F'|' '{printf "  ✗ %-28s → ใช้แทน: %s\n", $1, $2}'
   echo
   echo '  ↑ ไม่มี p_token + ใช้ helper ที่อิง auth.uid() = เป็นของ aiot_dev_dashboard'
-  echo '    เรียกจาก my_first_app แล้ว actor เป็น null เงียบ ๆ ไม่ error (hard rule 1)'
+  echo '    ตรวจกับ DB จริง 2026-09-09: ทั้ง 6 ตัว raise invalid_session ดัง ๆ ไม่ได้'
+  echo '    พังเงียบ — แต่ยังห้ามเรียกอยู่ดี เพราะมันจะพังทุกครั้งที่ครู/แอดมินกด'
   echo '    เช็ค p_token ในลายเซ็นก่อนเสมอ อย่าดูแค่ชื่อ RPC'
 else
   echo '  (ข้าม — Docker/Supabase ไม่ได้รันอยู่)'
