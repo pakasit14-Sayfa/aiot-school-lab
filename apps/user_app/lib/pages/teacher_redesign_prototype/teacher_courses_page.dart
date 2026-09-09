@@ -248,93 +248,24 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
   }
 }
 
-final List<TeacherCourseModel> mockTeacherCourses = [
-  const TeacherCourseModel(
-    code: 'ว31281',
-    name: 'วิทยาการคำนวณ & AI เบื้องต้น',
-    category: 'เทคโนโลยี',
-    rooms: ['ม.4/1', 'ม.4/2'],
-    studentCount: 82,
-    activeAssignments: 3,
-    pendingGradingCount: 4,
-    completionRate: 0.88,
-    coverGradient: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-    accentColor: Color(0xFF0D9488),
-    nextPeriodText: 'อังคาร คาบ 2-3 (ห้อง 421)',
-  ),
-  const TeacherCourseModel(
-    code: 'ว32282',
-    name: 'STEM & Green-Lab IoT',
-    category: 'วิทยาศาสตร์',
-    rooms: ['ม.5/2'],
-    studentCount: 41,
-    activeAssignments: 2,
-    pendingGradingCount: 1,
-    completionRate: 0.94,
-    coverGradient: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
-    accentColor: Color(0xFF2563EB),
-    nextPeriodText: 'พุธ คาบ 5-6 (ห้อง GreenLab)',
-  ),
-  const TeacherCourseModel(
-    code: 'ว33283',
-    name: 'ฟิสิกส์ประยุกต์ & หุ่นยนต์',
-    category: 'ฟิสิกส์',
-    rooms: ['ม.6/1', 'ม.6/3'],
-    studentCount: 78,
-    activeAssignments: 1,
-    pendingGradingCount: 1,
-    completionRate: 0.79,
-    coverGradient: [Color(0xFF6D28D9), Color(0xFF8B5CF6)],
-    accentColor: Color(0xFF7C3AED),
-    nextPeriodText: 'พฤหัส คาบ 1-2 (ห้อง 602)',
-  ),
-  const TeacherCourseModel(
-    code: 'ว30205',
-    name: 'การเขียนโปรแกรม Python & Data Science',
-    category: 'เทคโนโลยี',
-    rooms: ['ม.5/1'],
-    studentCount: 38,
-    activeAssignments: 2,
-    pendingGradingCount: 2,
-    completionRate: 0.65,
-    coverGradient: [Color(0xFF4338CA), Color(0xFF6366F1)],
-    accentColor: Color(0xFF4F46E5),
-    nextPeriodText: 'จันทร์ คาบ 3-4 (ห้อง Com 2)',
-  ),
-  const TeacherCourseModel(
-    code: 'ค33201',
-    name: 'คณิตศาสตร์วิศวกรรม & AI Modeling',
-    category: 'คณิตศาสตร์',
-    rooms: ['ม.6/2'],
-    studentCount: 35,
-    activeAssignments: 1,
-    pendingGradingCount: 0,
-    completionRate: 0.50,
-    coverGradient: [Color(0xFFC2410C), Color(0xFFF97316)],
-    accentColor: Color(0xFFEA580C),
-    nextPeriodText: 'ศุกร์ คาบ 1-2 (ห้อง 514)',
-    // demo: ครูถูกถอดออกจากวิชานี้แล้ว ใช้ทดสอบ Permission Denied state
-    hasAccess: false,
-  ),
-  const TeacherCourseModel(
-    code: 'ว30291',
-    name: 'โครงงานนวัตกรรมพลังงานสะอาด (Clean Energy)',
-    category: 'วิทยาศาสตร์',
-    rooms: ['ม.4/3'],
-    studentCount: 40,
-    activeAssignments: 3,
-    pendingGradingCount: 3,
-    completionRate: 0.42,
-    coverGradient: [Color(0xFFBE123C), Color(0xFFFB7185)],
-    accentColor: Color(0xFFE11D48),
-    // demo: ภาคเรียนปิดแล้ว ใช้ทดสอบ Course Closed state
-    isClosed: true,
-    nextPeriodText: 'อังคาร คาบ 6-7 (ห้อง ปฏิบัติการวิทยาศาสตร์)',
-  ),
-];
+// รายวิชาจริงของครูที่ล็อกอินอยู่ โหลดผ่าน CourseService.listMyCourses() ใน
+// _loadRealCourses() แล้วเทลงลิสต์ตัวนี้ — เดิมลิสต์นี้ถูก seed ด้วยรายวิชา
+// ปลอม 6 ตัว (ว31281 ฯลฯ พร้อมจำนวนนักเรียน/งานค้างตรวจที่แต่งขึ้น) ซึ่ง
+// หน้ารายละเอียดวิชายังหยิบไปแสดงได้ผ่าน fallback `?? .first` เริ่มจากว่าง
+final List<TeacherCourseModel> teacherCourses = [];
 
 class TeacherCoursesPage extends StatefulWidget {
-  const TeacherCoursesPage({super.key});
+  const TeacherCoursesPage({
+    super.key,
+    this.loadCourses,
+    this.loadCourseStudents,
+  });
+
+  /// Seams for tests: ให้เทสต์พิสูจน์ได้ว่าหน้านี้ไม่มีรายวิชาปลอมค้างอยู่
+  /// ทั้งตอนโหลด ตอนโหลดพัง และตอนครูไม่มีรายวิชาจริงเลย
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<CourseStudent>> Function(String courseId)?
+  loadCourseStudents;
 
   @override
   State<TeacherCoursesPage> createState() => _TeacherCoursesPageState();
@@ -367,8 +298,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
     _loadRealCourses();
   }
 
-  // แทนที่รายการ mock ต้นทางด้วยรายวิชาจริงของครูที่ login อยู่ตอนเปิดหน้า
-  // — ยังคง mockTeacherCourses เป็น list เดิม (แค่เปลี่ยนเนื้อหา) เพื่อไม่
+  // โหลดรายวิชาจริงของครูที่ login อยู่ตอนเปิดหน้า แล้วเทลง teacherCourses
+  // — ยังคงใช้ list ตัวเดิมร่วมกัน (แค่เปลี่ยนเนื้อหา) เพื่อไม่
   // ต้องแตะ logic สร้าง/คัดลอกรายวิชา (CLS-1/CLS-6) ที่ผูกกับ list ตัวนี้
   // อยู่แล้ว — CLS-1 (สร้างรายวิชาใหม่) ยิง CourseService.createCourse จริง
   // แล้ว (ดู _NewCourseModalSheet._submit) แล้วรีโหลดรายการจริงทับของที่สร้าง
@@ -377,13 +308,16 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
   // เซิร์ฟเวอร์" (ดู _openCopyCourseModal)
   Future<void> _loadRealCourses() async {
     try {
-      final courses = await CourseService.listMyCourses();
+      final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
+      final loadStudents =
+          widget.loadCourseStudents ?? CourseService.listCourseStudents;
+      final courses = await loadCourses();
       final mapped = <TeacherCourseModel>[];
       for (var i = 0; i < courses.length; i++) {
         final c = courses[i];
         var studentCount = 0;
         try {
-          studentCount = (await CourseService.listCourseStudents(c.id)).length;
+          studentCount = (await loadStudents(c.id)).length;
         } catch (_) {
           studentCount = 0;
         }
@@ -408,7 +342,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
       }
       if (!mounted) return;
       setState(() {
-        mockTeacherCourses
+        teacherCourses
           ..clear()
           ..addAll(mapped);
         _loading = false;
@@ -416,7 +350,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'โหลดรายวิชาไม่สำเร็จ: $e';
+        // ไม่โชว์ข้อความ exception ดิบให้ครูเห็น — log ไว้สำหรับ debug แทน
+        debugPrint('teacher_courses_page: listMyCourses failed: $e');
+        _loadError = 'โหลดรายวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
         _loading = false;
       });
     }
@@ -450,7 +386,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
   // CLS-6: คัดลอกโครงสร้างรายวิชา (บทเรียน/ใบงาน/รูบริก) ไปภาคเรียนใหม่ —
   // BR1: ห้ามคัดลอกรายชื่อนักเรียนและคะแนนเดิมมาด้วยเด็ดขาด
   void _openCopyCourseModal() {
-    if (mockTeacherCourses.isEmpty) {
+    if (teacherCourses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('ยังไม่มีรายวิชาให้คัดลอก — สร้างรายวิชาใหม่ก่อน'),
@@ -458,10 +394,10 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
       );
       return;
     }
-    TeacherCourseModel? sourceCourse = mockTeacherCourses.first;
+    TeacherCourseModel? sourceCourse = teacherCourses.first;
     String targetSemester = 'ภาคเรียนที่ 2/2569';
     final nameCtrl = TextEditingController(
-      text: '${mockTeacherCourses.first.name} (คัดลอก)',
+      text: '${teacherCourses.first.name} (คัดลอก)',
     );
     String? nameError;
 
@@ -491,7 +427,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   DropdownButtonFormField<TeacherCourseModel>(
                     value: sourceCourse,
                     isExpanded: true,
-                    items: mockTeacherCourses
+                    items: teacherCourses
                         .map(
                           (c) => DropdownMenuItem(
                             value: c,
@@ -594,7 +530,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                 onPressed: () {
                   final newName = nameCtrl.text.trim();
                   // Exception Flow 1: ชื่อซ้ำในภาคเรียนปลายทาง → ต้องตั้งชื่อใหม่
-                  final isDuplicate = mockTeacherCourses.any(
+                  final isDuplicate = teacherCourses.any(
                     (c) => c.name == newName,
                   );
                   if (isDuplicate) {
@@ -619,7 +555,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                     accentColor: src.accentColor,
                     nextPeriodText: 'ยังไม่กำหนดตาราง — $targetSemester',
                   );
-                  setState(() => mockTeacherCourses.insert(0, copy));
+                  setState(() => teacherCourses.insert(0, copy));
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -700,7 +636,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
             ),
           );
         }
-        final filteredCourses = mockTeacherCourses.where((c) {
+        final filteredCourses = teacherCourses.where((c) {
           final matchesSearch =
               c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
               c.code.toLowerCase().contains(_searchQuery.toLowerCase());
@@ -709,11 +645,11 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
           return matchesSearch && matchesRoom;
         }).toList();
 
-        final totalStudents = mockTeacherCourses.fold<int>(
+        final totalStudents = teacherCourses.fold<int>(
           0,
           (sum, c) => sum + c.studentCount,
         );
-        final totalPendingGrading = mockTeacherCourses.fold<int>(
+        final totalPendingGrading = teacherCourses.fold<int>(
           0,
           (sum, c) => sum + c.pendingGradingCount,
         );
@@ -724,7 +660,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
             // 🌟 1. HERO HEADER CARD
             _buildHeroHeader(
               context,
-              totalCourses: mockTeacherCourses.length,
+              totalCourses: teacherCourses.length,
               totalStudents: totalStudents,
             ),
             const SizedBox(height: 20),
@@ -732,7 +668,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
             // 📊 2. STATS OVERVIEW CARDS
             _buildStatsGrid(
               context: context,
-              totalCourses: mockTeacherCourses.length,
+              totalCourses: teacherCourses.length,
               totalStudents: totalStudents,
               totalPendingGrading: totalPendingGrading,
               isDesktop: isDesktop,
@@ -2326,7 +2262,26 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.course ?? mockTeacherCourses.first;
+    // เดิม fallback เป็น `teacherCourses.first` ซึ่งตอนที่ลิสต์ยัง seed ด้วย
+    // รายวิชาปลอมอยู่ แปลว่าเปิดหน้านี้โดยไม่มีวิชาจริงจะได้หน้ารายละเอียด
+    // ของวิชาปลอมเต็มหน้า ตอนนี้บอกตรง ๆ ว่าไม่มีวิชาให้แสดง
+    final c = widget.course;
+    if (c == null) {
+      return TeacherMockPageShell(
+        title: 'รายละเอียดวิชา',
+        activeMenuLabel: 'รายวิชา',
+        builder: (context, isDesktop) => const Padding(
+          padding: EdgeInsets.all(32),
+          child: Center(
+            child: Text(
+              'ยังไม่มีข้อมูลรายวิชา — กรุณาเปิดจากรายการรายวิชาของคุณ',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: TeacherPalette.muted),
+            ),
+          ),
+        ),
+      );
+    }
 
     return TeacherMockPageShell(
       title: 'รายละเอียดวิชา ${c.name.isNotEmpty ? c.name : c.code}',

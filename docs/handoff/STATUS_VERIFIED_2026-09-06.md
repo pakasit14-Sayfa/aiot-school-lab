@@ -63,6 +63,8 @@ DoD ครบเช่นกัน รายละเอียดดู `WORK_LO
 | ~~School Admin 14 หน้าที่เหลือ~~ | ✅ **ปิดครบแล้ว 2026-09-08** — School Admin ทั้ง 23/23 หน้าผ่าน DoD เต็ม (audit ด้วย agent คู่ขนาน 3 ตัวอ่านทุกไฟล์เต็ม ไม่ใช่ grep แล้วแก้ 4 หน้าสุดท้าย: permissions/resources/buildings/scan) ดู `WORK_LOG.md` 2026-09-08 | — |
 | Executive 5 หน้า | โหลดข้อมูลจริงบางส่วน | ยังแสดงตารางปลอมทับ (`classrooms` 205 บรรทัด, `cameras` 105) |
 | Super Admin 10 หน้า | ต่อ backend ครบ | ขาด `ยังไม่มีข้อมูล` 9/10 หน้า, ไม่แยก loading/error 3 หน้า |
+| Teacher 26 หน้า | **2026-09-09: ตรวจซ้ำทั้งเลน** — ข้อมูลปลอมที่ audit 2026-09-07 รายงานไว้ถูกปิดครบแล้ว รอบนี้ปิดเพิ่มอีก 3 จุดสุดท้าย (โจทย์ข้อสอบปลอมที่ถูกบันทึกลง DB จริง, ลิสต์รายวิชาปลอมระดับโมดูล, fake-success ตอนจัดกลุ่มต่อวงจร AIoT) มี connection test 31 ไฟล์ | ปุ่มที่ยัง disclose ว่าเป็น UI Prototype (`showTeacherMockAction`) และคัดลอกรายวิชา (CLS-6) ที่ยังไม่มี RPC — เปิดเผยตรง ๆ ไม่ใช่ของปลอมที่หลอก · `teacher_aiot_lab_page` ยังไม่มี connection test |
+| Student 16 หน้า | **2026-09-09: ตรวจซ้ำทั้งเลน ไม่พบของปลอมที่ไม่ disclose** ทุกหน้าที่เข้าถึงได้จริงต่อ service จริงและมี connection test ครบ | demo fallback ที่ติดป้าย "ข้อมูลจำลอง" 2 จุด (G-Score, utility trend) — ตั้งใจและมี test บังคับป้าย · `lib/pages/student/` 4 ไฟล์เป็น dead code ไม่มีใคร import ควรลบ |
 
 ---
 

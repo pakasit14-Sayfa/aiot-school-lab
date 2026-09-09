@@ -1386,8 +1386,22 @@ class _WiringGroupMembersSheetState extends State<_WiringGroupMembersSheet> {
         );
         _memberIds.add(studentId);
       }
-    } catch (_) {
-      // เงียบไว้ — สถานะจริงจะซิงก์กลับตอนโหลดใหม่หลังปิดชีต
+    } catch (e) {
+      // เดิมเงียบสนิท — ครูกดเพิ่ม/เอานักเรียนออกจากกลุ่มแล้วชีตตอบสนอง
+      // เหมือนสำเร็จ ทั้งที่ RPC พัง กว่าจะรู้ก็ตอนโหลดใหม่หลังปิดชีต
+      debugPrint('teacher_aiot_lab_page: toggle wiring group member failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isMember
+                  ? 'นำนักเรียนออกจากกลุ่มไม่สำเร็จ กรุณาลองใหม่'
+                  : 'เพิ่มนักเรียนเข้ากลุ่มไม่สำเร็จ กรุณาลองใหม่',
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }

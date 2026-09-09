@@ -89,50 +89,11 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
   bool _shuffleOptions = true;
   _ExamDisplayMode _displayMode = _ExamDisplayMode.allAtOnce;
 
-  final List<_ExamQuestionMock> _questions = [
-    _ExamQuestionMock(
-      questionText: 'เซนเซอร์ชนิดใดใช้วัดปริมาณฝุ่นละออง PM2.5 ในอากาศโดยตรง?',
-      options: [
-        'DHT11 (Temperature & Humidity Sensor)',
-        'GP2Y1014AU0F (Optical Dust Sensor)',
-        'HC-SR04 (Ultrasonic Distance Sensor)',
-        'MQ-2 (Combustible Gas Sensor)',
-      ],
-      correctIndex: 1,
-      explanation:
-          'GP2Y1014AU0F เป็นเซนเซอร์วัดความหนาแน่นของฝุ่นละอองโดยใช้หลักการสะท้อนของแสงอินฟราเรด',
-      score: 2,
-      hasImage: true,
-      imageName: 'sensor_circuit_diagram.png',
-    ),
-    _ExamQuestionMock(
-      questionText:
-          'พอร์ตใดย่อมาจากแบบสื่อสารบัสอนุกรม 2 สาย (SDA, SCL) ที่ใช้เชื่อมต่อหน้าจอ LCD?',
-      options: [
-        'I2C (Inter-Integrated Circuit)',
-        'SPI (Serial Peripheral Interface)',
-        'UART (Universal Asynchronous Receiver-Transmitter)',
-        'PWM (Pulse Width Modulation)',
-      ],
-      correctIndex: 0,
-      explanation:
-          'I2C ใช้สายสัญญาณเพียง 2 เส้น คือ SDA (Serial Data) และ SCL (Serial Clock)',
-      score: 2,
-    ),
-    _ExamQuestionMock(
-      questionText:
-          'ค่าความชื้นสัมพัทธ์ในอากาศที่แสดงบนบอร์ดเซนเซอร์มีหน่วยเป็นอะไร?',
-      options: [
-        'องศาเซลเซียส (°C)',
-        'เปอร์เซ็นต์ (%RH)',
-        'ไมโครกรัมต่อลูกบาศก์เมตร (µg/m³)',
-        'แรงดันไฟฟ้า (Volt)',
-      ],
-      correctIndex: 1,
-      explanation: '%RH ย่อมาจาก Relative Humidity หรือความชื้นสัมพัทธ์ในอากาศ',
-      score: 2,
-    ),
-  ];
+  // เดิม seed ข้อสอบ AIoT ปลอมไว้ 3 ข้อ (PM2.5/I2C/%RH) ทุกครั้งที่เปิดหน้า
+  // — ครูที่กดบันทึกจะได้ข้อสอบที่ตัวเองไม่ได้เขียนถูกเขียนลงฐานข้อมูลจริง
+  // ผ่าน QuizService.addQuizQuestion เริ่มจากว่างเสมอ แล้วให้ครูเพิ่มเอง
+  // หรือดึงจากคลังข้อสอบจริง (_importFromBank)
+  final List<_ExamQuestionMock> _questions = [];
 
   @override
   void initState() {
@@ -151,9 +112,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
       _ExamKind.quiz => 'แบบทดสอบเก็บคะแนน: ',
     };
 
-    _examTitleCtrl = TextEditingController(
-      text: '$kindPrefixเรื่องการใช้งานเซนเซอร์วัดฝุ่นและการสื่อสารข้อมูล',
-    );
+    // เดิมเติมชื่อเรื่องปลอม ("เรื่องการใช้งานเซนเซอร์วัดฝุ่น...") ให้อัตโนมัติ
+    // ซึ่งถูกบันทึกเป็นชื่อข้อสอบจริงถ้าครูไม่ได้แก้ — เหลือแค่คำนำหน้าประเภท
+    _examTitleCtrl = TextEditingController(text: kindPrefix);
   }
 
   @override
@@ -251,12 +212,6 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
   }
 
   void _deleteQuestion(int index) {
-    if (_questions.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ข้อสอบต้องมีอย่างน้อย 1 ข้อ')),
-      );
-      return;
-    }
     setState(() {
       _questions.removeAt(index);
     });
@@ -346,6 +301,12 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('กรุณากรอกชื่อชุดข้อสอบก่อนบันทึก')),
+      );
+      return;
+    }
+    if (_questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ')),
       );
       return;
     }
@@ -733,6 +694,44 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
             const SizedBox(height: 12),
 
             // Questions List
+            if (_questions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 28,
+                ),
+                decoration: BoxDecoration(
+                  color: TeacherPalette.card,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(
+                      Icons.quiz_outlined,
+                      size: 34,
+                      color: TeacherPalette.muted,
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'ยังไม่มีโจทย์ในชุดข้อสอบนี้',
+                      style: TextStyle(
+                        color: TeacherPalette.ink,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'กด "เพิ่มข้อสอบใหม่" เพื่อเขียนเอง หรือ "ดึงโจทย์จากคลัง"',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: TeacherPalette.muted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             for (int i = 0; i < _questions.length; i++) ...[
               _QuestionBuilderCard(
                 index: i + 1,

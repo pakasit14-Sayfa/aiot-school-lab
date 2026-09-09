@@ -2,6 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_exam_builder_page.dart';
 
+/// หน้านี้เริ่มจาก "ไม่มีโจทย์" เสมอ (เดิม seed ข้อสอบปลอมไว้ 3 ข้อ) — เทสต์ที่
+/// ต้องการทดสอบ "เส้นทางบันทึก" ต้องกดเพิ่มโจทย์เองก่อน ไม่งั้นจะติด guard
+/// "ยังไม่มีโจทย์ในชุดข้อสอบ"
+Future<void> _addOneQuestion(WidgetTester tester) async {
+  await tester.ensureVisible(find.text('เพิ่มข้อสอบใหม่'));
+  await tester.pump();
+  await tester.tap(find.text('เพิ่มข้อสอบใหม่'));
+  await tester.pump();
+}
+
 void main() {
   testWidgets(
     'saving with a real courseId never falls back to "the first course of any list"',
@@ -25,6 +35,8 @@ void main() {
         ),
       );
       await tester.pump();
+
+      await _addOneQuestion(tester);
 
       await tester.ensureVisible(find.text('บันทึกร่างข้อสอบ'));
       await tester.pump();
@@ -66,6 +78,8 @@ void main() {
         ),
       );
       await tester.pump();
+
+      await _addOneQuestion(tester);
 
       await tester.ensureVisible(find.text('บันทึกร่างข้อสอบ'));
       await tester.pump();
