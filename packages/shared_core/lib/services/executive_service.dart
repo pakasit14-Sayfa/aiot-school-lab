@@ -34,6 +34,50 @@ class ExecutiveService {
         .toList();
   }
 
+  static Future<List<ClassroomLearningSummary>>
+      listClassroomLearningSummary() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows = await supabase.rpc(
+      'list_school_classroom_learning_summary',
+      params: {'p_token': token},
+    ) as List;
+    return rows
+        .map((row) => ClassroomLearningSummary.fromRow(
+              Map<String, dynamic>.from(row as Map),
+            ))
+        .toList();
+  }
+
+  static Future<List<ClassroomWorkActivity>>
+      listClassroomWorkActivity() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows = await supabase.rpc(
+      'list_school_classroom_work_activity',
+      params: {'p_token': token},
+    ) as List;
+    return rows
+        .map((row) => ClassroomWorkActivity.fromRow(
+              Map<String, dynamic>.from(row as Map),
+            ))
+        .toList();
+  }
+
+  static Future<List<ClassroomWorkDetails>> listClassroomWorkDetails() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows = await supabase.rpc('list_school_classroom_work_details', params: {'p_token': token}) as List;
+    return rows.map((row) => ClassroomWorkDetails.fromRow(Map<String,dynamic>.from(row as Map))).toList();
+  }
+
+  static Future<List<ClassroomAssignmentRosterItem>> listAssignmentRoster(String assignmentId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return const [];
+    final rows = await supabase.rpc('list_school_assignment_roster', params: {'p_token': token, 'p_assignment_id': assignmentId}) as List;
+    return rows.map((row) => ClassroomAssignmentRosterItem.fromRow(Map<String,dynamic>.from(row as Map))).toList();
+  }
+
   static Future<List<CameraAccessGrantItem>> listCameraAccessGrants() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];

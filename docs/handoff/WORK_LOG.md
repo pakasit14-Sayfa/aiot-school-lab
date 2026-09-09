@@ -1,5 +1,20 @@
 # Work Log
 
+## Latest audit — 2026-09-09
+
+See [Executive connection audit](EXECUTIVE_CONNECTION_AUDIT_2026-09-09.md).
+The classroom work/detail RPCs, automatic flags, canonical case confirmation,
+stable deduplication and concurrent case-open serialization are now repaired
+with forward migrations and applied to local Supabase. Assignment details use
+real instructions, dates and roster denominators; roster errors close their
+loading dialog; bare room numbers no longer mix schedules across grades.
+Verification: live Executive contracts 38/38, classroom summary 18/18,
+learning/case Flutter 7/7, classroom widgets 10/10, and analyzers have 0 errors.
+Browser checks confirm the classroom and student-overview pages load without
+their former RPC failure. The whole Executive portal still has separate gaps
+listed in the audit, especially CCTV, environment claims,
+report file flow and settings. No production deployment.
+
 > **ไฟล์นี้เก็บเฉพาะสิ่งที่ git เก็บไม่ได้** — การตัดสินใจที่ยังไม่ได้เคาะ, งานที่ค้างอยู่
 > ตอนนี้, และการไล่ตรวจที่ไม่ได้เกิด commit (เช่น การคลิกทดสอบในเบราว์เซอร์)
 >
@@ -15,6 +30,23 @@
 > 2 อย่างไว้ใน "In progress" ทั้งที่เสร็จไปแล้ว และมี 4 รายการใน "ไม่แน่ใจ" ที่ปิดไปแล้ว
 
 ---
+
+## Local classroom-score migration verification — 2026-09-08
+
+- Applied `20260908030100_executive_classroom_learning_summary` to Docker
+  `supabase_db_aiot-school-lab` using `supabase migration up --local` with a
+  temporary migration directory capped at this version. The original draft's
+  `20260908030000` collided with the already-applied `school_device_identity`.
+  Verified the new history row and the live RPC signature/execute grants.
+- Grades are confirmed, valid numeric entries from this school's current
+  academic year, normalized per entry to a percentage. No valid grades stays
+  null. Invalid score/max-score entries do not count as scored students.
+- Targeted pgTAP: 37/37 passed (files 44 and 47). Full local DB suite:
+  46 files, 822 assertions passed; files 14 and 16 cannot start because their
+  fixtures still use the removed `facility_manager` enum value. This migration
+  does not change the role enum. QA rows were rolled back (0 remaining users).
+- Local only, no database reset. The running browser build and the unfinished
+  Flutter page changes were not verified by this migration run.
 
 ## 🔴 การตัดสินใจที่ค้างอยู่ — บล็อกงานข้างล่าง
 
@@ -572,3 +604,9 @@ All three packages analyzed without errors; final app analysis retains 156
 existing findings. Logs: ../bug3-validation/classrooms-focused.log,
 classrooms-regression.log and classrooms-analyze-final.log. Local web hot restart
 completed successfully. Browser QA is deferred; no push or production deployment.
+| (Executive connection audit follow-up, 2026-09-09) | working tree | Repaired the live Executive classroom-work and automatic student-support contracts with forward migrations `20260909010000` and `20260909011000`. Work/activity RPCs now use real lesson timestamps, avoid per-room cross-course multiplication, count active enrolled students and individual/group submissions, and return real assignment instructions/created dates. Automatic flags are current-year scoped and no longer fail on ambiguous PL/pgSQL output names. Opening a flag now returns a case id, refreshes the canonical case list, rejects false success, reuses the same active reason when its counter changes, and serializes concurrent creation. The classroom UI uses assignment-level denominators, honest due/publish states and error handling, and no longer matches schedules by a bare room number. Applied both migrations to local Supabase. Verification: live contracts 38/38, learning/case Flutter 7/7, classroom widgets 10/10, classroom summary 18/18, analyzers 0 errors; browser loaded both Executive classroom and student-overview pages without their former load failure. |
+| (Executive emergency truthfulness follow-up, 2026-09-09) | working tree | Removed unsupported “IoT online 100%”, “safe 100%”, “duty team ready 100%” claims and the hardcoded “today” date from the Executive emergency page. Closed counts now describe the loaded data window, empty state says only that no open event exists in the latest data, and the missing duty-roster backend is shown as unavailable. Converted the narrow badge row to a wrapping layout. Existing emergency read/close tests remain applicable; responsive 320/768/1440 regression passes. |
+| (Executive overview visualization correction, 2026-09-09) | working tree | Restored the first-page layout rhythm from the early-September reference: learning and teacher cards share one equal-height 5:4 row, resources occupy the next full row, and important notices return to a full-width row. The teacher overview is a circular registered-teacher count. The learning overview was first rendered as a line graph, then restored to the user's exact Sep-7 per-track card layout in the follow-up below. Missing teacher-workload ratios remain explicitly unavailable. Local browser QA confirmed both live Supabase track values (70.2%/8 students/2 rooms and 81.0%/4 students/1 room) plus the real registered-teacher count (1). No synthetic series or fallback values were added. |
+| (Executive overview Sep-7 visual restoration, 2026-09-09) | working tree | Confirmed commit `c1aff8df8f0182b011e21abf01eb600348301e73` from 7 Sep as the user's master first-page design. Restored its Thai date pill, hero proportions, white summary cards with colored header ribbons, compact view actions, and bordered report buttons in the live controller-backed page. The learning section now matches the Sep-7 reference: one tinted card per track with room/student counts, confirmed-score badge and progress bar, unavailable behavior/environment text, and a verified overall-average banner. Teachers remain a circular registered count. Browser QA on `127.0.0.1:8767` confirmed the restored layout with live Supabase totals (15 students, 1 teacher, 4 reports, 9 devices) and track average 75.6%; no historical mock workload ratios were restored. |
+| (Executive overview Sep-7 full-layout alignment, 2026-09-09) | working tree | Completed a section-by-section source and browser comparison against the 7 Sep snapshot. Restored the desktop 1:1 learning/teacher row at 420px, the 5:3 utility/sensor row at 460px, the 1020px stacking breakpoint, and the daily/weekly/monthly segmented control. The period control now performs real 1/7/30-day utility reloads while registration totals remain explicitly labelled current. Rebuilt the old watchlist visual language over real notifications with all/unread/read filters and body/category/date fields. Kept the single real teacher circle because the old four-circle workload breakdown was explicitly demo data. Fixed mobile hero-tag overflow and cancelled the delayed reload timer on dispose. Browser QA confirmed period switching and notification filtering; focused responsive/connection tests pass 4/4 and the page analyzer reports no issues. |
+| (Executive overview notification-card redesign, 2026-09-09) | working tree | Reworked “สิ่งที่ควรทราบวันนี้” to match the supplied detailed-card reference: a compact white heading, latest-data badge, segmented read filters, category-colored icons, status pills, full title/body hierarchy, timestamp/category metadata and a source-specific action. Meeting actions open the meetings page, incident actions open emergency, student-support actions open the student overview, resource actions open environment/resources, and “ดูทั้งหมด” opens notifications. All displayed text and read state still come from real notification rows; visual categories and destinations are derived only from the stored notification type/category. No sample alerts or unsupported CCTV/building actions were introduced. Browser QA confirmed the three live local notices render in the new hierarchy and both meeting/incident actions open their real destination pages. Responsive, connection, filter and navigation tests pass 5/5; scoped analyzer is clean. |

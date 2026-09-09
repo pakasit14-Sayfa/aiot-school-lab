@@ -105,8 +105,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
 
   _EmergencyEvent _convertIncident(TeacherIncidentReport inc) {
     final localTime = inc.createdAt.toLocal();
-    final timeStr =
-        'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final timeStr = _eventTime(localTime);
     final statusDisplay = inc.status == 'new'
         ? 'กำลังเกิดเหตุ'
         : (inc.status == 'acknowledged'
@@ -146,8 +145,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
 
   _EmergencyEvent _convertEmergencyEvent(EmergencyEventItem evt) {
     final localTime = evt.triggeredAt.toLocal();
-    final timeStr =
-        'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final timeStr = _eventTime(localTime);
     final statusDisplay = evt.status == 'new'
         ? 'กำลังเกิดเหตุ'
         : (evt.status == 'acknowledged' ? 'รับเรื่องแล้ว' : 'ปิดเหตุแล้ว');
@@ -166,6 +164,17 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
       icon: Icons.emergency_rounded,
       color: AppPalette.danger,
     );
+  }
+
+  String _eventTime(DateTime value) {
+    final now = DateTime.now();
+    final day =
+        value.year == now.year &&
+            value.month == now.month &&
+            value.day == now.day
+        ? 'วันนี้'
+        : '${value.day}/${value.month}/${value.year}';
+    return '$day • ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')} น.';
   }
 
   List<_EmergencyEvent> get _allDisplayEvents {
@@ -363,7 +372,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
     );
   }
 
-  Widget _demoBadge({String text = 'ข้อมูลจำลอง'}) {
+  Widget _demoBadge({String text = 'ยังไม่มีข้อมูลรองรับ'}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
       decoration: BoxDecoration(
@@ -585,8 +594,8 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                     ),
                   ),
                   const SizedBox(width: 5),
-                  const Text(
-                    'ระบบ IoT & SOS: ออนไลน์ 100%',
+                  Text(
+                    _loadFailed ? 'โหลดข้อมูลไม่สำเร็จ' : 'ข้อมูลเหตุล่าสุด',
                     style: TextStyle(
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
@@ -716,12 +725,12 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         title: 'เหตุที่กำลังติดตาม',
         value: '$activeCount',
         unit: 'เรื่อง',
-        sub: _hasRealData
-            ? (_realIncidentSummary.isNotEmpty
-                  ? 'สรุปเหตุในระบบ ${_realIncidentSummary.length} หมวด'
-                  : 'เหตุการณ์ที่อยู่ระหว่างประสานงาน')
-            : 'ทะเลาะวิวาท 1 • ล้มหมดสติ 1',
-        badge: '● กำลังช่วยเหลือ',
+        sub: _realIncidentSummary.isNotEmpty
+            ? 'สรุปเหตุในระบบ ${_realIncidentSummary.length} หมวด'
+            : (activeCount == 0
+                  ? 'ไม่มีเหตุที่กำลังเปิดอยู่'
+                  : 'เหตุการณ์ที่อยู่ระหว่างประสานงาน'),
+        badge: activeCount == 0 ? '✓ ไม่มีเหตุเปิด' : '● กำลังช่วยเหลือ',
         badgeBg: const Color(0xFFFEF3C7),
         badgeTextColor: const Color(0xFFD97706),
         icon: Icons.warning_amber_rounded,
@@ -733,13 +742,11 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         },
       ),
       _EmergencySummaryData(
-        title: 'ปิดเหตุแล้ววันนี้',
+        title: 'ปิดเหตุแล้ว',
         value: '$closedCount',
         unit: 'เหตุ',
-        sub: _hasRealData
-            ? 'บันทึกปิดเหตุในระบบ'
-            : 'เสร็จสิ้นครบ • เฉลี่ย 14 นาที',
-        badge: '✓ ปลอดภัย 100%',
+        sub: 'บันทึกปิดเหตุในข้อมูลที่โหลดล่าสุด',
+        badge: '✓ ปิดในระบบแล้ว',
         badgeBg: const Color(0xFFDCFCE7),
         badgeTextColor: const Color(0xFF059669),
         icon: Icons.task_alt_rounded,
@@ -752,10 +759,10 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
       ),
       _EmergencySummaryData(
         title: 'ความพร้อมทีมครูเวร',
-        value: '100',
-        unit: '%',
-        sub: 'ครูเวร • ครูอนามัย • ปกครอง • ครูที่ปรึกษา',
-        badge: '🟢 สแตนด์บาย 4 ชุด',
+        value: '—',
+        unit: '',
+        sub: 'ยังไม่มีระบบบันทึกเวรและสถานะพร้อมปฏิบัติงาน',
+        badge: 'ยังไม่มีข้อมูล',
         badgeBg: const Color(0xFFF3E8FF),
         badgeTextColor: const Color(0xFF7C3AED),
         icon: Icons.health_and_safety_rounded,
@@ -763,7 +770,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         headerColor: const Color(0xFF6D28D9),
         isReal: false,
         onTap: () {
-          _showMessage('ทีมครูเวรและบุคลากรทุกจุดพร้อมปฏิบัติการ 100%');
+          _showMessage('ยังไม่มีข้อมูลยืนยันความพร้อมของทีมครูเวร');
         },
       ),
     ];
@@ -2201,7 +2208,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'ทุกจุดในโรงเรียนปลอดภัยและอยู่ในสภาวะปกติ',
+                      'ไม่พบเหตุที่กำลังเปิดอยู่ในข้อมูลล่าสุด',
                       style: TextStyle(
                         fontSize: 10.5,
                         color: Color(0xFF64748B),
@@ -2234,7 +2241,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'ทุกจุดในโรงเรียนปลอดภัยและอยู่ในสภาวะปกติ',
+                      'ไม่พบเหตุที่กำลังเปิดอยู่ในข้อมูลล่าสุด',
                       style: TextStyle(
                         fontSize: 10.5,
                         color: Color(0xFF64748B),
@@ -2626,11 +2633,11 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                 ],
               );
 
-              final badgeBlock = Row(
-                mainAxisSize: MainAxisSize.min,
+              final badgeBlock = Wrap(
+                spacing: 6,
+                runSpacing: 6,
                 children: [
                   _demoBadge(),
-                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8.5,
@@ -2642,7 +2649,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                       border: Border.all(color: const Color(0xFFA7F3D0)),
                     ),
                     child: const Text(
-                      'พร้อม 100%',
+                      'ยังไม่มีข้อมูล',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
@@ -3345,9 +3352,9 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
             : (activeEvt != null ? 'ไม่มี (แจ้งเตือนจากอุปกรณ์)' : 'นักเรียน');
 
         final modalTime = activeIncident != null
-            ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")} น. (วันนี้)'
+            ? _eventTime(activeIncident.createdAt.toLocal())
             : (activeEvt != null
-                  ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")} น. (วันนี้)'
+                  ? _eventTime(activeEvt.triggeredAt.toLocal())
                   : '-');
 
         final modalNarrative = activeIncident != null

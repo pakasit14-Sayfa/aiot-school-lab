@@ -43,6 +43,8 @@ const attendance = [
 DirectorLearningController fixture({
   Future<ClassroomsOverviewItem?> Function()? overview,
   Future<List<SchoolHomeroomAttendance>> Function(DateTime)? loadAttendance,
+  Future<List<AutoFlaggedStudent>> Function()? autoFlags,
+  Future<String?> Function(AutoFlaggedStudent)? openCase,
 }) => DirectorLearningController(
   overview: overview ?? () async => summary,
   tracks: () async => const [
@@ -67,6 +69,8 @@ DirectorLearningController fixture({
   attendance: loadAttendance ?? (_) async => attendance,
   cases: () async => [],
   interventions: (_) async => [],
+  autoFlags: autoFlags,
+  openCase: openCase,
 );
 Widget page(DirectorLearningController controller) => MaterialApp(
   home: Scaffold(body: DirectorLearningPage(controller: controller)),
@@ -161,4 +165,62 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'Layout at $size');
     }
   });
+
+  testWidgets(
+    'opens an automatic case, refreshes it into cases, and loads history',
+    (tester) async {
+      final flag = const AutoFlaggedStudent(
+        studentId: 'student-1',
+        studentName: 'นักเรียนทดสอบ',
+        reason: 'งานค้าง',
+        detail: 'ค้างส่ง 2 งาน',
+        actionLabel: 'ติดตามงาน',
+        severity: 'high',
+      );
+      var opened = false;
+      var historyRequested = false;
+      final controller = DirectorLearningController(
+        overview: () async => summary,
+        tracks: () async => [],
+        rooms: () async => [],
+        attendance: (_) async => [],
+        autoFlags: () async => opened ? [] : [flag],
+        cases: () async => opened
+            ? [
+                StudentSupportCase(
+                  caseId: 'case-1',
+                  studentId: flag.studentId,
+                  studentName: flag.studentName,
+                  studentEmail: '',
+                  courseName: 'ภาพรวมทั่วไป',
+                  category: 'academic',
+                  riskLevel: 'high',
+                  status: 'open',
+                  title: '${flag.reason}: ${flag.detail}',
+                  createdByName: 'ผู้อำนวยการ',
+                  interventionCount: 0,
+                  createdAt: DateTime(2026),
+                  updatedAt: DateTime(2026),
+                ),
+              ]
+            : [],
+        interventions: (_) async {
+          historyRequested = true;
+          return [];
+        },
+        openCase: (_) async {
+          opened = true;
+          return 'case-1';
+        },
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(controller.flaggedStudents, hasLength(1));
+      await controller.openCaseFromFlag(flag);
+      expect(controller.flaggedStudents, isEmpty);
+      expect(controller.cases, hasLength(1));
+      await controller.history(controller.cases.single.caseId);
+      expect(historyRequested, isTrue);
+    },
+  );
 }

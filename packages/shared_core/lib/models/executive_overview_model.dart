@@ -200,6 +200,188 @@ class ClassroomsOverviewItem {
   }
 }
 
+class ClassroomLearningSummary {
+  final String gradeLevel;
+  final String room;
+  final int studentCount;
+  final int scoredStudentCount;
+  final double? averageGradePercent;
+  final int ungradedStudentCount;
+
+  const ClassroomLearningSummary({
+    required this.gradeLevel,
+    required this.room,
+    required this.studentCount,
+    required this.scoredStudentCount,
+    required this.averageGradePercent,
+    required this.ungradedStudentCount,
+  });
+
+  factory ClassroomLearningSummary.fromRow(Map<String, dynamic> row) {
+    return ClassroomLearningSummary(
+      gradeLevel: row['grade_level'] as String? ?? '',
+      room: row['room'] as String? ?? '',
+      studentCount: (row['student_count'] as num?)?.toInt() ?? 0,
+      scoredStudentCount: (row['scored_student_count'] as num?)?.toInt() ?? 0,
+      averageGradePercent: (row['avg_grade_percent'] as num?)?.toDouble(),
+      ungradedStudentCount:
+          (row['ungraded_student_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class ClassroomWorkActivity {
+  final String gradeLevel;
+  final String room;
+  final int assignmentCount;
+  final int expectedSubmissionCount;
+  final int submittedCount;
+  final int pendingSubmissionCount;
+  final DateTime? lastActivityAt;
+  final String? lastActivityType;
+  final String? lastActivityBy;
+
+  const ClassroomWorkActivity({
+    required this.gradeLevel,
+    required this.room,
+    required this.assignmentCount,
+    required this.expectedSubmissionCount,
+    required this.submittedCount,
+    required this.pendingSubmissionCount,
+    required this.lastActivityAt,
+    required this.lastActivityType,
+    required this.lastActivityBy,
+  });
+
+  factory ClassroomWorkActivity.fromRow(Map<String, dynamic> row) {
+    return ClassroomWorkActivity(
+      gradeLevel: row['grade_level'] as String? ?? '',
+      room: row['room'] as String? ?? '',
+      assignmentCount: (row['assignment_count'] as num?)?.toInt() ?? 0,
+      expectedSubmissionCount:
+          (row['expected_submission_count'] as num?)?.toInt() ?? 0,
+      submittedCount: (row['submitted_count'] as num?)?.toInt() ?? 0,
+      pendingSubmissionCount:
+          (row['pending_submission_count'] as num?)?.toInt() ?? 0,
+      lastActivityAt: row['last_activity_at'] == null
+          ? null
+          : DateTime.tryParse(row['last_activity_at'].toString())?.toLocal(),
+      lastActivityType: row['last_activity_type'] as String?,
+      lastActivityBy: row['last_activity_by'] as String?,
+    );
+  }
+}
+
+class ClassroomAssignmentDetail {
+  final String assignmentId, title, status, teacher;
+  final String? instructions;
+  final DateTime? dueAt, createdAt;
+  final bool isGroup;
+  final int expected, submitted, pending;
+  const ClassroomAssignmentDetail({
+    required this.assignmentId,
+    required this.title,
+    required this.status,
+    required this.teacher,
+    required this.instructions,
+    required this.dueAt,
+    required this.createdAt,
+    required this.isGroup,
+    required this.expected,
+    required this.submitted,
+    required this.pending,
+  });
+  factory ClassroomAssignmentDetail.fromJson(Map<String, dynamic> row) =>
+      ClassroomAssignmentDetail(
+        assignmentId: row['assignment_id'] as String,
+        title: row['title'] as String? ?? '',
+        status: row['status'] as String? ?? '',
+        teacher: row['teacher'] as String? ?? '',
+        instructions: row['instructions'] as String?,
+        dueAt: row['due_at'] == null
+            ? null
+            : DateTime.tryParse(row['due_at'].toString())?.toLocal(),
+        createdAt: row['created_at'] == null
+            ? null
+            : DateTime.tryParse(row['created_at'].toString())?.toLocal(),
+        isGroup: row['is_group'] as bool? ?? false,
+        expected: (row['expected'] as num?)?.toInt() ?? 0,
+        submitted: (row['submitted'] as num?)?.toInt() ?? 0,
+        pending: (row['pending'] as num?)?.toInt() ?? 0,
+      );
+}
+
+class ClassroomTeacherActivity {
+  final String type, title, teacher;
+  final DateTime? createdAt;
+  const ClassroomTeacherActivity({
+    required this.type,
+    required this.title,
+    required this.teacher,
+    required this.createdAt,
+  });
+  factory ClassroomTeacherActivity.fromJson(Map<String, dynamic> row) =>
+      ClassroomTeacherActivity(
+        type: row['type'] as String? ?? '',
+        title: row['title'] as String? ?? '',
+        teacher: row['teacher'] as String? ?? '',
+        createdAt: row['created_at'] == null
+            ? null
+            : DateTime.tryParse(row['created_at'].toString()),
+      );
+}
+
+class ClassroomWorkDetails {
+  final String gradeLevel, room;
+  final List<ClassroomAssignmentDetail> assignments;
+  final List<ClassroomTeacherActivity> teacherActivities;
+  const ClassroomWorkDetails({
+    required this.gradeLevel,
+    required this.room,
+    required this.assignments,
+    required this.teacherActivities,
+  });
+  factory ClassroomWorkDetails.fromRow(Map<String, dynamic> row) =>
+      ClassroomWorkDetails(
+        gradeLevel: row['grade_level'] as String? ?? '',
+        room: row['room'] as String? ?? '',
+        assignments: (row['assignments'] as List? ?? const [])
+            .map(
+              (e) => ClassroomAssignmentDetail.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
+            .toList(),
+        teacherActivities: (row['teacher_activities'] as List? ?? const [])
+            .map(
+              (e) => ClassroomTeacherActivity.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
+            .toList(),
+      );
+}
+
+class ClassroomAssignmentRosterItem {
+  final String studentId, studentName, submissionStatus;
+  final DateTime? submittedAt;
+  const ClassroomAssignmentRosterItem({
+    required this.studentId,
+    required this.studentName,
+    required this.submissionStatus,
+    required this.submittedAt,
+  });
+  factory ClassroomAssignmentRosterItem.fromRow(Map<String, dynamic> row) =>
+      ClassroomAssignmentRosterItem(
+        studentId: row['student_id'] as String,
+        studentName: row['student_name'] as String? ?? '',
+        submissionStatus: row['submission_status'] as String? ?? 'ยังไม่ส่ง',
+        submittedAt: row['submitted_at'] == null
+            ? null
+            : DateTime.tryParse(row['submitted_at'].toString()),
+      );
+}
+
 class SchoolScheduleItem {
   final String scheduleId;
   final String courseId;
@@ -290,4 +472,3 @@ class CameraAccessGrantItem {
     );
   }
 }
-

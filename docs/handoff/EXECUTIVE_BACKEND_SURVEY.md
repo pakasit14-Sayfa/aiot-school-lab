@@ -1,5 +1,14 @@
 # Executive (ผู้บริหาร / Director) — backend capability survey
 
+> **Audit 2026-09-09: current working tree is NOT fully operational.**
+> [Live audit and evidence](EXECUTIVE_CONNECTION_AUDIT_2026-09-09.md) supersedes
+> completion claims below for subsequent classroom/automatic-support additions.
+> Work activity/details RPCs fail on nonexistent lessons.created_at; automatic
+> flags fail on ambiguous student_id. Both pages fail in the current browser.
+> Case creation/history RPCs work, but canonical confirmation and stable-signal
+> deduplication do not. Bare-room schedule matching has also returned in code.
+> Migrations existing/applied and mocked widget tests passing are insufficient.
+
 ## Classroom attendance update — 2026-09-08 (partial connection)
 
 Room details now read `HomeroomService.listSchoolAttendance` through

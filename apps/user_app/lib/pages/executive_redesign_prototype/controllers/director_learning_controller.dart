@@ -10,6 +10,8 @@ class DirectorLearningController extends ChangeNotifier {
     Future<List<SchoolHomeroomAttendance>> Function(DateTime)? attendance,
     Future<List<StudentSupportCase>> Function()? cases,
     Future<List<StudentSupportIntervention>> Function(String)? interventions,
+    Future<List<AutoFlaggedStudent>> Function()? autoFlags,
+    Future<String?> Function(AutoFlaggedStudent)? openCase,
     DateTime? date,
   }) : _overview = overview ?? ExecutiveService.getClassroomsOverview,
        _tracks = tracks ?? LearningTrackService.getOverview,
@@ -18,6 +20,9 @@ class DirectorLearningController extends ChangeNotifier {
        _cases = cases ?? StudentSupportService.listCases,
        _interventions =
            interventions ?? StudentSupportService.listInterventions,
+       _autoFlags =
+           autoFlags ?? StudentSupportService.listExecutiveAutoFlaggedStudents,
+       _openCase = openCase ?? StudentSupportService.openExecutiveCaseFromFlag,
        date = date ?? DateTime.now();
   final Future<ClassroomsOverviewItem?> Function() _overview;
   final Future<List<LearningTrackOverview>> Function() _tracks;
@@ -26,12 +31,15 @@ class DirectorLearningController extends ChangeNotifier {
   final Future<List<StudentSupportCase>> Function() _cases;
   final Future<List<StudentSupportIntervention>> Function(String)
   _interventions;
+  final Future<List<AutoFlaggedStudent>> Function() _autoFlags;
+  final Future<String?> Function(AutoFlaggedStudent) _openCase;
   DateTime date;
   ClassroomsOverviewItem? overview;
   List<LearningTrackOverview> tracks = [];
   List<LearningTrackRoom> rooms = [];
   List<SchoolHomeroomAttendance> attendance = [];
   List<StudentSupportCase> cases = [];
+  List<AutoFlaggedStudent> flaggedStudents = [];
   bool loading = true, _disposed = false;
   int _generation = 0;
   String? error;
@@ -49,6 +57,7 @@ class DirectorLearningController extends ChangeNotifier {
         _rooms(),
         _attendance(date),
         _cases(),
+        _autoFlags(),
       ]);
       if (_disposed || generation != _generation) return;
       final freshOverview = data[0] as ClassroomsOverviewItem?;
@@ -58,6 +67,15 @@ class DirectorLearningController extends ChangeNotifier {
       rooms = data[2] as List<LearningTrackRoom>;
       attendance = data[3] as List<SchoolHomeroomAttendance>;
       cases = data[4] as List<StudentSupportCase>;
+      final flags = data[5] as List<AutoFlaggedStudent>;
+      flaggedStudents = flags.where((flag) {
+        return !cases.any(
+          (item) =>
+              item.studentId == flag.studentId &&
+              _caseMatchesSignal(item, flag) &&
+              (item.status == 'open' || item.status == 'in_progress'),
+        );
+      }).toList();
     } catch (_) {
       if (_disposed || generation != _generation) return;
       overview = null;
@@ -65,6 +83,7 @@ class DirectorLearningController extends ChangeNotifier {
       rooms = [];
       attendance = [];
       cases = [];
+      flaggedStudents = [];
       error = 'ไม่สามารถโหลดข้อมูลนักเรียนได้ กรุณาลองอีกครั้ง';
     }
     loading = false;
@@ -100,6 +119,23 @@ class DirectorLearningController extends ChangeNotifier {
       .toList();
   Future<List<StudentSupportIntervention>> history(String id) =>
       _interventions(id);
+
+  Future<void> openCaseFromFlag(AutoFlaggedStudent student) async {
+    final caseId = await _openCase(student);
+    if (caseId == null || caseId.isEmpty) throw StateError('case_open_failed');
+    await load();
+    if (error != null || !cases.any((item) => item.caseId == caseId)) {
+      throw StateError('case_open_not_confirmed');
+    }
+  }
+
+  static bool _caseMatchesSignal(
+    StudentSupportCase item,
+    AutoFlaggedStudent signal,
+  ) =>
+      item.title == '${signal.reason}: ${signal.detail}' ||
+      item.title.startsWith('${signal.reason}:');
+
   @override
   void dispose() {
     _disposed = true;
