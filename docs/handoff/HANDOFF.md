@@ -1,5 +1,13 @@
 # AIoT School Lab — Handoff Notes (updated 2026-08-25)
 
+> **ตรวจซ้ำบั๊ก 1 เมื่อ 2026-09-08:** canonical close มีแล้วใน `c1aff8d`;
+> แก้ loading ที่บอกว่าไม่มีเหตุก่อนอ่านเสร็จ และ error ที่ถูก dialog บังเพิ่มแล้ว
+> เทสต์ 23/23; regression 485 ผ่าน / 22 fail เดิม (จาก 475 / 24)
+> ทดสอบเบราว์เซอร์ผ่าน OTP กับ Supabase local จริงแล้ว: ปิด incident ทั้ง 3 จุด
+> และ emergency-event fixture สำเร็จ ตรวจสถานะ/เวลาปิดกับ DB แล้ว ไม่มีเหตุทดสอบค้าง
+> หลักฐานและขอบเขตดู [บรีฟบั๊ก 1 ฉบับอัปเดต](FIX_BRIEF_FOR_CODEX.md)
+> ข้อมูล audit เก่าด้านล่างไม่ได้รับรองว่าส่วนอื่นของหน้าฉุกเฉินผ่าน DoD
+
 ## Teacher/student WIP handoff — 2026-09-05
 
 See [Claude continuation handoff](./CLAUDE_TEACHER_STUDENT_HANDOFF.md) for the partial SOS/notification implementation and ordered remaining work. Targeted Flutter: 13/13; notification DB: 15/15. Full Flutter: **196 passed, 26 failed (222 total)**, not yet baseline-classified. Teacher detail actions, broader regression, schema regeneration, REST and browser acceptance remain pending. Applied migration is local only. Ownership transfers to Claude on the receiving machine; this is not production-ready or a completed teacher/student rollout.

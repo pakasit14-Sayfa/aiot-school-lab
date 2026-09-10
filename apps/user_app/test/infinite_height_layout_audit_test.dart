@@ -42,6 +42,7 @@ void main() {
         DirectorOverviewPage(
           onNavigate: (_) {},
           sensorStreamOverride: const Stream.empty(),
+          rawReadingsStreamOverride: const Stream.empty(),
         ),
         desktopSize,
       ));
@@ -50,6 +51,7 @@ void main() {
         DirectorOverviewPage(
           onNavigate: (_) {},
           sensorStreamOverride: const Stream.empty(),
+          rawReadingsStreamOverride: const Stream.empty(),
         ),
         mobileSize,
       ));

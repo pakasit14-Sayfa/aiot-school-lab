@@ -194,11 +194,10 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
       const {'submitted', 'graded', 'returned'}.contains(item.status);
 
   double? get _attendanceRate {
-    if (_attendance.isEmpty) return null;
-    final present = _attendance
-        .where((item) => item.isPresent || item.isLate)
-        .length;
-    return present / _attendance.length;
+    final known = _attendance.where((item) => item.hasKnownStatus).toList();
+    if (known.isEmpty) return null;
+    final attended = known.where((item) => item.isAttended).length;
+    return attended / known.length;
   }
 
   double? get _averageScore {
@@ -480,9 +479,14 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
   );
 
   Widget _metrics(int pending) {
-    final todayTime = _todayAttendance.isEmpty
+    final attendedToday = _todayAttendance
+        .where((item) => item.isAttended)
+        .toList();
+    final todayTime = attendedToday.isNotEmpty
+        ? _formatTime(attendedToday.first.markedAt)
+        : _todayAttendance.isEmpty
         ? _empty
-        : _formatTime(_todayAttendance.first.markedAt);
+        : _attendanceStatus(_todayAttendance.first.status);
     final cards = [
       _MetricData(
         'มาเรียนวันนี้',
@@ -605,6 +609,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
     final present = _attendance.where((item) => item.isPresent).length;
     final late = _attendance.where((item) => item.isLate).length;
     final excused = _attendance.where((item) => item.isExcused).length;
+    final unknown = _attendance.where((item) => !item.hasKnownStatus).length;
     return _ContentCard(
       icon: Icons.fact_check_rounded,
       title: 'สรุปการมาเรียน',
@@ -612,7 +617,9 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
       empty: _attendance.isEmpty,
       children: [
         Text(
-          '${((_attendanceRate ?? 0) * 100).round()}%',
+          _attendanceRate == null
+              ? _empty
+              : '${(_attendanceRate! * 100).round()}%',
           style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900),
         ),
         const SizedBox(height: 12),
@@ -623,6 +630,7 @@ class _ParentDashboardPageState extends State<ParentDashboardPage> {
             _LabelValue(label: 'มาเรียน', value: '$present'),
             _LabelValue(label: 'สาย', value: '$late'),
             _LabelValue(label: 'ลา', value: '$excused'),
+            _LabelValue(label: 'ไม่ทราบสถานะ', value: '$unknown'),
           ],
         ),
       ],
@@ -949,7 +957,7 @@ String _attendanceStatus(String value) => switch (value) {
   'late' => 'มาสาย',
   'absent' => 'ขาดเรียน',
   'excused' => 'ลา',
-  _ => value,
+  _ => 'ไม่ทราบสถานะ',
 };
 
 String _formatTime(DateTime value) {

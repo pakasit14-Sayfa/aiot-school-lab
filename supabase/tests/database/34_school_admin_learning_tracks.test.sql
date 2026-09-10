@@ -81,8 +81,8 @@ select throws_ok($$select list_learning_track_rooms('tracks-teacher-a-token')$$,
 select throws_ok($$select set_learning_track_room('tracks-teacher-a-token', 'ม.1', '1', null)$$, 'P0001', 'forbidden', 'teacher cannot assign rooms');
 select throws_ok($$select create_learning_track('tracks-executive-a-token', 'x', '#7C3AED')$$, 'P0001', 'forbidden', 'executive cannot create tracks (read-only widening only)');
 select throws_ok($$select create_learning_track('tracks-super-token', 'x', '#7C3AED')$$, 'P0001', 'forbidden', 'super admin cannot create tracks (read-only widening only)');
-select throws_ok($$select list_learning_track_rooms('tracks-executive-a-token')$$, 'P0001', 'forbidden', 'executive cannot list track rooms (room list is school_admin-only)');
-select throws_ok($$select list_learning_track_rooms('tracks-super-token')$$, 'P0001', 'forbidden', 'super admin cannot list track rooms (room list is school_admin-only)');
+select lives_ok($$select list_learning_track_rooms('tracks-executive-a-token')$$, 'executive may read track rooms for the learning overview');
+select lives_ok($$select list_learning_track_rooms('tracks-super-token')$$, 'super admin may read track rooms in its active school');
 
 select is((select count(*)::integer from list_learning_tracks('tracks-null-school-token')), 0, 'null active school list fails closed with no rows');
 select is((select count(*)::integer from list_learning_track_rooms('tracks-null-school-token')), 0, 'null active school room list fails closed with no rows');

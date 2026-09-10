@@ -170,6 +170,131 @@ void main() {
       warningLightOn: status != 'closed',
     );
 
+    for (final physical in [false, true]) {
+      for (final missing in [false, true]) {
+        testWidgets(
+          '${physical ? "hardware" : "SOS"} ${missing ? "missing row" : "read failure"} never confirms closure',
+          (tester) async {
+            var closeCalled = false;
+            Future<List<T>> read<T>(T row) async {
+              if (!closeCalled) return [row];
+              if (missing) return [];
+              throw StateError('canonical-read-secret');
+            }
+
+            await pumpPage(
+              tester,
+              events: () => physical
+                  ? read(emergencyEvent('acknowledged'))
+                  : Future.value([]),
+              summary: () async => [],
+              incidents: () => physical ? Future.value([]) : read(openIncident),
+              closeIncident:
+                  (
+                    _, {
+                    required resolutionType,
+                    required resolutionNote,
+                  }) async {
+                    closeCalled = true;
+                  },
+              closeEmergency: ({required eventId, required reviewNote}) async {
+                closeCalled = true;
+              },
+            );
+            await tester.tap(
+              find.byKey(const Key('director-emergency-close-hero')),
+            );
+            await tester.pumpAndSettle();
+            expect(closeCalled, isTrue);
+            expect(
+              find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+              findsOneWidget,
+            );
+            expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+            expect(
+              find.text('ไม่มีเหตุฉุกเฉินที่กำลังดำเนินอยู่'),
+              findsNothing,
+            );
+            expect(
+              find.byKey(const Key('director-emergency-close-hero')),
+              findsOneWidget,
+            );
+            expect(find.textContaining('canonical-read-secret'), findsNothing);
+            expect(
+              find.textContaining('backend_close_not_confirmed'),
+              findsNothing,
+            );
+          },
+        );
+      }
+    }
+
+    for (final detail in [false, true]) {
+      for (final confirmed in [false, true]) {
+        testWidgets(
+          '${detail ? "detail" : "modal"} ${confirmed ? "closes only after confirmation" : "stays open after rejected write"}',
+          (tester) async {
+            var closed = false;
+            await pumpPage(
+              tester,
+              events: () async => [],
+              summary: () async => [],
+              incidents: () async => [
+                closed && confirmed ? resolvedIncident() : openIncident,
+              ],
+              closeIncident:
+                  (
+                    _, {
+                    required resolutionType,
+                    required resolutionNote,
+                  }) async {
+                    closed = true;
+                  },
+            );
+            if (detail) {
+              await tester.tap(find.text('SOS จากนักเรียน').first);
+            } else {
+              await tester.tap(find.text('✓ ผอ. รับเรื่องแล้ว'));
+            }
+            await tester.pumpAndSettle();
+            final button = find.byKey(
+              Key('director-emergency-close-${detail ? "detail" : "modal"}'),
+            );
+            await tester.tap(button);
+            await tester.pumpAndSettle();
+            expect(closed, isTrue);
+            expect(
+              find.text('✓ ปิดเหตุเรียบร้อยแล้ว'),
+              confirmed ? findsOneWidget : findsNothing,
+            );
+            expect(
+              find.text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่'),
+              confirmed ? findsNothing : findsOneWidget,
+            );
+            expect(button, confirmed ? findsNothing : findsOneWidget);
+            if (!confirmed) {
+              expect(
+                find
+                    .text('ปิดเหตุไม่สำเร็จ เหตุการณ์ยังเปิดอยู่')
+                    .hitTestable(),
+                findsOneWidget,
+                reason:
+                    'Failure feedback must be visible above the modal barrier',
+              );
+              await tester.tap(find.text('ตกลง'));
+              await tester.pumpAndSettle();
+              expect(button.hitTestable(), findsOneWidget);
+              expect(find.text('✓ ปิดเหตุเรียบร้อยแล้ว'), findsNothing);
+            }
+            expect(
+              find.textContaining('backend_close_not_confirmed'),
+              findsNothing,
+            );
+          },
+        );
+      }
+    }
+
     testWidgets('RPC failure keeps the SOS open and hides raw backend errors', (
       tester,
     ) async {

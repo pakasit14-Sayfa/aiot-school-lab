@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../models/lesson_model.dart';
+import '../models/school_device_identity.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
 
@@ -8,6 +9,20 @@ import 'supabase_config.dart';
 /// (LRN-8) and per-student progress. Course management lives in
 /// [CourseService]; both call RPCs from 20260724000000_classroom_core.sql.
 class LessonService {
+  static Future<SchoolDeviceIdentity?> getSchoolDeviceByCode(
+    String code,
+  ) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw StateError('not_signed_in');
+    final row = await supabase.rpc(
+      'get_school_device_by_code',
+      params: {'p_token': token, 'p_code': code.trim()},
+    );
+    return row == null
+        ? null
+        : SchoolDeviceIdentity.fromRow(Map<String, dynamic>.from(row as Map));
+  }
+
   static Future<List<DeviceOption>> listSchoolDevices() async {
     final rows =
         await supabase.rpc(

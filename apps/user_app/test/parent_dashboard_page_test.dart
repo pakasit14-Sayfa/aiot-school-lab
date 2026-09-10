@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/parent_redesign_prototype/pages/parent/parent_dashboard_page.dart';
@@ -34,6 +36,19 @@ Widget _app({
 );
 
 void main() {
+  testWidgets('shows a loading state while dashboard data is pending', (
+    tester,
+  ) async {
+    final students = Completer<List<LinkedStudentItem>>();
+    await tester.pumpWidget(_app(students: () => students.future));
+    await tester.pump();
+
+    expect(find.text('กำลังโหลดข้อมูล'), findsOneWidget);
+
+    students.complete(const []);
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('shows honest empty cards without dashboard samples', (
     tester,
   ) async {
@@ -138,5 +153,71 @@ void main() {
     expect(find.text('27.5 °C'), findsOneWidget);
     expect(find.text('วันวิทยาศาสตร์'), findsOneWidget);
     expect(find.text('ประกาศประชุมผู้ปกครอง'), findsOneWidget);
+  });
+
+  testWidgets('shows unknown attendance without lowering the known rate', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 9, 3, 10);
+    await tester.binding.setSurfaceSize(const Size(1200, 1800));
+    await tester.pumpWidget(
+      _app(
+        students: () async => const [_student],
+        attendance: (_) async => [
+          StudentAttendanceItem(
+            recordId: 'present',
+            courseId: 'course-1',
+            courseName: 'วิทยาศาสตร์',
+            courseCode: 'SCI',
+            classDate: now,
+            status: 'present',
+            markedAt: DateTime(2026, 9, 3, 8),
+          ),
+          StudentAttendanceItem(
+            recordId: 'unknown',
+            courseId: 'course-2',
+            courseName: 'คณิตศาสตร์',
+            courseCode: 'MATH',
+            classDate: now,
+            status: 'unknown',
+            markedAt: DateTime(2026, 9, 3, 9),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่ทราบสถานะ'), findsWidgets);
+    expect(find.text('unknown'), findsNothing);
+    expect(find.text('100%'), findsWidgets);
+    expect(find.text('50%'), findsNothing);
+  });
+
+  testWidgets('does not present unknown-only attendance as zero percent', (
+    tester,
+  ) async {
+    final now = DateTime(2026, 9, 3, 10);
+    await tester.binding.setSurfaceSize(const Size(1200, 1800));
+    await tester.pumpWidget(
+      _app(
+        students: () async => const [_student],
+        attendance: (_) async => [
+          StudentAttendanceItem(
+            recordId: 'unknown',
+            courseId: 'course-1',
+            courseName: 'วิทยาศาสตร์',
+            courseCode: 'SCI',
+            classDate: now,
+            status: 'unknown',
+            markedAt: DateTime(2026, 9, 3, 8),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ไม่ทราบสถานะ'), findsWidgets);
+    expect(find.text('0%'), findsNothing);
+    expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
   });
 }

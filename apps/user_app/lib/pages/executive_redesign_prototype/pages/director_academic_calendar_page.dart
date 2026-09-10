@@ -3,6 +3,8 @@ import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
+import '../controllers/director_calendar_controller.dart';
+import 'meeting_detail_page.dart';
 
 /// Read seams so loading / data / empty / failure can each be driven in a
 /// test without a live Supabase client.
@@ -14,10 +16,12 @@ class DirectorAcademicCalendarPage extends StatefulWidget {
     super.key,
     this.loadEvents,
     this.loadSchedules,
+    this.loadMeetings,
   });
 
   final CalendarEventsLoader? loadEvents;
   final SchoolSchedulesLoader? loadSchedules;
+  final Future<List<MeetingRecord>> Function()? loadMeetings;
 
   @override
   State<DirectorAcademicCalendarPage> createState() =>
@@ -68,18 +72,23 @@ class _DirectorAcademicCalendarPageState
     setState(() {
       _loading = true;
       _loadFailed = false;
+      events = const [];
+      _schedules = const [];
     });
     try {
-      final results = await Future.wait([
-        widget.loadEvents?.call() ?? CalendarService.listSchoolCalendarEvents(),
-        widget.loadSchedules?.call() ??
-            ExecutiveService.listAllSchoolSchedules(),
-      ]);
+      final results = await DirectorCalendarController(
+        loadEvents: widget.loadEvents,
+        loadSchedules: widget.loadSchedules,
+        loadMeetings: widget.loadMeetings,
+      ).load();
       if (!mounted) return;
-      final calendarRows = results[0] as List<CalendarEventItem>;
+      final calendarRows = results.events;
       setState(() {
-        events = calendarRows.map(_toCalendarEvent).toList();
-        _schedules = results[1] as List<SchoolScheduleItem>;
+        events = [
+          ...calendarRows.map(_toCalendarEvent),
+          ...results.meetings.map(_toMeetingEvent),
+        ]..sort((a, b) => a.date.compareTo(b.date));
+        _schedules = results.schedules;
         _loading = false;
       });
     } catch (e) {
@@ -90,6 +99,37 @@ class _DirectorAcademicCalendarPageState
         _loadFailed = true;
       });
     }
+  }
+
+  _CalendarEvent _toMeetingEvent(MeetingRecord meeting) {
+    String time(DateTime value) =>
+        '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+    final end = meeting.endAt;
+    return _CalendarEvent(
+      date: meeting.startAt,
+      time: end == null
+          ? time(meeting.startAt)
+          : '${time(meeting.startAt)} – ${_sameDate(meeting.startAt, end) ? '' : '${_thaiShortDate(end)} '}${time(end)}',
+      title: meeting.title,
+      description:
+          '${meeting.description ?? ''}\nสถานะ: ${switch (meeting.status) {
+            'scheduled' => 'นัดหมายแล้ว',
+            'completed' => 'ประชุมเสร็จสิ้น',
+            'cancelled' => 'ยกเลิกแล้ว',
+            _ => 'ไม่ระบุ',
+          }}',
+      location: meeting.location ?? 'ไม่ระบุสถานที่',
+      category: 'ประชุม',
+      color: meeting.status == 'cancelled'
+          ? AppPalette.textMuted
+          : AppPalette.primaryPink,
+      icon: Icons.groups_rounded,
+      alertBefore: 'ยังไม่ได้ตั้งค่าการแจ้งเตือน',
+      participants:
+          '${meeting.attendeeCount} คน · ผู้จัด: ${meeting.organizer ?? 'ไม่ระบุ'}',
+      meetingId: meeting.id,
+      upcomingEligible: meeting.status == 'scheduled',
+    );
   }
 
   /// `school_events` stores dates only — no time of day, no attendee list, no
@@ -211,17 +251,17 @@ class _DirectorAcademicCalendarPageState
         e.date.month,
         e.date.day,
       ).difference(today).inDays;
-      return days >= 0 && days <= 7;
+      return e.upcomingEligible && days >= 0 && days <= 7;
     }).length;
     final examCount = events.where((e) => e.category == 'สอบ').length;
 
-    String figure(int n) => _loadFailed ? '—' : '$n';
+    String figure(int n) => _loading || _loadFailed ? '—' : '$n';
 
     final items = [
       _CalendarSummary(
         title: 'กิจกรรมเดือนนี้',
         value: figure(monthCount),
-        subtitle: 'วิชาการ / สอบ / กิจกรรม / วันหยุด',
+        subtitle: 'รวมประชุมและกิจกรรมโรงเรียน',
         icon: Icons.calendar_month_rounded,
         color: AppPalette.softPink,
       ),
@@ -686,8 +726,12 @@ class _DirectorAcademicCalendarPageState
 
   Widget _meetingScheduleCard() {
     final meetings = events
-        .where((event) => event.category == 'ประชุม')
-        .take(4)
+        .where(
+          (event) =>
+              event.category == 'ประชุม' &&
+              event.date.year == selectedMonth.year &&
+              event.date.month == selectedMonth.month,
+        )
         .toList();
 
     return Container(
@@ -702,10 +746,18 @@ class _DirectorAcademicCalendarPageState
           ),
           const SizedBox(height: 4),
           const Text(
-            'รายการประชุมสำคัญของฝ่ายบริหารและครู',
+            'ประชุมในเดือนที่เลือก ตามสิทธิ์การมองเห็นของคุณ',
             style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
+          if (meetings.isEmpty)
+            Text(
+              _loadFailed
+                  ? 'โหลดรายการประชุมไม่สำเร็จ'
+                  : _loading
+                  ? 'กำลังโหลดประชุม'
+                  : 'ไม่มีประชุมในเดือนนี้',
+            ),
           ...meetings.map((event) {
             return InkWell(
               borderRadius: BorderRadius.circular(16),
@@ -829,7 +881,7 @@ class _DirectorAcademicCalendarPageState
             .where((e) {
               final d = DateTime(e.date.year, e.date.month, e.date.day);
               final days = d.difference(today).inDays;
-              return days >= 0 && days <= 14;
+              return e.upcomingEligible && days >= 0 && days <= 14;
             })
             .map((e) {
               final days = DateTime(
@@ -951,8 +1003,8 @@ class _DirectorAcademicCalendarPageState
     final upcoming = events
         .where(
           (event) =>
-              event.date.isAfter(DateTime(2026, 8, 20)) ||
-              _sameDate(event.date, DateTime(2026, 8, 20)),
+              event.upcomingEligible &&
+              (event.date.isAfter(_now) || _sameDate(event.date, _now)),
         )
         .take(6)
         .toList();
@@ -1140,6 +1192,22 @@ class _DirectorAcademicCalendarPageState
             ),
           ),
           actions: [
+            if (event.meetingId != null)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(dialogContext);
+                  await Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => MeetingDetailPage(
+                        service: MeetingService(),
+                        meetingId: event.meetingId!,
+                      ),
+                    ),
+                  );
+                  if (mounted) await _loadCalendar();
+                },
+                child: const Text('เปิดรายละเอียดประชุม'),
+              ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
               child: const Text('ปิด'),
@@ -1242,6 +1310,8 @@ class _DirectorAcademicCalendarPageState
 }
 
 class _CalendarEvent {
+  final String? meetingId;
+  final bool upcomingEligible;
   final DateTime date;
   final String time;
   final String title;
@@ -1254,6 +1324,8 @@ class _CalendarEvent {
   final String participants;
 
   const _CalendarEvent({
+    this.meetingId,
+    this.upcomingEligible = true,
     required this.date,
     required this.time,
     required this.title,

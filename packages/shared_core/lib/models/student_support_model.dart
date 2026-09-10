@@ -14,6 +14,8 @@ class StudentSupportCase {
   final int interventionCount;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? gradeLevel;
+  final String? room;
 
   const StudentSupportCase({
     required this.caseId,
@@ -31,6 +33,8 @@ class StudentSupportCase {
     required this.interventionCount,
     required this.createdAt,
     required this.updatedAt,
+    this.gradeLevel,
+    this.room,
   });
 
   factory StudentSupportCase.fromRow(Map<String, dynamic> row) =>
@@ -50,6 +54,8 @@ class StudentSupportCase {
         interventionCount: (row['intervention_count'] as num?)?.toInt() ?? 0,
         createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
         updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
+        gradeLevel: row['grade_level'] as String?,
+        room: row['room'] as String?,
       );
 
   String get categoryLabel => switch (category) {

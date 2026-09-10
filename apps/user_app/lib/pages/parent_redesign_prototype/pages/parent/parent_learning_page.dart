@@ -192,21 +192,22 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
       final attendance = _periodAttendance
           .where((item) => item.courseName == subject)
           .toList();
+      final knownAttendance = attendance
+          .where((item) => item.hasKnownStatus)
+          .toList();
       final assignments = _periodAssignments
           .where((item) => item.courseName == subject)
           .toList();
       final score = grades.fold<num>(0, (sum, item) => sum + item.score);
       final maxScore = grades.fold<num>(0, (sum, item) => sum + item.maxScore);
-      final present = attendance
-          .where((item) => item.isPresent || item.isLate)
-          .length;
+      final present = knownAttendance.where((item) => item.isAttended).length;
       final submitted = assignments.where(_isSubmitted).length;
       return _SubjectSummary(
         subject: subject,
         scorePercent: maxScore > 0 ? score / maxScore * 100 : null,
-        attendancePercent: attendance.isEmpty
+        attendancePercent: knownAttendance.isEmpty
             ? null
-            : present / attendance.length * 100,
+            : present / knownAttendance.length * 100,
         submitted: assignments.isEmpty ? null : submitted,
         totalAssignments: assignments.isEmpty ? null : assignments.length,
         pending: assignments.isEmpty ? null : assignments.length - submitted,
@@ -226,11 +227,12 @@ class _ParentLearningPageState extends State<ParentLearningPage> {
   }
 
   double? get _attendanceRate {
-    if (_periodAttendance.isEmpty) return null;
-    final present = _periodAttendance
-        .where((item) => item.isPresent || item.isLate)
-        .length;
-    return present / _periodAttendance.length * 100;
+    final known = _periodAttendance
+        .where((item) => item.hasKnownStatus)
+        .toList();
+    if (known.isEmpty) return null;
+    final present = known.where((item) => item.isAttended).length;
+    return present / known.length * 100;
   }
 
   List<StudentAssignmentItem> get _visibleAssignments => _periodAssignments
@@ -958,7 +960,7 @@ String _attendanceStatus(String status) => switch (status) {
   'late' => 'มาสาย',
   'absent' => 'ขาดเรียน',
   'excused' => 'ลา',
-  _ => status,
+  _ => 'ไม่ทราบสถานะ',
 };
 
 String _formatDate(DateTime value) {

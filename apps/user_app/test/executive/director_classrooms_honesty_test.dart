@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/executive_redesign_prototype/pages/director_classrooms_page.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:shared_core/models/school_homeroom_attendance.dart';
 
 /// One real call — `getClassroomsOverview` for three summary tiles — sat on
 /// top of a school that did not exist: a 205-line const list of classrooms,
@@ -31,12 +32,28 @@ HomeroomAssignment _homeroom({
   studentCount: students,
 );
 
+SchoolScheduleItem _schedule({
+  required String room,
+  String subject = 'วิทยาศาสตร์จริง',
+}) => SchoolScheduleItem(
+  scheduleId: 'schedule-$room',
+  courseId: 'course-$room',
+  subjectName: subject,
+  dayOfWeek: DateTime.now().weekday - 1,
+  startTime: '00:00',
+  endTime: '23:59',
+  room: room,
+);
+
 Future<void> _pump(
   WidgetTester tester, {
   List<HomeroomAssignment>? homerooms,
   List<LearningTrackRoom>? tracks,
   List<SchoolScheduleItem>? schedules,
   bool fail = false,
+  List<SchoolHomeroomAttendance>? attendance,
+  List<ClassroomWorkDetails>? workDetails,
+  Future<List<ClassroomAssignmentRosterItem>> Function(String)? loadRoster,
 }) async {
   tester.view.physicalSize = const Size(1500, 2600);
   tester.view.devicePixelRatio = 1;
@@ -55,6 +72,11 @@ Future<void> _pump(
           loadHomerooms: () async => homerooms ?? const <HomeroomAssignment>[],
           loadTrackRooms: () async => tracks ?? const <LearningTrackRoom>[],
           loadSchedules: () async => schedules ?? const <SchoolScheduleItem>[],
+          loadAttendance: () async =>
+              attendance ?? const <SchoolHomeroomAttendance>[],
+          loadWorkDetails: () async =>
+              workDetails ?? const <ClassroomWorkDetails>[],
+          loadAssignmentRoster: loadRoster,
         ),
       ),
     ),
@@ -76,6 +98,7 @@ void main() {
       'ภาพรวมการเรียนของห้องอยู่ในเกณฑ์ดี',
       'คนมีงานที่ยังไม่ส่ง',
       'หากต่ำกว่า 92%',
+      'ยังจับคู่รายห้องไม่ได้',
     ]) {
       expect(
         find.textContaining(invented),
@@ -113,9 +136,7 @@ void main() {
     expect(find.textContaining('วิทย์-คณิต'), findsWidgets);
   });
 
-  testWidgets('no homerooms means no rooms, not a demo school', (
-    tester,
-  ) async {
+  testWidgets('no homerooms means no rooms, not a demo school', (tester) async {
     await _pump(tester);
 
     for (final invented in <String>['ม.6/1', 'ม.3/2', 'ม.4/1']) {
@@ -148,5 +169,135 @@ void main() {
       expect(find.text(invented), findsNothing, reason: invented);
     }
     expect(find.textContaining('classrooms_unreachable'), findsNothing);
+  });
+
+  testWidgets('today timetable and next class use the real schedule', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      homerooms: [_homeroom(grade: 'ม.1', room: '1', students: 28)],
+      schedules: [_schedule(room: 'ม.1/1')],
+    );
+
+    expect(find.textContaining('วิทยาศาสตร์จริง'), findsWidgets);
+    expect(
+      find.textContaining('แสดง 1 คาบจากตารางสอนจริงของห้อง ม.1/1'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a bare room number cannot mix schedules across grade levels', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      homerooms: [_homeroom(grade: 'ม.1', room: '1')],
+      schedules: [_schedule(room: '1', subject: 'วิชาจากห้องอื่น')],
+    );
+
+    expect(find.textContaining('วิชาจากห้องอื่น'), findsNothing);
+    expect(find.textContaining('ยังไม่มีคาบวันนี้'), findsWidgets);
+  });
+
+  testWidgets('assignment status and denominator use assignment facts', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    await _pump(
+      tester,
+      homerooms: [_homeroom(grade: 'ม.1', room: '1', students: 30)],
+      workDetails: [
+        ClassroomWorkDetails(
+          gradeLevel: 'ม.1',
+          room: '1',
+          assignments: [
+            ClassroomAssignmentDetail(
+              assignmentId: 'work-1',
+              title: 'งานจริง',
+              status: 'published',
+              teacher: 'ครูจริง',
+              instructions: 'คำสั่งงานจริง',
+              dueAt: now.subtract(const Duration(days: 1)),
+              createdAt: now.subtract(const Duration(days: 5)),
+              isGroup: false,
+              expected: 2,
+              submitted: 1,
+              pending: 1,
+            ),
+          ],
+          teacherActivities: const [],
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('ม.1/1').first);
+    await tester.pumpAndSettle();
+    expect(find.text('เลยกำหนด'), findsWidgets);
+    expect(find.text('1/2'), findsWidgets);
+    expect(find.text('1/30'), findsNothing);
+  });
+
+  testWidgets('a roster failure closes loading and reports an error', (
+    tester,
+  ) async {
+    final now = DateTime.now();
+    await _pump(
+      tester,
+      homerooms: [_homeroom(grade: 'ม.1', room: '1', students: 2)],
+      workDetails: [
+        ClassroomWorkDetails(
+          gradeLevel: 'ม.1',
+          room: '1',
+          assignments: [
+            ClassroomAssignmentDetail(
+              assignmentId: 'work-error',
+              title: 'งานโหลดรายชื่อ',
+              status: 'published',
+              teacher: 'ครูจริง',
+              instructions: null,
+              dueAt: null,
+              createdAt: now,
+              isGroup: false,
+              expected: 2,
+              submitted: 0,
+              pending: 2,
+            ),
+          ],
+          teacherActivities: const [],
+        ),
+      ],
+      loadRoster: (_) async => throw StateError('roster_failed'),
+    );
+
+    await tester.tap(find.text('ม.1/1').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('งานโหลดรายชื่อ'));
+    await tester.pumpAndSettle();
+    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('room attendance uses the real homeroom attendance aggregate', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      homerooms: [_homeroom(grade: 'ม.1', room: '1', students: 2)],
+      attendance: [
+        const SchoolHomeroomAttendance(
+          gradeLevel: 'ม.1',
+          room: '1',
+          studentCount: 2,
+          present: 1,
+          late: 1,
+          absent: 0,
+          excused: 0,
+          unknown: 0,
+        ),
+      ],
+    );
+
+    expect(find.text('100%'), findsOneWidget);
   });
 }

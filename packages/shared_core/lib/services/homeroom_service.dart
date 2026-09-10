@@ -1,4 +1,5 @@
 import 'auth_service.dart';
+import '../models/school_homeroom_attendance.dart';
 import 'supabase_config.dart';
 
 class HomeroomAssignment {
@@ -51,6 +52,28 @@ class HomeroomRosterItem {
 }
 
 class HomeroomService {
+  static Future<List<SchoolHomeroomAttendance>> listSchoolAttendance(
+    DateTime date,
+  ) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw StateError('not_signed_in');
+    final dateOnly =
+        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    final rows =
+        await supabase.rpc(
+              'list_school_homeroom_attendance',
+              params: {'p_token': token, 'p_class_date': dateOnly},
+            )
+            as List;
+    return rows
+        .map(
+          (row) => SchoolHomeroomAttendance.fromRow(
+            Map<String, dynamic>.from(row as Map),
+          ),
+        )
+        .toList();
+  }
+
   static Future<String?> setHomeroomTeacher({
     required String gradeLevel,
     required String room,
@@ -134,9 +157,7 @@ class HomeroomService {
             )
             as List;
     return rows
-        .map(
-          (row) => HomeroomRosterItem.fromRow(row as Map<String, dynamic>),
-        )
+        .map((row) => HomeroomRosterItem.fromRow(row as Map<String, dynamic>))
         .toList();
   }
 }

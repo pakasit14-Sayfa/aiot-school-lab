@@ -1,14 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:shared_core/models/school_homeroom_attendance.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
+import '../widgets/classroom_attendance_card.dart';
+import '../controllers/classroom_attendance_controller.dart';
 
 /// Read seams so loading / data / empty / failure can each be driven in a test.
 typedef ClassroomsOverviewLoader = Future<ClassroomsOverviewItem?> Function();
 typedef HomeroomsLoader = Future<List<HomeroomAssignment>> Function();
 typedef TrackRoomsLoader = Future<List<LearningTrackRoom>> Function();
 typedef ClassSchedulesLoader = Future<List<SchoolScheduleItem>> Function();
+typedef HomeroomAttendanceLoader =
+    Future<List<SchoolHomeroomAttendance>> Function();
+typedef ClassroomLearningLoader =
+    Future<List<ClassroomLearningSummary>> Function();
+typedef ClassroomWorkActivityLoader =
+    Future<List<ClassroomWorkActivity>> Function();
+typedef ClassroomWorkDetailsLoader =
+    Future<List<ClassroomWorkDetails>> Function();
+typedef SupportCasesLoader = Future<List<StudentSupportCase>> Function();
+typedef AssignmentRosterLoader =
+    Future<List<ClassroomAssignmentRosterItem>> Function(String assignmentId);
 
 class DirectorClassroomsPage extends StatefulWidget {
   const DirectorClassroomsPage({
@@ -17,12 +31,24 @@ class DirectorClassroomsPage extends StatefulWidget {
     this.loadHomerooms,
     this.loadTrackRooms,
     this.loadSchedules,
+    this.loadAttendance,
+    this.loadLearning,
+    this.loadWorkActivity,
+    this.loadWorkDetails,
+    this.loadSupportCases,
+    this.loadAssignmentRoster,
   });
 
   final ClassroomsOverviewLoader? loadOverview;
   final HomeroomsLoader? loadHomerooms;
   final TrackRoomsLoader? loadTrackRooms;
   final ClassSchedulesLoader? loadSchedules;
+  final HomeroomAttendanceLoader? loadAttendance;
+  final ClassroomLearningLoader? loadLearning;
+  final ClassroomWorkActivityLoader? loadWorkActivity;
+  final ClassroomWorkDetailsLoader? loadWorkDetails;
+  final SupportCasesLoader? loadSupportCases;
+  final AssignmentRosterLoader? loadAssignmentRoster;
 
   @override
   State<DirectorClassroomsPage> createState() => _DirectorClassroomsPageState();
@@ -43,6 +69,11 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   List<HomeroomAssignment> _homerooms = const [];
   List<LearningTrackRoom> _trackRooms = const [];
   List<SchoolScheduleItem> _schedules = const [];
+  List<SchoolHomeroomAttendance> _attendance = const [];
+  List<ClassroomLearningSummary> _learning = const [];
+  List<ClassroomWorkActivity> _workActivity = const [];
+  List<ClassroomWorkDetails> _workDetails = const [];
+  List<StudentSupportCase> _supportCases = const [];
 
   @override
   void initState() {
@@ -65,6 +96,16 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
         widget.loadTrackRooms?.call() ?? LearningTrackService.listTrackRooms(),
         widget.loadSchedules?.call() ??
             ExecutiveService.listAllSchoolSchedules(),
+        widget.loadAttendance?.call() ??
+            HomeroomService.listSchoolAttendance(DateTime.now()),
+        widget.loadLearning?.call() ??
+            ExecutiveService.listClassroomLearningSummary(),
+        widget.loadWorkActivity?.call() ??
+            ExecutiveService.listClassroomWorkActivity(),
+        widget.loadWorkDetails?.call() ??
+            ExecutiveService.listClassroomWorkDetails(),
+        widget.loadSupportCases?.call() ??
+            StudentSupportService.listCasesByRoom(),
       ]);
       final overview = results[0] as ClassroomsOverviewItem?;
       if (!mounted) return;
@@ -72,6 +113,11 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
         _homerooms = results[1] as List<HomeroomAssignment>;
         _trackRooms = results[2] as List<LearningTrackRoom>;
         _schedules = results[3] as List<SchoolScheduleItem>;
+        _attendance = results[4] as List<SchoolHomeroomAttendance>;
+        _learning = results[5] as List<ClassroomLearningSummary>;
+        _workActivity = results[6] as List<ClassroomWorkActivity>;
+        _workDetails = results[7] as List<ClassroomWorkDetails>;
+        _supportCases = results[8] as List<StudentSupportCase>;
         _overview = overview;
         _overviewLoading = false;
       });
@@ -90,21 +136,14 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   String selectedTrack = 'ทุกสายการเรียน';
   String selectedAssignmentFilter = 'ทั้งหมด';
 
-  final List<String> grades = const [
+  List<String> get grades => [
     'ทุกระดับชั้น',
-    'ม.1',
-    'ม.2',
-    'ม.3',
-    'ม.4',
-    'ม.5',
-    'ม.6',
+    ...({for (final r in classrooms) r.grade}.toList()..sort()),
   ];
 
-  final List<String> tracks = const [
+  List<String> get tracks => [
     'ทุกสายการเรียน',
-    'ทั่วไป',
-    'วิทย์ - คณิต',
-    'สายภาษา',
+    ...({for (final r in classrooms) r.track}.toList()..sort()),
   ];
 
   final List<String> assignmentFilters = const [
@@ -112,7 +151,9 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
     'กำลังดำเนินการ',
     'ใกล้ครบกำหนด',
     'เลยกำหนด',
-    'ตรวจแล้ว',
+    'ส่งครบ',
+    'ฉบับร่าง',
+    'ยังไม่มีนักเรียน',
   ];
 
   /// Built from three executive-readable RPCs, not written by hand.
@@ -140,6 +181,17 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
       AppPalette.behaviorYellow,
       AppPalette.chartPink2,
     ];
+    final attendanceByRoom = <String, SchoolHomeroomAttendance>{
+      for (final item in _attendance)
+        if (item.gradeLevel != null && item.room != null)
+          '${item.gradeLevel}/${item.room}': item,
+    };
+    final learningByRoom = <String, ClassroomLearningSummary>{
+      for (final item in _learning) '${item.gradeLevel}/${item.room}': item,
+    };
+    final workByRoom = <String, ClassroomWorkActivity>{
+      for (final item in _workActivity) '${item.gradeLevel}/${item.room}': item,
+    };
 
     final rows = <_ClassroomData>[];
     for (var i = 0; i < _homerooms.length; i++) {
@@ -153,41 +205,22 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
           roomNumber: h.room,
           homeroomTeacher: h.teacherName ?? 'ยังไม่มีครูประจำชั้น',
           students: h.studentCount,
-          nextClass: _nextClassFor(h.room),
+          attendance: attendanceByRoom[key],
+          learning: learningByRoom[key],
+          workActivity: workByRoom[key],
+          supportCases: _supportCases
+              .where(
+                (item) =>
+                    item.gradeLevel == h.gradeLevel && item.room == h.room,
+              )
+              .toList(),
+          nextClass: _nextClassFor(h.gradeLevel, h.room),
           color: palette[i % palette.length],
         ),
       );
     }
     rows.sort((a, b) => a.room.compareTo(b.room));
     return rows;
-  }
-
-  /// The next scheduled period for a room, from the real timetable. Returns a
-  /// plain "ไม่มีคาบ" rather than inventing one.
-  String _nextClassFor(String room) {
-    final now = DateTime.now();
-    final today = now.weekday;
-    final nowMinutes = now.hour * 60 + now.minute;
-
-    int? toMinutes(String hhmm) {
-      final parts = hhmm.split(':');
-      if (parts.length < 2) return null;
-      final h = int.tryParse(parts[0]);
-      final m = int.tryParse(parts[1]);
-      if (h == null || m == null) return null;
-      return h * 60 + m;
-    }
-
-    final todays =
-        _schedules
-            .where((s) => s.room == room && s.dayOfWeek == today)
-            .where((s) => (toMinutes(s.startTime) ?? -1) >= nowMinutes)
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-    if (todays.isEmpty) return 'ไม่มีคาบที่เหลือวันนี้';
-    final next = todays.first;
-    return '${next.subjectName} ${next.startTime.substring(0, 5)}';
   }
 
   @override
@@ -345,15 +378,15 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
       ),
       _OverviewSummary(
         title: 'ห้องที่ควรติดตาม',
-        value: '5',
-        subtitle: 'การมาเรียน / งาน / ผลการเรียน',
+        value: '—',
+        subtitle: 'ยังไม่มีข้อมูลที่คำนวณได้จากระบบ',
         icon: Icons.visibility_rounded,
         color: AppPalette.softMint,
       ),
       _OverviewSummary(
         title: 'คะแนนการเรียนภาพรวม',
-        value: '93%',
-        subtitle: 'เฉลี่ยทุกห้อง',
+        value: '—',
+        subtitle: 'ยังไม่มีข้อมูลที่คำนวณได้จากระบบ',
         icon: Icons.analytics_rounded,
         color: AppPalette.softBlue,
       ),
@@ -416,6 +449,8 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                   ),
                   Text(
                     item.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -737,6 +772,27 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                   AppPalette.primaryPink,
                 ),
                 _roomMetric('สาย', room.track, AppPalette.learningBlue),
+                _roomMetric(
+                  'มาเรียน',
+                  room.attendance?.attendancePercent == null
+                      ? '—'
+                      : '${room.attendance!.attendancePercent!.round()}%',
+                  AppPalette.environmentGreen,
+                ),
+                _roomMetric(
+                  'คะแนนเฉลี่ย',
+                  room.learning?.averageGradePercent == null
+                      ? '—'
+                      : '${room.learning!.averageGradePercent!.round()}%',
+                  AppPalette.chartPink2,
+                ),
+                _roomMetric(
+                  'ส่งงานแล้ว',
+                  room.workActivity == null
+                      ? '—'
+                      : '${room.workActivity!.submittedCount}/${room.workActivity!.expectedSubmissionCount}',
+                  AppPalette.learningBlue,
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -863,6 +919,14 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
           const SizedBox(height: 14),
           _roomSummaryCards(room),
           const SizedBox(height: 16),
+          ClassroomAttendanceCard(
+            key: ValueKey(room.room),
+            controller: ClassroomAttendanceController(
+              grade: room.grade,
+              room: room.roomNumber,
+            ),
+          ),
+          const SizedBox(height: 16),
 
           LayoutBuilder(
             builder: (context, constraints) {
@@ -899,7 +963,7 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
               if (constraints.maxWidth < 980) {
                 return Column(
                   children: [
-                    _todayTimetableCard(timetable),
+                    _todayTimetableCard(room, timetable),
                     const SizedBox(height: 16),
                     _teacherActivityCard(activities),
                   ],
@@ -909,7 +973,7 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _todayTimetableCard(timetable)),
+                  Expanded(child: _todayTimetableCard(room, timetable)),
                   const SizedBox(width: 16),
                   Expanded(child: _teacherActivityCard(activities)),
                 ],
@@ -1083,6 +1147,8 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                   ),
                   Text(
                     item.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w800,
@@ -1247,7 +1313,7 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              'ยังไม่มีข้อมูลรายห้องสำหรับการมาเรียน งานค้าง หรือการติดตามนักเรียน '
+              'ยังไม่มีข้อมูลสรุปรายห้องสำหรับงานค้างหรือการติดตามนักเรียน '
               'ดูรายละเอียดได้ที่หน้าของครูประจำชั้นและระบบดูแลช่วยเหลือนักเรียน',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -1286,7 +1352,7 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'ดูว่าครูแต่ละวิชาลงงานอะไร กำหนดส่งเมื่อไร นักเรียนส่งแล้วกี่คน และคะแนนเฉลี่ยของงาน',
+                    'ดูว่าครูแต่ละวิชาลงงานอะไร กำหนดส่งเมื่อไร และนักเรียนส่งแล้วกี่คน',
                     style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
                   ),
                 ],
@@ -1395,11 +1461,11 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                     runSpacing: 7,
                     children: [
                       _tag(
-                        'ส่ง ${assignment.submitted}/${room.students}',
+                        'ส่ง ${assignment.submitted}/${assignment.expected}',
                         AppPalette.learningBlue,
                       ),
                       _tag(
-                        'เฉลี่ย ${assignment.averageScore}%',
+                        'เฉลี่ย ${assignment.averageScore}',
                         AppPalette.environmentGreen,
                       ),
                       _tag(assignment.status, statusColor),
@@ -1420,13 +1486,13 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                 Expanded(
                   child: _assignmentListInfo(
                     'ส่งแล้ว',
-                    '${assignment.submitted}/${room.students}',
+                    '${assignment.submitted}/${assignment.expected}',
                   ),
                 ),
                 Expanded(
                   child: _assignmentListInfo(
                     'คะแนนเฉลี่ย',
-                    '${assignment.averageScore}%',
+                    assignment.averageScore,
                   ),
                 ),
                 Container(
@@ -1539,14 +1605,17 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
         return AppPalette.warning;
       case 'เลยกำหนด':
         return AppPalette.danger;
-      case 'ตรวจแล้ว':
+      case 'ส่งครบ':
         return AppPalette.environmentGreen;
       default:
         return AppPalette.learningBlue;
     }
   }
 
-  Widget _todayTimetableCard(List<_TimetableItem> timetable) {
+  Widget _todayTimetableCard(
+    _ClassroomData room,
+    List<_TimetableItem> timetable,
+  ) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
@@ -1558,8 +1627,10 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'ดูรายวิชา ครูผู้สอน และสถานะการเรียนของแต่ละคาบ',
+          Text(
+            timetable.isEmpty
+                ? 'ยังไม่มีคาบเรียนวันนี้ที่ตรงกับห้อง ${room.room} ในตารางสอนจริง'
+                : 'แสดง ${timetable.length} คาบจากตารางสอนจริงของห้อง ${room.room}',
             style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
@@ -1690,11 +1761,6 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
     );
   }
 
-  /// The student-support panel counted four categories of at-risk students
-  /// per room, each derived from the invented scores — "ผลการเรียนต่ำกว่าเกณฑ์
-  /// 4 คน", "ขาดเรียนต่อเนื่อง 3 คน". `list_student_support_cases` holds the
-  /// real thing but its gate rejects `executive`, so this needs a role
-  /// widening before it can be shown here.
   Widget _studentSupportSection(_ClassroomData room) {
     return Container(
       width: double.infinity,
@@ -1704,7 +1770,7 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppPalette.border),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -1716,22 +1782,58 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
             ),
           ),
           SizedBox(height: 10),
-          Text(
-            'ยังไม่เปิดให้ผู้บริหารดูข้อมูลรายห้อง — ดูได้ที่ระบบดูแลช่วยเหลือนักเรียนของครูประจำชั้น',
-            style: TextStyle(
-              fontSize: 10.5,
-              height: 1.5,
-              color: AppPalette.textMuted,
+          if (room.supportCases.isEmpty)
+            const Text(
+              'ยังไม่มีข้อมูลเคสของห้องนี้',
+              style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+            )
+          else
+            ...room.supportCases.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '${item.studentName} • ${item.categoryLabel} • ${item.statusLabel}',
+                  style: const TextStyle(fontSize: 10.5),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
   }
 
-  void _showAssignmentDetail(_ClassroomData room, _AssignmentData assignment) {
-    final missing = room.students - assignment.submitted;
+  Future<void> _showAssignmentDetail(
+    _ClassroomData room,
+    _AssignmentData assignment,
+  ) async {
+    final missing = assignment.pending;
     final statusColor = _assignmentStatusColor(assignment.status);
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        content: SizedBox(
+          height: 60,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ),
+    );
+    late final List<ClassroomAssignmentRosterItem> roster;
+    try {
+      roster =
+          await (widget.loadAssignmentRoster?.call(assignment.id) ??
+              ExecutiveService.listAssignmentRoster(assignment.id));
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('โหลดรายชื่อนักเรียนไม่สำเร็จ')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
 
     showDialog<void>(
       context: context,
@@ -1761,10 +1863,10 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                   _detailRow('กำหนดส่ง', assignment.dueDate),
                   _detailRow(
                     'ส่งแล้ว',
-                    '${assignment.submitted}/${room.students} คน',
+                    '${assignment.submitted}/${assignment.expected} คน',
                   ),
                   _detailRow('ยังไม่ส่ง', '$missing คน'),
-                  _detailRow('คะแนนเฉลี่ย', '${assignment.averageScore}%'),
+                  _detailRow('คะแนนเฉลี่ย', assignment.averageScore),
                   const SizedBox(height: 12),
                   const Text(
                     'รายละเอียดงาน',
@@ -1782,6 +1884,56 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                       color: AppPalette.textMuted,
                     ),
                   ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'รายชื่อนักเรียนและสถานะการส่ง',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  if (roster.isEmpty)
+                    const Text(
+                      'ยังไม่มีรายชื่อนักเรียนในรายวิชานี้',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: AppPalette.textMuted,
+                      ),
+                    )
+                  else
+                    ...roster.map(
+                      (student) => Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Row(
+                          children: [
+                            Icon(
+                              student.submissionStatus == 'ยังไม่ส่ง'
+                                  ? Icons.radio_button_unchecked
+                                  : Icons.check_circle,
+                              size: 14,
+                              color: student.submissionStatus == 'ยังไม่ส่ง'
+                                  ? AppPalette.textMuted
+                                  : AppPalette.environmentGreen,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                student.studentName,
+                                style: const TextStyle(fontSize: 9.5),
+                              ),
+                            ),
+                            Text(
+                              student.submissionStatus,
+                              style: const TextStyle(
+                                fontSize: 8.5,
+                                color: AppPalette.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1828,7 +1980,9 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   // MOCK DETAIL DATA
   // ---------------------------------------------------------------------------
 
-  /// Empty until an RPC can list a room's assignments.
+  /// Assignment titles and per-assignment rosters need a detail RPC. The
+  /// room-level count is available through ClassroomWorkActivity and is shown
+  /// on the room card until that detail seam exists.
   ///
   /// Was five fully-written assignments per room — titles, descriptions,
   /// invented teacher names such as ครูพรทิพย์ รักษ์ดี, submission counts
@@ -1837,7 +1991,41 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   /// this is reachable with a room-scoped aggregate; it simply does not exist
   /// yet, and a placeholder was never the honest stand-in.
   List<_AssignmentData> _assignmentsFor(_ClassroomData room) =>
-      const <_AssignmentData>[];
+      (_workDetails
+              .where(
+                (item) =>
+                    item.gradeLevel == room.grade &&
+                    item.room == room.roomNumber,
+              )
+              .expand((item) => item.assignments)
+              .map(
+                (item) => _AssignmentData(
+                  id: item.assignmentId,
+                  subject: 'งานของห้อง ${room.room}',
+                  teacher: item.teacher.isEmpty
+                      ? 'ยังไม่มีข้อมูลครูผู้สอน'
+                      : item.teacher,
+                  title: item.title,
+                  assignedDate: item.createdAt == null
+                      ? 'ยังไม่มีวันที่'
+                      : _formatActivityTime(item.createdAt!),
+                  dueDate: item.dueAt == null
+                      ? 'ไม่มีกำหนดส่ง'
+                      : _formatActivityTime(item.dueAt!),
+                  submitted: item.submitted,
+                  expected: item.expected,
+                  pending: item.pending,
+                  averageScore: '—',
+                  status: _assignmentStatus(item),
+                  description: item.instructions?.trim().isNotEmpty == true
+                      ? item.instructions!.trim()
+                      : 'ยังไม่มีรายละเอียดงาน',
+                  icon: Icons.assignment_rounded,
+                  color: AppPalette.learningBlue,
+                ),
+              )
+              .toList())
+          .cast<_AssignmentData>();
 
   /// Empty until per-subject results can be aggregated per room.
   ///
@@ -1847,37 +2035,127 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
   List<_SubjectPerformance> _subjectsFor(_ClassroomData room) =>
       const <_SubjectPerformance>[];
 
-  /// The room's real timetable for today, from `list_all_school_schedules`.
-  ///
-  /// Was a const list of six periods with invented teacher names — ครูจิราพร
-  /// ตั้งใจ and others — and a "สอนแล้ว / กำลังสอน" status that nothing
-  /// tracks. The RPC gives subject, room, day and start/end time; whether a
-  /// teacher actually started a period on time is not recorded anywhere, so
-  /// no status is claimed.
-  List<_TimetableItem> _timetableFor(_ClassroomData room) {
-    final today = DateTime.now().weekday;
-    final todays =
-        _schedules
-            .where((s) => s.room == room.roomNumber && s.dayOfWeek == today)
-            .toList()
-          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+  List<SchoolScheduleItem> _schedulesForRoom(String grade, String roomNumber) {
+    final cohortRoom = _normaliseRoom('$grade/$roomNumber');
+    final today = DateTime.now().weekday - 1;
 
-    return [
-      for (final s in todays)
-        _TimetableItem(
-          time: s.startTime.substring(0, 5),
-          subject: s.subjectName,
-          teacher: '',
-          room: s.room ?? room.roomNumber,
-          status: '',
-          color: AppPalette.learningBlue,
-        ),
-    ];
+    final matches = _schedules
+        .where((schedule) {
+          final scheduleRoom = schedule.room?.trim();
+          if (scheduleRoom == null || scheduleRoom.isEmpty) return false;
+          final normalized = _normaliseRoom(scheduleRoom);
+          return cohortRoom == normalized;
+        })
+        .where((schedule) => schedule.dayOfWeek == today)
+        .toList();
+
+    matches.sort(
+      (a, b) =>
+          _timeToMinutes(a.startTime).compareTo(_timeToMinutes(b.startTime)),
+    );
+    return matches;
   }
 
-  /// Empty: nothing records homeroom-teacher activity per room.
-  List<_TeacherActivity> _teacherActivitiesFor(_ClassroomData room) =>
-      const <_TeacherActivity>[];
+  String _normaliseRoom(String value) =>
+      value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '');
+
+  String _assignmentStatus(ClassroomAssignmentDetail item) {
+    if (item.status == 'draft') return 'ฉบับร่าง';
+    if (item.expected == 0) return 'ยังไม่มีนักเรียน';
+    if (item.pending == 0) return 'ส่งครบ';
+    final dueAt = item.dueAt;
+    if (dueAt == null) return 'กำลังดำเนินการ';
+    final now = DateTime.now();
+    if (dueAt.isBefore(now)) return 'เลยกำหนด';
+    if (dueAt.difference(now) <= const Duration(days: 3)) {
+      return 'ใกล้ครบกำหนด';
+    }
+    return 'กำลังดำเนินการ';
+  }
+
+  int _timeToMinutes(String value) {
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value.trim());
+    if (match == null) return 24 * 60;
+    return int.parse(match.group(1)!) * 60 + int.parse(match.group(2)!);
+  }
+
+  String _scheduleLabel(SchoolScheduleItem schedule) {
+    final subject = schedule.subjectName.trim();
+    return subject.isEmpty ? 'ยังไม่มีชื่อรายวิชา' : subject;
+  }
+
+  String _nextClassFor(String grade, String roomNumber) {
+    final schedules = _schedulesForRoom(grade, roomNumber);
+    if (schedules.isEmpty) return 'ยังไม่มีคาบวันนี้';
+
+    final now = DateTime.now().hour * 60 + DateTime.now().minute;
+    for (final schedule in schedules) {
+      final start = _timeToMinutes(schedule.startTime);
+      final end = _timeToMinutes(schedule.endTime);
+      if (now >= start && now < end) {
+        return '${_scheduleLabel(schedule)} (กำลังเรียน)';
+      }
+      if (start > now) return _scheduleLabel(schedule);
+    }
+    return '${_scheduleLabel(schedules.last)} (เรียนแล้ว)';
+  }
+
+  List<_TimetableItem> _timetableFor(_ClassroomData room) {
+    final now = DateTime.now().hour * 60 + DateTime.now().minute;
+    return _schedulesForRoom(room.grade, room.roomNumber).map((schedule) {
+      final start = _timeToMinutes(schedule.startTime);
+      final end = _timeToMinutes(schedule.endTime);
+      final status = now >= start && now < end
+          ? 'กำลังเรียน'
+          : start > now
+          ? 'คาบถัดไป'
+          : 'เรียนแล้ว';
+      final color = status == 'กำลังเรียน'
+          ? AppPalette.environmentGreen
+          : status == 'คาบถัดไป'
+          ? AppPalette.learningBlue
+          : AppPalette.textMuted;
+
+      return _TimetableItem(
+        time: '${schedule.startTime}–${schedule.endTime}',
+        subject: _scheduleLabel(schedule),
+        teacher: 'ยังไม่มีข้อมูลครูผู้สอน',
+        room: schedule.room?.trim().isNotEmpty == true
+            ? schedule.room!.trim()
+            : 'ยังไม่มีห้อง',
+        status: status,
+        color: color,
+      );
+    }).toList();
+  }
+
+  List<_TeacherActivity> _teacherActivitiesFor(_ClassroomData room) {
+    final details = _workDetails.where(
+      (item) => item.gradeLevel == room.grade && item.room == room.roomNumber,
+    );
+    final activities = details.expand((item) => item.teacherActivities);
+    return activities
+        .map(
+          (activity) => _TeacherActivity(
+            title: activity.type == 'งาน' ? 'ครูมอบหมายงาน' : 'ครูสร้างบทเรียน',
+            detail:
+                '${activity.title} • ${activity.teacher.isEmpty ? 'ยังไม่มีข้อมูลชื่อครูผู้สอน' : activity.teacher}',
+            time: activity.createdAt == null
+                ? 'ยังไม่มีวันที่'
+                : _formatActivityTime(activity.createdAt!),
+            icon: activity.type == 'งาน'
+                ? Icons.assignment_rounded
+                : Icons.menu_book_rounded,
+            color: AppPalette.learningBlue,
+          ),
+        )
+        .toList();
+  }
+
+  String _formatActivityTime(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day}/${local.month}/${local.year} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 }
 
 class _OverviewSummary {
@@ -1929,6 +2207,10 @@ class _ClassroomData {
   final String roomNumber;
   final String homeroomTeacher;
   final int students;
+  final SchoolHomeroomAttendance? attendance;
+  final ClassroomLearningSummary? learning;
+  final ClassroomWorkActivity? workActivity;
+  final List<StudentSupportCase> supportCases;
   final String nextClass;
   final Color color;
 
@@ -1939,31 +2221,41 @@ class _ClassroomData {
     required this.roomNumber,
     required this.homeroomTeacher,
     required this.students,
+    this.attendance,
+    this.learning,
+    this.workActivity,
+    this.supportCases = const [],
     required this.nextClass,
     required this.color,
   });
 }
 
 class _AssignmentData {
+  final String id;
   final String subject;
   final String teacher;
   final String title;
   final String assignedDate;
   final String dueDate;
   final int submitted;
-  final int averageScore;
+  final int expected;
+  final int pending;
+  final String averageScore;
   final String status;
   final String description;
   final IconData icon;
   final Color color;
 
   const _AssignmentData({
+    required this.id,
     required this.subject,
     required this.teacher,
     required this.title,
     required this.assignedDate,
     required this.dueDate,
     required this.submitted,
+    required this.expected,
+    required this.pending,
     required this.averageScore,
     required this.status,
     required this.description,

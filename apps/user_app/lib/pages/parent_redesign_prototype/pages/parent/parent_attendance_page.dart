@@ -391,7 +391,9 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
     final latestRecord = _visibleAttendanceRecords.isNotEmpty
         ? _visibleAttendanceRecords.first
         : null;
-    final total = _visibleAttendanceRecords.length;
+    final total = _visibleAttendanceRecords
+        .where((record) => record.hasKnownStatus)
+        .length;
     final presentCount = _visibleAttendanceRecords
         .where((r) => r.isPresent)
         .length;
@@ -437,7 +439,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
               const SizedBox(height: 6),
               Text(
                 latestRecord != null
-                    ? 'บันทึกเมื่อ: ${latestRecord.classDate.day}/${latestRecord.classDate.month}/${latestRecord.classDate.year + 543} (สถานะ: ${latestRecord.status})'
+                    ? 'บันทึกเมื่อ: ${latestRecord.classDate.day}/${latestRecord.classDate.month}/${latestRecord.classDate.year + 543} (สถานะ: ${_attendanceStatusLabel(latestRecord)})'
                     : 'อัปเดตล่าสุดจากการเช็คชื่อของครูประจำวิชา',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: .78),
@@ -452,13 +454,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                   _HeroAttendanceBadge(
                     icon: Icons.fact_check_rounded,
                     text: latestRecord != null
-                        ? 'สถานะคาบล่าสุด: ${latestRecord.isPresent
-                              ? "เข้าเรียน"
-                              : latestRecord.isLate
-                              ? "มาสาย"
-                              : latestRecord.isAbsent
-                              ? "ขาดเรียน"
-                              : "ลา"}'
+                        ? 'สถานะคาบล่าสุด: ${_attendanceStatusLabel(latestRecord)}'
                         : 'รอครูเช็คชื่อประจำคาบ',
                   ),
                   const _HeroAttendanceBadge(
@@ -487,7 +483,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '$rate%',
+                  rate,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -503,14 +499,18 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                       color: Color(0xFF8BE3B2),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      latestRecord?.isPresent == true
-                          ? 'สถานะปกติ'
-                          : 'บันทึกครบถ้วน',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
+                    Expanded(
+                      child: Text(
+                        latestRecord == null
+                            ? 'รอข้อมูลการเช็คชื่อ'
+                            : latestRecord.hasKnownStatus
+                            ? 'บันทึกสถานะแล้ว'
+                            : 'ยังไม่ทราบสถานะ',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
@@ -570,11 +570,14 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
 
   Widget _buildSummaryCards() {
     final records = _visibleAttendanceRecords;
-    final total = records.length;
+    final total = records.where((record) => record.hasKnownStatus).length;
     final presentCount = records.where((record) => record.isPresent).length;
     final lateCount = records.where((record) => record.isLate).length;
     final absentCount = records.where((record) => record.isAbsent).length;
     final excusedCount = records.where((record) => record.isExcused).length;
+    final unknownCount = records
+        .where((record) => !record.hasKnownStatus)
+        .length;
     final hasData = total > 0;
     final attendanceRate = hasData
         ? '${(((presentCount + lateCount) / total) * 100).round()}%'
@@ -620,6 +623,13 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
         subtitle: hasData ? '$presentCount คาบตรงเวลา' : 'ยังไม่มีข้อมูล',
         icon: Icons.menu_book_rounded,
         color: const Color(0xFF2E83C5),
+      ),
+      _AttendanceSummaryData(
+        title: 'ไม่ทราบสถานะ',
+        value: '$unknownCount คาบ',
+        subtitle: 'รอการยืนยันสถานะจากระบบ',
+        icon: Icons.help_outline_rounded,
+        color: const Color(0xFF7E889A),
       ),
     ];
 
@@ -698,33 +708,15 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                       width: 35,
                       height: 35,
                       decoration: BoxDecoration(
-                        color:
-                            (rec.isPresent
-                                    ? const Color(0xFF18A06F)
-                                    : rec.isLate
-                                    ? const Color(0xFFF09A37)
-                                    : rec.isAbsent
-                                    ? const Color(0xFFE53935)
-                                    : const Color(0xFF2E83C5))
-                                .withValues(alpha: .10),
+                        color: _attendanceStatusColor(
+                          rec,
+                        ).withValues(alpha: .10),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
-                        rec.isPresent
-                            ? Icons.check_circle_rounded
-                            : rec.isLate
-                            ? Icons.schedule_rounded
-                            : rec.isAbsent
-                            ? Icons.cancel_rounded
-                            : Icons.info_rounded,
+                        _attendanceStatusIcon(rec),
                         size: 17,
-                        color: rec.isPresent
-                            ? const Color(0xFF18A06F)
-                            : rec.isLate
-                            ? const Color(0xFFF09A37)
-                            : rec.isAbsent
-                            ? const Color(0xFFE53935)
-                            : const Color(0xFF2E83C5),
+                        color: _attendanceStatusColor(rec),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -743,7 +735,9 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                           Text(
                             rec.note?.isNotEmpty == true
                                 ? rec.note!
-                                : 'บันทึกสถานะการเข้าเรียนในคาบเรียบร้อย',
+                                : rec.hasKnownStatus
+                                ? 'บันทึกสถานะการเข้าเรียนในคาบเรียบร้อย'
+                                : 'ยังไม่มีการยืนยันสถานะการเข้าเรียนในคาบ',
                             style: const TextStyle(
                               fontSize: 8.5,
                               color: Color(0xFF8993A4),
@@ -758,35 +752,17 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color:
-                            (rec.isPresent
-                                    ? const Color(0xFF18A06F)
-                                    : rec.isLate
-                                    ? const Color(0xFFF09A37)
-                                    : rec.isAbsent
-                                    ? const Color(0xFFE53935)
-                                    : const Color(0xFF2E83C5))
-                                .withValues(alpha: .12),
+                        color: _attendanceStatusColor(
+                          rec,
+                        ).withValues(alpha: .12),
                         borderRadius: BorderRadius.circular(7),
                       ),
                       child: Text(
-                        rec.isPresent
-                            ? 'มาเรียน'
-                            : rec.isLate
-                            ? 'มาสาย'
-                            : rec.isAbsent
-                            ? 'ขาดเรียน'
-                            : 'ลา',
+                        _attendanceStatusLabel(rec),
                         style: TextStyle(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w700,
-                          color: rec.isPresent
-                              ? const Color(0xFF18A06F)
-                              : rec.isLate
-                              ? const Color(0xFFF09A37)
-                              : rec.isAbsent
-                              ? const Color(0xFFE53935)
-                              : const Color(0xFF2E83C5),
+                          color: _attendanceStatusColor(rec),
                         ),
                       ),
                     ),
@@ -846,18 +822,16 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                   subject: rec.courseName,
                   teacher: rec.note ?? 'บันทึกในคาบเรียน',
                   room: 'ไม่ระบุ',
-                  status: rec.isPresent
-                      ? 'เข้าเรียน'
-                      : rec.isLate
-                      ? 'มาสาย'
-                      : rec.isAbsent
-                      ? 'ขาดเรียน'
-                      : 'ลา',
+                  status: _attendanceStatusLabel(rec),
                   type: rec.isPresent
                       ? _ClassAttendanceType.present
                       : rec.isLate
                       ? _ClassAttendanceType.current
-                      : _ClassAttendanceType.upcoming,
+                      : rec.isAbsent
+                      ? _ClassAttendanceType.absent
+                      : rec.isExcused
+                      ? _ClassAttendanceType.excused
+                      : _ClassAttendanceType.unknown,
                 ),
               ),
         ],
@@ -869,20 +843,16 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
     final displayHistory = _visibleAttendanceRecords.map((rec) {
       final dateStr =
           '${rec.classDate.day}/${rec.classDate.month}/${rec.classDate.year + 543}';
-      final statusStr = rec.isPresent
-          ? 'มาเรียน'
-          : rec.isLate
-          ? 'มาสาย'
-          : rec.isAbsent
-          ? 'ขาดเรียน'
-          : 'ลา';
+      final statusStr = _attendanceStatusLabel(rec);
       final type = rec.isPresent
           ? _AttendanceType.present
           : rec.isLate
           ? _AttendanceType.late
           : rec.isAbsent
           ? _AttendanceType.absent
-          : _AttendanceType.leave;
+          : rec.isExcused
+          ? _AttendanceType.leave
+          : _AttendanceType.unknown;
       return _AttendanceHistory(
         date: dateStr,
         checkIn: rec.courseName,
@@ -1013,6 +983,30 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
   }
 }
 
+String _attendanceStatusLabel(StudentAttendanceItem item) {
+  if (item.isPresent) return 'มาเรียน';
+  if (item.isLate) return 'มาสาย';
+  if (item.isAbsent) return 'ขาดเรียน';
+  if (item.isExcused) return 'ลา';
+  return 'ไม่ทราบสถานะ';
+}
+
+Color _attendanceStatusColor(StudentAttendanceItem item) {
+  if (item.isPresent) return const Color(0xFF18A06F);
+  if (item.isLate) return const Color(0xFFF09A37);
+  if (item.isAbsent) return const Color(0xFFE53935);
+  if (item.isExcused) return const Color(0xFF8A65C7);
+  return const Color(0xFF7E889A);
+}
+
+IconData _attendanceStatusIcon(StudentAttendanceItem item) {
+  if (item.isPresent) return Icons.check_circle_rounded;
+  if (item.isLate) return Icons.schedule_rounded;
+  if (item.isAbsent) return Icons.cancel_rounded;
+  if (item.isExcused) return Icons.event_busy_rounded;
+  return Icons.help_outline_rounded;
+}
+
 // ============================================================================
 // CLASS ATTENDANCE ROW
 // ============================================================================
@@ -1029,6 +1023,8 @@ class _ClassAttendanceRow extends StatelessWidget {
       _ClassAttendanceType.current => const Color(0xFFF09A37),
       _ClassAttendanceType.upcoming => const Color(0xFF7E889A),
       _ClassAttendanceType.absent => const Color(0xFFDB5962),
+      _ClassAttendanceType.excused => const Color(0xFF8A65C7),
+      _ClassAttendanceType.unknown => const Color(0xFF7E889A),
     };
 
     final icon = switch (item.type) {
@@ -1036,6 +1032,8 @@ class _ClassAttendanceRow extends StatelessWidget {
       _ClassAttendanceType.current => Icons.play_circle_fill_rounded,
       _ClassAttendanceType.upcoming => Icons.schedule_rounded,
       _ClassAttendanceType.absent => Icons.cancel_rounded,
+      _ClassAttendanceType.excused => Icons.event_busy_rounded,
+      _ClassAttendanceType.unknown => Icons.help_outline_rounded,
     };
 
     return Container(
@@ -1144,13 +1142,14 @@ class _AttendanceTrendCard extends StatelessWidget {
                 record.classDate.isBefore(end),
           )
           .toList();
-      final attended = weekRecords
-          .where((record) => record.isPresent || record.isLate)
-          .length;
-      final value = weekRecords.isEmpty ? 0.0 : attended / weekRecords.length;
+      final knownRecords = weekRecords
+          .where((record) => record.hasKnownStatus)
+          .toList();
+      final attended = knownRecords.where((record) => record.isAttended).length;
+      final value = knownRecords.isEmpty ? 0.0 : attended / knownRecords.length;
       final label = '${start.day}/${start.month}';
       final percentage = '${(value * 100).round()}%';
-      return (label, value, percentage, weekRecords.length);
+      return (label, value, percentage, knownRecords.length);
     });
 
     return ParentCard(
@@ -1221,15 +1220,16 @@ class _AttendanceInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final attended = records
-        .where((record) => record.isPresent || record.isLate)
-        .length;
+    final knownRecords = records
+        .where((record) => record.hasKnownStatus)
+        .toList();
+    final attended = knownRecords.where((record) => record.isAttended).length;
     final late = records.where((record) => record.isLate).length;
     final absent = records.where((record) => record.isAbsent).length;
     final excused = records.where((record) => record.isExcused).length;
-    final rate = records.isEmpty
+    final rate = knownRecords.isEmpty
         ? 0
-        : ((attended / records.length) * 100).round();
+        : ((attended / knownRecords.length) * 100).round();
 
     return ParentCard(
       child: Column(
@@ -1241,14 +1241,14 @@ class _AttendanceInsightCard extends StatelessWidget {
             subtitle: 'สรุปจากข้อมูลการเข้าเรียนจริงในช่วงที่เลือก',
           ),
           const SizedBox(height: 14),
-          if (records.isEmpty)
+          if (knownRecords.isEmpty)
             const _AttendanceEmptyState()
           else ...[
             _AttendanceInsightItem(
               icon: Icons.check_circle_rounded,
               title: 'อัตรามาเรียน $rate%',
               description:
-                  'มาเรียนหรือมาสาย $attended จาก ${records.length} คาบ',
+                  'มาเรียนหรือมาสาย $attended จาก ${knownRecords.length} คาบ',
               color: const Color(0xFF18A06F),
             ),
             const SizedBox(height: 10),
@@ -1421,6 +1421,7 @@ class _HistoryTableRow extends StatelessWidget {
       _AttendanceType.leave => const Color(0xFF8A65C7),
       _AttendanceType.late => const Color(0xFFF09A37),
       _AttendanceType.absent => const Color(0xFFDB5962),
+      _AttendanceType.unknown => const Color(0xFF7E889A),
     };
 
     return Container(
@@ -1486,6 +1487,7 @@ class _MobileHistoryCard extends StatelessWidget {
       _AttendanceType.leave => const Color(0xFF8A65C7),
       _AttendanceType.late => const Color(0xFFF09A37),
       _AttendanceType.absent => const Color(0xFFDB5962),
+      _AttendanceType.unknown => const Color(0xFF7E889A),
     };
 
     return Container(
@@ -1799,7 +1801,7 @@ class _AttendanceSummaryData {
   });
 }
 
-enum _AttendanceType { present, leave, late, absent }
+enum _AttendanceType { present, leave, late, absent, unknown }
 
 class _AttendanceHistory {
   final String date;
@@ -1819,7 +1821,14 @@ class _AttendanceHistory {
   });
 }
 
-enum _ClassAttendanceType { present, current, upcoming, absent }
+enum _ClassAttendanceType {
+  present,
+  current,
+  upcoming,
+  absent,
+  excused,
+  unknown,
+}
 
 class _ClassAttendance {
   final String time;

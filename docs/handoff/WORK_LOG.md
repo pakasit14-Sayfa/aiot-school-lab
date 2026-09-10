@@ -1,5 +1,20 @@
 # Work Log
 
+## Latest audit — 2026-09-09
+
+See [Executive connection audit](EXECUTIVE_CONNECTION_AUDIT_2026-09-09.md).
+The classroom work/detail RPCs, automatic flags, canonical case confirmation,
+stable deduplication and concurrent case-open serialization are now repaired
+with forward migrations and applied to local Supabase. Assignment details use
+real instructions, dates and roster denominators; roster errors close their
+loading dialog; bare room numbers no longer mix schedules across grades.
+Verification: live Executive contracts 38/38, classroom summary 18/18,
+learning/case Flutter 7/7, classroom widgets 10/10, and analyzers have 0 errors.
+Browser checks confirm the classroom and student-overview pages load without
+their former RPC failure. The whole Executive portal still has separate gaps
+listed in the audit, especially CCTV, environment claims,
+report file flow and settings. No production deployment.
+
 > **ไฟล์นี้เก็บเฉพาะสิ่งที่ git เก็บไม่ได้** — การตัดสินใจที่ยังไม่ได้เคาะ, งานที่ค้างอยู่
 > ตอนนี้, และการไล่ตรวจที่ไม่ได้เกิด commit (เช่น การคลิกทดสอบในเบราว์เซอร์)
 >
@@ -15,6 +30,23 @@
 > 2 อย่างไว้ใน "In progress" ทั้งที่เสร็จไปแล้ว และมี 4 รายการใน "ไม่แน่ใจ" ที่ปิดไปแล้ว
 
 ---
+
+## Local classroom-score migration verification — 2026-09-08
+
+- Applied `20260910040000_executive_classroom_learning_summary` to Docker
+  `supabase_db_aiot-school-lab` using `supabase migration up --local` with a
+  temporary migration directory capped at this version. The original draft's
+  `20260910030000` collided with the already-applied `school_device_identity`.
+  Verified the new history row and the live RPC signature/execute grants.
+- Grades are confirmed, valid numeric entries from this school's current
+  academic year, normalized per entry to a percentage. No valid grades stays
+  null. Invalid score/max-score entries do not count as scored students.
+- Targeted pgTAP: 37/37 passed (files 44 and 47). Full local DB suite:
+  46 files, 822 assertions passed; files 14 and 16 cannot start because their
+  fixtures still use the removed `facility_manager` enum value. This migration
+  does not change the role enum. QA rows were rolled back (0 remaining users).
+- Local only, no database reset. The running browser build and the unfinished
+  Flutter page changes were not verified by this migration run.
 
 ## 🔴 การตัดสินใจที่ค้างอยู่ — บล็อกงานข้างล่าง
 
@@ -51,6 +83,7 @@
 | ✅ Student: บั๊ก QR login fake-token fallback | **ปิดงานแล้ว** `student_qr_login_page.dart` — `_initPairingSession()` เคย fallback เป็น token ปลอม claim ไม่ได้เงียบๆ เมื่อ error ตอนนี้โชว์ error state จริง + ปุ่มลองใหม่ เจอบั๊ก overflow จริงคู่กัน (การ์ดสถานะ "หน้าจอแท็บเล็ตแล็บพร้อมจับคู่") แก้ด้วย Flexible เหมือนที่แก้ที่อื่นในเซสชันนี้ 3 connection test ผ่านหมด |
 | ✅ Student: ลบหน้า mockup ปลอมที่ยืนยันว่าเข้าไม่ถึง | **ปิดงานแล้ว** ลบ `student_redesign_prototype_page.dart` (2226 บรรทัด, variant B/C/D ปลอม), `student_course_catalog_streaming_page.dart`, `student_course_catalog_carousel_page.dart`, `student_dashboard_models.dart` (ไม่มีใครเรียกใช้เลยทั้งไฟล์) ยืนยัน reachability ก่อนลบ (gate ด้วย `isPrototypeMode` compile-time constant) แก้ `main.dart` route table ครบ |
 | ✅ Parent: เช็ค `status ?? 'present'` | **ตรวจแล้ว ไม่ใช่บั๊กจริง** — `attendance_records.status` เป็น NOT NULL ที่ DB และ RPC ใช้ inner join เท่านั้น ไม่มีทางได้ null จริง เป็น defensive code เกินจำเป็น ไม่แก้ |
+| ✅ Parent: defensive hardening `status ?? 'present'` | **ปิดงานแล้ว 2026-09-08 · commit `03cfda4`** — ทำตาม FIX_BRIEF โดยเปลี่ยน decoder ของ response ที่ขาด field เป็น `unknown`; หน้า Parent attendance/dashboard/learning แสดง `ไม่ทราบสถานะ` และไม่นำ unknown ไปคำนวณอัตรา Browser check ด้วยบัญชี parent ผ่าน: empty state แสดง `ไม่ทราบสถานะ 0 คาบ` โดยไม่ overflow |
 | Teacher lane: 12 หน้ามีบั๊กข้อมูลปลอม/fake-success จริง | **กำลังทำ** ตามแผน `/Users/sayfa/.claude/plans/virtual-beaming-shannon.md` เฟส 2 — อ้างอิง `teacher_audit_2026-09-07.md`. ✅ ข้อแรก (`teacher_redesign_prototype_page.dart`) ปิดแล้ว: ลบ `_CameraSecuritySummaryCard` (การ์ดแจ้งเตือนกล้อง AI Security ปลอมที่ขึ้นทุกหน้า), ลบ `_TeacherScheduleVariant`/`_TeacherOpsVariant` (variant B/C ปลอมทั้งดุ้นจาก `TeacherMock` ที่ครูจริงกดลูกศรสลับ variant เจอได้ตรงจากโปรดักชัน ต่างจากฝั่ง Student ที่ fake variant ถูก gate ไว้), เหลือ `TeacherPrototypeVariant` แค่ตัวเดียว, แก้กล่องค้นหา (`_showTeacherSearchDialog`) ให้ดึง `CourseService`/`CalendarService` จริงแทน `TeacherMock.classes/lessons` ที่ถูกลบ, แก้วันที่ค้าง "พุธ 5 ส.ค." ใน `_TeacherTopBar` ให้เป็นวันที่จริง. commit `669ab76`, test ใหม่ 1 เคสยืนยัน enum เหลือค่าเดียว. ✅ ข้อสอง (`teacher_courses_page.dart` gradebook) ปิดแล้ว: `_CourseGradebookTabWidget._fetchGradeData` เคยดึงรายชื่อนักเรียนจริงมาแล้วแปะคะแนนปลอมชุดเดียวกันทุกคน (10/10, 20/20, รวม 30/30, เกรด 4.0, "ส่งงานครบแล้ว") และการ์ดสรุปด้านบนก็ hardcode "100%"/"2 งาน" ตายตัว — แก้ให้ดึงคะแนนจริงจาก `GradeService.listCourseGrades` (มี RPC อยู่แล้วแค่ไม่เคยถูกเรียกจากหน้านี้), ตัด 2 คอลัมน์รายวิชาปลอม (บทที่ 1/ใบงานที่ 1 ที่ backend ไม่มีข้อมูลระดับนี้จริง) ออก, นักเรียนที่ยังไม่มีคะแนนโชว์ "ยังไม่มีคะแนน" แทนคะแนนผ่านปลอม. commit `2d53126`, test ใหม่ 1 เคส. ✅ ข้อสาม (`teacher_exam_builder_page.dart` บันทึกผิดวิชา) ปิดแล้ว: constructor เดิมรับแค่ `courseCode`/`courseName` (สตริงโชว์ผล) ไม่มีช่องให้ส่ง `courseId` จริงเลย `_saveExam` เลยเรียก `CourseService.listMyCourses().first.id` ทุกครั้ง — ครูเปิด exam builder จากวิชา B แต่มีวิชา A/B/C ในระบบ ข้อสอบจะไปแปะกับวิชา A เงียบๆ ถ้า A มาก่อนในลิสต์ แก้ให้รับ `courseId` จาก `TeacherCourseModel` จริงที่จุดเดียวที่เปิดหน้านี้จากวิชาจริง (`teacher_courses_page.dart` CLS-4) เหลือ fallback ไป `listMyCourses().first` เฉพาะ route dev-preview `/prototype/exam-builder` ที่ไม่มีวิชาในคอนเท็กซ์อยู่แล้ว. commit `eba2e77`, test ใหม่ 2 เคสพิสูจน์ว่าไม่แตะ `listMyCourses` เลยเมื่อมี `courseId` จริง. ✅ ข้อสี่ (`teacher_lesson_editor_page.dart`) ปิดแล้ว — บั๊ก 3 จุดในไฟล์เดียว: (1) `TeacherLessonListPage` seed `_lessons` ด้วยบทเรียนตัวอย่าง 6 รายการ (`mockLessonsList`, ลบทิ้งแล้ว) แล้วเขียนทับเฉพาะ `if (summaries.isNotEmpty)` — คอร์สที่ว่างจริงหรือโหลดพังเลยค้างบทเรียนปลอมตลอดไป แถมยังมีบั๊ก "ผิดวิชา" แบบเดียวกับ exam builder (ไม่มี `courseId` เลย ใช้ `listMyCourses().first`) แก้ให้รับ `courseId` จริงและเขียนทับด้วยผลจริงเสมอแม้จะว่าง (2) ปุ่ม quick-publish บนการ์ดลิสต์บทเรียนตั้ง `les.status = published` ในเครื่องเฉยๆ ไม่เรียก `LessonService.publishLesson` เลย (ปุ่มเดียวกันในหน้ารายละเอียดบทเรียนที่อยู่ติดกันเรียกจริงอยู่แล้ว) แก้ให้เรียก RPC จริง (3) `TeacherLessonAnalyticsPage` ปลอม 100% (fake delay + "42 คน"/"84%" + รายชื่อนักเรียนปลอม 5 คน ไม่มี service ใดๆ) และปุ่ม "ผูกข้อมูล AIoT Sensor" เสนออุปกรณ์ปลอม 3 ชื่อที่ไม่มีจริง ทั้งสองไม่มี backend/ผู้บริโภคฝั่งนักเรียนรองรับเลย (`student_lessons_page.dart` ไม่อ่าน sensorDeviceId เลยสักจุด) — ปิดตรงๆ เป็น "ยังไม่เปิดใช้งาน" แทนครึ่งๆ กลางๆ. commit `a77deb7`, test ใหม่ 2 เคส. **ปิด 2A ครบทั้ง 4 ไฟล์แล้ว** เริ่ม 2B: ✅ `teacher_student_support_page.dart` ปิดแล้ว (เปิดเคสเปิดใหม่/`_updateStatus`/`_addIntervention` เคย fake-success กลืน error ทิ้งแล้วโชว่าสำเร็จเสมอ + fallback เคสตัวอย่างปลอม 2 คนเมื่อโหลดพัง แก้ให้ error จริงแสดงจริง ไม่มี fallback ปลอมแล้ว, commit `843ec3c`). ✅ `teacher_notifications_page.dart` + ป็อปอัพกระดิ่งแจ้งเตือนบนแดชบอร์ดปิดแล้ว (เคย seed แจ้งเตือนปลอม 4 รายการค้างเมื่อโหลดว่าง/พัง ทั้งในหน้าเต็มและป็อปอัพ 2 จุดแยกกัน, `_handleNotificationTap` ยิง markNotificationRead แบบไม่ await ทำให้ catch จับ error ไม่ได้เลย แก้ให้ใช้ mapper กลาง `mapRealNotifications` ร่วมกัน + await จริง, commit `1eb52c6`). ✅ `teacher_profile_page.dart` ปิดแล้ว (ตัวตนปลอม "ครูสมชาย สายวิทย์", วิชา/ห้องเรียนปลอม "ม.5/2 · 32 คน", อุปกรณ์ AIoT ปลอม 2 ชิ้นพร้อม MAC ปลอมเมื่อข้อมูลจริงว่าง — เปลี่ยนเป็น honest empty state ทั้งหมด, commit `bca3850`). **บั๊กใหญ่ที่เจอระหว่างตรวจ**: `_SidebarMiniClassCard` ใน `teacher_redesign_prototype_page.dart` — การ์ด "ห้องประจำชั้น" ใน sidebar ถาวรที่ทุกหน้าครูใช้ร่วมกัน (ผ่าน `TeacherMockPageShell`) hardcode "ม.5/2 · 32 คน" ตายตัวให้ครูทุกคนทุกหน้ามาตลอด — แก้ให้ดึงจาก `HomeroomService.listMyHomeroomClasses()` จริง (มี RPC อยู่แล้วไม่เคยถูกเรียกจากจุดนี้), commit เดียวกัน. เหลือ 5 หน้าใน 2B (`teacher_rubric_page.dart`, `teacher_question_bank_page.dart`, `teacher_assignment_editor_page.dart`, `teacher_knowledge_library_page.dart`, `teacher_aiot_dashboard_page.dart`). `flutter test` เต็ม 484 ผ่าน 7 พัง (เท่าเดิม, เลน Director/Executive) |
 | School Admin — % ความพร้อมจริง (ตอบคำถามเจ้าของ 2026-09-07) | จากการเช็ค `STATUS_VERIFIED_2026-09-06.md` จริง (ไม่ใช่เดา): **19 หน้ารวม** — 5 หน้าผ่านเกณฑ์เต็ม (Alerts/CCTV/Device schedule/Incident inbox/Learning tracks, มี controller+pgTAP+widget test ครบ), อีก 14 หน้า **ต่อ backend จริงครบทุกหน้าแล้ว** แต่ยังไม่ผ่าน DoD เต็ม (ขาด empty-state 13 หน้า, ไม่แยก loading/error 6 หน้า, มีตารางปลอมปน 4 หน้า) บวกของค้างที่รู้อยู่แล้ว 2 จุด (S1 เมทริกซ์สิทธิ์ปลอม — deferred ตามสั่ง, S3 ปุ่ม export ปลอม 5 หน้า — ยังไม่ทำ) **สรุปกะประมาณ ~78-82%** ไม่ใช่ของปลอมทั้งหน้าเหมือนที่เคยพูดผิดไปตอนแรกในเซสชันนี้ (60-65% เป็นเลขเดาจากความจำ ไม่ได้เช็คไฟล์) |
 | `school_reports_page` | loading/data/empty/error + test เสร็จแล้ว · **แก้เพิ่ม 2026-09-08**: `_insights()` (เคย 4 การ์ด hardcode เช่น "ไฟฟ้าเพิ่มขึ้น 14%") กับ `_preview()` (เคย `_LinePainter` กราฟปลอมทั้งเส้น + `_Metric` "386 kWh"/"146 / 152" hardcode) เปลี่ยนเป็นดึงจาก `SchoolAdminDashboardSummary` จริงที่หน้าโหลดอยู่แล้วทั้งคู่ ไม่มี RPC ใหม่ ลบ `_Chart`/`_LinePainter`/`_axis` ทิ้ง (ไม่มีใครใช้แล้ว) เพิ่ม test 2 เคสยืนยันเลขจริงไม่ใช่ของปลอม (`school_reports_page_connection_test.dart`) · **ปุ่ม export ทำจริงแล้วด้วย** (ต่อยอดทันทีในรอบเดียวกัน หลังเจ้าของอ่านไฟล์เต็มแล้วชี้ว่าเหลือแค่ export เป็นของปลอมจริง): ลบ `_createReport` (เคย snackbar "ยังอยู่ระหว่างการพัฒนา" ทุกปุ่ม) แทนที่ด้วย `_buildReportRows`/`_exportReport`/`_exportReportExcel` แพทเทิร์นเดียวกับ ESG/energy/alerts/resources (S3) — export ตัวเลขสรุปจริงจาก `SchoolAdminDashboardSummary` เป็น CSV/Excel ปุ่มเดิม "ส่งออก Excel"/"สร้าง PDF" (PDF ปลอม ไม่เคยมี backend) รวมเป็นเมนูเดียว "ส่งออกรายงาน" (CSV/Excel) แก้ข้อความ `_recentReports()` ที่เคยพูดว่า export "อยู่ระหว่างการพัฒนา" ให้ตรงกับความจริงใหม่ (แค่ไม่มีประวัติไฟล์เก่าเก็บไว้ ไม่ใช่ export ใช้ไม่ได้) เพิ่ม test อีก 3 เคส (CSV/Excel/ปฏิเสธเมื่อไม่มีข้อมูล) รวม 10/10 ผ่าน commit `1202caf` (insights/chart) — export ตามมาใน commit ถัดไป · **ยังปลอมอยู่ (ตั้งใจ ไม่แตะ คนละสโคป)**: filter อาคาร/ห้อง (`_filters()`) เป็น dropdown hardcode ไม่ผูกกับข้อมูลจริง |
@@ -330,6 +363,7 @@ Done from a report alone.
 > เคยถูกสรุปซ้ำไว้ตรงนี้ — ลบออกแล้วเพราะ commit เก็บครบกว่าและแก้ย้อนหลังไม่ได้
 > ดูด้วย `SINCE='2026-09-06' ./scripts/state.sh --log`
 
+<!-- ประวัติจาก 2 เลนที่ทำคู่กัน: บนคือเลน Claude (agent/publish-current-work) ล่างคือเลน codex (fix-executive-bug-3) — ไฟล์นี้เป็น append-only เก็บไว้ทั้งคู่ -->
 ## 2026-09-08 — sensor_ingest ไม่อัปเดต last_seen_at + production migration ค้าง 17 ไฟล์
 - เจ้าของทดสอบเชื่อมเซนเซอร์จริงผ่านบัญชี `www.pakasit14@gmail.com` (production,
   ไม่ใช่ local dev) แล้วสงสัยว่าทำไมหน้าอุปกรณ์ดูเหมือนไม่มีอะไรเปลี่ยน
@@ -688,3 +722,274 @@ Student/Parent/Executive แทบไม่มี ทั้งที่ Teacher 
 คนละรอบ ยังไม่ได้เขียน test ให้. Student lane เหลือ ~11 หน้าเหมือนเดิม
 (ดูรายการด้านบน) — **กำลังเริ่มทำต่อ**. Parent/Executive lane ยังไม่ได้
 เริ่มเลย
+
+<!-- ↓↓↓ จากเลน codex/fix-executive-bug-3 (merge 2026-09-10) ↓↓↓ -->
+
+## Browser verification — director emergency close, 2026-09-08
+
+Clicked the real DirectorEmergencyPage using temporary localhost-only injected fixtures
+(no backend writes): hero RPC failure and unconfirmed write preserved the open SOS;
+confirmed success removed the active SOS and updated the history status. Both SOS and
+event-detail failures initially rendered the page SnackBar behind the modal barrier.
+After the feedback fix, the browser accessibility tree exposed an Alert with the human
+failure message and ตกลง; dismissing it returned to the still-open incident.
+Docker/Supabase was not running, so live RPC role gates and authenticated acceptance
+remain unverified in this session. Temporary fixture entrypoint/server were removed
+after the check. This verifies the close controls, not all emergency-page mock content.
+
+
+## Authenticated browser acceptance — bug 1, 2026-09-08
+
+Follow-up after the user started Docker/Supabase. The existing
+`supabase_edge_runtime_aiot-school-lab` container was still stopped; starting it
+restored the supported auth-sign-in/auth-verify-otp flow. Logged in through the
+actual app at localhost:8765 using the seeded executive account and the normal
+local-dev OTP autofill. DB inspection confirmed a valid executive session, without
+reading or publishing its token. The four live close/list RPC definitions all take
+`p_token`, are SECURITY DEFINER, and permit the executive role within its school.
+
+The test school had no open incidents/events before seeding. Inserted three labeled
+incident fixtures and one event fixture there; no existing records were changed.
+All closures below were performed through browser clicks on the actual page and
+production Dart service/controller paths, not mocks or direct SQL close updates.
+
+| Fixture / browser control | Row ID | Observed database result |
+|---|---|---|
+| LIVE-HERO / main close button | 02762d86-91ee-4027-8a27-48d6b0251420 | resolved; closed_at set; executive closer; one close action and audit |
+| LIVE-MODAL / SOS dialog | 9c682048-0e67-4452-a3b0-202d0083de6d | resolved; closed_at set; executive closer; one close action and audit |
+| LIVE-DETAIL / event detail | a710f64f-2a9b-4d35-bff7-fd69bc55c32e | resolved; closed_at set; executive closer; one close action and audit |
+| LIVE-HARDWARE / main close button | 5d96082e-8dfc-42ee-900e-42eba1ed2831 | closed; closed_at and review_note set; warning_light_on=false |
+
+Labels use the prefix `CODEX-BUG1-20260908-`. After each SOS close, the page kept
+showing the remaining active event; it did not declare an all-clear prematurely.
+After the final hardware-event close, the browser showed the success message,
+zero active SOS/events, and closed history rows. A manual refresh re-read the same
+canonical state. Final SQL counts: zero open labeled incident/event fixtures.
+Closed test rows are retained as labeled evidence. No physical device was operated,
+no schema/RPC changed, and no failure was injected into the live backend; negative
+cases remain covered by the earlier widget tests and fixture browser checks.
+
+The app, local Supabase services, and OTP Edge Function remain running for the user.
+This resolves the earlier live-DB verification limitation for bug 1's close paths;
+it is not a full-page DoD or other-bug completion claim.
+
+## 2026-09-08 — Bug 3 live browser / local DB verification
+
+These are interaction and environment observations, not a replacement for the
+implementation commit. Preview: http://127.0.0.1:8766/ (the older 8765 tab is not
+the current server). Worktree: `bug3-executive`, branch
+`codex/fix-executive-bug-3`, based on Bug 2 commit `c21d6f8`.
+
+- Signed in as the seeded executive and teacher through the normal browser
+  password + dev OTP flow; did not enable remember-device.
+- Created **BUG3 QA ประชุมทดสอบการบันทึก**, ID
+  `1a8235de-d233-481d-b6a2-2c21d651e49c`, group meeting number 1/2569,
+  10 September 2026 at 09:00 local, location ห้องทดสอบ local.
+  Added the teacher, agenda ตรวจการเชื่อมต่อข้อมูลจริง, and a minutes draft.
+- The automatic approval reviewer initially rejected the immutable finalization.
+  The user explicitly answered **อนุมัติปิดรายงาน QA**. Finalization was then
+  completed. SQL and browser both confirmed final minutes, unchanged original
+  body, one appended statement, and no draft editor. The fixture is retained for
+  the user to inspect.
+- The teacher's finalized-minutes notification opened the meetings register,
+  then the QA detail. Clicking accept and save produced a canonical
+  **ตอบรับแล้ว** result for that teacher. Organizer-only controls were absent.
+- Uploaded `bug3-qa.txt` (59 bytes) through the real signed upload Edge
+  Function, registered metadata, verified the canonical detail, downloaded the
+  exact same bytes; invalid tokens were rejected by both file endpoints.
+  This used a local QA script outside the Git worktree and did not print tokens.
+- Clicked the printable-document export in the browser; escaped HTML content
+  is covered by a document test. Physical printing/save-PDF and camera capture
+  have not been verified on actual hardware.
+- Learning page showed **3 active students**, no confirmed attendance records,
+  one profiled student and two without a class profile. All stayed unknown.
+  Grade filtering and selecting 7 September instead of 8 September re-read the
+  chosen date. The live profile stores a full room label (`ม.4/1`), which
+  exposed and prompted the duplicated-grade display fix.
+- Desktop scan entry opened the real lookup page. `BUG3-NOT-FOUND` returned
+  not found. UUID `d364bb51-99aa-4cdb-b698-7f899eb22cad` returned
+  กล้อง CCTV ทางเข้าหลัก, online, อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก,
+  matching SQL. No missing device/kit code was invented. No equipment was actuated.
+- Read-only Standards and Spec reviews concluded with no remaining findings.
+  The review reproduced a phantom classroom count for an empty learning track;
+  its new pgTAP assertion failed before the aggregate fix and passed afterward.
+
+Final automated verification: focused app tests 16/16; focused core tests 13/13;
+new pgTAP 43/44/45 totals 55/55. Full app suite 507 pass / 22 existing failures;
+core 60 / 1 existing assignment-model failure; shared_ui 14 / 1 existing ListTile
+assertion, also reproduced on the original Desktop checkout. Analyze: core clean,
+shared_ui 4 info, user_app 156 warning/info, zero errors across all three.
+
+The latest complete pgTAP run executed 796 assertions. The unchanged auth/session
+suite 03 intermittently failed assertions 12–13 (sign-out-all checks after the
+session-cap fixture), then passed 19/19 in an isolated repeat without code changes.
+Legacy fixtures 14 and 16 abort because they still insert removed
+`facility_manager` enum values. These are recorded failures, not a green full-suite
+claim. All Bug 3 backend assertions pass.
+
+Local Supabase and the port-8766 Flutter web server remain available for review.
+Production deployment and publishing the Git branch are separate from these local
+verification results. The earlier auto-review rejection of the GitHub push has
+not been overridden by the QA-minutes approval.
+
+### 2026-09-08 — User-requested executive visual refresh
+
+User explicitly selected all three pages (meetings, learning, scan) and the
+existing pink palette with rounded cards. Added scoped workspace styling,
+gradient headers, learning metric tiles and minutes status pills. Existing
+controllers, RPCs and authorization rules remain intact. Scan's retry widget
+test now scrolls to the button before tapping, as a user would on a short screen.
+
+User-app regression: 507 passed / 22 existing failures, unchanged. Analyzer:
+shared_core clean; shared_ui 4 existing infos; user_app 156 existing findings,
+no new findings in changed files. Browser review at port 8766 displayed actual
+learning totals, verified meeting search's no-match state and found the real
+CCTV device by ID. Small-phone learning/scan coverage passed within regression.
+Physical camera capture and publishing are still outside this visual verification.
+
+### 2026-09-08 — Layout and section-color refinement
+
+Follow-up user request: cleaner placement and clearer color separation across
+the three executive pages. Desktop scan now places search and results side by
+side, with unavailable services in a separate muted section. Learning separates
+track information and student support into blue/green sections, and summary
+tiles use distinct tints. Meeting records use a responsive card grid, blue date
+and document accents, and amber pending-response badges. All grids stack on
+narrow screens; badges include text and icons in addition to color.
+
+Focused page tests: 12/12 passed. User-app full regression: 507 passed / 22
+pre-existing failures. Analyzer remained at core 0, shared_ui 4 infos and app
+156 findings, with no findings in the changed files. Browser checked all three
+layouts and successfully looked up the real CCTV fixture. No backend changes.
+
+### 2026-09-08 — Meeting detail visual alignment
+
+User supplied a meeting-detail screenshot and requested the same redesign.
+Applied the shared pink workspace and hero, paired attendees/agenda and
+resolutions/attachments on wide screens, and kept minutes full-width. Original
+minutes and addenda have separate blue/mint reading panels; destructive buttons
+are red and completion green. Existing role gates, dialogs and write/read
+verification remain unchanged.
+
+Meeting widget suite: 5/5 passed. App regression: 507 passed / 22 existing
+failures. Analyzer unchanged (core 0, shared_ui 4 infos, app 156 findings), no
+findings in meeting_detail_page. Opened the real finalized QA meeting in the
+browser and verified the new sections with its existing data; no QA mutations.
+
+### 2026-09-08 — Executive notifications connection (browser QA pending)
+
+Replaced the main notification page's seeded incidents, swallowed errors and
+local-only read flags with a controller and NotificationService operations.
+Categories come from the existing category RPC; priority is displayed only when
+present in payload. Missing priority is explicitly unknown. Search, read-state
+and time filters apply to the latest 50 entries in the selected category, visibly
+documented on the page. Bulk read covers the entire user's inbox, not just the
+visible subset. Existing notifications are per user (no school_id column); this
+does not redefine them as active-school-specific messages.
+
+New local RPCs get_my_notification and mark_all_my_notifications_read validate
+the custom session and constrain reads/writes to its user. Individual writes
+verify the exact canonical row; bulk writes verify unread category counts.
+Meeting payload IDs open MeetingDetailPage with its existing backend permission
+check; other source navigation is explicitly disabled until supported. Payload
+URLs are never opened. No invented urgency or incident workflow states remain.
+
+Validation: new app tests 3/3; pgTAP 46 8/8 including >100 notifications, invalid
+tokens, other users/schools and idempotency. Full regression: app 510 passed / 22
+existing failures, shared_core 60/1 existing, shared_ui 14/1 existing. Analyzer
+app 156 existing findings, shared_ui 4 existing infos; shared_core clean after
+braces cleanup. The migration was applied to the running local DB only.
+
+Browser QA was attempted but not completed: executive@aiot-school-lab.local has
+reached its 10 login OTPs / 24 hours quota. Verified rate_limited from auth edge
+and the count read-only; no rate limit bypass/reset. First slot releases around
+2026-09-08 17:10 Asia/Bangkok. Remaining: login, open main notifications, read QA
+item, refresh, open its meeting source; bulk read persistence in browser.
+Fixture 99829999-0000-0000-0000-000000000001 is labeled QA in the test executive
+inbox and refers to the existing finalized QA meeting. Publishing remains pending.
+
+### 2026-09-08 — Executive overview real-data connection
+
+Replaced overview mock graphs, briefing examples, teacher percentages and fake
+detail dialogs with a controller using existing domain services. Summary cards
+show current registered users, all incident reports and registered devices;
+learning tracks show confirmed percentages. Latest inbox messages navigate to
+notifications. Utility charts reload real readings for 7/30 days and preserve
+missing dates as unknown. Existing sensor streams were extracted into a widget.
+Teacher workload distribution remains explicitly unavailable, without invented
+values. No schema or RPC changes were needed. Live local RPC definitions were
+checked for incident totals, user count semantics and energy date aggregation.
+
+Validation: focused connection tests 3/3; desktop/mobile overview layout audit
+1/1. The layout test now injects both sensor streams to avoid real polling.
+Final full user_app regression: 513 passed / 22 existing failures (no increase).
+Three-package state analysis reports zero errors; user_app has 156 existing
+findings. Logs: ../bug3-validation/overview-test-user_app-final.log,
+overview-analyze.log and overview-state.log (outside repository).
+
+Browser QA remains deferred by the user; this page is not claimed fully verified
+in-browser. No push or production deployment. Remaining executive gaps include
+CCTV inventory/actions, calendar meeting integration and classroom aggregates;
+unsupported domains require actual backend capability before enabling actions.
+
+### 2026-09-08 — Meetings connected to executive academic calendar
+
+User deferred CCTV image integration until the camera/stream approach is known
+and requested calendar integration next. Added DirectorCalendarController to
+combine existing school events/schedules with MeetingService.list. Live local
+list_meeting_records/list_meetings definitions confirm custom-session validation,
+staff allowlist, school scoping and _can_see_meeting visibility. No migrations or
+permission changes. Local-time start/end, location, organizer, attendee count and
+status come from the same records as the meetings page.
+
+The month list includes every visible meeting in date order. Entries offer the
+existing meeting detail route and reload on return. Cancelled/completed records
+remain in the calendar but are excluded from upcoming reminders. Replaced the
+old fixed August 2026 cutoff. Loading now shows unknown summary counts instead
+of zero; refresh clears stale records and failures remain distinct from empty.
+Meetings are shown on their start date, without recurrence or spanning-day UI.
+
+Focused calendar tests: 8/8, including pending meeting source, merged event data,
+local-time display, cancelled state/detail action, empty and source failures.
+Three-package state analysis has zero errors; final app analyze retains 156
+existing findings. Browser QA remains deferred by the user. Local web hot restart
+requested for the updated build; no production deployment or push.
+
+Final app regression: 516 passed / 22 existing failures, compared with 513/22
+before this ticket. Logs are outside Git in ../bug3-validation/calendar-focused.log,
+calendar-regression-final.log and calendar-analyze-final.log. Web hot restart
+completed successfully; this is build verification, not browser interaction QA.
+
+### 2026-09-08 — Classroom attendance and unsafe schedule matching
+
+Continued the next executive connection task after calendar, with CCTV streaming
+still deferred by the user. Room details now show real dated homeroom attendance
+via an existing domain service and a dedicated controller. Both grade and room
+must match. Unknowns remain unknown; percentage labels its recorded denominator
+and current active cohort. Stale async date results are discarded. Added retry
+and date selection with loading/empty/error/data states.
+
+Live local list_school_homeroom_attendance allows executive and scopes active
+students to the actor school/current academic year. No SQL change. Inspection
+also found list_all_school_schedules exposes physical room text without cohort
+identity: the old bare room-number comparison could mix different grades.
+Disabled that interpretation and display an explicit unmatched explanation.
+Grade/track filters now use actual room data rather than fixed example options.
+
+Focused tests: 9/9, including four new attendance tests for loading/empty,
+cross-grade isolation, unknowns, error/retry, recorded denominator and stale-date
+responses. Remaining: actual course/cohort mapping, assignment/score/support
+aggregates, rooms outside homeroom coverage and deferred browser QA. This is a
+partial room connection, not a claim that every classroom feature is complete.
+
+Final regression: user_app 520 passed / 22 existing failures (previous 516/22).
+All three packages analyzed without errors; final app analysis retains 156
+existing findings. Logs: ../bug3-validation/classrooms-focused.log,
+classrooms-regression.log and classrooms-analyze-final.log. Local web hot restart
+completed successfully. Browser QA is deferred; no push or production deployment.
+| (Executive connection audit follow-up, 2026-09-09) | working tree | Repaired the live Executive classroom-work and automatic student-support contracts with forward migrations `20260910120000` and `20260910130000`. Work/activity RPCs now use real lesson timestamps, avoid per-room cross-course multiplication, count active enrolled students and individual/group submissions, and return real assignment instructions/created dates. Automatic flags are current-year scoped and no longer fail on ambiguous PL/pgSQL output names. Opening a flag now returns a case id, refreshes the canonical case list, rejects false success, reuses the same active reason when its counter changes, and serializes concurrent creation. The classroom UI uses assignment-level denominators, honest due/publish states and error handling, and no longer matches schedules by a bare room number. Applied both migrations to local Supabase. Verification: live contracts 38/38, learning/case Flutter 7/7, classroom widgets 10/10, classroom summary 18/18, analyzers 0 errors; browser loaded both Executive classroom and student-overview pages without their former load failure. |
+| (Executive emergency truthfulness follow-up, 2026-09-09) | working tree | Removed unsupported “IoT online 100%”, “safe 100%”, “duty team ready 100%” claims and the hardcoded “today” date from the Executive emergency page. Closed counts now describe the loaded data window, empty state says only that no open event exists in the latest data, and the missing duty-roster backend is shown as unavailable. Converted the narrow badge row to a wrapping layout. Existing emergency read/close tests remain applicable; responsive 320/768/1440 regression passes. |
+| (Executive overview visualization correction, 2026-09-09) | working tree | Restored the first-page layout rhythm from the early-September reference: learning and teacher cards share one equal-height 5:4 row, resources occupy the next full row, and important notices return to a full-width row. The teacher overview is a circular registered-teacher count. The learning overview was first rendered as a line graph, then restored to the user's exact Sep-7 per-track card layout in the follow-up below. Missing teacher-workload ratios remain explicitly unavailable. Local browser QA confirmed both live Supabase track values (70.2%/8 students/2 rooms and 81.0%/4 students/1 room) plus the real registered-teacher count (1). No synthetic series or fallback values were added. |
+| (Executive overview Sep-7 visual restoration, 2026-09-09) | working tree | Confirmed commit `c1aff8df8f0182b011e21abf01eb600348301e73` from 7 Sep as the user's master first-page design. Restored its Thai date pill, hero proportions, white summary cards with colored header ribbons, compact view actions, and bordered report buttons in the live controller-backed page. The learning section now matches the Sep-7 reference: one tinted card per track with room/student counts, confirmed-score badge and progress bar, unavailable behavior/environment text, and a verified overall-average banner. Teachers remain a circular registered count. Browser QA on `127.0.0.1:8767` confirmed the restored layout with live Supabase totals (15 students, 1 teacher, 4 reports, 9 devices) and track average 75.6%; no historical mock workload ratios were restored. |
+| (Executive overview Sep-7 full-layout alignment, 2026-09-09) | working tree | Completed a section-by-section source and browser comparison against the 7 Sep snapshot. Restored the desktop 1:1 learning/teacher row at 420px, the 5:3 utility/sensor row at 460px, the 1020px stacking breakpoint, and the daily/weekly/monthly segmented control. The period control now performs real 1/7/30-day utility reloads while registration totals remain explicitly labelled current. Rebuilt the old watchlist visual language over real notifications with all/unread/read filters and body/category/date fields. Kept the single real teacher circle because the old four-circle workload breakdown was explicitly demo data. Fixed mobile hero-tag overflow and cancelled the delayed reload timer on dispose. Browser QA confirmed period switching and notification filtering; focused responsive/connection tests pass 4/4 and the page analyzer reports no issues. |
+| (Executive overview notification-card redesign, 2026-09-09) | working tree | Reworked “สิ่งที่ควรทราบวันนี้” to match the supplied detailed-card reference: a compact white heading, latest-data badge, segmented read filters, category-colored icons, status pills, full title/body hierarchy, timestamp/category metadata and a source-specific action. Meeting actions open the meetings page, incident actions open emergency, student-support actions open the student overview, resource actions open environment/resources, and “ดูทั้งหมด” opens notifications. All displayed text and read state still come from real notification rows; visual categories and destinations are derived only from the stored notification type/category. No sample alerts or unsupported CCTV/building actions were introduced. Browser QA confirmed the three live local notices render in the new hierarchy and both meeting/incident actions open their real destination pages. Responsive, connection, filter and navigation tests pass 5/5; scoped analyzer is clean. |
