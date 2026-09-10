@@ -9,6 +9,9 @@ class SchoolPermissionsPage extends StatefulWidget {
     this.loadUsers,
     this.loadLogs,
     this.loadPermissionMatrix,
+    this.updateRole,
+    this.suspendUser,
+    this.reactivateUser,
   });
 
   /// Injectable seams for tests — production leaves these null and uses the
@@ -16,6 +19,10 @@ class SchoolPermissionsPage extends StatefulWidget {
   final Future<List<UserModel>> Function()? loadUsers;
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
   final Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix;
+  final Future<void> Function({required String uid, required UserRole role})?
+      updateRole;
+  final Future<void> Function(String uid)? suspendUser;
+  final Future<void> Function(String uid)? reactivateUser;
 
   @override
   State<SchoolPermissionsPage> createState() => _SchoolPermissionsPageState();
@@ -162,9 +169,6 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   int get _activeCount =>
       _users.where((user) => user.status == 'ใช้งาน').length;
 
-  int get _pendingCount =>
-      _users.where((user) => user.status == 'รอตรวจสอบ').length;
-
   int get _suspendedCount =>
       _users.where((user) => user.status == 'ระงับ').length;
 
@@ -264,7 +268,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                                   ),
                                   const SizedBox(height: 3),
                                   Text(
-                                    'ปรับปรุงบทบาท ขอบเขต หรือสถานะการเข้าถึงระบบ',
+                                    'ปรับปรุงบทบาทและสถานะการเข้าถึงระบบ',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: SchoolAdminPalette.textSecondary,
@@ -353,64 +357,38 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                         _buildRoleSelectorChips(
                           selectedRole: role,
                           onSelected: (String value) {
-                            setDialogState(() {
-                              role = value;
-                              scope = _defaultScopeForRole(value);
-                            });
+                            setDialogState(() => role = value);
                           },
                         ),
                         const SizedBox(height: 16),
 
-                        // Scope & Status Selectors
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildDialogInputLabel('ขอบเขตการเข้าถึง'),
-                                  const SizedBox(height: 6),
-                                  _PermissionDialogDropdown(
-                                    icon: Icons.account_tree_outlined,
-                                    value: scope,
-                                    items: const [
-                                      'เฉพาะชั้นเรียนที่สอน',
-                                      'ม.1/1',
-                                      'ม.1/2',
-                                      'ม.2/1',
-                                      'ม.2/2',
-                                      'ม.3/1',
-                                      'อาคารเรียน A',
-                                      'อาคารเรียน B',
-                                      'อาคารปฏิบัติการ',
-                                      'ทุกอาคาร',
-                                    ],
-                                    onChanged: (String value) {
-                                      setDialogState(() => scope = value);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildDialogInputLabel('สถานะบัญชี'),
-                                  const SizedBox(height: 6),
-                                  _PermissionDialogDropdown(
-                                    icon: Icons.verified_user_outlined,
-                                    value: status,
-                                    items: const ['ใช้งาน', 'รอตรวจสอบ', 'ระงับ'],
-                                    onChanged: (String value) {
-                                      setDialogState(() => status = value);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        // ขอบเขตการเข้าถึง: ระบบยังไม่มีทางเขียนค่านี้กลับ
+                        // หลังบ้าน (`update_user_profile` แก้ได้แค่ชื่อ-นามสกุล
+                        // ของตัวเอง) ของเดิมเป็น dropdown 10 ตัวเลือกที่กดแล้ว
+                        // ขึ้น "บันทึกเรียบร้อยแล้ว" ทั้งที่ค่าไม่เคยถูกส่งไปไหน
+                        // จึงเปลี่ยนเป็นแสดงค่าจริงจากโปรไฟล์แบบอ่านอย่างเดียว
+                        _buildDialogInputLabel('ขอบเขตการเข้าถึง'),
+                        const SizedBox(height: 6),
+                        _ReadOnlyField(
+                          icon: Icons.account_tree_outlined,
+                          value: scope,
+                          note: 'มาจากอาคาร/ห้องในโปรไฟล์ผู้ใช้ '
+                              'แก้ที่หน้าข้อมูลบุคลากร',
+                        ),
+                        const SizedBox(height: 16),
+
+                        // สถานะบัญชี: ผูกกับ suspend_user / reactivate_user จริง
+                        // ตัวเลือก "รอตรวจสอบ" ถูกตัดออกเพราะระบบมีแค่
+                        // active/suspended ไม่มีสถานะนี้อยู่จริง
+                        _buildDialogInputLabel('สถานะบัญชี'),
+                        const SizedBox(height: 6),
+                        _PermissionDialogDropdown(
+                          icon: Icons.verified_user_outlined,
+                          value: status,
+                          items: const ['ใช้งาน', 'ระงับ'],
+                          onChanged: (String value) {
+                            setDialogState(() => status = value);
+                          },
                         ),
                         const SizedBox(height: 18),
 
@@ -510,20 +488,58 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
 
     if (result == null || !mounted) return;
 
+    // เดิมส่งแค่ `role` ให้หลังบ้าน แล้วขึ้น "บันทึกเรียบร้อยแล้ว" เสมอ —
+    // สถานะบัญชีที่ผู้ดูแลเพิ่งเปลี่ยนถูกทิ้งเงียบ ๆ ทั้งที่ระบบมี
+    // suspend_user / reactivate_user รองรับอยู่แล้ว ตอนนี้ส่งทั้งสองอย่าง
+    // แล้วโหลดกลับมาตรวจว่าค่าบนหลังบ้านเปลี่ยนจริงก่อนจะบอกว่าสำเร็จ
+    final bool roleChanged = result.role != user.role;
+    final bool statusChanged = result.status != user.status;
+    if (!roleChanged && !statusChanged) {
+      _showMessage('ไม่มีการเปลี่ยนแปลง');
+      return;
+    }
+
     try {
-      final newRole = _parseRole(result.role);
-      await UserAdminService.updateRole(uid: result.id, role: newRole);
-
-      await _loadPermissions();
-
-      if (mounted) {
-        _showMessage(
-          'บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว',
+      if (roleChanged) {
+        final newRole = _parseRole(result.role);
+        await (widget.updateRole ?? UserAdminService.updateRole)(
+          uid: result.id,
+          role: newRole,
         );
       }
+      if (statusChanged) {
+        if (result.status == 'ระงับ') {
+          await (widget.suspendUser ?? UserAdminService.suspendUser)(result.id);
+        } else {
+          await (widget.reactivateUser ?? UserAdminService.reactivateUser)(
+            result.id,
+          );
+        }
+      }
+
+      await _loadPermissions();
+      if (!mounted) return;
+
+      // อ่านกลับมายืนยัน: ถ้าหลังบ้านไม่ได้เปลี่ยนตาม ต้องไม่บอกว่าสำเร็จ
+      final saved = _users.where((u) => u.id == result.id).firstOrNull;
+      if (saved == null) {
+        _showMessage('บันทึกแล้ว แต่ตรวจสอบผลไม่สำเร็จ กรุณารีเฟรชอีกครั้ง');
+        return;
+      }
+      if (statusChanged && saved.status != result.status) {
+        _showMessage('เปลี่ยนสถานะบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        return;
+      }
+      if (roleChanged && !saved.role.contains(result.role)) {
+        _showMessage('เปลี่ยนบทบาทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+        return;
+      }
+      _showMessage('บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว');
     } catch (e) {
+      // ไม่โยนข้อความ exception ดิบขึ้นจอผู้ใช้
+      debugPrint('savePermissions failed: $e');
       if (mounted) {
-        _showMessage('เกิดข้อผิดพลาดในการบันทึกสิทธิ์: $e');
+        _showMessage('บันทึกสิทธิ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
       }
     }
   }
@@ -549,17 +565,6 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   // 'ครูประจำอาคาร' เคยเป็นตัวเลือกที่ 3 ในนี้ — role นั้นถูกยุบรวมเข้า
   // school_admin ไปแล้วตั้งแต่ 2026-08-25 (ดู CLAUDE.md) ไม่มีความหมายอะไร
   // ในระบบอีกต่อไป แม้แต่เป็นแค่ label UI
-  String _defaultScopeForRole(String role) {
-    switch (role) {
-      case 'ครูประจำชั้น':
-        return 'ม.1/1';
-      case 'ฝ่ายบริหาร':
-        return 'ทุกอาคาร';
-      default:
-        return 'เฉพาะชั้นเรียนที่สอน';
-    }
-  }
-
   Widget _buildDialogInputLabel(String label) {
     return Text(
       label,
@@ -1239,13 +1244,6 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
         detail: 'บัญชีพร้อมใช้งาน',
         icon: Icons.verified_rounded,
         color: SchoolAdminPalette.green,
-      ),
-      _PermissionSummaryData(
-        title: 'รอตรวจสอบ',
-        value: '$_pendingCount',
-        detail: 'ควรยืนยันบทบาทหรือขอบเขต',
-        icon: Icons.hourglass_top_rounded,
-        color: SchoolAdminPalette.secondary,
       ),
       _PermissionSummaryData(
         title: 'ระงับสิทธิ์',
@@ -2421,8 +2419,6 @@ class _PermissionStatusBadge extends StatelessWidget {
     switch (value) {
       case 'ใช้งาน':
         return SchoolAdminPalette.green;
-      case 'รอตรวจสอบ':
-        return SchoolAdminPalette.secondary;
       default:
         return SchoolAdminPalette.red;
     }
@@ -2608,6 +2604,62 @@ class _PermissionFilterDropdown extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+/// ค่าที่ระบบอ่านมาได้แต่ยังไม่มีทางเขียนกลับ — แสดงให้เห็น แต่ไม่ทำเป็น
+/// ช่องกรอกที่กดแล้วเหมือนบันทึกได้
+class _ReadOnlyField extends StatelessWidget {
+  const _ReadOnlyField({
+    required this.icon,
+    required this.value,
+    required this.note,
+  });
+
+  final IconData icon;
+  final String value;
+  final String note;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: SchoolAdminPalette.textSecondary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
+                ),
+              ),
+              const Icon(Icons.lock_outline_rounded, size: 16),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          note,
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: SchoolAdminPalette.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
