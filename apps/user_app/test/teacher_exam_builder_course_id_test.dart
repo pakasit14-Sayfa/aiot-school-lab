@@ -22,6 +22,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
 
       var listMyCoursesCalled = false;
+      String? capturedCourseId;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -31,6 +32,17 @@ void main() {
               listMyCoursesCalled = true;
               return [];
             },
+            createQuiz:
+                ({
+                  required courseId,
+                  required type,
+                  required title,
+                  lessonId,
+                  timeLimitMin,
+                }) async {
+                  capturedCourseId = courseId;
+                  return 'quiz-1';
+                },
           ),
         ),
       );
@@ -47,13 +59,10 @@ void main() {
       // CourseService.listMyCourses().first — whichever course happened to
       // come first in the teacher's list, not the one the exam builder was
       // actually opened from. With a real courseId supplied, the course
-      // list must never be consulted at all.
+      // list must never be consulted at all, and the real courseId must
+      // reach QuizService.createQuiz unchanged.
       expect(listMyCoursesCalled, isFalse);
-      // QuizService.createQuiz throws "not_signed_in" before ever reaching
-      // the network in this session-less test harness — confirming save
-      // proceeded straight to using the real courseId instead of the
-      // "no courses found" branch that only fires on the listMyCourses path.
-      expect(find.textContaining('not_signed_in'), findsOneWidget);
+      expect(capturedCourseId, 'the-real-course-id');
     },
   );
 

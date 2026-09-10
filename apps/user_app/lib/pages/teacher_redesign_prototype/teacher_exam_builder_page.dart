@@ -62,6 +62,7 @@ class TeacherExamBuilderPage extends StatefulWidget {
     this.courseName = 'โครงงานเซนเซอร์',
     this.initialKind = 'ข้อสอบก่อนเรียน',
     this.listMyCourses,
+    this.createQuiz,
   });
 
   // ไม่บังคับ required เพื่อไม่ให้ route dev-preview เดิมใน main.dart
@@ -75,6 +76,18 @@ class TeacherExamBuilderPage extends StatefulWidget {
   // (and so never falls back to "the first course of any random list") once
   // a real courseId is supplied.
   final Future<List<CourseSummary>> Function()? listMyCourses;
+
+  /// Seam for tests: lets a test capture the real courseId QuizService.
+  /// createQuiz is actually called with, without relying on any error text
+  /// reaching the screen. Defaults to the real service call in production.
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? lessonId,
+    int? timeLimitMin,
+  })?
+  createQuiz;
 
   @override
   State<TeacherExamBuilderPage> createState() => _TeacherExamBuilderPageState();
@@ -361,7 +374,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
           ? 'pre_test'
           : (_selectedKind == _ExamKind.postTest ? 'post_test' : 'general');
 
-      final quizId = await QuizService.createQuiz(
+      final createQuiz = widget.createQuiz ?? QuizService.createQuiz;
+      final quizId = await createQuiz(
         courseId: targetCourseId,
         type: quizKindStr,
         title: title,
