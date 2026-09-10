@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
 import 'package:shared_core/shared_core.dart';
@@ -7,6 +6,7 @@ import 'package:shared_ui/shared_ui.dart';
 import '../utils/app_validators.dart';
 import 'accept_invitation_page.dart';
 import 'redeem_binding_code_page.dart';
+import 'student_redesign_prototype/widgets/student_qr_login_page.dart';
 import 'role_router.dart';
 
 class LoginPage extends StatefulWidget {
@@ -227,9 +227,15 @@ class _LoginPageState extends State<LoginPage>
     super.dispose();
   }
 
-  static const Color _brand = Color(0xFF2E7D32);
-  static const Color _brandDark = Color(0xFF1B5E20);
-  static const Color _accent = Color(0xFF14B8A6);
+  // โทนใหม่ทั้งหมด — คราม (indigo) บนพื้นสว่าง ตรงกับหน้ากรอก OTP ที่เป็น
+  // หน้าถัดไปทันที (`login_otp_page.dart` ใช้ #4F46E5/#6366F1) ของเดิมเป็น
+  // เขียวเข้ม กดเข้าสู่ระบบแล้วสีกระโดดไปม่วงคนละโทนกลางทางล็อกอิน
+  static const Color _ink = Color(0xFF0F172A);
+  static const Color _muted = Color(0xFF64748B);
+  static const Color _line = Color(0xFFE2E8F0);
+  static const Color _indigo = Color(0xFF4F46E5);
+  static const Color _indigoLight = Color(0xFF6366F1);
+  static const Color _sky = Color(0xFF38BDF8);
 
   String get _greeting {
     final h = DateTime.now().hour;
@@ -240,11 +246,10 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final isWide = size.width >= 900;
+    final isWide = MediaQuery.sizeOf(context).width >= 940;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0B3B25),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: MouseRegion(
         onHover: (event) {
           if (_reduceMotion) return;
@@ -258,13 +263,13 @@ class _LoginPageState extends State<LoginPage>
         },
         child: Stack(
           children: [
-            _ambientBackground(),
+            _canvas(),
             SafeArea(
               child: Center(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.symmetric(
-                    horizontal: isWide ? 40 : 20,
-                    vertical: 28,
+                    horizontal: isWide ? 48 : 20,
+                    vertical: 32,
                   ),
                   child: isWide
                       ? Row(
@@ -273,26 +278,32 @@ class _LoginPageState extends State<LoginPage>
                           children: [
                             Flexible(
                               child: ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 420),
-                                child: _staggered(0, _brandPanel(wide: true)),
+                                constraints: const BoxConstraints(maxWidth: 460),
+                                child: _staggered(0, _hero()),
                               ),
                             ),
-                            const SizedBox(width: 56),
+                            const SizedBox(width: 64),
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 420),
-                              child: _staggered(1, _glassCard()),
+                              constraints: const BoxConstraints(maxWidth: 400),
+                              child: Column(
+                                children: [
+                                  _staggered(1, _card()),
+                                  const SizedBox(height: 14),
+                                  _staggered(2, _helpFooter()),
+                                ],
+                              ),
                             ),
                           ],
                         )
                       : ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 440),
+                          constraints: const BoxConstraints(maxWidth: 430),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              _staggered(0, _brandPanel(wide: false)),
-                              const SizedBox(height: 22),
-                              _staggered(1, _glassCard()),
-                              const SizedBox(height: 16),
+                              _staggered(0, _wordmark(compact: true)),
+                              const SizedBox(height: 20),
+                              _staggered(1, _card()),
+                              const SizedBox(height: 14),
                               _staggered(2, _helpFooter()),
                             ],
                           ),
@@ -300,79 +311,63 @@ class _LoginPageState extends State<LoginPage>
                 ),
               ),
             ),
-            if (isWide)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 18,
-                child: Center(child: _staggered(2, _helpFooter())),
-              ),
           ],
         ),
       ),
     );
   }
 
-  /// เข้าหน้าทีละชิ้นไล่กัน แทนที่จะโผล่พร้อมกันทั้งหน้า — เล่นครั้งเดียว
-  /// ตอนเปิด ไม่วนซ้ำ
   Widget _staggered(int order, Widget child) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: Duration(milliseconds: _reduceMotion ? 1 : 520),
       curve: Curves.easeOutCubic,
       builder: (context, v, c) {
-        final delayed = ((v * 1.6) - order * 0.3).clamp(0.0, 1.0);
+        final d = ((v * 1.6) - order * 0.28).clamp(0.0, 1.0);
         return Opacity(
-          opacity: delayed,
-          child: Transform.translate(
-            offset: Offset(0, 28 * (1 - delayed)),
-            child: c,
-          ),
+          opacity: d,
+          child: Transform.translate(offset: Offset(0, 26 * (1 - d)), child: c),
         );
       },
       child: child,
     );
   }
 
-  /// แสงสองก้อนลอยอยู่หลังกระจก ขยับช้ามากตามเวลา + ขยับตามเมาส์เล็กน้อย
-  Widget _ambientBackground() {
+  /// พื้นสว่าง + ตารางจุดจาง ๆ + ก้อนสีครามเบลอ 2 ก้อนที่ขยับช้าและขยับตาม
+  /// เมาส์ — ไม่ใช้ภาพถ่ายโรงเรียนเป็นพื้นหลังแล้ว (นั่นคือสิ่งที่บังคับให้
+  /// ทั้งหน้าต้องเป็นโทนเขียว)
+  Widget _canvas() {
     return AnimatedBuilder(
       animation: _ambient,
       builder: (context, _) {
         final t = _ambient.value;
-        final px = _pointer.dx * 18;
-        final py = _pointer.dy * 18;
+        final px = _pointer.dx * 26;
+        final py = _pointer.dy * 26;
         return Stack(
           children: [
-            Positioned.fill(
+            const Positioned.fill(
               child: DecoratedBox(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF0B3B25), Color(0xFF11543A), Color(0xFF0A2E20)],
+                    colors: [Color(0xFFFDFDFF), Color(0xFFEEF2FF)],
                   ),
                 ),
               ),
             ),
             Positioned.fill(
-              child: Opacity(
-                opacity: 0.16,
-                child: Image.asset(
-                  'assets/images/school_bg.png',
-                  fit: BoxFit.cover,
-                ),
-              ),
+              child: CustomPaint(painter: _DotGridPainter()),
             ),
             Positioned(
-              left: -120 + px + 60 * t,
-              top: -80 + py + 40 * t,
-              child: _glow(320, _accent.withValues(alpha: 0.42)),
+              left: -140 + px + 50 * t,
+              top: -120 + py + 30 * t,
+              child: _blob(360, _indigoLight.withValues(alpha: 0.26)),
             ),
             Positioned(
-              right: -140 - px + 40 * (1 - t),
-              bottom: -100 - py + 70 * (1 - t),
-              child: _glow(380, const Color(0xFF84CC16).withValues(alpha: 0.30)),
+              right: -160 - px + 40 * (1 - t),
+              bottom: -140 - py + 60 * (1 - t),
+              child: _blob(420, _sky.withValues(alpha: 0.22)),
             ),
           ],
         );
@@ -380,7 +375,7 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  Widget _glow(double d, Color c) => IgnorePointer(
+  Widget _blob(double d, Color c) => IgnorePointer(
     child: Container(
       width: d,
       height: d,
@@ -391,232 +386,349 @@ class _LoginPageState extends State<LoginPage>
     ),
   );
 
-  Widget _brandPanel({required bool wide}) {
-    final logo = Container(
-      padding: const EdgeInsets.all(15),
+  Widget _logoMark({double size = 52}) {
+    return Container(
+      width: size,
+      height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(size * 0.32),
         gradient: const LinearGradient(
-          colors: [Color(0xFF34D399), _accent],
+          colors: [_indigoLight, _indigo],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: _accent.withValues(alpha: 0.45),
-            blurRadius: 26,
-            offset: const Offset(0, 10),
+            color: _indigo.withValues(alpha: 0.32),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: const Icon(
-        Icons.local_library_outlined,
-        size: 40,
+      child: Icon(
+        Icons.school_rounded,
+        size: size * 0.5,
         color: Colors.white,
       ),
     );
+  }
 
+  Widget _wordmark({required bool compact}) {
     return Column(
       crossAxisAlignment:
-          wide ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
-        logo,
-        const SizedBox(height: 16),
+        _logoMark(size: compact ? 48 : 56),
+        SizedBox(height: compact ? 12 : 20),
         const Text(
           'EDUSMART',
           style: TextStyle(
-            fontSize: 26,
+            fontSize: 19,
             fontWeight: FontWeight.w900,
-            letterSpacing: 4,
-            color: Colors.white,
+            letterSpacing: 3.5,
+            color: _ink,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
+        const SizedBox(height: 2),
+        const Text(
           'AIoT School Lab',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1,
-            color: Colors.white.withValues(alpha: 0.72),
+            color: _muted,
           ),
         ),
-        if (wide) ...[
-          const SizedBox(height: 26),
-          Text(
-            'ห้องเรียน อุปกรณ์ IoT และข้อมูลนักเรียน\nรวมอยู่ในระบบเดียว',
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.6,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.86),
-            ),
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _Chip(icon: Icons.sensors_rounded, label: 'เซนเซอร์เรียลไทม์'),
-              _Chip(icon: Icons.shield_moon_outlined, label: 'ยืนยัน 2 ชั้น'),
-              _Chip(icon: Icons.groups_2_outlined, label: '6 บทบาทผู้ใช้'),
-            ],
-          ),
-        ],
       ],
     );
   }
 
-  Widget _glassCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(26),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.93),
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.28),
-                blurRadius: 40,
-                offset: const Offset(0, 18),
-              ),
-            ],
+  Widget _hero() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _wordmark(compact: false),
+        const SizedBox(height: 28),
+        const Text(
+          'ห้องเรียน อุปกรณ์ IoT\nและข้อมูลนักเรียน',
+          style: TextStyle(
+            fontSize: 38,
+            height: 1.2,
+            fontWeight: FontWeight.w900,
+            color: _ink,
+            letterSpacing: -0.5,
           ),
-          child: Form(
-            key: formKey,
-            child: AutofillGroup(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+        ),
+        const SizedBox(height: 8),
+        ShaderMask(
+          shaderCallback: (r) => const LinearGradient(
+            colors: [_indigo, _sky],
+          ).createShader(r),
+          child: const Text(
+            'รวมอยู่ในระบบเดียว',
+            style: TextStyle(
+              fontSize: 38,
+              height: 1.2,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 26),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            _HeroPoint(
+              icon: Icons.sensors_rounded,
+              title: 'เซนเซอร์เรียลไทม์',
+              subtitle: 'ฝุ่น อุณหภูมิ ไฟฟ้า น้ำ จากอุปกรณ์จริงในโรงเรียน',
+            ),
+            SizedBox(height: 14),
+            _HeroPoint(
+              icon: Icons.verified_user_outlined,
+              title: 'ยืนยันตัวตน 2 ชั้น',
+              subtitle: 'รหัสผ่านและรหัส 6 หลักทางอีเมลทุกครั้งที่เข้าระบบ',
+            ),
+            SizedBox(height: 14),
+            _HeroPoint(
+              icon: Icons.groups_2_outlined,
+              title: 'ครบ 6 บทบาท',
+              subtitle: 'ผู้ดูแลระบบ โรงเรียน ผู้บริหาร ครู นักเรียน ผู้ปกครอง',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _card() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _line),
+        boxShadow: [
+          BoxShadow(
+            color: _ink.withValues(alpha: 0.07),
+            blurRadius: 40,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Column(
+          children: [
+            // ขอบบนไล่สี — ตัวเดียวกับปุ่มยืนยันในหน้ากรอก OTP
+            Container(
+              height: 4,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(colors: [_indigoLight, _sky]),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 22),
+              child: Form(
+                key: formKey,
+                child: AutofillGroup(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _greeting,
-                        style: const TextStyle(
+                      Row(
+                        children: [
+                          Text(
+                            _greeting,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: _indigo,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text('👋', style: TextStyle(fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'เข้าสู่ระบบ',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w900,
+                          height: 1.15,
+                          color: _ink,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'ใช้บัญชีที่โรงเรียนออกให้ สำหรับครู นักเรียน ผู้ปกครอง และผู้ดูแลระบบ',
+                        style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                          color: _accent,
-                          letterSpacing: 0.5,
+                          height: 1.5,
+                          color: _muted,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      const Text('👋', style: TextStyle(fontSize: 13)),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'เข้าสู่ระบบ',
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      height: 1.15,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'ใช้บัญชีที่โรงเรียนออกให้ สำหรับครู นักเรียน ผู้ปกครอง และผู้ดูแลระบบ',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.5,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _buildInlineErrorBanner(),
-                  _field(
-                    controller: emailController,
-                    focusNode: _emailFocus,
-                    label: 'อีเมล',
-                    hint: 'you@school.ac.th',
-                    icon: Icons.mail_outline_rounded,
-                    keyboardType: TextInputType.emailAddress,
-                    autofill: const [AutofillHints.username],
-                    action: TextInputAction.next,
-                    onSubmitted: (_) => _passwordFocus.requestFocus(),
-                    validator: AppValidators.email,
-                  ),
-                  const SizedBox(height: 14),
-                  _field(
-                    controller: passwordController,
-                    focusNode: _passwordFocus,
-                    label: 'รหัสผ่าน',
-                    hint: 'กรอกรหัสผ่าน',
-                    icon: Icons.lock_outline_rounded,
-                    obscure: isPasswordHidden,
-                    autofill: const [AutofillHints.password],
-                    action: TextInputAction.done,
-                    onSubmitted: (_) => isLoading ? null : login(),
-                    validator: AppValidators.password,
-                    suffix: IconButton(
-                      tooltip:
-                          isPasswordHidden ? 'แสดงรหัสผ่าน' : 'ซ่อนรหัสผ่าน',
-                      icon: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 180),
-                        transitionBuilder: (child, anim) =>
-                            ScaleTransition(scale: anim, child: child),
-                        child: Icon(
-                          isPasswordHidden
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          key: ValueKey<bool>(isPasswordHidden),
-                          color: const Color(0xFF64748B),
-                        ),
+                      const SizedBox(height: 18),
+                      _buildInlineErrorBanner(),
+                      _field(
+                        controller: emailController,
+                        focusNode: _emailFocus,
+                        label: 'อีเมล',
+                        hint: 'you@school.ac.th',
+                        icon: Icons.alternate_email_rounded,
+                        keyboardType: TextInputType.emailAddress,
+                        autofill: const [AutofillHints.username],
+                        action: TextInputAction.next,
+                        onSubmitted: (_) => _passwordFocus.requestFocus(),
+                        validator: AppValidators.email,
                       ),
-                      onPressed: () => setState(
-                        () => isPasswordHidden = !isPasswordHidden,
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/forgot-password'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: _brand,
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                      child: const Text(
-                        'ลืมรหัสผ่าน?',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _submitButton(),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.mark_email_unread_outlined,
-                        size: 14,
-                        color: Color(0xFF94A3B8),
-                      ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          'ระบบจะส่งรหัสยืนยัน 6 หลักไปที่อีเมลของคุณ',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Colors.grey.shade500,
+                      const SizedBox(height: 14),
+                      _field(
+                        controller: passwordController,
+                        focusNode: _passwordFocus,
+                        label: 'รหัสผ่าน',
+                        hint: 'กรอกรหัสผ่าน',
+                        icon: Icons.key_rounded,
+                        obscure: isPasswordHidden,
+                        autofill: const [AutofillHints.password],
+                        action: TextInputAction.done,
+                        onSubmitted: (_) => isLoading ? null : login(),
+                        validator: AppValidators.password,
+                        suffix: IconButton(
+                          tooltip: isPasswordHidden
+                              ? 'แสดงรหัสผ่าน'
+                              : 'ซ่อนรหัสผ่าน',
+                          icon: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            transitionBuilder: (child, anim) =>
+                                ScaleTransition(scale: anim, child: child),
+                            child: Icon(
+                              isPasswordHidden
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              key: ValueKey<bool>(isPasswordHidden),
+                              color: _muted,
+                            ),
+                          ),
+                          onPressed: () => setState(
+                            () => isPasswordHidden = !isPasswordHidden,
                           ),
                         ),
                       ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/forgot-password'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: _indigo,
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          child: const Text(
+                            'ลืมรหัสผ่าน?',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _submitButton(),
+                      const SizedBox(height: 14),
+                      _qrLoginEntry(),
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.mark_email_unread_outlined,
+                            size: 14,
+                            color: Color(0xFF94A3B8),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'ระบบจะส่งรหัสยืนยัน 6 หลักไปที่อีเมลของคุณ',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ทางเข้าที่ 2 ที่มีอยู่จริง — เดิมช่องนี้เป็นปุ่ม Google/Apple ที่กดไม่ได้
+  ///
+  /// การจับคู่เครื่องแล็บ (kiosk pairing) มีครบทั้ง backend และหน้าจออยู่แล้ว
+  /// แต่เดิมเข้าถึงได้จากเมนูในเชลล์นักเรียน **หลังล็อกอินแล้ว** เท่านั้น ทั้งที่
+  /// คนที่ต้องใช้คือคนที่ยังไม่ได้ล็อกอินและยืนอยู่หน้าแท็บเล็ตในแล็บ —
+  /// `create_terminal_pairing_session`/`check_terminal_pairing_status` ไม่รับ
+  /// `p_token` อยู่แล้ว คือออกแบบให้เครื่องที่ยังไม่ล็อกอินเรียกได้ตั้งแต่แรก
+  Widget _qrLoginEntry() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            const Expanded(child: Divider(color: _line)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                'หรือ',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ),
+            const Expanded(child: Divider(color: _line)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StudentQrLoginPage()),
+            ),
+            icon: const Icon(Icons.qr_code_2_rounded, size: 20),
+            label: const Text(
+              'เข้าสู่ระบบด้วย QR (เครื่องแล็บ)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _indigo,
+              backgroundColor: const Color(0xFFF5F3FF),
+              minimumSize: const Size.fromHeight(50),
+              side: const BorderSide(color: Color(0xFFDDD6FE)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        Text(
+          'เครื่องจะแสดงรหัส QR ให้นักเรียนที่ล็อกอินแล้วสแกนเพื่อเปิดเครื่องนี้ให้',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            height: 1.4,
+            color: Colors.grey.shade500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -644,8 +756,8 @@ class _LoginPageState extends State<LoginPage>
         boxShadow: focused
             ? [
                 BoxShadow(
-                  color: _accent.withValues(alpha: 0.22),
-                  blurRadius: 16,
+                  color: _indigo.withValues(alpha: 0.16),
+                  blurRadius: 18,
                   offset: const Offset(0, 4),
                 ),
               ]
@@ -660,35 +772,36 @@ class _LoginPageState extends State<LoginPage>
         textInputAction: action,
         onFieldSubmitted: onSubmitted,
         validator: validator,
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        style: const TextStyle(fontWeight: FontWeight.w600, color: _ink),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           filled: true,
           fillColor: focused ? Colors.white : const Color(0xFFF8FAFC),
-          prefixIcon: Icon(
-            icon,
-            color: focused ? _accent : const Color(0xFF94A3B8),
-          ),
+          prefixIcon: Icon(icon, color: focused ? _indigo : _muted, size: 20),
           suffixIcon: suffix,
+          labelStyle: const TextStyle(color: _muted),
+          floatingLabelStyle: const TextStyle(
+            color: _indigo,
+            fontWeight: FontWeight.w700,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderSide: const BorderSide(color: _line),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            borderSide: const BorderSide(color: _line),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: _accent, width: 1.6),
+            borderSide: const BorderSide(color: _indigo, width: 1.6),
           ),
         ),
       ),
     );
   }
 
-  /// ปุ่มยุบลงเล็กน้อยตอนกด แล้วเปลี่ยนเป็นสถานะกำลังทำงาน
   Widget _submitButton() {
     return AnimatedScale(
       scale: isLoading ? 0.98 : 1,
@@ -697,13 +810,11 @@ class _LoginPageState extends State<LoginPage>
         width: double.infinity,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-            gradient: const LinearGradient(
-              colors: [_brandDark, _brand, _accent],
-            ),
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(colors: [_indigoLight, _indigo]),
             boxShadow: [
               BoxShadow(
-                color: _brand.withValues(alpha: isLoading ? 0.18 : 0.38),
+                color: _indigo.withValues(alpha: isLoading ? 0.16 : 0.34),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -718,7 +829,7 @@ class _LoginPageState extends State<LoginPage>
               elevation: 0,
               minimumSize: const Size.fromHeight(54),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
             onPressed: isLoading ? null : login,
@@ -769,27 +880,25 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  /// ปุ่ม Google/Apple เดิมเป็นไอคอนเปล่าไม่มี onTap และทำงานไม่ได้อยู่แล้ว
-  /// (ระบบไม่ได้ใช้ Supabase Auth — hard rule 1) ตรงนี้เหลือเฉพาะทางเข้าจริง
   Widget _helpFooter() {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 460),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: Colors.white.withValues(alpha: 0.7),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+          border: Border.all(color: _line),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               'ยังไม่มีบัญชี?',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: Colors.white.withValues(alpha: 0.9),
+                color: _muted,
               ),
             ),
             _footerAction(
@@ -823,14 +932,14 @@ class _LoginPageState extends State<LoginPage>
   }) {
     return TextButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 17, color: Colors.white.withValues(alpha: 0.9)),
+      icon: Icon(icon, size: 17, color: _indigo),
       label: Text(
         label,
         textAlign: TextAlign.center,
         style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
       ),
       style: TextButton.styleFrom(
-        foregroundColor: Colors.white,
+        foregroundColor: _ink,
         minimumSize: const Size.fromHeight(46),
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
@@ -838,36 +947,73 @@ class _LoginPageState extends State<LoginPage>
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.label});
+/// ตารางจุดจาง ๆ เป็นพื้นผิว แทนภาพถ่ายโรงเรียนที่บังคับให้ทั้งหน้าเป็นเขียว
+class _DotGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0x14475569);
+    const gap = 26.0;
+    for (double y = 0; y < size.height; y += gap) {
+      for (double x = 0; x < size.width; x += gap) {
+        canvas.drawCircle(Offset(x, y), 1, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _HeroPoint extends StatelessWidget {
+  const _HeroPoint({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   final IconData icon;
-  final String label;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.9)),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: Colors.white.withValues(alpha: 0.92),
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(9),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEEF2FF),
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
-      ),
+          child: Icon(icon, size: 18, color: _LoginPageState._indigo),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: _LoginPageState._ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: _LoginPageState._muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

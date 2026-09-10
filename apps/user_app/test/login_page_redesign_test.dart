@@ -99,4 +99,24 @@ void main() {
       findsOneWidget,
     );
   });
+
+  /// การจับคู่เครื่องแล็บด้วย QR มีครบทั้ง backend และหน้าจอ แต่เดิมเข้าถึงได้
+  /// จากเมนูในเชลล์นักเรียน **หลังล็อกอินแล้ว** เท่านั้น — คนที่ต้องใช้จริงคือ
+  /// คนที่ยังไม่ได้ล็อกอินและยืนอยู่หน้าแท็บเล็ตในแล็บ
+  testWidgets('ต้องมีทางเข้าด้วย QR สำหรับเครื่องแล็บบนหน้า login', (
+    tester,
+  ) async {
+    await pumpLogin(tester);
+
+    expect(
+      find.text('เข้าสู่ระบบด้วย QR (เครื่องแล็บ)'),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.qr_code_2_rounded), findsOneWidget);
+    // และต้องอธิบายว่ามันทำอะไร ไม่ใช่ปุ่มลอย ๆ
+    expect(
+      find.textContaining('ให้นักเรียนที่ล็อกอินแล้วสแกน'),
+      findsOneWidget,
+    );
+  });
 }
