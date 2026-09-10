@@ -5,7 +5,12 @@ import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
 class DirectorCctvPage extends StatefulWidget {
-  const DirectorCctvPage({super.key});
+  const DirectorCctvPage({super.key, this.listSchoolDevices});
+
+  /// Injectable seam so widget tests can control the camera inventory
+  /// without initializing a real Supabase client. Defaults to the real
+  /// service call used in production.
+  final Future<List<DeviceOption>> Function()? listSchoolDevices;
 
   @override
   State<DirectorCctvPage> createState() => _DirectorCctvPageState();
@@ -15,15 +20,24 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   String searchText = '';
   String selectedBuilding = 'ทุกอาคาร';
   String selectedStatus = 'ทุกสถานะ';
-  String selectedAi = 'ทั้งหมด';
 
   List<CameraAccessGrantItem> _grants = [];
   bool _loadingGrants = false;
+
+  // เดิมทั้ง 8 กล้อง/สถานะ/เวลาอัปเดตเป็นค่าคงที่ปลอมทั้งหมด (aiEnabled/
+  // recording/alertCount/lastUpdate ก็เช่นกัน) ทำให้ ผอ. เข้าใจว่ากำลังดู
+  // ข้อมูลกล้องสด ตอนนี้โหลดรายชื่อกล้องจริงจาก devices (type='camera')
+  // ผ่าน list_school_devices ที่มี executive เข้าถึงได้อยู่แล้ว — ฟิลด์ที่
+  // ไม่มีข้อมูลจริงรองรับเลย (AI/บันทึก/แจ้งเตือน/เวลาอัปเดต) ใส่ค่ากลาง
+  // ที่สื่อว่า "ไม่มีข้อมูล" แทนการแต่งค่าที่ดูสมจริงขึ้นมา
+  bool _camerasLoading = true;
+  List<_CameraData> cameras = const [];
 
   @override
   void initState() {
     super.initState();
     _loadGrants();
+    _loadCameras();
   }
 
   Future<void> _loadGrants() async {
@@ -38,6 +52,42 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
       }
     } catch (_) {
       if (mounted) setState(() => _loadingGrants = false);
+    }
+  }
+
+  Future<void> _loadCameras() async {
+    setState(() => _camerasLoading = true);
+    try {
+      final listDevices =
+          widget.listSchoolDevices ?? LessonService.listSchoolDevices;
+      final devices = await listDevices();
+      final cameraDevices = devices.where((d) => d.type == 'camera').toList();
+      if (!mounted) return;
+      setState(() {
+        cameras = cameraDevices
+            .map(
+              (d) => _CameraData(
+                id: d.id,
+                name: d.name,
+                building: d.location ?? 'ไม่ระบุอาคาร',
+                location: d.location ?? 'ไม่ระบุตำแหน่ง',
+                status: d.status == 'online' ? 'Online' : 'Offline',
+                // ไม่มี field ไหนในระบบบอกได้จริงว่ากล้องนี้เปิด AI/บันทึกอยู่
+                // ไหม หรืออัปเดตล่าสุดเมื่อไหร่ — ใส่ค่า "ไม่มีข้อมูล" แทน
+                // การเดาว่าเปิดอยู่/กำลังบันทึกอยู่เหมือนของเดิม
+                aiEnabled: false,
+                recording: false,
+                lastUpdate: 'ไม่มีข้อมูลเวลาล่าสุด',
+                aiMode: 'ไม่มีข้อมูล',
+                alertCount: 0,
+                color: AppPalette.learningBlue,
+              ),
+            )
+            .toList();
+        _camerasLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _camerasLoading = false);
     }
   }
 
@@ -56,151 +106,11 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     'Offline',
   ];
 
-  final List<String> aiFilters = const [
-    'ทั้งหมด',
-    'เปิด AI',
-    'ปิด AI',
-  ];
-
-  final List<_CameraData> cameras = const [
-    _CameraData(
-      id: 'CAM-B1-01',
-      name: 'ทางเข้าอาคาร 1',
-      building: 'อาคาร 1',
-      location: 'ชั้น 1 • ทางเข้าอาคาร',
-      status: 'Online',
-      aiEnabled: true,
-      recording: true,
-      lastUpdate: 'เมื่อ 5 วินาทีที่แล้ว',
-      aiMode: 'ตรวจจับบุคคล / ล้ม',
-      alertCount: 0,
-      color: AppPalette.learningBlue,
-    ),
-    _CameraData(
-      id: 'CAM-B1-02',
-      name: 'ทางเดินชั้น 2',
-      building: 'อาคาร 1',
-      location: 'ชั้น 2 • โถงกลาง',
-      status: 'Online',
-      aiEnabled: true,
-      recording: true,
-      lastUpdate: 'เมื่อ 8 วินาทีที่แล้ว',
-      aiMode: 'ตรวจจับล้ม / พฤติกรรมเสี่ยง',
-      alertCount: 1,
-      color: AppPalette.chartPink,
-    ),
-    _CameraData(
-      id: 'CAM-B2-01',
-      name: 'ทางเข้าอาคาร 2',
-      building: 'อาคาร 2',
-      location: 'ชั้น 1 • ทางเข้าอาคาร',
-      status: 'Online',
-      aiEnabled: true,
-      recording: true,
-      lastUpdate: 'เมื่อ 3 วินาทีที่แล้ว',
-      aiMode: 'ตรวจจับบุคคล',
-      alertCount: 0,
-      color: AppPalette.environmentGreen,
-    ),
-    _CameraData(
-      id: 'CAM-B2-03',
-      name: 'ทางเดินชั้น 3',
-      building: 'อาคาร 2',
-      location: 'ชั้น 3 • หน้าห้อง ม.5',
-      status: 'Online',
-      aiEnabled: true,
-      recording: true,
-      lastUpdate: 'เมื่อ 2 วินาทีที่แล้ว',
-      aiMode: 'ทะเลาะวิวาท / ล้ม',
-      alertCount: 2,
-      color: AppPalette.danger,
-    ),
-    _CameraData(
-      id: 'CAM-B3-01',
-      name: 'โถงอาคาร 3',
-      building: 'อาคาร 3',
-      location: 'ชั้น 1 • โถงกลาง',
-      status: 'Offline',
-      aiEnabled: true,
-      recording: false,
-      lastUpdate: 'ขาดการเชื่อมต่อ 7 นาที',
-      aiMode: 'ตรวจจับบุคคล / ล้ม',
-      alertCount: 0,
-      color: AppPalette.warning,
-    ),
-    _CameraData(
-      id: 'CAM-B3-04',
-      name: 'ทางเดินชั้น 2',
-      building: 'อาคาร 3',
-      location: 'ชั้น 2 • ห้อง ม.3/2',
-      status: 'Online',
-      aiEnabled: true,
-      recording: true,
-      lastUpdate: 'เมื่อ 4 วินาทีที่แล้ว',
-      aiMode: 'ทะเลาะวิวาท / ล้ม',
-      alertCount: 1,
-      color: AppPalette.primaryPink,
-    ),
-    _CameraData(
-      id: 'CAM-SP-01',
-      name: 'สนามกีฬา',
-      building: 'สนามกีฬา',
-      location: 'ฝั่งอัฒจันทร์',
-      status: 'Online',
-      aiEnabled: false,
-      recording: true,
-      lastUpdate: 'เมื่อ 6 วินาทีที่แล้ว',
-      aiMode: 'ปิด AI',
-      alertCount: 0,
-      color: AppPalette.chartCream,
-    ),
-    _CameraData(
-      id: 'CAM-GATE-01',
-      name: 'ประตูหน้าโรงเรียน',
-      building: 'ทางเข้าโรงเรียน',
-      location: 'ประตูหลัก',
-      status: 'Online',
-      aiEnabled: true,
-      recording: true,
-      lastUpdate: 'เมื่อ 2 วินาทีที่แล้ว',
-      aiMode: 'ตรวจจับบุคคล / รถ',
-      alertCount: 0,
-      color: AppPalette.learningBlue,
-    ),
-  ];
-
-  final List<_CameraAlert> alerts = const [
-    _CameraAlert(
-      cameraId: 'CAM-B2-03',
-      title: 'ตรวจพบพฤติกรรมเสี่ยง',
-      detail: 'กล้อง AI ตรวจพบการเคลื่อนไหวที่เข้าข่ายทะเลาะวิวาท',
-      location: 'อาคาร 2 • ชั้น 3',
-      time: 'วันนี้ 10:24 น.',
-      status: 'กำลังตรวจสอบ',
-      icon: Icons.warning_amber_rounded,
-      color: AppPalette.danger,
-    ),
-    _CameraAlert(
-      cameraId: 'CAM-B3-04',
-      title: 'ตรวจพบนักเรียนล้ม',
-      detail: 'ตรวจพบคนนอนอยู่บริเวณทางเดินเกินเวลาที่กำหนด',
-      location: 'อาคาร 3 • ชั้น 2',
-      time: 'วันนี้ 09:51 น.',
-      status: 'รับทราบแล้ว',
-      icon: Icons.personal_injury_rounded,
-      color: AppPalette.warning,
-    ),
-    _CameraAlert(
-      cameraId: 'CAM-B1-02',
-      title: 'ตรวจพบการรวมกลุ่มหนาแน่น',
-      detail: 'จำนวนบุคคลบริเวณทางเดินสูงกว่าค่าปกติช่วงเปลี่ยนคาบ',
-      location: 'อาคาร 1 • ชั้น 2',
-      time: 'วันนี้ 08:18 น.',
-      status: 'ปิดเหตุแล้ว',
-      icon: Icons.groups_rounded,
-      color: AppPalette.learningBlue,
-    ),
-  ];
+  // AI alerts have zero backend today (security_events table exists but no
+  // RPC reads it) — showing an empty list with an honest disclosure below
+  // rather than either fabricated alerts or a misleading "all clear" empty
+  // state (see _aiAlertsCard).
+  final List<_CameraAlert> alerts = const [];
 
   @override
   Widget build(BuildContext context) {
@@ -273,58 +183,59 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           selectedStatus == 'ทุกสถานะ' ||
           camera.status == selectedStatus;
 
-      final matchesAi = selectedAi == 'ทั้งหมด' ||
-          (selectedAi == 'เปิด AI' && camera.aiEnabled) ||
-          (selectedAi == 'ปิด AI' && !camera.aiEnabled);
-
-      return matchesSearch &&
-          matchesBuilding &&
-          matchesStatus &&
-          matchesAi;
+      return matchesSearch && matchesBuilding && matchesStatus;
     }).toList();
   }
 
   Widget _summaryCards() {
-    const items = [
+    final total = cameras.length;
+    final online = cameras.where((c) => c.status == 'Online').length;
+    final offline = total - online;
+    final onlinePct = total == 0 ? 0.0 : online / total * 100;
+
+    final items = [
       _CameraSummary(
         title: 'กล้องทั้งหมด',
-        value: '24',
+        value: '$total',
         subtitle: 'ทุกจุดติดตั้ง',
         icon: Icons.videocam_rounded,
         color: AppPalette.softPink,
       ),
       _CameraSummary(
         title: 'Online',
-        value: '22',
-        subtitle: '91.7%',
+        value: '$online',
+        subtitle: total == 0 ? '-' : '${onlinePct.toStringAsFixed(1)}%',
         icon: Icons.cloud_done_rounded,
         color: AppPalette.softMint,
       ),
       _CameraSummary(
         title: 'Offline',
-        value: '2',
-        subtitle: 'ควรตรวจสอบ',
+        value: '$offline',
+        subtitle: offline > 0 ? 'ควรตรวจสอบ' : 'ไม่มี',
         icon: Icons.cloud_off_rounded,
         color: AppPalette.softCream,
       ),
-      _CameraSummary(
+      // เปิด AI / แจ้งเตือนจาก AI / พื้นที่จัดเก็บ ไม่มีข้อมูลจริงรองรับเลย
+      // (ไม่มีคอลัมน์/RPC ใดบอกได้) — บอกตรงๆ ว่ายังไม่รองรับ แทนตัวเลข
+      // ที่แต่งขึ้นมาให้ดูสมจริง
+      const _CameraSummary(
         title: 'เปิด AI',
-        value: '19',
-        subtitle: 'ตรวจจับอัตโนมัติ',
+        value: '-',
+        subtitle: 'ยังไม่รองรับ',
         icon: Icons.sensors_rounded,
         color: AppPalette.softBlue,
       ),
-      _CameraSummary(
+      const _CameraSummary(
         title: 'แจ้งเตือนจาก AI',
-        value: '3',
-        subtitle: 'วันนี้',
+        value: '-',
+        subtitle: 'ยังไม่รองรับ',
         icon: Icons.warning_amber_rounded,
         color: AppPalette.softPink2,
       ),
-      _CameraSummary(
+      const _CameraSummary(
         title: 'พื้นที่จัดเก็บ',
-        value: '76%',
-        subtitle: 'เหลือประมาณ 8 วัน',
+        value: '-',
+        subtitle: 'ยังไม่รองรับ',
         icon: Icons.storage_rounded,
         color: AppPalette.softBlue,
       ),
@@ -436,7 +347,16 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             ),
           ),
           const SizedBox(height: 14),
-          ...alerts.map(_alertTile),
+          if (alerts.isEmpty)
+            const Text(
+              'ระบบแจ้งเตือนอัตโนมัติจาก AI Camera ยังไม่รองรับในระบบนี้',
+              style: TextStyle(
+                fontSize: 9.5,
+                color: AppPalette.textMuted,
+              ),
+            )
+          else
+            ...alerts.map(_alertTile),
         ],
       ),
     );
@@ -540,45 +460,33 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             ),
           ),
           const SizedBox(height: 14),
-          _healthRow(
-            'กล้อง Online',
-            '22 / 24',
-            22 / 24,
-            AppPalette.environmentGreen,
-            Icons.videocam_rounded,
+          Builder(
+            builder: (context) {
+              final total = cameras.length;
+              final online = cameras.where((c) => c.status == 'Online').length;
+              return _healthRow(
+                'กล้อง Online',
+                total == 0 ? '- / -' : '$online / $total',
+                total == 0 ? 0 : online / total,
+                AppPalette.environmentGreen,
+                Icons.videocam_rounded,
+              );
+            },
           ),
-          _healthRow(
-            'กำลังบันทึก',
-            '21 / 24',
-            21 / 24,
-            AppPalette.learningBlue,
-            Icons.fiber_manual_record_rounded,
-          ),
-          _healthRow(
-            'AI Detection',
-            '19 / 24',
-            19 / 24,
-            AppPalette.primaryPink,
-            Icons.sensors_rounded,
-          ),
-          _healthRow(
-            'พื้นที่จัดเก็บ',
-            '76%',
-            0.76,
-            AppPalette.warning,
-            Icons.storage_rounded,
-          ),
-          const SizedBox(height: 10),
+          // "กำลังบันทึก"/"AI Detection"/"พื้นที่จัดเก็บ" ไม่มีข้อมูลจริง
+          // รองรับเลย (ไม่มีคอลัมน์/RPC ใดบอกได้) — ของเดิมใส่ตัวเลขแต่ง
+          // ("21/24", "19/24", "76%") ที่ดูสมจริงแต่ไม่มีที่มา ตัดออกแทนที่
+          // จะเดาค่า
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(11),
+            margin: const EdgeInsets.only(top: 4, bottom: 4),
             decoration: BoxDecoration(
-              color:
-                  AppPalette.tint(AppPalette.warning, 0.07),
+              color: AppPalette.tint(AppPalette.textMuted, 0.06),
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Text(
-              'ควรตรวจสอบ CAM-B3-01 ที่ Offline และพื้นที่จัดเก็บเมื่อเกิน 85%',
+              'สถานะการบันทึก, AI Detection และพื้นที่จัดเก็บยังไม่มีข้อมูลจริงในระบบนี้',
               style: TextStyle(
                 fontSize: 8.8,
                 height: 1.4,
@@ -586,6 +494,25 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               ),
             ),
           ),
+          if (cameras.any((c) => c.status == 'Offline')) ...[
+            const SizedBox(height: 6),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: AppPalette.tint(AppPalette.warning, 0.07),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                'ควรตรวจสอบ ${cameras.where((c) => c.status == 'Offline').map((c) => c.id).join(', ')} ที่ Offline',
+                style: const TextStyle(
+                  fontSize: 8.8,
+                  height: 1.4,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -679,6 +606,12 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             ),
           ),
           const SizedBox(height: 14),
+          if (_camerasLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
           _filters(),
           const SizedBox(height: 12),
           Row(
@@ -743,6 +676,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               );
             },
           ),
+          ],
         ],
       ),
     );
@@ -805,16 +739,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           },
         );
 
-        final ai = _dropdown(
-          value: selectedAi,
-          items: aiFilters,
-          icon: Icons.sensors_rounded,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => selectedAi = value);
-          },
-        );
-
         if (compact) {
           return Column(
             children: [
@@ -827,8 +751,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                   Expanded(child: status),
                 ],
               ),
-              const SizedBox(height: 8),
-              ai,
             ],
           );
         }
@@ -843,8 +765,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             Expanded(child: building),
             const SizedBox(width: 9),
             Expanded(child: status),
-            const SizedBox(width: 9),
-            Expanded(child: ai),
           ],
         );
       },
@@ -1159,8 +1079,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   bool _hasActiveFilters() {
     return searchText.isNotEmpty ||
         selectedBuilding != 'ทุกอาคาร' ||
-        selectedStatus != 'ทุกสถานะ' ||
-        selectedAi != 'ทั้งหมด';
+        selectedStatus != 'ทุกสถานะ';
   }
 
   void _clearFilters() {
@@ -1168,7 +1087,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
       searchText = '';
       selectedBuilding = 'ทุกอาคาร';
       selectedStatus = 'ทุกสถานะ';
-      selectedAi = 'ทั้งหมด';
     });
   }
 
