@@ -106,6 +106,7 @@ class TeacherAiotDashboardPage extends StatefulWidget {
     super.key,
     this.listSchoolDevices,
     this.getAllDeviceSensors,
+    this.listDeviceRelayStates,
     this.listThresholds,
     this.setThreshold,
     this.listAlerts,
@@ -116,6 +117,7 @@ class TeacherAiotDashboardPage extends StatefulWidget {
   /// RealtimeService static calls in production.
   final Future<List<DeviceOption>> Function()? listSchoolDevices;
   final Future<Map<String, SensorModel>> Function()? getAllDeviceSensors;
+  final Future<List<DeviceRelayState>> Function()? listDeviceRelayStates;
   final Future<List<Map<String, dynamic>>> Function()? listThresholds;
   final Future<void> Function({
     required String metric,
@@ -173,9 +175,21 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
           widget.listSchoolDevices ?? LessonService.listSchoolDevices;
       final getSensors =
           widget.getAllDeviceSensors ?? RealtimeService.getAllDeviceSensors;
+      final getRelayStates =
+          widget.listDeviceRelayStates ??
+          RealtimeService.listDeviceRelayStates;
       final list = await listDevices();
       if (!mounted) return;
       final sensorsByDevice = await getSensors();
+      // A device with no row here has never acknowledged a relay command —
+      // that's "unknown," not "off" (see DeviceRelayState's own doc
+      // comment), but AiotDeviceModel.relayActive is a non-nullable bool,
+      // so a missing row falls back to false as the closest honest
+      // approximation available with the current model shape.
+      final relayStates = await getRelayStates();
+      final relayActiveByDevice = <String, bool>{
+        for (final r in relayStates) r.deviceId: r.state,
+      };
       setState(() {
         _devices = list.map((d) {
           final location = d.location != null
@@ -191,12 +205,12 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
             id: d.id,
             name: d.name,
             location: location,
-            isOnline: true,
+            isOnline: d.status == 'online',
             pm25: sensor?.pm25 ?? 0,
             temperature: sensor?.temperature ?? 0,
             humidity: sensor?.humidity ?? 0,
             lightLux: sensor?.lux ?? 0,
-            relayActive: true,
+            relayActive: relayActiveByDevice[d.id] ?? false,
             hasRealData: sensor != null,
             lastUpdated: sensor?.updatedAt != null
                 ? 'เมื่อ ${sensor!.updatedAt!.hour.toString().padLeft(2, '0')}:${sensor.updatedAt!.minute.toString().padLeft(2, '0')} น.'
