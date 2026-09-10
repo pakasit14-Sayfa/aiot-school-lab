@@ -10,6 +10,8 @@ class DirectorOverviewData {
     required this.notices,
     required this.energy,
     required this.water,
+    required this.studentAttendance,
+    required this.staffAttendance,
   });
   final Map<String, int> counts;
   final List<DeviceOption> devices;
@@ -17,6 +19,13 @@ class DirectorOverviewData {
   final List<LearningTrackOverview> tracks;
   final List<AppNotification> notices;
   final List<UtilityTrendPoint> energy, water;
+
+  /// การเข้าเรียนของนักเรียนรายห้อง และการมาปฏิบัติหน้าที่ของครู "ของวันนี้"
+  /// — 2 บล็อกนี้เคยอยู่บนหน้าภาพรวมเวอร์ชัน 7 ก.ย. แต่เป็นตัวเลขที่แต่งขึ้น
+  /// (ติดป้าย "ข้อมูลจำลอง") เลยถูกรื้อออกตอนล้างข้อมูลปลอม ตอนนี้มี RPC จริง
+  /// รองรับทั้งคู่แล้ว จึงเอากลับมาได้โดยไม่ต้องแต่งตัวเลข
+  final List<SchoolHomeroomAttendance> studentAttendance;
+  final StaffAttendanceSummary? staffAttendance;
   bool get isEmpty =>
       counts.values.every((n) => n == 0) &&
       devices.isEmpty &&
@@ -24,7 +33,9 @@ class DirectorOverviewData {
       tracks.isEmpty &&
       notices.isEmpty &&
       energy.isEmpty &&
-      water.isEmpty;
+      water.isEmpty &&
+      studentAttendance.isEmpty &&
+      staffAttendance == null;
 }
 
 class DirectorOverviewController extends ChangeNotifier {
@@ -38,7 +49,7 @@ class DirectorOverviewController extends ChangeNotifier {
 
   static Future<DirectorOverviewData> fetch(int days) async {
     if (AuthService.sessionToken == null) throw StateError('not_signed_in');
-    final r = await Future.wait<Object>([
+    final r = await Future.wait<Object?>([
       UserAdminService.countUsersByRole(),
       LessonService.listSchoolDevices(),
       IncidentService.getIncidentSummary(),
@@ -46,6 +57,11 @@ class DirectorOverviewController extends ChangeNotifier {
       NotificationService.listMyNotifications(),
       UtilityService.getEnergyUsageTrend(days: days),
       UtilityService.getWaterUsageTrend(days: days),
+      // ทั้งคู่เป็นข้อมูล "วันนี้" ไม่ผูกกับช่วงเวลาที่เลือกด้านบน (RPC รับ
+      // วันเดียว) — ป้ายบนการ์ดจึงต้องบอกวันที่ให้ชัด ไม่ใช่ปล่อยให้เข้าใจว่า
+      // เป็นยอดรวมของทั้งสัปดาห์/เดือนตามตัวเลือกที่เลือกอยู่
+      HomeroomService.listSchoolAttendance(DateTime.now()),
+      StaffAttendanceService.getSummary(),
     ]);
     return DirectorOverviewData(
       counts: r[0] as Map<String, int>,
@@ -55,6 +71,8 @@ class DirectorOverviewController extends ChangeNotifier {
       notices: r[4] as List<AppNotification>,
       energy: r[5] as List<UtilityTrendPoint>,
       water: r[6] as List<UtilityTrendPoint>,
+      studentAttendance: r[7] as List<SchoolHomeroomAttendance>,
+      staffAttendance: r[8] as StaffAttendanceSummary?,
     );
   }
 

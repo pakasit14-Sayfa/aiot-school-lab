@@ -51,6 +51,7 @@ export 'models/terminal_pairing_model.dart';
 export 'services/terminal_pairing_service.dart';
 export 'models/school_report_model.dart';
 export 'models/staff_attendance_model.dart';
+export 'models/school_homeroom_attendance.dart';
 export 'models/staff_leave_attachment_model.dart';
 export 'models/staff_org_model.dart';
 export 'models/student_support_model.dart';

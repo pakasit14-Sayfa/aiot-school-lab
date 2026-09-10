@@ -310,6 +310,8 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
           const SizedBox(height: 16),
           resourceRow(width, d),
           const SizedBox(height: 16),
+          attendanceRow(width, d),
+          const SizedBox(height: 16),
           important(d),
           const SizedBox(height: 16),
         ],
@@ -565,6 +567,131 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
         ],
       ),
     );
+  }
+
+  /// 2 บล็อกนี้เคยอยู่บนหน้าภาพรวมเวอร์ชัน 7 ก.ย. แต่ตัวเลขเป็นของแต่งขึ้น
+  /// (ติดป้าย "ข้อมูลจำลอง") เลยถูกรื้อออกตอนล้างข้อมูลปลอมออกจากหน้านี้
+  /// ตอนนี้มี RPC จริงรองรับทั้งคู่แล้ว จึงเอาโครงกลับมาโดยผูกกับข้อมูลจริง
+  Widget attendanceRow(double width, DirectorOverviewData d) {
+    final a = studentAttendance(d);
+    final b = staffAttendance(d);
+    if (width < 1020) {
+      return Column(children: [a, const SizedBox(height: 16), b]);
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: a),
+        const SizedBox(width: 16),
+        Expanded(child: b),
+      ],
+    );
+  }
+
+  String get _todayLabel {
+    final now = DateTime.now();
+    return '${now.day}/${now.month}/${now.year + 543}';
+  }
+
+  Widget studentAttendance(DirectorOverviewData d) {
+    final rooms = d.studentAttendance;
+    final students = rooms.fold<int>(0, (n, r) => n + r.studentCount);
+    final present = rooms.fold<int>(0, (n, r) => n + r.present);
+    final late = rooms.fold<int>(0, (n, r) => n + r.late);
+    final absent = rooms.fold<int>(0, (n, r) => n + r.absent);
+    final excused = rooms.fold<int>(0, (n, r) => n + r.excused);
+    final unknown = rooms.fold<int>(0, (n, r) => n + r.unknown);
+
+    return section([
+      header('การเข้าเรียนของนักเรียน', 'เช็กชื่อของวันที่ $_todayLabel', 3),
+      const SizedBox(height: 14),
+      if (rooms.isEmpty)
+        const _AttendanceEmpty(
+          message: 'ยังไม่มีการเช็กชื่อของวันนี้',
+          hint: 'ตัวเลขจะขึ้นเมื่อครูประจำชั้นบันทึกการเข้าเรียนแล้ว',
+        )
+      else ...[
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _AttendanceStat(
+              label: 'มาเรียน',
+              value: present,
+              total: students,
+              color: AppPalette.chartPink2,
+            ),
+            _AttendanceStat(label: 'สาย', value: late, color: AppPalette.chartCream),
+            _AttendanceStat(label: 'ลา', value: excused, color: AppPalette.chartBlue),
+            _AttendanceStat(label: 'ขาด', value: absent, color: AppPalette.chartPink),
+            if (unknown > 0)
+              _AttendanceStat(
+                label: 'ยังไม่เช็ก',
+                value: unknown,
+                color: AppPalette.textMuted,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'เช็กชื่อแล้ว ${rooms.length} ห้อง · นักเรียนรวม $students คน',
+          style: const TextStyle(fontSize: 12, color: AppPalette.textMuted),
+        ),
+      ],
+    ]);
+  }
+
+  Widget staffAttendance(DirectorOverviewData d) {
+    final s = d.staffAttendance;
+    return section([
+      header('การมาปฏิบัติหน้าที่ของครู', 'ลงเวลาของวันที่ $_todayLabel', 4),
+      const SizedBox(height: 14),
+      if (s == null)
+        const _AttendanceEmpty(
+          message: 'ยังไม่มีข้อมูลการลงเวลา',
+          hint: 'ต้องเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์ดูข้อมูลบุคลากร',
+        )
+      else if (!s.workHoursConfigured)
+        // เคสจริงที่เกิดบ่อย: โรงเรียนยังไม่ตั้งเวลาปฏิบัติงาน ครูจึงลงเวลา
+        // ไม่ได้เลย — ต้องบอกสาเหตุ ไม่ใช่โชว์ 0 เฉย ๆ ให้เข้าใจว่าไม่มีใครมา
+        const _AttendanceEmpty(
+          message: 'ยังไม่ได้ตั้งเวลาปฏิบัติงานของโรงเรียน',
+          hint: 'ครูจะลงเวลาไม่ได้จนกว่าผู้ดูแลโรงเรียนจะตั้งค่าก่อน',
+        )
+      else ...[
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _AttendanceStat(
+              label: 'มาปฏิบัติงาน',
+              value: s.presentCount,
+              total: s.totalStaff,
+              color: AppPalette.chartPink2,
+            ),
+            _AttendanceStat(label: 'สาย', value: s.lateCount, color: AppPalette.chartCream),
+            _AttendanceStat(label: 'ลา', value: s.leaveCount, color: AppPalette.chartBlue),
+            _AttendanceStat(
+              label: 'ไปราชการ',
+              value: s.officialDutyCount,
+              color: AppPalette.chartPink3,
+            ),
+            _AttendanceStat(label: 'ขาด', value: s.absentCount, color: AppPalette.chartPink),
+            if (s.noRecordCount > 0)
+              _AttendanceStat(
+                label: 'ยังไม่ลงเวลา',
+                value: s.noRecordCount,
+                color: AppPalette.textMuted,
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'บุคลากรทั้งหมด ${s.totalStaff} คน',
+          style: const TextStyle(fontSize: 12, color: AppPalette.textMuted),
+        ),
+      ],
+    ]);
   }
 
   Widget header(String title, String subtitle, int page) => Row(
@@ -873,6 +1000,106 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
       children: children,
     ),
   );
+}
+
+class _AttendanceStat extends StatelessWidget {
+  const _AttendanceStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.total,
+  });
+
+  final String label;
+  final int value;
+  final int? total;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = total;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: AppPalette.tint(color, .12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppPalette.textMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                t == null ? 'คน' : 'จาก $t คน',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceEmpty extends StatelessWidget {
+  const _AttendanceEmpty({required this.message, required this.hint});
+
+  final String message;
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: AppPalette.softTag,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: AppPalette.textDark,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hint,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 11.5, color: AppPalette.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _OverviewPeriodSelector extends StatelessWidget {

@@ -8,6 +8,8 @@ import 'package:my_first_app/pages/executive_redesign_prototype/pages/director_o
 DirectorOverviewData data({
   bool empty = false,
   List<AppNotification> notices = const [],
+  List<SchoolHomeroomAttendance> studentAttendance = const [],
+  StaffAttendanceSummary? staffAttendance,
 }) => DirectorOverviewData(
   counts: empty ? {} : {'student': 3, 'teacher': 1},
   devices: [],
@@ -18,6 +20,8 @@ DirectorOverviewData data({
       ? []
       : [UtilityTrendPoint(day: DateTime(2026, 9, 8), value: 12.5)],
   water: [],
+  studentAttendance: studentAttendance,
+  staffAttendance: staffAttendance,
 );
 Widget page(DirectorOverviewController c, {ValueChanged<int>? navigate}) =>
     MaterialApp(
