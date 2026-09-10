@@ -527,11 +527,9 @@ class _IdentityCard extends StatelessWidget {
         label: 'สอนวิชา',
         value: subjectsText,
       ),
-      const _DetailRow(
-        icon: Icons.account_balance_outlined,
-        label: 'โรงเรียน',
-        value: 'โรงเรียนสาธิต AIoT',
-      ),
+      // ไม่มี schoolName ใน UserModel และไม่มี service ไหนที่หน้านี้เรียกอยู่
+      // ที่ resolve ชื่อโรงเรียนจาก schoolId ได้ — ตัดแถวนี้ออกแทนที่จะโชว์
+      // ชื่อโรงเรียนปลอมตายตัวทุกบัญชี
       _DetailRow(
         icon: Icons.groups_2_outlined,
         label: 'ห้องประจำชั้น/นักเรียน',
