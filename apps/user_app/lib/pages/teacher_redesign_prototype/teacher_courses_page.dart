@@ -96,9 +96,10 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
         _loading = false;
       });
     } catch (e) {
+      debugPrint('Error loading join code: $e');
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดรหัสเข้าร่วมไม่สำเร็จ: $e';
+        _error = 'โหลดรหัสเข้าร่วมไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -121,10 +122,11 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
         ),
       );
     } catch (e) {
+      debugPrint('Error regenerating join code: $e');
       if (!mounted) return;
       setState(() => _busy = false);
       messenger.showSnackBar(
-        SnackBar(content: Text('สร้างรหัสใหม่ไม่สำเร็จ: $e')),
+        const SnackBar(content: Text('สร้างรหัสใหม่ไม่สำเร็จ')),
       );
     }
   }
@@ -1257,9 +1259,9 @@ class _NewCourseModalSheetState extends State<_NewCourseModalSheet> {
       debugPrint('Error creating course in Supabase: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('สร้างรายวิชาไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('สร้างรายวิชาไม่สำเร็จ'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
       return;
@@ -2793,10 +2795,11 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       );
       if (context.mounted) Navigator.of(context).pop(true);
     } catch (e) {
+      debugPrint('Error closing course: $e');
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('ปิดรายวิชาไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+        const SnackBar(
+          content: Text('ปิดรายวิชาไม่สำเร็จ'),
+          backgroundColor: Color(0xFFDC2626),
         ),
       );
     }
@@ -2878,10 +2881,11 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       );
       if (context.mounted) Navigator.of(context).pop(true);
     } catch (e) {
+      debugPrint('Error closing course with pending work: $e');
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('ปิดรายวิชาไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+        const SnackBar(
+          content: Text('ปิดรายวิชาไม่สำเร็จ'),
+          backgroundColor: Color(0xFFDC2626),
         ),
       );
     }
@@ -2983,10 +2987,11 @@ class __StudentGroupManagementWidgetState
         }
       }
     } catch (e) {
+      debugPrint('Error creating student group: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาดในการสร้างกลุ่ม: $e'),
+        const SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการสร้างกลุ่ม'),
           backgroundColor: Colors.red,
         ),
       );
@@ -3060,10 +3065,11 @@ class __StudentGroupManagementWidgetState
                   );
                   await _fetchRealDataFromSupabase();
                 } catch (e) {
+                  debugPrint('Error renaming student group: $e');
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('เกิดข้อผิดพลาดในการเปลี่ยนชื่อกลุ่ม: $e'),
+                    const SnackBar(
+                      content: Text('เกิดข้อผิดพลาดในการเปลี่ยนชื่อกลุ่ม'),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -3093,10 +3099,11 @@ class __StudentGroupManagementWidgetState
       await StudentGroupService.deleteStudentGroup(groupId);
       await _fetchRealDataFromSupabase();
     } catch (e) {
+      debugPrint('Error deleting student group: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาดในการลบกลุ่ม: $e'),
+        const SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการลบกลุ่ม'),
           backgroundColor: Colors.red,
         ),
       );
@@ -3153,10 +3160,11 @@ class __StudentGroupManagementWidgetState
         ),
       );
     } catch (e) {
+      debugPrint('Error adding student to group: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาดในการเพิ่มนักเรียนเข้ากลุ่ม: $e'),
+        const SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการเพิ่มนักเรียนเข้ากลุ่ม'),
           backgroundColor: Colors.red,
         ),
       );
@@ -3171,10 +3179,11 @@ class __StudentGroupManagementWidgetState
       );
       await _fetchRealDataFromSupabase();
     } catch (e) {
+      debugPrint('Error removing student from group: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('เกิดข้อผิดพลาดในการถอดนักเรียนออกจากกลุ่ม: $e'),
+        const SnackBar(
+          content: Text('เกิดข้อผิดพลาดในการถอดนักเรียนออกจากกลุ่ม'),
           backgroundColor: Colors.red,
         ),
       );

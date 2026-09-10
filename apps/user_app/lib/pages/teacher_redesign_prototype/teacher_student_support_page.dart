@@ -44,10 +44,11 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
       // เคยมี fallback เป็นเคสตัวอย่างปลอม 2 รายการ (นักเรียนเสี่ยงสูง/ปาน
       // กลางที่ไม่มีอยู่จริง) ทุกครั้งที่โหลดพัง — ครูเห็นรายชื่อนักเรียนกลุ่ม
       // เสี่ยงปลอมโดยไม่รู้ว่าเป็นข้อมูลปลอม ตอนนี้แสดง error ตรงๆ แทน
+      debugPrint('Error loading student support cases: $e');
       if (mounted) {
         setState(() {
           _cases = [];
-          _loadError = 'โหลดรายการไม่สำเร็จ: $e';
+          _loadError = 'โหลดรายการไม่สำเร็จ';
           _isLoading = false;
         });
       }
@@ -336,11 +337,12 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
                             notes: notesCtrl.text.trim(),
                           );
                         } catch (e) {
+                          debugPrint('Error creating student support case: $e');
                           if (ctx.mounted) {
                             ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(
-                                content: Text('เปิดเคสไม่สำเร็จ: $e'),
-                                backgroundColor: const Color(0xFFEF4444),
+                              const SnackBar(
+                                content: Text('เปิดเคสไม่สำเร็จ'),
+                                backgroundColor: Color(0xFFEF4444),
                               ),
                             );
                           }
@@ -717,11 +719,12 @@ class _SupportCaseDetailSheetState extends State<_SupportCaseDetailSheet> {
       await _loadInterventions();
       widget.onChanged();
     } catch (e) {
+      debugPrint('Error saving intervention: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('บันทึกการช่วยเหลือไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('บันทึกการช่วยเหลือไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }
@@ -741,12 +744,13 @@ class _SupportCaseDetailSheetState extends State<_SupportCaseDetailSheet> {
       // เคย setState เปลี่ยนสถานะก่อนยิง RPC (optimistic update) แล้วกลืน
       // error ทิ้งถ้า RPC พัง — ครูเห็นสถานะเปลี่ยนในหน้าจอทั้งที่ backend
       // ไม่ได้บันทึกจริง ตอนนี้เปลี่ยนสถานะก็ต่อเมื่อ RPC สำเร็จเท่านั้น
+      debugPrint('Error updating student support case status: $e');
       if (mounted) {
         setState(() => _status = previousStatus);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('เปลี่ยนสถานะไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('เปลี่ยนสถานะไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }

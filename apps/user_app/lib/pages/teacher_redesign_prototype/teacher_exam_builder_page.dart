@@ -243,9 +243,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         );
       }
     } catch (e) {
+      debugPrint('Error picking exam question image: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์: $e')),
+        const SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์')),
       );
     }
   }
@@ -274,9 +275,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         );
       }
     } catch (e) {
+      debugPrint('Error picking exam question video: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์วิดีโอ: $e')),
+        const SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์วิดีโอ')),
       );
     }
   }
@@ -426,11 +428,12 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         Navigator.pop(context);
       }
     } catch (e) {
+      debugPrint('Error saving exam: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('บันทึกข้อสอบไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('บันทึกข้อสอบไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }

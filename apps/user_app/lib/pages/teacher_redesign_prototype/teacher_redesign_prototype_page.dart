@@ -2059,8 +2059,9 @@ class _ClassesCarouselState extends State<_ClassesCarousel> {
       if (!mounted) return;
       setState(() => _items = items);
     } catch (e) {
+      debugPrint('Error loading classes carousel: $e');
       if (!mounted) return;
-      setState(() => _error = 'โหลดรายวิชาไม่สำเร็จ: $e');
+      setState(() => _error = 'โหลดรายวิชาไม่สำเร็จ');
     }
   }
 

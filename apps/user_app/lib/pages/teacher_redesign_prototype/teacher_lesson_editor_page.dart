@@ -369,9 +369,9 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                     debugPrint('Error creating lesson via LessonService: $e');
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('สร้างบทเรียนไม่สำเร็จ: $e'),
-                        backgroundColor: const Color(0xFFEF4444),
+                      const SnackBar(
+                        content: Text('สร้างบทเรียนไม่สำเร็จ'),
+                        backgroundColor: Color(0xFFEF4444),
                       ),
                     );
                     return;
@@ -880,16 +880,14 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                                     setState(() {
                                       les.status = LessonStatus.published;
                                     });
-                                  } catch (e) {
+                                  } catch (_) {
                                     if (!context.mounted) return;
                                     ScaffoldMessenger.of(
                                       context,
                                     ).showSnackBar(
-                                      SnackBar(
-                                        content: Text('เผยแพร่ไม่สำเร็จ: $e'),
-                                        backgroundColor: const Color(
-                                          0xFFEF4444,
-                                        ),
+                                      const SnackBar(
+                                        content: Text('เผยแพร่ไม่สำเร็จ'),
+                                        backgroundColor: Color(0xFFEF4444),
                                       ),
                                     );
                                   }
@@ -1250,11 +1248,12 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
           widget.lesson.blocks = _blocks;
         });
       } catch (e) {
+        debugPrint('Error autosaving lesson: $e');
         if (!mounted || thisAttempt != _saveAttempt) return;
         setState(() {
           _isAutoSaving = false;
           _saveFailed = true;
-          _saveStatusText = 'บันทึกไม่สำเร็จ: $e';
+          _saveStatusText = 'บันทึกไม่สำเร็จ';
         });
       }
     });
@@ -1809,12 +1808,13 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                                 );
                                 _triggerAutoSave();
                               } catch (e) {
+                                debugPrint('Error attaching lesson material: $e');
                                 setModalState(() => isUploading = false);
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('แนบสื่อการสอนไม่สำเร็จ: $e'),
-                                    backgroundColor: const Color(0xFFEF4444),
+                                  const SnackBar(
+                                    content: Text('แนบสื่อการสอนไม่สำเร็จ'),
+                                    backgroundColor: Color(0xFFEF4444),
                                   ),
                                 );
                               }
@@ -2106,12 +2106,12 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                               setState(() {
                                 widget.lesson.status = LessonStatus.published;
                               });
-                            } catch (e) {
+                            } catch (_) {
                               if (!context.mounted) return;
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('เผยแพร่ไม่สำเร็จ: $e'),
-                                  backgroundColor: const Color(0xFFEF4444),
+                                const SnackBar(
+                                  content: Text('เผยแพร่ไม่สำเร็จ'),
+                                  backgroundColor: Color(0xFFEF4444),
                                 ),
                               );
                             }

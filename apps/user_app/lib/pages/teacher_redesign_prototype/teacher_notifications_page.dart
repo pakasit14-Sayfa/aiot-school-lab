@@ -104,10 +104,11 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
     try {
       await NotificationService.markNotificationRead(notif.id);
     } catch (e) {
+      debugPrint('Error marking notification read: $e');
       if (mounted) {
         setState(() => notif.isRead = wasRead);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ทำเครื่องหมายอ่านแล้วไม่สำเร็จ: $e')),
+          const SnackBar(content: Text('ทำเครื่องหมายอ่านแล้วไม่สำเร็จ')),
         );
       }
     }
@@ -175,10 +176,11 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
         ),
       );
     } catch (e) {
+      debugPrint('Error marking all notifications read: $e');
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('ทำรายการอ่านทั้งหมดไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFDC2626),
+        const SnackBar(
+          content: Text('ทำรายการอ่านทั้งหมดไม่สำเร็จ'),
+          backgroundColor: Color(0xFFDC2626),
         ),
       );
     }
