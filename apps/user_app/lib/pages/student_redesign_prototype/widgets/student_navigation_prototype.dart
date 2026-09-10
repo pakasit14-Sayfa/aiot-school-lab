@@ -30,27 +30,8 @@ class _StudentNavigationPrototypeState
     extends State<StudentNavigationPrototype> {
   int _currentIndex = 0;
   bool _isSidebarCollapsed = false;
-  String? _gradeLevel;
   final GlobalKey<ScaffoldState> _mobileScaffoldKey =
       GlobalKey<ScaffoldState>();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadGradeLevel();
-  }
-
-  Future<void> _loadGradeLevel() async {
-    try {
-      final courses = await CourseService.listMyCourses();
-      if (!mounted) return;
-      setState(
-        () => _gradeLevel = courses.isEmpty ? null : courses.first.gradeLevel,
-      );
-    } catch (_) {
-      // ไม่ต้องโชว์ error แค่ป้ายชั้นเรียนใน drawer ไม่ใช่ข้อมูลหลักของหน้า
-    }
-  }
 
   Future<void> _signOut(BuildContext context) async {
     Navigator.pop(context);
@@ -450,19 +431,14 @@ class _StudentNavigationPrototypeState
                             fontSize: 15.5,
                           ),
                         ),
-                        if (_gradeLevel != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            'ชั้น $_gradeLevel',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.72),
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        const SizedBox(height: 2),
+                        StudentGradeLevelText(
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
@@ -919,11 +895,11 @@ class _StudentNavigationPrototypeState
               ),
               if (!isCollapsed) ...[
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'ห้องเรียนของฉัน',
                         style: TextStyle(
                           color: SchoolPalette.ink,
@@ -931,9 +907,9 @@ class _StudentNavigationPrototypeState
                           fontSize: 13.5,
                         ),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'ม.5/2 · ภาคเรียน 1/2569',
+                      const SizedBox(height: 2),
+                      const StudentGradeLevelText(
+                        fallback: 'ยังไม่มีข้อมูลชั้นเรียน',
                         style: TextStyle(
                           color: SchoolPalette.muted,
                           fontSize: 11.5,
@@ -1004,6 +980,80 @@ class _StudentNavigationPrototypeState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The real grade-level label shown in both the mobile drawer header and
+/// the desktop sidebar's "ห้องเรียนของฉัน" card. Used to be two separate
+/// hardcoded/duplicated implementations — the mobile drawer read a real
+/// `_gradeLevel` loaded on the nav shell state, while the desktop sidebar
+/// had a fully hardcoded 'ม.5/2 · ภาคเรียน 1/2569' string that never used
+/// it. Extracted into its own widget (same reasoning as
+/// [StudentNotificationBell]) so both call sites share one real-data path
+/// and it can be tested in isolation without mounting every other tab.
+class StudentGradeLevelText extends StatefulWidget {
+  const StudentGradeLevelText({
+    super.key,
+    required this.style,
+    this.fallback,
+    this.listMyCourses,
+  });
+
+  final TextStyle style;
+
+  /// Shown when there's no real grade level to display. If null, the
+  /// widget renders nothing in that case (matches the mobile drawer's
+  /// original behavior of just omitting the line).
+  final String? fallback;
+
+  /// Injectable seam so widget tests can control the grade level without
+  /// initializing a real Supabase client. Defaults to the real service
+  /// call used in production.
+  final Future<List<CourseSummary>> Function()? listMyCourses;
+
+  @override
+  State<StudentGradeLevelText> createState() => _StudentGradeLevelTextState();
+}
+
+class _StudentGradeLevelTextState extends State<StudentGradeLevelText> {
+  String? _gradeLevel;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final loadCourses = widget.listMyCourses ?? CourseService.listMyCourses;
+      final courses = await loadCourses();
+      if (!mounted) return;
+      setState(
+        () => _gradeLevel = courses.isEmpty ? null : courses.first.gradeLevel,
+      );
+    } catch (_) {
+      // ไม่ต้องโชว์ error แค่ป้ายชั้นเรียนไม่ใช่ข้อมูลหลักของหน้า
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_gradeLevel == null) {
+      if (widget.fallback == null) return const SizedBox.shrink();
+      return Text(
+        widget.fallback!,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: widget.style,
+      );
+    }
+    return Text(
+      'ชั้น $_gradeLevel',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: widget.style,
     );
   }
 }
