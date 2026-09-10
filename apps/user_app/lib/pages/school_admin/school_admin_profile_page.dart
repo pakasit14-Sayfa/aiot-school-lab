@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 
 class SchoolAdminProfilePage extends StatefulWidget {
   const SchoolAdminProfilePage({

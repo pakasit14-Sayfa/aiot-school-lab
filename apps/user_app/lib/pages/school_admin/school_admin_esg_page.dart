@@ -4,7 +4,7 @@ import 'package:excel/excel.dart' as xls;
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 import '../../utils/web_download.dart';
 
 /// Grid emission factor for purchased electricity, kg CO₂e per kWh.

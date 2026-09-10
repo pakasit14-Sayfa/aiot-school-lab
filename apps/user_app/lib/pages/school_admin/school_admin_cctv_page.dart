@@ -3,7 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import 'controllers/school_admin_async_state.dart';
 import 'controllers/school_admin_cctv_controller.dart';
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 
 class SchoolAdminCctvPage extends StatefulWidget {
   const SchoolAdminCctvPage({

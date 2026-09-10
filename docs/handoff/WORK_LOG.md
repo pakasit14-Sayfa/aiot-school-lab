@@ -995,3 +995,24 @@ completed successfully. Browser QA is deferred; no push or production deployment
 | (Executive overview Sep-7 visual restoration, 2026-09-09) | working tree | Confirmed commit `c1aff8df8f0182b011e21abf01eb600348301e73` from 7 Sep as the user's master first-page design. Restored its Thai date pill, hero proportions, white summary cards with colored header ribbons, compact view actions, and bordered report buttons in the live controller-backed page. The learning section now matches the Sep-7 reference: one tinted card per track with room/student counts, confirmed-score badge and progress bar, unavailable behavior/environment text, and a verified overall-average banner. Teachers remain a circular registered count. Browser QA on `127.0.0.1:8767` confirmed the restored layout with live Supabase totals (15 students, 1 teacher, 4 reports, 9 devices) and track average 75.6%; no historical mock workload ratios were restored. |
 | (Executive overview Sep-7 full-layout alignment, 2026-09-09) | working tree | Completed a section-by-section source and browser comparison against the 7 Sep snapshot. Restored the desktop 1:1 learning/teacher row at 420px, the 5:3 utility/sensor row at 460px, the 1020px stacking breakpoint, and the daily/weekly/monthly segmented control. The period control now performs real 1/7/30-day utility reloads while registration totals remain explicitly labelled current. Rebuilt the old watchlist visual language over real notifications with all/unread/read filters and body/category/date fields. Kept the single real teacher circle because the old four-circle workload breakdown was explicitly demo data. Fixed mobile hero-tag overflow and cancelled the delayed reload timer on dispose. Browser QA confirmed period switching and notification filtering; focused responsive/connection tests pass 4/4 and the page analyzer reports no issues. |
 | (Executive overview notification-card redesign, 2026-09-09) | working tree | Reworked “สิ่งที่ควรทราบวันนี้” to match the supplied detailed-card reference: a compact white heading, latest-data badge, segmented read filters, category-colored icons, status pills, full title/body hierarchy, timestamp/category metadata and a source-specific action. Meeting actions open the meetings page, incident actions open emergency, student-support actions open the student overview, resource actions open environment/resources, and “ดูทั้งหมด” opens notifications. All displayed text and read state still come from real notification rows; visual categories and destinations are derived only from the stored notification type/category. No sample alerts or unsupported CCTV/building actions were introduced. Browser QA confirmed the three live local notices render in the new hierarchy and both meeting/incident actions open their real destination pages. Responsive, connection, filter and navigation tests pass 5/5; scoped analyzer is clean. |
+
+## 2026-09-10 — จัดการสิทธิ์บอกว่าบันทึกแล้วทั้งที่ไม่ได้บันทึก + เขียน design system
+
+- `2cb6e23` fix(school-admin): หน้าจัดการสิทธิ์ส่งไปหลังบ้านแค่ `role` แล้วขึ้น
+  "บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว" เสมอ สถานะบัญชีที่ผู้ดูแลเพิ่งเปลี่ยนถูกทิ้ง
+  เงียบ ๆ — ผูกกับ `suspend_user`/`reactivate_user` จริง + อ่านกลับมายืนยัน
+  ขอบเขตการเข้าถึงไม่มี RPC เขียนกลับเลย เปลี่ยนเป็นอ่านอย่างเดียว
+  การ์ดสรุป "รอตรวจสอบ" ที่เป็น 0 ตลอดกาลถูกตัดออก (เทสต์ใหม่ 3 เคส)
+- `docs/handoff/DESIGN_SYSTEM.md` (ใหม่) — บันทึก palette 6 เลนที่มีอยู่จริง
+  ค่ามาตรฐานของหน้าจอ กติกาห้ามฮาร์ดโค้ดสี และหนี้ที่ยังค้าง
+  โปรเจกต์ไม่เคยมีเอกสารดีไซน์เลย ทุกเซสชันจึงคิดสีใหม่เอง = ต้นเหตุ UI drift
+- รวม `school_admin_palette.dart` ที่ซ้ำ 2 ไฟล์เนื้อหาเหมือนกันเป๊ะให้เหลือไฟล์เดียว
+  (`pages/school_admin/theme/`) แก้ import 12 จุด
+
+### ตรวจรายงาน audit 5 เลนที่ได้รับมา — ผิด/ล้าสมัย 6 จาก 11 ข้อ
+จริง: school_permissions fake success (แก้แล้ว) · director_cctv 6 การ์ดฮาร์ดโค้ด ·
+`teacher_profile_page.dart:533` ชื่อโรงเรียนฮาร์ดโค้ด · `$e` ขึ้นจอเลน Teacher 37 จุด
+ไม่จริงแล้ว: director_notifications เรียก `readAndVerify` จริง · ปุ่ม 3 ปุ่มของ ผอ.
+ถูกรื้อไปแล้ว · 3 หน้า Executive ใช้ controller ที่เรียก service จริง ·
+Parent `status ?? 'present'` ไม่ใช่บั๊ก (คอลัมน์ NOT NULL + inner join) ·
+Student sidebar 'ม.5/2' ไม่มีแล้ว · Teacher 'Online' ผูกกับ `dev.isOnline` จริง

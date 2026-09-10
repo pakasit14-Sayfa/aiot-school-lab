@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 import 'controllers/school_admin_async_state.dart';
 import 'controllers/school_admin_learning_tracks_controller.dart';
 
