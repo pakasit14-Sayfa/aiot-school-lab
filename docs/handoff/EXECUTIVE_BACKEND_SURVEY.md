@@ -121,7 +121,7 @@ Page → `DirectorLearningController` → existing domain services → custom-se
 | Student support | Existing `StudentSupportService.listCases/listInterventions`, now executive-readable within the active school. Case status filters and history show real data. Cross-school intervention reads are rejected. |
 | Unsupported functions | Executive automatic risk detection, SDQ, home visits, grants, follow-up commands and learning exports are not implemented; the page explains the gaps and disables the corresponding actions. |
 
-Migration `20260908020000_executive_learning_reads.sql` adds the daily aggregate,
+Migration `20260910020000_executive_learning_reads.sql` adds the daily aggregate,
 widens read permissions only, and fixes varchar/text result types in the existing
 case-list RPC. The track overview also excludes unmatched LEFT JOIN rows from
 the classroom count: a track with no students returns zero rooms, not one.
@@ -146,7 +146,7 @@ made in `DECISIONS_2026-09-07.md`, and migrations `20260907030000`,
 | Files and documents | Private `meeting-files` bucket; new upload/download Edge Functions, signed URLs and canonical attachment verification. Web export creates escaped UTF-8 HTML with a print/save-PDF button. |
 | Reminders | Advance reminders remain disabled with a reason; no scheduled reminder job exists. |
 
-Migration `20260908010000_meeting_read_contract.sql` provides aggregate read
+Migration `20260910010000_meeting_read_contract.sql` provides aggregate read
 contracts, closes the unrelated-executive private-meeting visibility gap, and
 grants the two Edge Function access-check RPCs to `service_role`. Private minutes
 reads still go through the audited backend reader. Writes show success only after
@@ -229,7 +229,7 @@ the "inbox of PDFs sent by departments" that is currently mocked.
 
 Page → `DirectorScanController` → `LessonService.getSchoolDeviceByCode()` →
 new `get_school_device_by_code(p_token,p_code)` in migration
-`20260908030000_school_device_identity.sql`.
+`20260910030000_school_device_identity.sql`.
 
 - Manual entry and camera scanning use the actual entered/detected value.
 - Lookup matches an exact device code, kit code, or UUID in the actor's school.
