@@ -1,5 +1,13 @@
 # Audit ทั้งระบบ + แผนงานรวม — 2026-09-06
 
+> **ปรับให้ตรงกับ WORK_LOG.md เมื่อ 2026-09-10:** ตอนเขียนเอกสารนี้ครั้งแรก
+> Phase 3 (Executive) ยังเป็น `[ ]` ทั้งหมด — ระหว่างทางถูกทำเกือบครบแล้วแต่
+> ไม่มีใครย้อนมาติ๊กเอกสารนี้ ตรวจซ้ำวันนี้ด้วย `git log` + `grep` หา literal
+> stat-card values ในทุกไฟล์ `director_*_page.dart` จริง (ไม่ใช่เชื่อจากรายงาน)
+> พบว่า Executive เหลือของจริงแค่ 2 จุด: `director_cctv_page` (ยังฮาร์ดโค้ด
+> ผู้ใช้สั่งพักเอง) และ `director_scan_page` (ยังไม่ verify เต็มไฟล์) ราย
+> ละเอียดอยู่ใน §C และ Phase 3 ด้านล่าง — Phase 4/5 ยังไม่แตะเหมือนเดิม
+
 > **ตรวจซ้ำบั๊ก 1 เมื่อ 2026-09-08:** canonical close มีแล้วใน `c1aff8d`;
 > แก้ loading ที่บอกว่าไม่มีเหตุก่อนอ่านเสร็จ และ error ที่ถูก dialog บังเพิ่มแล้ว
 > เทสต์ 23/23; regression 485 ผ่าน / 22 fail เดิม (จาก 475 / 24)
@@ -43,28 +51,34 @@
 
 ### 🟠 C. Executive — สิทธิ์ที่แย่ที่สุด (13 หน้าใช้งานได้จริง)
 
-**C1. ต่อ backend ไม่ได้เลย 6 หน้า (~11,530 บรรทัด)**
+> ✅ **ต่อ backend ครบแล้ว 12/13 หน้า (verify 2026-09-10)** — ดู WORK_LOG.md
+> หัวข้อ 2026-09-06 ถึง 2026-09-09 และ commit `d09c550`..`07ed036` ตรวจซ้ำด้วย
+> `grep` หา literal stat-card values (`value: '[0-9]`) ทุกหน้า ไม่เจอเลยสักหน้า
+> ยกเว้น `director_cctv_page` — เจอจริง (บรรทัด 76–167 รายการกล้อง + 291–319
+> การ์ดสรุป `'24' '22' '2' '19' '3'` ฮาร์ดโค้ด) ผู้ใช้สั่งพักหน้านี้ไว้เองจนกว่าจะรู้
+> วิธีต่อ stream/ภาพกล้องจริง ตารางเก่าด้านล่างเก็บไว้เป็นบันทึกสภาพ ณ 2026-09-06
+> เท่านั้น ใช้ Phase 3 ใหม่ด้านล่างแทน
 
-| ไฟล์ | บรรทัด | ข้อมูลปลอมที่ฝังอยู่ |
-|---|---:|---|
-| `director_learning_page` | 2,815 | `programs`(46) `gradeData`(85) `urgentStudents`(37) `followUps`(41) |
-| `director_meetings_page` | 2,216 | `meetings`(127) `requests`(37) — **ไม่มีตารางใน DB รองรับเลย** |
-| `director_teachers_page` | 1,927 | `personnel`(151) `departmentData`(67) `subjectGroups`(9) |
-| `director_settings_page` | 1,790 | — |
-| `director_reports_page` | 1,705 | `reports`(191) `pendingReports`(31) |
-| `director_scan_page` | 1,082 | `teachers`(25) `kits`(25) `recent`(7) |
+| ไฟล์ (สภาพเดิม 2026-09-06) | บรรทัด | ข้อมูลปลอมที่เคยฝังอยู่ | สถานะจริงตอนนี้ |
+|---|---:|---|---|
+| `director_learning_page` | 2,815 | `programs`(46) `gradeData`(85) `urgentStudents`(37) `followUps`(41) | ✅ ต่อแล้ว (`1de1c4f`) |
+| `director_meetings_page` | 2,216 | `meetings`(127) `requests`(37) — ไม่มีตารางใน DB รองรับ | ✅ ต่อแล้วผ่าน `MeetingService`/`list_meeting_records` จริง (`8b26c4e`, `041949e`) — D2 ปิดแล้ว ไม่ต้องสร้างตารางใหม่ |
+| `director_teachers_page` | 1,927 | `personnel`(151) `departmentData`(67) `subjectGroups`(9) | ✅ ต่อแล้ว ผูกกับ schema ฝ่าย/กลุ่มสาระ (`fe8e4e6`) |
+| `director_settings_page` | 1,790 | — | ✅ ต่อแล้ว บันทึกจริง (`d64fb77`) |
+| `director_reports_page` | 1,705 | `reports`(191) `pendingReports`(31) | ✅ ต่อแล้ว (`6065fe3`) |
+| `director_scan_page` | 1,082 | `teachers`(25) `kits`(25) `recent`(7) | ⚠️ มี `DirectorScanController` แล้ว ไม่พบ literal hardcode ตอน grep — **ยังไม่ verify เต็มไฟล์** |
 
-**C2. ต่อบางส่วน แต่ยังแสดงตารางปลอมทับข้อมูลจริง — 5 หน้า** (อันตรายกว่า C1 เพราะดูเหมือนใช้ได้)
+**ต่อบางส่วนเดิม (2026-09-06) → ตรวจซ้ำ 2026-09-10:**
 
-| ไฟล์ | โหลดจริง | แต่ยัง hardcode |
+| ไฟล์ | โหลดจริง | สถานะ hardcode ตอนนี้ |
 |---|---|---|
-| `director_classrooms_page` | `getClassroomsOverview` | **`classrooms`(205)** `greenScores`(17) `supportItems`(33) |
-| `director_cctv_page` | `listCameraAccessGrants` `revokeCameraAccess` | **`cameras`(105)** `alerts`(31) |
-| `director_emergency_page` | 9 RPC จริง | `events`(86) `teams`(29) |
-| `director_environment_page` | 7 RPC จริง | `electricityBreakdown` `waterBreakdown` `recommendations` `zones` |
-| `director_academic_calendar_page` | `listAllSchoolSchedules` | `alerts`(33) |
+| `director_classrooms_page` | `getClassroomsOverview` + work/activity RPC ใหม่ | ✅ แก้แล้ว (migration `20260910120000`/`20260910130000`, commit follow-up 2026-09-09) — ไม่มี literal card value เหลือ |
+| `director_cctv_page` | `listCameraAccessGrants` `revokeCameraAccess` | ❌ **ยังฮาร์ดโค้ดจริง** — รายการกล้อง (76–167) + การ์ดสรุป 5 ค่า (291–319) ผู้ใช้สั่งพักไว้เอง |
+| `director_emergency_page` | 9 RPC จริง | ✅ แก้แล้ว — ลบคำอ้าง "IoT online 100% / ปลอดภัย 100%" ที่ไม่มีหลักฐานออกแล้ว |
+| `director_environment_page` | 7 RPC จริง | ✅ ไม่พบ literal hardcode ตอน grep 2026-09-10 |
+| `director_academic_calendar_page` | `listAllSchoolSchedules` + `MeetingService` | ✅ แก้แล้ว (`8b26c4e`) ผูกปฏิทินจริงแล้ว |
 
-**C3. สะอาด 2 หน้า:** `director_overview_page` ✅ · `director_notifications_page` (โหลดจริง ไม่มี hardcode)
+**สะอาดแต่แรก:** `director_overview_page` ✅ · `director_notifications_page` ✅ (ยืนยันซ้ำ 2026-09-10 — เรียก `readAndVerify` จริง ไม่ใช่ของปลอม)
 
 ### 🟠 D. School Admin (20 หน้า)
 
@@ -84,10 +98,17 @@
 
 ### 🟡 F. Teacher / Student / Parent — ใกล้เสร็จ
 
-- `teacher_courses_page` (5,158) — fake button ×1 + hardcode ×2
-- `teacher_profile_page` — fake button ×2
-- `teacher_redesign_prototype_page` (6,993) — hardcode ×8 (เคย audit แล้วรอบหนึ่ง ต้องเช็คว่าเป็นของเหลือหรือ false positive)
-- `student_profile_page` — fake ×1 + hardcode ×1
+> ✅ **อัปเดต 2026-09-10:** รายการเดิมทั้ง 4 บรรทัดด้านล่าง **ปิดแล้ว** —
+> `teacher_courses`/`teacher_profile` สะอาดจาก `0f03100`/`2d53126`/`94ea879`
+> (ยืนยัน 2026-09-08) · `teacher_redesign_prototype_page` แก้ครบจาก `669ab76`+`9b6250c`
+> ที่เหลือเป็น false positive · `student_profile_page` ยืนยันสะอาด (audit
+> 2026-09-07) · ชื่อโรงเรียนฮาร์ดโค้ดที่ `teacher_profile_page.dart:533` (พบใหม่
+> 2026-09-10) แก้แล้ว (`79d2f94`)
+>
+> **ของค้างจริงที่พบใหม่ 2026-09-10:** เลน Teacher มี **37 จุด** ที่โชว์ raw
+> `$e` (exception message ดิบ, มักเป็นภาษาอังกฤษ/technical) ขึ้นจอผู้ใช้แทน
+> ข้อความภาษาไทยที่อ่านรู้เรื่อง — ยังไม่แก้ ดู ticket 1.6 ใหม่ด้านล่าง
+
 - Parent สะอาดเกือบหมด (`cards` ที่เจอเป็น UI config ไม่ใช่ข้อมูล)
 
 ### 🟢 G. Dead code — ลบได้เลย
@@ -166,6 +187,7 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 | [ ] | 1.3 | เคลียร์ test debt: Flutter fail 16 + pgTAP fail 6 | — | ทุกตัวถูก แก้ / ลบ / ขึ้นทะเบียน known พร้อมเหตุผล — Flutter fail ล่าสุด (2026-09-08) เหลือ 8 (ทั้งหมดฝั่ง Executive ที่ Codex ทำอยู่ + 1 school_admin) ยังไม่ได้ re-count pgTAP fail 6 |
 | [x] | 1.4 | ทดสอบเคสลบข้ามโรงเรียนในเบราว์เซอร์ | 0.5 | local มีโรงเรียนเดียว ทดสอบเบราว์เซอร์จริงไม่ได้ — พิสูจน์ด้วย pgTAP แทน (`19_incident_reports.test.sql` test 6b, commit `899750c`) ยืนยัน `list_incident_reports` ของครูโรงเรียนอื่นไม่เห็นเหตุการณ์โรงเรียน A เลยสักแถว ผ่าน 22/22 |
 | [ ] | 1.5 | Parent regression ซ้ำหลัง merge | 1.1 | 7 หน้าผ่าน + สลับลูกได้ 2 ทาง |
+| [ ] | 1.6 | 🆕 **แก้ raw `$e` ขึ้นจอ 37 จุดในเลน Teacher** (พบ 2026-09-10) | — | แทนที่ด้วยข้อความไทยที่อ่านรู้เรื่อง ห้ามโชว์ exception message ดิบให้ผู้ใช้เห็น |
 
 ---
 
@@ -193,19 +215,20 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 
 ---
 
-### PHASE 3 — Executive 13 หน้า · 15–19 เซสชัน · **สายที่ 2 (ทำขนานกับ Phase 2 ได้)**
+### PHASE 3 — Executive 13 หน้า · **สายที่ 2** — ✅ ปิดแล้ว 12/13 หน้า (verify 2026-09-10)
 
 | | ID | งาน | หมายเหตุ | เซสชัน |
 |---|---|---|---|---:|
-| [ ] | 3.0 | **สำรวจ backend ก่อนเขียนโค้ดใดๆ** | 6 หน้าที่ตัดขาดต้องใช้ข้อมูลอะไร · มี RPC ใน 207 ตัวรองรับกี่หน้า · `executive` ถูก whitelist แล้ว 56 จุด | 1 |
-| [ ] | 3.1 | ⚠️ **ลบตารางปลอมใน 5 หน้าที่ต่อครึ่งเดียว** | `classrooms`(205) `cameras`(105) `events`(86) `teams`(29) `alerts` ฯลฯ — **ทำก่อน** เพราะอันตรายกว่าหน้าที่ตัดขาด (ดูเหมือนใช้ได้) | 3 |
-| [ ] | 3.2 | `director_teachers` (1,927) | ปลอม `personnel`(151) — น่าจะ reuse `getAllUsers` ได้ | 2 |
-| [ ] | 3.3 | `director_reports` (1,705) | ปลอม `reports`(191) | 2 |
-| [ ] | 3.4 | `director_scan` (1,082) | ปลอม `teachers`/`kits`/`recent` | 1.5 |
-| [ ] | 3.5 | `director_learning` (2,815) | ปลอม `gradeData`(85) `urgentStudents`(37) `followUps`(41) | 2.5 |
-| [ ] | 3.6 | `director_settings` (1,790) | | 1.5 |
-| [ ] | 3.7 | ❓ **`director_meetings` (2,216)** | **ต้องตัดสินใจก่อน:** ไม่มีตารางใน DB เลย → สร้างใหม่ (+3–4) หรือ disable (0.3) | 0.3–4 |
-| [ ] | 3.8 | verify `director_overview` + `director_notifications` | 2 หน้าที่สะอาดแล้ว เหลือคลิกจริง | 1 |
+| [x] | 3.0 | สำรวจ backend ก่อนเขียนโค้ด | ✅ ทำแล้ว — `docs/handoff/EXECUTIVE_BACKEND_SURVEY.md` | 1 |
+| [x] | 3.1 | ลบตารางปลอมใน 5 หน้าที่ต่อครึ่งเดียว | ✅ `classrooms`/`events`/`teams`/`alerts` แก้ครบ 4/5 — `cameras`(cctv) **ยังไม่แก้ ตั้งใจพักไว้** ดู 3.9 ใหม่ | 3 |
+| [x] | 3.2 | `director_teachers` (1,927) | ✅ ต่อจริงแล้ว (`fe8e4e6`) ผูกกับ ฝ่าย/กลุ่มสาระ schema | 2 |
+| [x] | 3.3 | `director_reports` (1,705) | ✅ ต่อจริงแล้ว (`6065fe3`) | 2 |
+| [ ] | 3.4 | `director_scan` (1,082) | มี `DirectorScanController` เรียก service จริงแล้ว แต่ **ยังไม่อ่านเต็มไฟล์ยืนยัน** ว่าไม่มี hardcode หลงเหลือ — เหลือ verify ไม่ใช่ต่อใหม่ | 0.5 |
+| [x] | 3.5 | `director_learning` (2,815) | ✅ ต่อจริงแล้ว (`1de1c4f`) รวม automatic student-support flags (migration `20260910120000`/`20260910130000`) | 2.5 |
+| [x] | 3.6 | `director_settings` (1,790) | ✅ บันทึกจริงแล้ว (`d64fb77`) | 1.5 |
+| [x] | 3.7 | `director_meetings` (2,216) | ✅ **D2 ปิดแล้ว** — ไม่ต้องสร้างตารางใหม่ ต่อผ่าน `MeetingService`/`list_meeting_records`/`list_meetings` จริง (`8b26c4e`, `041949e`) + ปฏิทินรวมด้วย (`director_calendar_controller`) | — |
+| [x] | 3.8 | verify `director_overview` + `director_notifications` | ✅ overview ผ่าน browser QA จริงหลายรอบ (ล่าสุด 2026-09-09, ตัวเลข Supabase local จริง) · notifications เรียก `readAndVerify` จริง | 1 |
+| [ ] | 3.9 | 🎥 **`director_cctv_page`** — ยังฮาร์คโค้ด | ยืนยันซ้ำ 2026-09-10: รายการกล้อง (บรรทัด 76–167) + การ์ดสรุป 5 ค่า (291–319, `'24' '22' '2' '19' '3'`) เป็น literal ทั้งหมด **ผู้ใช้สั่งพักไว้เอง** — รอวิธีต่อ stream/ภาพกล้องจริงก่อนแก้ | 2–3 |
 
 ---
 
@@ -241,7 +264,7 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 | # | เรื่อง | บล็อก | ตัวเลือก |
 |---|---|---|---|
 | D1 | อนุญาตให้เขียน production ไหม | 0.2 · 0.3 · 0.4 · 5.6 | อนุญาต / ทำเองโดยเจ้าของ |
-| D2 | `director_meetings` เอายังไง | 3.7 | สร้างใหม่ (+3–4 เซสชัน) / disable (0.3) / ลบทิ้ง |
+| ~~D2~~ | ~~`director_meetings` เอายังไง~~ | ~~3.7~~ | ✅ **ปิดแล้ว** — ต่อผ่าน `MeetingService` จริง ไม่ต้องสร้างตารางใหม่ |
 | D3 | Super Admin ใช้เกณฑ์ไหน | Phase 4 ทั้งหมด | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |
 | D4 | เก็บ `teacher_storybook`(8,227) + `design_system`(849) ไหม | 0.6 | เก็บไว้เป็น dev tool / ลบ |
 | D5 | โควต้า GitLab CI หมด (`ci_quota_exceeded`) — **ไม่ใช่ปัญหาโค้ด** | CI ทั้งหมด | ต่อโควต้า / ติดตั้ง self-hosted runner / ใช้ GitHub Actions อย่างเดียว |
@@ -249,6 +272,20 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 ---
 
 ## 5. เวลา
+
+| Phase | เซสชัน (ประมาณการเดิม 2026-09-06) | สถานะจริง 2026-09-10 |
+|---|---:|---|
+| 0 | 1 | ✅ ปิดแล้ว (ยกเว้น 0.5 fixture) |
+| 1 | 2–3 | ⚠️ เกือบปิด — เหลือ 1.3 (test debt re-count), 1.5 (Parent regression), 1.6 ใหม่ (raw `$e`) |
+| 2 | 16–18 | ✅ ปิดแล้ว 23/23 (ยกเว้น 2.10 บล็อกตั้งใจ) |
+| 3 | 15–19 | ✅ ปิดแล้ว 12/13 — เหลือ 3.4 (verify scan) + 3.9 (cctv, พักไว้ตั้งใจ) — **ใช้เวลาจริงน้อยกว่าประมาณการเดิมมาก** |
+| 4 | 6–8 | ❌ ยังไม่เริ่ม |
+| 5 | 3 | ❌ ยังไม่เริ่ม |
+
+**ตัวเลข "รวม 43–52 เซสชัน" ด้านล่างเป็นประมาณการเดิมตอนยังไม่รู้ว่า Phase 3
+จะเสร็จเร็ว — ของจริงที่เหลือตอนนี้คือ Phase 4 (6–8) + Phase 5 (3) + เศษของ
+Phase 1/3 (~2–3) ≈ 11–14 เซสชันเท่านั้น** ตารางเดิมด้านล่างเก็บไว้เพื่อ
+อ้างอิงว่าประมาณการตอนเริ่มเป็นอย่างไร
 
 | Phase | เซสชัน |
 |---|---:|
@@ -262,7 +299,8 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 | **ขนาน 2 สาย** (Phase 2 ‖ Phase 3 — คนละโฟลเดอร์ ไม่ชนกัน) | **28–34** |
 
 1 เซสชัน ≈ 2–3 ชม. (รวมเวลารัน test/build/db reset และคลิกทดสอบจริง)
-⇒ **~70–100 ชม. งาน AI** ถ้าทำขนาน 2 สาย
+⇒ **~70–100 ชม. งาน AI** ถ้าทำขนาน 2 สาย (ประมาณการเดิม — ของจริงเหลือ
+~22–35 ชม. จาก Phase 4/5 + เศษงานเล็ก ๆ)
 
 | ดูแลได้วันละ | เสร็จใน |
 |---|---|

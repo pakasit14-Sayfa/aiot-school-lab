@@ -25,6 +25,7 @@ void main() {
     water: const [],
     studentAttendance: rooms,
     staffAttendance: staff,
+    subjectGroups: const [],
   );
 
   Future<void> pump(WidgetTester t, DirectorOverviewData d) async {

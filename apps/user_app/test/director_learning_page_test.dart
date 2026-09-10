@@ -111,7 +111,8 @@ void main() {
       addTearDown(controller.dispose);
       await tester.pumpWidget(page(controller));
       await tester.pumpAndSettle();
-      expect(find.text('3 คน'), findsOneWidget);
+      expect(find.text('นักเรียนที่ใช้งานอยู่ 3 คน'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
       expect(
         find.text('มา 1 · สาย 0 · ขาด 0 · ลา 0 · ยังไม่เช็คชื่อ 1'),
         findsOneWidget,

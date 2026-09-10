@@ -51,32 +51,275 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     surface: surface,
     children: children,
   );
-  Widget metric(
-    String title,
-    String value, {
-    Color color = AppPalette.primaryPinkDark,
-  }) => Container(
+  // ก็อบโครงสร้าง header จากเวอร์ชัน 7 ก.ย. มาตรง ๆ (การ์ดขาวเฉพาะหน้านี้
+  // ไม่ใช่ DirectorWorkspaceHero กลางที่ใช้ร่วมกับอีก 5 หน้า) ต่างแค่ตัวเลข
+  // ในป้ายเขียวเป็นจำนวนนักเรียนจริงจาก overview แทน "1,248" ที่แต่งขึ้น
+  Widget _hero() {
+    final count = controller.overview?.activeStudentCount;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .03),
+            blurRadius: 18,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final titleContent = Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.school_rounded,
+                  color: Color(0xFF0284C7),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ศูนย์ภาพรวมและพัฒนานักเรียน',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -.4,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'ข้อมูลนักเรียน การมาเรียน และการดูแลช่วยเหลือของโรงเรียน',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+          final badgeContent = Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE6F7ED),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF059669).withValues(alpha: .25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF059669),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        count == null
+                            ? 'ยังไม่มีข้อมูลนักเรียน'
+                            : 'นักเรียนที่ใช้งานอยู่ $count คน',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF047857),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: const Color(0xFFF8FAFC),
+                ),
+                onPressed: controller.loading ? null : () => controller.load(),
+                icon: const Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF0F172A)),
+                label: const Text(
+                  'รีเฟรช',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                ),
+              ),
+            ],
+          );
+          if (box.maxWidth < 700) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [titleContent, const SizedBox(height: 14), badgeContent],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: titleContent),
+              const SizedBox(width: 16),
+              badgeContent,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  // การ์ดสรุปแบบเดียวกับ _StudentExecutiveSummary ของวันที่ 7 แต่คำนวณจาก
+  // ข้อมูลจริง: การ์ดแรกใช้ overview.activeStudentCount ตรง ๆ การ์ดสองรวม
+  // present/recorded ของทุกห้องที่ยังไม่กรอง (ไม่ใช้ตัวเลขแต่งขึ้น 1,248/94.2%)
+  Widget _summaryCards() {
+    final rows = controller.filteredAttendance(null, null);
+    final present = rows.fold<int>(0, (n, r) => n + r.present);
+    final recorded = rows.fold<int>(
+      0,
+      (n, r) => n + r.present + r.late + r.absent + r.excused,
+    );
+    final pct = recorded == 0 ? null : present * 100 / recorded;
+    final count = controller.overview?.activeStudentCount;
+    final cards = [
+      _SummaryCardData(
+        title: 'นักเรียนทั้งหมด',
+        value: count?.toString() ?? '—',
+        unit: 'คน',
+        sub: '${controller.overview?.roomCount ?? 0} ห้องเรียน • ${controller.grades.length} ระดับชั้น',
+        icon: Icons.groups_rounded,
+        color: const Color(0xFF0284C7),
+      ),
+      _SummaryCardData(
+        title: 'มาเรียนวันนี้',
+        value: pct?.toStringAsFixed(1) ?? '—',
+        unit: pct == null ? '' : '%',
+        sub: pct == null
+            ? 'ยังไม่มีการเช็คชื่อของวันนี้'
+            : 'มา $present จาก $recorded คนที่เช็คชื่อแล้ว',
+        icon: Icons.how_to_reg_rounded,
+        color: const Color(0xFF16A34A),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (_, box) {
+        final columns = box.maxWidth < 560 ? 1 : 2;
+        return Wrap(
+          spacing: 14,
+          runSpacing: 14,
+          children: [
+            for (final c in cards)
+              SizedBox(
+                width: columns == 1 ? box.maxWidth : (box.maxWidth - 14) / 2,
+                child: _summaryCard(c),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _summaryCard(_SummaryCardData d) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: color.withAlpha(22),
-      borderRadius: BorderRadius.circular(18),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: const Color(0xFFE2E8F0)),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: .02),
+          blurRadius: 10,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
-    width: 180,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title),
+        Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: d.color.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Icon(d.icon, color: d.color, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                d.title,
+                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              d.value,
+              style: TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.w900,
+                color: d.color,
+                letterSpacing: -.6,
+              ),
+            ),
+            if (d.unit.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Text(
+                d.unit,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
         Text(
-          value,
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
+          d.sub,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
         ),
       ],
     ),
   );
+
   Future<void> showHistory(StudentSupportCase item) => showDialog<void>(
     context: context,
     builder: (_) => _SupportHistoryDialog(
@@ -103,19 +346,8 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const DirectorWorkspaceHero(
-                icon: Icons.school_outlined,
-                title: 'ศูนย์ภาพรวมและพัฒนานักเรียน',
-                subtitle:
-                    'ข้อมูลนักเรียน การมาเรียน และการดูแลช่วยเหลือของโรงเรียน',
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: controller.loading ? null : () => controller.load(),
-                icon: const Icon(Icons.refresh),
-                label: const Text('โหลดข้อมูลใหม่'),
-              ),
-              const SizedBox(height: 12),
+              _hero(),
+              const SizedBox(height: 14),
               if (controller.loading)
                 card('กำลังโหลดข้อมูลนักเรียน', [
                   const LinearProgressIndicator(),
@@ -135,33 +367,8 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                   ),
                 ])
               else ...[
-                card('ภาพรวมปัจจุบันของโรงเรียน', [
-                  Wrap(
-                    spacing: 20,
-                    runSpacing: 16,
-                    children: [
-                      metric(
-                        'นักเรียนที่ใช้งานอยู่',
-                        '${controller.overview!.activeStudentCount} คน',
-                      ),
-                      metric(
-                        'ห้องในทะเบียนสถานที่',
-                        '${controller.overview!.roomCount} ห้อง',
-                        color: const Color(0xFF356A9A),
-                      ),
-                      metric(
-                        'รายวิชา',
-                        '${controller.overview!.courseCount} วิชา',
-                        color: const Color(0xFF467A65),
-                      ),
-                      metric(
-                        'งานครบกำหนดใน 7 วัน',
-                        '${controller.overview!.assignmentsDueThisWeek} งาน',
-                        color: const Color(0xFF956419),
-                      ),
-                    ],
-                  ),
-                ]),
+                _summaryCards(),
+                const SizedBox(height: 16),
                 card('การมาเรียนรายวัน', [
                   const Text(
                     'นับนักเรียนที่ใช้งานอยู่ในปัจจุบัน แม้เลือกดูวันย้อนหลัง ข้อมูลนี้เป็นการเช็คชื่อประจำชั้น',
@@ -429,4 +636,18 @@ class _SupportHistoryDialogState extends State<_SupportHistoryDialog> {
       ),
     ],
   );
+}
+
+class _SummaryCardData {
+  const _SummaryCardData({
+    required this.title,
+    required this.value,
+    required this.unit,
+    required this.sub,
+    required this.icon,
+    required this.color,
+  });
+  final String title, value, unit, sub;
+  final IconData icon;
+  final Color color;
 }
