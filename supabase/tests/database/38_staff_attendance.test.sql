@@ -207,10 +207,16 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- Leave
 -- ---------------------------------------------------------------------------
+-- วัน "วันนี้" ต้องเป็นวันตามเวลาไทย เหมือนที่ list_staff_attendance ใช้เป็น
+-- ค่าเริ่มต้น (`now() at time zone 'Asia/Bangkok'`) — เดิมใช้ current_date
+-- ซึ่งเป็นวัน UTC ทำให้ช่วง 00:00–07:00 เวลาไทย การลาถูกบันทึกไว้ "เมื่อวาน"
+-- แล้วอ่านกลับ "วันนี้" ไม่เจอ เทสต์ 25 จึงแดงทุกคืนหลังเที่ยงคืน
+-- (เจอ 2026-09-14 00:41)
 
 select lives_ok(
   $$ select request_staff_leave('att-teacher-token', 'sick',
-       current_date, current_date, 'ไข้') $$,
+       (now() at time zone 'Asia/Bangkok')::date,
+       (now() at time zone 'Asia/Bangkok')::date, 'ไข้') $$,
   'a teacher can request leave for themselves'
 );
 
