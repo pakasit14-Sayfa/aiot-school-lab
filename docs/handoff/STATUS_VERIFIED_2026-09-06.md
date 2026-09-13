@@ -101,6 +101,8 @@ Executive 6 หน้า: `learning`(2,815) `meetings`(2,216) `teachers`(1,927) 
 
 ### 3.6 Test debt ยังไม่เคลียร์ — Flutter fail 16 + pgTAP fail 6
 
+> 2026-09-13 (รอบ 2): shared_core **61/61** หลังแก้ fixture `submission_version_id` · Student/Parent/School Admin เหลือ 0 จุดที่โชว์ `$e` ดิบหรือข้อมูลจำลองบนเส้นทางที่ผู้ใช้ถึง (ยกเว้น Executive ที่อีกบัญชีทำอยู่)
+>
 > 2026-09-13: pgTAP **0 fail** (`Result: PASS`, 53 ไฟล์) หลังลบ 14/16 ที่ทดสอบ role ที่ไม่มีแล้ว และเขียน 57 แทน · Flutter user_app **720 ผ่าน / 6 พัง บน main** (774/6 เมื่อรวม branch `agent/fix-6-audit-bugs` ที่มีเทสต์เพิ่ม — ทั้ง 6 คือ Executive ที่รอ seam `DirectorOverviewController`) · shared_core 60/61 · shared_ui 17/17
 
 ---

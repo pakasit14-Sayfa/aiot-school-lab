@@ -52,9 +52,11 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   final TextEditingController _departmentController = TextEditingController();
 
   String? _profileImageUrl;
-  bool _emailNotification = true;
-  bool _systemNotification = true;
-  bool _securityNotification = true;
+  // เดิมเป็น bool 3 ตัวที่ setState อย่างเดียว — กดแล้วสวิตช์ขยับ แต่ไม่มี RPC
+  // ไม่มีตารางเก็บ และไม่มีระบบส่งอีเมล/แจ้งเตือนความปลอดภัยที่จะอ่านค่านี้
+  // รีโหลดแล้วกลับค่าเดิม แอดมินเข้าใจว่าตั้งค่าแล้วทั้งที่ไม่มีอะไรเปลี่ยน
+  // ตามกติกา DoD "ปุ่มที่ไม่มี backend = disable" สวิตช์จึงถูกปิดไว้พร้อม
+  // เหตุผล จนกว่าจะมีที่เก็บค่าและมีระบบที่ใช้ค่านั้นจริง
 
   List<_ProfileLog> _logs = [];
 
@@ -807,38 +809,33 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   Widget _buildNotificationPreferences() {
     return _ProfileSection(
       title: 'การแจ้งเตือนของฉัน',
-      subtitle: 'เลือกช่องทางและประเภทการแจ้งเตือนที่ต้องการรับ',
+      subtitle:
+          'ยังตั้งค่าไม่ได้ — ระบบยังไม่มีที่เก็บค่าการแจ้งเตือนรายบุคคล '
+          'และยังไม่มีการส่งอีเมลหรือแจ้งเตือนด้านความปลอดภัย',
       child: Column(
         children: [
-          _ProfileSwitchRow(
+          const _ProfileSwitchRow(
             icon: Icons.notifications_rounded,
             title: 'แจ้งเตือนในระบบ',
-            detail: 'แสดงการแจ้งเตือนสำคัญในหน้าแอดมิน',
-            value: _systemNotification,
-            onChanged: (bool value) {
-              setState(() => _systemNotification = value);
-            },
+            detail: 'แสดงการแจ้งเตือนสำคัญในหน้าแอดมิน — เปิดอยู่เสมอ ยังปิดไม่ได้',
+            value: true,
+            onChanged: null,
           ),
           const SizedBox(height: 9),
-          _ProfileSwitchRow(
+          const _ProfileSwitchRow(
             icon: Icons.email_rounded,
             title: 'แจ้งเตือนทางอีเมล',
-            detail: 'ส่งเรื่องสำคัญและรายการเร่งด่วนทางอีเมล',
-            value: _emailNotification,
-            onChanged: (bool value) {
-              setState(() => _emailNotification = value);
-            },
+            detail: 'ระบบยังไม่ส่งอีเมลแจ้งเตือน',
+            value: false,
+            onChanged: null,
           ),
           const SizedBox(height: 9),
-          _ProfileSwitchRow(
+          const _ProfileSwitchRow(
             icon: Icons.security_rounded,
             title: 'แจ้งเตือนด้านความปลอดภัย',
-            detail:
-                'รับแจ้งเมื่อมีการเข้าสู่ระบบผิดปกติหรือใส่รหัสผิดหลายครั้ง',
-            value: _securityNotification,
-            onChanged: (bool value) {
-              setState(() => _securityNotification = value);
-            },
+            detail: 'ยังไม่มีการแจ้งเตือนประเภทนี้ในระบบ',
+            value: false,
+            onChanged: null,
           ),
         ],
       ),
@@ -1141,7 +1138,9 @@ class _ProfileSwitchRow extends StatelessWidget {
   final String title;
   final String detail;
   final bool value;
-  final ValueChanged<bool> onChanged;
+
+  /// null = ยังไม่มี backend รองรับ → Switch แสดงเป็นปิดใช้งาน กดไม่ได้
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {

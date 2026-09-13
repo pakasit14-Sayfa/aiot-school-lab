@@ -222,15 +222,36 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog>
       Navigator.of(context).pop();
       widget.onSubmitted();
     } catch (e) {
+      debugPrint('LeaveRequestDialog: ส่งคำขอลาไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('เกิดข้อผิดพลาด: $e'),
+          content: Text(_messageForFailure(e)),
           behavior: SnackBarBehavior.floating,
         ),
       );
       setState(() => _isSubmitting = false);
     }
+  }
+
+  /// `submit_leave_request` raise ได้ 4 รหัส (ดู 20260903030000) — แปลเฉพาะ
+  /// ตัวที่ผู้ปกครองแก้เองได้ ที่เหลือเป็นประโยคกลาง ไม่ใช่ข้อความ exception ดิบ
+  /// ที่เคยขึ้นบนจอ (`PostgrestException(message: invalid_date_range, ...)`)
+  static String _messageForFailure(Object e) {
+    final raw = e.toString();
+    if (raw.contains('invalid_date_range')) {
+      return 'วันสิ้นสุดต้องไม่ก่อนวันเริ่มลา';
+    }
+    if (raw.contains('invalid_leave_type')) {
+      return 'ประเภทการลานี้ยังไม่รองรับ';
+    }
+    if (raw.contains('invalid_session')) {
+      return 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่';
+    }
+    if (raw.contains('forbidden')) {
+      return 'บัญชีนี้ไม่มีสิทธิ์ขอลาให้นักเรียนคนนี้';
+    }
+    return 'ส่งคำขอลาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
   }
 
   Widget _buildTypePill(

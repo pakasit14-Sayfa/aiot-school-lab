@@ -186,9 +186,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
         _loading = false;
       });
     } catch (e) {
+      // ข้อความ exception ดิบไปอยู่ใน log — บนจอนักเรียนต้องเป็นประโยคที่
+      // อ่านรู้เรื่อง ไม่ใช่ PostgrestException/StateError ที่บอกอะไรเขาไม่ได้
+      debugPrint('StudentVariantSchoolHome: โหลดข้อมูลหน้าแรกไม่สำเร็จ — $e');
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลหน้าแรกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
         _loading = false;
       });
     }
