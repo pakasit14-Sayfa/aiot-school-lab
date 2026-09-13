@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 
 /// What the page knows about a relay right now.
 enum RelayLifecycle {

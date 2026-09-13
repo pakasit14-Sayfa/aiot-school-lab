@@ -41,9 +41,10 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
         _loading = false;
       });
     } catch (e) {
+      debugPrint('Error loading class schedule: $e');
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลตารางสอนไม่สำเร็จ: $e';
+        _error = 'โหลดข้อมูลตารางสอนไม่สำเร็จ';
         _loading = false;
       });
     }
@@ -278,9 +279,10 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                       );
                       _load();
                     } catch (e) {
+                      debugPrint('Error saving class schedule slot: $e');
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('บันทึกคาบเรียนไม่สำเร็จ: $e')),
+                        const SnackBar(content: Text('บันทึกคาบเรียนไม่สำเร็จ')),
                       );
                     }
                   },
@@ -330,9 +332,10 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
       );
       _load();
     } catch (e) {
+      debugPrint('Error removing class schedule slot: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ลบไม่สำเร็จ: $e')),
+        const SnackBar(content: Text('ลบไม่สำเร็จ')),
       );
     }
   }

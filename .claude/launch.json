@@ -2,17 +2,12 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "user_app_web",
-      "runtimeExecutable": "flutter",
+      "name": "user_app",
+      "runtimeExecutable": "sh",
       "runtimeArgs": [
-        "run",
-        "-d",
-        "web-server",
-        "--web-port=5599",
-        "--web-hostname=127.0.0.1",
-        "--dart-define-from-file=../../env.json"
+        "-c",
+        "cd apps/user_app && exec flutter run -d web-server --web-port 5599 --web-hostname 127.0.0.1 --dart-define-from-file=../../env.json"
       ],
-      "cwd": "apps/user_app",
       "port": 5599
     }
   ]

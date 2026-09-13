@@ -101,6 +101,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       }
       await _loadWiringGroups();
     } catch (e) {
+      debugPrint('Error loading AIoT lab data: $e');
       if (mounted) {
         setState(() {
           _devices = [];
@@ -109,9 +110,9 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('โหลดข้อมูลแล็บ AIoT ไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('โหลดข้อมูลแล็บ AIoT ไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }
@@ -161,15 +162,16 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
 
       _loadLabData();
     } catch (e) {
+      debugPrint('Error sending device command: $e');
       if (!mounted) return;
       setState(() {
         _pendingStatusOverrides[device.deviceId] = _DeviceStatus.failed;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('ส่งคำสั่งไม่สำเร็จ: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('ส่งคำสั่งไม่สำเร็จ'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
     }
@@ -207,10 +209,11 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       ).showSnackBar(const SnackBar(content: Text('สร้างกลุ่มต่อสายแล้ว')));
       await _loadWiringGroups();
     } catch (e) {
+      debugPrint('Error creating wiring group: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('สร้างกลุ่มไม่สำเร็จ')));
     }
   }
 
@@ -222,10 +225,11 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       );
       await _loadWiringGroups();
     } catch (e) {
+      debugPrint('Error changing wiring group status: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('เปลี่ยนสถานะไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('เปลี่ยนสถานะไม่สำเร็จ')));
     }
   }
 
@@ -255,10 +259,11 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       await WiringGroupService.deleteWiringGroup(group.groupId);
       await _loadWiringGroups();
     } catch (e) {
+      debugPrint('Error deleting wiring group: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('ลบไม่สำเร็จ: $e')));
+      ).showSnackBar(const SnackBar(content: Text('ลบไม่สำเร็จ')));
     }
   }
 

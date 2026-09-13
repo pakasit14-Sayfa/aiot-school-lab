@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_core/shared_core.dart';
 
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 
 class SchoolScanPage extends StatefulWidget {
   const SchoolScanPage({super.key, this.onBack, this.loadDevices});

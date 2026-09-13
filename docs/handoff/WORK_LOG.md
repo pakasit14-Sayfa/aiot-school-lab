@@ -997,3 +997,84 @@ completed successfully. Browser QA is deferred; no push or production deployment
 | (Executive overview Sep-7 visual restoration, 2026-09-09) | working tree | Confirmed commit `c1aff8df8f0182b011e21abf01eb600348301e73` from 7 Sep as the user's master first-page design. Restored its Thai date pill, hero proportions, white summary cards with colored header ribbons, compact view actions, and bordered report buttons in the live controller-backed page. The learning section now matches the Sep-7 reference: one tinted card per track with room/student counts, confirmed-score badge and progress bar, unavailable behavior/environment text, and a verified overall-average banner. Teachers remain a circular registered count. Browser QA on `127.0.0.1:8767` confirmed the restored layout with live Supabase totals (15 students, 1 teacher, 4 reports, 9 devices) and track average 75.6%; no historical mock workload ratios were restored. |
 | (Executive overview Sep-7 full-layout alignment, 2026-09-09) | working tree | Completed a section-by-section source and browser comparison against the 7 Sep snapshot. Restored the desktop 1:1 learning/teacher row at 420px, the 5:3 utility/sensor row at 460px, the 1020px stacking breakpoint, and the daily/weekly/monthly segmented control. The period control now performs real 1/7/30-day utility reloads while registration totals remain explicitly labelled current. Rebuilt the old watchlist visual language over real notifications with all/unread/read filters and body/category/date fields. Kept the single real teacher circle because the old four-circle workload breakdown was explicitly demo data. Fixed mobile hero-tag overflow and cancelled the delayed reload timer on dispose. Browser QA confirmed period switching and notification filtering; focused responsive/connection tests pass 4/4 and the page analyzer reports no issues. |
 | (Executive overview notification-card redesign, 2026-09-09) | working tree | Reworked “สิ่งที่ควรทราบวันนี้” to match the supplied detailed-card reference: a compact white heading, latest-data badge, segmented read filters, category-colored icons, status pills, full title/body hierarchy, timestamp/category metadata and a source-specific action. Meeting actions open the meetings page, incident actions open emergency, student-support actions open the student overview, resource actions open environment/resources, and “ดูทั้งหมด” opens notifications. All displayed text and read state still come from real notification rows; visual categories and destinations are derived only from the stored notification type/category. No sample alerts or unsupported CCTV/building actions were introduced. Browser QA confirmed the three live local notices render in the new hierarchy and both meeting/incident actions open their real destination pages. Responsive, connection, filter and navigation tests pass 5/5; scoped analyzer is clean. |
+
+## 2026-09-10 — จัดการสิทธิ์บอกว่าบันทึกแล้วทั้งที่ไม่ได้บันทึก + เขียน design system
+
+- `2cb6e23` fix(school-admin): หน้าจัดการสิทธิ์ส่งไปหลังบ้านแค่ `role` แล้วขึ้น
+  "บันทึกการแก้ไขสิทธิ์เรียบร้อยแล้ว" เสมอ สถานะบัญชีที่ผู้ดูแลเพิ่งเปลี่ยนถูกทิ้ง
+  เงียบ ๆ — ผูกกับ `suspend_user`/`reactivate_user` จริง + อ่านกลับมายืนยัน
+  ขอบเขตการเข้าถึงไม่มี RPC เขียนกลับเลย เปลี่ยนเป็นอ่านอย่างเดียว
+  การ์ดสรุป "รอตรวจสอบ" ที่เป็น 0 ตลอดกาลถูกตัดออก (เทสต์ใหม่ 3 เคส)
+- `docs/handoff/DESIGN_SYSTEM.md` (ใหม่) — บันทึก palette 6 เลนที่มีอยู่จริง
+  ค่ามาตรฐานของหน้าจอ กติกาห้ามฮาร์ดโค้ดสี และหนี้ที่ยังค้าง
+  โปรเจกต์ไม่เคยมีเอกสารดีไซน์เลย ทุกเซสชันจึงคิดสีใหม่เอง = ต้นเหตุ UI drift
+- รวม `school_admin_palette.dart` ที่ซ้ำ 2 ไฟล์เนื้อหาเหมือนกันเป๊ะให้เหลือไฟล์เดียว
+  (`pages/school_admin/theme/`) แก้ import 12 จุด
+
+### ตรวจรายงาน audit 5 เลนที่ได้รับมา — ผิด/ล้าสมัย 6 จาก 11 ข้อ
+จริง: school_permissions fake success (แก้แล้ว) · director_cctv 6 การ์ดฮาร์ดโค้ด ·
+`teacher_profile_page.dart:533` ชื่อโรงเรียนฮาร์ดโค้ด · `$e` ขึ้นจอเลน Teacher 37 จุด
+ไม่จริงแล้ว: director_notifications เรียก `readAndVerify` จริง · ปุ่ม 3 ปุ่มของ ผอ.
+ถูกรื้อไปแล้ว · 3 หน้า Executive ใช้ controller ที่เรียก service จริง ·
+Parent `status ?? 'present'` ไม่ใช่บั๊ก (คอลัมน์ NOT NULL + inner join) ·
+Student sidebar 'ม.5/2' ไม่มีแล้ว · Teacher 'Online' ผูกกับ `dev.isOnline` จริง
+
+### ปรับ MASTER_PLAN_2026-09-06.md ให้ตรงกับสถานะจริง
+
+Phase 3 (Executive) ในเอกสารยัง `[ ]` ทั้ง 8 ticket ทั้งที่งานจริงเสร็จไปเกือบ
+หมดระหว่าง 2026-09-06 ถึง 09 (คอมมิต `d09c550`..`07ed036`) แต่ไม่มีใครย้อนมา
+ติ๊ก — สาเหตุเดียวกับที่ CLAUDE.md เตือนไว้ (เอกสารไม่ตามงานจริง) ตรวจซ้ำด้วย
+`git log` + `grep` หา literal stat-card values (`value: '[0-9]`) ในทุกไฟล์
+`director_*_page.dart` จริงก่อนติ๊ก ไม่ใช่เชื่อจากรายงาน:
+- ติ๊ก `[x]` ให้ 3.2/3.3/3.5/3.6/3.7/3.8 (มีคอมมิตจริงรองรับ, grep ไม่เจอ
+  hardcode) และปิด decision D2 (`director_meetings` ต่อผ่าน `MeetingService`
+  จริง ไม่ต้องสร้างตารางใหม่)
+- คง `[ ]` ให้ 3.4 (`director_scan` — grep ไม่เจอ hardcode แต่ยังไม่ได้อ่าน
+  เต็มไฟล์ยืนยัน) และเพิ่ม ticket ใหม่ 3.9 สำหรับ `director_cctv_page` ที่ยัง
+  ฮาร์ดโค้ดจริง (บรรทัด 76–167 รายการกล้อง + 291–319 การ์ดสรุป 5 ค่า) — ผู้ใช้
+  สั่งพักไว้เอง
+- เพิ่ม ticket 1.6 สำหรับ raw `$e` 37 จุดในเลน Teacher (พบระหว่างตรวจ
+  รายงาน audit ด้านบน)
+- ปรับตาราง §5 เวลา ให้บอกว่าของจริงที่เหลือคือ Phase 4 + 5 + เศษ Phase 1/3
+  (~11–14 เซสชัน) ไม่ใช่ 43–52 ตามประมาณการเดิม
+
+### ตรวจฮาร์ดแวร์ IoT กับฐานข้อมูล production จริง 2026-09-10
+
+ผู้ใช้ขอทดสอบการสั่งเปิด/ปิดน้ำ-ไฟฝั่งแอดมิน จึงไล่ดูข้อมูลจริงบน
+`smqoknnftgjyhrnzugar` (ไม่ใช่ local — ตัวเลขจาก local ทำให้สรุปผิดไป 2 รอบ)
+
+**ของจริงบน production:** อุปกรณ์ 5 ตัว = เซนเซอร์อากาศ 1 + บอร์ดรีเลย์ 4 ช่อง
+(`relay_no` 1-4, ช่อง 1 = วาล์วน้ำ) · `sensor_readings` 144,125 แถว 10 metric ·
+`device_heartbeats` 23,629 · `device_commands` 186 (ดึงไปแล้ว 170)
+
+**สิ่งที่พบ:**
+- `acked_at` **เป็น null ทั้ง 170 ครั้ง** — เฟิร์มแวร์ไม่มีโค้ดเรียก
+  `ack_device_command` เลย `device_relay_states` จึงว่างเปล่าตลอดกาล
+  แปลว่ารีเลย์อาจทำงานจริงมาตลอด แต่แอปไม่มีทางยืนยันได้
+- บอร์ดหยุดทำงาน 2026-09-09 10:12:50 (heartbeat สุดท้าย 10:12:45, poll สุดท้าย
+  10:12:50) คำสั่ง 16 อันหลังจากนั้นค้างคิว — ล้างออกแล้วด้วย ack_status 'failed'
+- เซนเซอร์ส่วนใหญ่หยุดส่งก่อนหน้านั้นอีก: น้ำ 28 ส.ค. · pm25 31 ส.ค. ·
+  อุณหภูมิ/CO2/แสง 2 ก.ย. · เหลือ gas_mq2 ถึง 9 ก.ย.
+- หน้า `school_admin_device_control_page.dart` **ซื่อสัตย์อยู่แล้ว** (เซสชันก่อน
+  แก้ไว้) ขึ้น "ส่งคำสั่งเข้าคิวแล้ว รออุปกรณ์ยืนยัน" ไม่ได้โกหกว่าสำเร็จ
+
+**migration `20260910140000` แก้ 2 บั๊กที่เจอ:**
+1. `poll_device_commands` เดิมคืนคำสั่งค้าง**ทั้งหมด**ในครั้งเดียว ไม่มี order by
+   ไม่มี limit — ตอนล้างคิว 16 แถวออกมาสลับลำดับจริง ถ้าบอร์ดกลับมาก่อนล้าง
+   รีเลย์จะถูกสั่งรัวจนจบที่สถานะเดาไม่ได้ (วาล์วน้ำอาจค้างเปิด)
+   เพิ่ม order by + limit (ตั้งต้น 20) + หมดอายุคำสั่งที่ค้างเกิน 10 นาที
+   **บทเรียน: `update ... returning` ไม่รับประกันลำดับ** ต่อให้ CTE เลือก id
+   ที่เรียงแล้วมาก็ตาม ต้อง order by ที่ชั้นนอกสุด (เทสต์ข้อ 5 จับได้)
+   **และห้ามสร้าง overload 1 อาร์กิวเมนต์แยก** — `poll_device_commands('token')`
+   จะกำกวมทันที บอร์ดจะเรียกไม่ได้เลย ใช้ default parameter แทน
+2. `update devices set status = 'online'` ใน poll เป็นที่เดียวในระบบที่เขียน
+   คอลัมน์นี้ และไม่มีอะไรตั้งกลับเป็น 'offline' — อุปกรณ์ 5 ตัวยังขึ้น online
+   ทั้งที่เงียบ 22 ชม. `teacher_aiot_dashboard_page.dart:208` อ่านค่านี้ตรง ๆ
+   เพิ่ม `device_effective_status()` แล้วให้ `list_school_devices` คิดจาก
+   `last_seen_at` (เกิน 5 นาที = offline) โดยไม่กลบ 'error'/'maintenance'
+   ที่คนตั้งเอง
+
+pgTAP `56_device_command_poll_order_and_online.test.sql` 9/9 ผ่าน
+
+**ยังค้าง:** เฟิร์มแวร์ต้องเพิ่มการเรียก `ack_device_command` ไม่งั้นหน้าจอจะขึ้น
+"อุปกรณ์ยังไม่ยืนยัน" สีส้มตลอดไปต่อให้รีเลย์ทำงานจริง (โค้ดบอร์ดอยู่นอก repo นี้)

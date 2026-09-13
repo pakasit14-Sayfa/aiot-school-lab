@@ -59,6 +59,12 @@ status completely wrong; keep it to these two.
 [docs/handoff/WORK_LOG.md](docs/handoff/WORK_LOG.md) is now **history only**
 — a dated record of what happened, not a plan.
 
+**Before touching anything visual (สี · ระยะ · ฟอนต์ · เพิ่มหน้าใหม่), read
+[docs/handoff/DESIGN_SYSTEM.md](docs/handoff/DESIGN_SYSTEM.md)** — the project
+had *no* written design spec until 2026-09-10, so every session invented its own
+colors; that file records what actually exists (6 per-role palettes, deliberately
+different) plus the rules that stop the drift from growing.
+
 **Before
 auditing a page for fake data, wiring something new to the backend, or
 verifying a "done" claim, read [docs/handoff/DATA_CONNECTION_METHODOLOGY.md](docs/handoff/DATA_CONNECTION_METHODOLOGY.md)**

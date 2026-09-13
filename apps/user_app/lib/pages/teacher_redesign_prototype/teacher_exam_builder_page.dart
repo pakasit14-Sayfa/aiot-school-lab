@@ -62,6 +62,7 @@ class TeacherExamBuilderPage extends StatefulWidget {
     this.courseName = 'โครงงานเซนเซอร์',
     this.initialKind = 'ข้อสอบก่อนเรียน',
     this.listMyCourses,
+    this.createQuiz,
   });
 
   // ไม่บังคับ required เพื่อไม่ให้ route dev-preview เดิมใน main.dart
@@ -75,6 +76,18 @@ class TeacherExamBuilderPage extends StatefulWidget {
   // (and so never falls back to "the first course of any random list") once
   // a real courseId is supplied.
   final Future<List<CourseSummary>> Function()? listMyCourses;
+
+  /// Seam for tests: lets a test capture the real courseId QuizService.
+  /// createQuiz is actually called with, without relying on any error text
+  /// reaching the screen. Defaults to the real service call in production.
+  final Future<String> Function({
+    required String courseId,
+    required String type,
+    required String title,
+    String? lessonId,
+    int? timeLimitMin,
+  })?
+  createQuiz;
 
   @override
   State<TeacherExamBuilderPage> createState() => _TeacherExamBuilderPageState();
@@ -243,9 +256,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         );
       }
     } catch (e) {
+      debugPrint('Error picking exam question image: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์: $e')),
+        const SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์')),
       );
     }
   }
@@ -274,9 +288,10 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         );
       }
     } catch (e) {
+      debugPrint('Error picking exam question video: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์วิดีโอ: $e')),
+        const SnackBar(content: Text('เกิดข้อผิดพลาดในการเลือกไฟล์วิดีโอ')),
       );
     }
   }
@@ -359,7 +374,8 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
           ? 'pre_test'
           : (_selectedKind == _ExamKind.postTest ? 'post_test' : 'general');
 
-      final quizId = await QuizService.createQuiz(
+      final createQuiz = widget.createQuiz ?? QuizService.createQuiz;
+      final quizId = await createQuiz(
         courseId: targetCourseId,
         type: quizKindStr,
         title: title,
@@ -426,11 +442,12 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
         Navigator.pop(context);
       }
     } catch (e) {
+      debugPrint('Error saving exam: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('บันทึกข้อสอบไม่สำเร็จ: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+          const SnackBar(
+            content: Text('บันทึกข้อสอบไม่สำเร็จ'),
+            backgroundColor: Color(0xFFEF4444),
           ),
         );
       }

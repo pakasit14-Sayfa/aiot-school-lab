@@ -3,7 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import 'controllers/school_admin_async_state.dart';
 import 'controllers/school_admin_incident_inbox_controller.dart';
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 
 class SchoolAdminIncidentInboxPage extends StatefulWidget {
   const SchoolAdminIncidentInboxPage({

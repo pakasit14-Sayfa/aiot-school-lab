@@ -108,10 +108,11 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
       });
       await _loadRoster();
     } catch (e) {
+      debugPrint('Error loading attendance rooms/courses: $e');
       if (!mounted) return;
       setState(() {
         _loadingClasses = false;
-        _error = 'โหลดรายชื่อห้องหรือรายวิชาไม่สำเร็จ: $e';
+        _error = 'โหลดรายชื่อห้องหรือรายวิชาไม่สำเร็จ';
       });
     }
   }
@@ -158,10 +159,11 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
         _loadingRoster = false;
       });
     } catch (e) {
+      debugPrint('Error loading attendance roster: $e');
       if (!mounted) return;
       setState(() {
         _loadingRoster = false;
-        _error = 'โหลดรายชื่อนักเรียนไม่สำเร็จ: $e';
+        _error = 'โหลดรายชื่อนักเรียนไม่สำเร็จ';
       });
     }
   }

@@ -14,13 +14,14 @@ const _device = DeviceOption(
   name: 'เซนเซอร์ห้อง ม.1/1',
   type: 'sensor',
   location: 'ม.1/1',
-  status: 'active',
+  status: 'online',
 );
 
 Future<void> _pump(
   WidgetTester tester, {
   Future<List<DeviceOption>> Function()? listSchoolDevices,
   Future<Map<String, SensorModel>> Function()? getAllDeviceSensors,
+  Future<List<DeviceRelayState>> Function()? listDeviceRelayStates,
   Future<List<Map<String, dynamic>>> Function()? listThresholds,
   Future<List<Map<String, dynamic>>> Function({String? status})? listAlerts,
   Future<void> Function(String alertId)? acknowledgeAlert,
@@ -36,6 +37,7 @@ Future<void> _pump(
       home: TeacherAiotDashboardPage(
         listSchoolDevices: listSchoolDevices ?? () async => const [],
         getAllDeviceSensors: getAllDeviceSensors ?? () async => const {},
+        listDeviceRelayStates: listDeviceRelayStates ?? () async => const [],
         listThresholds: listThresholds ?? () async => const [],
         listAlerts: listAlerts ?? ({status}) async => const [],
         acknowledgeAlert: acknowledgeAlert,
@@ -72,6 +74,22 @@ void main() {
     );
     expect(find.text('เซนเซอร์ห้อง ม.1/1'), findsOneWidget);
     expect(find.text('ยังไม่มีอุปกรณ์ AIoT ที่ลงทะเบียนไว้ในระบบ'), findsNothing);
+    expect(find.text('Online'), findsOneWidget);
+  });
+
+  testWidgets('a real device with a real offline status shows Offline, not a hardcoded Online', (
+    tester,
+  ) async {
+    const offlineDevice = DeviceOption(
+      id: 'dev-2',
+      name: 'เซนเซอร์ห้อง ม.1/2',
+      type: 'sensor',
+      location: 'ม.1/2',
+      status: 'offline',
+    );
+    await _pump(tester, listSchoolDevices: () async => const [offlineDevice]);
+    expect(find.text('Offline'), findsOneWidget);
+    expect(find.text('Online'), findsNothing);
   });
 
   testWidgets('zero real alerts shows an honest empty state on the alerts tab', (

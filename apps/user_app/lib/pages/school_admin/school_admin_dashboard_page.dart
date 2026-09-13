@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:shared_ui/shared_ui.dart';
 
-import '../../theme/school_admin_palette.dart';
+import 'theme/school_admin_palette.dart';
 import 'school_resources_page.dart';
 import 'school_students_page.dart';
 import 'school_teachers_page.dart';

@@ -96,13 +96,9 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
   BoxDecoration get whiteCard => BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(24),
-    border: Border.all(color: AppPalette.border),
-    boxShadow: [
-      BoxShadow(
-        color: AppPalette.tint(Colors.black, .025),
-        blurRadius: 16,
-        offset: const Offset(0, 6),
-      ),
+    border: Border.all(color: const Color(0xFFE5E5EA), width: 0.8),
+    boxShadow: const [
+      BoxShadow(color: Color(0x08000000), blurRadius: 20, offset: Offset(0, 6)),
     ],
   );
 
@@ -263,25 +259,7 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (width < 620) ...[
-          overviewHeading(),
-          const SizedBox(height: 10),
-          _OverviewPeriodSelector(
-            days: controller.days,
-            disabled: controller.loading,
-            onSelected: (days) => controller.load(period: days),
-          ),
-        ] else
-          Row(
-            children: [
-              Expanded(child: overviewHeading()),
-              _OverviewPeriodSelector(
-                days: controller.days,
-                disabled: controller.loading,
-                onSelected: (days) => controller.load(period: days),
-              ),
-            ],
-          ),
+        overviewHeading(),
         const SizedBox(height: 7),
         Text(
           '${date(DateTime.now())} · ยอดทะเบียนเป็นข้อมูลปัจจุบัน ไม่ใช่ยอดย้อนหลัง',
@@ -407,7 +385,9 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
         return InkWell(
           key: ValueKey('overview_summary_$index'),
           borderRadius: BorderRadius.circular(18),
-          onTap: () => widget.onNavigate(item.page),
+          onTap: index == 0
+              ? () => _showStudentAttendanceSummary(context, d)
+              : () => widget.onNavigate(item.page),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -527,6 +507,21 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
     );
   }
 
+  void _showStudentAttendanceSummary(BuildContext context, DirectorOverviewData d) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => _StudentAttendanceSummaryDialog(
+        totalStudents: d.counts['student'],
+        rooms: d.studentAttendance,
+        todayLabel: _todayLabel,
+        onViewReport: () {
+          Navigator.of(context).pop();
+          widget.onNavigate(3);
+        },
+      ),
+    );
+  }
+
   Widget overviewRow(double width, DirectorOverviewData data) {
     if (width < 1020) {
       return Column(
@@ -553,7 +548,11 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
     );
     if (width < 1020) {
       return Column(
-        children: [utilities(data), const SizedBox(height: 16), sensors],
+        children: [
+          utilities(data, isCompact: true),
+          const SizedBox(height: 16),
+          sensors,
+        ],
       );
     }
     return SizedBox(
@@ -700,14 +699,19 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
       Expanded(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
             Text(
               subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 10.5,
                 color: AppPalette.textMuted,
@@ -752,54 +756,172 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
       ),
   ]);
 
-  Widget teachers(DirectorOverviewData d) => section([
-    header(
-      'ภาพรวมครูและการสอน',
-      'ข้อมูลบุคลากรที่ยืนยันได้จากทะเบียนโรงเรียน',
-      3,
-    ),
-    const SizedBox(height: 14),
-    _TeacherCircle(
-      count: d.counts['teacher'],
-      onTap: () => widget.onNavigate(3),
-    ),
-    const SizedBox(height: 12),
-    const _Empty('ยังไม่มีข้อมูลยืนยันสัดส่วนการเข้าสอน สอนแทน และเตรียมสอน'),
-    const SizedBox(height: 8),
-    Wrap(
+  // พอร์ตโครงสร้าง Container/Row/Column มาจาก _teacherOverviewCard ของเวอร์ชัน
+  // 7 ก.ย. ตรง ๆ (ไม่ผ่าน header()/section() ทั่วไปที่ใช้กับการ์ดอื่น) เพื่อให้
+  // padding/spacing/สไตล์ปุ่มตรงกับต้นฉบับเป๊ะ ต่างแค่เนื้อหากลุ่มสาระเป็นของจริง
+  Widget teachers(DirectorOverviewData d) => Container(
+    padding: const EdgeInsets.all(18),
+    decoration: whiteCard,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        TextButton(
-          onPressed: () => widget.onNavigate(3),
-          child: const Text('ดูบุคลากร'),
-        ),
-        TextButton(
-          onPressed: () => widget.onNavigate(4),
-          child: const Text('ดูตารางห้องเรียน'),
-        ),
-      ],
-    ),
-  ]);
-
-  Widget utilities(DirectorOverviewData d) => section([
-    header(
-      'แนวโน้มการใช้ทรัพยากร',
-      'ข้อมูลไฟฟ้าและน้ำจากวันที่มีค่าบันทึกจริง',
-      8,
-    ),
-    const SizedBox(height: 14),
-    LayoutBuilder(
-      builder: (_, box) {
-        final a = trend('ไฟฟ้า', d.energy, 'kWh', AppPalette.chartPink);
-        final b = trend('น้ำ', d.water, 'm³', AppPalette.chartBlue);
-        return box.maxWidth < 520
-            ? Column(children: [a, const SizedBox(height: 10), b])
-            : Row(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: a),
-                  const SizedBox(width: 10),
-                  Expanded(child: b),
+                  const Text(
+                    'ภาพรวมครูและการสอน',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    d.counts.containsKey('teacher')
+                        ? 'ครูและบุคลากรทั้งหมด ${d.counts['teacher']} คน • สัดส่วนตามกลุ่มสาระจากทะเบียนโรงเรียน'
+                        : 'ยังไม่มีข้อมูลจำนวนครู',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+                  ),
                 ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => widget.onNavigate(3),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE5E5EA)),
+                ),
+                child: const Text(
+                  'ดูรายงาน',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.textDark,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (d.subjectGroups.isEmpty)
+          const _Empty('ยังไม่มีข้อมูลกลุ่มสาระในระบบ')
+        else ...[
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 145),
+            child: _SubjectGroupBubbleCluster(groups: d.subjectGroups),
+          ),
+          const SizedBox(height: 10),
+          const _DottedLine(),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 150),
+            child: _SubjectGroupLegend(groups: d.subjectGroups),
+          ),
+        ],
+      ],
+    ),
+  );
+
+  // isCompact มาจาก breakpoint ระดับหน้า (resourceRow, width<1020) ไม่ใช่ความ
+  // กว้างของการ์ดนี้เอง — ตรงกับเวอร์ชัน 7 ก.ย. ที่ _utilityCard(isCompact)
+  // รับค่ามาจากผู้เรียกเช่นกัน ก่อนหน้านี้ผมเคยเช็คความกว้างของการ์ดตัวเองแทน
+  // (`box.maxWidth < 520`) ซึ่งแทบไม่มีทางจริงเพราะการ์ดนี้มักได้พื้นที่กว้าง
+  // เกิน 520 อยู่แล้วแม้หน้าจะแคบ ทำให้ไฟฟ้า/น้ำขึ้นข้างกันเสมอ ต่างจากของเดิม
+  // ที่วางซ้อนกันเมื่อทั้งหน้าแคบ
+  // ย้ายตัวเลือกช่วงเวลา (รายวัน/สัปดาห์/เดือน) มาไว้ในหัวการ์ดนี้แทนที่จะอยู่
+  // บนสุดของหน้า ให้ตรงตำแหน่งกับเวอร์ชัน 7 ก.ย. — ต่างกันแค่ของผมกดแล้วโหลด
+  // ข้อมูลจริงจาก backend (controller.load) ส่วนของเดิมกดแล้วสลับชุดข้อมูล
+  // จำลองที่ฝังไว้ในโค้ด (selectedUtilityPeriod ไม่เคยยิง RPC จริงเลย)
+  Widget utilities(DirectorOverviewData d, {bool isCompact = false}) => section([
+    LayoutBuilder(
+      builder: (_, box) {
+        final titleRow = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'แนวโน้มการใช้ทรัพยากร',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'ข้อมูลไฟฟ้าและน้ำจากวันที่มีค่าบันทึกจริง',
+                    style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+        final selector = _OverviewPeriodSelector(
+          days: controller.days,
+          disabled: controller.loading,
+          onSelected: (days) => controller.load(period: days),
+        );
+        return box.maxWidth < 560
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [titleRow, const SizedBox(height: 10), selector],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [Expanded(child: titleRow), const SizedBox(width: 8), selector],
+              );
+      },
+    ),
+    const SizedBox(height: 14),
+    Builder(
+      builder: (_) {
+        final a = trend(
+          'ไฟฟ้า',
+          'แนวโน้มการใช้ไฟฟ้า',
+          Icons.bolt_rounded,
+          d.energy,
+          'kWh',
+          AppPalette.chartPink,
+          fillHeight: !isCompact,
+        );
+        final b = trend(
+          'น้ำ',
+          'แนวโน้มการใช้น้ำ',
+          Icons.water_drop_rounded,
+          d.water,
+          'm³',
+          AppPalette.chartBlue,
+          fillHeight: !isCompact,
+        );
+        return isCompact
+            ? Column(children: [a, const SizedBox(height: 10), b])
+            : Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: a),
+                    const SizedBox(width: 10),
+                    Expanded(child: b),
+                  ],
+                ),
               );
       },
     ),
@@ -807,22 +929,86 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
 
   Widget trend(
     String title,
+    String subtitle,
+    IconData icon,
     List<UtilityTrendPoint> points,
     String unit,
-    Color color,
-  ) {
+    Color color, {
+    bool fillHeight = false,
+  }) {
     final total = points.fold<double>(0, (n, p) => n + p.value);
-    final max = points.fold<double>(0, (n, p) => p.value > n ? p.value : n);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.tint(color, .08),
-        borderRadius: BorderRadius.circular(18),
+        color: AppPalette.tint(color, .05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.tint(color, .15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: fillHeight ? MainAxisSize.max : MainAxisSize.min,
         children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppPalette.tint(color, .12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 16, color: color),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 9, color: AppPalette.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              if (points.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppPalette.tint(color, .12),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$title ${points.last.value.toStringAsFixed(points.last.value >= 100 ? 0 : 1)} $unit',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 8),
           if (points.isEmpty)
             const _Empty('ยังไม่มีข้อมูลย้อนหลัง')
@@ -832,15 +1018,19 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
               style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
             ),
             const SizedBox(height: 10),
-            for (final p in points.take(7))
-              Padding(
-                padding: const EdgeInsets.only(bottom: 7),
-                child: LinearProgressIndicator(
-                  value: max <= 0 ? 0 : (p.value / max).clamp(0, 1),
-                  minHeight: 7,
-                  borderRadius: BorderRadius.circular(8),
-                  color: color,
-                  backgroundColor: AppPalette.tint(color, .15),
+            if (fillHeight)
+              Expanded(
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _UtilityTrendPainter(points, color),
+                ),
+              )
+            else
+              SizedBox(
+                height: 150,
+                child: CustomPaint(
+                  size: Size.infinite,
+                  painter: _UtilityTrendPainter(points, color),
                 ),
               ),
           ],
@@ -991,12 +1181,16 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
     );
   }
 
-  Widget section(List<Widget> children) => Container(
+  Widget section(
+    List<Widget> children, {
+    MainAxisAlignment mainAxisAlignment = MainAxisAlignment.start,
+  }) => Container(
     width: double.infinity,
     padding: const EdgeInsets.all(18),
     decoration: whiteCard,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: mainAxisAlignment,
       children: children,
     ),
   );
@@ -1977,68 +2171,555 @@ class _TrackLinePainter extends CustomPainter {
       oldDelegate.tracks != tracks;
 }
 
-class _TeacherCircle extends StatelessWidget {
-  const _TeacherCircle({required this.count, required this.onTap});
-  final int? count;
-  final VoidCallback onTap;
+class _UtilityTrendPainter extends CustomPainter {
+  const _UtilityTrendPainter(this.points, this.color);
+  final List<UtilityTrendPoint> points;
+  final Color color;
+
+  static const _weekdayLabel = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(20),
-    child: Container(
-      width: double.infinity,
-      height: 155,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FBFD),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Center(
-        child: Container(
-          width: 116,
-          height: 116,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFF55D6AE).withValues(alpha: .86),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF55D6AE).withValues(alpha: .20),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
+  void paint(Canvas canvas, Size size) {
+    const left = 34.0;
+    const right = 8.0;
+    const top = 8.0;
+    const bottom = 22.0;
+    final chart = Rect.fromLTRB(
+      left,
+      top,
+      size.width - right,
+      size.height - bottom,
+    );
+    final maxValue = points.fold<double>(
+      0,
+      (n, p) => p.value > n ? p.value : n,
+    );
+    final gridMax = maxValue <= 0 ? 1.0 : maxValue;
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE8EDF3)
+      ..strokeWidth = 1;
+    final labelStyle = const TextStyle(
+      color: AppPalette.textMuted,
+      fontSize: 9,
+    );
+    for (var i = 0; i <= 4; i++) {
+      final value = gridMax * i / 4;
+      final y = chart.bottom - chart.height * i / 4;
+      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
+      final label = TextPainter(
+        text: TextSpan(text: value.toStringAsFixed(0), style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      label.paint(
+        canvas,
+        Offset(chart.left - label.width - 6, y - label.height / 2),
+      );
+    }
+    if (points.isEmpty) return;
+
+    final offsets = <Offset>[
+      for (var i = 0; i < points.length; i++)
+        Offset(
+          points.length == 1
+              ? chart.center.dx
+              : chart.left + chart.width * i / (points.length - 1),
+          chart.bottom - chart.height * (points[i].value / gridMax).clamp(0, 1),
+        ),
+    ];
+
+    if (offsets.length > 1) {
+      final fillPath = Path()
+        ..moveTo(offsets.first.dx, chart.bottom)
+        ..lineTo(offsets.first.dx, offsets.first.dy);
+      for (final o in offsets.skip(1)) {
+        fillPath.lineTo(o.dx, o.dy);
+      }
+      fillPath
+        ..lineTo(offsets.last.dx, chart.bottom)
+        ..close();
+      canvas.drawPath(fillPath, Paint()..color = color.withValues(alpha: .12));
+
+      final linePath = Path()..moveTo(offsets.first.dx, offsets.first.dy);
+      for (final o in offsets.skip(1)) {
+        linePath.lineTo(o.dx, o.dy);
+      }
+      canvas.drawPath(
+        linePath,
+        Paint()
+          ..color = color
+          ..strokeWidth = 2.5
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+
+    for (var i = 0; i < offsets.length; i++) {
+      canvas.drawCircle(offsets[i], 4, Paint()..color = Colors.white);
+      canvas.drawCircle(offsets[i], 2.6, Paint()..color = color);
+
+      final showLabel = points.length <= 8 ||
+          i == 0 ||
+          i == points.length - 1 ||
+          i % (points.length / 6).ceil() == 0;
+      if (!showLabel) continue;
+      final day = points[i].day;
+      final dayLabel =
+          '${_weekdayLabel[(day.weekday - 1).clamp(0, 6)]} ${day.day}';
+      final label = TextPainter(
+        text: TextSpan(text: dayLabel, style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      label.paint(
+        canvas,
+        Offset(
+          (offsets[i].dx - label.width / 2).clamp(
+            chart.left,
+            chart.right - label.width,
           ),
+          chart.bottom + 6,
+        ),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _UtilityTrendPainter oldDelegate) =>
+      oldDelegate.points != points || oldDelegate.color != color;
+}
+
+class _StudentAttendanceSummaryDialog extends StatelessWidget {
+  const _StudentAttendanceSummaryDialog({
+    required this.totalStudents,
+    required this.rooms,
+    required this.todayLabel,
+    required this.onViewReport,
+  });
+  final int? totalStudents;
+  final List<SchoolHomeroomAttendance> rooms;
+  final String todayLabel;
+  final VoidCallback onViewReport;
+
+  @override
+  Widget build(BuildContext context) {
+    final present = rooms.fold<int>(0, (n, r) => n + r.present);
+    final absent = rooms.fold<int>(0, (n, r) => n + r.absent);
+    final excused = rooms.fold<int>(0, (n, r) => n + r.excused);
+    final byGrade = <String, List<SchoolHomeroomAttendance>>{};
+    for (final r in rooms) {
+      byGrade.putIfAbsent(r.gradeLevel ?? 'ไม่ระบุชั้น', () => []).add(r);
+    }
+    final grades = byGrade.keys.toList()..sort();
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.co_present_rounded,
-                color: Color(0xFF276A59),
-                size: 22,
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6F7ED),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.groups_rounded,
+                      color: Color(0xFF047857),
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'การเข้าเรียนของนักเรียน',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
+                        Text(
+                          'สรุปการเข้าเรียนของนักเรียนรายวัน · $todayLabel',
+                          style: const TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                count == null ? 'ไม่มีข้อมูล' : '$count คน',
-                style: const TextStyle(
-                  color: Color(0xFF244C44),
-                  fontSize: 21,
-                  fontWeight: FontWeight.w900,
-                ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _dialogStat('ลงทะเบียนทั้งหมด', totalStudents?.toString() ?? '—'),
+                  const SizedBox(width: 10),
+                  _dialogStat('มาเรียนวันนี้', '$present', color: const Color(0xFF16A34A)),
+                  const SizedBox(width: 10),
+                  _dialogStat('ขาด/ลา', '${absent + excused}', color: const Color(0xFFD97706)),
+                ],
               ),
-              const Text(
-                'ครูในทะเบียน',
-                style: TextStyle(
-                  color: Color(0xFF356A60),
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(height: 14),
+              if (rooms.isEmpty)
+                const Text(
+                  'ยังไม่มีการเช็กชื่อของวันนี้',
+                  style: TextStyle(fontSize: 12, color: AppPalette.textMuted),
+                )
+              else ...[
+                const Text(
+                  'สรุปการมาเรียนรายระดับชั้น:',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
                 ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: [
+                      for (final grade in grades) ...[
+                        _gradeRow(grade, byGrade[grade]!),
+                        if (grade != grades.last) const SizedBox(height: 10),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: onViewReport,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        alignment: Alignment.centerLeft,
+                      ),
+                      child: const Text(
+                        'ดูรายงานการเข้าเรียน >',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('เสร็จสิ้น'),
+                  ),
+                ],
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _dialogStat(String label, String value, {Color? color}) => Expanded(
+    child: Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: color ?? AppPalette.textDark,
+            ),
+          ),
+        ],
+      ),
     ),
   );
+
+  Widget _gradeRow(String grade, List<SchoolHomeroomAttendance> group) {
+    final total = group.fold<int>(0, (n, r) => n + r.studentCount);
+    final present = group.fold<int>(0, (n, r) => n + r.present);
+    final late = group.fold<int>(0, (n, r) => n + r.late);
+    final absent = group.fold<int>(0, (n, r) => n + r.absent);
+    final pct = total <= 0 ? 0.0 : present * 100 / total;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(grade, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(
+                'ลา $late คน · ขาด $absent คน',
+                style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          'มาเรียน $present / $total คน (${pct.toStringAsFixed(1)}%)',
+          style: const TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF2563EB),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// (พื้นหลังพาสเทล, ตัวหนังสือสี) — สีชุดเดียวกับกราฟฟองสบู่เวอร์ชัน 7 ก.ย.
+/// เป๊ะ (ม่วง/เขียว/ชมพู/ส้ม) บวกอีก 2 คู่โทนเดียวกันสำหรับกลุ่มสาระที่ 5-6
+const _kSubjectGroupColors = [
+  (Color(0xFFEDE9FE), Color(0xFF5B21B6)),
+  (Color(0xFFDCFCE7), Color(0xFF059669)),
+  (Color(0xFFFFE4E6), Color(0xFFE11D48)),
+  (Color(0xFFFEF3C7), Color(0xFFD97706)),
+  (Color(0xFFDBEAFE), Color(0xFF1D4ED8)),
+  (Color(0xFFFCE7F3), Color(0xFFBE185D)),
+];
+
+/// วงกลมทับกันเป็นก้อนเดียว แบบเดียวกับกราฟฟองสบู่เวอร์ชัน 7 ก.ย. — ต่างจาก
+/// ของเดิมตรงที่สัดส่วนมาจากกลุ่มสาระจริง ไม่ใช่หมวดคาบสอนที่แต่งขึ้น
+class _SubjectGroupBubbleCluster extends StatelessWidget {
+  const _SubjectGroupBubbleCluster({required this.groups});
+  final List<SchoolDepartment> groups;
+
+  // ผ้าใบตรรกะขนาดคงที่ + จัดตำแหน่งวงกลมแบบเดียวกับ 4 วงตายตัวของเวอร์ชัน
+  // 7 ก.ย. (ใหญ่บนซ้าย, รองบนขวาทับกัน, เล็กล่างกลางทับทั้งคู่, จิ๋วขวาสุด)
+  // แล้วใช้ Center+FittedBox ย่อพอดีการ์ดเหมือนต้นฉบับ แทนที่จะคำนวณตำแหน่ง
+  // ใหม่ตาม LayoutBuilder ซึ่งทำให้ก้อนเลื่อนไม่ตรงกลาง
+  static const _canvasWidth = 300.0;
+  static const _canvasHeight = 180.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = groups.fold<int>(0, (n, g) => n + g.memberCount);
+    if (total == 0) {
+      return const _Empty('ยังไม่มีครูสังกัดกลุ่มสาระใดเลย');
+    }
+    final sorted = [...groups.where((g) => g.memberCount > 0)]
+      ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
+    final maxCount = sorted.first.memberCount;
+    final sizes = [
+      for (final g in sorted) 48.0 + (g.memberCount / maxCount).clamp(0.0, 1.0) * 96.0,
+    ];
+
+    // เดินหน้าไปทางขวาเป็นหลัก (canvas 300x180 เป็นแนวนอน) พร้อมสลับสูง-ต่ำ
+    // เบา ๆ กันไม่ให้เรียงเป็นเส้นตรงทื่อ ๆ — ความทับกันเบา (~20%) กันไม่ให้
+    // ตัวเลขในวงบังกันเมื่อสัดส่วนเท่ากันทุกกลุ่ม (ที่เคยเป็นปัญหาตอนใช้มุมชัน)
+    final centers = <Offset>[Offset(sizes[0] / 2 + 10, _canvasHeight * .58)];
+    for (var i = 1; i < sorted.length; i++) {
+      final prev = centers[i - 1];
+      final rSum = sizes[i - 1] / 2 + sizes[i] / 2;
+      final dx = rSum * .75;
+      final dy = (i.isOdd ? -1 : 1) * sizes[i - 1] * .35;
+      centers.add(Offset(prev.dx + dx, prev.dy + dy));
+    }
+    final clusterLeft = [
+      for (var i = 0; i < centers.length; i++) centers[i].dx - sizes[i] / 2,
+    ].reduce((a, b) => a < b ? a : b);
+    final clusterRight = [
+      for (var i = 0; i < centers.length; i++) centers[i].dx + sizes[i] / 2,
+    ].reduce((a, b) => a > b ? a : b);
+    final clusterTop = [
+      for (var i = 0; i < centers.length; i++) centers[i].dy - sizes[i] / 2,
+    ].reduce((a, b) => a < b ? a : b);
+    final clusterBottom = [
+      for (var i = 0; i < centers.length; i++) centers[i].dy + sizes[i] / 2,
+    ].reduce((a, b) => a > b ? a : b);
+    final shift = (_canvasWidth - (clusterRight - clusterLeft)) / 2 - clusterLeft;
+    final shiftY = (_canvasHeight - (clusterBottom - clusterTop)) / 2 - clusterTop;
+
+    return Center(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: SizedBox(
+          width: _canvasWidth,
+          height: _canvasHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (var i = sorted.length - 1; i >= 0; i--)
+                Positioned(
+                  left: centers[i].dx + shift - sizes[i] / 2,
+                  top: centers[i].dy + shiftY - sizes[i] / 2,
+                  child: Container(
+                    width: sizes[i],
+                    height: sizes[i],
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _kSubjectGroupColors[i % _kSubjectGroupColors.length].$1,
+                    ),
+                    child: Text(
+                      '${(sorted[i].memberCount * 100 / total).round()}%',
+                      style: TextStyle(
+                        color: _kSubjectGroupColors[i % _kSubjectGroupColors.length].$2,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -.5,
+                        // สัดส่วน font/ขนาดวงกลม ~0.23 เท่ากับ 4 วงตายตัวของ
+                        // เวอร์ชัน 7 ก.ย. (144→32, 108→25, 82→19, 48→13)
+                        fontSize: (sizes[i] * 0.23).clamp(10.0, 34.0),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ตำนานใต้กราฟฟองสบู่ — ตาราง 2 คอลัมน์คั่นด้วยเส้นประ แบบเดียวกับ
+/// "สอนในตารางปกติ / กิจกรรม&แล็บ" ของเวอร์ชัน 7 ก.ย. เป๊ะ ต่างแค่ชื่อ
+/// กลุ่มสาระ+จำนวนคนเป็นของจริง ไม่ใช่หมวดคาบสอนที่แต่งขึ้น
+class _SubjectGroupLegend extends StatelessWidget {
+  const _SubjectGroupLegend({required this.groups});
+  final List<SchoolDepartment> groups;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...groups.where((g) => g.memberCount > 0)]
+      ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
+    final rows = <Widget>[];
+    for (var i = 0; i < sorted.length; i += 2) {
+      if (rows.isNotEmpty) {
+        rows
+          ..add(const SizedBox(height: 6))
+          ..add(const _DottedLine(color: Color(0xFFF1F5F9)))
+          ..add(const SizedBox(height: 6));
+      }
+      rows.add(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _legendItem(sorted[i], i)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: i + 1 < sorted.length
+                  ? _legendItem(sorted[i + 1], i + 1)
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: rows,
+    );
+  }
+
+  Widget _legendItem(SchoolDepartment group, int colorIndex) {
+    final (_, textColor) = _kSubjectGroupColors[colorIndex % _kSubjectGroupColors.length];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: textColor),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  group.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Padding(
+            padding: const EdgeInsets.only(left: 15),
+            child: Text(
+              '${group.memberCount} คน',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DottedLine extends StatelessWidget {
+  const _DottedLine({this.color = const Color(0xFFE5E5EA)});
+  final Color color;
+  static const _dotRadius = 1.2;
+  static const _spacing = 5.5;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: _dotRadius * 2,
+    width: double.infinity,
+    child: CustomPaint(painter: _DottedLinePainter(color)),
+  );
+}
+
+class _DottedLinePainter extends CustomPainter {
+  _DottedLinePainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    var x = _DottedLine._dotRadius;
+    while (x < size.width) {
+      canvas.drawCircle(Offset(x, size.height / 2), _DottedLine._dotRadius, paint);
+      x += _DottedLine._spacing;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DottedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _TrackLegend extends StatelessWidget {

@@ -22,6 +22,11 @@ void main() {
       expect(find.textContaining('ฟิสิกส์ประยุกต์'), findsNothing);
       expect(find.textContaining('ม.5/2 · 32 คน'), findsNothing);
       expect(find.textContaining('AA:BB:CC:DD:EE:01'), findsNothing);
+      // The school-name detail row was hardcoded to 'โรงเรียนสาธิต AIoT' for
+      // every teacher regardless of account — no schoolName field/service
+      // exists to resolve a real one, so the row was dropped entirely
+      // rather than keep showing a fake school for every account.
+      expect(find.textContaining('โรงเรียนสาธิต AIoT'), findsNothing);
       expect(find.text('ยังไม่มีวิชาที่สอน'), findsOneWidget);
       expect(find.text('ยังไม่มีอุปกรณ์แล็บ AIoT ที่ผูกกับบัญชีนี้'), findsOneWidget);
     },
