@@ -2259,7 +2259,10 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
           _dynamicStudentCount = list.length;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      // ตัวเลขเดิมค้างไว้ (ไม่ใช่ข้อมูลปลอม) แต่ต้องมีร่องรอยใน log
+      debugPrint('TeacherCourseCard: นับนักเรียนไม่สำเร็จ — $e');
+    }
   }
 
   @override
@@ -2526,7 +2529,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
                 hasAccess: c.hasAccess,
               )
             else if (_activeTab == 'นักเรียน')
-              _StudentRosterTabWidget(course: c)
+              TeacherStudentRosterTab(course: c)
             else if (_activeTab == 'ใบงาน')
               _CourseAssignmentListTabWidget(course: c)
             else if (_activeTab == 'คะแนน')
@@ -3807,6 +3810,7 @@ class _AddStudentModalSheet extends StatefulWidget {
 class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _searchFailed = false;
   String _searchQuery = '';
 
   List<StudentLookup> _students = [];
@@ -3854,9 +3858,14 @@ class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
       if (mounted) {
         setState(() {
           _students = students;
+          _searchFailed = false;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      // เดิมกลืนเงียบ → รายการเก่าค้าง/ว่าง ครูอ่านว่า "ไม่พบนักเรียน"
+      debugPrint('EnrollStudentSheet: ค้นหานักเรียนไม่สำเร็จ — $e');
+      if (mounted) setState(() => _searchFailed = true);
+    }
   }
 
   Future<void> _submitEnrollment() async {
@@ -3948,6 +3957,16 @@ class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
+                  : _searchFailed
+                  ? const Center(
+                      child: Text(
+                        'ค้นหาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: TeacherPalette.red,
+                        ),
+                      ),
+                    )
                   : _students.isEmpty
                   ? const Center(
                       child: Text(
@@ -4052,18 +4071,27 @@ void openAddStudentModalSheet(
   );
 }
 
-class _StudentRosterTabWidget extends StatefulWidget {
-  const _StudentRosterTabWidget({required this.course});
+/// แท็บ "นักเรียน" ของหน้ารายละเอียดวิชา — เป็น public เพื่อให้ widget test
+/// ฉีด `loadStudents` ได้โดยไม่ต้อง mount ทั้งหน้ารายละเอียด (ซึ่งโหลด
+/// บทเรียน/ใบงาน/คะแนนจากหลายบริการพร้อมกัน)
+class TeacherStudentRosterTab extends StatefulWidget {
+  const TeacherStudentRosterTab({
+    super.key,
+    required this.course,
+    this.loadStudents,
+  });
 
   final TeacherCourseModel course;
+  final Future<List<CourseStudent>> Function(String courseId)? loadStudents;
 
   @override
-  State<_StudentRosterTabWidget> createState() =>
-      _StudentRosterTabWidgetState();
+  State<TeacherStudentRosterTab> createState() =>
+      _TeacherStudentRosterTabState();
 }
 
-class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
+class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
   bool _isLoading = true;
+  bool _loadFailed = false;
   List<Map<String, dynamic>> _students = [];
   String _searchQuery = '';
 
@@ -4076,19 +4104,21 @@ class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
   Future<void> _loadStudentsFromSupabase() async {
     setState(() => _isLoading = true);
     try {
-      final enrolled = await CourseService.listCourseStudents(
-        widget.course.id ?? '',
-      );
+      final enrolled = await (widget.loadStudents ??
+          CourseService.listCourseStudents)(widget.course.id ?? '');
       final List<Map<String, dynamic>> list = enrolled
           .map(
             (st) => {
               'id': st.studentId,
               'name': st.fullName,
               'email': st.email,
-              'code': st.studentId.length >= 8
-                  ? st.studentId.substring(0, 8)
-                  : st.studentId,
-              'room': 'ม.4/1',
+              // list_course_students ไม่คืนรหัสนักเรียน — เดิมตัด 8 ตัวแรก
+              // ของ uuid มาโชว์เป็น "รหัส" และใส่ 'ม.4/1' ให้ทุกคน ตอนนี้ใช้
+              // ห้องของรายวิชาจริงและอีเมลแทน
+              'email_label': st.email,
+              'room': widget.course.rooms.isEmpty
+                  ? null
+                  : widget.course.rooms.join(', '),
             },
           )
           .toList();
@@ -4100,9 +4130,13 @@ class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
         });
       }
     } catch (e) {
+      // เดิมโหลดล้ม = รายการว่าง ครูอ่านว่า "ยังไม่มีนักเรียนลงทะเบียน"
       debugPrint('Error loading students in tab via RPC: $e');
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _loadFailed = true;
+        });
       }
     }
   }
@@ -4111,9 +4145,9 @@ class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
   Widget build(BuildContext context) {
     final filtered = _students.where((s) {
       final name = (s['name'] as String).toLowerCase();
-      final code = (s['code'] as String).toLowerCase();
+      final email = (s['email_label'] as String? ?? '').toLowerCase();
       final q = _searchQuery.toLowerCase();
-      return name.contains(q) || code.contains(q);
+      return name.contains(q) || email.contains(q);
     }).toList();
 
     return Column(
@@ -4167,6 +4201,39 @@ class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
             child: Padding(
               padding: EdgeInsets.all(36),
               child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          )
+        else if (_loadFailed)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.cloud_off_rounded,
+                  size: 40,
+                  color: TeacherPalette.red,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'โหลดรายชื่อนักเรียนไม่สำเร็จ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _loadStudentsFromSupabase,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('ลองใหม่'),
+                ),
+              ],
             ),
           )
         else if (filtered.isEmpty)
@@ -4254,25 +4321,29 @@ class _StudentRosterTabWidgetState extends State<_StudentRosterTabWidget> {
                                   color: TeacherPalette.ink,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'ห้อง ${st['room']} · รหัส ${st['code']}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF475569),
+                              // ป้ายห้องมาจากห้องของรายวิชา — วิชาที่ยังไม่ระบุ
+                              // ห้องไม่แสดงป้าย (อีเมลอยู่บรรทัดถัดไปอยู่แล้ว)
+                              if (st['room'] != null) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'ห้อง ${st['room']}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF475569),
+                                    ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 4),

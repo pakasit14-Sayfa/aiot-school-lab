@@ -45,6 +45,10 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   Timer? _pollTimer;
   bool _sessionFailed = false;
 
+  /// checkPairingStatus ล้มติดต่อกัน — เดิม `catch (_) {}` ทำให้แท็บเล็ตที่
+  /// เน็ตหลุดโชว์ QR ที่ดูปกติทุกอย่างแต่สแกนแล้วไม่มีวันเข้าได้
+  bool _pollFailed = false;
+
   // --- Scan-mode state ---
   MobileScannerController? _scannerController;
   bool _handled = false;
@@ -140,6 +144,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
     try {
       final statusResult =
           await TerminalPairingService.checkPairingStatus(_pairingToken);
+      if (mounted && _pollFailed) setState(() => _pollFailed = false);
       if (statusResult.isClaimed && mounted) {
         _pollTimer?.cancel();
         _tickTimer?.cancel();
@@ -163,7 +168,10 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
           Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('StudentQrLoginPage: ตรวจสถานะการจับคู่ไม่สำเร็จ — $e');
+      if (mounted && !_pollFailed) setState(() => _pollFailed = true);
+    }
   }
 
   void _startScanMode() {
@@ -820,6 +828,18 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
                   ),
                 ],
               ),
+              if (_pollFailed) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ชั่วคราว — กำลังลองใหม่ทุก 3 วินาที',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

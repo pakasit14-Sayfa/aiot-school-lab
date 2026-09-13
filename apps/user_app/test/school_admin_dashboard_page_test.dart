@@ -20,6 +20,10 @@ import 'package:my_first_app/pages/school_admin/school_admin_esg_page.dart';
 import 'package:my_first_app/pages/school_admin/school_admin_device_control_page.dart';
 import 'package:my_first_app/pages/school_admin/school_admin_incident_inbox_page.dart';
 import 'package:my_first_app/pages/school_admin/school_admin_profile_page.dart';
+import 'package:my_first_app/pages/school_admin/school_learning_tracks_page.dart';
+import 'package:my_first_app/pages/school_admin/school_admin_attendance_settings_page.dart';
+import 'package:my_first_app/pages/school_admin/school_admin_leave_approval_page.dart';
+import 'package:my_first_app/pages/school_admin/school_admin_report_requirements_page.dart';
 
 import 'package:shared_core/shared_core.dart';
 
@@ -252,4 +256,41 @@ void main() {
       expect(find.text('โรงเรียนเทศบาล ๑ (สังกัด สถ.)'), findsNothing);
     },
   );
+
+  /// sidebar ส่ง index ของแถวที่กดตรงไปเป็นเลขหน้า — รายการ "สายการเรียน"
+  /// (หน้า 20) เคยหายจากลิสต์ ทำให้ 3 แถวท้ายเปิดหน้าผิดคนละหนึ่ง และหน้า
+  /// "รายการรายงานที่ต้องส่ง" เปิดไม่ได้เลย เทสต์นี้ล็อกคู่ป้าย↔หน้าของ 4 แถวท้าย
+  testWidgets('the last four sidebar rows open the page their label says', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    await tester.pumpWidget(
+      const MaterialApp(home: SchoolAdminDashboardPage()),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> open(String label) async {
+      final item = find.text(label).first;
+      await tester.ensureVisible(item);
+      await tester.tap(item);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    await open('สายการเรียน');
+    expect(find.byType(SchoolLearningTracksPage), findsOneWidget);
+
+    await open('ตั้งเวลาปฏิบัติงาน');
+    expect(find.byType(SchoolAdminAttendanceSettingsPage), findsOneWidget);
+    expect(find.byType(SchoolLearningTracksPage), findsNothing);
+
+    await open('อนุมัติการลา');
+    expect(find.byType(SchoolAdminLeaveApprovalPage), findsOneWidget);
+
+    await open('รายการรายงานที่ต้องส่ง');
+    expect(find.byType(SchoolAdminReportRequirementsPage), findsOneWidget);
+  });
 }

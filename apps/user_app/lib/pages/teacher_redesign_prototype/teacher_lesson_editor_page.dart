@@ -1081,10 +1081,24 @@ class TeacherLessonEditorPage extends StatefulWidget {
     super.key,
     required this.lesson,
     this.isCourseClosed = false,
+    this.listDevices,
+    this.linkSensor,
   });
 
   final LessonModel lesson;
   final bool isCourseClosed;
+
+  /// seam สำหรับเทสต์ — production ใช้ LessonService.listSchoolDevices /
+  /// LessonService.linkLessonSensor (RPC `list_school_devices` /
+  /// `link_lesson_sensor`)
+  final Future<List<DeviceOption>> Function()? listDevices;
+  final Future<void> Function({
+    required String lessonId,
+    required String deviceId,
+    required String metric,
+    String? caption,
+  })?
+  linkSensor;
 
   @override
   State<TeacherLessonEditorPage> createState() =>
@@ -1100,6 +1114,10 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
   bool _saveFailed = false;
   String _saveStatusText = 'บันทึกแล้ว';
   int _saveAttempt = 0;
+
+  /// id → ชื่ออุปกรณ์ จาก list_school_devices — get_lesson คืนแค่ device_id
+  /// ของลิงก์ ถ้าไม่มีแผนที่นี้ครูจะเห็น uuid แทนชื่ออุปกรณ์
+  Map<String, String> _deviceNames = const {};
 
   @override
   void initState() {
@@ -1130,11 +1148,22 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
           .toList();
       widget.lesson.materialsCount = widget.lesson.materials.length;
 
+      if (detail.sensorLinks.isNotEmpty && _deviceNames.isEmpty) {
+        try {
+          final devices =
+              await (widget.listDevices ?? LessonService.listSchoolDevices)();
+          _deviceNames = {for (final d in devices) d.id: d.name};
+        } catch (e) {
+          // ไม่มีชื่อก็ยังแสดงลิงก์ได้ (เป็น id) — แค่บันทึกไว้ว่าทำไม
+          debugPrint('TeacherLessonEditorPage: โหลดชื่ออุปกรณ์ไม่สำเร็จ — $e');
+        }
+        if (!mounted) return;
+      }
       widget.lesson.sensorLinks = detail.sensorLinks
           .map(
             (s) => LessonSensorLinkModel(
               id: s.id,
-              deviceName: s.deviceId,
+              deviceName: _deviceNames[s.deviceId] ?? s.deviceId,
               metric: s.metric,
               timeRange: s.timeStart != null
                   ? '${s.timeStart} - ${s.timeEnd}'
@@ -2676,26 +2705,205 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     );
   }
 
+  /// metric ที่อุปกรณ์แต่ละชนิดวัดได้ (ตาม enum metric_type ในฐานข้อมูล)
+  static const Map<String, List<String>> _metricsByType = {
+    'pm25_sensor': ['pm25'],
+    'air_quality_sensor': ['pm25', 'aqi', 'co2', 'tvoc', 'temperature', 'humidity'],
+    'light_sensor': ['light_lux'],
+    'energy_meter': ['energy_kwh', 'power_w'],
+    'water_meter': ['water_flow_lmin', 'water_volume_l', 'water_m3'],
+  };
+  static const List<String> _allMetrics = [
+    'pm25', 'aqi', 'temperature', 'humidity', 'light_lux', 'energy_kwh',
+    'power_w', 'water_flow_lmin', 'water_volume_l', 'water_m3',
+    'gas_mq2_percent', 'co2', 'tvoc',
+  ];
+
+  Future<void> _openLinkSensorDialog() async {
+    final listDevices = widget.listDevices ?? LessonService.listSchoolDevices;
+    List<DeviceOption> devices;
+    try {
+      devices = await listDevices();
+    } catch (e) {
+      debugPrint('TeacherLessonEditorPage: โหลดรายการอุปกรณ์ไม่สำเร็จ — $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('โหลดรายการอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (devices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('โรงเรียนยังไม่มีอุปกรณ์ในระบบ ให้แอดมินลงทะเบียนอุปกรณ์ก่อน'),
+        ),
+      );
+      return;
+    }
+    _deviceNames = {for (final d in devices) d.id: d.name};
+
+    var deviceId = devices.first.id;
+    List<String> metricsFor(String id) {
+      final type = devices.firstWhere((d) => d.id == id).type;
+      return _metricsByType[type] ?? _allMetrics;
+    }
+
+    var metric = metricsFor(deviceId).first;
+    final captionCtrl = TextEditingController();
+    var submitting = false;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) {
+          Future<void> submit() async {
+            setDialog(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final link = widget.linkSensor ??
+                  ({
+                    required String lessonId,
+                    required String deviceId,
+                    required String metric,
+                    String? caption,
+                  }) => LessonService.linkLessonSensor(
+                    lessonId: lessonId,
+                    deviceId: deviceId,
+                    metric: metric,
+                    caption: caption,
+                  );
+              final caption = captionCtrl.text.trim();
+              await link(
+                lessonId: widget.lesson.id,
+                deviceId: deviceId,
+                metric: metric,
+                caption: caption.isEmpty ? null : caption,
+              );
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว')),
+              );
+              // อ่านกลับจากหลังบ้าน ไม่เติมรายการในเครื่องเอง
+              await _loadFullLesson();
+            } catch (e) {
+              debugPrint('TeacherLessonEditorPage: link_lesson_sensor ล้ม — $e');
+              setDialog(() {
+                submitting = false;
+                error = 'ผูกข้อมูลเซนเซอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('ผูกข้อมูล AIoT Sensor กับบทเรียน'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: deviceId,
+                    decoration: const InputDecoration(labelText: 'อุปกรณ์'),
+                    items: [
+                      for (final d in devices)
+                        DropdownMenuItem(
+                          value: d.id,
+                          child: Text(
+                            d.location == null || d.location!.isEmpty
+                                ? d.name
+                                : '${d.name} · ${d.location}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: submitting
+                        ? null
+                        : (v) {
+                            if (v == null) return;
+                            setDialog(() {
+                              deviceId = v;
+                              metric = metricsFor(v).first;
+                            });
+                          },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    value: metric,
+                    decoration: const InputDecoration(labelText: 'ค่าที่ต้องการแสดง'),
+                    items: [
+                      for (final m in metricsFor(deviceId))
+                        DropdownMenuItem(value: m, child: Text(m)),
+                    ],
+                    onChanged: submitting
+                        ? null
+                        : (v) => setDialog(() => metric = v ?? metric),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: captionCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'คำอธิบายกราฟ (ถ้ามี)',
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      error!,
+                      style: const TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('ยกเลิก'),
+              ),
+              FilledButton(
+                onPressed: submitting ? null : submit,
+                child: Text(submitting ? 'กำลังบันทึก…' : 'ผูกข้อมูล'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildAiotTab() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // เดิมเปิด dialog ให้เลือกอุปกรณ์/metric จากรายการ hardcode 3 ชื่อ
-        // ที่ไม่ตรงกับอุปกรณ์จริงในโรงเรียนเลย แล้วบันทึกไว้ในเครื่อง — ไม่มี
-        // ทั้งรายการอุปกรณ์จริง (ไม่มี service ให้ดึงอุปกรณ์จริงสำหรับหน้านี้
-        // โดยเฉพาะ) และไม่มีฝั่งนักเรียนอ่านบล็อกกราฟ AIoT ที่ผูกไว้เลยสัก
-        // จุด (`student_lessons_page.dart` ไม่มีโค้ดอ่าน sensorDeviceId เลย)
-        // — ปิดปุ่มไว้ตรง ๆ ดีกว่าให้ครูผูกอุปกรณ์ปลอมที่ไม่มีทางใช้งานได้จริง
-        Tooltip(
-          message:
-              'ยังไม่รองรับการผูกข้อมูลเซนเซอร์จริงในบทเรียน — ฟีเจอร์นี้ยังไม่ได้เชื่อมกับอุปกรณ์จริง',
-          child: ElevatedButton.icon(
-            onPressed: null,
-            icon: const Icon(Icons.sensors_rounded, size: 16),
-            label: const Text('+ ผูกข้อมูล AIoT Sensor (ยังไม่เปิดใช้งาน)'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 40),
-            ),
+        // รอบแรก (2026-09-07) dialog นี้เลือกจากอุปกรณ์ hardcode 3 ชื่อแล้ว
+        // เก็บในเครื่อง จึงถูกปิดไว้ ตอนนี้ต่อจริงทั้งสาย: รายการอุปกรณ์จาก
+        // list_school_devices → link_lesson_sensor → นักเรียนเห็นใน
+        // student_lesson_view_page / pages/student/lesson_view_page (ทั้งคู่
+        // อ่าน `lesson.sensorLinks` อยู่แล้ว)
+        ElevatedButton.icon(
+          onPressed: widget.isCourseClosed || widget.lesson.id.isEmpty
+              ? null
+              : _openLinkSensorDialog,
+          icon: const Icon(Icons.sensors_rounded, size: 16),
+          label: Text(
+            widget.lesson.id.isEmpty
+                ? '+ ผูกข้อมูล AIoT Sensor (บันทึกบทเรียนก่อน)'
+                : '+ ผูกข้อมูล AIoT Sensor',
+          ),
+          style: ElevatedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 40),
           ),
         ),
         const SizedBox(height: 12),

@@ -820,7 +820,9 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
                       ? rec.courseCode
                       : 'วิชาเรียน',
                   subject: rec.courseName,
-                  teacher: rec.note ?? 'บันทึกในคาบเรียน',
+                  // เดิมเติม 'บันทึกในคาบเรียน' เมื่อครูไม่ได้ใส่หมายเหตุ —
+                  // ข้อความที่แต่งขึ้นในช่องหมายเหตุของจริง
+                  teacher: rec.note ?? 'ไม่มีหมายเหตุจากครู',
                   room: 'ไม่ระบุ',
                   status: _attendanceStatusLabel(rec),
                   type: rec.isPresent
@@ -858,7 +860,7 @@ class _ParentAttendancePageState extends State<ParentAttendancePage> {
         checkIn: rec.courseName,
         checkOut: rec.courseCode.isNotEmpty ? rec.courseCode : '-',
         status: statusStr,
-        detail: rec.note ?? 'บันทึกในคาบเรียน',
+        detail: rec.note ?? 'ไม่มีหมายเหตุจากครู',
         type: type,
       );
     }).toList();

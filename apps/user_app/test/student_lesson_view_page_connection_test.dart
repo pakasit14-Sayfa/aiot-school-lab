@@ -61,14 +61,17 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('opening a lesson calls the real updateProgress RPC with the real lesson id', (
+  /// เดิมเปิดบทเรียนแล้วเขียนความคืบหน้ากลับเป็นค่าเดิม (no-op) หรือ **50%**
+  /// ถ้ายังไม่มีค่า — นักเรียนที่แค่กดเปิดดูได้ครึ่งบททันที กติกาตอนนี้ตรงกับ
+  /// pages/student/lesson_view_page.dart: เปิด = เริ่มเรียน = ขั้นต่ำ 10%
+  testWidgets('opening a never-started lesson records 10%, not a fabricated 50%', (
     tester,
   ) async {
     String? updatedLessonId;
     num? updatedPct;
     await _pump(
       tester,
-      getLesson: (_) async => _lesson(progressPct: 40),
+      getLesson: (_) async => _lesson(progressPct: null),
       updateProgress: ({required lessonId, required progressPct}) async {
         updatedLessonId = lessonId;
         updatedPct = progressPct;
@@ -76,7 +79,22 @@ void main() {
     );
 
     expect(updatedLessonId, 'lesson-1');
-    expect(updatedPct, 40);
+    expect(updatedPct, 10);
+  });
+
+  testWidgets('opening a lesson already past 10% does not rewrite its progress', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      getLesson: (_) async => _lesson(progressPct: 40),
+      updateProgress: ({required lessonId, required progressPct}) async {
+        calls++;
+      },
+    );
+
+    expect(calls, 0, reason: 'nothing to record — progress is already 40%');
   });
 
   testWidgets('marking complete calls the real RPC and flips the UI to the completed state', (

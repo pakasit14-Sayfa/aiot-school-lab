@@ -77,6 +77,28 @@ void main() {
     expect(find.textContaining('เวลาเฉลี่ย'), findsNothing);
   });
 
+  /// ปุ่ม CCTV 2 ปุ่มเคยกดแล้วขึ้น "กำลังเปิดคลิป.../กำลังเชื่อมต่อสัญญาณกล้อง
+  /// ห้อง ม.3/2..." ทั้งที่ระบบไม่ได้เชื่อมกับกล้องตัวไหนเลย (และ ม.3/2 เป็น
+  /// ห้องที่แต่งขึ้นเมื่อไม่มีข้อมูล) — ต้องกดไม่ได้และบอกว่ายังไม่เชื่อมระบบ
+  testWidgets('CCTV buttons are disabled with the reason, never a fake "connecting..." message', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    final labels = find.textContaining('CCTV');
+    expect(labels, findsWidgets);
+    for (final element in labels.evaluate()) {
+      final button = element
+          .findAncestorWidgetOfExactType<OutlinedButton>();
+      final textButton = element.findAncestorWidgetOfExactType<TextButton>();
+      final onPressed = button?.onPressed ?? textButton?.onPressed;
+      expect(onPressed, isNull, reason: 'no CCTV integration exists');
+    }
+    expect(find.textContaining('ยังไม่เชื่อมระบบกล้อง'), findsWidgets);
+    expect(find.textContaining('กำลังเปิดคลิป'), findsNothing);
+    expect(find.textContaining('ม.3/2'), findsNothing);
+  });
+
   testWidgets('zero real incidents/events shows an honest empty list, no fabricated entries', (
     tester,
   ) async {

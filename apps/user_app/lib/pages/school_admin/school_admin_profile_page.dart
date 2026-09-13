@@ -52,11 +52,6 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   final TextEditingController _departmentController = TextEditingController();
 
   String? _profileImageUrl;
-  // เดิมเป็น bool 3 ตัวที่ setState อย่างเดียว — กดแล้วสวิตช์ขยับ แต่ไม่มี RPC
-  // ไม่มีตารางเก็บ และไม่มีระบบส่งอีเมล/แจ้งเตือนความปลอดภัยที่จะอ่านค่านี้
-  // รีโหลดแล้วกลับค่าเดิม แอดมินเข้าใจว่าตั้งค่าแล้วทั้งที่ไม่มีอะไรเปลี่ยน
-  // ตามกติกา DoD "ปุ่มที่ไม่มี backend = disable" สวิตช์จึงถูกปิดไว้พร้อม
-  // เหตุผล จนกว่าจะมีที่เก็บค่าและมีระบบที่ใช้ค่านั้นจริง
 
   List<_ProfileLog> _logs = [];
 
@@ -438,8 +433,10 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   const SizedBox(height: 14),
                   _buildAccountInformation(),
                   const SizedBox(height: 14),
-                  _buildNotificationPreferences(),
-                  const SizedBox(height: 14),
+                  // ส่วน "การแจ้งเตือนของฉัน" (สวิตช์ 3 ตัว) ถูกถอดออก 2026-09-14:
+                  // ไม่มี RPC/ตารางเก็บค่า และไม่มีระบบส่งอีเมล/แจ้งเตือนความ
+                  // ปลอดภัยที่จะอ่านค่านั้น — สวิตช์ที่กดแล้วไม่มีผลอะไรเลย
+                  // ไม่ควรอยู่บนหน้าจอ เอากลับมาพร้อมที่เก็บค่าและระบบที่ใช้ค่า
                   _buildSecurity(),
                   const SizedBox(height: 14),
                   _buildLogs(),
@@ -806,42 +803,6 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     );
   }
 
-  Widget _buildNotificationPreferences() {
-    return _ProfileSection(
-      title: 'การแจ้งเตือนของฉัน',
-      subtitle:
-          'ยังตั้งค่าไม่ได้ — ระบบยังไม่มีที่เก็บค่าการแจ้งเตือนรายบุคคล '
-          'และยังไม่มีการส่งอีเมลหรือแจ้งเตือนด้านความปลอดภัย',
-      child: Column(
-        children: [
-          const _ProfileSwitchRow(
-            icon: Icons.notifications_rounded,
-            title: 'แจ้งเตือนในระบบ',
-            detail: 'แสดงการแจ้งเตือนสำคัญในหน้าแอดมิน — เปิดอยู่เสมอ ยังปิดไม่ได้',
-            value: true,
-            onChanged: null,
-          ),
-          const SizedBox(height: 9),
-          const _ProfileSwitchRow(
-            icon: Icons.email_rounded,
-            title: 'แจ้งเตือนทางอีเมล',
-            detail: 'ระบบยังไม่ส่งอีเมลแจ้งเตือน',
-            value: false,
-            onChanged: null,
-          ),
-          const SizedBox(height: 9),
-          const _ProfileSwitchRow(
-            icon: Icons.security_rounded,
-            title: 'แจ้งเตือนด้านความปลอดภัย',
-            detail: 'ยังไม่มีการแจ้งเตือนประเภทนี้ในระบบ',
-            value: false,
-            onChanged: null,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSecurity() {
     return _ProfileSection(
       title: 'ความปลอดภัยของบัญชี',
@@ -1119,73 +1080,6 @@ class _ReadOnlyProfileField extends StatelessWidget {
             size: 17,
             color: SchoolAdminPalette.textMuted,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileSwitchRow extends StatelessWidget {
-  const _ProfileSwitchRow({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String detail;
-  final bool value;
-
-  /// null = ยังไม่มี backend รองรับ → Switch แสดงเป็นปิดใช้งาน กดไม่ได้
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Row(
-        children: [
-          _ProfileIconBox(
-            icon: icon,
-            color: value
-                ? SchoolAdminPalette.primaryDark
-                : SchoolAdminPalette.textMuted,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    height: 1.4,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );

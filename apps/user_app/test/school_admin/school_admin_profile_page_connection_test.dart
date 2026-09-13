@@ -72,22 +72,18 @@ Future<void> _pump(
 }
 
 void main() {
-  /// สวิตช์แจ้งเตือน 3 ตัวเคย setState อย่างเดียว — ขยับได้ แต่ไม่มี RPC
-  /// ไม่มีตารางเก็บ และไม่มีระบบส่งอีเมล/แจ้งเตือนความปลอดภัยที่อ่านค่านั้น
-  /// รีโหลดแล้วกลับค่าเดิม ตามกติกา DoD สวิตช์ที่ไม่มี backend ต้องกดไม่ได้
-  /// และบอกเหตุผล ไม่ใช่ปล่อยให้แอดมินเข้าใจว่าตั้งค่าแล้ว
-  testWidgets('notification switches without a backend are disabled, with the reason shown', (
+  /// สวิตช์แจ้งเตือน 3 ตัวเคย setState อย่างเดียว — ไม่มี RPC ไม่มีตารางเก็บ
+  /// และไม่มีระบบส่งอีเมล/แจ้งเตือนความปลอดภัยที่อ่านค่านั้น ถูกปิดไว้ก่อน
+  /// (2026-09-13) แล้วถอดออกทั้งส่วน (2026-09-14): ควบคุมที่ไม่มีผลอะไรเลย
+  /// ไม่ควรอยู่บนหน้าจอ เทสต์นี้กันไม่ให้มันกลับมาโดยไม่มี backend
+  testWidgets('no notification switches without a backend behind them', (
     tester,
   ) async {
     await _pump(tester);
 
-    final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
-    expect(switches.length, 3);
-    for (final s in switches) {
-      expect(s.onChanged, isNull, reason: 'no RPC stores this — must not be toggleable');
-    }
-    expect(find.textContaining('ยังตั้งค่าไม่ได้'), findsOneWidget);
-    expect(find.textContaining('ระบบยังไม่ส่งอีเมลแจ้งเตือน'), findsOneWidget);
+    expect(find.byType(Switch), findsNothing);
+    expect(find.text('การแจ้งเตือนของฉัน'), findsNothing);
+    expect(find.text('แจ้งเตือนทางอีเมล'), findsNothing);
   });
 
   testWidgets('no log history says so, not an error', (tester) async {

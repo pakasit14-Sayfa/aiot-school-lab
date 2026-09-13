@@ -82,7 +82,17 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
         final list = await CourseService.listCourseStudents(courses.first.id);
         students = list;
       }
-    } catch (_) {}
+    } catch (e) {
+      // เดิมกลืนเงียบ → ตัวเลือกนักเรียนว่างเปล่า ครูอ่านว่า "ไม่มีนักเรียน"
+      debugPrint('StudentSupportPage: โหลดรายชื่อนักเรียนไม่สำเร็จ — $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('โหลดรายชื่อนักเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
 
