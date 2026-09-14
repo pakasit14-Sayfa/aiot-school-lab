@@ -272,8 +272,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    // จำกัดให้กดเฉพาะแถวใน sidebar — ป้าย "สายการเรียน" มีซ้ำที่การ์ดในหน้าหลัก
+    // ซึ่งเรียก onOpenPage(20) ตรง ๆ และจะทำให้เทสต์ผ่านโดยไม่ได้ทดสอบ index
+    final sidebar = find.byWidgetPredicate(
+      (w) => w.runtimeType.toString() == '_DesktopSidebar',
+    );
+    expect(sidebar, findsOneWidget);
     Future<void> open(String label) async {
-      final item = find.text(label).first;
+      final item = find.descendant(of: sidebar, matching: find.text(label));
+      expect(item, findsOneWidget, reason: '$label ต้องอยู่ใน sidebar แถวเดียว');
       await tester.ensureVisible(item);
       await tester.tap(item);
       await tester.pump();

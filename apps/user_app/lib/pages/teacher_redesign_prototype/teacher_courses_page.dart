@@ -3851,20 +3851,25 @@ class _AddStudentModalSheetState extends State<_AddStudentModalSheet> {
     }
   }
 
+  /// เรียกทุกครั้งที่พิมพ์ — คำตอบของคำค้นเก่าที่มาช้ากว่าต้องถูกทิ้ง ไม่งั้น
+  /// รายการ (หรือสถานะล้มเหลว) ของ "สม" จะทับของ "สมชาย" ที่มาถึงก่อน
+  int _searchSeq = 0;
+
   Future<void> _performSearch(String q) async {
     _searchQuery = q;
+    final seq = ++_searchSeq;
     try {
       final students = await CourseService.searchSchoolStudents(query: q);
-      if (mounted) {
-        setState(() {
-          _students = students;
-          _searchFailed = false;
-        });
-      }
+      if (!mounted || seq != _searchSeq) return;
+      setState(() {
+        _students = students;
+        _searchFailed = false;
+      });
     } catch (e) {
       // เดิมกลืนเงียบ → รายการเก่าค้าง/ว่าง ครูอ่านว่า "ไม่พบนักเรียน"
       debugPrint('EnrollStudentSheet: ค้นหานักเรียนไม่สำเร็จ — $e');
-      if (mounted) setState(() => _searchFailed = true);
+      if (!mounted || seq != _searchSeq) return;
+      setState(() => _searchFailed = true);
     }
   }
 
@@ -4102,7 +4107,10 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
   }
 
   Future<void> _loadStudentsFromSupabase() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     try {
       final enrolled = await (widget.loadStudents ??
           CourseService.listCourseStudents)(widget.course.id ?? '');
@@ -4111,11 +4119,10 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
             (st) => {
               'id': st.studentId,
               'name': st.fullName,
-              'email': st.email,
               // list_course_students ไม่คืนรหัสนักเรียน — เดิมตัด 8 ตัวแรก
               // ของ uuid มาโชว์เป็น "รหัส" และใส่ 'ม.4/1' ให้ทุกคน ตอนนี้ใช้
               // ห้องของรายวิชาจริงและอีเมลแทน
-              'email_label': st.email,
+              'email': st.email,
               'room': widget.course.rooms.isEmpty
                   ? null
                   : widget.course.rooms.join(', '),
@@ -4145,7 +4152,7 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
   Widget build(BuildContext context) {
     final filtered = _students.where((s) {
       final name = (s['name'] as String).toLowerCase();
-      final email = (s['email_label'] as String? ?? '').toLowerCase();
+      final email = (s['email'] as String? ?? '').toLowerCase();
       final q = _searchQuery.toLowerCase();
       return name.contains(q) || email.contains(q);
     }).toList();

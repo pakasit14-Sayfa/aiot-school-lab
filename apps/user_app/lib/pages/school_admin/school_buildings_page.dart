@@ -230,7 +230,6 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       case 'missing_required_field':
         return 'กรอกชื่อและรหัส$whatให้ครบก่อนบันทึก';
       case 'building_not_found':
-      case 'unknown_building':
         return 'ไม่พบอาคารที่เลือก กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง';
       default:
         return 'สร้าง$whatไม่สำเร็จ${reason.isEmpty ? '' : ' ($reason)'}';
@@ -279,6 +278,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                 'code': code,
                 'floors': floors,
               });
+              // แอดมินอาจกดพื้นหลังปิดแผ่นไปแล้วระหว่างรอ — ห้าม setState บน
+              // StatefulBuilder ที่ถูกถอดไปแล้ว
+              if (!sheetContext.mounted) return;
               final problem = _skipReasonMessage(result, 'อาคาร');
               if (problem != null) {
                 setSheet(() {
@@ -293,6 +295,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
               await _loadData();
             } catch (e) {
               debugPrint('SchoolBuildingsPage: สร้างอาคารไม่สำเร็จ — $e');
+              if (!sheetContext.mounted) return;
               setSheet(() {
                 submitting = false;
                 formError = 'สร้างอาคารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
@@ -386,6 +389,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                 'floor': floorCtrl.text.trim(),
                 'capacity': capacity,
               });
+              if (!sheetContext.mounted) return;
               final problem = _skipReasonMessage(result, 'ห้อง');
               if (problem != null) {
                 setSheet(() {
@@ -400,6 +404,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
               await _loadData();
             } catch (e) {
               debugPrint('SchoolBuildingsPage: สร้างห้องไม่สำเร็จ — $e');
+              if (!sheetContext.mounted) return;
               setSheet(() {
                 submitting = false;
                 formError = 'สร้างห้องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';

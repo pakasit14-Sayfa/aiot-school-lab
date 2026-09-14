@@ -19,12 +19,15 @@ class ParentNavigationShell extends StatefulWidget {
   final ParentPagesBuilder? pagesBuilder;
 
   /// seam สำหรับเทสต์ — production ใช้ NotificationService.listMyNotifications
+  /// / markNotificationRead
   final Future<List<AppNotification>> Function()? loadNotifications;
+  final Future<void> Function(String notificationId)? markNotificationRead;
 
   const ParentNavigationShell({
     super.key,
     this.pagesBuilder,
     this.loadNotifications,
+    this.markNotificationRead,
   });
 
   @override
@@ -65,18 +68,50 @@ class _ParentNavigationShellState extends State<ParentNavigationShell> {
 
   int get _unreadCount => _notifications.where((n) => n.readAt == null).length;
 
+  /// แตะรายการ = อ่านแล้ว: เขียนผ่าน mark_notification_read แล้วอ่านรายการ
+  /// กลับ — จุดแดงจึงหายเมื่อหลังบ้านยืนยันว่าอ่านแล้วจริง ไม่ใช่แค่ในเครื่อง
+  Future<bool> _markRead(String id) async {
+    try {
+      await (widget.markNotificationRead ??
+          NotificationService.markNotificationRead)(id);
+      await _loadNotifications();
+      return true;
+    } catch (e) {
+      debugPrint('ParentNavigationShell: mark_notification_read ล้ม — $e');
+      return false;
+    }
+  }
+
   Future<void> _openNotifications() async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ParentNotificationSheet(
-        notifications: _notifications,
-        failed: _notificationsFailed,
-        onRetry: _loadNotifications,
+      // สร้าง sheet ใหม่ทุกครั้งที่ state ของ shell เปลี่ยน (หลัง mark read)
+      // เพื่อให้แถวที่เพิ่งแตะเปลี่ยนเป็น "อ่านแล้ว" ทันทีในแผ่นเดียวกัน
+      builder: (_) => StatefulBuilder(
+        builder: (sheetContext, setSheet) => _ParentNotificationSheet(
+          notifications: _notifications,
+          failed: _notificationsFailed,
+          onRetry: _loadNotifications,
+          onTap: (n) async {
+            if (n.readAt != null) return;
+            final ok = await _markRead(n.id);
+            if (!sheetContext.mounted) return;
+            if (ok) {
+              setSheet(() {});
+            } else {
+              ScaffoldMessenger.of(sheetContext).showSnackBar(
+                const SnackBar(
+                  content: Text('บันทึกว่าอ่านแล้วไม่สำเร็จ กรุณาลองใหม่'),
+                ),
+              );
+            }
+          },
+        ),
       ),
     );
-    // เปิดแล้วถือว่าเห็น — โหลดใหม่เผื่อมีของใหม่เข้ามาระหว่างนั้น
+    // โหลดใหม่หลังปิดแผ่น เผื่อมีรายการใหม่เข้ามาระหว่างที่เปิดอยู่
     await _loadNotifications();
   }
 
@@ -734,11 +769,13 @@ class _ParentNotificationSheet extends StatelessWidget {
     required this.notifications,
     required this.failed,
     required this.onRetry,
+    required this.onTap,
   });
 
   final List<AppNotification> notifications;
   final bool failed;
   final Future<void> Function() onRetry;
+  final Future<void> Function(AppNotification) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -799,6 +836,7 @@ class _ParentNotificationSheet extends StatelessWidget {
                   final n = notifications[i];
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
+                    onTap: () => onTap(n),
                     leading: Icon(
                       n.readAt == null
                           ? Icons.notifications_active_rounded

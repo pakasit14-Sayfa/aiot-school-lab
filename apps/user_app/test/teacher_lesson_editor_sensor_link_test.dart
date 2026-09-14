@@ -118,6 +118,55 @@ void main() {
     expect(find.text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว'), findsOneWidget);
   });
 
+  /// list_school_devices คืนรีเลย์/กล้อง/gateway ด้วย — ต้องไม่ถูกเสนอเป็นแหล่ง
+  /// ข้อมูลกราฟ (ผูกได้ แต่นักเรียนจะได้กราฟว่างถาวร)
+  testWidgets('non-sensor devices are never offered as chart sources', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      lesson: _lesson(),
+      listDevices: () async => const [
+        DeviceOption(
+          id: 'dev-relay',
+          name: 'ไฟห้อง 101',
+          type: 'relay',
+          location: null,
+          status: 'online',
+        ),
+        _pm25,
+      ],
+    );
+    await tester.tap(find.text('+ ผูกข้อมูล AIoT Sensor'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('PM2.5 ห้อง 101'), findsWidgets);
+    expect(find.textContaining('ไฟห้อง 101'), findsNothing);
+  });
+
+  testWidgets('a school with only non-sensor devices is told so, not shown an empty picker', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      lesson: _lesson(),
+      listDevices: () async => const [
+        DeviceOption(
+          id: 'dev-cam',
+          name: 'กล้องหน้าประตู',
+          type: 'camera',
+          location: null,
+          status: 'online',
+        ),
+      ],
+    );
+    await tester.tap(find.text('+ ผูกข้อมูล AIoT Sensor'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ยังไม่มีอุปกรณ์เซนเซอร์'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
   testWidgets('a failed link stays in the dialog with a fixed sentence, no leaked exception', (
     tester,
   ) async {

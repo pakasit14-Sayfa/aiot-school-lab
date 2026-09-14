@@ -19,6 +19,7 @@ AppNotification _note({required String id, DateTime? readAt}) =>
 Future<void> _pump(
   WidgetTester tester, {
   required Future<List<AppNotification>> Function() loadNotifications,
+  Future<void> Function(String)? markNotificationRead,
 }) async {
   // กระดิ่งอยู่บน AppBar ของเลย์เอาต์มือถือเท่านั้น (< 820px)
   await tester.binding.setSurfaceSize(const Size(600, 900));
@@ -27,6 +28,7 @@ Future<void> _pump(
     MaterialApp(
       home: ParentNavigationShell(
         loadNotifications: loadNotifications,
+        markNotificationRead: markNotificationRead,
         pagesBuilder: (_, _) =>
             List.generate(7, (i) => Scaffold(body: Text('page-$i'))),
       ),
@@ -73,6 +75,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ประกาศ n2'), findsOneWidget);
     expect(find.text('เนื้อหาของ n2'), findsOneWidget);
+  });
+
+  /// จุดแดงต้องเคลียร์ได้จากในแผ่นเอง: แตะรายการ → mark_notification_read →
+  /// อ่านกลับ → readAt ไม่ null → จุดหาย (เดิมแผ่นไม่มีทางทำให้อ่านแล้วเลย)
+  testWidgets('tapping an unread row marks it read through the RPC and clears the dot', (
+    tester,
+  ) async {
+    final marked = <String>[];
+    final read = <String>{};
+    await _pump(
+      tester,
+      loadNotifications: () async => [
+        _note(id: 'n3', readAt: read.contains('n3') ? DateTime(2026, 9, 12) : null),
+      ],
+      markNotificationRead: (id) async {
+        marked.add(id);
+        read.add(id);
+      },
+    );
+    expect(_unreadDot(), findsOneWidget);
+
+    await tester.tap(find.byTooltip('การแจ้งเตือน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ประกาศ n3'));
+    await tester.pumpAndSettle();
+    expect(marked, ['n3']);
+
+    // ปิดแผ่น → shell โหลดใหม่ → ไม่มีของค้างอ่าน → จุดแดงหาย
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(_unreadDot(), findsNothing);
   });
 
   testWidgets('an empty account says so — never a fake dot', (tester) async {

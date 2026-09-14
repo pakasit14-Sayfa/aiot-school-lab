@@ -87,12 +87,16 @@ void main() {
 
     final labels = find.textContaining('CCTV');
     expect(labels, findsWidgets);
-    for (final element in labels.evaluate()) {
-      final button = element
-          .findAncestorWidgetOfExactType<OutlinedButton>();
-      final textButton = element.findAncestorWidgetOfExactType<TextButton>();
-      final onPressed = button?.onPressed ?? textButton?.onPressed;
-      expect(onPressed, isNull, reason: 'no CCTV integration exists');
+    // `OutlinedButton.icon` / `TextButton.icon` are private subclasses, so an
+    // exact-type ancestor lookup would silently return null and make the
+    // null-assertion below pass for the wrong reason — match the base class.
+    final buttons = find.ancestor(
+      of: labels,
+      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+    );
+    expect(buttons, findsWidgets, reason: 'each CCTV label sits in a button');
+    for (final button in tester.widgetList<ButtonStyleButton>(buttons)) {
+      expect(button.onPressed, isNull, reason: 'no CCTV integration exists');
     }
     expect(find.textContaining('ยังไม่เชื่อมระบบกล้อง'), findsWidgets);
     expect(find.textContaining('กำลังเปิดคลิป'), findsNothing);

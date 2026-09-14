@@ -496,7 +496,9 @@ class _TeacherKnowledgeLibraryPageState
             ),
             const SizedBox(height: 16),
             Text(
-              '${files.length} ไฟล์ · ${currentSubject?.name ?? ""}',
+              (currentSubject?.filesLoadFailed ?? false)
+                  ? 'โหลดไฟล์ไม่สำเร็จ · ${currentSubject?.name ?? ""}'
+                  : '${files.length} ไฟล์ · ${currentSubject?.name ?? ""}',
               style: const TextStyle(
                 color: TeacherPalette.muted,
                 fontWeight: FontWeight.w700,

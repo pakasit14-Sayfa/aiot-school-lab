@@ -59,6 +59,7 @@ Future<void> _pump(
 }
 
 void main() {
+  _retryTests();
   testWidgets('a student row shows the course room and real email, never a fake room or uuid-prefix code', (
     tester,
   ) async {
@@ -98,5 +99,32 @@ void main() {
     expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
     expect(find.text('ยังไม่มีนักเรียนลงทะเบียนในรายวิชานี้'), findsNothing);
     expect(find.textContaining('roster_boom'), findsNothing);
+  });
+}
+
+/// โหลดล้มแล้วกด "ลองใหม่" สำเร็จ — การ์ดล้มเหลวต้องหาย (เคยค้างเพราะ
+/// `_loadFailed` ไม่ถูกรีเซ็ตในทางสำเร็จ)
+void _retryTests() {
+  testWidgets('a successful retry clears the failed state and shows the roster', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      course: _course(),
+      loadStudents: (_) async {
+        calls++;
+        if (calls == 1) throw Exception('first load fails');
+        return [_student()];
+      },
+    );
+    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsOneWidget);
+
+    await tester.tap(find.text('ลองใหม่'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('โหลดรายชื่อนักเรียนไม่สำเร็จ'), findsNothing);
+    expect(find.textContaining('สมชาย'), findsWidgets);
   });
 }

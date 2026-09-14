@@ -882,9 +882,7 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
                                     });
                                   } catch (_) {
                                     if (!context.mounted) return;
-                                    ScaffoldMessenger.of(
-                                      context,
-                                    ).showSnackBar(
+                                    ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('เผยแพร่ไม่สำเร็จ'),
                                         backgroundColor: Color(0xFFEF4444),
@@ -1837,7 +1835,9 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                                 );
                                 _triggerAutoSave();
                               } catch (e) {
-                                debugPrint('Error attaching lesson material: $e');
+                                debugPrint(
+                                  'Error attaching lesson material: $e',
+                                );
                                 setModalState(() => isUploading = false);
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -2705,30 +2705,50 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     );
   }
 
-  /// metric ที่อุปกรณ์แต่ละชนิดวัดได้ (ตาม enum metric_type ในฐานข้อมูล)
-  static const Map<String, List<String>> _metricsByType = {
-    'pm25_sensor': ['pm25'],
-    'air_quality_sensor': ['pm25', 'aqi', 'co2', 'tvoc', 'temperature', 'humidity'],
-    'light_sensor': ['light_lux'],
-    'energy_meter': ['energy_kwh', 'power_w'],
-    'water_meter': ['water_flow_lmin', 'water_volume_l', 'water_m3'],
-  };
-  static const List<String> _allMetrics = [
-    'pm25', 'aqi', 'temperature', 'humidity', 'light_lux', 'energy_kwh',
-    'power_w', 'water_flow_lmin', 'water_volume_l', 'water_m3',
-    'gas_mq2_percent', 'co2', 'tvoc',
-  ];
+  /// อ่านลิงก์เซนเซอร์กลับจากหลังบ้านอย่างเดียว — ไม่ใช่ `_loadFullLesson`
+  /// ซึ่งทับ `_titleController`/`_blocks` ด้วยของบนเซิร์ฟเวอร์ และจะลบสิ่งที่
+  /// ครูพิมพ์ค้างอยู่ถ้า autosave รอบล่าสุดยังไม่ลง/ล้ม
+  Future<void> _refreshSensorLinks() async {
+    try {
+      final detail = await LessonService.getLesson(widget.lesson.id);
+      if (!mounted) return;
+      setState(() {
+        widget.lesson.sensorLinks = detail.sensorLinks
+            .map(
+              (s) => LessonSensorLinkModel(
+                id: s.id,
+                deviceName: _deviceNames[s.deviceId] ?? s.deviceId,
+                metric: s.metric,
+                timeRange: s.timeStart != null
+                    ? '${s.timeStart} - ${s.timeEnd}'
+                    : 'ช่วงเวลาที่บันทึก',
+                caption: s.caption ?? '',
+              ),
+            )
+            .toList();
+        widget.lesson.sensorChartsCount = widget.lesson.sensorLinks.length;
+      });
+    } catch (e) {
+      debugPrint(
+        'TeacherLessonEditorPage: อ่านลิงก์เซนเซอร์กลับไม่สำเร็จ — $e',
+      );
+    }
+  }
 
   Future<void> _openLinkSensorDialog() async {
     final listDevices = widget.listDevices ?? LessonService.listSchoolDevices;
     List<DeviceOption> devices;
     try {
-      devices = await listDevices();
+      // list_school_devices คืนทุกชนิด (รีเลย์ กล้อง gateway ปุ่มฉุกเฉิน ...)
+      // — ผูกได้เฉพาะตัวที่มีค่าอ่านจริง ไม่งั้นนักเรียนได้กราฟว่างถาวร
+      devices = (await listDevices()).where((d) => d.isSensor).toList();
     } catch (e) {
       debugPrint('TeacherLessonEditorPage: โหลดรายการอุปกรณ์ไม่สำเร็จ — $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('โหลดรายการอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่')),
+        const SnackBar(
+          content: Text('โหลดรายการอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่'),
+        ),
       );
       return;
     }
@@ -2736,7 +2756,9 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     if (devices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('โรงเรียนยังไม่มีอุปกรณ์ในระบบ ให้แอดมินลงทะเบียนอุปกรณ์ก่อน'),
+          content: Text(
+            'โรงเรียนยังไม่มีอุปกรณ์เซนเซอร์ในระบบ ให้แอดมินลงทะเบียนอุปกรณ์ก่อน',
+          ),
         ),
       );
       return;
@@ -2744,10 +2766,8 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     _deviceNames = {for (final d in devices) d.id: d.name};
 
     var deviceId = devices.first.id;
-    List<String> metricsFor(String id) {
-      final type = devices.firstWhere((d) => d.id == id).type;
-      return _metricsByType[type] ?? _allMetrics;
-    }
+    List<String> metricsFor(String id) =>
+        devices.firstWhere((d) => d.id == id).metrics;
 
     var metric = metricsFor(deviceId).first;
     final captionCtrl = TextEditingController();
@@ -2764,7 +2784,8 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
               error = null;
             });
             try {
-              final link = widget.linkSensor ??
+              final link =
+                  widget.linkSensor ??
                   ({
                     required String lessonId,
                     required String deviceId,
@@ -2786,12 +2807,19 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
               if (dialogContext.mounted) Navigator.of(dialogContext).pop();
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว')),
+                const SnackBar(
+                  content: Text('ผูกข้อมูลเซนเซอร์กับบทเรียนแล้ว'),
+                ),
               );
               // อ่านกลับจากหลังบ้าน ไม่เติมรายการในเครื่องเอง
-              await _loadFullLesson();
+              await _refreshSensorLinks();
             } catch (e) {
-              debugPrint('TeacherLessonEditorPage: link_lesson_sensor ล้ม — $e');
+              debugPrint(
+                'TeacherLessonEditorPage: link_lesson_sensor ล้ม — $e',
+              );
+              // ครูอาจกดพื้นหลังปิด dialog ไปแล้วระหว่างรอ — ห้าม setState
+              // บน StatefulBuilder ที่ถูกถอดไปแล้ว
+              if (!dialogContext.mounted) return;
               setDialog(() {
                 submitting = false;
                 error = 'ผูกข้อมูลเซนเซอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
@@ -2799,84 +2827,89 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
             }
           }
 
-          return AlertDialog(
-            title: const Text('ผูกข้อมูล AIoT Sensor กับบทเรียน'),
-            content: SizedBox(
-              width: 420,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: deviceId,
-                    decoration: const InputDecoration(labelText: 'อุปกรณ์'),
-                    items: [
-                      for (final d in devices)
-                        DropdownMenuItem(
-                          value: d.id,
-                          child: Text(
-                            d.location == null || d.location!.isEmpty
-                                ? d.name
-                                : '${d.name} · ${d.location}',
-                            overflow: TextOverflow.ellipsis,
+          return _OwnControllers(
+            controllers: [captionCtrl],
+            child: AlertDialog(
+              title: const Text('ผูกข้อมูล AIoT Sensor กับบทเรียน'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: deviceId,
+                      decoration: const InputDecoration(labelText: 'อุปกรณ์'),
+                      items: [
+                        for (final d in devices)
+                          DropdownMenuItem(
+                            value: d.id,
+                            child: Text(
+                              d.location == null || d.location!.isEmpty
+                                  ? d.name
+                                  : '${d.name} · ${d.location}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                    ],
-                    onChanged: submitting
-                        ? null
-                        : (v) {
-                            if (v == null) return;
-                            setDialog(() {
-                              deviceId = v;
-                              metric = metricsFor(v).first;
-                            });
-                          },
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    value: metric,
-                    decoration: const InputDecoration(labelText: 'ค่าที่ต้องการแสดง'),
-                    items: [
-                      for (final m in metricsFor(deviceId))
-                        DropdownMenuItem(value: m, child: Text(m)),
-                    ],
-                    onChanged: submitting
-                        ? null
-                        : (v) => setDialog(() => metric = v ?? metric),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: captionCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'คำอธิบายกราฟ (ถ้ามี)',
+                      ],
+                      onChanged: submitting
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setDialog(() {
+                                deviceId = v;
+                                metric = metricsFor(v).first;
+                              });
+                            },
                     ),
-                  ),
-                  if (error != null) ...[
                     const SizedBox(height: 10),
-                    Text(
-                      error!,
-                      style: const TextStyle(
-                        color: Color(0xFFB91C1C),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                    DropdownButtonFormField<String>(
+                      value: metric,
+                      decoration: const InputDecoration(
+                        labelText: 'ค่าที่ต้องการแสดง',
+                      ),
+                      items: [
+                        for (final m in metricsFor(deviceId))
+                          DropdownMenuItem(value: m, child: Text(m)),
+                      ],
+                      onChanged: submitting
+                          ? null
+                          : (v) => setDialog(() => metric = v ?? metric),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: captionCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'คำอธิบายกราฟ (ถ้ามี)',
                       ),
                     ),
+                    if (error != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        error!,
+                        style: const TextStyle(
+                          color: Color(0xFFB91C1C),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: submitting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('ยกเลิก'),
+                ),
+                FilledButton(
+                  onPressed: submitting ? null : submit,
+                  child: Text(submitting ? 'กำลังบันทึก…' : 'ผูกข้อมูล'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: submitting
-                    ? null
-                    : () => Navigator.of(dialogContext).pop(),
-                child: const Text('ยกเลิก'),
-              ),
-              FilledButton(
-                onPressed: submitting ? null : submit,
-                child: Text(submitting ? 'กำลังบันทึก…' : 'ผูกข้อมูล'),
-              ),
-            ],
           );
         },
       ),
@@ -3347,4 +3380,30 @@ class _DashedRectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _DashedRectPainter oldDelegate) => false;
+}
+
+/// ถือ TextEditingController ของ dialog ไว้จน route ถูกถอดจริง — dispose ทันที
+/// หลัง `showDialog` คืนค่าจะชนแอนิเมชันปิดที่ยังวาด TextField อยู่ และไม่
+/// dispose เลยคือ leak ทุกครั้งที่เปิด
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
