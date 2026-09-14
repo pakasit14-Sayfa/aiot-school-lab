@@ -78,6 +78,23 @@ p_detail       jsonb    -- ไม่บังคับ ใส่รายละ�
 `p_status = 'ok'` **และ** `p_relay` **และ** `p_state` ไม่เป็น null ครบทั้งสาม
 ถ้าส่งแค่ `p_status = 'ok'` เฉย ๆ แอปจะยังขึ้นว่า "ยังไม่ยืนยัน" อยู่ดี
 
+
+### `report_relay_states(p_device_token text, p_states jsonb)` → int
+
+**เรียกครั้งเดียวหลังต่อ WiFi สำเร็จ ก่อนเริ่ม loop** — บอกแอปว่ารีเลย์ทุกช่อง
+อยู่สถานะไหนจริงตอนนี้ (หลังไฟดับ/รีสตาร์ท ทุกช่อง OFF แต่แอปยังจำสถานะเก่า)
+
+```json
+{ "p_device_token": "...",
+  "p_states": [ {"relay":1,"state":false}, {"relay":2,"state":false},
+                {"relay":3,"state":false}, {"relay":4,"state":false} ] }
+```
+
+- `relay` ต้องเป็นตัวเลข · `state` ต้องเป็น boolean (ไม่ใช่ string) ไม่งั้น `invalid_states`
+- คืนจำนวนช่องที่บันทึก
+- นับเป็นการรายงานตัวด้วย (อัปเดต `last_seen_at`)
+- เพิ่มใน migration `20260914000000` — ต้อง push ขึ้น production ก่อนบอร์ดจะเรียกได้
+
 ### error ที่อาจเจอ
 
 | ข้อความ | สาเหตุ |
@@ -110,7 +127,8 @@ from device_commands order by created_at desc limit 1;
 select * from device_relay_states;
 ```
 
-**ผ่านเมื่อ:** `delivered_at` มีค่า · `acked_at` มีค่า · `ack_status = 'ok'` ·
+**ผ่านเมื่อ:** หลังบูต `device_relay_states` มี 4 แถวทันที · แล้วกดสั่ง 1 ครั้ง →
+`delivered_at` มีค่า · `acked_at` มีค่า · `ack_status = 'ok'` ·
 และ `device_relay_states` มีแถวของ relay นั้นพร้อม `state` ที่ถูกต้อง
 
 บนหน้าจอแอดมินจะเปลี่ยนจากส้ม "อุปกรณ์ยังไม่ยืนยัน" เป็นเขียว

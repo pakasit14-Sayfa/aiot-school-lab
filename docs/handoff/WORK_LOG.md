@@ -1076,3 +1076,228 @@ pgTAP `56_device_command_poll_order_and_online.test.sql` 9/9 ผ่าน
 
 **ยังค้าง:** เฟิร์มแวร์ต้องเพิ่มการเรียก `ack_device_command` ไม่งั้นหน้าจอจะขึ้น
 "อุปกรณ์ยังไม่ยืนยัน" สีส้มตลอดไปต่อให้รีเลย์ทำงานจริง (โค้ดบอร์ดอยู่นอก repo นี้)
+
+## 2026-09-10 — director_learning_page ให้ตรงกับดีไซน์วันที่ 7 (ภาพรวมนักเรียน) + migration เพิ่ม grade/advisor ใน watchlist
+
+ทำหน้า `director_learning_page.dart` (ภาพรวมนักเรียน, Executive) ให้เลย์เอาต์/
+การ์ดตรงกับต้นฉบับ 7 ก.ย. (commit `e7d2e78`) ครบทั้ง 9 ส่วน แต่ใช้ข้อมูลจริงแทน
+ของแต่งขึ้นทุกจุด ตามที่ผู้ใช้ยืนยันไว้ ("เอาหน้าตา/เลย์เอาต์เท่านั้น ใส่ข้อมูลจริง"):
+hero header, filter bar (เพิ่มช่องวันที่เป็นช่องที่ 3), การ์ดสรุป 5 ใบ (พื้นหลังสี
++ badge จริงเฉพาะ 2 ใบที่มีข้อมูลรองรับ), EXECUTIVE WATCHLIST, การวิเคราะห์สาย
+การเรียน, การมาเรียนแยกตามระดับชั้น, ระบบดูแลช่วยเหลือนักเรียน, เจาะลึกรายระดับ
+ชั้น, ข้อเสนอแนะเชิงบริหาร (ไม่มีปุ่ม "สั่งการ" ปลอมเพราะไม่มีระบบสั่งการจริง).
+
+**RPC `listExecutiveAutoFlaggedStudents` มีอยู่แล้วแต่ไม่เคยถูกแสดงบนหน้าจอเลย
+สักจุด** (โหลดไว้เฉยๆใน controller) — เอามาต่อจริงเป็นการ์ด watchlist ครั้งแรก
+พร้อมปุ่ม "สั่งการดูแล" (เปิดเคสจริงผ่าน `openCaseFromFlag`, มีอยู่แล้ว) และปุ่ม
+"ดูประวัติ" ใหม่ (เปิดได้เฉพาะนักเรียนที่มีเคสจริงในระบบแล้วเท่านั้น — เช็คจาก
+`controller.cases` ตรงๆ ไม่ fetch เพิ่ม).
+
+การ์ดต้นฉบับมีชื่อระดับชั้นกับครูที่ปรึกษาต่อแถว ซึ่ง RPC เดิมไม่ส่งมา — สอบถาม
+ผู้ใช้แล้วเลือกต่อ backend จริงแทนตัดทิ้ง เพราะข้อมูลมีจริงในฐานข้อมูล
+(`student_profiles.grade_level`/`room`, `homeroom_assignments.teacher_id`)
+เพิ่ม migration `20260910150000_executive_flag_grade_and_advisor.sql`
+(DROP+CREATE ไม่ใช่ CREATE OR REPLACE เพราะ Postgres ไม่ยอมให้เปลี่ยน
+return columns ของ TABLE function แบบ replace-in-place) เพิ่ม 3 คอลัมน์
+`grade_level`, `room`, `advisor_name` เข้า `list_executive_students_needing_attention`.
+severity จริงมีแค่ 2 ระดับ (`urgent`/`normal`) ไม่ใช่ 3 แบบต้นฉบับ (วิกฤต/
+เฝ้าระวัง/ดูแลพิเศษ) — ตัดป้าย "ดูแลพิเศษ" ทิ้งเพราะไม่มีสัญญาณสุขภาพจิต/
+ความเครียดในระบบจริงเลย. เพิ่ม seed ข้อมูลจำลอง (นักเรียน + attendance +
+assignments ค้าง + เกรดต่ำ + support cases + ครูที่ปรึกษา 3 คน + homeroom_assignments)
+ให้ signal ทั้ง 3 แบบ (ค้างส่งงาน/คะแนนต่ำ/ขาดเรียนบ่อย) ติด flag ได้จริงบน local DB.
+
+`AutoFlaggedStudent` model เพิ่ม `gradeLevel`/`room`/`advisorName` (nullable) —
+`StudentSupportService` ไม่ต้องแก้เพราะ map จาก row อยู่แล้ว.
+`docs/handoff/DATABASE_SCHEMA.md` เพิ่ม entry `list_executive_students_needing_attention`
+ที่ขาดไปจากตอนสร้าง RPC ครั้งแรก (`20260910090000`) พร้อมอัปเดต signature ใหม่.
+
+Test: `test/director_learning_page_test.dart` 8/8 ผ่าน (เพิ่ม 2 เคสใหม่: badge
+ระดับชั้น/สถานะ/ครูที่ปรึกษาแสดงถูก + ปุ่มดูประวัติกดไม่ได้ถ้ายังไม่มีเคสจริง,
+และกดได้เมื่อมีเคสจริงในระบบ). Regression เต็ม `test/executive/` + หน้านี้
+113/113 ผ่าน.
+
+## 2026-09-10/11 — ฟีเจอร์ใหม่: 4 หมวดคาบสอนจริงในการ์ด "ภาพรวมครูและการสอน" (จัดครูสอนแทน + เตรียมสอน/ประชุม ไม่เคยมีตารางเก็บข้อมูลมาก่อนเลย)
+
+ผู้ใช้ส่งภาพหน้าจอวันที่ 7 ของการ์ด "ภาพรวมครูและการสอน" ถาม "ทำไมไม่ใช้ตาม
+ตัวอย่าง" — พบว่าการ์ดที่ทำไปก่อนหน้านี้ในเซสชันเดียวกัน (bubble ของ
+`list_departments(kind:'subject_group')`) เป็นคนละตัวชี้วัดกับต้นฉบับ: ของจริง
+คือสัดส่วน "การสอน" 4 หมวด (สอนในตารางปกติ/กิจกรรม&แล็บ/จัดครูสอนแทน/เตรียม
+สอน-ประชุม) ไม่ใช่สัดส่วนกลุ่มสาระ. ตรวจ schema พบว่า 2 ใน 4 หมวดไม่มีตาราง
+เก็บข้อมูลอยู่เลย (จัดครูสอนแทน, เตรียมสอน) — ถามผู้ใช้แล้วเลือกออกแบบฟีเจอร์
+ใหม่ให้ครบทั้ง 4 หมวด ไม่ใช่แค่ตัดทิ้งหรือย้อนกลับไปใช้ "ข้อมูลจำลอง" แบบ
+ต้นฉบับ. เข้า plan mode ก่อนเริ่มเพราะงานใหญ่กว่าการ join ตารางที่มีอยู่.
+
+**Migration `20260910160000_teacher_workload_categories.sql`:**
+- `class_schedules.period_type` (`regular`/`activity_lab`, default `regular`) —
+  ทำให้ "กิจกรรม & แล็บ" เป็นข้อมูลจริงที่ครูตั้งเองตอนสร้างตาราง
+- ตารางใหม่ `class_substitutions` (school_id, class_schedule_id, class_date,
+  original_teacher_id, substitute_teacher_id, note — unique ต่อ
+  period-occurrence) และ `staff_prep_blocks` (school_id, teacher_id,
+  class_date, start/end_time, label — ไม่ผูกวิชาเพราะเตรียมสอนไม่ใช่คาบเรียน)
+  ทั้งคู่ RLS deny-all ไม่มี policy ตามกติกาโปรเจกต์
+- RPC ใหม่: `record_class_substitution`, `list_periods_needing_substitute`
+  (จับคู่ `staff_leave_requests` ที่อนุมัติแล้วกับ `class_schedules` ของวันนั้น
+  — ทำให้ "จัดครูสอนแทน" เป็น coverage-rate จริง ไม่ใช่ "ครบ 100%" ที่แต่งขึ้น
+  แบบต้นฉบับ), `log_staff_prep_block`, `get_teacher_workload_summary`
+  (รวมยอด 4 หมวดของสัปดาห์นี้ — Mon–Sun ตาม `date_trunc('week',...)` ซึ่งตรงกับ
+  `day_of_week` convention ของโปรเจกต์ 0=จันทร์อยู่แล้ว)
+- ขยาย `set_class_schedule`/`list_all_school_schedules`/`list_my_schedule`/
+  `list_teacher_schedules` ให้ส่ง `period_type` ด้วย
+
+**บั๊กที่เจอระหว่างตรวจสอบเอง (ก่อนแตะฝั่ง Dart) — ทั้งคู่แก้ก่อนรายงานว่าเสร็จ:**
+1. คอลัมน์ `grade_level`/`room` เป็น `character varying` แต่ประกาศ return type
+   เป็น `text` — Postgres error "structure of query does not match function
+   result type" เหมือนบั๊กที่เจอใน migration ก่อนหน้า (`20260910150000`) —
+   คราวนี้ประกาศ `character varying` ให้ตรงคอลัมน์ต้นทางแทนตั้งแต่แรก
+2. **`CREATE OR REPLACE FUNCTION set_class_schedule` เพิ่มพารามิเตอร์
+   `p_period_type` (มี default) ท้ายรายการ — Postgres ไม่ถือว่าเป็นฟังก์ชัน
+   เดียวกัน สร้าง overload ที่ 2 แยกต่างหากแทนที่จะแทนที่ของเดิม** ทำให้เรียก
+   ด้วย literal ไม่มี type hint แล้ว ambiguous จนหาไม่เจอ — นี่คือบทเรียนเดียวกับ
+   ที่เขียนไว้ใน WORK_LOG แล้วสำหรับ `poll_device_commands` แต่คราวนี้เจอเองซ้ำ
+   เพราะลืมเช็ค ต้อง `DROP FUNCTION` signature เดิมก่อนเสมอเมื่อเพิ่มพารามิเตอร์
+   ใหม่ท้ายรายการ ต่อให้มี default ก็ตาม
+   ตรวจพบทั้งคู่ด้วยเทคนิค insert แถวลง `sessions` ตรง ๆ แล้วเรียก RPC ผ่าน
+   `psql` ก่อนแตะโค้ด Dart เลย — ยืนยันว่าใช้ได้จริงก่อนรายงานว่าเสร็จ
+
+**ผลข้างเคียงที่ต้องรู้: `supabase db reset --local` (รันเพื่อยืนยันว่า
+migration ใหม่ใช้ได้กับ full pgTAP suite) ล้างข้อมูลจำลองที่ seed ด้วย
+`docker exec` ตรง ๆ ทั้งหมดในเซสชันนี้** (นักเรียน auto-flag 10 คน, ครูที่
+ปรึกษา 3 คน, homeroom_assignments ฯลฯ จาก entry ก่อนหน้า) เพราะไม่ได้อยู่ใน
+migration/seed.sql — seed ใหม่ทั้งหมดด้วย ID ของ school/academic_year/term
+ชุดใหม่หลัง reset (ของเดิมอ้าง ID ที่ไม่มีอยู่แล้ว). **บทเรียน: ข้อมูลจำลองที่
+ใส่ผ่าน `docker exec` โดยตรงไม่รอดจาก `db reset` — ถ้าต้องรัน reset ระหว่าง
+ทางต้อง seed ใหม่ก่อนรายงานว่าเสร็จ ไม่ใช่แค่เดโมด้วยข้อมูลที่หายไปแล้ว**
+
+**pgTAP เต็ม (`supabase test db --local` หลัง fresh reset) พบ 3 test ล้มเหลว
+ที่ไม่เกี่ยวกับงานนี้เลย (ยืนยันด้วยการรันซ้ำบน fresh reset ที่ไม่มีข้อมูลจำลอง
+ของเซสชันนี้ค้างอยู่):**
+- `14_facility_manager_building_scope.test.sql`, `16_facility_manager_device_list.test.sql`
+  — ค้างอ้าง role `facility_manager` ที่ถูกยุบรวมเข้า `school_admin` ไปตั้งแต่
+  2026-08-25 (ตาม CLAUDE.md) — ไฟล์ทดสอบกำพร้า ยังไม่ได้ลบ/อัปเดต
+- `38_staff_attendance.test.sql` test 25 "approved leave covering the day
+  wins when the day is read back" — คาดหวัง `leave` ได้ `present` แทน —
+  ไม่เกี่ยวกับ `class_schedules`/`staff_leave_requests` ที่ผมแก้เลย (ไม่ได้แตะ
+  ฟังก์ชันที่ทดสอบนี้เรียกเลยสักตัว) เป็นบั๊ก/ความไม่แน่นอนที่มีอยู่ก่อนแล้ว
+  **ยังไม่ได้แก้ — นอกขอบเขตงานนี้ แต่บันทึกไว้ให้เซสชันถัดไปตามต่อ**
+
+Dart: `TeacherWorkloadSummary`/`PeriodNeedingSubstitute` models ใหม่ (`packages/
+shared_core/lib/models/teacher_workload_model.dart`), `ClassSubstitutionService`
+ใหม่, `ExecutiveService.getTeacherWorkloadSummary()`, `CalendarService.
+setClassSchedule` เพิ่ม `periodType`. `director_overview_page.dart`: ลบ
+`_SubjectGroupBubbleCluster`/`_SubjectGroupLegend`/`subjectGroups` ทิ้งทั้งหมด
+(ไม่มีที่ใช้อื่นแล้ว) แทนที่ด้วย `_BubbleCluster`/`_WorkloadLegend` ทั่วไปที่ใช้
+คำนวณ layout เดิม (cascade positioning ที่ปรับจูนไว้ก่อนหน้านี้) แต่ป้อนด้วย 4
+หมวดจริง สีคงที่ต่อหมวด (ไม่ใช่สีตามอันดับขนาดหลังเรียงแบบเดิม). เพิ่ม UI เขียน
+ข้อมูลจริง 2 จุดเพื่อให้ตัวเลขมีคนกรอกจริง ไม่ใช่ตัวเลขที่ไม่มีทางไม่เป็นศูนย์:
+`teacher_class_schedule_page.dart` (toggle ปกติ/กิจกรรม&แล็บ ตอนสร้างคาบ + ปุ่ม
+"เตรียมสอน" บันทึก prep block), `director_teachers_page.dart` (การ์ด "ครูสอน
+แทน" แสดงคาบที่ต้องหาคนแทนวันนี้ + มอบหมายจาก roster จริงที่หน้านี้โหลดอยู่
+แล้ว — **ไม่ใช้ `teacher_picker_dialog.dart` เพราะดึงจาก `DirectorMockData`
+ที่แต่งขึ้นทั้งหมด**).
+
+Test: `test/executive/director_overview_connection_test.dart` แทนที่เทส
+subject-group bubble ด้วย 2 เทสใหม่ (4 หมวดจริง + สัดส่วน 100% ถูกต้อง,
+"ไม่มีคาบที่ต้องจัดครูสอนแทน" แทน "ครบ 100%" ปลอม). `director_overview_
+attendance_test.dart` แก้ fixture ตาม field ใหม่.
+`test/executive/director_teachers_honesty_test.dart` เพิ่ม 5 เทสใหม่ (การ์ด
+ครูสอนแทนว่าง/error/มีคาบ/ปิดแล้ว/มอบหมายจริงแล้ว reload). `teacher_class_
+schedule_page_test.dart`: **หน้านี้ไม่มี dependency-injection seam เลย** (ต่าง
+จากหน้าอื่นในโปรเจกต์ทั้งหมด) — เรียก `CalendarService`/Supabase ตรง ๆ ไม่มี
+constructor override ทำให้ `_load()` พังเสมอในเทสต์และค้างอยู่หน้า error
+ตลอด (ไม่เคยเห็น hero banner ที่ปุ่มใหม่อยู่) — ปุ่ม toggle/เตรียมสอนใหม่จึง
+**ยังไม่มีเทสจริงคุ้มครอง** ต้องรีแฟกเตอร์ให้มี seam แบบหน้าอื่นก่อนถึงจะเทสได้
+(บันทึกไว้เป็นงานค้างสำหรับเซสชันถัดไป ถ้าจะเพิ่มเทส UI ของหน้านี้)
+
+Regression: `flutter analyze` ทั้งโปรเจกต์ไม่มี error ใหม่ (มีแต่ info เดิมที่
+เคยมีอยู่แล้ว). `flutter test test/executive/ test/director_learning_page_test.dart
+test/teacher_class_schedule_page_test.dart` 120/120 ผ่าน. pgTAP เต็ม 910 เทส
+เหลือ 3 ที่ล้มเหลว (ทั้งหมดไม่เกี่ยวกับงานนี้ ตามที่อธิบายด้านบน) เท่ากันทั้ง
+ก่อนและหลังงานนี้.
+
+**เอกสาร:** `docs/handoff/DATABASE_SCHEMA.md` เพิ่ม entry ตาราง `class_substitutions`/
+`staff_prep_blocks`, คอลัมน์ `class_schedules.period_type`, และ RPC ใหม่/แก้
+ทั้ง 8 ตัว.
+
+## 2026-09-11 — ฟีเจอร์ใหม่: ระบบติดตามนักเรียน 4 ระบบ (เยี่ยมบ้าน · SDQ · ทุนการศึกษา · สั่งการติดตาม)
+
+การ์ด "งานติดตามที่ยังไม่รองรับ" บน `director_learning_page.dart` (หน้า
+ภาพรวมนักเรียนของ ผอ.) เคยมี 3 ปุ่ม `onPressed: null` และข้อความยอมรับตรงๆ
+ว่าไม่มีข้อมูลเยี่ยมบ้าน/ทุนการศึกษา/SDQ/ระบบสั่งการเลย — ตรวจสอบทั้ง repo
+ยืนยันว่าไม่มีตาราง/RPC ของทั้ง 4 เรื่องนี้อยู่จริง ผู้ใช้อนุมัติให้สร้างทั้ง
+ระบบใหม่ตั้งแต่ schema จนถึง UI (ไม่ใช่แค่เพิ่มข้อมูลลงตารางเดิม)
+
+**Migration ใหม่** `20260911020000_student_followup_system.sql`:
+- ตารางใหม่ 5 ตัว: `student_home_visits`, `sdq_assessments`, `scholarships`,
+  `scholarship_awards`, `executive_directives`
+- RPC ใหม่ 17 ตัว ครอบคลุม create/list ของทั้ง 4 ระบบ + `list_school_students`
+  (ตัวเลือกนักเรียนกลาง ใช้ร่วมกันทุก dialog สร้างข้อมูล) +
+  `get_student_followup_summary` (ตัวเลขสรุปให้การ์ดบนหน้าภาพรวม)
+- **SDQ**: เก็บ 25 ข้อ (`item_scores` jsonb) + คำนวณ 5 มิติ + total
+  difficulties score ฝั่ง server ตามโครงสร้างมาตรฐาน SDQ — **จงใจไม่ใส่ป้าย
+  วินิจฉัย "ปกติ/เสี่ยง/มีปัญหา"** เพราะเกณฑ์ cutoff แตกต่างกันตามแบบฟอร์ม
+  ผู้ประเมิน (ครู/ผู้ปกครอง/ตนเอง) และไม่สามารถยืนยันแหล่งอ้างอิงที่ถูกต้องได้
+  ระหว่างเขียนโค้ด — โชว์คะแนนดิบพร้อมข้อความเตือนว่าต้องให้ผู้เชี่ยวชาญตีความ
+  แทนการยืนยันเกณฑ์ที่ไม่ได้ตรวจสอบ (มีคอมเมนต์อธิบายเหตุผลนี้ไว้ในไฟล์
+  migration และในโมเดล Dart)
+- **DROP+CREATE** `list_executive_students_needing_attention` เพิ่มสัญญาณ
+  ธง "คะแนน SDQ สูง" (SDQ ล่าสุด ≥17) เข้าไปในตรรกะเดิม (ค้างส่งงาน/คะแนนต่ำ/
+  ขาดเรียนบ่อย) — คงรูปตารางผลลัพธ์เดิมทุกคอลัมน์ ไม่กระทบ `AutoFlaggedStudent`
+  ฝั่ง Dart เลย
+- **บั๊กที่เจอระหว่างตรวจด้วย psql ก่อนแตะ Dart**: `acknowledge_directive`
+  ชื่อคอลัมน์ผลลัพธ์ `status` ชนกับตัวแปร PL/pgSQL ที่ Postgres สร้างอัตโนมัติ
+  จาก `RETURNS TABLE(..., status text)` ทำให้ `WHERE status = 'pending'`
+  กำกวม — แก้ด้วยการใส่ table alias
+
+**Dart**: โมเดล+เซอร์วิสใหม่ `student_followup_model.dart`/
+`student_followup_service.dart` ใน `packages/shared_core`. หน้าใหม่
+`director_student_followup_page.dart` — 4 แท็บ (เยี่ยมบ้าน/SDQ/ทุนการศึกษา/
+สั่งการติดตาม) แต่ละแท็บมีลิสต์จริง + ปุ่มเพิ่มข้อมูลเปิด dialog จริง
+(เลือกนักเรียนจาก `list_school_students`, เลือกครูจาก `StaffOrgService.
+listStaffDirectory()` ที่มีอยู่แล้ว — **ไม่ใช้ `teacher_picker_dialog.dart`
+เพราะดึงจาก mock data** เหมือนที่หลีกเลี่ยงไว้ในงานก่อนหน้า). การ์ดเดิมบน
+`director_learning_page.dart` เปลี่ยนจากป้าย "ยังไม่รองรับ" สีเทาเป็นการ์ด
+จริงโชว์ตัวเลขสรุป 4 ค่าจาก `get_student_followup_summary` + ปุ่มทั้ง 5
+กดได้จริงทุกปุ่ม (4 ปุ่มเปิดหน้าใหม่ตามแท็บ + ปุ่ม "ส่งออกรายงานการเรียน"
+export CSV จากข้อมูลที่หน้านี้โหลดอยู่แล้ว — attendance rows + case list —
+ผ่าน `utils/web_download.dart` ที่มีอยู่แล้วในโปรเจกต์ ไม่ได้สร้างใหม่).
+`followupSummary` โหลดแยกจาก `Future.wait` หลักของ `DirectorLearningController`
+โดยตั้งใจ (มี try/catch ของตัวเอง) เพื่อไม่ให้ระบบใหม่ที่เพิ่งสร้างพังทั้งหน้า
+ถ้า RPC ตัวนี้ล้มเหลว — ส่วนที่เหลือของหน้า (real, ใช้งานมาก่อนแล้ว) ต้อง
+ยังโหลดได้ปกติ
+
+**บั๊กที่เจอระหว่างเขียนเทส**: ปุ่ม "บันทึก" ใน dialog สร้างเยี่ยมบ้าน/ทุน
+การศึกษา/สั่งการติดตาม กำหนด `onPressed` ตาม `controller.text.trim().isEmpty`
+แต่ไม่ได้ผูก `onChanged` ให้เรียก `setDialogState(() {})` — ปุ่มเลย
+"ค้างปิดใช้งาน" ตลอดแม้พิมพ์ข้อความแล้ว แก้ทั้ง 3 จุด
+
+**เอกสาร**: `docs/handoff/DATABASE_SCHEMA.md` รันใหม่ผ่าน `./scripts/
+dump_schema.sh` (ไม่ได้แก้มือ) ครบทั้ง 5 ตาราง + 17 RPC ใหม่.
+
+**Seed**: เพิ่ม block ใหม่ท้าย `supabase/seed.sql` — เยี่ยมบ้าน 1 รายการ,
+SDQ 1 รายการ (คะแนนรวม 23/40), ทุนการศึกษา 1 ทุน + ผู้สมัคร 2 คน (สถานะ
+approved/applied ต่างกัน ให้เห็นทั้งสองสถานะ), คำสั่งติดตาม 2 รายการ (สถานะ
+completed/pending ต่างกัน) — ยืนยันด้วยการยิง RPC ตรงผ่าน psql ทั้งก่อนและ
+หลัง `supabase db reset --local` เต็มรูปแบบ ได้ผลตรงกัน
+
+Regression: `flutter analyze` บนไฟล์ที่แก้/สร้างใหม่ทั้งหมดไม่มี error ใหม่
+(มีแต่ info เดิมที่เคยมีอยู่แล้ว). `flutter test test/executive/
+test/director_learning_page_test.dart test/teacher_class_schedule_page_test.dart`
+143/143 ผ่าน (รวมไฟล์เทสใหม่ `director_student_followup_page_test.dart`
+4 เทส และเทสใหม่บน `director_learning_page_test.dart` อีก 2 เทส). pgTAP
+910 เทส เหลือ 2 ที่ล้มเหลว (facility_manager เดิมที่ไม่เกี่ยวกับงานนี้ —
+รันซ้ำยืนยันว่า auth-rate-limit ที่ล้มเหลวรอบแรกเป็นความไม่แน่นอนชั่วคราว
+ไม่ใช่บั๊กจากงานนี้ รันรอบสองผ่านปกติ).
+
+**งานที่ยังไม่ได้ทำ (นอกขอบเขตที่อนุมัติไว้)**: หน้า tab แต่ละแท็บยังไม่มี
+ปุ่ม "ดูประวัติ/แก้ไข" รายรายการ (มีแค่ list + เพิ่มใหม่), ยังไม่มีการแจ้งเตือน
+อัตโนมัติเมื่อสั่งการติดตามเกินกำหนด, ทุนการศึกษายังไม่มีขั้นตอน disburse
+เป็นชุด (ทำทีละคน). บันทึกไว้เผื่อมีคนสานต่อ.
+
+### 2026-09-14 — บอร์ดเก่าพัง กำลังลงบอร์ดใหม่ · เพิ่ม report_relay_states
+บอร์ดเก่าที่หยุด 9 ก.ย. 17:12:45 คือพังจริง (ไม่ใช่แค่ไฟดับ) และ device_token
+เดิมหายไปด้วย — ออก token ใหม่ตรงจากฐานข้อมูล production (ค่าดิบอยู่กับผู้ใช้เท่านั้น)
+`20260914000000_report_relay_states_on_boot.sql` — RPC ให้บอร์ดรายงานสถานะรีเลย์
+ทุกช่องตอนบูตโดยไม่ต้องผูกกับคำสั่ง (เดิม device_relay_states เขียนได้ทางเดียวคือ
+ผ่าน ack_device_command → หลังไฟดับแอปยังโชว์ "ยืนยันว่าเปิดอยู่" ค้าง)
+pgTAP 57 8/8 · สเปกเฟิร์มแวร์ FIRMWARE_COMMAND_LOOP.md อัปเดต · ส่งพรอมต์ให้ AI ฝั่ง
+เฟิร์มแวร์ 5 ข้อ (ack / report on boot / firmware+ip ใน heartbeat / watchdog / ต่อเซนเซอร์ครบ 10)
