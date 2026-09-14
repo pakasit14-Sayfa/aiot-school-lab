@@ -12,6 +12,7 @@ class DirectorLearningController extends ChangeNotifier {
     Future<List<StudentSupportIntervention>> Function(String)? interventions,
     Future<List<AutoFlaggedStudent>> Function()? autoFlags,
     Future<String?> Function(AutoFlaggedStudent)? openCase,
+    Future<StudentFollowupSummary?> Function()? followupSummary,
     DateTime? date,
   }) : _overview = overview ?? ExecutiveService.getClassroomsOverview,
        _tracks = tracks ?? LearningTrackService.getOverview,
@@ -23,6 +24,8 @@ class DirectorLearningController extends ChangeNotifier {
        _autoFlags =
            autoFlags ?? StudentSupportService.listExecutiveAutoFlaggedStudents,
        _openCase = openCase ?? StudentSupportService.openExecutiveCaseFromFlag,
+       _followupSummary =
+           followupSummary ?? StudentFollowupService.getSummary,
        date = date ?? DateTime.now();
   final Future<ClassroomsOverviewItem?> Function() _overview;
   final Future<List<LearningTrackOverview>> Function() _tracks;
@@ -33,6 +36,7 @@ class DirectorLearningController extends ChangeNotifier {
   _interventions;
   final Future<List<AutoFlaggedStudent>> Function() _autoFlags;
   final Future<String?> Function(AutoFlaggedStudent) _openCase;
+  final Future<StudentFollowupSummary?> Function() _followupSummary;
   DateTime date;
   ClassroomsOverviewItem? overview;
   List<LearningTrackOverview> tracks = [];
@@ -40,6 +44,11 @@ class DirectorLearningController extends ChangeNotifier {
   List<SchoolHomeroomAttendance> attendance = [];
   List<StudentSupportCase> cases = [];
   List<AutoFlaggedStudent> flaggedStudents = [];
+  // Loaded outside the main Future.wait (see load()) so a hiccup in this
+  // still-new subsystem can't take the whole page down — it degrades to
+  // null (card shows a retry affordance) instead of failing every other
+  // real, previously-working section of this page.
+  StudentFollowupSummary? followupSummary;
   bool loading = true, _disposed = false;
   int _generation = 0;
   String? error;
@@ -86,6 +95,13 @@ class DirectorLearningController extends ChangeNotifier {
       flaggedStudents = [];
       error = 'ไม่สามารถโหลดข้อมูลนักเรียนได้ กรุณาลองอีกครั้ง';
     }
+    try {
+      followupSummary = await _followupSummary();
+    } catch (e) {
+      debugPrint('DirectorLearningController followupSummary failed: $e');
+      followupSummary = null;
+    }
+    if (_disposed || generation != _generation) return;
     loading = false;
     notifyListeners();
   }
