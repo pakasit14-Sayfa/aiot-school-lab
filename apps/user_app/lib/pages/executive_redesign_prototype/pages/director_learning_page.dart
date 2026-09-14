@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' show pi;
 import 'dart:typed_data';
 
 import 'package:csv/csv.dart';
@@ -115,6 +116,48 @@ class _DashedTrackPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// วาดวงแหวนสรุป 4 มิติของระบบดูแลช่วยเหลือนักเรียนเป็นส่วนโค้งสีตามหมวดจริง
+// (สัดส่วน = จำนวนเคสของมิตินั้นเทียบทั้งหมด) — ช่องว่าง 2px ระหว่างส่วนโค้ง
+// ตามธรรมเนียม "surface gap" กันมิติที่ติดกันดูเป็นก้อนเดียว
+class _CareDonutPainter extends CustomPainter {
+  _CareDonutPainter(this.segments);
+  final List<(double fraction, Color color)> segments;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 10.0;
+    final rect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+    const gapRadians = 0.06;
+    var start = -pi / 2;
+    for (final (fraction, color) in segments) {
+      final sweep = fraction * 2 * pi;
+      if (sweep <= 0) continue;
+      final paint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt;
+      canvas.drawArc(
+        rect,
+        start + gapRadians / 2,
+        (sweep - gapRadians).clamp(0.0, sweep),
+        false,
+        paint,
+      );
+      start += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CareDonutPainter oldDelegate) =>
+      oldDelegate.segments != segments;
 }
 
 class DirectorLearningPage extends StatefulWidget {
@@ -1793,76 +1836,129 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     _ => const Color(0xFF2563EB),
   };
 
-  Widget _careDimensionRow(String category, List<StudentSupportCase> cases) {
-    if (cases.isEmpty) return const SizedBox.shrink();
-    final resolved = cases.where((c) => c.status == 'resolved').length;
-    final pct = resolved * 100 / cases.length;
-    final (icon, color) = _categoryStyle(category);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: .15)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
+  // เดิมสรุป 4 มิติเป็นการ์ดเต็มความกว้างเรียงต่อกัน 4 แถว (สูงรวม ~340px)
+  // แทบไม่มีอะไรมากกว่าไอคอน+เลข % — ย่อเหลือวงแหวนเดียว + legend 2x2 แทน
+  // (ดูตัวอย่างที่ user อนุมัติ: care-system-card-redesign.html V4)
+  Widget _careDonutSummary(List<StudentSupportCase> allCases) {
+    const cats = ['academic', 'behavioral', 'emotional', 'safety'];
+    final byCat = {
+      for (final cat in cats)
+        cat: allCases.where((c) => c.category == cat).toList(),
+    };
+    final total = byCat.values.fold<int>(0, (n, l) => n + l.length);
+    if (total == 0) return const SizedBox.shrink();
+    final closed = byCat.values.fold<int>(
+      0,
+      (n, l) => n + l.where((c) => c.status == 'resolved').length,
+    );
+    final present = cats.where((cat) => byCat[cat]!.isNotEmpty).toList();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 72,
+          height: 72,
+          child: Stack(
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 16, color: color),
+            children: [
+              CustomPaint(
+                size: const Size(72, 72),
+                painter: _CareDonutPainter([
+                  for (final cat in cats)
+                    (byCat[cat]!.length / total, _categoryStyle(cat).$2),
+                ]),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$closed/$total',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppPalette.textDark,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const Text(
+                    'ปิดแล้ว',
+                    style: TextStyle(
+                      fontSize: 7,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        cases.first.categoryLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppPalette.textDark,
-                        ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < present.length; i += 2)
+                Padding(
+                  padding: EdgeInsets.only(top: i == 0 ? 0 : 5),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _donutLegendItem(present[i], byCat[present[i]]!),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${pct.toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: color,
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: i + 1 < present.length
+                            ? _donutLegendItem(
+                                present[i + 1],
+                                byCat[present[i + 1]]!,
+                              )
+                            : const SizedBox.shrink(),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'ปิดแล้ว $resolved จาก ${cases.length} เคส',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: AppPalette.textMuted,
+                    ],
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _donutLegendItem(String category, List<StudentSupportCase> cases) {
+    final (_, color) = _categoryStyle(category);
+    final resolved = cases.where((c) => c.status == 'resolved').length;
+    final pct = cases.isEmpty ? 0.0 : resolved * 100 / cases.length;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            cases.first.categoryLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 9.5, color: AppPalette.textDark),
+          ),
+        ),
+        Text(
+          '${pct.toStringAsFixed(0)}%',
+          style: const TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.textDark,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
     );
   }
 
@@ -2361,18 +2457,7 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                             ],
                           ),
                           const SizedBox(height: 14),
-                          for (final cat in const [
-                            'academic',
-                            'behavioral',
-                            'emotional',
-                            'safety',
-                          ])
-                            _careDimensionRow(
-                              cat,
-                              controller.cases
-                                  .where((c) => c.category == cat)
-                                  .toList(),
-                            ),
+                          _careDonutSummary(controller.cases),
                           const SizedBox(height: 12),
                           const Divider(height: 1, color: AppPalette.border),
                           const SizedBox(height: 12),
@@ -2409,8 +2494,31 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                           ),
                           const SizedBox(height: 12),
                           if (cases.isEmpty)
-                            const Text('ยังไม่มีเคสดูแลช่วยเหลือในตัวกรองนี้'),
-                          for (final c in cases) _caseListTile(c),
+                            const Text('ยังไม่มีเคสดูแลช่วยเหลือในตัวกรองนี้')
+                          else ...[
+                            // การ์ดนี้เคยยาวไม่มีเพดานตามจำนวนเคสสะสม (ผู้ใช้
+                            // ชี้ปัญหาจากสกรีนช็อตจริง) — ครอบรายการด้วยกรอบ
+                            // สูงคงที่ เลื่อนดูภายในแทน ไม่ให้การ์ดทั้งใบยาว
+                            // ขึ้นเรื่อยๆ (ดูตัวอย่าง care-system-card-redesign.html V4)
+                            Text(
+                              'ทั้งหมด ${cases.length} รายการ'
+                              '${cases.length > 2 ? ' · เลื่อนเพื่อดูเพิ่ม' : ''}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: AppPalette.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 280,
+                              child: ListView(
+                                children: [
+                                  for (final c in cases) _caseListTile(c),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     );
