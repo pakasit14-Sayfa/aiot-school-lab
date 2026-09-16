@@ -7,24 +7,6 @@ import '../controllers/director_emergency_controller.dart';
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
-String _statusLabel(String status) => switch (status) {
-  'new' => 'รอตรวจสอบ',
-  'acknowledged' => 'รับเรื่องแล้ว',
-  'in_progress' => 'กำลังดำเนินการ',
-  'escalated' => 'ยกระดับแล้ว',
-  'resolved' => 'ปิดเหตุแล้ว (เหตุจริง)',
-  'cancelled' => 'ปิดเหตุแล้ว (แจ้งเท็จ)',
-  _ => status,
-};
-
-String _timeAgo(DateTime t) {
-  final diff = DateTime.now().difference(t.toLocal());
-  if (diff.inMinutes < 1) return 'เมื่อสักครู่';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} นาทีที่แล้ว';
-  if (diff.inHours < 24) return '${diff.inHours} ชม.ที่แล้ว';
-  return '${diff.inDays} วันที่แล้ว';
-}
-
 /// Read seams, so loading / data / empty / failure can each be driven in a
 /// test. Without them `initState` reaches straight for the Supabase singleton
 /// and throws before the page can build — which is why this page had no
@@ -962,9 +944,16 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
       }
       return _noActiveEmergencyCard();
     }
-    if (sosResolved) {
-      return _sosResolvedCard();
-    }
+    // `sosResolved` (both active-incident/event getters null) can never be
+    // true past the guard above, which already returns for exactly that
+    // condition — so a `_sosResolvedCard()` branch here was unreachable.
+    // It rendered a fabricated fixed close time ('ปิดเหตุเมื่อ 10:48 น.
+    // (ระงับเหตุใน 6 นาที)') and a hardcoded fallback room ('SOS ห้อง
+    // ม.3/2') whenever no real resolved incident was available — a landmine
+    // that would have shown fake data to a real director the moment the
+    // guard above was ever reordered. Deleted rather than patched, since
+    // dead code has no way to be exercised by a test to prove it stays
+    // honest.
     return _sosActiveCard();
   }
 
@@ -1018,391 +1007,6 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
               child: const Text('ลองใหม่'),
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _sosResolvedCard() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFF10B981).withValues(alpha: 0.35),
-          width: 1.2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF10B981).withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Top Bar: Calm All-Clear Emerald
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF0FDF4),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(19),
-                topRight: Radius.circular(19),
-              ),
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFDCFCE7), width: 1),
-              ),
-            ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 420;
-                final statusIndicator = Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF059669),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    const Expanded(
-                      child: Text(
-                        'สภาวะปกติ • เหตุการณ์ SOS ล่าสุดได้รับการแก้ไขเรียบร้อยแล้ว',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-
-                final timeIndicator = Row(
-                  children: const [
-                    Icon(
-                      Icons.check_circle_outline_rounded,
-                      size: 13,
-                      color: Color(0xFF059669),
-                    ),
-                    SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        'ปิดเหตุเมื่อ 10:48 น. (ระงับเหตุใน 6 นาที)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-
-                if (isNarrow) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      statusIndicator,
-                      const SizedBox(height: 4),
-                      timeIndicator,
-                    ],
-                  );
-                }
-
-                return Row(
-                  children: [
-                    Expanded(flex: 3, child: statusIndicator),
-                    const SizedBox(width: 8),
-                    Expanded(flex: 2, child: timeIndicator),
-                  ],
-                );
-              },
-            ),
-          ),
-
-          // Main Body Padding
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isCompact = constraints.maxWidth < 780;
-
-                final resolved = _lastResolvedSosIncident;
-
-                final infoSection = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title and Status
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE6F7ED),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.verified_user_rounded,
-                            size: 24,
-                            color: Color(0xFF059669),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      resolved != null
-                                          ? (resolved.room != null &&
-                                                    resolved.room!.isNotEmpty
-                                                ? 'บันทึกการระงับเหตุ: SOS ห้อง ${resolved.room}'
-                                                : 'บันทึกการระงับเหตุ: SOS จากนักเรียน')
-                                          : 'บันทึกการระงับเหตุ: SOS ห้อง ม.3/2',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2.5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: const Color(
-                                          0xFF059669,
-                                        ).withValues(alpha: 0.25),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          width: 5.5,
-                                          height: 5.5,
-                                          decoration: const BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Color(0xFF059669),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        const Text(
-                                          'ปิดเหตุแล้ว',
-                                          style: TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: Color(0xFF047857),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                resolved != null
-                                    ? '${resolved.reason ?? "สัญญาณฉุกเฉิน"} • ${resolved.room != null && resolved.room!.isNotEmpty ? "ห้อง ${resolved.room}" : "ภายในโรงเรียน"} • ${_statusLabel(resolved.status)}'
-                                    : 'ปิดเหตุการณ์เรียบร้อยแล้ว',
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Briefing Outcome Box (Clean Apple Inset Summary)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 3.5,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF10B981),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'สรุปผลการปฏิบัติการระงับเหตุ',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1E293B),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  resolved != null
-                                      ? 'ผู้แจ้ง: ${resolved.reporterName.isNotEmpty ? resolved.reporterName : "นักเรียน"} • สถานะ: ${_statusLabel(resolved.status)}'
-                                      : 'ปิดเหตุการณ์เรียบร้อยแล้ว',
-                                  style: const TextStyle(
-                                    fontSize: 10.5,
-                                    height: 1.45,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Specs & Meta Tags (Clean, unified slate tone)
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
-                      children: [
-                        _unifiedSpecChip(
-                          Icons.place_rounded,
-                          resolved?.room != null && resolved!.room!.isNotEmpty
-                              ? 'ห้อง ${resolved.room}'
-                              : 'ภายในโรงเรียน',
-                        ),
-                        _unifiedSpecChip(
-                          Icons.person_rounded,
-                          'ผู้แจ้ง: ${resolved?.reporterName.isNotEmpty == true ? resolved!.reporterName : "นักเรียน"}',
-                        ),
-                        if (resolved != null)
-                          _unifiedSpecChip(
-                            Icons.access_time_rounded,
-                            _timeAgo(resolved.createdAt),
-                          ),
-                        _unifiedSpecChip(
-                          Icons.check_circle_outline_rounded,
-                          _statusLabel(resolved?.status ?? 'resolved'),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-
-                final actionSection = Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 42,
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F172A),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: _showSosDetail,
-                        icon: const Icon(Icons.description_outlined, size: 16),
-                        label: const Text(
-                          'ดูรายงานสรุปและไทม์ไลน์',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 38,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          foregroundColor: const Color(0xFF475569),
-                        ),
-                        onPressed: () {
-                          final room = resolved?.room;
-                          _showMessage(
-                            room != null && room.isNotEmpty
-                                ? 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ห้อง $room ช่วงเกิดเหตุ...'
-                                : 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ช่วงเกิดเหตุ...',
-                          );
-                        },
-                        icon: const Icon(Icons.videocam_outlined, size: 16),
-                        label: const Text(
-                          'ดูภาพย้อนหลัง CCTV',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-
-                if (isCompact) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      infoSection,
-                      const SizedBox(height: 16),
-                      actionSection,
-                    ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(child: infoSection),
-                    const SizedBox(width: 20),
-                    SizedBox(width: 230, child: actionSection),
-                  ],
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
@@ -1462,8 +1066,9 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
             final diff = DateTime.now().toUtc().difference(
               activeIncident.createdAt,
             );
-            if (diff.inMinutes < 1)
+            if (diff.inMinutes < 1) {
               return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
+            }
             if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
             return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
           }()
@@ -1472,10 +1077,12 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                   final diff = DateTime.now().toUtc().difference(
                     activeEvt.triggeredAt.toUtc(),
                   );
-                  if (diff.inMinutes < 1)
+                  if (diff.inMinutes < 1) {
                     return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
-                  if (diff.inHours < 1)
+                  }
+                  if (diff.inHours < 1) {
                     return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
+                  }
                   return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
                 }()
               : 'ไม่ทราบเวลาแจ้ง');
@@ -1961,7 +1568,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                       child: TextButton.icon(
                         onPressed: () {
                           _showMessage(
-                            'กำลังเชื่อมต่อสัญญาณกล้อง CCTV $locationChip...',
+                            'ยังไม่เชื่อมกล้อง CCTV รายห้องจากหน้านี้ — ดูได้ที่เมนู "กล้องวงจรปิด"',
                           );
                         },
                         icon: const Icon(
@@ -2053,12 +1660,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
   Widget _activeIncidentCard({bool isEqualHeight = false}) {
     final all = _allDisplayEvents;
     final active = all
-        .where(
-          (item) =>
-              item.status != 'ปิดเหตุแล้ว' &&
-              item.id != 'SOS-20260821-001' &&
-              item.type != 'SOS',
-        )
+        .where((item) => item.status != 'ปิดเหตุแล้ว' && item.type != 'SOS')
         .toList();
 
     return Container(
@@ -2288,9 +1890,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                     ),
                   ),
                   onPressed: () {
-                    _showMessage(
-                      'กำลังเปิดแผนที่แสดงพิกัดจุดเกิดเหตุทั้งหมด...',
-                    );
+                    _showMessage('แผนที่จุดเกิดเหตุยังไม่เปิดใช้งานในระบบนี้');
                   },
                   icon: const Icon(
                     Icons.map_rounded,
@@ -2737,7 +2337,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                     ),
                   ),
                   onPressed: () {
-                    _showMessage('กำลังต่อสายด่วนถึงครูเวรหัวหน้าชุด...');
+                    _showMessage('ยังไม่มีระบบโทรออกจากในแอปนี้');
                   },
                   icon: const Icon(
                     Icons.phone_rounded,
@@ -2765,9 +2365,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                     ),
                   ),
                   onPressed: () {
-                    _showMessage(
-                      'ส่งสัญญาณแจ้งเตือนซ้ำไปยังวิทยุสื่อสารและมือถือของทีมแล้ว',
-                    );
+                    _showMessage('ยังไม่มีระบบส่งสัญญาณแจ้งเตือนซ้ำในแอปนี้');
                   },
                   icon: const Icon(
                     Icons.notifications_active_rounded,
@@ -3253,18 +2851,26 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
   Future<void> _acceptSos() async {
     final inc = _activeSosIncident;
     final evt = _activeRealEmergencyEvent;
+    if (inc == null && evt == null) {
+      // Nothing real to accept — without this, a background refresh
+      // clearing both mid-await would still fall through to
+      // `_showSosDetail()`, which has no real incident/event to read a
+      // time from and would fall back to a fabricated clock time.
+      return;
+    }
     if (inc != null) {
       try {
         await IncidentService.acknowledgeIncidentReport(inc.id);
       } catch (e) {
         debugPrint('Error acknowledging incident: $e');
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('เกิดข้อผิดพลาด: $e'),
               backgroundColor: Colors.red,
             ),
           );
+        }
         return;
       }
     } else if (evt != null) {
@@ -3272,13 +2878,14 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         await EmergencyService.acknowledgeEmergencyEvent(evt.id);
       } catch (e) {
         debugPrint('Error acknowledging emergency event: $e');
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('เกิดข้อผิดพลาด: $e'),
               backgroundColor: Colors.red,
             ),
           );
+        }
         return;
       }
     }
@@ -3724,9 +3331,6 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                   LayoutBuilder(
                                     builder: (context, c) {
                                       final isCompact = c.maxWidth < 430;
-                                      final targetRoom = activeIncident?.room;
-                                      final targetReporter =
-                                          activeIncident?.reporterName;
 
                                       final cctv = OutlinedButton.icon(
                                         style: OutlinedButton.styleFrom(
@@ -3748,10 +3352,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                         onPressed: () {
                                           Navigator.pop(dialogContext);
                                           _showMessage(
-                                            targetRoom != null &&
-                                                    targetRoom.isNotEmpty
-                                                ? 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง $targetRoom...'
-                                                : 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง ม.3/2...',
+                                            'ยังไม่เชื่อมกล้อง CCTV รายห้องจากหน้านี้ — ดูได้ที่เมนู "กล้องวงจรปิด"',
                                           );
                                         },
                                         icon: const Icon(
@@ -3786,10 +3387,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                         ),
                                         onPressed: () {
                                           _showMessage(
-                                            targetReporter != null &&
-                                                    targetReporter.isNotEmpty
-                                                ? 'กำลังโทรด่วนหาผู้แจ้งเหตุ ($targetReporter)...'
-                                                : 'กำลังโทรด่วนหาครูประจำห้อง (ครูสมหญิง)...',
+                                            'ยังไม่มีระบบโทรออกจากในแอปนี้',
                                           );
                                         },
                                         icon: const Icon(
@@ -3855,18 +3453,29 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
 
                                   Builder(
                                     builder: (context) {
+                                      // `_acceptSos()` returns before this
+                                      // dialog ever opens unless one of
+                                      // these is non-null — no real fallback
+                                      // time exists, so a reachable null
+                                      // here would mean that guard broke,
+                                      // not a case to paper over with a
+                                      // fabricated clock time.
                                       final createdTime = activeIncident != null
                                           ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().second.toString().padLeft(2, "0")} น.'
                                           : (activeEvt != null
                                                 ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().second.toString().padLeft(2, "0")} น.'
-                                                : '10:42:18 น.');
+                                                : throw StateError(
+                                                    'sos_detail_opened_without_active_incident',
+                                                  ));
 
                                       final broadcastTime =
                                           activeIncident != null
                                           ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeIncident.createdAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
                                           : (activeEvt != null
                                                 ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeEvt.triggeredAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
-                                                : '10:42:19 น.');
+                                                : throw StateError(
+                                                    'sos_detail_opened_without_active_incident',
+                                                  ));
 
                                       final ackTime =
                                           activeIncident?.acknowledgedAt != null
