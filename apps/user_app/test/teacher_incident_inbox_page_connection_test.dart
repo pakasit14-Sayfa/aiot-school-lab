@@ -78,29 +78,16 @@ void main() {
   });
 
   /// ปุ่ม CCTV 2 ปุ่มเคยกดแล้วขึ้น "กำลังเปิดคลิป.../กำลังเชื่อมต่อสัญญาณกล้อง
-  /// ห้อง ม.3/2..." ทั้งที่ระบบไม่ได้เชื่อมกับกล้องตัวไหนเลย (และ ม.3/2 เป็น
-  /// ห้องที่แต่งขึ้นเมื่อไม่มีข้อมูล) — ต้องกดไม่ได้และบอกว่ายังไม่เชื่อมระบบ
-  testWidgets('CCTV buttons are disabled with the reason, never a fake "connecting..." message', (
+  /// ห้อง ม.3/2..." ทั้งที่ระบบไม่ได้เชื่อมกับกล้องตัวไหนเลย จากนั้นถูก disable
+  /// พร้อมเหตุผล — ตั้งแต่ 2026-09-16 ถอดออกทั้งคู่ (ไม่มีอะไรให้เปิดใช้)
+  testWidgets('no CCTV button exists on the incident page — there is no camera link', (
     tester,
   ) async {
     await _pump(tester);
-
-    final labels = find.textContaining('CCTV');
-    expect(labels, findsWidgets);
-    // `OutlinedButton.icon` / `TextButton.icon` are private subclasses, so an
-    // exact-type ancestor lookup would silently return null and make the
-    // null-assertion below pass for the wrong reason — match the base class.
-    final buttons = find.ancestor(
-      of: labels,
-      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-    );
-    expect(buttons, findsWidgets, reason: 'each CCTV label sits in a button');
-    for (final button in tester.widgetList<ButtonStyleButton>(buttons)) {
-      expect(button.onPressed, isNull, reason: 'no CCTV integration exists');
-    }
-    expect(find.textContaining('ยังไม่เชื่อมระบบกล้อง'), findsWidgets);
+    expect(find.textContaining('CCTV'), findsNothing);
     expect(find.textContaining('กำลังเปิดคลิป'), findsNothing);
     expect(find.textContaining('ม.3/2'), findsNothing);
+    expect(find.text('ข้อมูลจำลอง'), findsNothing);
   });
 
   testWidgets('zero real incidents/events shows an honest empty list, no fabricated entries', (

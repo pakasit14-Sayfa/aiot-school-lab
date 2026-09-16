@@ -1,11 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../widgets/change_password_dialog.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
 class TeacherProfilePage extends StatefulWidget {
-  const TeacherProfilePage({super.key});
+  const TeacherProfilePage({
+    super.key,
+    this.loadCourses,
+    this.loadTerms,
+    this.loadDevices,
+    this.loadCourseStudents,
+    this.updateName,
+    this.changePassword,
+    this.signOut,
+  });
+
+  /// Read/write seams so tests can drive loading / data / empty / failure
+  /// without a Supabase client. Each defaults to the real service call.
+  final Future<List<CourseSummary>> Function()? loadCourses;
+  final Future<List<TermOption>> Function()? loadTerms;
+  final Future<List<AiotLabDeviceItem>> Function()? loadDevices;
+  final Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents;
+  final Future<void> Function(String name)? updateName;
+  final PasswordChanger? changePassword;
+  final Future<void> Function()? signOut;
 
   @override
   State<TeacherProfilePage> createState() => _TeacherProfilePageState();
@@ -32,13 +52,15 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     });
 
     try {
-      if (AuthService.sessionToken != null) {
+      if (AuthService.sessionToken != null || widget.loadCourses != null) {
+        // No per-call `.catchError((_) => [])` any more: that made a failed
+        // read of courses/terms/devices indistinguishable from "none", so a
+        // broken backend rendered as an empty-but-healthy profile. Any
+        // failure now fails the whole load and shows the error state.
         final results = await Future.wait([
-          CourseService.listMyCourses().catchError((_) => <CourseSummary>[]),
-          CourseService.listTerms().catchError((_) => <TermOption>[]),
-          AiotLabService.listTeachingKitDevices().catchError(
-            (_) => <AiotLabDeviceItem>[],
-          ),
+          (widget.loadCourses ?? CourseService.listMyCourses)(),
+          (widget.loadTerms ?? CourseService.listTerms)(),
+          (widget.loadDevices ?? AiotLabService.listTeachingKitDevices)(),
         ]);
 
         final courses = results[0] as List<CourseSummary>;
@@ -47,15 +69,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
         var studentCount = 0;
         if (courses.isNotEmpty) {
-          final studentFutures = courses.map((c) async {
-            try {
-              final students = await CourseService.listCourseStudents(c.id);
-              return students.length;
-            } catch (_) {
-              return 0;
-            }
-          });
-          final counts = await Future.wait(studentFutures);
+          final loadStudents =
+              widget.loadCourseStudents ?? CourseService.listCourseStudents;
+          final counts = await Future.wait(
+            courses.map((c) async => (await loadStudents(c.id)).length),
+          );
           studentCount = counts.fold(0, (sum, count) => sum + count);
         }
 
@@ -73,7 +91,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
           setState(() => _isLoading = false);
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('TeacherProfilePage load failed: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -81,6 +100,114 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
         });
       }
     }
+  }
+
+  /// `update_user_profile` — the only profile field the backend stores is
+  /// the name (first + last). No phone, avatar or subject column exists.
+  Future<void> _editName() async {
+    final user = currentUserModel;
+    if (user == null) return;
+    final ctrl = TextEditingController(text: user.name);
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        var submitting = false;
+        String? error;
+        return StatefulBuilder(
+          builder: (dialogContext, setDialog) {
+            Future<void> submit() async {
+              final name = ctrl.text.trim();
+              if (name.isEmpty) {
+                setDialog(() => error = 'กรุณากรอกชื่อ');
+                return;
+              }
+              setDialog(() {
+                submitting = true;
+                error = null;
+              });
+              try {
+                final update =
+                    widget.updateName ??
+                    (String n) => AuthService.updateProfile(uid: user.uid, name: n);
+                await update(name);
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop(true);
+              } catch (e) {
+                debugPrint('TeacherProfilePage: update_user_profile ล้ม — $e');
+                if (!dialogContext.mounted) return;
+                setDialog(() {
+                  submitting = false;
+                  error = 'บันทึกชื่อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+                });
+              }
+            }
+
+            return _OwnController(
+              controller: ctrl,
+              child: AlertDialog(
+                title: const Text('แก้ไขชื่อที่แสดง'),
+                content: SizedBox(
+                  width: 360,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: ctrl,
+                        autofocus: true,
+                        decoration: const InputDecoration(labelText: 'ชื่อ-นามสกุล'),
+                      ),
+                      if (error != null) ...[
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            error!,
+                            style: const TextStyle(
+                              color: TeacherPalette.red,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: submitting
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(false),
+                    child: const Text('ยกเลิก'),
+                  ),
+                  FilledButton(
+                    onPressed: submitting ? null : submit,
+                    child: Text(submitting ? 'กำลังบันทึก…' : 'บันทึก'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (saved != true || !mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('บันทึกชื่อแล้ว')),
+    );
+  }
+
+  Future<void> _changePassword() async {
+    final changed = await showChangePasswordDialog(
+      context,
+      change: widget.changePassword,
+    );
+    if (!changed || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ'),
+      ),
+    );
   }
 
   Future<void> _handleLogout(BuildContext context) async {
@@ -134,7 +261,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
 
     if (confirmed == true && context.mounted) {
       try {
-        await AuthService.signOut();
+        await (widget.signOut ?? AuthService.signOut)();
       } catch (e) {
         // ออกจากระบบฝั่งเครื่องต่อได้เสมอ แต่ session ฝั่งเซิร์ฟเวอร์อาจยังอยู่
         debugPrint('TeacherProfilePage: signOut ไม่สำเร็จ — $e');
@@ -161,6 +288,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 terms: _terms,
                 devices: _devices,
                 onLogout: () => _handleLogout(context),
+                onEditName: _editName,
+                onChangePassword: _changePassword,
               )
             : _MobileLayout(
                 isLoading: _isLoading,
@@ -170,6 +299,8 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                 terms: _terms,
                 devices: _devices,
                 onLogout: () => _handleLogout(context),
+                onEditName: _editName,
+                onChangePassword: _changePassword,
               );
       },
     );
@@ -185,6 +316,8 @@ class _MobileLayout extends StatelessWidget {
     required this.terms,
     required this.devices,
     required this.onLogout,
+    required this.onEditName,
+    required this.onChangePassword,
   });
 
   final bool isLoading;
@@ -194,13 +327,15 @@ class _MobileLayout extends StatelessWidget {
   final List<TermOption> terms;
   final List<AiotLabDeviceItem> devices;
   final VoidCallback onLogout;
+  final VoidCallback onEditName;
+  final VoidCallback onChangePassword;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _IdentityCard(courses: courses, totalStudents: totalStudents),
+        _IdentityCard(courses: courses, totalStudents: totalStudents, hasError: hasError),
         const SizedBox(height: 14),
         _MetricGrid(
           isLoading: isLoading,
@@ -215,58 +350,30 @@ class _MobileLayout extends StatelessWidget {
         const SizedBox(height: 14),
         _AcademicSettingCard(terms: terms),
         const SizedBox(height: 14),
-        _AiotHardwareCard(devices: devices),
-        const SizedBox(height: 14),
-        const _SectionCard(
-          title: 'ช่วยเหลือ',
-          icon: Icons.support_agent_rounded,
-          children: [
-            _MenuTile(
-              icon: Icons.tips_and_updates_rounded,
-              title: 'เคล็ดลับการใช้งาน',
-              subtitle: 'ใช้แดชบอร์ดและ AIoT Lab ให้คล่องขึ้น',
-            ),
-            _DividerLine(),
-            _MenuTile(
-              icon: Icons.help_outline_rounded,
-              title: 'คำถามที่พบบ่อย',
-              subtitle: 'คำถามที่พบบ่อยเกี่ยวกับบัญชีและห้องเรียน',
-            ),
-            _DividerLine(),
-            _MenuTile(
-              icon: Icons.mail_outline_rounded,
-              title: 'ติดต่อทีมงาน',
-              subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหาการใช้งาน',
-            ),
-          ],
-        ),
+        _AiotHardwareCard(devices: devices, hasError: hasError),
+        // The "ช่วยเหลือ" card (เคล็ดลับ / คำถามที่พบบ่อย / ติดต่อทีมงาน) was
+        // three tiles with no page, no content and no channel behind them,
+        // shown greyed as "ยังไม่เปิดใช้งาน". Removed.
         const SizedBox(height: 14),
         _SectionCard(
           title: 'ตั้งค่า',
           icon: Icons.settings_rounded,
           children: [
-            const _MenuTile(
+            // การแจ้งเตือน / ซิงก์ออฟไลน์ / PDPA tiles used to sit here greyed
+            // as "ยังไม่เปิดใช้งาน" — no preference table, no offline store,
+            // no consent screen. Only what the backend can do is listed.
+            _MenuTile(
               icon: Icons.person_rounded,
-              title: 'ข้อมูลส่วนตัว',
-              subtitle: 'แก้ไขชื่อ วิชาที่สอน และรูปโปรไฟล์',
+              title: 'แก้ไขชื่อที่แสดง',
+              subtitle: 'ชื่อ-นามสกุลที่แสดงในระบบ (update_user_profile)',
+              onTap: onEditName,
             ),
             const _DividerLine(),
-            const _MenuTile(
-              icon: Icons.notifications_rounded,
-              title: 'การแจ้งเตือน',
-              subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
-            ),
-            const _DividerLine(),
-            const _MenuTile(
-              icon: Icons.sync_rounded,
-              title: 'ซิงก์ข้อมูลออฟไลน์ & ล้างแคช',
-              subtitle: 'ซิงก์ข้อมูลใบงานและคะแนนสำหรับการใช้งานออฟไลน์',
-            ),
-            const _DividerLine(),
-            const _MenuTile(
+            _MenuTile(
               icon: Icons.lock_outline_rounded,
-              title: 'ความเป็นส่วนตัวและ PDPA',
-              subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
+              title: 'เปลี่ยนรหัสผ่าน',
+              subtitle: 'ตรวจรหัสเดิมก่อน และออกจากระบบเครื่องอื่นให้',
+              onTap: onChangePassword,
             ),
             const _DividerLine(),
             _MenuTile(
@@ -294,6 +401,8 @@ class _DesktopLayout extends StatelessWidget {
     required this.terms,
     required this.devices,
     required this.onLogout,
+    required this.onEditName,
+    required this.onChangePassword,
   });
 
   final bool isLoading;
@@ -303,6 +412,8 @@ class _DesktopLayout extends StatelessWidget {
   final List<TermOption> terms;
   final List<AiotLabDeviceItem> devices;
   final VoidCallback onLogout;
+  final VoidCallback onEditName;
+  final VoidCallback onChangePassword;
 
   @override
   Widget build(BuildContext context) {
@@ -311,6 +422,7 @@ class _DesktopLayout extends StatelessWidget {
       children: [
         _IdentityCard(
           isDesktop: true,
+          hasError: hasError,
           courses: courses,
           totalStudents: totalStudents,
         ),
@@ -333,7 +445,7 @@ class _DesktopLayout extends StatelessWidget {
                         .length,
                   ),
                   const SizedBox(height: 16),
-                  _AiotHardwareCard(devices: devices),
+                  _AiotHardwareCard(devices: devices, hasError: hasError),
                 ],
               ),
             ),
@@ -343,30 +455,7 @@ class _DesktopLayout extends StatelessWidget {
               child: Column(
                 children: [
                   _AcademicSettingCard(terms: terms),
-                  const SizedBox(height: 16),
-                  const _SectionCard(
-                    title: 'ช่วยเหลือ',
-                    icon: Icons.support_agent_rounded,
-                    children: [
-                      _MenuTile(
-                        icon: Icons.tips_and_updates_rounded,
-                        title: 'เคล็ดลับการใช้งาน',
-                        subtitle: 'ใช้แดชบอร์ดและ AIoT Lab ให้คล่องขึ้น',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.help_outline_rounded,
-                        title: 'คำถามที่พบบ่อย',
-                        subtitle: 'คำถามที่พบบ่อยเกี่ยวกับบัญชีและห้องเรียน',
-                      ),
-                      _DividerLine(),
-                      _MenuTile(
-                        icon: Icons.mail_outline_rounded,
-                        title: 'ติดต่อทีมงาน',
-                        subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหาการใช้งาน',
-                      ),
-                    ],
-                  ),
+                  // "ช่วยเหลือ" card removed — see the mobile layout note.
                 ],
               ),
             ),
@@ -377,28 +466,21 @@ class _DesktopLayout extends StatelessWidget {
           title: 'ตั้งค่า',
           icon: Icons.settings_rounded,
           children: [
-            const _MenuTile(
+            // การแจ้งเตือน / ซิงก์ออฟไลน์ / PDPA tiles used to sit here greyed
+            // as "ยังไม่เปิดใช้งาน" — no preference table, no offline store,
+            // no consent screen. Only what the backend can do is listed.
+            _MenuTile(
               icon: Icons.person_rounded,
-              title: 'ข้อมูลส่วนตัว',
-              subtitle: 'แก้ไขชื่อ วิชาที่สอน และรูปโปรไฟล์',
+              title: 'แก้ไขชื่อที่แสดง',
+              subtitle: 'ชื่อ-นามสกุลที่แสดงในระบบ (update_user_profile)',
+              onTap: onEditName,
             ),
             const _DividerLine(),
-            const _MenuTile(
-              icon: Icons.notifications_rounded,
-              title: 'การแจ้งเตือน',
-              subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
-            ),
-            const _DividerLine(),
-            const _MenuTile(
-              icon: Icons.sync_rounded,
-              title: 'ซิงก์ข้อมูลออฟไลน์ & ล้างแคช',
-              subtitle: 'ซิงก์ข้อมูลใบงานและคะแนนสำหรับการใช้งานออฟไลน์',
-            ),
-            const _DividerLine(),
-            const _MenuTile(
+            _MenuTile(
               icon: Icons.lock_outline_rounded,
-              title: 'ความเป็นส่วนตัวและ PDPA',
-              subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
+              title: 'เปลี่ยนรหัสผ่าน',
+              subtitle: 'ตรวจรหัสเดิมก่อน และออกจากระบบเครื่องอื่นให้',
+              onTap: onChangePassword,
             ),
             const _DividerLine(),
             _MenuTile(
@@ -422,10 +504,12 @@ class _IdentityCard extends StatelessWidget {
     this.isDesktop = false,
     this.courses = const [],
     this.totalStudents = 0,
+    this.hasError = false,
   });
 
   final bool isDesktop;
   final List<CourseSummary> courses;
+  final bool hasError;
   final int totalStudents;
 
   @override
@@ -511,11 +595,17 @@ class _IdentityCard extends StatelessWidget {
       ],
     );
 
-    final subjectsText = courses.isNotEmpty
+    // A failed load must not read as "no courses" — the two used to be
+    // identical because every read swallowed its own error.
+    final subjectsText = hasError
+        ? 'โหลดวิชาไม่สำเร็จ'
+        : courses.isNotEmpty
         ? courses.map((c) => c.subjectName).take(2).join(', ')
         : 'ยังไม่มีวิชาที่สอน';
 
-    final classroomText = courses.isNotEmpty
+    final classroomText = hasError
+        ? 'ยังไม่ทราบจำนวนวิชาและนักเรียน'
+        : courses.isNotEmpty
         ? '${courses.length} วิชา · $totalStudents คน'
         : '-';
 
@@ -628,22 +718,24 @@ class _MetricGrid extends StatelessWidget {
         icon: Icons.menu_book_rounded,
         color: TeacherPalette.primary,
         label: 'วิชาที่สอน',
-        value: isLoading ? '...' : '$courseCount วิชา',
-        caption: '$courseCount คอร์สในระบบ',
+        value: isLoading ? '...' : (hasError ? '—' : '$courseCount วิชา'),
+        caption: hasError ? 'โหลดไม่สำเร็จ' : '$courseCount คอร์สในระบบ',
       ),
       (
         icon: Icons.groups_2_rounded,
         color: TeacherPalette.skyDeep,
         label: 'นักเรียนทั้งหมด',
-        value: isLoading ? '...' : '$totalStudents คน',
-        caption: 'ลงทะเบียนในวิชา',
+        value: isLoading ? '...' : (hasError ? '—' : '$totalStudents คน'),
+        caption: hasError ? 'โหลดไม่สำเร็จ' : 'ลงทะเบียนในวิชา',
       ),
       (
         icon: Icons.developer_board_rounded,
         color: TeacherPalette.orange,
         label: 'อุปกรณ์ AIoT',
-        value: isLoading ? '...' : '$deviceCount ชิ้น',
-        caption: onlineDevices > 0
+        value: isLoading ? '...' : (hasError ? '—' : '$deviceCount ชิ้น'),
+        caption: hasError
+            ? 'โหลดไม่สำเร็จ'
+            : onlineDevices > 0
             ? 'ออนไลน์ $onlineDevices ชุด'
             : 'พร้อมเชื่อมต่อ',
       ),
@@ -832,28 +924,22 @@ class _MenuTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.danger = false,
-    this.onTap,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool danger;
-  final VoidCallback? onTap;
+
+  /// Required: a tile with nothing behind it is not rendered at all any
+  /// more (it used to be greyed out with "· ยังไม่เปิดใช้งาน").
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // ไม่มี onTap = ยังไม่มีหน้าจริง/ยังไม่ได้ต่อ backend — ปิดการกดไปเลย
-    // และบอกตรง ๆ ว่ายังไม่เปิดใช้งาน แทนการขึ้น snackbar ว่า "กำลังเปิด: ..."
-    // ซึ่งทำให้ผู้ใช้เข้าใจผิดว่าระบบทำงานให้แล้ว
-    final enabled = onTap != null;
-    const disabledColor = Color(0xFF9CA9B4);
-    final iconColor = !enabled
-        ? disabledColor
-        : (danger ? TeacherPalette.red : TeacherPalette.ink);
-    final titleColor = !enabled
-        ? disabledColor
-        : (danger ? TeacherPalette.red : TeacherPalette.ink);
+    final iconColor = danger ? TeacherPalette.red : TeacherPalette.ink;
+    final titleColor = danger ? TeacherPalette.red : TeacherPalette.ink;
 
     return Material(
       color: Colors.transparent,
@@ -889,7 +975,7 @@ class _MenuTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      enabled ? subtitle : '$subtitle · ยังไม่เปิดใช้งาน',
+                      subtitle,
                       style: const TextStyle(
                         color: TeacherPalette.muted,
                         fontSize: 12,
@@ -901,12 +987,10 @@ class _MenuTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                enabled
-                    ? Icons.chevron_right_rounded
-                    : Icons.lock_outline_rounded,
-                color: const Color(0xFF9CA9B4),
-                size: enabled ? 22 : 18,
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF9CA9B4),
+                size: 22,
               ),
             ],
           ),
@@ -1042,15 +1126,9 @@ class _AcademicDropdownTile extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  'ยังเปลี่ยนภาคเรียนจากหน้านี้ไม่ได้ (ยังไม่เปิดใช้งาน)',
-                  style: TextStyle(
-                    color: TeacherPalette.softText,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                // "ยังเปลี่ยนภาคเรียนจากหน้านี้ไม่ได้ (ยังไม่เปิดใช้งาน)" used to
+                // follow. The current term is a school-wide setting, not a
+                // per-teacher choice — there is nothing here to enable.
               ],
             ),
           ),
@@ -1061,9 +1139,10 @@ class _AcademicDropdownTile extends StatelessWidget {
 }
 
 class _AiotHardwareCard extends StatelessWidget {
-  const _AiotHardwareCard({this.devices = const []});
+  const _AiotHardwareCard({this.devices = const [], this.hasError = false});
 
   final List<AiotLabDeviceItem> devices;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -1089,15 +1168,17 @@ class _AiotHardwareCard extends StatelessWidget {
       );
     }
 
-    return const _SectionCard(
+    return _SectionCard(
       title: 'อุปกรณ์ & บอร์ดแล็บ AIoT',
       icon: Icons.developer_board_rounded,
       children: [
         Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Text(
-            'ยังไม่มีอุปกรณ์แล็บ AIoT ที่ผูกกับบัญชีนี้',
-            style: TextStyle(
+            hasError
+                ? 'โหลดรายการอุปกรณ์ไม่สำเร็จ'
+                : 'ยังไม่มีอุปกรณ์แล็บ AIoT ที่ผูกกับบัญชีนี้',
+            style: const TextStyle(
               color: TeacherPalette.muted,
               fontWeight: FontWeight.w700,
               fontSize: 13,
@@ -1226,4 +1307,25 @@ class _AppInfo extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Disposes the dialog's controller with the dialog's own element instead
+/// of right after `showDialog` returns (which tears it down mid-animation).
+class _OwnController extends StatefulWidget {
+  const _OwnController({required this.controller, required this.child});
+  final TextEditingController controller;
+  final Widget child;
+  @override
+  State<_OwnController> createState() => _OwnControllerState();
+}
+
+class _OwnControllerState extends State<_OwnController> {
+  @override
+  void dispose() {
+    widget.controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

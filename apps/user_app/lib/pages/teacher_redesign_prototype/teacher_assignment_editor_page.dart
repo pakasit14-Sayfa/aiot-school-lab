@@ -1312,28 +1312,12 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                         ],
                       ),
 
-                    const SizedBox(height: 20),
-
-                    // AIoT Sensors Selector Section — เดิมมีชิปให้เลือกแต่ไม่
-                    // เคยถูกส่งไป backend เลย (ไม่มี RPC เขียนลง
-                    // assignment_sensor_datasets จากหน้านี้) ปิดไว้พร้อม
-                    // เหตุผลแทนให้เลือกได้แล้วทิ้งของที่เลือก
-                    const Text(
-                      'ผูกชุดข้อมูลเซนเซอร์ AIoT (สำหรับให้โจทย์ดึงค่า)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: TeacherPalette.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'ยังไม่รองรับการผูกชุดข้อมูลเซนเซอร์จากหน้านี้ในเวอร์ชันนี้',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: TeacherPalette.muted,
-                      ),
-                    ),
+                    // A "ผูกชุดข้อมูลเซนเซอร์ AIoT" heading used to follow, first
+                    // as chips that were never sent anywhere, then as a
+                    // "ยังไม่รองรับ" note. The redesigned student assignment
+                    // page does not render assignment_sensor_datasets, so a
+                    // link made here would be invisible to students — the
+                    // heading is gone rather than promising a feature.
                   ],
                 ),
               ),

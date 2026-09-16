@@ -516,39 +516,6 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     );
   }
 
-  Widget _demoBadge({String text = 'ข้อมูลจำลอง'}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFFCD34D), width: 0.8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 4,
-            height: 4,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: Color(0xFFD97706),
-            ),
-          ),
-          const SizedBox(width: 3.5),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 8.5,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF92400E),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _realBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6.5, vertical: 2.5),
@@ -851,31 +818,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 38,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          foregroundColor: const Color(0xFF475569),
-                        ),
-                        // เดิมกดแล้วขึ้น "กำลังเปิดคลิป..." ทั้งที่ระบบไม่ได้
-                        // เชื่อมกับกล้องตัวไหนเลย — ปิดปุ่มพร้อมบอกเหตุผล
-                        onPressed: null,
-                        icon: const Icon(Icons.videocam_off_outlined, size: 16),
-                        label: const Text(
-                          'ภาพย้อนหลัง CCTV (ยังไม่เชื่อมระบบกล้อง)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // "ภาพย้อนหลัง CCTV" — a disabled button explaining there
+                    // is no camera link. Removed: nothing to enable.
                   ],
                 );
 
@@ -1049,7 +993,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                   ),
                 );
 
-                final badge = hasActiveReal ? _realBadge() : _demoBadge();
+                // hasActiveReal is asserted true above — no demo branch left.
+                final badge = _realBadge();
 
                 final titleRow = Row(
                   children: [
@@ -1369,23 +1314,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
-                        // เดิมกดแล้วขึ้น "กำลังเชื่อมต่อสัญญาณกล้อง...ห้อง ม.3/2"
-                        // (ห้องแต่งขึ้นเมื่อไม่มีข้อมูล) ทั้งที่ไม่มีระบบกล้อง
-                        onPressed: null,
-                        icon: const Icon(Icons.videocam_off_rounded, size: 16),
-                        label: const Text(
-                          'กล้อง CCTV ห้องนี้ (ยังไม่เชื่อมระบบกล้อง)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
+                    // "กล้อง CCTV ห้องนี้" — same: disabled, no camera link. Removed.
                   ],
                 );
 

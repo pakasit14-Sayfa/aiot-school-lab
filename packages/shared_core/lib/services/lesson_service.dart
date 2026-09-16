@@ -224,6 +224,25 @@ class LessonService {
     );
   }
 
+  /// Teacher/school_admin: per-student progress of one lesson, one row per
+  /// enrolled student (0% for students who never opened it).
+  static Future<List<LessonStudentProgress>> listProgress(
+    String lessonId,
+  ) async {
+    final rows =
+        await supabase.rpc(
+              'list_lesson_progress',
+              params: {
+                'p_token': AuthService.sessionToken,
+                'p_lesson_id': lessonId,
+              },
+            )
+            as List;
+    return rows
+        .map((r) => LessonStudentProgress.fromRow(Map<String, dynamic>.from(r as Map)))
+        .toList();
+  }
+
   static Future<void> markComplete(String lessonId) async {
     await supabase.rpc(
       'mark_lesson_complete',

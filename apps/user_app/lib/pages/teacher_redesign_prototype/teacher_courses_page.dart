@@ -2,9 +2,13 @@
 // Displays teacher's courses, lesson plans, worksheets, and course detail view.
 // Redesigned with modern glassmorphic aesthetics, rich stat cards, dynamic badges, and progress indicators.
 
+import 'dart:convert' show utf8;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:shared_core/shared_core.dart';
+
+import '../../utils/web_download.dart';
 
 import 'teacher_assignment_editor_page.dart';
 import 'teacher_exam_builder_page.dart';
@@ -704,22 +708,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                     ),
                   ],
                 ),
-                TextButton.icon(
-                  onPressed: () =>
-                      showTeacherMockAction(context, 'จัดเรียงรายวิชา'),
-                  icon: const Icon(
-                    Icons.swap_vert_rounded,
-                    size: 18,
-                    color: TeacherPalette.muted,
-                  ),
-                  label: const Text(
-                    'จัดเรียง',
-                    style: TextStyle(
-                      color: TeacherPalette.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+                // "จัดเรียง" used to be here as a button that only raised
+                // the "UI Prototype" snackbar — removed.
               ],
             ),
             const SizedBox(height: 14),
@@ -819,15 +809,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                       ],
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_horiz_rounded,
-                      color: Colors.white70,
-                    ),
-                    onPressed: () =>
-                        showTeacherMockAction(context, 'ตัวเลือกเพิ่มเติม'),
-                  ),
+                  // A ⋯ "ตัวเลือกเพิ่มเติม" button sat here with no menu behind
+                  // it (snackbar only) — removed.
                 ],
               ),
               const SizedBox(height: 12),
@@ -1814,7 +1797,12 @@ class _TeacherCourseCard extends StatelessWidget {
               ),
               onTap: () {
                 Navigator.pop(context);
-                showTeacherMockAction(context, 'สร้างใบงานดิจิทัลใหม่');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const TeacherAssignmentEditorPage(),
+                  ),
+                ).then((_) => onChanged?.call());
               },
             ),
             const Divider(height: 16),
@@ -1873,7 +1861,17 @@ class _TeacherCourseCard extends StatelessWidget {
               ),
               onTap: () {
                 Navigator.pop(context);
-                showTeacherMockAction(context, 'อัปโหลดสื่อการสอน');
+                // Materials are attached inside a lesson — open this
+                // course's lesson tab, where the lesson editor uploads them.
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => TeacherCourseDetailPage(
+                      course: course,
+                      initialTab: 'บทเรียน',
+                    ),
+                  ),
+                ).then((_) => onChanged?.call());
               },
             ),
             const SizedBox(height: 10),
@@ -2230,7 +2228,31 @@ class _TeacherCourseCard extends StatelessWidget {
 
 /// Redesigned Course Detail Page
 class TeacherCourseDetailPage extends StatefulWidget {
-  const TeacherCourseDetailPage({super.key, this.course});
+  const TeacherCourseDetailPage({
+    super.key,
+    this.course,
+    this.initialTab,
+    this.loadCourseStudents,
+    this.loadCourseGrades,
+    this.downloadBytesOverride,
+  });
+
+  /// Gradebook-tab seams (list_course_students / list_course_grades and the
+  /// browser download) so the tab's load, failure and CSV export can be
+  /// driven in a widget test.
+  final Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents;
+  final Future<List<GradeRecord>> Function(String courseId)? loadCourseGrades;
+  final void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
+  downloadBytesOverride;
+
+  /// Which tab to open on ('บทเรียน' by default) — the course card's
+  /// "สร้างสื่อ/งานใหม่" sheet lands on the matching tab instead of raising
+  /// the old "UI Prototype" snackbar.
+  final String? initialTab;
 
   final TeacherCourseModel? course;
 
@@ -2240,7 +2262,7 @@ class TeacherCourseDetailPage extends StatefulWidget {
 }
 
 class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
-  String _activeTab = 'บทเรียน';
+  late String _activeTab = widget.initialTab ?? 'บทเรียน';
   int? _dynamicStudentCount;
 
   @override
@@ -2253,7 +2275,8 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
     final courseId = widget.course?.id ?? widget.course?.code;
     if (courseId == null) return;
     try {
-      final list = await CourseService.listCourseStudents(courseId);
+      final list = await (widget.loadCourseStudents ??
+          CourseService.listCourseStudents)(courseId);
       if (mounted) {
         setState(() {
           _dynamicStudentCount = list.length;
@@ -2533,7 +2556,12 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
             else if (_activeTab == 'ใบงาน')
               _CourseAssignmentListTabWidget(course: c)
             else if (_activeTab == 'คะแนน')
-              _CourseGradebookTabWidget(course: c)
+              _CourseGradebookTabWidget(
+                course: c,
+                loadCourseStudents: widget.loadCourseStudents,
+                loadCourseGrades: widget.loadCourseGrades,
+                downloadBytesOverride: widget.downloadBytesOverride,
+              )
             else if (_activeTab == 'กลุ่ม')
               _StudentGroupManagementWidget(course: c)
             else
@@ -4394,9 +4422,22 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
 }
 
 class _CourseGradebookTabWidget extends StatefulWidget {
-  const _CourseGradebookTabWidget({required this.course});
+  const _CourseGradebookTabWidget({
+    required this.course,
+    this.loadCourseStudents,
+    this.loadCourseGrades,
+    this.downloadBytesOverride,
+  });
 
   final TeacherCourseModel course;
+  final Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents;
+  final Future<List<GradeRecord>> Function(String courseId)? loadCourseGrades;
+  final void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
+  downloadBytesOverride;
 
   @override
   State<_CourseGradebookTabWidget> createState() =>
@@ -4405,6 +4446,10 @@ class _CourseGradebookTabWidget extends StatefulWidget {
 
 class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
   bool _isLoading = true;
+  // A failed read used to render as "no students / no grades" — the grades
+  // call even had its own swallowing catch, so a broken grade RPC showed
+  // every student at 0 points.
+  bool _loadFailed = false;
   List<Map<String, dynamic>> _students = [];
 
   @override
@@ -4414,16 +4459,16 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
   }
 
   Future<void> _fetchGradeData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     try {
       final courseId = widget.course.id ?? '';
-      final enrolled = await CourseService.listCourseStudents(courseId);
-      List<GradeRecord> grades = [];
-      try {
-        grades = await GradeService.listCourseGrades(courseId);
-      } catch (e) {
-        debugPrint('Error fetching course grades via RPC: $e');
-      }
+      final enrolled = await (widget.loadCourseStudents ??
+          CourseService.listCourseStudents)(courseId);
+      final grades = await (widget.loadCourseGrades ??
+          GradeService.listCourseGrades)(courseId);
       final gradesByStudent = <String, List<GradeRecord>>{};
       for (final g in grades) {
         gradesByStudent.putIfAbsent(g.studentId, () => []).add(g);
@@ -4456,8 +4501,55 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
       }
     } catch (e) {
       debugPrint('Error fetching grade data via RPC: $e');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadFailed = true;
+          _students = [];
+        });
+      }
     }
+  }
+
+  String _csvField(String value) {
+    final needsQuote = value.contains(',') || value.contains('"') || value.contains('\n');
+    final escaped = value.replaceAll('"', '""');
+    return needsQuote ? '"$escaped"' : escaped;
+  }
+
+  /// Client-side CSV of the rows already on screen — the same data the tab
+  /// shows, so nothing is exported that the teacher has not seen.
+  void _exportCsv() {
+    if (_students.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')),
+      );
+      return;
+    }
+    final rows = <List<String>>[
+      ['ชื่อ', 'รหัส', 'จำนวนรายการ', 'คะแนนรวม', 'คะแนนเต็ม', 'ยืนยันแล้ว'],
+      for (final st in _students)
+        [
+          '${st['name']}',
+          '${st['code']}',
+          '${st['entryCount']}',
+          '${st['totalScore']}',
+          '${st['totalMax']}',
+          '${st['confirmedCount']}',
+        ],
+    ];
+    final csv = rows.map((r) => r.map(_csvField).join(',')).join('\r\n');
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    final code = (widget.course.code).replaceAll(RegExp(r'[^A-Za-z0-9ก-๙_-]'), '_');
+    doDownload(
+      filename:
+          'gradebook_${code}_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('\uFEFF$csv'),
+      mimeType: 'text/csv',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ส่งออกสมุดคะแนนแล้ว (CSV)')),
+    );
   }
 
   @override
@@ -4537,29 +4629,18 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                 color: TeacherPalette.ink,
               ),
             ),
-            // ยังไม่มี backend รองรับการส่งออกคะแนน (ไม่มี RPC/Service ใดใน
-            // shared_core ที่ทำเรื่องนี้) — ปิดปุ่มไว้ตรง ๆ ดีกว่าขึ้นข้อความ
-            // ว่า "กำลังส่งออก..." ทั้งที่ไม่ได้ยิงอะไรเลย
-            const Tooltip(
-              message:
-                  'ยังไม่รองรับการส่งออกคะแนนเป็นไฟล์ — ฟีเจอร์นี้ยังไม่ได้เชื่อมกับเซิร์ฟเวอร์',
-              child: OutlinedButton(
-                onPressed: null,
-                style: ButtonStyle(
-                  minimumSize: WidgetStatePropertyAll(Size.zero),
-                  padding: WidgetStatePropertyAll(
-                    EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.file_download_rounded, size: 16),
-                    SizedBox(width: 6),
-                    Text('ส่งออกคะแนน (ยังไม่เปิดใช้งาน)'),
-                  ],
+            // Client-side CSV of the loaded gradebook; used to be a disabled
+            // "ส่งออกคะแนน (ยังไม่เปิดใช้งาน)" button.
+            OutlinedButton.icon(
+              onPressed: _isLoading || _loadFailed ? null : _exportCsv,
+              style: const ButtonStyle(
+                minimumSize: WidgetStatePropertyAll(Size.zero),
+                padding: WidgetStatePropertyAll(
+                  EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 ),
               ),
+              icon: const Icon(Icons.file_download_rounded, size: 16),
+              label: const Text('ส่งออกคะแนน (CSV)'),
             ),
           ],
         ),
@@ -4569,6 +4650,30 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
             child: Padding(
               padding: EdgeInsets.all(36),
               child: CircularProgressIndicator(color: TeacherPalette.primary),
+            ),
+          )
+        else if (_loadFailed)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF1F2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFFECDD3)),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  'โหลดสมุดคะแนนไม่สำเร็จ — ยังไม่ทราบคะแนนของนักเรียน',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFB91C1C),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(onPressed: _fetchGradeData, child: const Text('ลองใหม่')),
+              ],
             ),
           )
         else if (_students.isEmpty)

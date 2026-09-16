@@ -187,3 +187,49 @@ class LessonDetail {
 
   bool get isPublished => status == 'published';
 }
+
+/// One enrolled student's progress on a lesson (`list_lesson_progress`).
+/// A student who never opened the lesson is still a row: 0% / not completed.
+class LessonStudentProgress {
+  final String studentId;
+  final String firstName;
+  final String lastName;
+  final String email;
+  final double progressPct;
+  final bool completed;
+  final DateTime? completedAt;
+  final DateTime? updatedAt;
+
+  const LessonStudentProgress({
+    required this.studentId,
+    required this.firstName,
+    required this.lastName,
+    required this.email,
+    required this.progressPct,
+    required this.completed,
+    required this.completedAt,
+    required this.updatedAt,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  /// Never opened the lesson: no progress row at all.
+  bool get opened => updatedAt != null;
+
+  factory LessonStudentProgress.fromRow(Map<String, dynamic> row) {
+    return LessonStudentProgress(
+      studentId: row['student_id'] as String,
+      firstName: (row['first_name'] as String?) ?? '',
+      lastName: (row['last_name'] as String?) ?? '',
+      email: (row['email'] as String?) ?? '',
+      progressPct: ((row['progress_pct'] as num?) ?? 0).toDouble(),
+      completed: (row['completed'] as bool?) ?? false,
+      completedAt: row['completed_at'] == null
+          ? null
+          : DateTime.parse(row['completed_at'] as String),
+      updatedAt: row['updated_at'] == null
+          ? null
+          : DateTime.parse(row['updated_at'] as String),
+    );
+  }
+}

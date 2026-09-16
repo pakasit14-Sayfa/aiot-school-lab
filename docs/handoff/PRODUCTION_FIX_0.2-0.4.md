@@ -244,6 +244,14 @@ npx supabase db query --linked "select count(*) from pg_proc where proname in ('
 ไม่งั้นบัญชีที่นำเข้าใหม่จะล็อกอินได้ด้วยรหัสชั่วคราวโดยไม่ถูกบังคับเปลี่ยน
 (แอปเก่าไม่อ่าน `must_change_password`)
 
+### ขั้น 4.2 — migration Teacher 100% (2026-09-16) — 1 ไฟล์
+
+`20260916010000_list_lesson_progress.sql` — RPC อ่านอย่างเดียว `list_lesson_progress(p_token, p_lesson_id)`
+ให้ครูเจ้าของวิชา/school_admin ดูความคืบหน้าบทเรียนรายคน (นักเรียนเขียน `lesson_progress`
+มาตั้งแต่แรกแต่ไม่เคยมีตัวอ่านฝั่งครู) ไม่แตะข้อมูลเดิม รันได้ทุกลำดับหลัง 4.1 หรือก่อนก็ได้
+
+ตรวจ: `select count(*) from pg_proc where proname='list_lesson_progress'` → `1`
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้

@@ -101,6 +101,48 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
     _loadRealAssignments();
   }
 
+  /// "เผยแพร่" on a draft card — `publish_assignment`, then re-read the list
+  /// so the card's state comes from the backend, not from a local flip.
+  /// Used to raise the "UI Prototype" snackbar.
+  Future<void> _publishDraft(_GradingItemMock item) async {
+    final id = item.assignmentId;
+    if (id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ใบงานนี้ยังไม่ถูกบันทึกลงเซิร์ฟเวอร์ จึงยังเผยแพร่ไม่ได้'),
+        ),
+      );
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final publish =
+          widget.publishAssignment ?? AssignmentService.publishAssignment;
+      await publish(id);
+      await _loadRealAssignments();
+      if (!mounted) return;
+      final stillDraft = _items.any((i) => i.assignmentId == id && !i.isPublished);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            stillDraft
+                ? 'เผยแพร่ไม่สำเร็จ ใบงานยังเป็นฉบับร่าง'
+                : 'เผยแพร่ "${item.title}" แล้ว',
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('TeacherGradingPage publish failed: $e');
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('เผยแพร่ไม่สำเร็จ ใบงานยังเป็นฉบับร่าง'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
   Future<void> _loadRealAssignments() async {
     setState(() {
       _loading = true;
@@ -332,7 +374,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
               onRoomChanged: (room) => setState(() => _roomFilter = room),
             ),
             const SizedBox(height: 12),
-            _GradingList(items: buckets[_bucketIndex]),
+            _GradingList(items: buckets[_bucketIndex], onPublish: _publishDraft),
           ],
         );
       },
@@ -1030,9 +1072,10 @@ class _FormField extends StatelessWidget {
 }
 
 class _GradingList extends StatelessWidget {
-  const _GradingList({required this.items});
+  const _GradingList({required this.items, required this.onPublish});
 
   final List<_GradingItemMock> items;
+  final Future<void> Function(_GradingItemMock item) onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -1070,7 +1113,7 @@ class _GradingList extends StatelessWidget {
             for (final item in items)
               SizedBox(
                 width: cardWidth,
-                child: _GradingCard(item: item),
+                child: _GradingCard(item: item, onPublish: onPublish),
               ),
           ],
         );
@@ -1080,9 +1123,10 @@ class _GradingList extends StatelessWidget {
 }
 
 class _GradingCard extends StatelessWidget {
-  const _GradingCard({required this.item});
+  const _GradingCard({required this.item, required this.onPublish});
 
   final _GradingItemMock item;
+  final Future<void> Function(_GradingItemMock item) onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -1214,7 +1258,7 @@ class _GradingCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: () {
                     if (!item.isPublished) {
-                      showTeacherMockAction(context, 'เผยแพร่: ${item.title}');
+                      onPublish(item);
                       return;
                     }
                     if (item.assignmentId == null) {

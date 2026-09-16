@@ -338,57 +338,55 @@ class _StudentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tapping a row used to raise the "UI Prototype" snackbar. There is no
+    // per-student page in this lane to open, so the row is not tappable.
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => showTeacherMockAction(context, student.name),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 19,
-                backgroundColor: TeacherPalette.primary.withValues(alpha: 0.14),
-                child: Text(
-                  student.name.isNotEmpty ? student.name.substring(0, 1) : '?',
-                  style: const TextStyle(
-                    color: TeacherPalette.primary,
-                    fontWeight: FontWeight.w900,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 19,
+              backgroundColor: TeacherPalette.primary.withValues(alpha: 0.14),
+              child: Text(
+                student.name.isNotEmpty ? student.name.substring(0, 1) : '?',
+                style: const TextStyle(
+                  color: TeacherPalette.primary,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TeacherPalette.ink,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      student.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: TeacherPalette.ink,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${student.room} · ${student.email}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TeacherPalette.muted,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${student.room} · ${student.email}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: TeacherPalette.muted,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

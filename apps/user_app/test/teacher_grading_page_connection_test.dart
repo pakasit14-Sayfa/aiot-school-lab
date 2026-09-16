@@ -149,4 +149,79 @@ void main() {
     expect(find.text('โหลดใบงานไม่สำเร็จ'), findsOneWidget);
     expect(find.textContaining('backend detail'), findsNothing);
   });
+
+  testWidgets('"เผยแพร่" on a draft calls publish_assignment and re-reads the list', (
+    tester,
+  ) async {
+    var published = false;
+    final draft = AssignmentSummary(
+      id: 'asg-draft',
+      type: 'worksheet',
+      title: 'ใบงานฉบับร่าง',
+      dueAt: DateTime.now().add(const Duration(days: 1)),
+      status: 'draft',
+    );
+    await _pump(
+      tester,
+      listAssignments: (_) async => [
+        AssignmentSummary(
+          id: draft.id,
+          type: draft.type,
+          title: draft.title,
+          dueAt: draft.dueAt,
+          status: published ? 'published' : 'draft',
+        ),
+      ],
+      listSubmissions: (_) async => const [],
+      publishAssignment: (id) async {
+        expect(id, 'asg-draft');
+        published = true;
+      },
+    );
+    // Draft bucket is the last tab; the card's primary button reads เผยแพร่.
+    await tester.tap(find.text('ร่าง').first);
+    await tester.pumpAndSettle();
+    // FilledButton.icon is a private subclass — match by ButtonStyleButton.
+    final button = find.ancestor(
+      of: find.text('เผยแพร่'),
+      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+    );
+    expect(button, findsOneWidget);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(published, isTrue);
+    expect(find.textContaining('UI Prototype'), findsNothing);
+    expect(find.text('เผยแพร่ "ใบงานฉบับร่าง" แล้ว'), findsOneWidget);
+  });
+
+  testWidgets('a publish that the backend does not confirm is reported as failed', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      listAssignments: (_) async => [
+        AssignmentSummary(
+          id: 'asg-draft',
+          type: 'worksheet',
+          title: 'ใบงานฉบับร่าง',
+          dueAt: DateTime.now().add(const Duration(days: 1)),
+          status: 'draft',
+        ),
+      ],
+      listSubmissions: (_) async => const [],
+      publishAssignment: (_) async {}, // "succeeds" but nothing changes
+    );
+    await tester.tap(find.text('ร่าง').first);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.ancestor(
+        of: find.text('เผยแพร่'),
+        matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('เผยแพร่ไม่สำเร็จ ใบงานยังเป็นฉบับร่าง'), findsOneWidget);
+    expect(find.textContaining('เผยแพร่ "ใบงานฉบับร่าง" แล้ว'), findsNothing);
+  });
 }

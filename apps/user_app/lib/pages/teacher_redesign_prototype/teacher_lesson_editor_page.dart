@@ -3229,9 +3229,18 @@ class TeacherPublishChecklistDialog extends StatelessWidget {
 // ==========================================
 
 class TeacherLessonAnalyticsPage extends StatefulWidget {
-  const TeacherLessonAnalyticsPage({super.key, required this.lesson});
+  const TeacherLessonAnalyticsPage({
+    super.key,
+    required this.lesson,
+    this.loadProgress,
+  });
 
   final LessonModel lesson;
+
+  /// `list_lesson_progress` — one row per enrolled student. Injectable so
+  /// tests can drive loading / data / empty / failure.
+  final Future<List<LessonStudentProgress>> Function(String lessonId)?
+  loadProgress;
 
   @override
   State<TeacherLessonAnalyticsPage> createState() =>
@@ -3240,11 +3249,29 @@ class TeacherLessonAnalyticsPage extends StatefulWidget {
 
 class _TeacherLessonAnalyticsPageState
     extends State<TeacherLessonAnalyticsPage> {
-  // เคยเป็นหน้าปลอม 100% — สถิติ/รายชื่อนักเรียน/ความคืบหน้าเป็นตัวเลข
-  // hardcode ทั้งหมด (ไม่มีการเรียก service ใดๆ เลย แค่ Future.delayed
-  // จำลองการโหลด) ไม่มี backend รองรับสถิติระดับบทเรียนรายคนจริงในตอนนี้
-  // (ไม่มี RPC/Service ใน shared_core ที่ทำเรื่องนี้) — ปิดฟีเจอร์ตรงๆ ดีกว่า
-  // โชว์ตัวเลขที่ไม่มีอยู่จริงเป็นสถิตินักเรียนจริง
+  // Until 2026-09-16 this screen was a "ยังไม่เปิดใช้งาน" placeholder (and
+  // before that, hardcoded stats — "42 คน", "84%"). Students have written
+  // lesson_progress all along; list_lesson_progress now reads it back.
+  late Future<List<LessonStudentProgress>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<LessonStudentProgress>> _load() =>
+      (widget.loadProgress ?? LessonService.listProgress)(widget.lesson.id);
+
+  void _retry() {
+    // Block body on purpose: `setState(() => _future = _load())` returns
+    // the Future, which setState rejects with an assertion.
+    final next = _load();
+    setState(() {
+      _future = next;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -3253,36 +3280,188 @@ class _TeacherLessonAnalyticsPageState
         backgroundColor: Colors.white,
         foregroundColor: TeacherPalette.ink,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      body: FutureBuilder<List<LessonStudentProgress>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snap.hasError) {
+            debugPrint('TeacherLessonAnalyticsPage load failed: ${snap.error}');
+            return _centered(
+              icon: Icons.error_outline_rounded,
+              title: 'โหลดสถิติไม่สำเร็จ',
+              body: 'ยังไม่ทราบความคืบหน้าของนักเรียน ลองใหม่อีกครั้ง',
+              action: TextButton(onPressed: _retry, child: const Text('ลองใหม่')),
+            );
+          }
+          final rows = snap.data ?? const [];
+          if (rows.isEmpty) {
+            return _centered(
+              icon: Icons.group_off_rounded,
+              title: 'ยังไม่มีนักเรียนในวิชานี้',
+              body: 'เมื่อมีนักเรียนลงทะเบียน ความคืบหน้าของแต่ละคนจะแสดงที่นี่',
+            );
+          }
+          final opened = rows.where((r) => r.opened).length;
+          final completed = rows.where((r) => r.completed).length;
+          final avg =
+              rows.fold<double>(0, (sum, r) => sum + r.progressPct) / rows.length;
+          return ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              const Icon(
-                Icons.bar_chart_rounded,
-                size: 48,
-                color: TeacherPalette.muted,
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _stat('นักเรียน', '${rows.length} คน'),
+                  _stat('เปิดบทเรียนแล้ว', '$opened คน'),
+                  _stat('เรียนจบ', '$completed คน'),
+                  _stat('ความคืบหน้าเฉลี่ย', '${avg.toStringAsFixed(0)}%'),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               const Text(
-                'สถิติบทเรียนรายคนยังไม่เปิดใช้งาน',
+                'รายคน',
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
                   color: TeacherPalette.ink,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'ระบบยังไม่มีข้อมูลความคืบหน้าของนักเรียนรายบุคคลต่อบทเรียน '
-                'ฟีเจอร์นี้อยู่ระหว่างพัฒนา',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+              for (final r in rows) _studentRow(r),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _centered({
+    required IconData icon,
+    required String title,
+    required String body,
+    Widget? action,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: TeacherPalette.muted),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: TeacherPalette.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+            ),
+            if (action != null) ...[const SizedBox(height: 8), action],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: TeacherPalette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: TeacherPalette.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _studentRow(LessonStudentProgress r) {
+    final status = r.completed
+        ? 'เรียนจบแล้ว'
+        : r.opened
+        ? 'กำลังเรียน'
+        : 'ยังไม่เปิดบทเรียน';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: TeacherPalette.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.fullName.isEmpty ? r.email : r.fullName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: (r.progressPct / 100).clamp(0, 1),
+                    minHeight: 6,
+                    backgroundColor: const Color(0xFFE2E8F0),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${r.progressPct.toStringAsFixed(0)}%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: TeacherPalette.ink,
+                ),
+              ),
+              Text(
+                status,
+                style: const TextStyle(fontSize: 10.5, color: TeacherPalette.muted),
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }

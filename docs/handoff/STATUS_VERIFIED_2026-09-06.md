@@ -101,6 +101,8 @@ Executive 6 หน้า: `learning`(2,815) `meetings`(2,216) `teachers`(1,927) 
 
 ### 3.6 Test debt ยังไม่เคลียร์ — Flutter fail 16 + pgTAP fail 6
 
+> 2026-09-16 (ค่ำ): **Teacher 100%** — ไม่เหลือ placeholder/"UI Prototype"/ปุ่มเฉย/error=empty ใน 27 หน้าที่ผู้ใช้ถึง (สถิติบทเรียนรายคนต่อ backend ใหม่ list_lesson_progress · ส่งออกคะแนน CSV จริง · โปรไฟล์แก้ชื่อ/เปลี่ยนรหัสจริง) — แถว WORK_LOG "Teacher → 100%" · production: runbook 4.2
+>
 > 2026-09-16 (เย็น): **Executive 100%** — ไม่เหลือ placeholder/ปุ่มเฉย/ค่าตายตัวที่แสดงเป็นสถานะในทั้ง 15 หน้า (settings เปลี่ยนรหัสจริง · CCTV แสดง heartbeat จริงแทนแผง AI ปลอม · ไฟล์ mock 3 ไฟล์ลบ) · user_app เขียวทั้งชุดครั้งแรกตั้งแต่ 7 ก.ย. — แถว WORK_LOG "Executive → 100%"
 >
 > 2026-09-16 (บ่าย): **Executive ตรวจซ้ำทั้ง 15 หน้า** — เหลือแค่ CCTV (ตัวกรองอาคารกรองกล้องจริงออกหมด · error=empty · ปุ่มเฉย 3) กับฉุกเฉิน (ทีมปลอมใน modal SOS · ไทม์ไลน์แต่งเวลา · ปุ่มเฉย 7) — แก้แล้วในแถว WORK_LOG "Executive: CCTV + ฉุกเฉิน" · ที่ยังค้าง: overview ที่อีกบัญชีแก้อยู่ + ไฟล์ mock ตาย 3 ไฟล์
