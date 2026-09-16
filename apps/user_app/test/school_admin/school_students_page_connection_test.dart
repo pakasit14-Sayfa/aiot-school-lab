@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/school_admin/school_students_page.dart';
@@ -58,6 +60,10 @@ Future<void> _pump(
   Future<void> Function(String uid)? suspendUser,
   Future<void> Function(String uid)? reactivateUser,
   Future<void> Function(String uid, String name)? updateName,
+  Future<BulkImportResult> Function({required UserRole role, required List<Map<String, dynamic>> users})?
+  importUsers,
+  void Function({required String filename, required List<int> bytes, required String mimeType})?
+  downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -74,6 +80,9 @@ Future<void> _pump(
         suspendUser: suspendUser,
         reactivateUser: reactivateUser,
         updateName: updateName,
+        importUsers: importUsers,
+        downloadBytesOverride: downloadBytesOverride ??
+            ({required filename, required bytes, required mimeType}) {},
       ),
     ),
   );
@@ -207,5 +216,83 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsOneWidget);
+  });
+
+  testWidgets('"เพิ่มนักเรียนรายคน" creates the account through the import RPC and shows the temp password once', (
+    tester,
+  ) async {
+    List<Map<String, dynamic>>? sent;
+    UserRole? sentRole;
+    await _pump(
+      tester,
+      importUsers: ({required role, required users}) async {
+        sentRole = role;
+        sent = users;
+        return const BulkImportResult(
+          success: true,
+          insertedCount: 1,
+          skipped: [],
+          credentials: [ImportedCredential(row: 1, email: 'new@school.test', tempPassword: 'Qw7Rt4Yu9p')],
+        );
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('เพิ่มนักเรียนรายคน'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'อีเมล'), 'New@School.test');
+    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ'), 'ใหม่');
+    await tester.enterText(find.widgetWithText(TextField, 'นามสกุล'), 'เรียนดี');
+    await tester.tap(find.text('สร้างบัญชี'));
+    await tester.pumpAndSettle();
+
+    expect(sentRole, UserRole.student);
+    expect(sent, [
+      {'email': 'new@school.test', 'first_name': 'ใหม่', 'last_name': 'เรียนดี', 'student_code': ''},
+    ]);
+    expect(find.text('Qw7Rt4Yu9p'), findsOneWidget);
+    expect(find.text('ยังไม่มีระบบหลังบ้านรองรับ ใช้ "นำเข้ารายชื่อ" แทน'), findsNothing);
+  });
+
+  testWidgets('a duplicate email is reported in the form, not as success', (tester) async {
+    await _pump(
+      tester,
+      importUsers: ({required role, required users}) async => const BulkImportResult(
+        success: true,
+        insertedCount: 0,
+        skipped: [SkippedRow(row: 1, reason: 'duplicate_email')],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('เพิ่มนักเรียนรายคน'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'อีเมล'), 'dup@school.test');
+    await tester.enterText(find.widgetWithText(TextField, 'ชื่อ'), 'ซ้ำ');
+    await tester.tap(find.text('สร้างบัญชี'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('อีเมลนี้มีบัญชีอยู่แล้ว'), findsOneWidget);
+    expect(find.textContaining('แสดงครั้งเดียว'), findsNothing, reason: 'no credentials dialog');
+  });
+
+  testWidgets('"ส่งออกรายชื่อ" downloads the filtered students as a real CSV', (tester) async {
+    String? savedName;
+    List<int>? savedBytes;
+    await _pump(
+      tester,
+      loadUsers: () async => [_student(name: 'ส่งออก ทดสอบ', email: 'export@school.test')],
+      downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
+        savedName = filename;
+        savedBytes = bytes;
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ส่งออกรายชื่อ'));
+    await tester.pumpAndSettle();
+
+    expect(savedName, startsWith('students_'));
+    expect(utf8.decode(savedBytes!), contains('export@school.test'));
   });
 }

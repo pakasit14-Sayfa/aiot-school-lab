@@ -11,6 +11,11 @@ class SchoolAdminProfilePage extends StatefulWidget {
     this.loadSummary,
     this.updateProfile,
     this.signOutAllDevices,
+    this.loadDirectory,
+    this.saveStaffProfile,
+    this.changePassword,
+    this.loadSessions,
+    this.revokeSession,
   });
 
   final VoidCallback? onBack;
@@ -22,6 +27,24 @@ class SchoolAdminProfilePage extends StatefulWidget {
   final Future<void> Function({required String uid, required String name})?
   updateProfile;
   final Future<void> Function()? signOutAllDevices;
+
+  /// เบอร์โทร/ตำแหน่ง เก็บใน staff_profiles (set_staff_profile — แอดมินตั้งให้
+  /// ตัวเองได้) · ฝ่าย/หน่วยงาน อ่านจาก list_staff_directory (มาจากการเป็น
+  /// สมาชิกฝ่าย ไม่ใช่ข้อความอิสระ) · รหัสผ่าน/เซสชัน จาก 20260914020000
+  final Future<List<StaffDirectoryEntry>> Function()? loadDirectory;
+  final Future<void> Function({
+    required String userId,
+    String? positionTitle,
+    String? phone,
+  })?
+  saveStaffProfile;
+  final Future<void> Function({
+    required String currentPassword,
+    required String newPassword,
+  })?
+  changePassword;
+  final Future<List<MySessionRecord>> Function()? loadSessions;
+  final Future<void> Function(String sessionId)? revokeSession;
 
   @override
   State<SchoolAdminProfilePage> createState() => _SchoolAdminProfilePageState();
@@ -46,10 +69,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   // initState ไม่เคยเขียนทับสามช่องนี้ ผู้ดูแลจึงเห็นเบอร์โทรกับรหัสพนักงาน
   // ที่ดูเหมือนของตัวเองทั้งที่ระบบไม่เคยเก็บ
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _employeeCodeController =
-      TextEditingController();
   final TextEditingController _positionController = TextEditingController();
-  final TextEditingController _departmentController = TextEditingController();
 
   String? _profileImageUrl;
 
@@ -66,6 +86,11 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   // ไม่มี field โรงเรียนใน UserModel เลยดึงจาก dashboard summary ที่มีอยู่แล้ว
   String? _schoolName;
 
+  /// ฝ่ายที่บัญชีนี้สังกัด (จาก list_staff_directory) — แสดงอย่างเดียว การย้าย
+  /// ฝ่ายทำจากหน้า "ครูและบุคลากร" (set_department_member)
+  List<String> _departments = const [];
+  bool _staffProfileLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -79,6 +104,30 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     }
     _loadLogs();
     _loadSchoolName();
+    _loadStaffProfile();
+  }
+
+  /// เบอร์โทร/ตำแหน่ง/ฝ่าย ของบัญชีตัวเอง — แถวของเราใน list_staff_directory
+  Future<void> _loadStaffProfile() async {
+    final user = currentUserModel;
+    if (user == null) return;
+    try {
+      final entries = await (widget.loadDirectory ??
+          StaffOrgService.listStaffDirectory)();
+      final mine = entries.where((e) => e.userId == user.uid).toList();
+      if (!mounted) return;
+      setState(() {
+        if (mine.isNotEmpty) {
+          _phoneController.text = mine.first.phone ?? '';
+          _positionController.text = mine.first.positionTitle ?? '';
+          _departments = mine.first.administrativeDepartments;
+        }
+        _staffProfileLoaded = true;
+      });
+    } catch (e) {
+      debugPrint('SchoolAdminProfilePage: list_staff_directory ล้ม — $e');
+      if (mounted) setState(() => _staffProfileLoaded = true);
+    }
   }
 
   Future<void> _loadSchoolName() async {
@@ -152,9 +201,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     _displayNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _employeeCodeController.dispose();
     _positionController.dispose();
-    _departmentController.dispose();
     super.dispose();
   }
 
@@ -281,8 +328,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
 
     final bool confirmed = await _confirm(
       title: 'ยืนยันการบันทึกโปรไฟล์',
-      message:
-          'ต้องการบันทึกข้อมูลโปรไฟล์ที่แก้ไขแล้วหรือไม่\n(หมายเหตุ: ระบบบันทึกข้อมูลโปรไฟล์เพิ่มเติมยังไม่เชื่อมต่อระบบหลังบ้าน ข้อมูลเพิ่มเติมจะไม่ถูกบันทึกจริง)',
+      message: 'ต้องการบันทึกชื่อ เบอร์โทรศัพท์ และตำแหน่งที่แก้ไขแล้วหรือไม่',
     );
 
     if (!confirmed || !mounted) {
@@ -296,8 +342,8 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     // admin_update_user_profile ที่ไม่มี p_token เลย นั่นเป็น RPC ของ
     // aiot_dev_dashboard เรียกจากแอปนี้จะได้ actor เป็น null เงียบ ๆ
     //
-    // ฟิลด์อื่น (อีเมล เบอร์โทร รูปโปรไฟล์ การแจ้งเตือน) ยังไม่มีที่เก็บใน
-    // สคีมา จึงไม่อ้างว่าบันทึกให้
+    // เบอร์โทร/ตำแหน่ง ลง staff_profiles ผ่าน set_staff_profile (แอดมินตั้งให้
+    // ตัวเองได้) · อีเมลยังไม่มี RPC เปลี่ยน — ช่องอีเมลเป็นอ่านอย่างเดียว
     final user = currentUserModel;
     if (user == null) {
       _message('เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่');
@@ -310,8 +356,20 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
           ({required String uid, required String name}) =>
               AuthService.updateProfile(uid: uid, name: name);
       await save(uid: user.uid, name: _fullNameController.text.trim());
+      final saveStaff = widget.saveStaffProfile ??
+          ({required String userId, String? positionTitle, String? phone}) =>
+              StaffOrgService.setStaffProfile(
+                userId: userId,
+                positionTitle: positionTitle,
+                phone: phone,
+              );
+      await saveStaff(
+        userId: user.uid,
+        positionTitle: _positionController.text.trim(),
+        phone: _phoneController.text.trim(),
+      );
       if (!mounted) return;
-      _message('บันทึกชื่อเรียบร้อยแล้ว (ฟิลด์อื่นยังไม่รองรับการบันทึก)');
+      _message('บันทึกโปรไฟล์เรียบร้อยแล้ว');
     } catch (e) {
       debugPrint('updateProfile failed: $e');
       if (!mounted) return;
@@ -321,30 +379,132 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     }
   }
 
-  /// เดิม dialog นี้เก็บรหัสผ่านปัจจุบัน/ใหม่/ยืนยัน แล้วโชว์ "เปลี่ยนรหัสผ่านแล้ว"
-  /// โดยไม่เรียก backend เลยสักครั้ง — ผู้ใช้ที่เชื่อว่าเปลี่ยนแล้วจะยังคง
-  /// ใช้รหัสผ่านเดิมต่อไปโดยไม่รู้ตัว
-  ///
-  /// ไม่มี RPC `change_password(p_token, old, new)` ในระบบ — เส้นทางที่มีจริง
-  /// คือ `request_password_reset_otp` + `confirm_password_reset` ซึ่งเป็น
-  /// email-OTP flow (ยืนยันผ่านรหัสที่ส่งไปอีเมล) ไม่ใช่กรอกรหัสเดิม จึงต้อง
-  /// มีหน้าของตัวเอง ไม่ใช่ปลอมไว้หลังปุ่มนี้ — เหมือนที่แก้ไว้แล้วใน
-  /// director_settings_page.dart
-  void _changePassword() {
-    showDialog<void>(
+  /// เปลี่ยนรหัสผ่านด้วยรหัสปัจจุบัน — change_my_password (20260914020000)
+  /// รอบก่อนปุ่มนี้แค่บอกให้ไปใช้ "ลืมรหัสผ่าน" เพราะยังไม่มี RPC; ตอนนี้
+  /// เขียนจริง ตรวจรหัสปัจจุบันฝั่งเซิร์ฟเวอร์ และเซสชันเครื่องอื่นหลุดทั้งหมด
+  Future<void> _changePassword() async {
+    final current = TextEditingController();
+    final next = TextEditingController();
+    final confirm = TextEditingController();
+    var submitting = false;
+    String? error;
+    await showDialog<void>(
       context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: const Text('เปลี่ยนรหัสผ่าน'),
-        content: const Text(
-          'การเปลี่ยนรหัสผ่านต้องยืนยันผ่านรหัส OTP ที่ส่งไปยังอีเมลของบัญชี '
-          'ยังไม่เปิดใช้งานจากหน้านี้ — ใช้ "ลืมรหัสผ่าน" ที่หน้าเข้าสู่ระบบแทน',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('รับทราบ'),
-          ),
-        ],
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) {
+          Future<void> submit() async {
+            if (next.text.length < 8) {
+              setDialog(() => error = 'รหัสใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร');
+              return;
+            }
+            if (next.text != confirm.text) {
+              setDialog(() => error = 'รหัสใหม่ทั้งสองช่องไม่ตรงกัน');
+              return;
+            }
+            setDialog(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final change = widget.changePassword ??
+                  ({
+                    required String currentPassword,
+                    required String newPassword,
+                  }) => AuthService.changeMyPassword(
+                    currentPassword: currentPassword,
+                    newPassword: newPassword,
+                  );
+              await change(currentPassword: current.text, newPassword: next.text);
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              if (!mounted) return;
+              _message('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ');
+            } catch (e) {
+              debugPrint('SchoolAdminProfilePage: change_my_password ล้ม — $e');
+              if (!dialogContext.mounted) return;
+              final raw = e.toString();
+              setDialog(() {
+                submitting = false;
+                error = raw.contains('wrong_current_password')
+                    ? 'รหัสผ่านปัจจุบันไม่ถูกต้อง'
+                    : raw.contains('password_unchanged')
+                    ? 'รหัสใหม่ต้องต่างจากรหัสเดิม'
+                    : 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _OwnControllers(
+            controllers: [current, next, confirm],
+            child: AlertDialog(
+              title: const Text('เปลี่ยนรหัสผ่าน'),
+              content: SizedBox(
+                width: 380,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: current,
+                      obscureText: true,
+                      autofocus: true,
+                      decoration: const InputDecoration(labelText: 'รหัสผ่านปัจจุบัน'),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: next,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: confirm,
+                      obscureText: true,
+                      decoration: const InputDecoration(labelText: 'ยืนยันรหัสผ่านใหม่'),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          error!,
+                          style: const TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('ยกเลิก'),
+                ),
+                FilledButton(
+                  onPressed: submitting ? null : submit,
+                  child: Text(submitting ? 'กำลังบันทึก…' : 'เปลี่ยนรหัสผ่าน'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// อุปกรณ์/เซสชันที่ล็อกอินอยู่ — list_my_sessions + revoke_my_session
+  Future<void> _showSessions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SessionsSheet(
+        loadSessions: widget.loadSessions ?? AuthService.listMySessions,
+        revokeSession: widget.revokeSession ?? AuthService.revokeMySession,
       ),
     );
   }
@@ -697,8 +857,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                 width: width,
                 child: TextField(
                   controller: _emailController,
+                  readOnly: true,
                   decoration: const InputDecoration(
-                    labelText: 'อีเมล',
+                    labelText: 'อีเมล (ใช้เข้าสู่ระบบ — เปลี่ยนไม่ได้จากหน้านี้)',
                     prefixIcon: Icon(Icons.email_rounded),
                   ),
                 ),
@@ -707,9 +868,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                 width: width,
                 child: TextField(
                   controller: _phoneController,
+                  keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'เบอร์โทรศัพท์',
-                    hintText: 'ยังไม่รองรับการบันทึก',
                     prefixIcon: Icon(Icons.phone_rounded),
                   ),
                 ),
@@ -736,17 +897,8 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              SizedBox(
-                width: width,
-                child: TextField(
-                  controller: _employeeCodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'รหัสผู้ใช้งาน / รหัสบุคลากร',
-                    hintText: 'ยังไม่รองรับการบันทึก',
-                    prefixIcon: Icon(Icons.tag_rounded),
-                  ),
-                ),
-              ),
+              // "รหัสบุคลากร" ถูกถอด: ไม่มีคอลัมน์ไหนในสคีมาเก็บค่านี้ (users มี
+              // student_code สำหรับนักเรียนเท่านั้น) ช่องที่ไม่มีที่เก็บไม่ควรอยู่บนจอ
               SizedBox(
                 width: width,
                 child: TextField(
@@ -754,20 +906,22 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     labelText: 'ตำแหน่ง',
-                    hintText: 'ยังไม่รองรับการบันทึก',
                     prefixIcon: Icon(Icons.workspace_premium_rounded),
                   ),
                 ),
               ),
               SizedBox(
                 width: width,
-                child: TextField(
-                  controller: _departmentController,
-                  decoration: const InputDecoration(
-                    labelText: 'ฝ่าย / หน่วยงาน',
-                    hintText: 'ยังไม่รองรับการบันทึก',
-                    prefixIcon: Icon(Icons.account_tree_rounded),
-                  ),
+                // ฝ่ายมาจากการเป็นสมาชิก (department_members) ไม่ใช่ข้อความอิสระ
+                // — ย้ายฝ่ายจากหน้า "ครูและบุคลากร"
+                child: _ReadOnlyProfileField(
+                  icon: Icons.account_tree_rounded,
+                  label: 'ฝ่าย / หน่วยงาน',
+                  value: !_staffProfileLoaded
+                      ? 'กำลังโหลด…'
+                      : _departments.isEmpty
+                      ? 'ยังไม่สังกัดฝ่าย'
+                      : _departments.join(', '),
                 ),
               ),
               SizedBox(
@@ -817,14 +971,12 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
             onPressed: _changePassword,
           ),
           const SizedBox(height: 9),
-          // ไม่มี RPC ใดที่คืนรายการ session/อุปกรณ์ที่ล็อกอินอยู่ — ปุ่มเดิม
-          // กดแล้วไม่เปิดอะไรจริง ปิดไว้พร้อมเหตุผลแทนการกดแล้วไม่มีอะไรเกิดขึ้น
           _ProfileActionRow(
             icon: Icons.devices_rounded,
             title: 'อุปกรณ์ที่เข้าสู่ระบบ',
-            detail: 'ยังไม่มีระบบแสดงรายการอุปกรณ์/เซสชันที่ล็อกอินอยู่ในเวอร์ชันนี้',
+            detail: 'ดูเครื่องที่ล็อกอินอยู่ และถอนเครื่องที่ไม่รู้จักออก',
             buttonText: 'ดูอุปกรณ์',
-            onPressed: null,
+            onPressed: _showSessions,
           ),
           const SizedBox(height: 9),
           _ProfileActionRow(
@@ -855,7 +1007,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'ข้อมูลโปรไฟล์ดึงจากบัญชีปัจจุบัน (ชื่อและอีเมล) ส่วนข้อมูลเพิ่มเติม (เบอร์โทร, ตำแหน่ง, รหัสพนักงาน) ยังอยู่ระหว่างเชื่อมต่อระบบหลังบ้าน',
+              'ชื่อ เบอร์โทรศัพท์ และตำแหน่ง บันทึกลงระบบได้จากหน้านี้ · อีเมลและฝ่ายเปลี่ยนจากหน้านี้ไม่ได้',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.4,
@@ -1335,4 +1487,172 @@ class _ProfileLog {
   final String action;
   final String detail;
   final String type;
+}
+
+/// รายการเซสชัน (เครื่อง) ที่ล็อกอินอยู่ของบัญชีนี้ — ถอนเครื่องอื่นได้ทีละเครื่อง
+class _SessionsSheet extends StatefulWidget {
+  const _SessionsSheet({required this.loadSessions, required this.revokeSession});
+
+  final Future<List<MySessionRecord>> Function() loadSessions;
+  final Future<void> Function(String sessionId) revokeSession;
+
+  @override
+  State<_SessionsSheet> createState() => _SessionsSheetState();
+}
+
+class _SessionsSheetState extends State<_SessionsSheet> {
+  List<MySessionRecord> _sessions = const [];
+  bool _loading = true;
+  bool _failed = false;
+  String? _revoking;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _failed = false;
+    });
+    try {
+      final list = await widget.loadSessions();
+      if (!mounted) return;
+      setState(() {
+        _sessions = list;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('SessionsSheet: list_my_sessions ล้ม — $e');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _failed = true;
+      });
+    }
+  }
+
+  Future<void> _revoke(MySessionRecord s) async {
+    setState(() => _revoking = s.id);
+    try {
+      await widget.revokeSession(s.id);
+      await _load();
+    } catch (e) {
+      debugPrint('SessionsSheet: revoke_my_session ล้ม — $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ถอนเครื่องไม่สำเร็จ กรุณาลองใหม่')),
+      );
+    } finally {
+      if (mounted) setState(() => _revoking = null);
+    }
+  }
+
+  static String _fmt(DateTime t) {
+    final l = t.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(l.day)}/${two(l.month)}/${l.year + 543} ${two(l.hour)}:${two(l.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'อุปกรณ์ที่เข้าสู่ระบบ',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'เซสชันที่ยังใช้งานได้ของบัญชีนี้ — เครื่องปัจจุบันถอนผ่านทางนี้ไม่ได้ ใช้ "ออกจากระบบ" แทน',
+            style: TextStyle(fontSize: 11.5, color: SchoolAdminPalette.textSecondary),
+          ),
+          const SizedBox(height: 10),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_failed)
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('โหลดรายการเซสชันไม่สำเร็จ', style: TextStyle(color: Color(0xFFB91C1C))),
+                ),
+                TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+              ],
+            )
+          else
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: _sessions.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final s = _sessions[i];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      s.isCurrent ? Icons.computer_rounded : Icons.devices_other_rounded,
+                      color: s.isCurrent ? SchoolAdminPalette.primaryDark : SchoolAdminPalette.textMuted,
+                    ),
+                    title: Text(
+                      (s.deviceInfo == null || s.deviceInfo!.isEmpty)
+                          ? 'ไม่ระบุอุปกรณ์'
+                          : s.deviceInfo!,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      'เข้าสู่ระบบ ${_fmt(s.createdAt)} · หมดอายุ ${_fmt(s.expiresAt)}'
+                      '${s.ipAddress == null || s.ipAddress!.isEmpty ? '' : ' · ${s.ipAddress}'}',
+                    ),
+                    trailing: s.isCurrent
+                        ? const Chip(label: Text('เครื่องนี้'))
+                        : TextButton(
+                            onPressed: _revoking == null ? () => _revoke(s) : null,
+                            child: Text(_revoking == s.id ? 'กำลังถอน…' : 'ถอนออก'),
+                          ),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ถือ TextEditingController ของ dialog ไว้จน route ถูกถอดจริง
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

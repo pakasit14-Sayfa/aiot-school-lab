@@ -48,6 +48,11 @@ Future<void> _pump(
   Future<void> Function(String uid)? suspendUser,
   Future<void> Function(String uid)? reactivateUser,
   Future<void> Function(String uid, String name)? updateName,
+  Future<StaffInvitationTicket> Function({required String email, required UserRole role})?
+  createInvitation,
+  Future<List<SchoolBuildingRecord>> Function()? loadBuildings,
+  Future<void> Function({required String buildingId, required String? managerName})?
+  setBuildingManager,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -65,10 +70,19 @@ Future<void> _pump(
         suspendUser: suspendUser,
         reactivateUser: reactivateUser,
         updateName: updateName,
+        createInvitation: createInvitation,
+        loadBuildings: loadBuildings ?? () async => const <SchoolBuildingRecord>[],
+        setBuildingManager: setBuildingManager,
       ),
     ),
   );
 }
+
+SchoolBuildingRecord _building({String id = 'bld-1', String name = 'อาคาร 1', String manager = ''}) =>
+    SchoolBuildingRecord(
+      id: id, schoolId: 'school-1', name: name, code: 'B1', floors: 2, roomsCount: 4,
+      managerName: manager, devicesCount: 0, trainingKitsCount: 0, status: 'active', note: '',
+    );
 
 void main() {
   testWidgets('a multi-role teacher is still listed as staff', (
@@ -191,5 +205,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('ยืนยันกับระบบเรียบร้อย'), findsOneWidget);
+  });
+
+  testWidgets('"เพิ่มบุคลากรรายคน" issues a real invitation through create_staff_invitation', (
+    tester,
+  ) async {
+    String? sentEmail;
+    await _pump(
+      tester,
+      createInvitation: ({required email, required role}) async {
+        sentEmail = email;
+        return const StaffInvitationTicket(token: 'inv_teacher_1', expiresAt: null);
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('เพิ่มบุคลากรรายคน'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'อีเมลผู้ถูกเชิญ'), 'kru@school.test');
+    await tester.tap(find.text('สร้างคำเชิญ'));
+    await tester.pumpAndSettle();
+
+    expect(sentEmail, 'kru@school.test');
+    expect(find.text('inv_teacher_1'), findsOneWidget);
+  });
+
+  testWidgets('"กำหนดครูประจำอาคาร" writes the chosen teacher through set_school_building_manager', (
+    tester,
+  ) async {
+    String? sentBuilding, sentManager;
+    await _pump(
+      tester,
+      loadUsers: () async => [_teacher(uid: 't-1', name: 'ครูสมชาย ใจดี')],
+      loadBuildings: () async => [_building()],
+      setBuildingManager: ({required buildingId, required managerName}) async {
+        sentBuilding = buildingId;
+        sentManager = managerName;
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('กำหนดครูประจำอาคาร'));
+    await tester.pumpAndSettle();
+    final managerDropdown = find.byWidgetPredicate((w) => w is DropdownButtonFormField<String?>);
+    await tester.tap(managerDropdown.last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ครูสมชาย ใจดี').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(sentBuilding, 'bld-1');
+    expect(sentManager, 'ครูสมชาย ใจดี');
   });
 }

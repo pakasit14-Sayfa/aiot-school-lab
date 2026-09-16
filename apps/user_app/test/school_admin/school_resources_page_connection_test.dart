@@ -46,6 +46,8 @@ Future<void> _pump(
   Future<UtilityEfficiencyScore?> Function()? energyScore,
   Future<List<SchoolSensorAlertRecord>> Function()? alerts,
   SchoolResourcesDownloadBytes? downloadBytesOverride,
+  Future<List<UtilityLocationUsage>> Function(String, int)? usageByLocation,
+  Future<List<Map<String, dynamic>>> Function()? sensorLatest,
 }) async {
   tester.view.physicalSize = const Size(1600, 3600);
   tester.view.devicePixelRatio = 1;
@@ -64,6 +66,8 @@ Future<void> _pump(
         loadWaterScore: () async => null,
         loadAlerts: alerts ?? () async => const [],
         downloadBytesOverride: downloadBytesOverride,
+        loadUsageByLocation: usageByLocation ?? (_, _) async => const [],
+        loadSensorLatest: sensorLatest ?? () async => const [],
       ),
     ),
   );
@@ -279,19 +283,32 @@ void main() {
   });
 
   testWidgets(
-    'the air-quality/ESG KPI card is honest about having no data source',
+    'the air-quality KPI averages real pm25 readings, and says so when there are none',
     (tester) async {
       await _pump(tester);
       await tester.pumpAndSettle();
-
-      expect(find.text('คุณภาพอากาศ & ESG'), findsOneWidget);
-      // The old card claimed a specific PM2.5 reading and carbon figure that
-      // no RPC in this file ever produces.
+      expect(find.text('คุณภาพอากาศ (PM2.5)'), findsOneWidget);
+      // KPI sub-line + the IoT meter row both say it — both must be honest.
+      expect(find.text('ยังไม่มีเซนเซอร์ PM2.5 ที่ส่งค่าเข้ามา'), findsNWidgets(2));
       expect(find.textContaining('PM2.5 18.2'), findsNothing);
       expect(find.textContaining('0.21 tCO2e'), findsNothing);
       expect(find.textContaining('อากาศบริสุทธิ์'), findsNothing);
     },
   );
+
+  testWidgets('the air-quality KPI shows the average of real pm25 readings', (tester) async {
+    await _pump(
+      tester,
+      sensorLatest: () async => const [
+        {'device_id': 'a', 'metric': 'pm25', 'value': 20},
+        {'device_id': 'b', 'metric': 'pm25', 'value': 30},
+        {'device_id': 'b', 'metric': 'temperature', 'value': 31},
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('25.0 µg/m³'), findsOneWidget);
+    expect(find.textContaining('เฉลี่ยจาก 2 เซนเซอร์'), findsOneWidget);
+  });
 
   testWidgets(
     'the anomaly-count KPI card reflects real loaded alerts, not a fixed "2 จุดเฝ้าระวัง"',
@@ -352,26 +369,40 @@ void main() {
   );
 
   testWidgets(
-    'the building/room filters are disabled — no per-building or per-room utility RPC exists',
+    'the building/room filters offer real locations and filter the per-location table',
     (tester) async {
-      await _pump(tester);
+      await _pump(
+        tester,
+        usageByLocation: (metric, days) async => metric == 'energy_kwh'
+            ? const [
+                UtilityLocationUsage(building: 'อาคาร 1', room: 'ห้อง 101', deviceCount: 1, total: 120.5),
+                UtilityLocationUsage(building: 'อาคาร 2', room: 'ยังไม่ระบุ', deviceCount: 1, total: 40),
+              ]
+            : const [
+                UtilityLocationUsage(building: 'อาคาร 1', room: 'ห้อง 101', deviceCount: 1, total: 3.25),
+              ],
+      );
       await tester.pumpAndSettle();
 
-      final buildingDropdown = find.byWidgetPredicate(
-        (w) =>
-            w is DropdownButtonFormField<String> &&
-            w.initialValue == 'ทุกอาคาร',
-      );
-      expect(buildingDropdown, findsOneWidget);
-      expect(
-        tester.widget<DropdownButtonFormField<String>>(buildingDropdown).onChanged,
-        isNull,
-      );
-
-      // The old fake building/room options must never appear again — they
-      // never filtered anything even when the dropdown was interactive.
+      // ตารางแสดงยอดจริง ไม่ใช่อาคารแต่ง
+      expect(find.text('120.5'), findsOneWidget);
+      expect(find.text('3.25'), findsOneWidget);
       expect(find.text('อาคารเรียน A'), findsNothing);
       expect(find.text('ห้องปฏิบัติการ 1'), findsNothing);
+
+      final buildingDropdown = find.byWidgetPredicate(
+        (w) => w is DropdownButtonFormField<String> && w.initialValue == 'ทุกอาคาร',
+      );
+      expect(buildingDropdown, findsOneWidget);
+      expect(tester.widget<DropdownButtonFormField<String>>(buildingDropdown).onChanged, isNotNull);
+
+      await tester.tap(buildingDropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('อาคาร 2').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('40.0'), findsOneWidget);
+      expect(find.text('120.5'), findsNothing, reason: 'filtered out');
     },
   );
 }

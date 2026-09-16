@@ -51,13 +51,11 @@ void main() {
     expect(find.text('Log การเปลี่ยนสิทธิ์ล่าสุด'), findsOneWidget);
   });
 
-  // Updated 2026-09-07: "เพิ่มสิทธิ์" (add a new user) used to open a dialog
-  // that built a fake `_PermissionUser` in memory and claimed it was saved —
-  // there is no RPC that creates a user this way (the only real path is
-  // "นำเข้ารายชื่อ" / bulk import). The button is now disabled with a
-  // tooltip explaining why, instead of opening a dialog that lies about
-  // persisting anything.
-  testWidgets('SchoolPermissionsPage disables "เพิ่มสิทธิ์" instead of faking account creation', (tester) async {
+  // "เพิ่มสิทธิ์" used to build a fake `_PermissionUser` in memory and claim
+  // it was saved. Since 2026-09-16 the page offers "เชิญผู้ใช้งาน", backed by
+  // create_school_invitation — an enabled button with a real backend. The
+  // fake creation dialog must not come back.
+  testWidgets('SchoolPermissionsPage offers a real invite instead of faking account creation', (tester) async {
     tester.view.physicalSize = const Size(1200, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -71,19 +69,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
 
-    final addButton = find.byWidgetPredicate(
-      (w) => w is ButtonStyleButton && w.onPressed == null,
+    expect(find.text('เพิ่มสิทธิ์'), findsNothing);
+    final invite = find.byWidgetPredicate(
+      (w) => w is ButtonStyleButton && w.onPressed != null,
     );
     expect(
-      find.descendant(of: addButton, matching: find.text('เพิ่มสิทธิ์')),
+      find.descendant(of: invite, matching: find.text('เชิญผู้ใช้งาน')),
       findsOneWidget,
     );
-
-    // Tapping a disabled button must not open any dialog.
-    await tester.tap(find.text('เพิ่มสิทธิ์'), warnIfMissed: false);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
-
     expect(find.text('เพิ่มสิทธิ์ผู้ใช้งาน'), findsNothing);
   });
 }

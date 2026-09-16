@@ -3,6 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import 'school_import_page.dart';
 import 'theme/school_admin_palette.dart';
+import 'widgets/invite_user_sheet.dart';
 
 /// หน้าครูและบุคลากรของ School Admin
 ///
@@ -40,6 +41,9 @@ class SchoolTeachersPage extends StatefulWidget {
     this.suspendUser,
     this.reactivateUser,
     this.updateName,
+    this.createInvitation,
+    this.loadBuildings,
+    this.setBuildingManager,
   });
 
   /// Injectable seams — production ปล่อยว่างแล้วใช้ service จริง
@@ -51,6 +55,16 @@ class SchoolTeachersPage extends StatefulWidget {
   final Future<void> Function(String uid)? suspendUser;
   final Future<void> Function(String uid)? reactivateUser;
   final Future<void> Function(String uid, String name)? updateName;
+
+  /// เชิญบุคลากรรายคน (create_staff_invitation) · ผู้รับผิดชอบอาคาร
+  /// (list_school_buildings + set_school_building_manager — 20260914010000)
+  final InvitationCreator? createInvitation;
+  final Future<List<SchoolBuildingRecord>> Function()? loadBuildings;
+  final Future<void> Function({
+    required String buildingId,
+    required String? managerName,
+  })?
+  setBuildingManager;
 
   @override
   State<SchoolTeachersPage> createState() => _SchoolTeachersPageState();
@@ -241,6 +255,132 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       _selectedStatus = kAllStatus;
       _filterSuspendedOnly = false;
     });
+  }
+
+  /// ผู้รับผิดชอบอาคาร = buildings.manager_name (ที่หน้าอาคารแสดง) — เลือกจาก
+  /// รายชื่อครูที่โหลดไว้ในหน้านี้ แล้วเขียนผ่าน set_school_building_manager
+  Future<void> _openBuildingManagerPicker() async {
+    List<SchoolBuildingRecord> buildings;
+    try {
+      buildings = await (widget.loadBuildings ??
+          () => SchoolAdminPlatformService().fetchBuildings())();
+    } catch (e) {
+      debugPrint('SchoolTeachersPage: list_school_buildings ล้ม — $e');
+      if (!mounted) return;
+      _showMessage('โหลดรายการอาคารไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
+    if (!mounted) return;
+    if (buildings.isEmpty) {
+      _showMessage('ยังไม่มีอาคารในระบบ — สร้างจากหน้า "อาคารและห้อง" ก่อน');
+      return;
+    }
+    final names = <String>{for (final t in _teachers) t.fullName}.toList()..sort();
+    var buildingId = buildings.first.id;
+    String? manager = buildings.first.managerName.isEmpty ? null : buildings.first.managerName;
+    if (manager != null && !names.contains(manager)) names.add(manager);
+    var submitting = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            setSheet(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              await (widget.setBuildingManager ??
+                  ({required String buildingId, required String? managerName}) =>
+                      SchoolAdminPlatformService().setBuildingManager(
+                        buildingId: buildingId,
+                        managerName: managerName,
+                      ))(buildingId: buildingId, managerName: manager);
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage(manager == null
+                  ? 'ล้างผู้รับผิดชอบอาคารแล้ว'
+                  : 'กำหนด $manager เป็นผู้รับผิดชอบอาคารแล้ว');
+            } catch (e) {
+              debugPrint('SchoolTeachersPage: set_school_building_manager ล้ม — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                error = 'บันทึกผู้รับผิดชอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('กำหนดครูประจำอาคาร',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: buildingId,
+                    decoration: const InputDecoration(labelText: 'อาคาร'),
+                    items: [
+                      for (final b in buildings)
+                        DropdownMenuItem(value: b.id, child: Text(b.name)),
+                    ],
+                    onChanged: submitting
+                        ? null
+                        : (v) => setSheet(() {
+                              buildingId = v ?? buildingId;
+                              final current = buildings.firstWhere((b) => b.id == buildingId).managerName;
+                              manager = current.isEmpty ? null : current;
+                              if (manager != null && !names.contains(manager)) names.add(manager!);
+                            }),
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String?>(
+                    value: manager,
+                    decoration: const InputDecoration(labelText: 'ผู้รับผิดชอบ'),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('— ไม่กำหนด —')),
+                      for (final n in names) DropdownMenuItem<String?>(value: n, child: Text(n)),
+                    ],
+                    onChanged: submitting ? null : (v) => setSheet(() => manager = v),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 10),
+                    Text(error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12, fontWeight: FontWeight.w700)),
+                  ],
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: submitting ? null : () => Navigator.of(sheetContext).pop(),
+                        child: const Text('ยกเลิก'),
+                      ),
+                      const Spacer(),
+                      FilledButton(
+                        onPressed: submitting ? null : submit,
+                        child: Text(submitting ? 'กำลังบันทึก…' : 'บันทึก'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showMessage(String message) {
@@ -865,25 +1005,29 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
           });
         },
       ),
-      // ไม่มี RPC สร้างบัญชีบุคลากรรายคนจากหน้านี้ — การเชิญบุคลากรอยู่ที่
-      // create_staff_invitation ซึ่งหน้า "สิทธิ์ผู้ใช้งาน" เป็นเจ้าของ
-      const _TeacherQuickActionData(
+      _TeacherQuickActionData(
         title: 'เพิ่มบุคลากรรายคน',
-        subtitle: 'ยังไม่มีในหน้านี้ ใช้ "นำเข้ารายชื่อ" หรือเมนูสิทธิ์ผู้ใช้งาน',
+        subtitle: 'ออกรหัสเชิญให้ไปสร้างบัญชีเอง',
         icon: Icons.person_add_alt_1_rounded,
-        onTap: null,
+        onTap: () => showInviteUserSheet(
+          context,
+          create: widget.createInvitation ??
+              ({required String email, required UserRole role}) =>
+                  InvitationService.createInvitation(email: email, role: role),
+          onInvited: _loadTeachers,
+        ),
       ),
-      const _TeacherQuickActionData(
+      _TeacherQuickActionData(
         title: 'กำหนดครูประจำอาคาร',
-        subtitle: 'ระบบยังไม่มีตารางเก็บผู้รับผิดชอบรายอาคาร',
+        subtitle: 'เลือกอาคารและผู้รับผิดชอบจากรายชื่อครู',
         icon: Icons.apartment_rounded,
-        onTap: null,
+        onTap: _openBuildingManagerPicker,
       ),
     ];
 
     return _TeacherSectionCard(
       title: 'จัดการได้อย่างรวดเร็ว',
-      subtitle: 'ปุ่มที่ยังไม่มีระบบหลังบ้านรองรับจะถูกปิดไว้พร้อมเหตุผล',
+      subtitle: 'ทางลัดไปยังคำสั่งที่ใช้บ่อย',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           int columns = 4;

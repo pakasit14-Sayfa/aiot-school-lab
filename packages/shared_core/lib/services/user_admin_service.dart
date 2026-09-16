@@ -1,5 +1,6 @@
 import '../models/user_model.dart';
 import 'auth_service.dart';
+import 'school_import_service.dart' show BulkImportResult;
 import 'supabase_config.dart';
 
 /// School Admin / super_admin actions on other users' accounts.
@@ -86,8 +87,10 @@ class UserAdminService {
     };
   }
 
-  /// Batch import users for school_admin / super_admin
-  static Future<int> importSchoolUsersBatch({
+  /// Batch import users for school_admin / super_admin — ตั้งแต่ 20260914020000
+  /// ทุกบัญชีได้รหัสชั่วคราวสุ่มต่อคน (คืนใน `credentials` ครั้งเดียว) และถูก
+  /// บังคับเปลี่ยนรหัสก่อนใช้งาน แถวที่ข้ามคืนใน `skipped` พร้อมเหตุผล
+  static Future<BulkImportResult> importSchoolUsersBatch({
     required UserRole role,
     required List<Map<String, dynamic>> users,
   }) async {
@@ -101,11 +104,10 @@ class UserAdminService {
         'p_users': users,
       },
     );
-
-    if (res is Map && res['inserted_count'] != null) {
-      return (res['inserted_count'] as num).toInt();
+    if (res is! Map) {
+      throw StateError('import_school_users_batch returned no object');
     }
-    return 0;
+    return BulkImportResult.fromJson(Map<String, dynamic>.from(res));
   }
 }
 

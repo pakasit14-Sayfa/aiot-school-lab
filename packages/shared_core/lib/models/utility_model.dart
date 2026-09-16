@@ -129,3 +129,26 @@ class WaterUsageSummary {
         disclaimer: row['disclaimer'] as String? ?? '',
       );
 }
+
+/// การใช้ไฟฟ้า/น้ำ แยกรายอาคาร/ห้อง (get_utility_usage_by_location)
+class UtilityLocationUsage {
+  const UtilityLocationUsage({
+    required this.building,
+    required this.room,
+    required this.deviceCount,
+    required this.total,
+  });
+
+  final String building;
+  final String room;
+  final int deviceCount;
+  final double total;
+
+  factory UtilityLocationUsage.fromRow(Map<String, dynamic> row) =>
+      UtilityLocationUsage(
+        building: (row['building'] as String?) ?? 'ยังไม่ระบุ',
+        room: (row['room'] as String?) ?? 'ยังไม่ระบุ',
+        deviceCount: (row['device_count'] as num?)?.toInt() ?? 0,
+        total: (row['total'] as num?)?.toDouble() ?? 0.0,
+      );
+}

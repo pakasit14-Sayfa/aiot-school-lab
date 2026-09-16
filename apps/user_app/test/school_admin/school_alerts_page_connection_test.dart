@@ -110,11 +110,11 @@ void main() {
       expect(find.text(impossible), findsNothing, reason: impossible);
     }
 
-    // 'เร่งด่วน' and 'กำลังตรวจสอบ' still appear — but only as summary cards
-    // reading '--' with an explicit reason, which is the honest form. What
-    // must not exist is a filter offering them as something to select.
-    expect(find.text('ยังไม่มีข้อมูลระดับความเร่งด่วน'), findsOneWidget);
-    expect(find.text('ยังไม่มีสถานะนี้จากระบบหลังบ้าน'), findsOneWidget);
+    // 'เร่งด่วน' and 'กำลังตรวจสอบ' have no backing data or status at all —
+    // the '--' summary cards were removed 2026-09-14; only real counters remain.
+    expect(find.text('ยังไม่มีข้อมูลระดับความเร่งด่วน'), findsNothing);
+    expect(find.text('ยังไม่มีสถานะนี้จากระบบหลังบ้าน'), findsNothing);
+    expect(find.text('รับทราบแล้ว'), findsWidgets);
 
     // Fields the backend never populates drop their filter entirely rather
     // than offering a control that does nothing.
@@ -122,40 +122,99 @@ void main() {
     expect(find.text('ทุกอาคาร'), findsNothing);
   });
 
-  testWidgets('controls with no backend are disabled, not apologetic', (
+  testWidgets('"รับทราบทั้งหมด" writes through the bulk RPC and only reports success after read-back', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    var acknowledgedAll = false;
+    final controller = SchoolAdminAlertsController(
+      loadAlerts: () async => [
+        _alert(id: '1', status: acknowledgedAll ? 'acknowledged' : 'new'),
+        _alert(id: '2', status: acknowledgedAll ? 'acknowledged' : 'new'),
+      ],
+      acknowledgeAlert: (alertId) async {},
+      resolveAlert: (alertId, {note}) async {},
+      acknowledgeAllAlerts: () async {
+        acknowledgedAll = true;
+        return 2;
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAlertsPage(
+          controller: controller,
+          loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // FilledButton.icon เป็น subclass ส่วนตัว — หาปุ่มผ่าน ButtonStyleButton
+    Finder ackAll() => find.ancestor(
+      of: find.text('รับทราบทั้งหมด'),
+      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+    );
+    final button = ackAll();
+    expect(button, findsOneWidget);
+    expect(tester.widget<ButtonStyleButton>(button).onPressed, isNotNull);
+    expect(find.text('รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)'), findsNothing);
+
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+
+    expect(acknowledgedAll, isTrue);
+    expect(find.text('รับทราบแล้ว 2 รายการ'), findsOneWidget);
+    // ไม่เหลือ new → ปุ่มปิดตัวเอง
+    expect(tester.widget<ButtonStyleButton>(ackAll()).onPressed, isNull);
+  });
+
+  testWidgets('"รับทราบทั้งหมด" that does not clear every new alert on read-back is reported as a failure', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1600, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final controller = SchoolAdminAlertsController(
+      loadAlerts: () async => [_alert(id: '1', status: 'new')],
+      acknowledgeAlert: (alertId) async {},
+      resolveAlert: (alertId, {note}) async {},
+      acknowledgeAllAlerts: () async => 1, // claims success, backend still says new
+    );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SchoolAlertsPage(
+          controller: controller,
+          loadAuditLogs: () async => const <SchoolAdminAuditLog>[],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.ancestor(
+      of: find.text('รับทราบทั้งหมด'),
+      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('รับทราบแล้ว 1 รายการ'), findsNothing);
+    expect(find.textContaining('รับทราบทั้งหมดไม่สำเร็จ'), findsWidgets);
+  });
+
+  testWidgets('no "ตรวจสอบ" control exists — alert_status has no investigating state', (
     tester,
   ) async {
     await _pumpWith(tester, [_alert(id: '1', status: 'new')]);
 
-    for (final label in <String>['รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)']) {
-      final finder = find.text(label);
-      expect(finder, findsOneWidget, reason: label);
-      final button = tester.widget<ButtonStyleButton>(
-        find
-            .ancestor(
-              of: finder,
-              matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-            )
-            .first,
-      );
-      expect(button.onPressed, isNull, reason: label);
-    }
-
-    // `sensor_alerts.status` only holds 'acknowledged' or 'resolved'; there
-    // is no investigating state for this control to write.
-    final checkButton = tester.widget<ButtonStyleButton>(
-      find
-          .ancestor(
-            of: find.text('ตรวจสอบ'),
-            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-          )
-          .first,
-    );
-    expect(checkButton.onPressed, isNull);
-
-    // The snackbars these used to answer with are gone. (The unavailable
-    // section placeholder still says so, which is a statement about a
-    // section rather than a reply to a press.)
+    expect(find.text('ตรวจสอบ'), findsNothing);
+    expect(find.text('กำลังตรวจสอบ'), findsNothing);
     for (final snack in <String>[
       'ฟังก์ชันส่งออกรายงานยังไม่เชื่อมต่อระบบหลังบ้าน',
       'การรับทราบทั้งหมดพร้อมกันยังไม่เชื่อมต่อระบบหลังบ้าน',

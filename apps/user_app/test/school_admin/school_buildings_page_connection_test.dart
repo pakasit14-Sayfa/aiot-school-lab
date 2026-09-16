@@ -73,6 +73,17 @@ Future<void> _pump(
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
   Future<BulkImportResult> Function(Map<String, dynamic>)? createBuilding,
   Future<BulkImportResult> Function(Map<String, dynamic>)? createRoom,
+  Future<void> Function({required String buildingId, required String name, required String code, int? floors, String? note})?
+  updateBuilding,
+  Future<void> Function(String)? deleteBuilding,
+  Future<void> Function({required String buildingId, required String? managerName})?
+  setBuildingManager,
+  Future<void> Function({required String roomId, required String name, required String code, String? floor, String? roomType, int? capacity})?
+  updateRoom,
+  Future<void> Function(String)? deleteRoom,
+  Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts,
+  Future<List<DeviceOption>> Function()? loadDevices,
+  Future<List<StaffDirectoryEntry>> Function()? loadStaffDirectory,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -88,6 +99,14 @@ Future<void> _pump(
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
         createBuilding: createBuilding,
         createRoom: createRoom,
+        updateBuilding: updateBuilding,
+        deleteBuilding: deleteBuilding,
+        setBuildingManager: setBuildingManager,
+        updateRoom: updateRoom,
+        deleteRoom: deleteRoom,
+        loadAlerts: loadAlerts ?? () async => const <SchoolSensorAlertRecord>[],
+        loadDevices: loadDevices ?? () async => const <DeviceOption>[],
+        loadStaffDirectory: loadStaffDirectory ?? () async => const <StaffDirectoryEntry>[],
       ),
     ),
   );
@@ -292,34 +311,133 @@ void main() {
   );
 
   testWidgets(
-    'the monitoring section says so honestly instead of showing invented alerts',
+    'the monitoring section lists real unacknowledged alerts with the device location, never invented ones',
     (tester) async {
-      await _pump(tester);
+      await _pump(
+        tester,
+        loadAlerts: () async => [
+          SchoolSensorAlertRecord(
+            id: 'al-1', deviceId: 'dev-1', deviceName: 'PM2.5 ห้อง 101', deviceCode: 'PM-101',
+            schoolId: 'school-1', metric: 'pm25', value: 92, triggeredAt: DateTime(2026, 9, 14, 9),
+            status: 'new', thresholdId: null, acknowledgedBy: null, acknowledgedByName: null, acknowledgedAt: null,
+          ),
+        ],
+        loadDevices: () async => const [
+          DeviceOption(id: 'dev-1', name: 'PM2.5 ห้อง 101', type: 'pm25_sensor', location: 'อาคาร 1 ชั้น 1', status: 'online'),
+        ],
+      );
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('ยังไม่มีระบบตรวจจับความผิดปกติระดับอาคาร/ห้องในเวอร์ชันนี้'),
-        findsOneWidget,
-      );
-      // The old alerts were hardcoded and unrelated to any loaded data —
-      // they must never come back.
+      expect(find.text('PM2.5 ห้อง 101'), findsOneWidget);
+      expect(find.textContaining('อาคาร 1 ชั้น 1 · pm25 92'), findsOneWidget);
       expect(find.textContaining('LAB-02'), findsNothing);
       expect(find.textContaining('อาคารกีฬา'), findsNothing);
+      expect(find.textContaining('ยังไม่มีระบบตรวจจับ'), findsNothing);
+    },
+  );
+
+  testWidgets('no unacknowledged alerts says so', (tester) async {
+    await _pump(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('ไม่มีแจ้งเตือนที่ยังไม่ได้รับทราบ'), findsOneWidget);
+  });
+
+  testWidgets('a failed alert load says so with retry, not an empty list', (tester) async {
+    await _pump(tester, loadAlerts: () async => throw Exception('boom'));
+    await tester.pumpAndSettle();
+    expect(find.text('โหลดรายการแจ้งเตือนไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ไม่มีแจ้งเตือนที่ยังไม่ได้รับทราบ'), findsNothing);
+  });
+
+  testWidgets(
+    '"กำหนดครูประจำอาคาร" picks a real staff member and writes it through set_school_building_manager',
+    (tester) async {
+      String? sentBuilding, sentName;
+      var loads = 0;
+      await _pump(
+        tester,
+        loadBuildings: () async {
+          loads++;
+          return [_building()];
+        },
+        loadStaffDirectory: () async => const [
+          StaffDirectoryEntry(
+            userId: 'u-1', fullName: 'ครูสมศักดิ์ ใจดี', email: 's@x.test', status: 'active',
+            roles: ['teacher'], administrativeDepartments: [], subjectGroups: [], headsDepartments: [],
+          ),
+        ],
+        setBuildingManager: ({required buildingId, required managerName}) async {
+          sentBuilding = buildingId;
+          sentName = managerName;
+        },
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('กำหนดครูประจำอาคาร'));
+      await tester.pumpAndSettle();
+      // dropdown ผู้รับผิดชอบ (ตัวที่สองในแผ่น — ตัวแรกคืออาคาร) เริ่มที่ค่าปัจจุบัน
+      // DropdownButtonFormField<String> ของอาคารก็ตรง `is DropdownButtonFormField<String?>`
+      // (String เป็น subtype ของ String?) — เอาตัวสุดท้ายในแผ่น = ผู้รับผิดชอบ
+      final managerDropdown = find.byWidgetPredicate(
+        (w) => w is DropdownButtonFormField<String?>,
+      );
+      expect(managerDropdown, findsNWidgets(2));
+      await tester.tap(managerDropdown.last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ครูสมศักดิ์ ใจดี').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(sentBuilding, 'bld-1');
+      expect(sentName, 'ครูสมศักดิ์ ใจดี');
+      expect(loads, 2, reason: 'reads back after the write');
     },
   );
 
   testWidgets(
-    '"กำหนดครูประจำอาคาร" is disabled — no RPC assigns a building owner',
+    'editing a building sends the changed fields to update_school_building',
     (tester) async {
-      await _pump(tester);
+      Map<String, Object?>? sent;
+      await _pump(
+        tester,
+        loadBuildings: () async => [_building()],
+        updateBuilding: ({required buildingId, required name, required code, floors, note}) async {
+          sent = {'id': buildingId, 'name': name, 'code': code, 'floors': floors, 'note': note};
+        },
+      );
       await tester.pumpAndSettle();
 
-      final tile = find.ancestor(
-        of: find.text('กำหนดครูประจำอาคาร'),
-        matching: find.byType(InkWell),
+      await tester.tap(find.byTooltip('แก้ไขอาคาร').first);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคาร 1 (ปรับปรุง)');
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(sent, {'id': 'bld-1', 'name': 'อาคาร 1 (ปรับปรุง)', 'code': 'BLD-1', 'floors': 3, 'note': ''});
+      expect(find.text('บันทึกอาคาร "อาคาร 1 (ปรับปรุง)" แล้ว'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'deleting a building that still has rooms shows the RPC reason, not a generic error',
+    (tester) async {
+      await _pump(
+        tester,
+        loadBuildings: () async => [_building()],
+        deleteBuilding: (_) async => throw Exception('PostgrestException: building_has_rooms'),
       );
-      expect(tile, findsOneWidget);
-      expect(tester.widget<InkWell>(tile).onTap, isNull);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('แก้ไขอาคาร').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('ยังมีห้องอยู่ในอาคารนี้'), findsOneWidget);
+      expect(find.textContaining('building_has_rooms'), findsNothing);
     },
   );
 

@@ -2564,10 +2564,11 @@ class _AutomaticRulePanel extends StatelessWidget {
       // The card previously promised all four as working and told the admin
       // "ไม่ต้องตามเองทุกเรื่อง" — for absence and unresponsive devices
       // nothing happens at all, so an admin trusting it would simply never
-      // follow up. Rows are kept (they describe the intended design) but are
-      // now labelled with their real status instead of being deleted.
+      // follow up. 2026-09-14: the three rules that do not exist were removed
+      // outright — a card listing automation the system does not perform is
+      // a roadmap, not status. Only the rule that actually runs remains.
       title: 'การแจ้งเตือนอัตโนมัติ',
-      subtitle: 'สถานะจริงของแต่ละกฎ — กฎที่ยังไม่เปิดใช้งานต้องตามเอง',
+      subtitle: 'กฎที่ระบบทำงานให้จริงตอนนี้',
       child: const Column(
         children: [
           _AutomaticRuleRow(
@@ -2577,28 +2578,6 @@ class _AutomaticRulePanel extends StatelessWidget {
                 'เปิดใช้งานอยู่ — ระบบตรวจทุกนาทีและสร้างการแจ้งเตือนเมื่อค่าเกินเกณฑ์',
             color: SchoolAdminPalette.secondary,
             active: true,
-          ),
-          _AutomaticRuleRow(
-            icon: Icons.security_rounded,
-            title: 'มีการเข้าใช้งานผิดปกติ',
-            detail:
-                'บันทึก Log อยู่จริง แต่ยังไม่มีการแจ้งเตือน ต้องเปิดดูหน้ารายงานเอง',
-            color: SchoolAdminPalette.blue,
-            active: false,
-          ),
-          _AutomaticRuleRow(
-            icon: Icons.person_off_outlined,
-            title: 'นักเรียนไม่มาเรียน',
-            detail: 'ยังไม่เปิดใช้งาน — ระบบยังไม่แจ้งครูประจำชั้นให้อัตโนมัติ',
-            color: SchoolAdminPalette.primary,
-            active: false,
-          ),
-          _AutomaticRuleRow(
-            icon: Icons.memory_rounded,
-            title: 'อุปกรณ์ไม่ตอบสนอง',
-            detail: 'ยังไม่เปิดใช้งาน — ต้องดูสถานะอุปกรณ์เองในหน้าอุปกรณ์',
-            color: SchoolAdminPalette.red,
-            active: false,
           ),
         ],
       ),

@@ -40,6 +40,10 @@ class SchoolSettingsPage extends StatefulWidget {
     this.loadRates,
     this.saveRates,
     this.loadLogs,
+    this.loadAcademicYears,
+    this.loadTerms,
+    this.createAcademicYear,
+    this.createTerm,
   });
 
   /// Seam สำหรับเทสต์ (แบบเดียวกับ `school_resources_page`) — production
@@ -52,6 +56,25 @@ class SchoolSettingsPage extends StatefulWidget {
   })?
   saveRates;
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+
+  /// ปีการศึกษา/ภาคเรียน — list_academic_years / list_terms / create_academic_year /
+  /// create_term (20260914010000) ก่อนหน้านี้สร้างได้จาก seed เท่านั้น ทั้งที่
+  /// ทุกรายวิชาต้องผูกกับภาคเรียน
+  final Future<List<AcademicYearOption>> Function()? loadAcademicYears;
+  final Future<List<TermOption>> Function()? loadTerms;
+  final Future<String> Function({
+    required String name,
+    DateTime? startDate,
+    DateTime? endDate,
+  })?
+  createAcademicYear;
+  final Future<String> Function({
+    required String academicYearId,
+    required String name,
+    DateTime? startDate,
+    DateTime? endDate,
+  })?
+  createTerm;
 
   @override
   State<SchoolSettingsPage> createState() => _SchoolSettingsPageState();
@@ -94,6 +117,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
     _loadSummary();
     _loadRates();
     _loadLogs();
+    _loadAcademicCalendar();
   }
 
   @override
@@ -223,9 +247,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
       setState(() {
         _rates = confirmed;
         _ratesPhase = _LoadPhase.data;
-        _electricityController.text = _formatRate(
-          confirmed.electricityRateThb,
-        );
+        _electricityController.text = _formatRate(confirmed.electricityRateThb);
         _waterController.text = _formatRate(confirmed.waterRateThb);
         _savingRates = false;
       });
@@ -267,7 +289,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
                   const SizedBox(height: 14),
                   _buildUtilityRates(),
                   const SizedBox(height: 14),
-                  _buildUnavailableSettings(),
+                  _buildAcademicCalendar(),
                   const SizedBox(height: 14),
                   _buildLogs(),
                 ],
@@ -466,7 +488,10 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
           runSpacing: spacing,
           children: [
             for (final item in items)
-              SizedBox(width: width, child: _SettingsSummaryCard(data: item)),
+              SizedBox(
+                width: width,
+                child: _SettingsSummaryCard(data: item),
+              ),
           ],
         );
       },
@@ -625,52 +650,381 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
     );
   }
 
-  /// ทุกอย่างที่ไม่มี backend รวมไว้ที่เดียว ปิดการใช้งานพร้อมเหตุผล
-  /// ตาม DoD: ปุ่มที่ไม่มี backend ต้อง disable ไม่ใช่กดแล้วขึ้นข้อความขอโทษ
-  Widget _buildUnavailableSettings() {
-    return const _SettingsSectionCard(
-      title: 'การตั้งค่าที่ยังไม่เปิดใช้งาน',
-      subtitle:
-          'รายการต่อไปนี้ยังไม่มีที่เก็บค่าในฐานข้อมูลของโรงเรียน จึงปิดไว้แทนการทำเป็นสวิตช์ที่กดได้แล้วไม่ถูกบันทึก',
-      child: Column(
+  // ── ปีการศึกษา / ภาคเรียน ──
+  List<AcademicYearOption> _years = const [];
+  List<TermOption> _terms = const [];
+  bool _calendarLoading = true;
+  bool _calendarFailed = false;
+
+  Future<void> _loadAcademicCalendar() async {
+    if (mounted) {
+      setState(() {
+        _calendarLoading = true;
+        _calendarFailed = false;
+      });
+    }
+    try {
+      final results = await Future.wait<Object>([
+        (widget.loadAcademicYears ??
+            () => SchoolAdminPlatformService().listAcademicYears())(),
+        (widget.loadTerms ?? CourseService.listTerms)(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _years = results[0] as List<AcademicYearOption>;
+        _terms = results[1] as List<TermOption>;
+        _calendarLoading = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolSettingsPage: โหลดปีการศึกษา/ภาคเรียนไม่สำเร็จ — $e');
+      if (!mounted) return;
+      setState(() {
+        _calendarLoading = false;
+        _calendarFailed = true;
+      });
+    }
+  }
+
+  Future<void> _openCreateYear() async {
+    final nameCtrl = TextEditingController();
+    final startCtrl = TextEditingController();
+    final endCtrl = TextEditingController();
+    await _openCalendarForm(
+      title: 'สร้างปีการศึกษา',
+      controllers: [nameCtrl, startCtrl, endCtrl],
+      fields: [
+        TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'ชื่อปีการศึกษา (เช่น 2569)',
+          ),
+        ),
+        TextField(
+          controller: startCtrl,
+          decoration: const InputDecoration(
+            labelText: 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)',
+          ),
+        ),
+        TextField(
+          controller: endCtrl,
+          decoration: const InputDecoration(
+            labelText: 'วันสิ้นสุด (ปี-เดือน-วัน, ถ้ามี)',
+          ),
+        ),
+      ],
+      onSubmit: () async {
+        final name = nameCtrl.text.trim();
+        if (name.isEmpty) throw const FormatException('กรอกชื่อปีการศึกษา');
+        final start = _parseDate(startCtrl.text);
+        final end = _parseDate(endCtrl.text);
+        await (widget.createAcademicYear ??
+            ({required String name, DateTime? startDate, DateTime? endDate}) =>
+                SchoolAdminPlatformService().createAcademicYear(
+                  name: name,
+                  startDate: startDate,
+                  endDate: endDate,
+                ))(name: name, startDate: start, endDate: end);
+        return 'สร้างปีการศึกษา $name แล้ว';
+      },
+    );
+  }
+
+  Future<void> _openCreateTerm() async {
+    if (_years.isEmpty) {
+      _showMessage('ต้องสร้างปีการศึกษาก่อน จึงจะเพิ่มภาคเรียนได้');
+      return;
+    }
+    final nameCtrl = TextEditingController();
+    final startCtrl = TextEditingController();
+    final endCtrl = TextEditingController();
+    var yearId = _years.first.id;
+    await _openCalendarForm(
+      title: 'สร้างภาคเรียน',
+      controllers: [nameCtrl, startCtrl, endCtrl],
+      fields: [
+        StatefulBuilder(
+          builder: (context, setLocal) => DropdownButtonFormField<String>(
+            value: yearId,
+            decoration: const InputDecoration(labelText: 'ปีการศึกษา'),
+            items: [
+              for (final y in _years)
+                DropdownMenuItem(value: y.id, child: Text(y.name)),
+            ],
+            onChanged: (v) => setLocal(() => yearId = v ?? yearId),
+          ),
+        ),
+        TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'ชื่อภาคเรียน (เช่น ภาคเรียนที่ 1/2569)',
+          ),
+        ),
+        TextField(
+          controller: startCtrl,
+          decoration: const InputDecoration(
+            labelText: 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)',
+          ),
+        ),
+        TextField(
+          controller: endCtrl,
+          decoration: const InputDecoration(
+            labelText: 'วันสิ้นสุด (ปี-เดือน-วัน, ถ้ามี)',
+          ),
+        ),
+      ],
+      onSubmit: () async {
+        final name = nameCtrl.text.trim();
+        if (name.isEmpty) throw const FormatException('กรอกชื่อภาคเรียน');
+        await (widget.createTerm ??
+            ({
+              required String academicYearId,
+              required String name,
+              DateTime? startDate,
+              DateTime? endDate,
+            }) => SchoolAdminPlatformService().createTerm(
+              academicYearId: academicYearId,
+              name: name,
+              startDate: startDate,
+              endDate: endDate,
+            ))(
+          academicYearId: yearId,
+          name: name,
+          startDate: _parseDate(startCtrl.text),
+          endDate: _parseDate(endCtrl.text),
+        );
+        return 'สร้าง$nameแล้ว';
+      },
+    );
+  }
+
+  static DateTime? _parseDate(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    final d = DateTime.tryParse(t);
+    if (d == null) {
+      throw const FormatException(
+        'รูปแบบวันที่ต้องเป็น ปี-เดือน-วัน เช่น 2026-05-16',
+      );
+    }
+    return d;
+  }
+
+  /// แผ่นฟอร์มร่วมของปี/ภาคเรียน — onSubmit คืนข้อความสำเร็จ หรือโยน
+  /// FormatException สำหรับข้อผิดพลาดที่ผู้ใช้แก้เองได้
+  Future<void> _openCalendarForm({
+    required String title,
+    required List<TextEditingController> controllers,
+    required List<Widget> fields,
+    required Future<String> Function() onSubmit,
+  }) async {
+    var submitting = false;
+    String? error;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            setSheet(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final message = await onSubmit();
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage(message);
+              await _loadAcademicCalendar();
+            } on FormatException catch (e) {
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                error = e.message;
+              });
+            } catch (e) {
+              debugPrint('SchoolSettingsPage: สร้างปี/ภาคเรียนล้ม — $e');
+              if (!sheetContext.mounted) return;
+              final raw = e.toString();
+              setSheet(() {
+                submitting = false;
+                error = raw.contains('duplicate_name')
+                    ? 'ชื่อนี้มีอยู่แล้ว'
+                    : raw.contains('invalid_date_range')
+                    ? 'วันสิ้นสุดต้องไม่ก่อนวันเริ่ม'
+                    : 'บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _OwnControllers(
+            controllers: controllers,
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final f in fields) ...[
+                        f,
+                        const SizedBox(height: 10),
+                      ],
+                      if (error != null)
+                        Text(
+                          error!,
+                          style: const TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: submitting
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('ยกเลิก'),
+                          ),
+                          const Spacer(),
+                          FilledButton(
+                            onPressed: submitting ? null : submit,
+                            child: Text(submitting ? 'กำลังบันทึก…' : 'บันทึก'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// ปีการศึกษาและภาคเรียนของโรงเรียน — การ์ด "การตั้งค่าที่ยังไม่เปิดใช้งาน"
+  /// เดิม (ปีการศึกษา/ภาษา/เขตเวลา/การแจ้งเตือน/รหัสผ่าน/สำรองข้อมูล) ถูกถอด
+  /// 2026-09-14: ส่วนที่มีที่เก็บจริง (ปี/ภาคเรียน) ทำจริง ส่วนที่เหลือเป็น
+  /// ฟีเจอร์ที่ไม่มีในระบบ (ภาษา/เขตเวลาเป็นแอปไทยอย่างเดียว · นโยบายรหัสผ่าน
+  /// เป็นของแพลตฟอร์ม · ไม่มีระบบสำรองข้อมูลจากแอป) รายการที่ไม่มีอยู่จริง
+  /// ไม่ควรอยู่บนจอ
+  Widget _buildAcademicCalendar() {
+    Widget body;
+    if (_calendarLoading) {
+      body = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_calendarFailed) {
+      body = Row(
         children: [
-          _UnavailableRow(
-            icon: Icons.calendar_month_rounded,
-            title: 'ปีการศึกษา ภาคเรียน ภาษา เขตเวลา และรูปแบบวันที่',
-            reason: 'ระบบยังไม่เก็บค่าเหล่านี้แยกรายโรงเรียน',
+          const Expanded(
+            child: Text(
+              'โหลดปีการศึกษา/ภาคเรียนไม่สำเร็จ',
+              style: TextStyle(
+                color: Color(0xFFB91C1C),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
-          SizedBox(height: 9),
-          _UnavailableRow(
-            icon: Icons.notifications_rounded,
-            title: 'การตั้งค่าการแจ้งเตือนทั้งหมด',
-            reason: 'ยังไม่มีตารางเก็บเงื่อนไขการแจ้งเตือนของโรงเรียน',
-          ),
-          SizedBox(height: 9),
-          _UnavailableRow(
-            icon: Icons.security_rounded,
-            title: 'รหัสผ่าน ออกจากระบบอัตโนมัติ และการยืนยันสองขั้นตอน',
-            reason: 'เป็นค่าระดับแพลตฟอร์มที่ผู้ดูแลระบบส่วนกลางดูแล',
-          ),
-          SizedBox(height: 9),
-          _UnavailableRow(
-            icon: Icons.upload_file_rounded,
-            title: 'สิทธิ์นำเข้า/ส่งออก และการสำรองข้อมูล',
-            reason: 'ยังไม่มีคำสั่งเปิด-ปิดสิทธิ์หรือสั่งสำรองข้อมูลในระบบ',
-          ),
-          SizedBox(height: 9),
-          _UnavailableRow(
-            icon: Icons.lock_reset_rounded,
-            title: 'บังคับออกจากระบบทุกบัญชี และคืนค่าการตั้งค่า',
-            reason: 'ไม่มีคำสั่งฝั่งเซิร์ฟเวอร์รองรับ',
-          ),
-          SizedBox(height: 9),
-          _UnavailableRow(
-            icon: Icons.card_membership_rounded,
-            title: 'แพ็กเกจ วันหมดอายุ และโควตาผู้ใช้/อุปกรณ์',
-            reason: 'ข้อมูลสิทธิ์การใช้งานเปิดให้เฉพาะผู้ดูแลระบบส่วนกลาง',
+          TextButton(
+            onPressed: _loadAcademicCalendar,
+            child: const Text('ลองใหม่'),
           ),
         ],
-      ),
+      );
+    } else {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_years.isEmpty)
+            const Text(
+              'ยังไม่มีปีการศึกษา — สร้างปีการศึกษาและภาคเรียนก่อน จึงจะเปิดรายวิชาได้',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: SchoolAdminPalette.textSecondary,
+              ),
+            )
+          else
+            for (final y in _years) ...[
+              Text(
+                'ปีการศึกษา ${y.name}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              if (_terms.where((t) => t.academicYearName == y.name).isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(left: 12, bottom: 8),
+                  child: Text(
+                    'ยังไม่มีภาคเรียน',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: SchoolAdminPalette.textSecondary,
+                    ),
+                  ),
+                )
+              else
+                for (final t in _terms.where(
+                  (t) => t.academicYearName == y.name,
+                ))
+                  Padding(
+                    padding: const EdgeInsets.only(left: 12, bottom: 4),
+                    child: Text(
+                      '· ${t.name}',
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                  ),
+              const SizedBox(height: 8),
+            ],
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _openCreateYear,
+                icon: const Icon(Icons.calendar_month_rounded, size: 16),
+                label: const Text('สร้างปีการศึกษา'),
+              ),
+              FilledButton.icon(
+                onPressed: _openCreateTerm,
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('สร้างภาคเรียน'),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+    return _SettingsSectionCard(
+      title: 'ปีการศึกษาและภาคเรียน',
+      subtitle: 'รายวิชาทุกวิชาต้องผูกกับภาคเรียน — สร้างที่นี่ก่อนเปิดรายวิชา',
+      child: body,
     );
   }
 
@@ -941,75 +1295,6 @@ class _ReadOnlyRow extends StatelessWidget {
   }
 }
 
-class _UnavailableRow extends StatelessWidget {
-  const _UnavailableRow({
-    required this.icon,
-    required this.title,
-    required this.reason,
-  });
-
-  final IconData icon;
-  final String title;
-  final String reason;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: SchoolAdminPalette.textMuted),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  reason,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: SchoolAdminPalette.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: SchoolAdminPalette.border,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'ปิดใช้งาน',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: SchoolAdminPalette.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _NoticeRow extends StatelessWidget {
   const _NoticeRow({required this.icon, required this.text});
 
@@ -1196,8 +1481,7 @@ class _SettingsLogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time =
-        '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)} น.';
+    final time = '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)} น.';
     final action = log.action.trim().isEmpty ? 'ยังไม่มีข้อมูล' : log.action;
     final detail = log.detail.trim().isNotEmpty
         ? log.detail
@@ -1257,4 +1541,28 @@ class _SettingsLogRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// ถือ TextEditingController ของแผ่นไว้จน route ถูกถอดจริง
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

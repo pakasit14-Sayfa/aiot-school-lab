@@ -61,6 +61,12 @@ Future<void> _pump(
   })?
   saveRates,
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
+  Future<List<AcademicYearOption>> Function()? loadAcademicYears,
+  Future<List<TermOption>> Function()? loadTerms,
+  Future<String> Function({required String name, DateTime? startDate, DateTime? endDate})?
+  createAcademicYear,
+  Future<String> Function({required String academicYearId, required String name, DateTime? startDate, DateTime? endDate})?
+  createTerm,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -75,6 +81,10 @@ Future<void> _pump(
         loadRates: loadRates ?? () async => _rates(),
         saveRates: saveRates,
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
+        loadAcademicYears: loadAcademicYears ?? () async => const <AcademicYearOption>[],
+        loadTerms: loadTerms ?? () async => const <TermOption>[],
+        createAcademicYear: createAcademicYear,
+        createTerm: createTerm,
       ),
     ),
   );
@@ -217,5 +227,80 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('แก้ไขอัตราค่าไฟฟ้า'), findsOneWidget);
+  });
+
+  /// เดิมมีการ์ด "การตั้งค่าที่ยังไม่เปิดใช้งาน" 4 แถว — ถอดออก 2026-09-14
+  /// ส่วนที่มีที่เก็บจริง (ปี/ภาคเรียน) กลายเป็นส่วนจัดการจริง
+  testWidgets('no "unavailable settings" card; academic years and terms come from the backend', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadAcademicYears: () async => const [
+        AcademicYearOption(id: 'ay-1', name: '2569', startDate: null, endDate: null, termsCount: 1),
+      ],
+      loadTerms: () async => const [
+        TermOption(id: 't-1', name: 'ภาคเรียนที่ 1/2569', academicYearName: '2569'),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('การตั้งค่าที่ยังไม่เปิดใช้งาน'), findsNothing);
+    expect(find.text('ปีการศึกษา 2569'), findsOneWidget);
+    expect(find.text('· ภาคเรียนที่ 1/2569'), findsOneWidget);
+  });
+
+  testWidgets('creating a term sends the chosen year and name to create_term, then reads back', (
+    tester,
+  ) async {
+    Map<String, Object?>? sent;
+    var loads = 0;
+    await _pump(
+      tester,
+      loadAcademicYears: () async {
+        loads++;
+        return const [
+          AcademicYearOption(id: 'ay-1', name: '2569', startDate: null, endDate: null, termsCount: 0),
+        ];
+      },
+      createTerm: ({required academicYearId, required name, startDate, endDate}) async {
+        sent = {'year': academicYearId, 'name': name, 'start': startDate?.toIso8601String()};
+        return 't-new';
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('สร้างภาคเรียน'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ชื่อภาคเรียน (เช่น ภาคเรียนที่ 1/2569)'), 'ภาคเรียนที่ 2/2569');
+    await tester.enterText(find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)'), '2026-11-01');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(sent, {'year': 'ay-1', 'name': 'ภาคเรียนที่ 2/2569', 'start': '2026-11-01T00:00:00.000'});
+    expect(loads, 2, reason: 'reads back after the write');
+    expect(find.text('สร้างภาคเรียนที่ 2/2569แล้ว'), findsOneWidget);
+  });
+
+  testWidgets('a bad date is rejected in the form before any RPC call', (tester) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      createAcademicYear: ({required name, startDate, endDate}) async {
+        calls++;
+        return 'ay-x';
+      },
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('สร้างปีการศึกษา'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ชื่อปีการศึกษา (เช่น 2569)'), '2570');
+    await tester.enterText(find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน, ถ้ามี)'), '16/05/2570');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(calls, 0);
+    expect(find.textContaining('รูปแบบวันที่ต้องเป็น'), findsOneWidget);
   });
 }

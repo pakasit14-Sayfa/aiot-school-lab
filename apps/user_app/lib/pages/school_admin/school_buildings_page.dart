@@ -11,6 +11,14 @@ class SchoolBuildingsPage extends StatefulWidget {
     this.loadLogs,
     this.createBuilding,
     this.createRoom,
+    this.updateBuilding,
+    this.deleteBuilding,
+    this.setBuildingManager,
+    this.updateRoom,
+    this.deleteRoom,
+    this.loadAlerts,
+    this.loadDevices,
+    this.loadStaffDirectory,
   });
 
   /// Injectable seams for tests — production leaves these null and uses the
@@ -27,6 +35,38 @@ class SchoolBuildingsPage extends StatefulWidget {
   final Future<BulkImportResult> Function(Map<String, dynamic> room)?
   createRoom;
 
+  /// แก้ไข/ลบ/ผู้รับผิดชอบ — update_school_building / delete_school_building /
+  /// set_school_building_manager / update_school_room / delete_school_room
+  /// (20260914010000) · "รายการที่ควรตรวจสอบ" = แจ้งเตือนสถานะ new ของโรงเรียน
+  /// (list_school_alerts) จับคู่ที่ตั้งจาก list_school_devices
+  final Future<void> Function({
+    required String buildingId,
+    required String name,
+    required String code,
+    int? floors,
+    String? note,
+  })?
+  updateBuilding;
+  final Future<void> Function(String buildingId)? deleteBuilding;
+  final Future<void> Function({
+    required String buildingId,
+    required String? managerName,
+  })?
+  setBuildingManager;
+  final Future<void> Function({
+    required String roomId,
+    required String name,
+    required String code,
+    String? floor,
+    String? roomType,
+    int? capacity,
+  })?
+  updateRoom;
+  final Future<void> Function(String roomId)? deleteRoom;
+  final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
+  final Future<List<DeviceOption>> Function()? loadDevices;
+  final Future<List<StaffDirectoryEntry>> Function()? loadStaffDirectory;
+
   @override
   State<SchoolBuildingsPage> createState() => _SchoolBuildingsPageState();
 }
@@ -41,10 +81,57 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
   bool _loading = true;
   String? _error;
 
+  /// แจ้งเตือนที่ยังไม่รับทราบ + ที่ตั้งอุปกรณ์ (สำหรับการ์ด "รายการที่ควรตรวจสอบ")
+  List<_AlertSpot> _alertSpots = const [];
+  bool _alertsLoading = true;
+  bool _alertsFailed = false;
+
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadAlertSpots();
+  }
+
+  Future<void> _loadAlertSpots() async {
+    if (mounted) {
+      setState(() {
+        _alertsLoading = true;
+        _alertsFailed = false;
+      });
+    }
+    try {
+      final results = await Future.wait<Object>([
+        (widget.loadAlerts ??
+            () => IncidentService.listSchoolAlerts(status: 'new'))(),
+        (widget.loadDevices ?? LessonService.listSchoolDevices)(),
+      ]);
+      final alerts = results[0] as List<SchoolSensorAlertRecord>;
+      final devices = results[1] as List<DeviceOption>;
+      final locationOf = {for (final d in devices) d.id: d.location ?? ''};
+      if (!mounted) return;
+      setState(() {
+        _alertSpots = alerts
+            .map(
+              (a) => _AlertSpot(
+                deviceName: a.deviceName,
+                location: locationOf[a.deviceId] ?? '',
+                metric: a.metric,
+                value: a.value,
+                triggeredAt: a.triggeredAt,
+              ),
+            )
+            .toList();
+        _alertsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolBuildingsPage: โหลดแจ้งเตือนไม่สำเร็จ — $e');
+      if (!mounted) return;
+      setState(() {
+        _alertsLoading = false;
+        _alertsFailed = true;
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -211,14 +298,6 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     });
   }
 
-  /// แก้ไข/ลบ อาคารและห้อง ยังไม่มี RPC รองรับ (มีแค่ import batch สำหรับ
-  /// สร้าง) ของเดิมเปิดฟอร์มเต็มรูปแบบแล้วเขียนผลลง `setState` ในหน่วยความจำ
-  /// พร้อมข้อความ "บันทึกแล้ว" — รีเฟรชหน้าแล้วหายหมด ตอนนี้ "สร้าง" ต่อ RPC
-  /// จริง ส่วนแก้ไข/ลบบอกตรง ๆ ว่ายังทำไม่ได้
-  void _showEditUnavailable() {
-    _showMessage('ยังไม่มีระบบแก้ไข/ลบข้อมูลอาคารและห้องในเวอร์ชันนี้');
-  }
-
   /// แปลผลจาก import batch (ส่ง 1 แถว) เป็นประโยคที่แอดมินแก้เองได้ —
   /// RPC ไม่ raise เมื่อข้ามแถว แต่คืน `skipped` พร้อมเหตุผลเป็นรหัส
   static String? _skipReasonMessage(BulkImportResult result, String what) {
@@ -236,9 +315,69 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     }
   }
 
+  static String _mutationFailureMessage(Object e, String what) {
+    final raw = e.toString();
+    if (raw.contains('duplicate_code')) {
+      return 'รหัส$whatนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น';
+    }
+    if (raw.contains('building_has_rooms')) {
+      return 'ลบอาคารไม่ได้ — ยังมีห้องอยู่ในอาคารนี้ ย้ายหรือลบห้องก่อน';
+    }
+    if (raw.contains('room_has_devices')) {
+      return 'ลบห้องไม่ได้ — ยังมีอุปกรณ์ที่ระบุห้องนี้อยู่ ย้ายอุปกรณ์ก่อน';
+    }
+    if (raw.contains('missing_required_field')) {
+      return 'กรอกชื่อและรหัส$whatให้ครบ';
+    }
+    return 'บันทึก$whatไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+  }
+
+  Future<void> _deleteBuilding(_BuildingRecord building) async {
+    final ok = await _confirmDelete(
+      'ลบอาคาร "${building.name}"?',
+      'อาคารที่ยังมีห้องอยู่จะลบไม่ได้ ระบบจะแจ้งให้ย้าย/ลบห้องก่อน',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await (widget.deleteBuilding ??
+          (id) => SchoolAdminPlatformService().deleteBuilding(id))(building.id);
+      if (!mounted) return;
+      _showMessage('ลบอาคาร "${building.name}" แล้ว');
+      await _loadData();
+    } catch (e) {
+      debugPrint('SchoolBuildingsPage: ลบอาคารไม่สำเร็จ — $e');
+      if (!mounted) return;
+      _showMessage(_mutationFailureMessage(e, 'อาคาร'));
+    }
+  }
+
+  Future<bool> _confirmDelete(String title, String detail) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(detail),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ลบ'),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
   Future<void> _openBuildingForm({_BuildingRecord? building}) async {
     if (building != null) {
-      _showEditUnavailable();
+      await _openEditBuildingForm(building);
       return;
     }
     final nameCtrl = TextEditingController();
@@ -331,12 +470,358 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     );
   }
 
+  Future<void> _openEditBuildingForm(_BuildingRecord building) async {
+    final nameCtrl = TextEditingController(text: building.name);
+    final codeCtrl = TextEditingController(text: building.code);
+    final floorsCtrl = TextEditingController(text: '${building.floors}');
+    final noteCtrl = TextEditingController(text: building.note);
+    var submitting = false;
+    String? formError;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final name = nameCtrl.text.trim();
+            final code = codeCtrl.text.trim();
+            final floors = int.tryParse(floorsCtrl.text.trim());
+            if (name.isEmpty || code.isEmpty) {
+              setSheet(() => formError = 'กรอกชื่อและรหัสอาคารให้ครบ');
+              return;
+            }
+            if (floors == null || floors < 1) {
+              setSheet(() => formError = 'จำนวนชั้นต้องเป็นตัวเลขตั้งแต่ 1');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              formError = null;
+            });
+            try {
+              final update =
+                  widget.updateBuilding ??
+                  ({
+                    required String buildingId,
+                    required String name,
+                    required String code,
+                    int? floors,
+                    String? note,
+                  }) => SchoolAdminPlatformService().updateBuilding(
+                    buildingId: buildingId,
+                    name: name,
+                    code: code,
+                    floors: floors,
+                    note: note,
+                  );
+              await update(
+                buildingId: building.id,
+                name: name,
+                code: code,
+                floors: floors,
+                note: noteCtrl.text.trim(),
+              );
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage('บันทึกอาคาร "$name" แล้ว');
+              await _loadData();
+            } catch (e) {
+              debugPrint('SchoolBuildingsPage: แก้อาคารไม่สำเร็จ — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                formError = _mutationFailureMessage(e, 'อาคาร');
+              });
+            }
+          }
+
+          return _DisposeOnClose(
+            controllers: [nameCtrl, codeCtrl, floorsCtrl, noteCtrl],
+            child: _MutationSheet(
+              title: 'แก้ไขอาคาร',
+              subtitle: 'บันทึกลงระบบจริงผ่าน update_school_building',
+              submitting: submitting,
+              error: formError,
+              onSubmit: submit,
+              onDelete: submitting
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      _deleteBuilding(building);
+                    },
+              fields: [
+                _SheetField(
+                  controller: nameCtrl,
+                  label: 'ชื่ออาคาร',
+                  autofocus: true,
+                ),
+                _SheetField(controller: codeCtrl, label: 'รหัสอาคาร (ไม่ซ้ำ)'),
+                _SheetField(
+                  controller: floorsCtrl,
+                  label: 'จำนวนชั้น',
+                  keyboardType: TextInputType.number,
+                ),
+                _SheetField(controller: noteCtrl, label: 'หมายเหตุ (ถ้ามี)'),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openEditRoomForm(_RoomRecord room) async {
+    final nameCtrl = TextEditingController(text: room.name);
+    final codeCtrl = TextEditingController(text: room.code);
+    final floorCtrl = TextEditingController(
+      text: room.floor == 'ยังไม่มีข้อมูล' ? '' : room.floor,
+    );
+    final typeCtrl = TextEditingController(text: room.type);
+    final capacityCtrl = TextEditingController(text: '${room.capacity}');
+    var submitting = false;
+    String? formError;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final name = nameCtrl.text.trim();
+            final code = codeCtrl.text.trim();
+            final capacity = int.tryParse(capacityCtrl.text.trim());
+            if (name.isEmpty || code.isEmpty) {
+              setSheet(() => formError = 'กรอกชื่อและรหัสห้องให้ครบ');
+              return;
+            }
+            if (capacity == null || capacity < 1) {
+              setSheet(() => formError = 'ความจุต้องเป็นตัวเลขตั้งแต่ 1');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              formError = null;
+            });
+            try {
+              final update =
+                  widget.updateRoom ??
+                  ({
+                    required String roomId,
+                    required String name,
+                    required String code,
+                    String? floor,
+                    String? roomType,
+                    int? capacity,
+                  }) => SchoolAdminPlatformService().updateRoom(
+                    roomId: roomId,
+                    name: name,
+                    code: code,
+                    floor: floor,
+                    roomType: roomType,
+                    capacity: capacity,
+                  );
+              await update(
+                roomId: room.id,
+                name: name,
+                code: code,
+                floor: floorCtrl.text.trim(),
+                roomType: typeCtrl.text.trim(),
+                capacity: capacity,
+              );
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage('บันทึกห้อง "$name" แล้ว');
+              await _loadData();
+            } catch (e) {
+              debugPrint('SchoolBuildingsPage: แก้ห้องไม่สำเร็จ — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                formError = _mutationFailureMessage(e, 'ห้อง');
+              });
+            }
+          }
+
+          return _DisposeOnClose(
+            controllers: [
+              nameCtrl,
+              codeCtrl,
+              floorCtrl,
+              typeCtrl,
+              capacityCtrl,
+            ],
+            child: _MutationSheet(
+              title: 'แก้ไขห้อง',
+              subtitle: 'บันทึกลงระบบจริงผ่าน update_school_room',
+              submitting: submitting,
+              error: formError,
+              onSubmit: submit,
+              onDelete: submitting
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      _deleteRoom(room);
+                    },
+              fields: [
+                _SheetField(
+                  controller: nameCtrl,
+                  label: 'ชื่อห้อง',
+                  autofocus: true,
+                ),
+                _SheetField(controller: codeCtrl, label: 'รหัสห้อง (ไม่ซ้ำ)'),
+                _SheetField(controller: floorCtrl, label: 'ชั้น (ถ้ามี)'),
+                _SheetField(controller: typeCtrl, label: 'ประเภทห้อง'),
+                _SheetField(
+                  controller: capacityCtrl,
+                  label: 'ความจุ (คน)',
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// ผู้รับผิดชอบอาคาร — เลือกจากรายชื่อบุคลากรจริง (list_staff_directory)
+  /// หรือล้างค่า แล้วเขียน buildings.manager_name ผ่าน set_school_building_manager
+  Future<void> _openManagerPicker({_BuildingRecord? building}) async {
+    if (_buildings.isEmpty) {
+      _showMessage('ต้องมีอาคารก่อน จึงจะกำหนดผู้รับผิดชอบได้');
+      return;
+    }
+    List<StaffDirectoryEntry> staff;
+    try {
+      staff =
+          await (widget.loadStaffDirectory ??
+              StaffOrgService.listStaffDirectory)();
+    } catch (e) {
+      debugPrint('SchoolBuildingsPage: โหลดรายชื่อบุคลากรไม่สำเร็จ — $e');
+      if (!mounted) return;
+      _showMessage('โหลดรายชื่อบุคลากรไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
+    if (!mounted) return;
+
+    var buildingId = (building ?? _buildings.first).id;
+    String? managerName = (building ?? _buildings.first).manager.isEmpty
+        ? null
+        : (building ?? _buildings.first).manager;
+    var submitting = false;
+    String? formError;
+    final names = <String>{
+      for (final s in staff) s.fullName,
+      ?managerName,
+    }.toList()..sort();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            setSheet(() {
+              submitting = true;
+              formError = null;
+            });
+            try {
+              await (widget.setBuildingManager ??
+                  ({
+                    required String buildingId,
+                    required String? managerName,
+                  }) => SchoolAdminPlatformService().setBuildingManager(
+                    buildingId: buildingId,
+                    managerName: managerName,
+                  ))(buildingId: buildingId, managerName: managerName);
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage(
+                managerName == null
+                    ? 'ล้างผู้รับผิดชอบอาคารแล้ว'
+                    : 'กำหนดผู้รับผิดชอบเป็น $managerName แล้ว',
+              );
+              await _loadData();
+            } catch (e) {
+              debugPrint(
+                'SchoolBuildingsPage: set_school_building_manager ล้ม — $e',
+              );
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                formError = 'บันทึกผู้รับผิดชอบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _MutationSheet(
+            title: 'กำหนดผู้รับผิดชอบอาคาร',
+            subtitle: 'เลือกจากรายชื่อบุคลากรของโรงเรียน — บันทึกลงระบบจริง',
+            submitting: submitting,
+            error: formError,
+            onSubmit: submit,
+            fields: [
+              DropdownButtonFormField<String>(
+                value: buildingId,
+                decoration: const InputDecoration(labelText: 'อาคาร'),
+                items: [
+                  for (final b in _buildings)
+                    DropdownMenuItem(value: b.id, child: Text(b.name)),
+                ],
+                onChanged: submitting
+                    ? null
+                    : (v) => setSheet(() {
+                        buildingId = v ?? buildingId;
+                        final current = _buildings
+                            .firstWhere((b) => b.id == buildingId)
+                            .manager;
+                        managerName = current.isEmpty ? null : current;
+                        if (managerName != null &&
+                            !names.contains(managerName)) {
+                          names.add(managerName!);
+                        }
+                      }),
+              ),
+              DropdownButtonFormField<String?>(
+                value: managerName,
+                decoration: const InputDecoration(labelText: 'ผู้รับผิดชอบ'),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('— ไม่กำหนด —'),
+                  ),
+                  for (final n in names)
+                    DropdownMenuItem<String?>(value: n, child: Text(n)),
+                ],
+                onChanged: submitting
+                    ? null
+                    : (v) => setSheet(() => managerName = v),
+              ),
+              if (staff.isEmpty)
+                const Text(
+                  'ยังไม่มีบุคลากรในโรงเรียน — เพิ่มจากหน้า "ครูและบุคลากร" ก่อน',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _openRoomForm({
     _RoomRecord? room,
     String? initialBuilding,
   }) async {
     if (room != null) {
-      _showEditUnavailable();
+      await _openEditRoomForm(room);
       return;
     }
     if (_buildings.isEmpty) {
@@ -453,7 +938,22 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
   }
 
   Future<void> _deleteRoom(_RoomRecord room) async {
-    _showEditUnavailable();
+    final ok = await _confirmDelete(
+      'ลบห้อง "${room.name}"?',
+      'ห้องที่ยังมีอุปกรณ์ระบุห้องนี้อยู่จะลบไม่ได้ ระบบจะแจ้งให้ย้ายอุปกรณ์ก่อน',
+    );
+    if (!ok || !mounted) return;
+    try {
+      await (widget.deleteRoom ??
+          (id) => SchoolAdminPlatformService().deleteRoom(id))(room.id);
+      if (!mounted) return;
+      _showMessage('ลบห้อง "${room.name}" แล้ว');
+      await _loadData();
+    } catch (e) {
+      debugPrint('SchoolBuildingsPage: ลบห้องไม่สำเร็จ — $e');
+      if (!mounted) return;
+      _showMessage(_mutationFailureMessage(e, 'ห้อง'));
+    }
   }
 
   Future<void> _openBuildingRooms(_BuildingRecord building) async {
@@ -627,38 +1127,6 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                     const SizedBox(height: 18),
                     Row(
                       children: [
-                        Expanded(
-                          // เดิมกดแล้วโชว์ 'เปิดหน้าอุปกรณ์ของ ... แล้ว' แต่ไม่
-                          // ได้เปิดอะไรจริง — ยังไม่มีทางกรองหน้าอุปกรณ์ตามห้อง
-                          // ปิดไว้พร้อมเหตุผลแทนปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้น
-                          child: Tooltip(
-                            message:
-                                'หน้าอุปกรณ์ยังไม่รองรับการกรองตามห้องในเวอร์ชันนี้',
-                            child: OutlinedButton.icon(
-                              onPressed: null,
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                side: const BorderSide(
-                                  color: Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              icon: const Icon(Icons.memory_rounded, size: 18),
-                              label: const Text(
-                                'ดูอุปกรณ์',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  color: SchoolAdminPalette.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
                         Expanded(
                           child: FilledButton.icon(
                             onPressed: () {
@@ -886,15 +1354,11 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
         icon: Icons.add_home_work_rounded,
         onTap: () => _openRoomForm(),
       ),
-      // เดิมกดแล้วโชว์ 'เปิดการกำหนดครูประจำอาคาร' โดยไม่เปิดอะไรจริง — และ
-      // role 'ครูประจำอาคาร' เองก็ถูกยุบรวมเข้า school_admin ไปแล้วตั้งแต่
-      // 25 ส.ค. ไม่มี RPC ใดรองรับการกำหนดผู้รับผิดชอบระดับอาคารแบบนี้เลย
       _BuildingQuickActionData(
         title: 'กำหนดครูประจำอาคาร',
-        subtitle: 'ระบุผู้รับผิดชอบและรับแจ้งเตือน',
+        subtitle: 'เลือกผู้รับผิดชอบจากรายชื่อบุคลากร',
         icon: Icons.engineering_rounded,
-        onTap: null,
-        disabledReason: 'ยังไม่มีระบบกำหนดผู้รับผิดชอบระดับอาคารในเวอร์ชันนี้',
+        onTap: () => _openManagerPicker(),
       ),
       _BuildingQuickActionData(
         title: 'ตรวจพื้นที่ผิดปกติ',
@@ -1377,25 +1841,84 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
   Widget _buildMonitoring() {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
-        // เดิมเป็น _BuildingAlertRow 3 แถว hardcode ตายตัว
-        // ('LAB-02 • อาคารปฏิบัติการ • 2 อุปกรณ์' ฯลฯ) ไม่มี RPC ใดในระบบ
-        // ให้รายการ "จุดที่ควรตรวจสอบ" ระดับอาคาร/ห้องเลย — แสดงตรงๆ ว่ายัง
-        // ไม่มีข้อมูลแทนการเดา
-        const Widget alerts = _BuildingSectionCard(
+        // รอบก่อนเป็น 3 แถว hardcode แล้วถูกเปลี่ยนเป็น "ยังไม่มีระบบ" — ตอนนี้
+        // คือแจ้งเตือนสถานะ new ของโรงเรียน (list_school_alerts) จับคู่ที่ตั้ง
+        // จาก list_school_devices ว่างคือว่าง ล้มคือล้ม
+        final Widget alerts = _BuildingSectionCard(
           title: 'รายการที่ควรตรวจสอบ',
-          subtitle: 'รวมพื้นที่ที่อุปกรณ์หรือการใช้ทรัพยากรมีความผิดปกติ',
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: Text(
-                'ยังไม่มีระบบตรวจจับความผิดปกติระดับอาคาร/ห้องในเวอร์ชันนี้',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: SchoolAdminPalette.textSecondary,
+          subtitle: 'อุปกรณ์ที่มีแจ้งเตือนเกินเกณฑ์และยังไม่ได้รับทราบ',
+          child: _alertsLoading
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : _alertsFailed
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'โหลดรายการแจ้งเตือนไม่สำเร็จ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFB91C1C),
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _loadAlertSpots,
+                        child: const Text('ลองใหม่'),
+                      ),
+                    ],
+                  ),
+                )
+              : _alertSpots.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text(
+                      'ไม่มีแจ้งเตือนที่ยังไม่ได้รับทราบ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SchoolAdminPalette.textSecondary,
+                      ),
+                    ),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (final spot in _alertSpots.take(8))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFD97706),
+                        ),
+                        title: Text(
+                          spot.deviceName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${spot.location.isEmpty ? 'ไม่ระบุที่ตั้ง' : spot.location} · '
+                          '${spot.metric} ${spot.value}',
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
+                      ),
+                    if (_alertSpots.length > 8)
+                      Text(
+                        'และอีก ${_alertSpots.length - 8} รายการ — ดูทั้งหมดที่หน้า "การแจ้งเตือน"',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: SchoolAdminPalette.textSecondary,
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-            ),
-          ),
         );
 
         final Widget assignments = _BuildingSectionCard(
@@ -1436,7 +1959,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Expanded(flex: 5, child: alerts),
+            Expanded(flex: 5, child: alerts),
             const SizedBox(width: 14),
             Expanded(flex: 4, child: assignments),
           ],
@@ -1762,10 +2285,7 @@ class _BuildingQuickActionCard extends StatelessWidget {
     if (data.onTap == null) {
       return Opacity(
         opacity: 0.55,
-        child: Tooltip(
-          message: data.disabledReason ?? 'ยังไม่เปิดใช้งาน',
-          child: card,
-        ),
+        child: Tooltip(message: 'ยังไม่เปิดใช้งาน', child: card),
       );
     }
     return card;
@@ -3573,14 +4093,12 @@ class _BuildingQuickActionData {
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.disabledReason,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback? onTap;
-  final String? disabledReason;
 }
 
 class _BuildingRecord {
@@ -3681,6 +4199,7 @@ class _MutationSheet extends StatelessWidget {
     required this.submitting,
     required this.error,
     required this.onSubmit,
+    this.onDelete,
   });
 
   final String title;
@@ -3689,6 +4208,9 @@ class _MutationSheet extends StatelessWidget {
   final bool submitting;
   final String? error;
   final Future<void> Function() onSubmit;
+
+  /// ฟอร์มแก้ไขมีปุ่มลบ — null = ฟอร์มสร้าง
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -3743,6 +4265,14 @@ class _MutationSheet extends StatelessWidget {
                         : () => Navigator.of(context).pop(),
                     child: const Text('ยกเลิก'),
                   ),
+                  if (onDelete != null)
+                    TextButton(
+                      onPressed: onDelete,
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFDC2626),
+                      ),
+                      child: const Text('ลบ'),
+                    ),
                   const Spacer(),
                   FilledButton(
                     onPressed: submitting ? null : onSubmit,
@@ -3805,4 +4335,21 @@ class _DisposeOnCloseState extends State<_DisposeOnClose> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// อุปกรณ์ที่มีแจ้งเตือนยังไม่รับทราบ + ที่ตั้ง (สำหรับ "รายการที่ควรตรวจสอบ")
+class _AlertSpot {
+  const _AlertSpot({
+    required this.deviceName,
+    required this.location,
+    required this.metric,
+    required this.value,
+    required this.triggeredAt,
+  });
+
+  final String deviceName;
+  final String location;
+  final String metric;
+  final double value;
+  final DateTime triggeredAt;
 }

@@ -80,6 +80,24 @@ class UtilityService {
         .toList();
   }
 
+  /// ไฟฟ้า ('energy_kwh') หรือน้ำ ('water_m3') แยกรายอาคาร/ห้อง
+  static Future<List<UtilityLocationUsage>> getUsageByLocation({
+    required String metric,
+    int days = 30,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) return [];
+    final rows =
+        await supabase.rpc(
+              'get_utility_usage_by_location',
+              params: {'p_token': token, 'p_metric': metric, 'p_days': days},
+            )
+            as List;
+    return rows
+        .map((r) => UtilityLocationUsage.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
   static Future<List<UtilityTrendPoint>> getWaterUsageTrend({
     int days = 7,
   }) async {

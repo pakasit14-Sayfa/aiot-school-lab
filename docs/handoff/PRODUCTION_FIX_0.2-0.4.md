@@ -220,6 +220,32 @@ values ('<timestamp>','<ชื่อ_ไม่รวม_timestamp>') on conflict
 
 ---
 
+### ขั้น 4.1 — migration ชุด School Admin 100% (2026-09-14) — 4 ไฟล์ รันตามลำดับ
+
+รันได้เลย ไม่มีเงื่อนไขล่วงหน้า แต่**ต้องรันเรียงตามเลข** และรันในทรานแซกชันเดียว
+ต่อไฟล์ (ไฟล์ที่ 4 มี `alter table` + `update` ที่ต้องไปด้วยกัน):
+
+| ลำดับ | ไฟล์ | ทำอะไร | ผลข้างเคียงที่ต้องรู้ |
+|---|---|---|---|
+| 1 | `20260914010000_school_admin_assets_mutations.sql` | 10 RPC: แก้/ลบ อาคาร-ห้อง · ผู้รับผิดชอบอาคาร · แก้อุปกรณ์ · รับทราบทั้งหมด · สร้างปีการศึกษา/ภาคเรียน | ไม่แตะข้อมูลเดิม |
+| 2 | `20260914020000_my_account_password_sessions_import.sql` | change_my_password · list/revoke_my_session · **เขียนทับ** `import_school_users_batch_for_school_admin` | บัญชีที่นำเข้าหลังจากนี้ได้รหัสชั่วคราวสุ่ม + ต้องเปลี่ยนรหัสก่อนใช้ (แอปเวอร์ชันใหม่บังคับ) — **บัญชีที่นำเข้าก่อนหน้าด้วย Test1234! ไม่ถูกแตะ** ถ้ามี ให้สั่ง `update users set must_change_password = true where ...` เอง |
+| 3 | `20260914030000_utility_usage_by_location.sql` | get_utility_usage_by_location | ไม่แตะข้อมูลเดิม |
+| 4 | `20260914040000_school_device_detail.sql` | get_school_device_detail + **ถอด default ปลอม** `ip_address='192.168.1.100'` / `firmware_version='v1.2.0-prod'` และ **ล้างค่านั้นในอุปกรณ์ที่ไม่เคยส่ง heartbeat** | หน้าอุปกรณ์จะขึ้น "ยังไม่เคยรายงาน" แทนค่าปลอม — ถูกต้องแล้ว |
+
+ตรวจหลังรัน:
+
+```bash
+npx supabase db query --linked "select count(*) from pg_proc where proname in ('update_school_building','change_my_password','get_utility_usage_by_location','get_school_device_detail')"
+```
+
+ต้องได้ `4` · และ `select column_default from information_schema.columns where table_name='devices' and column_name='firmware_version'` ต้องว่าง
+
+**ต้อง deploy แอปเวอร์ชันที่มี `ForcePasswordChangePage` (commit ชุดนี้) ก่อนหรือพร้อมกัน**
+ไม่งั้นบัญชีที่นำเข้าใหม่จะล็อกอินได้ด้วยรหัสชั่วคราวโดยไม่ถูกบังคับเปลี่ยน
+(แอปเก่าไม่อ่าน `must_change_password`)
+
+---
+
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้
 
 ```bash

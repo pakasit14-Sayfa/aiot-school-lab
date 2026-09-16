@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
+import '../../utils/web_download.dart';
 
 import 'school_import_page.dart';
 import 'theme/school_admin_palette.dart';
@@ -34,6 +38,8 @@ class SchoolStudentsPage extends StatefulWidget {
     this.suspendUser,
     this.reactivateUser,
     this.updateName,
+    this.importUsers,
+    this.downloadBytesOverride,
   });
 
   /// Injectable seams — production ปล่อยว่างแล้วใช้ service จริง เทสต์ส่งเข้ามา
@@ -46,6 +52,20 @@ class SchoolStudentsPage extends StatefulWidget {
   final Future<void> Function(String uid)? suspendUser;
   final Future<void> Function(String uid)? reactivateUser;
   final Future<void> Function(String uid, String name)? updateName;
+
+  /// "เพิ่มนักเรียนรายคน" = import_school_users_batch_for_school_admin 1 แถว
+  /// (20260914020000: รหัสชั่วคราวต่อคน + บังคับเปลี่ยน) · ส่งออก CSV ฝั่งเครื่อง
+  final Future<BulkImportResult> Function({
+    required UserRole role,
+    required List<Map<String, dynamic>> users,
+  })?
+  importUsers;
+  final void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
+  downloadBytesOverride;
 
   @override
   State<SchoolStudentsPage> createState() => _SchoolStudentsPageState();
@@ -247,6 +267,176 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
       _selectedStatus = kAllStatus;
       _filterSuspendedOnly = false;
     });
+  }
+
+  static String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportCsv() {
+    final students = _filteredStudents;
+    if (students.isEmpty) {
+      _showMessage('ไม่มีรายชื่อนักเรียนให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+    final lines = <List<String>>[
+      ['ชื่อ-นามสกุล', 'อีเมล', 'รหัสนักเรียน', 'ระดับชั้น', 'ห้อง', 'สถานะ'],
+      for (final st in students)
+        [
+          st.fullName,
+          st.email,
+          st.studentCode ?? '',
+          st.gradeLevel ?? '',
+          st.room ?? '',
+          st.suspended ? 'ระงับ' : 'ใช้งาน',
+        ],
+    ];
+    final csv = lines.map((r) => r.map(_csvField).join(',')).join('\r\n');
+    (widget.downloadBytesOverride ?? downloadBytes)(
+      filename: 'students_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('\ufeff$csv'),
+      mimeType: 'text/csv',
+    );
+    _showMessage('ส่งออกรายชื่อนักเรียน ${students.length} รายการแล้ว (CSV)');
+  }
+
+  /// สร้างบัญชีนักเรียน 1 คนผ่านเส้นทางนำเข้าเดียวกับไฟล์ — หลังบ้านออกรหัส
+  /// ชั่วคราวและบังคับเปลี่ยนตอนเข้าครั้งแรก รหัสแสดงครั้งเดียว
+  Future<void> _openAddStudentForm() async {
+    final emailCtrl = TextEditingController();
+    final firstCtrl = TextEditingController();
+    final lastCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    var submitting = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final email = emailCtrl.text.trim().toLowerCase();
+            if (!email.contains('@')) {
+              setSheet(() => error = 'กรอกอีเมลให้ถูกต้อง');
+              return;
+            }
+            if (firstCtrl.text.trim().isEmpty) {
+              setSheet(() => error = 'กรอกชื่อนักเรียน');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final result = await (widget.importUsers ??
+                  UserAdminService.importSchoolUsersBatch)(
+                role: UserRole.student,
+                users: [
+                  {
+                    'email': email,
+                    'first_name': firstCtrl.text.trim(),
+                    'last_name': lastCtrl.text.trim(),
+                    'student_code': codeCtrl.text.trim(),
+                  },
+                ],
+              );
+              if (result.insertedCount < 1) {
+                final reason = result.skipped.isEmpty ? '' : result.skipped.first.reason;
+                if (!sheetContext.mounted) return;
+                setSheet(() {
+                  submitting = false;
+                  error = reason == 'duplicate_email'
+                      ? 'อีเมลนี้มีบัญชีอยู่แล้ว'
+                      : 'สร้างบัญชีไม่สำเร็จ${reason.isEmpty ? '' : ' (${SkippedRow.reasonLabel(reason)})'}';
+                });
+                return;
+              }
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              await showImportedCredentialsDialog(
+                context,
+                result.credentials,
+                downloadBytesOverride: widget.downloadBytesOverride,
+              );
+              await _loadStudents();
+            } catch (e) {
+              debugPrint('SchoolStudentsPage: import 1 นักเรียนล้ม — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                error = 'สร้างบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _OwnControllers(
+            controllers: [emailCtrl, firstCtrl, lastCtrl, codeCtrl],
+            child: Padding(
+              padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('เพิ่มนักเรียนรายคน',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'ระบบจะออกรหัสชั่วคราวให้ครั้งเดียว นักเรียนต้องตั้งรหัสใหม่ตอนเข้าครั้งแรก',
+                        style: TextStyle(fontSize: 11.5, color: SchoolAdminPalette.textSecondary),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: emailCtrl,
+                        autofocus: true,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(labelText: 'อีเมล'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(controller: firstCtrl, decoration: const InputDecoration(labelText: 'ชื่อ')),
+                      const SizedBox(height: 10),
+                      TextField(controller: lastCtrl, decoration: const InputDecoration(labelText: 'นามสกุล')),
+                      const SizedBox(height: 10),
+                      TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'รหัสนักเรียน (ถ้ามี)')),
+                      if (error != null) ...[
+                        const SizedBox(height: 10),
+                        Text(error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12, fontWeight: FontWeight.w700)),
+                      ],
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: submitting ? null : () => Navigator.of(sheetContext).pop(),
+                            child: const Text('ยกเลิก'),
+                          ),
+                          const Spacer(),
+                          FilledButton(
+                            onPressed: submitting ? null : submit,
+                            child: Text(submitting ? 'กำลังสร้าง…' : 'สร้างบัญชี'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showMessage(String message) {
@@ -701,7 +891,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   Widget _buildQuickActions() {
     return _SectionCard(
       title: 'จัดการได้อย่างรวดเร็ว',
-      subtitle: 'ปุ่มที่ยังไม่มีระบบหลังบ้านรองรับจะถูกปิดไว้พร้อมเหตุผล',
+      subtitle: 'ทางลัดไปยังคำสั่งที่ใช้บ่อย',
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
           final List<_QuickActionData> actions = [
@@ -732,21 +922,17 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 });
               },
             ),
-            // ไม่มี RPC สร้างบัญชีนักเรียนรายคนที่แอปนี้เรียกได้
-            // (`admin_update_user_profile` เป็นของ aiot_dev_dashboard ไม่มี
-            // p_token, `create_staff_invitation` เป็นการเชิญบุคลากร ไม่ใช่
-            // นักเรียน) ทางเดียวที่ใช้ได้จริงคือ import_school_users_batch
-            const _QuickActionData(
+            _QuickActionData(
               title: 'เพิ่มนักเรียนรายคน',
-              subtitle: 'ยังไม่มีระบบหลังบ้านรองรับ ใช้ "นำเข้ารายชื่อ" แทน',
+              subtitle: 'สร้างบัญชีพร้อมรหัสชั่วคราว',
               icon: Icons.person_add_alt_1_rounded,
-              onTap: null,
+              onTap: _openAddStudentForm,
             ),
-            const _QuickActionData(
+            _QuickActionData(
               title: 'ส่งออกรายชื่อ',
-              subtitle: 'ยังไม่มีระบบหลังบ้านรองรับการส่งออกไฟล์',
+              subtitle: 'ดาวน์โหลดรายชื่อที่กรองอยู่เป็น CSV',
               icon: Icons.download_rounded,
-              onTap: null,
+              onTap: _exportCsv,
             ),
           ];
 
@@ -1990,4 +2176,28 @@ class _QuickActionData {
   /// null = ยังไม่มี backend รองรับ การ์ดจะถูก disable พร้อมบอกเหตุผลใน subtitle
   final VoidCallback? onTap;
   final bool isActive;
+}
+
+/// ถือ TextEditingController ของแผ่นไว้จน route ถูกถอดจริง
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
