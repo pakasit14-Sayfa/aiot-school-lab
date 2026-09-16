@@ -1045,12 +1045,10 @@ class _SubmissionBarChartCardState extends State<_SubmissionBarChartCard> {
           submitted += submissions.length;
         }
         final expected = assignments.length * roster.length;
-        rooms.add(
-          (
-            label: course.gradeLevel ?? course.subjectName,
-            percent: submitted / expected,
-          ),
-        );
+        rooms.add((
+          label: course.gradeLevel ?? course.subjectName,
+          percent: submitted / expected,
+        ));
       }
       if (!mounted) return;
       setState(() => _rooms = rooms);
@@ -1212,11 +1210,12 @@ class _StudentStatusDonutCardState extends State<_StudentStatusDonutCard> {
           .where((f) => f.reason == 'ค้างส่งงาน')
           .map((f) => f.studentId)
           .toSet();
-      final needsFollowUp = flagged
-          .where((f) => f.reason != 'ค้างส่งงาน')
-          .map((f) => f.studentId)
-          .toSet()
-        ..removeAll(missingWork);
+      final needsFollowUp =
+          flagged
+              .where((f) => f.reason != 'ค้างส่งงาน')
+              .map((f) => f.studentId)
+              .toSet()
+            ..removeAll(missingWork);
       final total = allStudentIds.length;
       final normalCount = total - missingWork.length - needsFollowUp.length;
 
@@ -1463,12 +1462,7 @@ class _TeacherTopBar extends StatelessWidget {
           onTap: () => _showTeacherSearchDialog(context),
         ),
         const SizedBox(width: 10),
-        _RoundAction(
-          icon: Icons.notifications_none_rounded,
-          dot: true,
-          tooltip: 'การแจ้งเตือน',
-          onTap: () => _showTeacherNotificationPreview(context),
-        ),
+        const _TeacherNotificationBellAction(),
         const SizedBox(width: 12),
         const _TeacherProfilePill(),
       ],
@@ -1773,12 +1767,7 @@ class _TeacherMobileHeader extends StatelessWidget {
             ],
           ),
         ),
-        _RoundAction(
-          icon: Icons.notifications_none_rounded,
-          dot: true,
-          tooltip: 'การแจ้งเตือน',
-          onTap: () => _showTeacherNotificationPreview(context),
-        ),
+        const _TeacherNotificationBellAction(),
       ],
     );
   }
@@ -2752,9 +2741,7 @@ class _TodayFocusCardState extends State<_TodayFocusCard> {
           ),
           _FocusRow(
             label: 'คาบถัดไป',
-            value: !_nextPeriodLoaded
-                ? '-'
-                : (_nextPeriod ?? 'ไม่มีคาบแล้ว'),
+            value: !_nextPeriodLoaded ? '-' : (_nextPeriod ?? 'ไม่มีคาบแล้ว'),
             color: TeacherPalette.blue,
             icon: Icons.schedule_rounded,
           ),
@@ -2816,9 +2803,7 @@ class _ReviewQueueCardState extends State<_ReviewQueueCard> {
           );
         }
       }
-      tasks.sort(
-        (a, b) => int.parse(b.count).compareTo(int.parse(a.count)),
-      );
+      tasks.sort((a, b) => int.parse(b.count).compareTo(int.parse(a.count)));
       if (!mounted) return;
       setState(() => _tasks = tasks);
     } catch (_) {
@@ -2949,9 +2934,7 @@ class _StudentsWatchCardState extends State<_StudentsWatchCard> {
               ),
             )
           else
-            ..._students!.map(
-              (student) => _StudentWatchTile(student: student),
-            ),
+            ..._students!.map((student) => _StudentWatchTile(student: student)),
         ],
       ),
     );
@@ -3234,10 +3217,7 @@ class _AiotSensorRow extends StatelessWidget {
           if (freshness == SensorFreshness.live ||
               freshness == SensorFreshness.delayed)
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: badgeBgColor,
                 borderRadius: BorderRadius.circular(20),
@@ -3275,10 +3255,7 @@ class _AiotSensorRow extends StatelessWidget {
             )
           else
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 3,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: freshness.color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
@@ -3289,28 +3266,28 @@ class _AiotSensorRow extends StatelessWidget {
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: freshness.color,
-                        shape: BoxShape.circle,
-                      ),
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: freshness.color,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      freshness.label,
-                      style: TextStyle(
-                        color: freshness.color,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 9.5,
-                        letterSpacing: 0.1,
-                      ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    freshness.label,
+                    style: TextStyle(
+                      color: freshness.color,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 9.5,
+                      letterSpacing: 0.1,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
         ],
       ),
     );
@@ -4620,9 +4597,7 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
                         ? _aqiUbaLabel(aqi.value)
                         : 'ไม่มีข้อมูล',
                     freshness: _freshnessOf(aqi?.ts),
-                    timeLabel: aqi != null
-                        ? _relativeTimeLabel(aqi.ts)
-                        : null,
+                    timeLabel: aqi != null ? _relativeTimeLabel(aqi.ts) : null,
                     showDivider: true,
                   ),
                   // MQ-2 ตอบสนองต่อทั้งแก๊สติดไฟและควันจริงตามสเปกชิป แต่
@@ -4642,9 +4617,7 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
                         : 'ยังไม่มีข้อมูลเซนเซอร์จริง',
                     level: gas != null ? 'ดิบ' : 'ไม่มีข้อมูล',
                     freshness: _freshnessOf(gas?.ts),
-                    timeLabel: gas != null
-                        ? _relativeTimeLabel(gas.ts)
-                        : null,
+                    timeLabel: gas != null ? _relativeTimeLabel(gas.ts) : null,
                     showDivider: true,
                   ),
                   // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): บอร์ดใช้ชิป
@@ -5357,6 +5330,58 @@ class _RoundAction extends StatelessWidget {
   }
 }
 
+/// The dot used to be `dot: true` hardcoded at both call sites (desktop
+/// _TeacherTopBar and mobile _TeacherMobileHeader) — always on regardless
+/// of whether anything was actually unread. Loads the real notification
+/// list once on mount (same `NotificationService.listMyNotifications` +
+/// `mapRealNotifications` the preview dialog and full page already use) and
+/// only lights the dot when at least one is unread; re-checks after the
+/// preview closes in case something got marked read while it was open.
+class _TeacherNotificationBellAction extends StatefulWidget {
+  const _TeacherNotificationBellAction();
+
+  @override
+  State<_TeacherNotificationBellAction> createState() =>
+      _TeacherNotificationBellActionState();
+}
+
+class _TeacherNotificationBellActionState
+    extends State<_TeacherNotificationBellAction> {
+  bool _hasUnread = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await NotificationService.listMyNotifications();
+      final hasUnread = mapRealNotifications(list).any((n) => !n.isRead);
+      if (!mounted) return;
+      setState(() => _hasUnread = hasUnread);
+    } catch (e) {
+      debugPrint(
+        '_TeacherNotificationBellAction: failed to load unread state: $e',
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _RoundAction(
+      icon: Icons.notifications_none_rounded,
+      dot: _hasUnread,
+      tooltip: 'การแจ้งเตือน',
+      onTap: () async {
+        await _showTeacherNotificationPreview(context);
+        if (mounted) _load();
+      },
+    );
+  }
+}
+
 class _TeacherProfilePill extends StatelessWidget {
   const _TeacherProfilePill();
 
@@ -5447,9 +5472,7 @@ class _TeacherProfilePill extends StatelessWidget {
             isCurrent
                 ? Icons.radio_button_checked_rounded
                 : Icons.radio_button_off_rounded,
-            color: isCurrent
-                ? TeacherPalette.primary
-                : const Color(0xFF94A3B8),
+            color: isCurrent ? TeacherPalette.primary : const Color(0xFF94A3B8),
           ),
           const SizedBox(width: 12),
           Expanded(
