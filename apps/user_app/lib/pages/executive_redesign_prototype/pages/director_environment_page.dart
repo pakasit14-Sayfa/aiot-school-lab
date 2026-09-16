@@ -171,6 +171,30 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
     return 'เดือนนี้ (1 - ${now.day} ${months[now.month - 1]} ${now.year + 543})';
   }
 
+  static const _thShortMonths = [
+    'ม.ค.',
+    'ก.พ.',
+    'มี.ค.',
+    'เม.ย.',
+    'พ.ค.',
+    'มิ.ย.',
+    'ก.ค.',
+    'ส.ค.',
+    'ก.ย.',
+    'ต.ค.',
+    'พ.ย.',
+    'ธ.ค.',
+  ];
+
+  /// "อัปเดตล่าสุด" for a detail dialog — the newest day the trend actually
+  /// has, not a frozen "21 ส.ค. 2569" left over from the mock. Empty trend
+  /// (no rows fetched yet) says so honestly instead of a fake date.
+  String _lastUpdatedLabel(List<UtilityTrendPoint> points) {
+    if (points.isEmpty) return 'ยังไม่มีข้อมูล';
+    final d = points.last.day;
+    return '${d.day} ${_thShortMonths[d.month - 1]} ${d.year + 543}';
+  }
+
   /// Period-over-period change, stated only when the backend could compute
   /// it. `UtilityEfficiencyScore.score` is null when there is not enough
   /// history to compare, and a percentage invented in its place would be a
@@ -396,28 +420,6 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
 
     return items;
   }
-
-  final List<_ZoneAir> zones = const [
-    _ZoneAir('อาคารเรียน 1', '34', '690', '30°C', 'ดี', AppPalette.success),
-    _ZoneAir(
-      'อาคารเรียน 2',
-      '41',
-      '780',
-      '32°C',
-      'ปานกลาง',
-      AppPalette.warning,
-    ),
-    _ZoneAir(
-      'อาคารเรียน 3',
-      '45',
-      '810',
-      '31°C',
-      'ปานกลาง',
-      AppPalette.warning,
-    ),
-    _ZoneAir('โรงอาหาร', '52', '950', '33°C', 'ควรระวัง', AppPalette.danger),
-    _ZoneAir('ห้องปฏิบัติการ', '29', '640', '28°C', 'ดี', AppPalette.success),
-  ];
 
   /// The one rate figure the system actually holds.
   ///
@@ -933,7 +935,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                 Expanded(
                   child: Text(
                     'ตัวเลขเป็นการคาดคะเนค่าใช้จ่ายเบื้องต้น คำนวณจากปริมาณการใช้ไฟฟ้าและน้ำ '
-                    'ในปัจจุบัน ร่วมกับอัตราค่าบริการและประวัติการใช้ย้อนหลัง 12 เดือน '
+                    'ในปัจจุบัน ร่วมกับอัตราค่าบริการและประวัติการใช้ย้อนหลัง 7 วัน '
                     'จึงอาจคลาดเคลื่อนจากบิลจริง',
                     style: TextStyle(
                       fontSize: 8.6,
@@ -1270,6 +1272,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
           'อัตราค่าไฟของโรงเรียน ไม่ใช่ใบแจ้งหนี้จริง',
       weekly: _trendBars(_energyTrend),
       hourly: const [],
+      updatedLabel: _lastUpdatedLabel(_energyTrend),
     );
   }
 
@@ -1284,25 +1287,31 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
       avgDaySub: 'ลบ.ม./วัน',
       avgWeek: _periodTotal(_waterTrend),
       avgWeekSub: 'ลบ.ม. • 7 วันล่าสุด',
-      peakTime: '12.10',
-      peakSub: 'น. • ช่วงพักเที่ยง',
+      // ไม่มี RPC ไหนแยกการใช้น้ำรายอาคาร/รายชั่วโมงเลย ตัวเลข peak time เดิม
+      // (12.10 น., "ช่วงพักเที่ยง") และอันดับพื้นที่ใช้น้ำเป็นของแต่งขึ้นทั้งคู่
+      // — ใช้แพตเทิร์นเดียวกับ _showElectricityDetail: peak มาจากวันที่ใช้
+      // มากสุดในเทรนด์จริง 7 วัน ส่วนแยกอาคาร/ชั่วโมงยังไม่มีข้อมูลจึงบอกตรงๆ
+      peakTime: _peakDayLabel(_waterTrend),
+      peakSub: _peakDayValue(_waterTrend, 'ลบ.ม.'),
       topLabel: 'พื้นที่ใช้น้ำมากที่สุด',
-      topName: 'อาคารเรียน / ห้องน้ำ',
-      topValue: '260 ลบ.ม.',
-      topShare: '~41% ของทั้งหมด',
+      topName: 'ยังไม่มีข้อมูล',
+      topValue: '—',
+      topShare: 'ต้องแยกมิเตอร์น้ำรายอาคารก่อน',
       weeklyTitle: 'การใช้น้ำ 7 วันล่าสุด',
       weeklySubtitle:
           'หน่วย ลบ.ม. ต่อวัน • ${_trendAverage(_waterTrend, 'ลบ.ม.')}',
       hourlyTitle: 'การใช้น้ำรายชั่วโมงวันนี้',
-      hourlySubtitle: 'หน่วย ลบ.ม. ต่อชั่วโมง (โดยประมาณ)',
-      peakNote:
-          'ใช้น้ำสูงสุดช่วง 12.10 น. — ช่วงพักกลางวันที่โรงอาหารและห้องน้ำ',
+      hourlySubtitle: 'ยังไม่มีข้อมูลรายชั่วโมง',
+      peakNote: '',
       rankTitle: 'อันดับพื้นที่ใช้น้ำสูงสุด',
+      // "ข้อมูลจากมิเตอร์น้ำแยกโซน" ถูกตัดออก — ไม่มีมิเตอร์น้ำแยกโซนจริงใน
+      // ระบบ (_waterTrend เป็นเทรนด์รวมของทั้งโรงเรียน ไม่ใช่รายโซน)
       note:
-          'หมายเหตุ: ข้อมูลจากมิเตอร์น้ำแยกโซน ตัวเลขค่าใช้จ่ายเป็นการ'
-          'คาดคะเนเบื้องต้นจากหน่วยการใช้จริง × อัตราค่าน้ำ + ค่าบริการ + VAT',
+          'หมายเหตุ: ตัวเลขค่าใช้จ่ายเป็นการคาดคะเนเบื้องต้นจากหน่วยการใช้จริง '
+          '× อัตราค่าน้ำ + ค่าบริการ + VAT ไม่ใช่ใบแจ้งหนี้จริง',
       weekly: _trendBars(_waterTrend),
       hourly: const [],
+      updatedLabel: _lastUpdatedLabel(_waterTrend),
     );
   }
 
@@ -1331,6 +1340,7 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
     required String peakNote,
     required String rankTitle,
     required String note,
+    required String updatedLabel,
   }) {
     final ranked = [...breakdown]
       ..sort((a, b) => b.progress.compareTo(a.progress));
@@ -1376,9 +1386,9 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            const Text(
-                              'ข้อมูลเชิงลึกประจำเดือน • อัปเดต 21 ส.ค. 2569',
-                              style: TextStyle(
+                            Text(
+                              'ข้อมูลเชิงลึกจาก 7 วันล่าสุด • อัปเดต $updatedLabel',
+                              style: const TextStyle(
                                 fontSize: 9,
                                 color: AppPalette.textMuted,
                               ),
@@ -1704,6 +1714,21 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
   }
 
   Widget _barChart(List<_BarData> bars, Color color) {
+    // A school with no trend rows yet (brand-new, or the RPC genuinely
+    // returned nothing) used to crash this dialog with `Bad state: No
+    // element` from `.reduce` on an empty list — found while fixing the
+    // water-detail dialog's fake peak/top-building values, same code path.
+    if (bars.isEmpty) {
+      return const SizedBox(
+        height: 150,
+        child: Center(
+          child: Text(
+            'ยังไม่มีข้อมูลย้อนหลังให้แสดงกราฟ',
+            style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+          ),
+        ),
+      );
+    }
     final maxVal = bars
         .map((b) => b.value)
         .reduce((a, b) => a > b ? a : b)

@@ -29,6 +29,7 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
   );
   String query = '';
   String? type;
+
   @override
   void initState() {
     super.initState();
@@ -75,10 +76,15 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Used its own locally-reimplemented hero (not
+              // DirectorWorkspaceHero) back when this page deliberately
+              // diverged from the rest of the lane's color — now that the
+              // whole lane shares the same navy tone (2026-09-14 recolor),
+              // that divergence is gone, so this is just the shared hero.
               const DirectorWorkspaceHero(
-                icon: Icons.calendar_month_outlined,
                 title: 'ประชุม / ขอพบ',
                 subtitle: 'ทะเบียนประชุม นัดหมาย และรายงานของโรงเรียน',
+                icon: Icons.calendar_month_outlined,
               ),
               const SizedBox(height: 16),
               Wrap(
@@ -91,6 +97,10 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                         context: context,
                         builder: (_) => const MeetingRequestsDialog(),
                       ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppPalette.primaryPinkDark,
+                        side: const BorderSide(color: AppPalette.primaryPink),
+                      ),
                       icon: const Icon(Icons.inbox_outlined),
                       label: const Text('คำขอเข้าพบ / จัดประชุม'),
                     ),
@@ -98,6 +108,10 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                     onPressed: () => showDialog<void>(
                       context: context,
                       builder: (_) => const MeetingNoticesDialog(),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppPalette.primaryPinkDark,
+                      side: const BorderSide(color: AppPalette.primaryPink),
                     ),
                     icon: const Icon(Icons.notifications_none),
                     label: const Text('การแจ้งเตือน'),
@@ -107,6 +121,10 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                       onPressed: controller.loading || controller.error != null
                           ? null
                           : create,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppPalette.primaryPink,
+                        foregroundColor: Colors.white,
+                      ),
                       icon: const Icon(Icons.add),
                       label: const Text('สร้างประชุม / เรียกพบ'),
                     ),
@@ -115,6 +133,10 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                       context: context,
                       builder: (_) =>
                           _StaffCalendarDialog(controller: controller),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppPalette.primaryPinkDark,
+                      side: const BorderSide(color: AppPalette.primaryPink),
                     ),
                     icon: const Icon(Icons.calendar_month_outlined),
                     label: const Text('ปฏิทินบุคลากร'),
@@ -163,14 +185,53 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                     children: [
                       Text(
                         'ทั้งหมด ${controller.meetings.length} รายการ · รอตอบรับของฉัน ${controller.meetings.where((m) => m.status == 'scheduled' && m.myResponse == 'pending').length} รายการ',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'ค้นหาเรื่องประชุม ผู้จัด หรือสถานที่',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          hintText: 'ค้นหาเรื่องประชุม ผู้จัด หรือสถานที่',
+                          hintStyle: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: AppPalette.primaryPink,
+                            size: 18,
+                          ),
+                          filled: true,
+                          fillColor: AppPalette.pageBg,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: const BorderSide(
+                              color: AppPalette.border,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: const BorderSide(
+                              color: AppPalette.border,
+                            ),
+                          ),
+                          // Theme's own focusedBorder is a 12px-radius rect
+                          // (buildRoleTheme) — without overriding it here
+                          // too, focusing this field would snap its corners
+                          // from the pill shape to that rect.
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(999),
+                            borderSide: const BorderSide(
+                              color: AppPalette.primaryPink,
+                              width: 1.5,
+                            ),
+                          ),
                         ),
                         onChanged: (v) => setState(() => query = v),
                       ),
@@ -179,16 +240,16 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                         spacing: 8,
                         runSpacing: 6,
                         children: [
-                          ChoiceChip(
-                            label: const Text('ทุกประเภท'),
+                          _typeChip(
+                            label: 'ทุกประเภท',
                             selected: selectedType == null,
-                            onSelected: (_) => setState(() => type = null),
+                            onSelected: () => setState(() => type = null),
                           ),
                           for (final t in controller.types)
-                            ChoiceChip(
-                              label: Text(meetingType(t)),
+                            _typeChip(
+                              label: meetingType(t),
                               selected: selectedType == t,
-                              onSelected: (_) => setState(() => type = t),
+                              onSelected: () => setState(() => type = t),
                             ),
                         ],
                       ),
@@ -206,85 +267,7 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
                     for (final m in records)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(24),
-                            onTap: () => open(m.id),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(20),
-                              decoration: directorWhiteCard(),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        m.isPrivate
-                                            ? Icons.lock_outline
-                                            : Icons.groups_outlined,
-                                        size: 22,
-                                        color: AppPalette.primaryPinkDark,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Text(
-                                          m.title,
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      const Icon(Icons.chevron_right),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 18),
-                                  const Divider(
-                                    height: 1,
-                                    color: AppPalette.border,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    '${m.numberLabel} · ${meetingStatus(m.status)}',
-                                  ),
-                                  Text(
-                                    '${meetingDate(m.startAt)} · ${m.location?.isNotEmpty == true ? m.location : 'ยังไม่ระบุสถานที่'}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF356A9A),
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.8,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'ผู้เข้าร่วม ${m.attendeeCount} คน · ตอบรับ ${m.acceptedCount} · รอตอบรับ ${m.pendingCount}',
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      DirectorStatusPill(
-                                        label: m.minutesLabel,
-                                        color: const Color(0xFF356A9A),
-                                        icon: Icons.description_outlined,
-                                      ),
-                                      if (m.pendingCount > 0)
-                                        DirectorStatusPill(
-                                          label:
-                                              'รอตอบรับ ${m.pendingCount} คน',
-                                          color: const Color(0xFF956419),
-                                          icon: Icons.schedule,
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                        child: _meetingCard(m),
                       ),
                   ],
                 ),
@@ -295,6 +278,207 @@ class _DirectorMeetingsPageState extends State<DirectorMeetingsPage> {
       );
     },
   );
+
+  // Still a ChoiceChip under the hood (tests tap it by widget type via
+  // `find.widgetWithText(ChoiceChip, ...)`) — just restyled as a pill with
+  // the page's own slate accent instead of the theme's default chip look.
+  Widget _typeChip({
+    required String label,
+    required bool selected,
+    required VoidCallback onSelected,
+  }) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      showCheckmark: false,
+      avatar: selected
+          ? const Icon(
+              Icons.check_rounded,
+              size: 15,
+              color: AppPalette.primaryPinkDark,
+            )
+          : null,
+      labelStyle: TextStyle(
+        fontSize: 10.5,
+        fontWeight: FontWeight.w700,
+        color: selected ? AppPalette.primaryPinkDark : AppPalette.textMuted,
+      ),
+      backgroundColor: Colors.white,
+      selectedColor: AppPalette.tint(AppPalette.primaryPink, 0.12),
+      side: BorderSide(
+        color: selected ? AppPalette.primaryPink : AppPalette.border,
+        width: selected ? 1.5 : 1,
+      ),
+      shape: const StadiumBorder(),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    );
+  }
+
+  // Draft/none/not-yet/final are the only 4 values minutesLabel can be
+  // (see MeetingRecord.minutesLabel) — color follows which one, instead of
+  // the old fixed blue for every value regardless of what it said.
+  Color _minutesColor(String label) => switch (label) {
+    'ปิดบันทึกแล้ว' => AppPalette.success,
+    'บันทึกฉบับร่าง' => const Color(0xFFD97706),
+    'ไม่ต้องมีบันทึก' => AppPalette.textMuted,
+    _ => const Color(0xFF356A9A),
+  };
+
+  IconData _minutesIcon(String label) => switch (label) {
+    'ปิดบันทึกแล้ว' => Icons.check_circle_rounded,
+    'บันทึกฉบับร่าง' => Icons.edit_note_rounded,
+    'ไม่ต้องมีบันทึก' => Icons.remove_circle_outline_rounded,
+    _ => Icons.description_outlined,
+  };
+
+  // Icon-badge pill — same language as the icon-badge rows already shipped
+  // on the teachers page ("สิ่งที่ควรติดตาม"), not a new visual language.
+  Widget _meetingPill({
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+      decoration: BoxDecoration(
+        color: AppPalette.tint(color, 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 11, color: Colors.white),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _meetingCard(MeetingRecord m) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () => open(m.id),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: directorWhiteCard(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppPalette.tint(AppPalette.primaryPink, 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      m.isPrivate ? Icons.lock_outline : Icons.groups_outlined,
+                      size: 18,
+                      color: AppPalette.primaryPinkDark,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      m.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppPalette.textMuted,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '${m.numberLabel} · ${meetingStatus(m.status)}',
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 13,
+                    color: Color(0xFF356A9A),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${meetingDate(m.startAt)} · ${m.location?.isNotEmpty == true ? m.location : 'ยังไม่ระบุสถานที่'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF356A9A),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'ผู้เข้าร่วม ${m.attendeeCount} คน · ตอบรับ ${m.acceptedCount} · รอตอบรับ ${m.pendingCount}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _meetingPill(
+                    label: m.minutesLabel,
+                    icon: _minutesIcon(m.minutesLabel),
+                    color: _minutesColor(m.minutesLabel),
+                  ),
+                  if (m.pendingCount > 0)
+                    _meetingPill(
+                      label: 'รอตอบรับ ${m.pendingCount} คน',
+                      icon: Icons.schedule_rounded,
+                      color: const Color(0xFFD97706),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _StaffCalendarDialog extends StatefulWidget {

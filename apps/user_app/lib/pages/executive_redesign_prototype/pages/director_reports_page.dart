@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
+import '../widgets/timeline_feed.dart';
 
 /// Read seams so loading / data / empty / failure can each be driven in a
 /// test, and write seams so the review and upload paths can be exercised
@@ -143,7 +144,8 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
   }
 
   List<String> get _fileTypeOptions {
-    final labels = _reports.map((r) => r.fileTypeLabel).toSet().toList()..sort();
+    final labels = _reports.map((r) => r.fileTypeLabel).toSet().toList()
+      ..sort();
     return [_anyFileType, ...labels];
   }
 
@@ -241,30 +243,7 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
           ),
           const SizedBox(height: 14),
           if (_loadFailed) ...[_loadErrorBanner(), const SizedBox(height: 14)],
-          _summaryCards(),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 980) {
-                return Column(
-                  children: [
-                    _recentReportsCard(),
-                    const SizedBox(height: 16),
-                    _openRequirementsCard(),
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 5, child: _recentReportsCard()),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 4, child: _openRequirementsCard()),
-                ],
-              );
-            },
-          ),
+          _statsAndActivityCard(),
           const SizedBox(height: 16),
           _allReportsSection(filtered),
         ],
@@ -311,17 +290,17 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
   }
 
   // -------------------------------------------------------------------------
-  // Summary
+  // Summary rail
   // -------------------------------------------------------------------------
 
-  Widget _summaryCards() {
+  List<_ReportSummaryCard> _summaryItems() {
     final s = _summary;
     // '—' rather than 0: an unread figure and a figure of zero are different
     // statements, and only one of them is safe to act on.
     String figure(int Function(SchoolReportSummary s) pick) =>
         s == null ? '—' : '${pick(s)}';
 
-    final items = <_ReportSummaryCard>[
+    return [
       _ReportSummaryCard(
         title: 'รายงานทั้งหมด',
         value: figure((s) => s.totalReports),
@@ -366,330 +345,240 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         color: AppPalette.softPink2,
       ),
     ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int columns = 6;
-        if (constraints.maxWidth < 700) {
-          columns = 2;
-        } else if (constraints.maxWidth < 1120) {
-          columns = 3;
-        }
-
-        return GridView.builder(
-          itemCount: items.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: columns == 2 ? 126 : 116,
-          ),
-          itemBuilder: (context, index) {
-            final item = items[index];
-
-            return Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 31,
-                    height: 31,
-                    decoration: BoxDecoration(
-                      color: AppPalette.tint(Colors.white, 0.82),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 17,
-                      color: AppPalette.textDark,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 9.2,
-                      color: AppPalette.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    item.value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    item.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 8.2,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
-  // -------------------------------------------------------------------------
-  // Recent + requirements
-  // -------------------------------------------------------------------------
+  /// Slim vertical rail instead of 6 equal boxes — most of the numbers are 0
+  /// until reports actually get filed, and 6 empty boxes each claiming a
+  /// quarter of the width wastes space no matter the number inside.
+  Widget _statRail() {
+    final items = _summaryItems();
 
-  Widget _recentReportsCard() {
-    final recent = _reports.take(5).toList();
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'รายงานล่าสุดที่ส่งเข้าระบบ',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'ชื่อไฟล์ ผู้ส่ง ฝ่าย และเวลาที่ส่ง เพื่อให้ตรวจแหล่งที่มาได้ทันที',
-            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
-          ),
-          const SizedBox(height: 14),
-          if (_loading)
-            _notice(icon: Icons.hourglass_empty_rounded, title: 'กำลังโหลด')
-          else if (_loadFailed)
-            _notice(
-              icon: Icons.cloud_off_rounded,
-              title: 'โหลดรายงานล่าสุดไม่สำเร็จ',
-            )
-          else if (recent.isEmpty)
-            _notice(
-              icon: Icons.folder_open_rounded,
-              title: 'ยังไม่มีรายงานส่งเข้ามา',
-              detail: 'เมื่อฝ่ายใดส่งไฟล์เข้าทะเบียน รายการจะขึ้นที่นี่',
-            )
-          else
-            ...recent.map(_recentReportTile),
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _statRailItem(items[i]),
         ],
-      ),
+      ],
     );
   }
 
-  Widget _recentReportTile(SchoolReport report) {
-    final color = _fileColor(report.fileType);
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => _showReportDetail(report),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 9),
-        padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(
-          color: AppPalette.tint(color, 0.045),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppPalette.tint(color, 0.10)),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 39,
-              height: 39,
-              decoration: BoxDecoration(
-                color: AppPalette.tint(color, 0.11),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                _fileIconData(report.fileType),
-                size: 20,
-                color: color,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    report.fileName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'ส่งโดย ${report.submitterName} • '
-                    '${report.departmentName ?? 'ไม่ระบุฝ่าย'}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 8.7,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  // No page count: nothing on the server can count the pages
-                  // of an uploaded file, and the old tile printed one anyway.
-                  Text(
-                    '${_dateTimeLabel(report.submittedAt)} • ${report.sizeLabel}',
-                    style: const TextStyle(
-                      fontSize: 8.2,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 7),
-            _statusTag(report.statusLabel),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _openRequirementsCard() {
+  Widget _statRailItem(_ReportSummaryCard item) {
     return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'รายงานที่กำลังรอส่ง',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'กำหนดส่ง จำนวนฝ่ายที่ส่งแล้ว และฝ่ายที่ยังไม่ส่ง',
-            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
-          ),
-          const SizedBox(height: 14),
-          if (_loading)
-            _notice(icon: Icons.hourglass_empty_rounded, title: 'กำลังโหลด')
-          else if (_loadFailed)
-            _notice(
-              icon: Icons.cloud_off_rounded,
-              title: 'โหลดรายการที่รอส่งไม่สำเร็จ',
-            )
-          else if (_requirements.isEmpty)
-            _notice(
-              icon: Icons.event_available_rounded,
-              title: 'ไม่มีรายการที่ค้างส่ง',
-              detail:
-                  'ผู้ดูแลระบบโรงเรียนเป็นผู้กำหนดว่ารายงานใดต้องส่ง '
-                  'และให้ฝ่ายใดส่งบ้าง',
-            )
-          else
-            ..._requirements.map(_requirementTile),
-        ],
-      ),
-    );
-  }
-
-  Widget _requirementTile(ReportRequirement item) {
-    final color = item.isOverdue ? AppPalette.danger : AppPalette.warning;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: AppPalette.tint(color, 0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.tint(color, 0.14)),
+        color: AppPalette.pageBg,
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            item.title,
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: item.color,
+              borderRadius: BorderRadius.circular(9),
             ),
+            child: Icon(item.icon, size: 14, color: AppPalette.textDark),
           ),
-          const SizedBox(height: 3),
-          Text(
-            item.reportTypeLabel,
-            style: const TextStyle(
-              fontSize: 8.7,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.dueDate == null
-                      ? 'ไม่ได้กำหนดวันส่ง'
-                      : 'กำหนดส่ง ${_dateLabel(item.dueDate!)}',
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.value,
                   style: const TextStyle(
-                    fontSize: 8.7,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 8.5,
+                    color: AppPalette.textMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  item.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 7.4,
                     color: AppPalette.textMuted,
                   ),
                 ),
-              ),
-              if (item.isOverdue)
-                Text(
-                  'เกินกำหนด',
-                  style: TextStyle(
-                    fontSize: 8.8,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 7),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: item.expectedCount == 0
-                  ? 0
-                  : item.filedCount / item.expectedCount,
-              minHeight: 6,
-              backgroundColor: AppPalette.softTag,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
+              ],
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            'ส่งแล้ว ${item.filedCount}/${item.expectedCount} ฝ่าย',
-            style: const TextStyle(fontSize: 8, color: AppPalette.textMuted),
-          ),
-          // The old card stopped at "3/6". Naming who is missing is the part
-          // the director can act on.
-          if (item.missingDepartments.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              'ยังไม่ส่ง: ${item.missingDepartments.join(' • ')}',
-              style: const TextStyle(
-                fontSize: 8,
-                color: AppPalette.textMuted,
-              ),
-            ),
-          ],
         ],
       ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Stats + activity feed — one shared card. Recent submissions and open
+  // requirements are one feed instead of two side-by-side cards that were
+  // both empty at the same time, and the stat rail sits inside the same
+  // card as the feed instead of floating unbordered beside a bordered one.
+  // -------------------------------------------------------------------------
+
+  Widget _statsAndActivityCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: directorWhiteCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'กิจกรรมรายงาน',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'รายงานที่ส่งเข้ามาล่าสุด และรายการที่กำหนดให้ส่งแต่ยังไม่ครบ',
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 640) {
+                return Column(
+                  children: [
+                    _statRail(),
+                    const SizedBox(height: 20),
+                    _activityFeedBody(),
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 200, child: _statRail()),
+                  const SizedBox(width: 18),
+                  Expanded(child: _activityFeedBody()),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _activityFeedBody() {
+    final recent = _reports.take(5).toList();
+    final bothEmpty =
+        !_loading && !_loadFailed && recent.isEmpty && _requirements.isEmpty;
+
+    if (_loading) {
+      return _notice(icon: Icons.hourglass_empty_rounded, title: 'กำลังโหลด');
+    }
+    if (_loadFailed) {
+      return _notice(
+        icon: Icons.cloud_off_rounded,
+        title: 'โหลดกิจกรรมรายงานไม่สำเร็จ',
+      );
+    }
+    if (bothEmpty) {
+      return const TimelineEmptyState(
+        icon: Icons.inbox_rounded,
+        title: 'ยังไม่มีกิจกรรมรายงาน',
+        message:
+            'รายงานล่าสุดที่ส่งเข้ามาและรายการที่ค้างส่งจะขึ้นตรงนี้ '
+            '— ตอนนี้ยังไม่มีใครส่งเข้ามาเลย',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _feedSubHeader('ส่งล่าสุด'),
+        const SizedBox(height: 10),
+        if (recent.isEmpty)
+          _feedSubEmpty('ยังไม่มีรายงานส่งเข้ามา')
+        else
+          TimelineFeed(items: [for (final r in recent) _recentReportItem(r)]),
+        const SizedBox(height: 20),
+        _feedSubHeader('กำลังรอส่ง'),
+        const SizedBox(height: 10),
+        if (_requirements.isEmpty)
+          _feedSubEmpty('ไม่มีรายการที่ค้างส่ง')
+        else
+          TimelineFeed(
+            items: [for (final r in _requirements) _requirementItem(r)],
+          ),
+      ],
+    );
+  }
+
+  Widget _feedSubHeader(String title) => Text(
+    title,
+    style: const TextStyle(
+      fontSize: 10.5,
+      fontWeight: FontWeight.w800,
+      color: AppPalette.textMuted,
+      letterSpacing: .2,
+    ),
+  );
+
+  Widget _feedSubEmpty(String text) => Text(
+    text,
+    style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
+  );
+
+  TimelineItem _recentReportItem(SchoolReport report) {
+    return TimelineItem(
+      dotColor: _statusColor(report.status),
+      title: report.fileName,
+      trailing: report.statusLabel,
+      meta:
+          'ส่งโดย ${report.submitterName} • '
+          '${report.departmentName ?? 'ไม่ระบุฝ่าย'}',
+      // No page count: nothing on the server can count the pages of an
+      // uploaded file, and the old tile printed one anyway.
+      detail: '${_dateTimeLabel(report.submittedAt)} • ${report.sizeLabel}',
+      actions: [
+        TextButton(
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 0),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          onPressed: () => _showReportDetail(report),
+          child: const Text(
+            'ดูรายละเอียด',
+            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ],
+    );
+  }
+
+  TimelineItem _requirementItem(ReportRequirement item) {
+    final color = item.isOverdue ? AppPalette.danger : AppPalette.warning;
+
+    return TimelineItem(
+      dotColor: color,
+      title: item.title,
+      trailing: item.isOverdue ? 'เกินกำหนด' : null,
+      meta: item.reportTypeLabel,
+      detail: item.dueDate == null
+          ? 'ไม่ได้กำหนดวันส่ง'
+          : 'กำหนดส่ง ${_dateLabel(item.dueDate!)}',
+      subLines: [
+        'ส่งแล้ว ${item.filedCount}/${item.expectedCount} ฝ่าย',
+        // The old card stopped at "3/6". Naming who is missing is the part
+        // the director can act on.
+        if (item.missingDepartments.isNotEmpty)
+          'ยังไม่ส่ง: ${item.missingDepartments.join(' • ')}',
+      ],
     );
   }
 
@@ -762,7 +651,8 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
             _notice(
               icon: Icons.find_in_page_rounded,
               title: 'ไม่พบไฟล์รายงานตามเงื่อนไข',
-              detail: 'มีรายงานในทะเบียน ${_reports.length} ไฟล์ '
+              detail:
+                  'มีรายงานในทะเบียน ${_reports.length} ไฟล์ '
                   'แต่ไม่มีไฟล์ที่ตรงกับตัวกรองที่เลือก',
             )
           else
@@ -772,162 +662,139 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
+  /// Search gets its own full-width row (the primary way to narrow the
+  /// register); the 4 filters sit below as small pills instead of 4
+  /// equal-width boxes that, unfiltered, all just repeat "ทุก...".
   Widget _filtersArea() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final compact = constraints.maxWidth < 900;
+    final search = TextField(
+      onChanged: (value) => setState(() => searchText = value),
+      decoration: InputDecoration(
+        hintText: 'ค้นหาชื่อรายงาน ไฟล์ ผู้ส่ง หรือฝ่าย...',
+        hintStyle: const TextStyle(fontSize: 9.5),
+        prefixIcon: const Icon(
+          Icons.search_rounded,
+          size: 18,
+          color: AppPalette.primaryPink,
+        ),
+        filled: true,
+        fillColor: AppPalette.pageBg,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 13,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppPalette.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppPalette.border),
+        ),
+      ),
+    );
 
-        final search = TextField(
-          onChanged: (value) => setState(() => searchText = value),
-          decoration: InputDecoration(
-            hintText: 'ค้นหาชื่อรายงาน ไฟล์ ผู้ส่ง หรือฝ่าย...',
-            hintStyle: const TextStyle(fontSize: 9.5),
-            prefixIcon: const Icon(
-              Icons.search_rounded,
-              size: 18,
-              color: AppPalette.primaryPink,
-            ),
-            filled: true,
-            fillColor: AppPalette.pageBg,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 11,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppPalette.border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: AppPalette.border),
-            ),
-          ),
-        );
-
-        final department = _dropdown(
-          value: _safeSelection(selectedDepartment, _departmentOptions),
-          items: _departmentOptions,
-          icon: Icons.account_tree_rounded,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => selectedDepartment = value);
-          },
-        );
-
-        final reportType = _dropdown(
-          value: _safeSelection(selectedReportType, _reportTypeOptions),
-          items: _reportTypeOptions,
-          icon: Icons.event_note_rounded,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => selectedReportType = value);
-          },
-        );
-
-        final fileType = _dropdown(
-          value: _safeSelection(selectedFileType, _fileTypeOptions),
-          items: _fileTypeOptions,
-          icon: Icons.insert_drive_file_rounded,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => selectedFileType = value);
-          },
-        );
-
-        final status = _dropdown(
-          value: _safeSelection(selectedStatus, _statusOptions),
-          items: _statusOptions,
-          icon: Icons.fact_check_rounded,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => selectedStatus = value);
-          },
-        );
-
-        if (compact) {
-          return Column(
-            children: [
-              search,
-              const SizedBox(height: 9),
-              Row(
-                children: [
-                  Expanded(child: department),
-                  const SizedBox(width: 8),
-                  Expanded(child: reportType),
-                ],
-              ),
-              const SizedBox(height: 9),
-              Row(
-                children: [
-                  Expanded(child: fileType),
-                  const SizedBox(width: 8),
-                  Expanded(child: status),
-                ],
-              ),
-            ],
-          );
-        }
-
-        return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        search,
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Expanded(flex: 3, child: search),
-            const SizedBox(width: 9),
-            Expanded(flex: 2, child: department),
-            const SizedBox(width: 9),
-            Expanded(flex: 2, child: reportType),
-            const SizedBox(width: 9),
-            Expanded(flex: 2, child: fileType),
-            const SizedBox(width: 9),
-            Expanded(flex: 2, child: status),
+            _filterPill(
+              value: _safeSelection(selectedDepartment, _departmentOptions),
+              items: _departmentOptions,
+              icon: Icons.account_tree_rounded,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => selectedDepartment = value);
+              },
+            ),
+            _filterPill(
+              value: _safeSelection(selectedReportType, _reportTypeOptions),
+              items: _reportTypeOptions,
+              icon: Icons.event_note_rounded,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => selectedReportType = value);
+              },
+            ),
+            _filterPill(
+              value: _safeSelection(selectedFileType, _fileTypeOptions),
+              items: _fileTypeOptions,
+              icon: Icons.insert_drive_file_rounded,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => selectedFileType = value);
+              },
+            ),
+            _filterPill(
+              value: _safeSelection(selectedStatus, _statusOptions),
+              items: _statusOptions,
+              icon: Icons.fact_check_rounded,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => selectedStatus = value);
+              },
+            ),
           ],
-        );
-      },
+        ),
+      ],
     );
   }
 
-  Widget _dropdown({
+  // A PopupMenuButton instead of a DropdownButton: DropdownButton reserves
+  // Material's default ~48px touch-target height and computes its own
+  // intrinsic width, both of which fought the compact pill shape once
+  // squeezed into a Wrap. PopupMenuButton just wraps whatever child it's
+  // given, so the pill's own Row fully controls its layout.
+  Widget _filterPill({
     required String value,
     required List<String> items,
     required IconData icon,
     required ValueChanged<String?> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: AppPalette.pageBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 17, color: AppPalette.primaryPink),
-          const SizedBox(width: 7),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: value,
-                isExpanded: true,
+    return PopupMenuButton<String>(
+      initialValue: value,
+      onSelected: onChanged,
+      itemBuilder: (context) => [
+        for (final item in items)
+          PopupMenuItem<String>(value: item, child: Text(item)),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppPalette.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: AppPalette.primaryPink),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 130),
+              child: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
                   color: AppPalette.textDark,
                 ),
-                items: items
-                    .map(
-                      (item) => DropdownMenuItem<String>(
-                        value: item,
-                        child: Text(
-                          item,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: onChanged,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.expand_more_rounded,
+              size: 16,
+              color: AppPalette.textMuted,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -968,7 +835,10 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                     runSpacing: 7,
                     children: [
                       _smallTag(report.fileTypeLabel, fileColor),
-                      _smallTag(report.reportTypeLabel, AppPalette.learningBlue),
+                      _smallTag(
+                        report.reportTypeLabel,
+                        AppPalette.learningBlue,
+                      ),
                       _smallTag(report.statusLabel, statusColor),
                     ],
                   ),
@@ -990,13 +860,13 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                 _fileIcon(report),
                 const SizedBox(width: 11),
                 Expanded(flex: 3, child: _reportMainInfo(report)),
-                Expanded(flex: 2, child: _listInfo('ผู้ส่ง', report.submitterName)),
                 Expanded(
                   flex: 2,
-                  child: _listInfo(
-                    'ฝ่าย',
-                    report.departmentName ?? 'ไม่ระบุ',
-                  ),
+                  child: _listInfo('ผู้ส่ง', report.submitterName),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: _listInfo('ฝ่าย', report.departmentName ?? 'ไม่ระบุ'),
                 ),
                 Expanded(child: _listInfo('ประเภท', report.fileTypeLabel)),
                 Expanded(child: _listInfo('ขนาด', report.sizeLabel)),
@@ -1103,25 +973,6 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         text,
         style: TextStyle(
           fontSize: 8.2,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
-  }
-
-  Widget _statusTag(String label) {
-    final color = _statusColorByLabel(label);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppPalette.tint(color, 0.10),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 8,
           fontWeight: FontWeight.w700,
           color: color,
         ),
@@ -1244,7 +1095,10 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                     runSpacing: 7,
                     children: [
                       _smallTag(report.fileTypeLabel, fileColor),
-                      _smallTag(report.reportTypeLabel, AppPalette.learningBlue),
+                      _smallTag(
+                        report.reportTypeLabel,
+                        AppPalette.learningBlue,
+                      ),
                       _smallTag(report.statusLabel, statusColor),
                     ],
                   ),
@@ -1277,7 +1131,10 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
                             _dateTimeLabel(report.submittedAt),
                           ),
                           if (report.requirementTitle != null)
-                            _detailRow('ส่งตามรายการ', report.requirementTitle!),
+                            _detailRow(
+                              'ส่งตามรายการ',
+                              report.requirementTitle!,
+                            ),
                           const SizedBox(height: 13),
                           _detailSectionTitle('รายละเอียดรายงาน'),
                           Text(
@@ -1398,7 +1255,10 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
     );
   }
 
-  Future<void> _openReport(BuildContext dialogContext, SchoolReport report) async {
+  Future<void> _openReport(
+    BuildContext dialogContext,
+    SchoolReport report,
+  ) async {
     setState(() => _busyReports.add(report.reportId));
     try {
       final url =
@@ -1478,8 +1338,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
             note: note,
           ));
 
-      final fresh = await (widget.loadReports?.call() ??
-          SchoolReportService.listReports());
+      final fresh =
+          await (widget.loadReports?.call() ??
+              SchoolReportService.listReports());
       final updated = fresh
           .where((r) => r.reportId == report.reportId)
           .firstOrNull;
@@ -1490,8 +1351,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
       if (!mounted) return;
       setState(() => _reports = fresh);
       // The summary counts by status, so it is stale the moment one changes.
-      final summary = await (widget.loadSummary?.call() ??
-          SchoolReportService.getSummary());
+      final summary =
+          await (widget.loadSummary?.call() ??
+              SchoolReportService.getSummary());
       if (mounted) setState(() => _summary = summary);
 
       if (dialogContext.mounted) Navigator.pop(dialogContext);
@@ -1592,9 +1454,9 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   static String _two(int v) => v.toString().padLeft(2, '0');
@@ -1655,14 +1517,6 @@ class _DirectorReportsPageState extends State<DirectorReportsPage> {
         return AppPalette.learningBlue;
     }
   }
-
-  Color _statusColorByLabel(String label) => _statusColor(
-    SchoolReport.statusLabels.entries
-            .where((e) => e.value == label)
-            .map((e) => e.key)
-            .firstOrNull ??
-        label,
-  );
 }
 
 class _ReportSummaryCard {
@@ -1760,10 +1614,8 @@ class _SubmitReportDialogState extends State<_SubmitReportDialog> {
                 decoration: const InputDecoration(labelText: 'ประเภทรายงาน'),
                 items: SchoolReport.reportTypeLabels.entries
                     .map(
-                      (e) => DropdownMenuItem(
-                        value: e.key,
-                        child: Text(e.value),
-                      ),
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.value)),
                     )
                     .toList(),
                 onChanged: (v) => setState(() => _reportType = v ?? 'monthly'),

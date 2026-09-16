@@ -171,8 +171,9 @@ void main() {
     await _pump(tester, summary: _summary());
 
     expect(find.text('ยังไม่มีรายงานในทะเบียน'), findsOneWidget);
-    expect(find.text('ยังไม่มีรายงานส่งเข้ามา'), findsOneWidget);
-    expect(find.text('ไม่มีรายการที่ค้างส่ง'), findsOneWidget);
+    // Recent submissions and open requirements are one activity feed now —
+    // when both are empty it says so once, not as two separate empty cards.
+    expect(find.text('ยังไม่มีกิจกรรมรายงาน'), findsOneWidget);
   });
 
   testWidgets('a failed load is stated and every figure becomes —', (
@@ -180,10 +181,7 @@ void main() {
   ) async {
     await _pump(tester, fail: true);
 
-    expect(
-      find.textContaining('โหลดทะเบียนรายงานไม่สำเร็จ'),
-      findsWidgets,
-    );
+    expect(find.textContaining('โหลดทะเบียนรายงานไม่สำเร็จ'), findsWidgets);
     expect(find.text('—'), findsWidgets);
     // Not a single zero is invented in place of the read that failed.
     expect(find.text('0'), findsNothing);
@@ -193,9 +191,7 @@ void main() {
   testWidgets('rows and size come from the backend', (tester) async {
     await _pump(
       tester,
-      reports: [
-        _report(department: 'ฝ่ายวิชาการ', position: 'ครูชำนาญการ'),
-      ],
+      reports: [_report(department: 'ฝ่ายวิชาการ', position: 'ครูชำนาญการ')],
       summary: _summary(total: 1, awaiting: 1, thisMonth: 1),
     );
 
@@ -209,11 +205,7 @@ void main() {
   testWidgets('a submitter with no ตำแหน่ง says so rather than borrowing one', (
     tester,
   ) async {
-    await _pump(
-      tester,
-      reports: [_report()],
-      summary: _summary(total: 1),
-    );
+    await _pump(tester, reports: [_report()], summary: _summary(total: 1));
 
     await tester.tap(find.textContaining('รายงานทดสอบ').first);
     await tester.pumpAndSettle();
@@ -248,13 +240,14 @@ void main() {
     expect(find.text('ยังไม่ส่ง: ฝ่ายกิจการนักเรียน'), findsOneWidget);
     expect(find.text('รายการที่เลยกำหนดส่ง'), findsOneWidget);
     // The status filter cannot offer it, because no report carries it.
-    final statusDropdown = tester.widget<DropdownButton<String>>(
-      find.byType(DropdownButton<String>).at(3),
-    );
-    expect(
-      statusDropdown.items?.map((i) => i.value).toList(),
-      ['ทุกสถานะ', 'ส่งแล้ว'],
-    );
+    final statusPillFinder = find.byType(PopupMenuButton<String>).at(3);
+    final statusPill = tester.widget<PopupMenuButton<String>>(statusPillFinder);
+    final statusItems = statusPill
+        .itemBuilder(tester.element(statusPillFinder))
+        .whereType<PopupMenuItem<String>>()
+        .map((i) => i.value)
+        .toList();
+    expect(statusItems, ['ทุกสถานะ', 'ส่งแล้ว']);
   });
 
   testWidgets('filtering to nothing is not the same as an empty register', (
@@ -275,16 +268,13 @@ void main() {
       ],
     );
 
-    await tester.tap(find.byType(DropdownButton<String>).first);
+    await tester.tap(find.byType(PopupMenuButton<String>).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('ฝ่ายกิจการนักเรียน').last);
     await tester.pumpAndSettle();
 
     expect(find.text('ไม่พบไฟล์รายงานตามเงื่อนไข'), findsOneWidget);
-    expect(
-      find.textContaining('มีรายงานในทะเบียน 1 ไฟล์'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('มีรายงานในทะเบียน 1 ไฟล์'), findsOneWidget);
     expect(find.text('ยังไม่มีรายงานในทะเบียน'), findsNothing);
   });
 

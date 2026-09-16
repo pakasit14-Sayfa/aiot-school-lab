@@ -210,4 +210,44 @@ void main() {
     expect(find.textContaining('utility_unreachable'), findsNothing);
     expect(find.text('โหลดไม่สำเร็จ'), findsWidgets);
   });
+
+  testWidgets(
+    'water detail dialog has no invented peak time or top-building split',
+    (tester) async {
+      await _pump(
+        tester,
+        results: <Object?>[
+          _energy(kwh: 1234),
+          _water(m3: 56),
+          const <UtilityTrendPoint>[],
+          const <UtilityTrendPoint>[],
+          null,
+          null,
+          const <Map<String, dynamic>>[],
+        ],
+      );
+
+      await tester.tap(find.text('การใช้น้ำ').first);
+      await tester.pumpAndSettle();
+
+      for (final invented in <String>[
+        '12.10',
+        'ช่วงพักเที่ยง',
+        'อาคารเรียน / ห้องน้ำ',
+        '260 ลบ.ม.',
+        '~41% ของทั้งหมด',
+        'ข้อมูลจากมิเตอร์น้ำแยกโซน',
+        '21 ส.ค. 2569',
+        'ประจำเดือน',
+      ]) {
+        expect(
+          find.textContaining(invented),
+          findsNothing,
+          reason: 'ยังพบของที่แต่งขึ้นในกล่องรายละเอียดน้ำ: $invented',
+        );
+      }
+      // Honest fallback for the metric with no real backing data.
+      expect(find.text('ยังไม่มีข้อมูล'), findsWidgets);
+    },
+  );
 }

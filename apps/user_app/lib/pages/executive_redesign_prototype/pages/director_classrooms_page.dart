@@ -489,7 +489,10 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
             },
             decoration: InputDecoration(
               hintText: 'ค้นหาห้อง เช่น ม.1/1, เลขห้อง หรือครูประจำชั้น...',
-              hintStyle: const TextStyle(fontSize: 9.8),
+              hintStyle: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w500,
+              ),
               prefixIcon: const Icon(
                 Icons.search_rounded,
                 color: AppPalette.primaryPink,
@@ -498,16 +501,27 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
               filled: true,
               fillColor: AppPalette.pageBg,
               contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 11,
+                horizontal: 16,
+                vertical: 12,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(999),
                 borderSide: const BorderSide(color: AppPalette.border),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(999),
                 borderSide: const BorderSide(color: AppPalette.border),
+              ),
+              // Theme's own focusedBorder is a 12px-radius rect
+              // (buildRoleTheme) — without overriding it here too, focusing
+              // this field would snap its corners from the pill shape to
+              // that rect.
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(999),
+                borderSide: const BorderSide(
+                  color: AppPalette.primaryPink,
+                  width: 1.5,
+                ),
               ),
             ),
           );
@@ -569,10 +583,10 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppPalette.pageBg,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: AppPalette.border),
       ),
       child: Row(
@@ -585,7 +599,8 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
                 value: value,
                 isExpanded: true,
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
                   color: AppPalette.textDark,
                 ),
                 items: items
@@ -648,37 +663,13 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
             ],
           ),
           const SizedBox(height: 14),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 620) {
-                return Column(
-                  children: [
-                    for (int i = 0; i < filtered.length; i++) ...[
-                      SizedBox(height: 225, child: _classroomCard(filtered[i])),
-                      if (i != filtered.length - 1) const SizedBox(height: 10),
-                    ],
-                  ],
-                );
-              }
-
-              final int columns = constraints.maxWidth < 1050 ? 2 : 3;
-
-              return GridView.builder(
-                itemCount: filtered.length,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 260,
-                ),
-                itemBuilder: (context, index) {
-                  return _classroomCard(filtered[index]);
-                },
-              );
-            },
-          ),
+          // Horizontal rows instead of a card grid — scans across many rooms
+          // faster than a multi-column grid where comparing the same metric
+          // between rooms means scanning up-down-up-down.
+          for (int i = 0; i < filtered.length; i++) ...[
+            _classroomRow(filtered[i]),
+            if (i != filtered.length - 1) const SizedBox(height: 10),
+          ],
           if (filtered.isEmpty)
             Container(
               width: double.infinity,
@@ -694,170 +685,187 @@ class _DirectorClassroomsPageState extends State<DirectorClassroomsPage> {
     );
   }
 
-  Widget _classroomCard(_ClassroomData room) {
-    // The "ต้องติดตาม" badge that used to sit on these cards was decided by
-    // invented attendance and follow-up counts. Nothing measures either per
-    // room yet, so no room is flagged until something can justify the flag.
+  // Horizontal row instead of a grid card — reads left-to-right like a
+  // roster line, and scans faster across many rooms than a multi-column
+  // grid (comparing the same metric between two rooms means scanning
+  // up-down-up-down instead of straight across). Same fields as the old
+  // card (room code, track, room number, homeroom teacher, student count,
+  // attendance/grade/submission metrics, next period) — none dropped,
+  // just reflowed. The old card's "สาย" metric tile is gone: it showed
+  // room.track a second time (already in the title line right above it),
+  // not a late-arrival count the label implied.
+  Widget _classroomRow(_ClassroomData room) {
+    final badge = Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppPalette.tint(room.color, 0.11),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        room.room,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: room.color,
+        ),
+      ),
+    );
+
+    final title = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${room.track} • ห้อง ${room.roomNumber}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          room.homeroomTeacher,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w500,
+            color: AppPalette.textMuted,
+          ),
+        ),
+      ],
+    );
+
+    final pills = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _roomPill('นักเรียน', '${room.students}', AppPalette.primaryPink),
+        _roomPill(
+          'มาเรียน',
+          room.attendance?.attendancePercent == null
+              ? '—'
+              : '${room.attendance!.attendancePercent!.round()}%',
+          AppPalette.environmentGreen,
+        ),
+        _roomPill(
+          'คะแนนเฉลี่ย',
+          room.learning?.averageGradePercent == null
+              ? '—'
+              : '${room.learning!.averageGradePercent!.round()}%',
+          AppPalette.chartPink2,
+        ),
+        _roomPill(
+          'ส่งงานแล้ว',
+          room.workActivity == null
+              ? '—'
+              : '${room.workActivity!.submittedCount}/${room.workActivity!.expectedSubmissionCount}',
+          AppPalette.learningBlue,
+        ),
+      ],
+    );
+
+    final info = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _roomInfoRow(Icons.person_rounded, 'ครูประจำชั้น', room.homeroomTeacher),
+        _roomInfoRow(Icons.schedule_rounded, 'คาบถัดไป', room.nextClass),
+      ],
+    );
+
+    const chevron = Icon(
+      Icons.chevron_right_rounded,
+      color: AppPalette.textMuted,
+    );
 
     return InkWell(
-      borderRadius: BorderRadius.circular(19),
+      borderRadius: BorderRadius.circular(18),
       onTap: () {
         setState(() => selectedRoom = room);
       },
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: AppPalette.tint(room.color, 0.05),
-          borderRadius: BorderRadius.circular(19),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppPalette.tint(room.color, 0.16)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppPalette.tint(room.color, 0.11),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Text(
-                    room.room,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: room.color,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 760) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        '${room.track} • ห้อง ${room.roomNumber}',
-                        style: const TextStyle(
-                          fontSize: 10.8,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        room.homeroomTeacher,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 8.8,
-                          color: AppPalette.textMuted,
-                        ),
-                      ),
+                      badge,
+                      const SizedBox(width: 10),
+                      Expanded(child: title),
+                      chevron,
                     ],
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppPalette.textMuted,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
+                  const SizedBox(height: 10),
+                  pills,
+                  const SizedBox(height: 10),
+                  info,
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _roomMetric(
-                  'นักเรียน',
-                  '${room.students}',
-                  AppPalette.primaryPink,
-                ),
-                _roomMetric('สาย', room.track, AppPalette.learningBlue),
-                _roomMetric(
-                  'มาเรียน',
-                  room.attendance?.attendancePercent == null
-                      ? '—'
-                      : '${room.attendance!.attendancePercent!.round()}%',
-                  AppPalette.environmentGreen,
-                ),
-                _roomMetric(
-                  'คะแนนเฉลี่ย',
-                  room.learning?.averageGradePercent == null
-                      ? '—'
-                      : '${room.learning!.averageGradePercent!.round()}%',
-                  AppPalette.chartPink2,
-                ),
-                _roomMetric(
-                  'ส่งงานแล้ว',
-                  room.workActivity == null
-                      ? '—'
-                      : '${room.workActivity!.submittedCount}/${room.workActivity!.expectedSubmissionCount}',
-                  AppPalette.learningBlue,
-                ),
+                badge,
+                const SizedBox(width: 12),
+                SizedBox(width: 170, child: title),
+                const SizedBox(width: 14),
+                Expanded(child: pills),
+                const SizedBox(width: 14),
+                SizedBox(width: 150, child: info),
+                const SizedBox(width: 6),
+                chevron,
               ],
-            ),
-            const SizedBox(height: 10),
-            _roomInfoRow(
-              Icons.person_rounded,
-              'ครูประจำชั้น',
-              room.homeroomTeacher,
-            ),
-            _roomInfoRow(Icons.schedule_rounded, 'คาบถัดไป', room.nextClass),
-            const Spacer(),
-            Row(
-              children: [
-                Text(
-                  'ห้อง ${room.roomNumber}',
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                const Spacer(),
-                const Text(
-                  'ดูรายละเอียด',
-                  style: TextStyle(
-                    fontSize: 9,
-                    color: AppPalette.primaryPinkDark,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _roomMetric(String label, String value, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppPalette.tint(color, 0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 8.2,
-                color: AppPalette.textMuted,
-              ),
+  Widget _roomPill(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppPalette.tint(color, 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
             ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 10.8,
-                fontWeight: FontWeight.w800,
-              ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
+              color: AppPalette.textMuted,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

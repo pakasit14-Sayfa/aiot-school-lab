@@ -240,4 +240,42 @@ void main() {
     expect(find.textContaining('โหลดปฏิทินไม่สำเร็จ'), findsNothing);
     expect(find.text('0'), findsWidgets);
   });
+
+  testWidgets(
+    '"วันนี้" jumps back to the real current month, not a frozen August 2026',
+    (tester) async {
+      await _pump(tester);
+      const months = [
+        'มกราคม',
+        'กุมภาพันธ์',
+        'มีนาคม',
+        'เมษายน',
+        'พฤษภาคม',
+        'มิถุนายน',
+        'กรกฎาคม',
+        'สิงหาคม',
+        'กันยายน',
+        'ตุลาคม',
+        'พฤศจิกายน',
+        'ธันวาคม',
+      ];
+      final now = DateTime.now();
+      final currentMonthLabel = '${months[now.month - 1]} ${now.year + 543}';
+
+      // Navigate away from the current month first.
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byTooltip('เดือนถัดไป'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text(currentMonthLabel), findsNothing);
+
+      await tester.tap(find.text('วันนี้'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(currentMonthLabel), findsOneWidget);
+      expect(find.text('สิงหาคม 2569'), currentMonthLabel == 'สิงหาคม 2569'
+          ? findsOneWidget
+          : findsNothing);
+    },
+  );
 }

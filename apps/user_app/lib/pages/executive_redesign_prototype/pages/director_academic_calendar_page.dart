@@ -181,32 +181,9 @@ class _DirectorAcademicCalendarPageState
           ],
           if (_loadFailed) ...[const SizedBox(height: 12), _loadErrorBanner()],
           const SizedBox(height: 16),
-          _summaryCards(),
+          _statStrip(),
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 1000;
-
-              if (compact) {
-                return Column(
-                  children: [
-                    _calendarCard(),
-                    const SizedBox(height: 16),
-                    _selectedDateCard(),
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 5, child: _calendarCard()),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 3, child: _selectedDateCard()),
-                ],
-              );
-            },
-          ),
+          _calendarSection(),
           const SizedBox(height: 16),
           LayoutBuilder(
             builder: (context, constraints) {
@@ -222,13 +199,20 @@ class _DirectorAcademicCalendarPageState
                 );
               }
 
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: _meetingScheduleCard()),
-                  const SizedBox(width: 16),
-                  Expanded(child: _alertsCard()),
-                ],
+              // IntrinsicHeight + stretch so the shorter card doesn't end
+              // with a ragged bottom edge next to its taller sibling — safe
+              // here: neither card's subtree has a LayoutBuilder or a
+              // Column with its own vertical Expanded child (just Text/
+              // InkWell rows).
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _meetingScheduleCard()),
+                    const SizedBox(width: 16),
+                    Expanded(child: _alertsCard()),
+                  ],
+                ),
               );
             },
           ),
@@ -239,10 +223,11 @@ class _DirectorAcademicCalendarPageState
     );
   }
 
-  Widget _summaryCards() {
-    // Counted from the loaded calendar. These were the fixed strings '12',
-    // '4', '3' and '72' — the last one, "วันเรียนคงเหลือ 72", was a claim
-    // about the academic term that nothing in the schema records at all.
+  // Inline stat strip instead of four pastel-filled boxes — a number and a
+  // label separated by a rule, not a card each. Same figures, same honest
+  // '—' when loading/failed (figure()) and 0 when genuinely empty — only
+  // the container changed.
+  Widget _statStrip() {
     final monthCount = _eventsForMonth(selectedMonth).length;
     final today = DateTime(_now.year, _now.month, _now.day);
     final weekCount = events.where((e) {
@@ -258,173 +243,264 @@ class _DirectorAcademicCalendarPageState
     String figure(int n) => _loading || _loadFailed ? '—' : '$n';
 
     final items = [
-      _CalendarSummary(
-        title: 'กิจกรรมเดือนนี้',
-        value: figure(monthCount),
-        subtitle: 'รวมประชุมและกิจกรรมโรงเรียน',
-        icon: Icons.calendar_month_rounded,
-        color: AppPalette.softPink,
-      ),
-      _CalendarSummary(
-        title: 'ภายใน 7 วัน',
-        value: figure(weekCount),
-        subtitle: 'นับจากวันนี้',
-        icon: Icons.event_available_rounded,
-        color: AppPalette.softBlue,
-      ),
-      _CalendarSummary(
-        title: 'ตารางสอบ',
-        value: figure(examCount),
-        subtitle: 'ทั้งปฏิทิน',
-        icon: Icons.assignment_rounded,
-        color: AppPalette.softCream,
-      ),
-      _CalendarSummary(
-        title: 'คาบเรียนต่อสัปดาห์',
-        value: figure(_schedules.length),
-        subtitle: 'จากตารางสอนทั้งโรงเรียน',
-        icon: Icons.school_rounded,
-        color: AppPalette.softPink2,
-      ),
+      ('กิจกรรมเดือนนี้', figure(monthCount)),
+      ('ภายใน 7 วัน', figure(weekCount)),
+      ('ตารางสอบ', figure(examCount)),
+      ('คาบเรียนต่อสัปดาห์', figure(_schedules.length)),
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth < 700 ? 2 : 4;
-
-        return GridView.builder(
-          itemCount: items.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            mainAxisExtent: 130,
-          ),
-          itemBuilder: (context, index) {
-            final item = items[index];
-
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: directorWhiteCard(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0)
+                Container(
+                  width: 1,
+                  height: 34,
+                  margin: const EdgeInsets.symmetric(horizontal: 18),
+                  color: AppPalette.border,
+                ),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(item.icon, size: 20, color: AppPalette.textDark),
-                  const Spacer(),
                   Text(
-                    item.title,
+                    items[i].$2,
                     style: const TextStyle(
-                      fontSize: 10.5,
-                      color: AppPalette.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.value,
-                    style: const TextStyle(
-                      fontSize: 23,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       color: AppPalette.textDark,
                     ),
                   ),
                   Text(
-                    item.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    items[i].$1,
                     style: const TextStyle(
-                      fontSize: 8.8,
+                      fontSize: 9,
                       color: AppPalette.textMuted,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-            );
-          },
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Compact date-jumper (left) + agenda (right) instead of a full-size month
+  // grid + separate selected-date card — the grid was mostly empty cells for
+  // a school with only a couple of events a month.
+  Widget _calendarSection() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 900;
+        final mini = _miniCalendar();
+        final agenda = _agendaCard();
+
+        if (compact) {
+          return Column(children: [mini, const SizedBox(height: 16), agenda]);
+        }
+
+        // IntrinsicHeight + stretch so the mini-calendar card matches the
+        // agenda card's height instead of floating short beside it —
+        // _miniMonthGrid() no longer uses GridView (see its comment) so
+        // this subtree is safe.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 35, child: mini),
+              const SizedBox(width: 16),
+              Expanded(flex: 65, child: agenda),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _calendarCard() {
-    final visibleEvents = _eventsForMonth(selectedMonth);
-
+  Widget _miniCalendar() {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: directorWhiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _calendarHeader(),
-          const SizedBox(height: 14),
-          _filterBar(),
-          const SizedBox(height: 16),
-          _weekHeader(),
-          const SizedBox(height: 6),
-          _monthGrid(visibleEvents),
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'เดือนก่อนหน้า',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                iconSize: 16,
+                onPressed: () {
+                  setState(() {
+                    selectedMonth = DateTime(
+                      selectedMonth.year,
+                      selectedMonth.month - 1,
+                    );
+                  });
+                },
+                icon: const Icon(Icons.chevron_left_rounded),
+              ),
+              Expanded(
+                child: Text(
+                  _thaiMonthYear(selectedMonth),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'เดือนถัดไป',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                iconSize: 16,
+                onPressed: () {
+                  setState(() {
+                    selectedMonth = DateTime(
+                      selectedMonth.year,
+                      selectedMonth.month + 1,
+                    );
+                  });
+                },
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ],
+          ),
+          Center(
+            child: TextButton(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () {
+                setState(() {
+                  selectedMonth = DateTime(_now.year, _now.month);
+                  selectedDate = DateTime(_now.year, _now.month, _now.day);
+                });
+              },
+              child: const Text('วันนี้', style: TextStyle(fontSize: 10.5)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
+                .map(
+                  (d) => Expanded(
+                    child: Center(
+                      child: Text(
+                        d,
+                        style: const TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: AppPalette.textMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: 4),
+          _miniMonthGrid(),
         ],
       ),
     );
   }
 
-  Widget _calendarHeader() {
-    return Row(
-      children: [
-        IconButton(
-          tooltip: 'เดือนก่อนหน้า',
-          onPressed: () {
-            setState(() {
-              selectedMonth = DateTime(
-                selectedMonth.year,
-                selectedMonth.month - 1,
-              );
-            });
-          },
-          icon: const Icon(Icons.chevron_left_rounded),
-        ),
-        Expanded(
-          child: Column(
-            children: [
-              Text(
-                _thaiMonthYear(selectedMonth),
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
+  // Column of Rows instead of GridView — GridView (like every Viewport-based
+  // widget: ListView, SingleChildScrollView) doesn't support the intrinsic-
+  // dimensions protocol, so it can't sit under an ancestor IntrinsicHeight
+  // (the mini-calendar/agenda pairing in _calendarSection() needs that to
+  // make the two cards match height). A Column of Rows with fixed-height
+  // cells has no such restriction.
+  Widget _miniMonthGrid() {
+    final firstDay = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    final daysInMonth = DateTime(
+      selectedMonth.year,
+      selectedMonth.month + 1,
+      0,
+    ).day;
+    final leadingEmpty = firstDay.weekday - 1;
+    final totalCells = leadingEmpty + daysInMonth;
+    final rowCount = (totalCells / 7).ceil();
+    final monthEvents = _eventsForMonth(selectedMonth);
+
+    Widget cell(int dayNumber) {
+      if (dayNumber < 1 || dayNumber > daysInMonth) {
+        return const Expanded(child: SizedBox(height: 30));
+      }
+
+      final date = DateTime(selectedMonth.year, selectedMonth.month, dayNumber);
+      final hasEvent = monthEvents.any((e) => _sameDate(e.date, date));
+      final selected = _sameDate(selectedDate, date);
+      final today = _sameDate(date, _now);
+
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: () => setState(() => selectedDate = date),
+          child: Container(
+            height: 30,
+            margin: const EdgeInsets.all(1),
+            decoration: BoxDecoration(
+              color: selected ? AppPalette.textDark : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$dayNumber',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: (today || selected)
+                        ? FontWeight.w800
+                        : FontWeight.w500,
+                    color: selected
+                        ? Colors.white
+                        : (today
+                              ? AppPalette.primaryPinkDark
+                              : AppPalette.textDark),
+                  ),
                 ),
-              ),
-              const Text(
-                'ภาคเรียนที่ 1 / 2569',
-                style: TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
-              ),
-            ],
+                if (hasEvent)
+                  Container(
+                    width: 3,
+                    height: 3,
+                    margin: const EdgeInsets.only(top: 1),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: selected ? Colors.white : AppPalette.primaryPink,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
-        TextButton(
-          onPressed: () {
-            setState(() {
-              selectedMonth = DateTime(2026, 8);
-              selectedDate = DateTime(2026, 8, 20);
-            });
-          },
-          child: const Text('วันนี้'),
-        ),
-        IconButton(
-          tooltip: 'เดือนถัดไป',
-          onPressed: () {
-            setState(() {
-              selectedMonth = DateTime(
-                selectedMonth.year,
-                selectedMonth.month + 1,
-              );
-            });
-          },
-          icon: const Icon(Icons.chevron_right_rounded),
-        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (var r = 0; r < rowCount; r++)
+          Row(
+            children: [
+              for (var c = 0; c < 7; c++) cell(r * 7 + c - leadingEmpty + 1),
+            ],
+          ),
       ],
     );
   }
@@ -468,219 +544,143 @@ class _DirectorAcademicCalendarPageState
     );
   }
 
-  Widget _weekHeader() {
-    const days = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
-
-    return Row(
-      children: days
-          .map(
-            (day) => Expanded(
-              child: Center(
-                child: Text(
-                  day,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _monthGrid(List<_CalendarEvent> visibleEvents) {
-    final firstDay = DateTime(selectedMonth.year, selectedMonth.month, 1);
-    final daysInMonth = DateTime(
-      selectedMonth.year,
-      selectedMonth.month + 1,
-      0,
-    ).day;
-
-    final leadingEmpty = firstDay.weekday - 1;
-    final totalCells = leadingEmpty + daysInMonth;
-    final rows = (totalCells / 7).ceil();
-    final cellCount = rows * 7;
-
-    return GridView.builder(
-      itemCount: cellCount,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        crossAxisSpacing: 6,
-        mainAxisSpacing: 6,
-        mainAxisExtent: 76,
-      ),
-      itemBuilder: (context, index) {
-        final dayNumber = index - leadingEmpty + 1;
-
-        if (dayNumber < 1 || dayNumber > daysInMonth) {
-          return const SizedBox.shrink();
-        }
-
-        final date = DateTime(
-          selectedMonth.year,
-          selectedMonth.month,
-          dayNumber,
-        );
-
-        final dayEvents = visibleEvents
-            .where((event) => _sameDate(event.date, date))
-            .toList();
-
-        final selected = _sameDate(selectedDate, date);
-        final today = _sameDate(date, DateTime(2026, 8, 20));
-
-        return InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () => setState(() => selectedDate = date),
-          child: Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: selected ? AppPalette.primaryPinkSoft : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: selected ? AppPalette.primaryPink : AppPalette.border,
-                width: selected ? 1.5 : 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 23,
-                      height: 23,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: today
-                            ? AppPalette.primaryPink
-                            : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '$dayNumber',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w700,
-                          color: today ? Colors.white : AppPalette.textDark,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                if (dayEvents.isNotEmpty)
-                  Wrap(
-                    spacing: 3,
-                    runSpacing: 3,
-                    children: dayEvents.take(3).map((event) {
-                      return Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: event.color,
-                          shape: BoxShape.circle,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _selectedDateCard() {
-    final dayEvents = _eventsForDate(selectedDate);
-
+  Widget _agendaCard() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _thaiFullDate(selectedDate),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            dayEvents.isEmpty
-                ? 'ไม่มีกิจกรรมในวันนี้'
-                : '${dayEvents.length} รายการในวันนี้',
-            style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
-          ),
-          const SizedBox(height: 14),
-          if (dayEvents.isEmpty)
-            _emptySelectedDate()
-          else
-            ...dayEvents.map(_selectedEventTile),
+          _filterBar(),
+          const SizedBox(height: 18),
+          ..._agendaGroups(),
         ],
       ),
     );
   }
 
-  Widget _emptySelectedDate() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 30),
-      decoration: BoxDecoration(
-        color: AppPalette.primaryPinkSoft,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.event_available_rounded,
-            size: 34,
-            color: AppPalette.primaryPink,
-          ),
-          SizedBox(height: 8),
-          Text(
-            'วันนี้ยังไม่มีรายการ',
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
-          ),
-          SizedBox(height: 3),
-          Text(
-            'เลือกวันที่อื่นในปฏิทินเพื่อดูรายละเอียด',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
+  // Shows every day in the selected month that either has an event, or is
+  // the currently-selected date (even with nothing on it) — the latter is
+  // what used to be a separate "selected date" card; here it's just another
+  // row in the same agenda so there's one place to look, not two.
+  List<Widget> _agendaGroups() {
+    final monthEvents = _eventsForMonth(selectedMonth);
+    final byDay = <int, List<_CalendarEvent>>{};
+    for (final event in monthEvents) {
+      byDay.putIfAbsent(event.date.day, () => []).add(event);
+    }
 
-  Widget _selectedEventTile(_CalendarEvent event) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => _showEventDetail(event),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppPalette.tint(event.color, 0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppPalette.tint(event.color, 0.18)),
+    final selectedInMonth =
+        selectedDate.year == selectedMonth.year &&
+        selectedDate.month == selectedMonth.month;
+    final days = <int>{
+      ...byDay.keys,
+      if (selectedInMonth) selectedDate.day,
+    }.toList()..sort();
+
+    if (days.isEmpty) {
+      return [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 30),
+          alignment: Alignment.center,
+          child: const Text(
+            'ไม่มีกิจกรรมในเดือนนี้',
+            style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+          ),
         ),
+      ];
+    }
+
+    return [
+      for (var i = 0; i < days.length; i++)
+        _agendaGroup(
+          DateTime(selectedMonth.year, selectedMonth.month, days[i]),
+          byDay[days[i]] ?? const [],
+          isLast: i == days.length - 1,
+        ),
+    ];
+  }
+
+  Widget _agendaGroup(
+    DateTime date,
+    List<_CalendarEvent> dayEvents, {
+    required bool isLast,
+  }) {
+    final today = _sameDate(date, _now);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 22),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 48,
+            child: Column(
+              children: [
+                Text(
+                  '${date.day}',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: today
+                        ? AppPalette.primaryPinkDark
+                        : AppPalette.textDark,
+                  ),
+                ),
+                Text(
+                  _thaiWeekdayShort(date),
+                  style: const TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: dayEvents.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'ไม่มีกิจกรรมในวันนี้',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: AppPalette.textMuted,
+                      ),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final event in dayEvents) _agendaEventRow(event),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _agendaEventRow(_CalendarEvent event) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _showEventDetail(event),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 5,
+              height: 36,
+              margin: const EdgeInsets.only(top: 2),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                color: event.color,
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: Icon(event.icon, size: 19, color: event.color),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -690,38 +690,48 @@ class _DirectorAcademicCalendarPageState
                   Text(
                     event.title,
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
-                    event.time,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      color: event.color,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    event.location,
+                    '${event.time} · ${event.location}',
                     style: const TextStyle(
                       fontSize: 9.5,
                       color: AppPalette.textMuted,
                     ),
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    event.category.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                      color: event.color,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
                 ],
               ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppPalette.textMuted,
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _thaiWeekdayShort(DateTime date) {
+    const weekdays = [
+      'จันทร์',
+      'อังคาร',
+      'พุธ',
+      'พฤหัสบดี',
+      'ศุกร์',
+      'เสาร์',
+      'อาทิตย์',
+    ];
+    return weekdays[date.weekday - 1];
   }
 
   Widget _meetingScheduleCard() {
@@ -1112,16 +1122,6 @@ class _DirectorAcademicCalendarPageState
     }).toList();
   }
 
-  List<_CalendarEvent> _eventsForDate(DateTime date) {
-    return events.where((event) {
-      final dateMatch = _sameDate(event.date, date);
-      final filterMatch =
-          selectedFilter == 'ทั้งหมด' || event.category == selectedFilter;
-
-      return dateMatch && filterMatch;
-    }).toList();
-  }
-
   void _showEventDetail(_CalendarEvent event) {
     showDialog<void>(
       context: context,
@@ -1336,22 +1336,6 @@ class _CalendarEvent {
     required this.icon,
     required this.alertBefore,
     required this.participants,
-  });
-}
-
-class _CalendarSummary {
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-
-  const _CalendarSummary({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
   });
 }
 

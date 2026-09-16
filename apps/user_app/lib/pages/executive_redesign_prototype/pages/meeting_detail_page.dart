@@ -33,6 +33,13 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
   );
   String? actionError;
   bool exporting = false;
+
+  // Same page-local slate accent as director_meetings_page.dart (the list
+  // page this detail page opens from) — most sections here already carry
+  // their own accent (#356A9A blue, #956419 amber, #467A65 green), only the
+  // 2 sections that relied on section()'s pink default move to slate.
+  static const _slate = Color(0xFF4A5578);
+  static const _slateDark = Color(0xFF363F5C);
   @override
   void initState() {
     super.initState();
@@ -64,22 +71,24 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
     VoidCallback onPressed, {
     IconData? icon,
     Color? color,
-  }) => OutlinedButton.icon(
-    style: color == null
-        ? null
-        : OutlinedButton.styleFrom(
-            foregroundColor: color,
-            side: BorderSide(color: color.withAlpha(90)),
-          ),
-    onPressed: controller.busy ? null : onPressed,
-    icon: Icon(icon ?? Icons.edit_outlined, size: 18),
-    label: Text(label),
-  );
+  }) {
+    final resolved = color ?? _slate;
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: resolved,
+        side: BorderSide(color: resolved.withAlpha(90)),
+      ),
+      onPressed: controller.busy ? null : onPressed,
+      icon: Icon(icon ?? Icons.edit_outlined, size: 18),
+      label: Text(label),
+    );
+  }
+
   Widget section(
     String title,
     List<Widget> children, {
     List<Widget> actions = const [],
-    Color accent = AppPalette.primaryPinkDark,
+    Color accent = _slateDark,
     Color surface = Colors.white,
     IconData icon = Icons.event_note_outlined,
   }) => DirectorWorkspaceCard(
@@ -95,6 +104,127 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
       ],
     ],
   );
+  // Icon-avatar row — same language as the roster rows already shipped on
+  // the teachers page — instead of a bare ListTile with no visual anchor
+  // per person.
+  Widget _personRow({
+    required String name,
+    String? tag,
+    required String meta,
+    Widget? trailing,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppPalette.pageBg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppPalette.tint(const Color(0xFF356A9A), 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              _firstLetter(name),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF356A9A),
+              ),
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (tag != null) ...[
+                      const SizedBox(width: 5),
+                      Text(
+                        '· $tag',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF356A9A),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  meta,
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+
+  // Same breakpoint as DirectorWorkspaceGrid (850px, 20px gap) but adds
+  // IntrinsicHeight + stretch so the shorter card doesn't end with a ragged
+  // bottom edge next to its taller sibling — DirectorWorkspaceGrid itself
+  // is a Wrap (each child sized to its own content), which can't do that,
+  // and it's shared with other pages so it isn't changed here. Safe to wrap
+  // in IntrinsicHeight: neither card's subtree below has a LayoutBuilder or
+  // a Column with its own vertical Expanded child (just Text/ListTile/Wrap).
+  Widget _pairedCards(Widget left, Widget right) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 850) {
+          return Column(children: [left, const SizedBox(height: 20), right]);
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: left),
+              const SizedBox(width: 20),
+              Expanded(child: right),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _firstLetter(String name) {
+    final clean = name
+        .replaceFirst('นาย', '')
+        .replaceFirst('นางสาว', '')
+        .replaceFirst('นาง', '')
+        .trim();
+    return clean.isEmpty ? '?' : clean.substring(0, 1);
+  }
+
   Map<String, String> peopleOptions(MeetingDetail d) => {
     '': 'ยังไม่ระบุ',
     for (final p in d.people) p.id: p.name,
@@ -227,12 +357,65 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    DirectorWorkspaceHero(
-                      title: m.title,
-                      subtitle: '${m.numberLabel} · ${meetingStatus(m.status)}',
-                      icon: m.isPrivate
-                          ? Icons.lock_outline
-                          : Icons.groups_outlined,
+                    // Local hero, not DirectorWorkspaceHero — that widget
+                    // hardcodes the pink gradient and is shared with the
+                    // scan/notifications pages and the meetings list this
+                    // page opens from (which already moved to slate the
+                    // same way).
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_slateDark, _slate],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              m.isPrivate
+                                  ? Icons.lock_outline
+                                  : Icons.groups_outlined,
+                              color: Colors.white,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${m.numberLabel} · ${meetingStatus(m.status)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
                     if (actionError != null)
@@ -380,156 +563,150 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                             ),
                         ],
                       ),
-                    DirectorWorkspaceGrid(
-                      children: [
-                        section(
-                          'ผู้เข้าร่วม (${d.people.length} คน) / ภายนอก (${d.guests.length} คน)',
-                          [
-                            Text(
-                              m.attendanceTakenAt == null
-                                  ? 'ยังไม่ได้เช็คชื่อ'
-                                  : 'เช็คชื่อแล้ว ${meetingDate(m.attendanceTakenAt!.toLocal())}',
-                            ),
-                            for (final p in d.people)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(
-                                  '${p.name}${p.organizer ? ' · ผู้จัด' : ''}',
-                                ),
-                                subtitle: Text(
+                    _pairedCards(
+                      section(
+                        'ผู้เข้าร่วม (${d.people.length} คน) / ภายนอก (${d.guests.length} คน)',
+                        [
+                          Text(
+                            m.attendanceTakenAt == null
+                                ? 'ยังไม่ได้เช็คชื่อ'
+                                : 'เช็คชื่อแล้ว ${meetingDate(m.attendanceTakenAt!.toLocal())}',
+                          ),
+                          for (final p in d.people)
+                            _personRow(
+                              name: p.name,
+                              tag: p.organizer ? 'ผู้จัด' : null,
+                              meta:
                                   '${meetingStatus(p.response ?? 'pending')} · ${attendanceLabel(p.attended)}${p.note?.isNotEmpty == true ? '\n${p.note}' : ''}',
-                                ),
-                              ),
-                            for (final p in d.guests)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text('${p.name} · ภายนอก'),
-                                subtitle: Text(
+                            ),
+                          for (final p in d.guests)
+                            _personRow(
+                              name: p.name,
+                              tag: 'ภายนอก',
+                              meta:
                                   '${p.organization ?? 'ไม่ระบุต้นสังกัด'} · ${attendanceLabel(p.attended)}',
-                                ),
-                                trailing: manage
-                                    ? IconButton(
-                                        tooltip: 'นำผู้เข้าร่วมภายนอกออก',
-                                        icon: const Icon(
-                                          Icons.person_remove_outlined,
-                                        ),
-                                        onPressed: controller.busy
-                                            ? null
-                                            : () => action(
-                                                MeetingActionDialog(
-                                                  title:
-                                                      'นำผู้เข้าร่วมภายนอกออก',
-                                                  description: p.name,
-                                                  submit: (_) => controller
-                                                      .removeGuest(p.id),
-                                                ),
-                                              ),
-                                      )
-                                    : null,
-                              ),
-                          ],
-                          actions: manage
-                              ? [
-                                  button(
-                                    'เช็คชื่อ',
-                                    () => action(
-                                      MeetingAttendanceDialog(
-                                        controller: controller,
-                                        data: d,
+                              trailing: manage
+                                  ? IconButton(
+                                      tooltip: 'นำผู้เข้าร่วมภายนอกออก',
+                                      icon: const Icon(
+                                        Icons.person_remove_outlined,
+                                        size: 19,
                                       ),
-                                    ),
-                                    icon: Icons.checklist,
-                                  ),
-                                  if (!m.isPrivate)
-                                    button(
-                                      'เพิ่มผู้เข้าร่วมภายนอก',
-                                      () => action(
-                                        MeetingActionDialog(
-                                          title: 'เพิ่มผู้เข้าร่วมภายนอก',
-                                          description:
-                                              'บุคคลภายนอกไม่มีบัญชีและไม่ใช้ระบบตอบรับ',
-                                          fields: const [
-                                            MeetingField(
-                                              'name',
-                                              'ชื่อ–นามสกุล',
-                                              required: true,
-                                            ),
-                                            MeetingField(
-                                              'organization',
-                                              'ต้นสังกัด',
-                                            ),
-                                          ],
-                                          submit: (v) => controller.guest(
-                                            v['name']!,
-                                            v['organization']!,
-                                          ),
-                                        ),
-                                      ),
-                                      icon: Icons.person_add_alt,
-                                    ),
-                                ]
-                              : [],
-                          accent: const Color(0xFF356A9A),
-                          icon: Icons.people_outline,
-                        ),
-                        section(
-                          'วาระประชุม',
-                          [
-                            if (d.agenda.isEmpty)
-                              const Text('ยังไม่มีวาระประชุม'),
-                            for (final a in d.agenda)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${a.order}. ${a.title}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    if (a.presenter != null)
-                                      Text('ผู้นำเสนอ: ${a.presenter}'),
-                                    if (a.detail?.isNotEmpty == true)
-                                      Text(a.detail!),
-                                    if (manage)
-                                      Wrap(
-                                        spacing: 8,
-                                        children: [
-                                          button('แก้วาระ', () => agenda(d, a)),
-                                          button(
-                                            'ลบวาระ',
-                                            () => action(
+                                      onPressed: controller.busy
+                                          ? null
+                                          : () => action(
                                               MeetingActionDialog(
-                                                title: 'ลบวาระประชุม',
-                                                description: a.title,
+                                                title: 'นำผู้เข้าร่วมภายนอกออก',
+                                                description: p.name,
                                                 submit: (_) => controller
-                                                    .deleteAgenda(a.id),
+                                                    .removeGuest(p.id),
                                               ),
                                             ),
-                                            icon: Icons.delete_outline,
-                                            color: AppPalette.danger,
+                                    )
+                                  : null,
+                            ),
+                        ],
+                        actions: manage
+                            ? [
+                                button(
+                                  'เช็คชื่อ',
+                                  () => action(
+                                    MeetingAttendanceDialog(
+                                      controller: controller,
+                                      data: d,
+                                    ),
+                                  ),
+                                  icon: Icons.checklist,
+                                ),
+                                if (!m.isPrivate)
+                                  button(
+                                    'เพิ่มผู้เข้าร่วมภายนอก',
+                                    () => action(
+                                      MeetingActionDialog(
+                                        title: 'เพิ่มผู้เข้าร่วมภายนอก',
+                                        description:
+                                            'บุคคลภายนอกไม่มีบัญชีและไม่ใช้ระบบตอบรับ',
+                                        fields: const [
+                                          MeetingField(
+                                            'name',
+                                            'ชื่อ–นามสกุล',
+                                            required: true,
+                                          ),
+                                          MeetingField(
+                                            'organization',
+                                            'ต้นสังกัด',
                                           ),
                                         ],
+                                        submit: (v) => controller.guest(
+                                          v['name']!,
+                                          v['organization']!,
+                                        ),
                                       ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          actions: manage
-                              ? [
-                                  button(
-                                    'เพิ่มวาระ',
-                                    () => agenda(d),
-                                    icon: Icons.add,
+                                    ),
+                                    icon: Icons.person_add_alt,
                                   ),
-                                ]
-                              : [],
-                          accent: const Color(0xFF956419),
-                          icon: Icons.format_list_numbered,
-                        ),
-                      ],
+                              ]
+                            : [],
+                        accent: const Color(0xFF356A9A),
+                        icon: Icons.people_outline,
+                      ),
+                      section(
+                        'วาระประชุม',
+                        [
+                          if (d.agenda.isEmpty)
+                            const Text('ยังไม่มีวาระประชุม'),
+                          for (final a in d.agenda)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${a.order}. ${a.title}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  if (a.presenter != null)
+                                    Text('ผู้นำเสนอ: ${a.presenter}'),
+                                  if (a.detail?.isNotEmpty == true)
+                                    Text(a.detail!),
+                                  if (manage)
+                                    Wrap(
+                                      spacing: 8,
+                                      children: [
+                                        button('แก้วาระ', () => agenda(d, a)),
+                                        button(
+                                          'ลบวาระ',
+                                          () => action(
+                                            MeetingActionDialog(
+                                              title: 'ลบวาระประชุม',
+                                              description: a.title,
+                                              submit: (_) =>
+                                                  controller.deleteAgenda(a.id),
+                                            ),
+                                          ),
+                                          icon: Icons.delete_outline,
+                                          color: AppPalette.danger,
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
+                        actions: manage
+                            ? [
+                                button(
+                                  'เพิ่มวาระ',
+                                  () => agenda(d),
+                                  icon: Icons.add,
+                                ),
+                              ]
+                            : [],
+                        accent: const Color(0xFF956419),
+                        icon: Icons.format_list_numbered,
+                      ),
                     ),
                     section(
                       'รายงานประชุม — ${m.minutesLabel}',
@@ -651,139 +828,137 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                       accent: const Color(0xFF356A9A),
                       icon: Icons.description_outlined,
                     ),
-                    DirectorWorkspaceGrid(
-                      children: [
-                        section(
-                          'มติและงานที่มอบหมาย',
-                          [
-                            if (d.resolutions.isEmpty)
-                              const Text('ยังไม่มีมติหรืองานที่มอบหมาย'),
-                            for (final r in d.resolutions)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      r.body,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                    _pairedCards(
+                      section(
+                        'มติและงานที่มอบหมาย',
+                        [
+                          if (d.resolutions.isEmpty)
+                            const Text('ยังไม่มีมติหรืองานที่มอบหมาย'),
+                          for (final r in d.resolutions)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    r.body,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    Text(
-                                      'ผู้รับผิดชอบ: ${r.assignee ?? 'ยังไม่ระบุ'} · กำหนด: ${r.dueDate?.toIso8601String().substring(0, 10) ?? 'ยังไม่ระบุ'}',
-                                    ),
-                                    Text(meetingStatus(r.status)),
-                                    if (m.status != 'cancelled' &&
-                                        (m.canManage ||
-                                            r.assigneeId == d.myUserId))
-                                      Wrap(
-                                        spacing: 8,
-                                        children: [
-                                          for (final status in [
-                                            'open',
-                                            'done',
-                                            'cancelled',
-                                          ].where((s) => s != r.status))
-                                            button(
-                                              'เปลี่ยนเป็น${meetingStatus(status)}',
-                                              () => action(
-                                                MeetingActionDialog(
-                                                  title:
-                                                      'เปลี่ยนสถานะงานเป็น${meetingStatus(status)}',
-                                                  description: r.body,
-                                                  submit: (_) => controller
-                                                      .resolutionStatus(
-                                                        r.id,
-                                                        status,
-                                                      ),
-                                                ),
+                                  ),
+                                  Text(
+                                    'ผู้รับผิดชอบ: ${r.assignee ?? 'ยังไม่ระบุ'} · กำหนด: ${r.dueDate?.toIso8601String().substring(0, 10) ?? 'ยังไม่ระบุ'}',
+                                  ),
+                                  Text(meetingStatus(r.status)),
+                                  if (m.status != 'cancelled' &&
+                                      (m.canManage ||
+                                          r.assigneeId == d.myUserId))
+                                    Wrap(
+                                      spacing: 8,
+                                      children: [
+                                        for (final status in [
+                                          'open',
+                                          'done',
+                                          'cancelled',
+                                        ].where((s) => s != r.status))
+                                          button(
+                                            'เปลี่ยนเป็น${meetingStatus(status)}',
+                                            () => action(
+                                              MeetingActionDialog(
+                                                title:
+                                                    'เปลี่ยนสถานะงานเป็น${meetingStatus(status)}',
+                                                description: r.body,
+                                                submit: (_) =>
+                                                    controller.resolutionStatus(
+                                                      r.id,
+                                                      status,
+                                                    ),
                                               ),
                                             ),
-                                        ],
-                                      ),
-                                  ],
-                                ),
+                                          ),
+                                      ],
+                                    ),
+                                ],
                               ),
-                          ],
-                          actions: manage
-                              ? [
-                                  button(
-                                    'เพิ่มมติ / มอบหมายงาน',
-                                    () => action(
-                                      MeetingActionDialog(
-                                        title: 'เพิ่มมติและงานที่มอบหมาย',
-                                        fields: [
-                                          const MeetingField(
-                                            'body',
-                                            'มติ / งานที่มอบหมาย',
-                                            required: true,
-                                            lines: 4,
-                                          ),
-                                          MeetingField(
-                                            'assignee',
-                                            'ผู้รับผิดชอบ',
-                                            options: peopleOptions(d),
-                                          ),
-                                          const MeetingField(
-                                            'due',
-                                            'วันครบกำหนด (ค.ศ. YYYY-MM-DD)',
-                                            validate: meetingDueDateValidator,
-                                          ),
-                                        ],
-                                        submit: (v) => controller.resolution(
-                                          v['body']!,
-                                          v['assignee']!.isEmpty
-                                              ? null
-                                              : v['assignee'],
-                                          v['due']!.isEmpty ? null : v['due'],
+                            ),
+                        ],
+                        actions: manage
+                            ? [
+                                button(
+                                  'เพิ่มมติ / มอบหมายงาน',
+                                  () => action(
+                                    MeetingActionDialog(
+                                      title: 'เพิ่มมติและงานที่มอบหมาย',
+                                      fields: [
+                                        const MeetingField(
+                                          'body',
+                                          'มติ / งานที่มอบหมาย',
+                                          required: true,
+                                          lines: 4,
                                         ),
+                                        MeetingField(
+                                          'assignee',
+                                          'ผู้รับผิดชอบ',
+                                          options: peopleOptions(d),
+                                        ),
+                                        const MeetingField(
+                                          'due',
+                                          'วันครบกำหนด (ค.ศ. YYYY-MM-DD)',
+                                          validate: meetingDueDateValidator,
+                                        ),
+                                      ],
+                                      submit: (v) => controller.resolution(
+                                        v['body']!,
+                                        v['assignee']!.isEmpty
+                                            ? null
+                                            : v['assignee'],
+                                        v['due']!.isEmpty ? null : v['due'],
                                       ),
                                     ),
-                                    icon: Icons.add,
                                   ),
-                                ]
-                              : [],
-                          accent: const Color(0xFF467A65),
-                          icon: Icons.task_alt,
-                        ),
-                        section(
-                          'ไฟล์แนบ',
-                          [
-                            if (d.attachments.isEmpty)
-                              const Text('ยังไม่มีไฟล์แนบ'),
-                            for (final a in d.attachments)
-                              ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: const Icon(
-                                  Icons.insert_drive_file_outlined,
+                                  icon: Icons.add,
                                 ),
-                                title: Text(a.name),
-                                subtitle: Text('${a.size} bytes'),
-                                trailing: IconButton(
-                                  tooltip: 'ดาวน์โหลดไฟล์',
-                                  icon: const Icon(Icons.download),
-                                  onPressed: () => download(a),
-                                ),
+                              ]
+                            : [],
+                        accent: const Color(0xFF467A65),
+                        icon: Icons.task_alt,
+                      ),
+                      section(
+                        'ไฟล์แนบ',
+                        [
+                          if (d.attachments.isEmpty)
+                            const Text('ยังไม่มีไฟล์แนบ'),
+                          for (final a in d.attachments)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.insert_drive_file_outlined,
                               ),
-                          ],
-                          actions: d.canUpload && m.status != 'cancelled'
-                              ? [
-                                  button(
-                                    'แนบไฟล์',
-                                    () => action(
-                                      MeetingAttachmentDialog(
-                                        controller: controller,
-                                      ),
+                              title: Text(a.name),
+                              subtitle: Text('${a.size} bytes'),
+                              trailing: IconButton(
+                                tooltip: 'ดาวน์โหลดไฟล์',
+                                icon: const Icon(Icons.download),
+                                onPressed: () => download(a),
+                              ),
+                            ),
+                        ],
+                        actions: d.canUpload && m.status != 'cancelled'
+                            ? [
+                                button(
+                                  'แนบไฟล์',
+                                  () => action(
+                                    MeetingAttachmentDialog(
+                                      controller: controller,
                                     ),
-                                    icon: Icons.attach_file,
                                   ),
-                                ]
-                              : [],
-                          accent: const Color(0xFF356A9A),
-                          icon: Icons.attach_file,
-                        ),
-                      ],
+                                  icon: Icons.attach_file,
+                                ),
+                              ]
+                            : [],
+                        accent: const Color(0xFF356A9A),
+                        icon: Icons.attach_file,
+                      ),
                     ),
                     section(
                       'การเตือนนัดหมาย',
