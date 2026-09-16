@@ -11,6 +11,18 @@ class DirectorSettingsPage extends StatefulWidget {
   State<DirectorSettingsPage> createState() => _DirectorSettingsPageState();
 }
 
+enum _SettingsSection { profile, notifications, dashboard, reports, security }
+
+class _SectionMeta {
+  const _SectionMeta({required this.icon, required this.label, this.dotColor});
+  final IconData icon;
+  final String label;
+
+  /// null = no status dot (profile has nothing to flag); otherwise a quiet
+  /// signal of whether this section has anything real behind it yet.
+  final Color? dotColor;
+}
+
 class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
   late final TextEditingController displayNameController;
 
@@ -21,34 +33,9 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
   bool _saving = false;
   String? _saveError;
 
-  bool emergencyNotification = true;
-  bool studentNotification = true;
-  bool personnelNotification = true;
-  bool utilityNotification = true;
-  bool environmentNotification = true;
-  bool reportMeetingNotification = true;
-
-  bool inAppNotification = true;
-  bool emailNotification = true;
-  bool loginNotification = true;
-  bool twoFactorEnabled = false;
-
-  bool dailyDigest = true;
-  bool weeklyDigest = true;
-
-  String urgentLevel = 'สูงและเร่งด่วน';
-  String dailyDigestTime = '17:00';
-  String weeklyDigestDay = 'ศุกร์';
-  String weeklyDigestTime = '16:30';
-
-  String defaultPage = 'ภาพรวม';
-  String defaultPeriod = 'วันนี้';
-  String dashboardDensity = 'ปกติ';
-
-  String defaultReportFile = 'PDF';
-  String reportRange = 'เดือนปัจจุบัน';
-
   bool hasChanges = false;
+
+  _SettingsSection _activeSection = _SettingsSection.profile;
 
   @override
   void initState() {
@@ -85,67 +72,535 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
           const SizedBox(height: 14),
           _scopeInfoCard(),
           const SizedBox(height: 16),
-
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 980) {
-                return Column(
-                  children: [
-                    _profileCard(),
-                    const SizedBox(height: 16),
-                    _notificationCard(),
-                  ],
-                );
-              }
-
-              return SizedBox(
-                height: 780,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(flex: 4, child: _profileCard()),
-                    const SizedBox(width: 16),
-                    Expanded(flex: 6, child: _notificationCard()),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 980) {
-                return Column(
-                  children: [
-                    _dashboardPreferenceCard(),
-                    const SizedBox(height: 16),
-                    _reportPreferenceCard(),
-                  ],
-                );
-              }
-
-              return SizedBox(
-                height: 560,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: _dashboardPreferenceCard()),
-                    const SizedBox(width: 16),
-                    Expanded(child: _reportPreferenceCard()),
-                  ],
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-          _securityCard(),
+          _settingsShell(),
           const SizedBox(height: 16),
           _saveArea(),
         ],
       ),
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Section nav + content shell
+  // -------------------------------------------------------------------------
+
+  static const _sections = <_SettingsSection, _SectionMeta>{
+    _SettingsSection.profile: _SectionMeta(
+      icon: Icons.person_outline_rounded,
+      label: 'บัญชีส่วนตัว',
+    ),
+    _SettingsSection.notifications: _SectionMeta(
+      icon: Icons.notifications_active_outlined,
+      label: 'การแจ้งเตือน',
+      dotColor: AppPalette.border,
+    ),
+    _SettingsSection.dashboard: _SectionMeta(
+      icon: Icons.dashboard_customize_outlined,
+      label: 'การแสดงผล',
+      dotColor: AppPalette.border,
+    ),
+    _SettingsSection.reports: _SectionMeta(
+      icon: Icons.description_outlined,
+      label: 'รายงาน',
+      dotColor: AppPalette.border,
+    ),
+    _SettingsSection.security: _SectionMeta(
+      icon: Icons.security_outlined,
+      label: 'ความปลอดภัย',
+      dotColor: AppPalette.success,
+    ),
+  };
+
+  /// The dot next to each nav item isn't decoration — grey means "nothing
+  /// real happens if you click this yet," green means "this one is live."
+  /// Wiring a new section to the backend later is exactly the two-line
+  /// change of pointing this at green and swapping the section's content.
+  Widget _settingsShell() {
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: directorWhiteCard(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 760;
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _sectionTabsRow(),
+                Container(height: 1, color: AppPalette.border),
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: _sectionContent(),
+                ),
+              ],
+            );
+          }
+
+          return SizedBox(
+            height: 460,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(width: 190, child: _sectionNavColumn()),
+                Container(width: 1, color: AppPalette.border),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: _sectionContent(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _sectionNavColumn() {
+    return Container(
+      color: AppPalette.pageBg,
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      child: Column(
+        children: [
+          for (final entry in _sections.entries) ...[
+            _navItem(entry.key, entry.value),
+            const SizedBox(height: 2),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _navItem(_SettingsSection section, _SectionMeta meta) {
+    final active = _activeSection == section;
+
+    return Material(
+      color: active ? Colors.white : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => _activeSection = section),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                meta.icon,
+                size: 16,
+                color: active ? AppPalette.primaryPink : AppPalette.textMuted,
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  meta.label,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: active ? AppPalette.textDark : AppPalette.textMuted,
+                  ),
+                ),
+              ),
+              if (meta.dotColor != null)
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: meta.dotColor,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionTabsRow() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          for (final entry in _sections.entries) ...[
+            _navChip(entry.key, entry.value),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _navChip(_SettingsSection section, _SectionMeta meta) {
+    final active = _activeSection == section;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => setState(() => _activeSection = section),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: active ? AppPalette.primaryPinkSoft : AppPalette.pageBg,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              meta.icon,
+              size: 14,
+              color: active ? AppPalette.primaryPinkDark : AppPalette.textMuted,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              meta.label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: active
+                    ? AppPalette.primaryPinkDark
+                    : AppPalette.textMuted,
+              ),
+            ),
+            if (meta.dotColor != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: meta.dotColor,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionContent() {
+    switch (_activeSection) {
+      case _SettingsSection.profile:
+        return _profileSectionContent();
+      case _SettingsSection.notifications:
+        return _unavailableSectionContent(
+          title: 'การแจ้งเตือน',
+          subtitle: 'เลือกเรื่องที่ต้องการรับแจ้งเตือนและช่องทางที่ใช้',
+          reason:
+              'ระบบยังไม่มีที่เก็บการตั้งค่าการแจ้งเตือนรายบุคคล '
+              'การแจ้งเตือนทั้งหมดจึงยังส่งตามค่าเริ่มต้นของระบบ',
+        );
+      case _SettingsSection.dashboard:
+        return _unavailableSectionContent(
+          title: 'การแสดงผลหน้าหลัก',
+          subtitle: 'หน้าเริ่มต้น ช่วงข้อมูล และความหนาแน่นของการ์ด',
+          reason:
+              'ระบบยังไม่มีที่เก็บการตั้งค่าส่วนตัวของผู้ใช้ '
+              'หน้าหลักจึงเปิดด้วยค่าเริ่มต้นเสมอ',
+        );
+      case _SettingsSection.reports:
+        return _unavailableSectionContent(
+          title: 'รายงานและสรุปประจำงวด',
+          subtitle: 'รูปแบบไฟล์ ช่วงข้อมูล และสรุปรายวัน/รายสัปดาห์',
+          reason:
+              'ระบบยังไม่มีตัวสร้างไฟล์รายงานและยังไม่มีตัวส่งอีเมลสรุปตามรอบ',
+        );
+      case _SettingsSection.security:
+        return _securitySectionContent();
+    }
+  }
+
+  Widget _sectionHeading(String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 9.8,
+            height: 1.4,
+            color: AppPalette.textMuted,
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _profileSectionContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeading(
+          'ข้อมูลบัญชีส่วนตัว',
+          'แก้เฉพาะข้อมูลที่ใช้แสดงและติดต่อผู้อำนวยการ',
+        ),
+        Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                color: AppPalette.primaryPink,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_rounded,
+                color: Colors.white,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'บัญชีผู้อำนวยการ',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'สิทธิ์ Director',
+                    style: TextStyle(fontSize: 9, color: AppPalette.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                _showMessage('ยังไม่มีระบบเปลี่ยนรูปโปรไฟล์ในแอปนี้');
+              },
+              icon: const Icon(Icons.photo_camera_outlined, size: 15),
+              label: const Text('เปลี่ยนรูป', style: TextStyle(fontSize: 9)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // Name is the only profile field the backend can store:
+        // `update_user_profile` takes first and last name, and `users` has
+        // no phone or avatar column at all. The phone field and the
+        // "เปลี่ยนรูป" button used to accept input that had nowhere to go.
+        _textField(
+          label: 'ชื่อที่แสดง',
+          controller: displayNameController,
+          icon: Icons.badge_outlined,
+        ),
+        const SizedBox(height: 10),
+
+        _readOnlyField(
+          label: 'อีเมล',
+          value: currentUserModel?.email ?? 'ยังไม่มีข้อมูล',
+          icon: Icons.email_outlined,
+          helper: 'ใช้อีเมลบัญชีหลัก ไม่สามารถแก้จากหน้านี้',
+        ),
+        const SizedBox(height: 10),
+
+        _readOnlyField(
+          label: 'เบอร์โทรศัพท์',
+          value: 'ยังไม่รองรับ',
+          icon: Icons.phone_outlined,
+          helper: 'ระบบยังไม่ได้เก็บเบอร์โทรศัพท์ของผู้ใช้',
+        ),
+      ],
+    );
+  }
+
+  /// A section explaining that this group of settings has nowhere to be
+  /// stored.
+  ///
+  /// The notification, dashboard, report and digest sections were fully
+  /// interactive — toggles, dropdowns, times, a weekly digest day — and none
+  /// of it persisted. There is no per-user preferences table anywhere in the
+  /// schema; `school_settings` holds `email_notify`/`line_notify` but they are
+  /// school-wide and school_admin-scoped. Reopening the page silently reset
+  /// everything, so a director who switched off emergency notifications was
+  /// told it was saved and kept receiving them.
+  Widget _unavailableSectionContent({
+    required String title,
+    required String subtitle,
+    required String reason,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeading(title, subtitle),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
+          decoration: BoxDecoration(
+            color: AppPalette.pageBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.settings_suggest_outlined,
+                size: 28,
+                color: AppPalette.textMuted,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'ยังไม่เปิดใช้งาน',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: AppPalette.textDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                reason,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  height: 1.5,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A security fact the user cannot change, stated instead of offered as a
+  /// switch.
+  Widget _securityStatusTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String status,
+    required Color statusColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppPalette.pageBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppPalette.border),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppPalette.textMuted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.textDark,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppPalette.tint(statusColor, 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _securitySectionContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHeading(
+          'ความปลอดภัยของบัญชี',
+          'ผู้อำนวยการควรจัดการเฉพาะรหัสผ่าน การยืนยันตัวตน และการแจ้งเตือนการเข้าสู่ระบบของบัญชีตนเอง',
+        ),
+        _securityActionTile(
+          icon: Icons.lock_outline_rounded,
+          title: 'เปลี่ยนรหัสผ่าน',
+          subtitle: 'แนะนำให้เปลี่ยนเป็นระยะและไม่ใช้ร่วมกับบัญชีอื่น',
+          buttonText: 'เปลี่ยนรหัส',
+          onTap: _showPasswordDialog,
+        ),
+        const SizedBox(height: 10),
+        // The 2FA switch rendered OFF and could be toggled, while
+        // `auth_sign_in` requires MFA for `executive` on every sign-in — it
+        // misrepresented the account as less protected than it is, and
+        // offered control it never had. The login-alert switch had no
+        // backend at all.
+        _securityStatusTile(
+          icon: Icons.verified_user_outlined,
+          title: 'ยืนยันตัวตน 2 ขั้นตอน',
+          subtitle:
+              'บังคับใช้กับบัญชีผู้บริหารทุกครั้งที่เข้าสู่ระบบ ปิดไม่ได้',
+          status: 'เปิดใช้งานอยู่',
+          statusColor: AppPalette.success,
+        ),
+        const SizedBox(height: 10),
+        _securityStatusTile(
+          icon: Icons.notifications_active_outlined,
+          title: 'แจ้งเตือนเมื่อมีการเข้าสู่ระบบ',
+          subtitle: 'ระบบยังไม่ได้แจ้งเตือนเมื่อมีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
+          status: 'ยังไม่เปิดใช้งาน',
+          statusColor: AppPalette.textMuted,
+        ),
+        const SizedBox(height: 10),
+        // Used to live behind a ⋮ on the sidebar's profile card — moved
+        // here per an explicit follow-up request, next to the existing
+        // sign-out-everywhere action rather than hidden behind a menu.
+        _securityActionTile(
+          icon: Icons.logout_rounded,
+          title: 'ออกจากระบบ',
+          subtitle: 'ออกจากระบบเฉพาะอุปกรณ์นี้',
+          buttonText: 'ออกจากระบบ',
+          onTap: _signOut,
+          danger: true,
+        ),
+        const SizedBox(height: 10),
+        _securityActionTile(
+          icon: Icons.devices_other_rounded,
+          title: 'ออกจากระบบทุกอุปกรณ์',
+          subtitle: 'ใช้เมื่อสงสัยว่าบัญชีถูกเปิดอยู่บนอุปกรณ์อื่น',
+          buttonText: 'ออกจากทุกเครื่อง',
+          onTap: _showLogoutAllDialog,
+          danger: true,
+        ),
+      ],
     );
   }
 
@@ -253,429 +708,6 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
     );
   }
 
-  Widget _profileCard() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            icon: Icons.person_outline_rounded,
-            color: AppPalette.primaryPink,
-            title: 'ข้อมูลบัญชีส่วนตัว',
-            subtitle: 'แก้เฉพาะข้อมูลที่ใช้แสดงและติดต่อผู้อำนวยการ',
-          ),
-          const SizedBox(height: 14),
-
-          Row(
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: const BoxDecoration(
-                  color: AppPalette.primaryPink,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Colors.white,
-                  size: 29,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'บัญชีผู้อำนวยการ',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'สิทธิ์ Director',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: AppPalette.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () {
-                  _showMessage('ตัวอย่าง: เปิดหน้าต่างเปลี่ยนรูปโปรไฟล์');
-                },
-                icon: const Icon(Icons.photo_camera_outlined, size: 15),
-                label: const Text('เปลี่ยนรูป', style: TextStyle(fontSize: 9)),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          // Name is the only profile field the backend can store:
-          // `update_user_profile` takes first and last name, and `users` has
-          // no phone or avatar column at all. The phone field and the
-          // "เปลี่ยนรูป" button used to accept input that had nowhere to go.
-          _textField(
-            label: 'ชื่อที่แสดง',
-            controller: displayNameController,
-            icon: Icons.badge_outlined,
-          ),
-          const SizedBox(height: 10),
-
-          _readOnlyField(
-            label: 'อีเมล',
-            value: currentUserModel?.email ?? 'ยังไม่มีข้อมูล',
-            icon: Icons.email_outlined,
-            helper: 'ใช้อีเมลบัญชีหลัก ไม่สามารถแก้จากหน้านี้',
-          ),
-          const SizedBox(height: 10),
-
-          _readOnlyField(
-            label: 'เบอร์โทรศัพท์',
-            value: 'ยังไม่รองรับ',
-            icon: Icons.phone_outlined,
-            helper: 'ระบบยังไม่ได้เก็บเบอร์โทรศัพท์ของผู้ใช้',
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// A card explaining that this group of settings has nowhere to be stored.
-  ///
-  /// The notification, dashboard, report and digest sections were fully
-  /// interactive — toggles, dropdowns, times, a weekly digest day — and none
-  /// of it persisted. There is no per-user preferences table anywhere in the
-  /// schema; `school_settings` holds `email_notify`/`line_notify` but they are
-  /// school-wide and school_admin-scoped. Reopening the page silently reset
-  /// everything, so a director who switched off emergency notifications was
-  /// told it was saved and kept receiving them.
-  /// A security fact the user cannot change, stated instead of offered as a
-  /// switch.
-  Widget _securityStatusTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String status,
-    required Color statusColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: AppPalette.pageBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: AppPalette.textMuted),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppPalette.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppPalette.tint(statusColor, 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                color: statusColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _unavailableSettingsCard({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String subtitle,
-    required String reason,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            icon: icon,
-            color: color,
-            title: title,
-            subtitle: subtitle,
-          ),
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppPalette.pageBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                const Icon(
-                  Icons.settings_suggest_outlined,
-                  size: 28,
-                  color: AppPalette.textMuted,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'ยังไม่เปิดใช้งาน',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.textDark,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  reason,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    height: 1.5,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _notificationCard() => _unavailableSettingsCard(
-    icon: Icons.notifications_active_outlined,
-    color: AppPalette.primaryPink,
-    title: 'การแจ้งเตือน',
-    subtitle: 'เลือกเรื่องที่ต้องการรับแจ้งเตือนและช่องทางที่ใช้',
-    reason:
-        'ระบบยังไม่มีที่เก็บการตั้งค่าการแจ้งเตือนรายบุคคล '
-        'การแจ้งเตือนทั้งหมดจึงยังส่งตามค่าเริ่มต้นของระบบ',
-  );
-
-  Widget _dashboardPreferenceCard() => _unavailableSettingsCard(
-    icon: Icons.dashboard_customize_outlined,
-    color: AppPalette.learningBlue,
-    title: 'การแสดงผลหน้าหลัก',
-    subtitle: 'หน้าเริ่มต้น ช่วงข้อมูล และความหนาแน่นของการ์ด',
-    reason:
-        'ระบบยังไม่มีที่เก็บการตั้งค่าส่วนตัวของผู้ใช้ '
-        'หน้าหลักจึงเปิดด้วยค่าเริ่มต้นเสมอ',
-  );
-
-  Widget _reportPreferenceCard() => _unavailableSettingsCard(
-    icon: Icons.description_outlined,
-    color: AppPalette.behaviorYellow,
-    title: 'รายงานและสรุปประจำงวด',
-    subtitle: 'รูปแบบไฟล์ ช่วงข้อมูล และสรุปรายวัน/รายสัปดาห์',
-    reason: 'ระบบยังไม่มีตัวสร้างไฟล์รายงานและยังไม่มีตัวส่งอีเมลสรุปตามรอบ',
-  );
-
-  Widget _securityCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(
-            icon: Icons.security_outlined,
-            color: AppPalette.warning,
-            title: 'ความปลอดภัยของบัญชี',
-            subtitle:
-                'ผู้อำนวยการควรจัดการเฉพาะรหัสผ่าน การยืนยันตัวตน และการแจ้งเตือนการเข้าสู่ระบบของบัญชีตนเอง',
-          ),
-          const SizedBox(height: 14),
-
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 760) {
-                return Column(
-                  children: [
-                    _securityActionTile(
-                      icon: Icons.lock_outline_rounded,
-                      title: 'เปลี่ยนรหัสผ่าน',
-                      subtitle:
-                          'แนะนำให้เปลี่ยนเป็นระยะและไม่ใช้ร่วมกับบัญชีอื่น',
-                      buttonText: 'เปลี่ยนรหัส',
-                      onTap: _showPasswordDialog,
-                    ),
-                    const SizedBox(height: 10),
-                    // The 2FA switch rendered OFF and could be toggled, while
-                    // `auth_sign_in` requires MFA for `executive` on every
-                    // sign-in — it misrepresented the account as less
-                    // protected than it is, and offered control it never had.
-                    // The login-alert switch had no backend at all.
-                    _securityStatusTile(
-                      icon: Icons.verified_user_outlined,
-                      title: 'ยืนยันตัวตน 2 ขั้นตอน',
-                      subtitle:
-                          'บังคับใช้กับบัญชีผู้บริหารทุกครั้งที่เข้าสู่ระบบ ปิดไม่ได้',
-                      status: 'เปิดใช้งานอยู่',
-                      statusColor: AppPalette.success,
-                    ),
-                    const SizedBox(height: 10),
-                    _securityStatusTile(
-                      icon: Icons.notifications_active_outlined,
-                      title: 'แจ้งเตือนเมื่อมีการเข้าสู่ระบบ',
-                      subtitle:
-                          'ระบบยังไม่ได้แจ้งเตือนเมื่อมีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
-                      status: 'ยังไม่เปิดใช้งาน',
-                      statusColor: AppPalette.textMuted,
-                    ),
-                    const SizedBox(height: 10),
-                    _securityActionTile(
-                      icon: Icons.logout_rounded,
-                      title: 'ออกจากระบบทุกอุปกรณ์',
-                      subtitle: 'ใช้เมื่อสงสัยว่าบัญชีถูกเปิดอยู่บนอุปกรณ์อื่น',
-                      buttonText: 'ออกจากทุกเครื่อง',
-                      onTap: _showLogoutAllDialog,
-                    ),
-                  ],
-                );
-              }
-
-              final securityItems = <Widget>[
-                _securityActionTile(
-                  icon: Icons.lock_outline_rounded,
-                  title: 'เปลี่ยนรหัสผ่าน',
-                  subtitle: 'แนะนำให้เปลี่ยนเป็นระยะและไม่ใช้ร่วมกับบัญชีอื่น',
-                  buttonText: 'เปลี่ยนรหัส',
-                  onTap: _showPasswordDialog,
-                ),
-                _securityStatusTile(
-                  icon: Icons.verified_user_outlined,
-                  title: 'ยืนยันตัวตน 2 ขั้นตอน',
-                  subtitle:
-                      'บังคับใช้กับบัญชีผู้บริหารทุกครั้งที่เข้าสู่ระบบ ปิดไม่ได้',
-                  status: 'เปิดใช้งานอยู่',
-                  statusColor: AppPalette.success,
-                ),
-                _securityStatusTile(
-                  icon: Icons.notifications_active_outlined,
-                  title: 'แจ้งเตือนเมื่อมีการเข้าสู่ระบบ',
-                  subtitle:
-                      'ระบบยังไม่ได้แจ้งเตือนเมื่อมีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
-                  status: 'ยังไม่เปิดใช้งาน',
-                  statusColor: AppPalette.textMuted,
-                ),
-                _securityActionTile(
-                  icon: Icons.logout_rounded,
-                  title: 'ออกจากระบบทุกอุปกรณ์',
-                  subtitle: 'ใช้เมื่อสงสัยว่าบัญชีถูกเปิดอยู่บนอุปกรณ์อื่น',
-                  buttonText: 'ออกจากทุกเครื่อง',
-                  onTap: _showLogoutAllDialog,
-                ),
-              ];
-
-              return GridView.builder(
-                itemCount: securityItems.length,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  mainAxisExtent: 148,
-                ),
-                itemBuilder: (context, index) {
-                  return securityItems[index];
-                },
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionTitle({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String subtitle,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppPalette.tint(color, 0.09),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, size: 19, color: color),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 9,
-                  height: 1.35,
-                  color: AppPalette.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _textField({
     required String label,
     required TextEditingController controller,
@@ -770,7 +802,12 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
     required String subtitle,
     required String buttonText,
     required VoidCallback onTap,
+    // Sign-out actions read as red — a visual "this ends your session" cue,
+    // distinct from a routine action like changing your password.
+    bool danger = false,
   }) {
+    final accent = danger ? AppPalette.danger : AppPalette.primaryPinkDark;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
@@ -784,10 +821,12 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppPalette.primaryPinkSoft,
+              color: danger
+                  ? AppPalette.tint(AppPalette.danger, 0.10)
+                  : AppPalette.primaryPinkSoft,
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(icon, size: 20, color: AppPalette.primaryPinkDark),
+            child: Icon(icon, size: 20, color: accent),
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -817,6 +856,14 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
           const SizedBox(width: 8),
           OutlinedButton(
             onPressed: onTap,
+            style: danger
+                ? OutlinedButton.styleFrom(
+                    foregroundColor: AppPalette.danger,
+                    side: BorderSide(
+                      color: AppPalette.tint(AppPalette.danger, 0.4),
+                    ),
+                  )
+                : null,
             child: Text(
               buttonText,
               style: const TextStyle(
@@ -959,6 +1006,35 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
     }
   }
 
+  Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ออกจากระบบ'),
+        content: const Text('คุณต้องการออกจากระบบหรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppPalette.danger),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ออกจากระบบ'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await AuthService.signOut();
+    } catch (e) {
+      debugPrint('DirectorSettingsPage signOut failed: $e');
+      if (!mounted) return;
+      _showMessage('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่');
+    }
+  }
+
   Future<void> _signOutAllDevices() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -994,35 +1070,6 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
   void _resetSettings() {
     setState(() {
       displayNameController.text = _savedName;
-
-      emergencyNotification = true;
-      studentNotification = true;
-      personnelNotification = true;
-      utilityNotification = true;
-      environmentNotification = true;
-      reportMeetingNotification = true;
-
-      inAppNotification = true;
-      emailNotification = true;
-
-      urgentLevel = 'สูงและเร่งด่วน';
-      defaultPage = 'ภาพรวม';
-      defaultPeriod = 'วันนี้';
-      dashboardDensity = 'ปกติ';
-
-      defaultReportFile = 'PDF';
-      reportRange = 'เดือนปัจจุบัน';
-
-      dailyDigest = true;
-      dailyDigestTime = '17:00';
-
-      weeklyDigest = true;
-      weeklyDigestDay = 'ศุกร์';
-      weeklyDigestTime = '16:30';
-
-      twoFactorEnabled = false;
-      loginNotification = true;
-
       hasChanges = false;
     });
 

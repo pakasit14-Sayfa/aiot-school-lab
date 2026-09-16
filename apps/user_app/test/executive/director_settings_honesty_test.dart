@@ -89,18 +89,25 @@ void main() {
   ) async {
     await _pump(tester);
 
-    // Three whole sections (notifications, dashboard, reports) plus the
-    // login-alert status badge.
-    expect(find.text('ยังไม่เปิดใช้งาน'), findsNWidgets(4));
-    for (final reason in <String>[
-      'ระบบยังไม่มีที่เก็บการตั้งค่าการแจ้งเตือนรายบุคคล',
-      'ระบบยังไม่มีที่เก็บการตั้งค่าส่วนตัวของผู้ใช้',
-      'ระบบยังไม่มีตัวสร้างไฟล์รายงาน',
-    ]) {
-      expect(find.textContaining(reason), findsOneWidget, reason: reason);
+    // Each of the 3 unwired sections lives behind its own nav tab now, so
+    // visit each one and check its content instead of scanning one long
+    // scroll for all of them at once.
+    for (final entry in <String, String>{
+      'การแจ้งเตือน': 'ระบบยังไม่มีที่เก็บการตั้งค่าการแจ้งเตือนรายบุคคล',
+      'การแสดงผล': 'ระบบยังไม่มีที่เก็บการตั้งค่าส่วนตัวของผู้ใช้',
+      'รายงาน': 'ระบบยังไม่มีตัวสร้างไฟล์รายงาน',
+    }.entries) {
+      await tester.tap(find.text(entry.key));
+      await tester.pumpAndSettle();
+      expect(find.text('ยังไม่เปิดใช้งาน'), findsOneWidget);
+      expect(
+        find.textContaining(entry.value),
+        findsOneWidget,
+        reason: entry.value,
+      );
+      // No switch is offered for a preference that cannot persist.
+      expect(find.byType(Switch), findsNothing);
     }
-    // No switch is offered for a preference that cannot persist.
-    expect(find.byType(Switch), findsNothing);
   });
 
   testWidgets('2FA is reported as enforced, not offered as a switch', (
@@ -108,8 +115,13 @@ void main() {
   ) async {
     await _pump(tester);
 
+    await tester.tap(find.text('ความปลอดภัย'));
+    await tester.pumpAndSettle();
+
     expect(find.text('เปิดใช้งานอยู่'), findsOneWidget);
     expect(find.textContaining('บังคับใช้กับบัญชีผู้บริหาร'), findsOneWidget);
+    // The login-alert status tile also reads "ยังไม่เปิดใช้งาน" on this tab.
+    expect(find.text('ยังไม่เปิดใช้งาน'), findsOneWidget);
   });
 
   testWidgets('save is disabled until the name actually changes', (
@@ -146,6 +158,8 @@ void main() {
   ) async {
     await _pump(tester);
 
+    await tester.tap(find.text('ความปลอดภัย'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('เปลี่ยนรหัส').first);
     await tester.pumpAndSettle();
 
