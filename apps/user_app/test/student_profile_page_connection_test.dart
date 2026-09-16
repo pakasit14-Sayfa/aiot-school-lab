@@ -38,6 +38,7 @@ Future<void> _pump(
   Future<List<SubmissionVersion>> Function(String assignmentId)?
   loadSubmissionVersions,
   Future<void> Function()? signOut,
+  Future<void> Function({required String currentPassword, required String newPassword})? changePassword,
 }) async {
   tester.view.physicalSize = const Size(1000, 1800);
   tester.view.devicePixelRatio = 1;
@@ -53,6 +54,7 @@ Future<void> _pump(
         loadAssignmentsForCourse: loadAssignmentsForCourse ?? (_) async => const [],
         loadSubmissionVersions: loadSubmissionVersions ?? (_) async => const [],
         signOut: signOut,
+        changePassword: changePassword,
       ),
     ),
   );
@@ -124,10 +126,27 @@ void main() {
     expect(signOutCalls, 1);
   });
 
-  testWidgets('unimplemented menu items (privacy/PDPA) are honestly disabled, not fake-clickable', (
+  testWidgets('no placeholder menu item is left; change-password is real', (
     tester,
   ) async {
-    await _pump(tester);
-    expect(find.textContaining('ยังไม่เปิดใช้งาน'), findsWidgets);
+    String? sentNew;
+    await _pump(
+      tester,
+      changePassword: ({required currentPassword, required newPassword}) async =>
+          sentNew = newPassword,
+    );
+    expect(find.textContaining('ยังไม่เปิดใช้งาน'), findsNothing);
+    for (final gone in ['เคล็ดลับการใช้งาน', 'คำถามที่พบบ่อย', 'ติดต่อทีมงาน', 'การแจ้งเตือน', 'ความเป็นส่วนตัวและ PDPA']) {
+      expect(find.text(gone), findsNothing, reason: gone);
+    }
+    await tester.tap(find.text('เปลี่ยนรหัสผ่าน'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'Test1234!');
+    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'), 'NewPass9!');
+    await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass9!');
+    await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
+    await tester.pumpAndSettle();
+    expect(sentNew, 'NewPass9!');
+    expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsOneWidget);
   });
 }

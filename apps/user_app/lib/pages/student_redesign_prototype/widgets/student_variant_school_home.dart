@@ -20,6 +20,9 @@ class StudentVariantSchoolHome extends StatefulWidget {
     this.loadLessons,
     this.loadAssignments,
     this.loadSubmissionVersions,
+    this.sensorStreamOverride,
+    this.rawReadingsStreamOverride,
+    this.utilityCardBuilder,
   });
 
   /// Lets the G-Score summary card open the full "คะแนน" page — the score
@@ -30,6 +33,12 @@ class StudentVariantSchoolHome extends StatefulWidget {
   // Injectable seams so widget tests can control every data dependency of
   // _loadRealData() without initializing a real Supabase client. Each
   // defaults to the real service call used in production.
+  /// Seams for the two live cards, so the whole home page can be pumped in
+  /// a widget test (no realtime subscription, no UtilityService call).
+  final Stream<SensorModel?>? sensorStreamOverride;
+  final Stream<List<Map<String, dynamic>>>? rawReadingsStreamOverride;
+  final Widget Function(double height)? utilityCardBuilder;
+
   final Future<List<CourseSummary>> Function()? loadCourses;
   final Future<List<CourseGrade>> Function()? loadGrades;
   final Future<List<AppNotification>> Function()? loadNotifications;
@@ -462,7 +471,10 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
         if (!isTwoColumn) {
           return Column(
             children: [
-              const AiotWeatherSensorsCard(),
+              AiotWeatherSensorsCard(
+                sensorStreamOverride: widget.sensorStreamOverride,
+                rawReadingsStreamOverride: widget.rawReadingsStreamOverride,
+              ),
               const SizedBox(height: 16),
               AcademyLearningScoreCard(
                 onTap: onViewScore,
@@ -472,7 +484,8 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               const SizedBox(height: 16),
               const SchoolEncouragementCard(),
               const SizedBox(height: 16),
-              SchoolUtilityTrendCard(height: utilityFullWidthHeight),
+              widget.utilityCardBuilder?.call(utilityFullWidthHeight) ??
+                  SchoolUtilityTrendCard(height: utilityFullWidthHeight),
             ],
           );
         }
@@ -494,7 +507,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               children: [
                 Expanded(
                   flex: 11,
-                  child: AiotWeatherSensorsCard(height: sensorCardHeight),
+                  child: AiotWeatherSensorsCard(
+                    height: sensorCardHeight,
+                    sensorStreamOverride: widget.sensorStreamOverride,
+                    rawReadingsStreamOverride: widget.rawReadingsStreamOverride,
+                  ),
                 ),
                 SizedBox(width: columnGap),
                 Expanded(
@@ -523,7 +540,8 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               ],
             ),
             SizedBox(height: columnGap),
-            SchoolUtilityTrendCard(height: utilityFullWidthHeight),
+            widget.utilityCardBuilder?.call(utilityFullWidthHeight) ??
+                  SchoolUtilityTrendCard(height: utilityFullWidthHeight),
           ],
         );
       },

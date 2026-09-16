@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../../../widgets/change_password_dialog.dart';
 import '../../login_page.dart';
 import 'student_redesign_palette.dart';
 
@@ -18,7 +19,11 @@ class StudentProfilePage extends StatefulWidget {
     this.loadAssignmentsForCourse,
     this.loadSubmissionVersions,
     this.signOut,
+    this.changePassword,
   });
+
+  /// `change_my_password` seam for the "เปลี่ยนรหัสผ่าน" tile.
+  final PasswordChanger? changePassword;
 
   final VoidCallback? onViewScore;
   final VoidCallback? onViewAssignments;
@@ -106,6 +111,19 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _changePassword() async {
+    final changed = await showChangePasswordDialog(
+      context,
+      change: widget.changePassword,
+    );
+    if (!changed || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ'),
+      ),
+    );
   }
 
   Future<void> _signOut() async {
@@ -254,46 +272,20 @@ Widget _buildMenuSections(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      _SectionCard(
-        title: 'ช่วยเหลือ',
-        icon: Icons.support_agent_rounded,
-        children: const [
-          _MenuTile(
-            icon: Icons.tips_and_updates_rounded,
-            title: 'เคล็ดลับการใช้งาน',
-            subtitle: 'เคล็ดลับการใช้งานและการเรียนให้ลื่นขึ้น',
-          ),
-          _DividerLine(),
-          _MenuTile(
-            icon: Icons.help_outline_rounded,
-            title: 'คำถามที่พบบ่อย',
-            subtitle: 'คำถามที่พบบ่อยเกี่ยวกับบัญชีและชั้นเรียน',
-          ),
-          _DividerLine(),
-          _MenuTile(
-            icon: Icons.mail_outline_rounded,
-            title: 'ติดต่อทีมงาน',
-            subtitle: 'ติดต่อทีมงานหรือแจ้งปัญหา',
-          ),
-        ],
-      ),
-      const SizedBox(height: 12),
+      // The "ช่วยเหลือ" card (เคล็ดลับ / คำถามที่พบบ่อย / ติดต่อทีมงาน) and the
+      // "การแจ้งเตือน" / "ความเป็นส่วนตัวและ PDPA" tiles used to sit here greyed
+      // as "ยังไม่เปิดใช้งาน". None has a page, a preference table or a
+      // student-side consent RPC (list_my_consents is parent-link scoped), so
+      // they are removed rather than shown disabled.
       _SectionCard(
         title: 'ตั้งค่า',
         icon: Icons.settings_rounded,
         children: [
-          const _MenuTile(
-            icon: Icons.notifications_rounded,
-            title: 'การแจ้งเตือน',
-            subtitle: 'เลือกสิ่งที่อยากให้แจ้งเตือน',
-          ),
-          const _DividerLine(),
-          // ยังไม่มีหน้าจริงแสดงสถานะ/ประวัติความยินยอม (CON-3/4/5) —
-          // ห้ามทำเป็นแค่ snackbar แล้วคิดว่า flow นี้ผ่านแล้ว
-          const _MenuTile(
+          _MenuTile(
             icon: Icons.lock_outline_rounded,
-            title: 'ความเป็นส่วนตัวและ PDPA',
-            subtitle: 'สิทธิ์การใช้ข้อมูลและการยินยอม',
+            title: 'เปลี่ยนรหัสผ่าน',
+            subtitle: 'ตรวจรหัสเดิมก่อน และออกจากระบบเครื่องอื่นให้',
+            onTap: state._changePassword,
           ),
           const _DividerLine(),
           _MenuTile(
@@ -685,27 +677,20 @@ class _MenuTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.danger = false,
-    this.onTap,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool danger;
-  final VoidCallback? onTap;
+  /// Required — a tile with nothing behind it is not rendered any more.
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // ไม่มี onTap = ยังไม่มีหน้าจริง/ยังไม่ได้ต่อ backend — ปิดการกดไปเลย
-    // และบอกไว้ที่ตัวรายการ แทนการปล่อยให้กดได้แล้วค่อยขึ้น snackbar
-    final enabled = onTap != null;
-    const disabledColor = Color(0xFF9CA9B4);
-    final iconColor = !enabled
-        ? disabledColor
-        : (danger ? const Color(0xFFDC2626) : SchoolPalette.navy);
-    final titleColor = !enabled
-        ? disabledColor
-        : (danger ? const Color(0xFFDC2626) : SchoolPalette.navy);
+    final iconColor = danger ? const Color(0xFFDC2626) : SchoolPalette.navy;
+    final titleColor = danger ? const Color(0xFFDC2626) : SchoolPalette.navy;
 
     return Material(
       color: Colors.transparent,
@@ -741,7 +726,7 @@ class _MenuTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      enabled ? subtitle : '$subtitle · ยังไม่เปิดใช้งาน',
+                      subtitle,
                       style: const TextStyle(
                         color: SchoolPalette.muted,
                         fontSize: 12,
@@ -754,11 +739,9 @@ class _MenuTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Icon(
-                enabled
-                    ? Icons.chevron_right_rounded
-                    : Icons.lock_outline_rounded,
+                Icons.chevron_right_rounded,
                 color: const Color(0xFF9CA9B4),
-                size: enabled ? 22 : 18,
+                size: 22,
               ),
             ],
           ),

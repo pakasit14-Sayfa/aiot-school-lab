@@ -16,7 +16,19 @@ class StudentQrLoginPage extends StatefulWidget {
     super.key,
     this.startInScanMode = false,
     this.createSession,
+    this.peekPairing,
+    this.claimPairing,
+    this.hasSession,
   });
+
+  /// Scan-mode seams: peek/claim a scanned pairing code, and whether a
+  /// signed-in session exists (production reads `AuthService.sessionToken`).
+  final Future<TerminalPairingPeek> Function(String code)? peekPairing;
+  final Future<({bool success, String studentName, String message})> Function(
+    String code,
+  )?
+  claimPairing;
+  final bool Function()? hasSession;
 
   final bool startInScanMode;
 
@@ -53,6 +65,13 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   MobileScannerController? _scannerController;
   bool _handled = false;
   bool _torchOn = false;
+  // Web has no camera scanner; the code printed under the QR on the lab
+  // tablet is typed here instead (replaces the old "จำลองสแกนรหัสสำเร็จ"
+  // button that fed a fixed sample code into the flow).
+  final _manualCodeController = TextEditingController();
+
+  bool get _signedIn =>
+      (widget.hasSession ?? () => AuthService.sessionToken != null)();
 
   @override
   void initState() {
@@ -70,6 +89,7 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
     _tickTimer?.cancel();
     _pollTimer?.cancel();
     _scannerController?.dispose();
+    _manualCodeController.dispose();
     super.dispose();
   }
 
@@ -196,41 +216,44 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
 
   /// BR3: Scan -> Peek context -> Show confirmation sheet -> User taps confirm -> Claim
   Future<void> _handleScannedCode(String code) async {
-    if (AuthService.sessionToken != null) {
-      try {
-        final peek = await TerminalPairingService.peekPairingSession(code);
-        if (!mounted) return;
-
-        if (!peek.isValid) {
-          _showResultSheet(
-            title: 'รหัสไม่ถูกต้องหรือหมดอายุ',
-            message: 'กรุณาตรวจสอบว่ารหัส QR บนหน้าจอเครื่องแล็บยังไม่หมดอายุ',
-            isSuccess: false,
-          );
-          return;
-        }
-
-        // Show Pre-Confirmation Sheet with Device Context (Anti-Relay)
-        _showDeviceConfirmationSheet(code: code, peek: peek);
-      } catch (e) {
-        if (mounted) {
-          _showResultSheet(
-            title: 'เกิดข้อผิดพลาด',
-            message: '$e',
-            isSuccess: false,
-          );
-        }
-      }
-    } else {
-      // Mock / Preview Mode
-      _showDeviceConfirmationSheet(
-        code: code,
-        peek: TerminalPairingPeek(
-          isValid: true,
-          terminalName: 'แท็บเล็ตประจำโต๊ะแล็บ AIoT #01',
-          createdAt: DateTime.now(),
-        ),
+    // There used to be an else-branch here for "no session" that showed a
+    // fabricated valid device ("แท็บเล็ตประจำโต๊ะแล็บ AIoT #01") and then a
+    // "เข้าสู่ระบบสำเร็จ (ตัวอย่าง)" sheet. Scan mode is only reachable from a
+    // signed-in student shell, so that branch was dead — and if it ever ran
+    // it lied. A missing session is now an error.
+    if (!_signedIn) {
+      _showResultSheet(
+        title: 'ยังไม่ได้เข้าสู่ระบบ',
+        message: 'เข้าสู่ระบบด้วยบัญชีนักเรียนก่อน แล้วจึงสแกนรหัสบนเครื่องแล็บ',
+        isSuccess: false,
       );
+      return;
+    }
+    try {
+      final peek =
+          await (widget.peekPairing ?? TerminalPairingService.peekPairingSession)(code);
+      if (!mounted) return;
+
+      if (!peek.isValid) {
+        _showResultSheet(
+          title: 'รหัสไม่ถูกต้องหรือหมดอายุ',
+          message: 'กรุณาตรวจสอบว่ารหัส QR บนหน้าจอเครื่องแล็บยังไม่หมดอายุ',
+          isSuccess: false,
+        );
+        return;
+      }
+
+      // Show Pre-Confirmation Sheet with Device Context (Anti-Relay)
+      _showDeviceConfirmationSheet(code: code, peek: peek);
+    } catch (e) {
+      debugPrint('StudentQrLoginPage: peek failed — $e');
+      if (mounted) {
+        _showResultSheet(
+          title: 'ตรวจสอบรหัสไม่สำเร็จ',
+          message: 'เชื่อมต่อระบบไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+          isSuccess: false,
+        );
+      }
     }
   }
 
@@ -443,36 +466,32 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
   }
 
   Future<void> _executeClaim(String code) async {
-    if (AuthService.sessionToken != null) {
-      try {
-        final result =
-            await TerminalPairingService.claimPairingSession(code);
-        if (mounted) {
-          _showResultSheet(
-            title: result.success ? 'เข้าสู่ระบบสำเร็จ' : 'ไม่สามารถเข้าสู่ระบบได้',
-            message: result.success
-                ? 'เข้าสู่ระบบบนเครื่องแล็บสำเร็จแล้วสำหรับ ${result.studentName}'
-                : result.message,
-            isSuccess: result.success,
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          _showResultSheet(
-            title: 'เกิดข้อผิดพลาด',
-            message: e.toString().contains('forbidden')
-                ? 'เฉพาะบัญชีนักเรียนเท่านั้นที่สามารถจับคู่เข้าสู่ระบบเครื่องแล็บได้'
-                : '$e',
-            isSuccess: false,
-          );
-        }
+    // The old else-branch ("เข้าสู่ระบบสำเร็จ (ตัวอย่าง)") reported success
+    // without calling anything. Gone — see _handleScannedCode.
+    if (!_signedIn) return;
+    try {
+      final result =
+          await (widget.claimPairing ?? TerminalPairingService.claimPairingSession)(code);
+      if (mounted) {
+        _showResultSheet(
+          title: result.success ? 'เข้าสู่ระบบสำเร็จ' : 'ไม่สามารถเข้าสู่ระบบได้',
+          message: result.success
+              ? 'เข้าสู่ระบบบนเครื่องแล็บสำเร็จแล้วสำหรับ ${result.studentName}'
+              : result.message,
+          isSuccess: result.success,
+        );
       }
-    } else {
-      _showResultSheet(
-        title: 'เข้าสู่ระบบสำเร็จ (ตัวอย่าง)',
-        message: 'พร้อมเข้าสู่ระบบบนเครื่องแล็บเรียบร้อยแล้ว',
-        isSuccess: true,
-      );
+    } catch (e) {
+      debugPrint('StudentQrLoginPage: claim failed — $e');
+      if (mounted) {
+        _showResultSheet(
+          title: 'เกิดข้อผิดพลาด',
+          message: e.toString().contains('forbidden')
+              ? 'เฉพาะบัญชีนักเรียนเท่านั้นที่สามารถจับคู่เข้าสู่ระบบเครื่องแล็บได้'
+              : 'เชื่อมต่อระบบไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+          isSuccess: false,
+        );
+      }
     }
   }
 
@@ -888,6 +907,12 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
     );
   }
 
+  void _submitManualCode() {
+    final code = _manualCodeController.text.trim();
+    if (code.isEmpty) return;
+    _handleScannedCode(code);
+  }
+
   Widget _buildScanBody() {
     if (kIsWeb) {
       return Container(
@@ -915,7 +940,8 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              'บนเว็บเบราว์เซอร์ กรุณาจำลองการสแกนหรือสแกนผ่านแอปบนโทรศัพท์มือถือ',
+              'บนเว็บเบราว์เซอร์ไม่มีกล้องสแกน — พิมพ์รหัสที่แสดงใต้ QR บนเครื่องแล็บ '
+              'หรือสแกนผ่านแอปบนโทรศัพท์มือถือ',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: SchoolPalette.muted,
@@ -924,13 +950,21 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 20),
-            GradientButton(
-              label: 'จำลองสแกนรหัสสำเร็จ',
-              icon: Icons.check_circle_outline_rounded,
-              onPressed: () => _handleScannedCode(
-                'aiot-pairing:SAMPLETESTPAIRINGCODE1234',
+            const SizedBox(height: 16),
+            TextField(
+              controller: _manualCodeController,
+              textAlign: TextAlign.center,
+              decoration: const InputDecoration(
+                labelText: 'รหัสจับคู่จากเครื่องแล็บ',
+                border: OutlineInputBorder(),
               ),
+              onSubmitted: (_) => _submitManualCode(),
+            ),
+            const SizedBox(height: 12),
+            GradientButton(
+              label: 'ตรวจสอบรหัส',
+              icon: Icons.check_circle_outline_rounded,
+              onPressed: _submitManualCode,
             ),
           ],
         ),
@@ -1004,6 +1038,24 @@ class _StudentQrLoginPageState extends State<StudentQrLoginPage> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 14),
+        // Camera-less fallback (broken camera, denied permission): the same
+        // code is printed under the QR on the lab tablet.
+        TextField(
+          controller: _manualCodeController,
+          textAlign: TextAlign.center,
+          decoration: const InputDecoration(
+            labelText: 'หรือพิมพ์รหัสจับคู่ที่แสดงใต้ QR',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _submitManualCode(),
+        ),
+        const SizedBox(height: 10),
+        GradientButton(
+          label: 'ตรวจสอบรหัส',
+          icon: Icons.check_circle_outline_rounded,
+          onPressed: _submitManualCode,
         ),
       ],
     );

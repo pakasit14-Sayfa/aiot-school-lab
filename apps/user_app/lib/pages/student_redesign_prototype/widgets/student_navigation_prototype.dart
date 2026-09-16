@@ -493,32 +493,9 @@ class _StudentNavigationPrototypeState
                       );
                     },
                   ),
-                  buildTile(
-                    icon: Icons.help_outline_rounded,
-                    label: 'ช่วยเหลือ',
-                    onTap: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                  ),
-                  buildTile(
-                    icon: Icons.settings_outlined,
-                    label: 'ตั้งค่า',
-                    onTap: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('ฟีเจอร์นี้ยังไม่พร้อมใช้งาน'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                  ),
+                  // "ช่วยเหลือ" and "ตั้งค่า" drawer tiles used to raise a
+                  // "ฟีเจอร์นี้ยังไม่พร้อมใช้งาน" snackbar; there is no help
+                  // content and settings live on the profile tab. Removed.
                   buildTile(
                     icon: Icons.logout_rounded,
                     label: 'ออกจากระบบ',

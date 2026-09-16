@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_qr_login_page.dart';
+import 'package:shared_core/shared_core.dart';
 
 /// Pins the pairing-session failure path: a student must see a real error
 /// with a retry action, never a QR code that looks real but can never be
@@ -27,6 +28,7 @@ Future<void> _pump(
 }
 
 void main() {
+  scanModeTests();
   testWidgets('a real pairing session renders a real QR code', (
     tester,
   ) async {
@@ -94,5 +96,99 @@ void main() {
 
     expect(calls, 2);
     expect(find.textContaining('สร้างรหัส QR ไม่สำเร็จ'), findsNothing);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Scan mode (2026-09-16): no fake "preview" device, no "(ตัวอย่าง)" success,
+// no raw exception text; the typed-code fallback goes through the real peek.
+// ---------------------------------------------------------------------------
+
+Future<void> _pumpScan(
+  WidgetTester tester, {
+  Future<TerminalPairingPeek> Function(String)? peek,
+  Future<({bool success, String studentName, String message})> Function(String)? claim,
+  bool signedIn = true,
+}) async {
+  tester.view.physicalSize = const Size(800, 1600);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  await tester.pumpWidget(
+    MaterialApp(
+      home: StudentQrLoginPage(
+        startInScanMode: true,
+        peekPairing: peek,
+        claimPairing: claim,
+        hasSession: () => signedIn,
+      ),
+    ),
+  );
+  await tester.pump();
+  tester.takeException(); // MobileScanner has no platform in a widget test.
+}
+
+Future<void> _typeCode(WidgetTester tester, String code) async {
+  await tester.enterText(find.byType(TextField).first, code);
+  await tester.tap(find.text('ตรวจสอบรหัส'));
+  await tester.pumpAndSettle();
+  tester.takeException();
+}
+
+void scanModeTests() {
+  testWidgets('no session: scanning is refused, never a sample device', (tester) async {
+    await _pumpScan(tester, signedIn: false, peek: (_) async => throw StateError('must not be called'));
+    await _typeCode(tester, 'aiot-pairing:ABC');
+    expect(find.text('ยังไม่ได้เข้าสู่ระบบ'), findsOneWidget);
+    expect(find.textContaining('แท็บเล็ตประจำโต๊ะแล็บ AIoT #01'), findsNothing);
+    expect(find.textContaining('(ตัวอย่าง)'), findsNothing);
+  });
+
+  testWidgets('a typed code is peeked for real and an invalid one says so', (tester) async {
+    String? peeked;
+    await _pumpScan(
+      tester,
+      peek: (code) async {
+        peeked = code;
+        return const TerminalPairingPeek(isValid: false, terminalName: '', createdAt: null, expiresAt: null);
+      },
+    );
+    await _typeCode(tester, 'aiot-pairing:EXPIRED');
+    expect(peeked, 'aiot-pairing:EXPIRED');
+    expect(find.text('รหัสไม่ถูกต้องหรือหมดอายุ'), findsOneWidget);
+  });
+
+  testWidgets('a peek failure hides the raw exception', (tester) async {
+    await _pumpScan(tester, peek: (_) async => throw StateError('secret-backend'));
+    await _typeCode(tester, 'aiot-pairing:X');
+    expect(find.text('ตรวจสอบรหัสไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('secret-backend'), findsNothing);
+  });
+
+  testWidgets('a valid code shows the real device, and confirming claims it', (tester) async {
+    String? claimed;
+    await _pumpScan(
+      tester,
+      peek: (_) async => TerminalPairingPeek(
+        isValid: true,
+        terminalName: 'แท็บเล็ตห้องแล็บ 2',
+        createdAt: DateTime(2026, 9, 16, 9),
+        expiresAt: DateTime(2026, 9, 16, 9, 5),
+      ),
+      claim: (code) async {
+        claimed = code;
+        return (success: true, studentName: 'นักเรียนทดสอบ', message: '');
+      },
+    );
+    await _typeCode(tester, 'aiot-pairing:GOOD');
+    expect(find.textContaining('แท็บเล็ตห้องแล็บ 2'), findsWidgets);
+    await tester.tap(find.text('ยืนยันเข้าสู่ระบบ'));
+    await tester.pumpAndSettle();
+    tester.takeException();
+    expect(claimed, 'aiot-pairing:GOOD');
+    expect(find.text('เข้าสู่ระบบสำเร็จ'), findsOneWidget);
+    expect(find.textContaining('นักเรียนทดสอบ'), findsWidgets);
   });
 }

@@ -4,9 +4,19 @@ import '../../aiot_dashboard_page.dart';
 import 'student_redesign_palette.dart';
 
 class AiotWeatherSensorsCard extends StatefulWidget {
-  const AiotWeatherSensorsCard({super.key, this.height});
+  const AiotWeatherSensorsCard({
+    super.key,
+    this.height,
+    this.sensorStreamOverride,
+    this.rawReadingsStreamOverride,
+  });
 
   final double? height;
+
+  /// Test seams (same shape as DirectorOverviewPage's): production leaves
+  /// them null and subscribes to RealtimeService.
+  final Stream<SensorModel?>? sensorStreamOverride;
+  final Stream<List<Map<String, dynamic>>>? rawReadingsStreamOverride;
 
   @override
   State<AiotWeatherSensorsCard> createState() =>
@@ -29,13 +39,16 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
   @override
   void initState() {
     super.initState();
-    _rawStream = RealtimeService.rawReadingsStream();
-    _sensorStream = RealtimeService.sensorStream(
-      schoolId: currentUserModel?.schoolId ?? '',
-      building: '',
-      floor: '',
-      room: '',
-    );
+    _rawStream =
+        widget.rawReadingsStreamOverride ?? RealtimeService.rawReadingsStream();
+    _sensorStream =
+        widget.sensorStreamOverride ??
+        RealtimeService.sensorStream(
+          schoolId: currentUserModel?.schoolId ?? '',
+          building: '',
+          floor: '',
+          room: '',
+        );
   }
 
   static ({double value, DateTime? ts})? _latestValueOf(

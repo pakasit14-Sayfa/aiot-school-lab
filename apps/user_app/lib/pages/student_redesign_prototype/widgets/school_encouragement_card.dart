@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'student_redesign_palette.dart';
 
@@ -14,7 +13,9 @@ class SchoolEncouragementCard extends StatefulWidget {
 
 class _SchoolEncouragementCardState extends State<SchoolEncouragementCard> {
   late final PageController _pageController;
-  Timer? _timer;
+  // The 4-second auto-slide timer is gone: since 2026-08-17 there is exactly
+  // one slide, so it animated page 0 → page 0 forever (and left every
+  // widget test of the home page with a pending timer).
   int _currentPage = 0;
 
   // 2026-08-17: ตัด 2 สไลด์เดิมออก (สถิติ "ประหยัดไฟ 14.8% ลด 3.2kg CO2" และ
@@ -38,26 +39,10 @@ class _SchoolEncouragementCardState extends State<SchoolEncouragementCard> {
   void initState() {
     super.initState();
     _pageController = PageController();
-    _startAutoSlide();
-  }
-
-  void _startAutoSlide() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (_pageController.hasClients) {
-        final nextPage = (_currentPage + 1) % _slides.length;
-        _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOutCubic,
-        );
-      }
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
     _pageController.dispose();
     super.dispose();
   }

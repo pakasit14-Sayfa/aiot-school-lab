@@ -40,6 +40,10 @@ class SchoolUtilityTrendCard extends StatefulWidget {
 class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
     with SingleTickerProviderStateMixin {
   bool _loading = true;
+  // Was: any failure → `_loading = false` → both summaries null → the demo
+  // branch. A backend outage rendered as sample numbers under a small
+  // "ข้อมูลจำลอง" badge — the worst state dressed as a healthy one.
+  bool _loadFailed = false;
   EnergyUsageSummary? _energySummary;
   WaterUsageSummary? _waterSummary;
   List<UtilityTrendPoint> _energyTrend = [];
@@ -71,6 +75,12 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
   }
 
   Future<void> _load() async {
+    if (!_loading || _loadFailed) {
+      setState(() {
+        _loading = true;
+        _loadFailed = false;
+      });
+    }
     try {
       final getEnergySummary =
           widget.getEnergyUsageSummary ?? UtilityService.getEnergyUsageSummary;
@@ -104,54 +114,26 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
         _loading = false;
       });
       _animController.forward(from: 0.0);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SchoolUtilityTrendCard load failed: $e');
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
     }
   }
 
   bool get _hasEnergy => (_energySummary?.deviceCount ?? 0) > 0;
   bool get _hasWater => (_waterSummary?.deviceCount ?? 0) > 0;
 
-  /// โรงเรียนยังไม่มีมิเตอร์ไฟ/น้ำจริงติดตามอยู่เลย — โชว์ตัวอย่างว่าการ์ดนี้
-  /// หน้าตาเป็นยังไงตอนมีข้อมูล แทนที่จะหายไปเงียบๆ (SizedBox.shrink() เดิม)
-  /// ต้องมี badge "ข้อมูลจำลอง" กำกับเสมอ ห้ามปนกับข้อมูลจริงโดยไม่บอก
-  bool get _isDemo => !_hasEnergy && !_hasWater;
-
-  static final EnergyUsageSummary _demoEnergySummary = EnergyUsageSummary(
-    deviceCount: 1,
-    totalKwh: 285,
-    electricityRateThb: 4.2,
-    isRateDefault: true,
-    estimatedCostThb: 1197,
-    disclaimer: 'ตัวอย่าง',
-  );
-
-  static final WaterUsageSummary _demoWaterSummary = WaterUsageSummary(
-    deviceCount: 1,
-    totalM3: 12.5,
-    waterRateThb: 18,
-    isRateDefault: true,
-    estimatedCostThb: 225,
-    disclaimer: 'ตัวอย่าง',
-  );
-
-  static const UtilityEfficiencyScore _demoEnergyScore =
-      UtilityEfficiencyScore(score: 68, label: null, current: 285, previous: 310);
-  static const UtilityEfficiencyScore _demoWaterScore =
-      UtilityEfficiencyScore(score: 72, label: null, current: 12.5, previous: 14);
-
-  static List<UtilityTrendPoint> _demoTrend(double base, double swing) {
-    final now = DateTime.now();
-    return List.generate(7, (i) {
-      final day = now.subtract(Duration(days: 6 - i));
-      final wave = math.sin(i * 0.9) * swing;
-      return UtilityTrendPoint(day: day, value: (base + wave).clamp(0, base * 2));
-    });
-  }
+  /// No meter on either utility. Used to switch the whole card to a set of
+  /// invented numbers (285 kWh, 12.5 m³, a 7-day sine-wave "trend") behind a
+  /// "ข้อมูลจำลอง" badge. Fabricated data is fabricated data even when
+  /// labelled — the card now says plainly that there is nothing to show.
+  bool get _noMeters => !_hasEnergy && !_hasWater;
 
   double? get _combinedScore {
-    if (_isDemo) return (_demoEnergyScore.score! + _demoWaterScore.score!) / 2;
     final scores = [
       _energyScore?.score,
       _waterScore?.score,
@@ -194,6 +176,38 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
     );
   }
 
+  Widget _notice({
+    required IconData icon,
+    required Color color,
+    required String text,
+    Widget? action,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+        ?action,
+      ],
+    );
+  }
+
   Widget _buildContent() {
     if (_loading) {
       return const Center(
@@ -204,27 +218,33 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
         ),
       );
     }
-    final isDemo = _isDemo;
-    final effectiveHasEnergy = _hasEnergy || isDemo;
-    final effectiveHasWater = _hasWater || isDemo;
-    // Not a plain ?? — _energySummary/_waterSummary can be a real, non-null
-    // object with deviceCount: 0 (no meters registered yet), which would
-    // otherwise leak real zeros into the "demo" branch instead of the
-    // actual demo numbers. Only substitute demo numbers when BOTH are
-    // missing (isDemo) — a mixed case (e.g. only a water meter exists)
-    // should show the real zero for energy, not an unlabeled fake one.
-    final effectiveEnergySummary = isDemo
-        ? _demoEnergySummary
-        : (_energySummary ?? _demoEnergySummary);
-    final effectiveWaterSummary = isDemo
-        ? _demoWaterSummary
-        : (_waterSummary ?? _demoWaterSummary);
+    if (_loadFailed) {
+      return _notice(
+        icon: Icons.error_outline_rounded,
+        color: const Color(0xFFB91C1C),
+        text: 'โหลดข้อมูลพลังงานไม่สำเร็จ — ยังไม่ทราบการใช้ไฟ/น้ำของโรงเรียน',
+        action: TextButton(onPressed: _load, child: const Text('ลองใหม่')),
+      );
+    }
+    if (_noMeters) {
+      return _notice(
+        icon: Icons.electrical_services_rounded,
+        color: SchoolPalette.muted,
+        text: 'โรงเรียนยังไม่มีมิเตอร์ไฟฟ้า/น้ำที่ส่งข้อมูลเข้าระบบ',
+      );
+    }
+    final effectiveHasEnergy = _hasEnergy;
+    final effectiveHasWater = _hasWater;
+    // Non-null here: `_noMeters` above already covered the all-missing
+    // case, and a utility without a meter is simply not rendered.
+    final effectiveEnergySummary = _energySummary;
+    final effectiveWaterSummary = _waterSummary;
     final effectiveEnergyTrend = _hasEnergy
         ? _energyTrend
-        : (isDemo ? _demoTrend(40, 12) : const <UtilityTrendPoint>[]);
+        : const <UtilityTrendPoint>[];
     final effectiveWaterTrend = _hasWater
         ? _waterTrend
-        : (isDemo ? _demoTrend(1.8, 0.6) : const <UtilityTrendPoint>[]);
+        : const <UtilityTrendPoint>[];
 
     final score = _combinedScore;
 
@@ -263,28 +283,6 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (isDemo) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFFCD34D)),
-                      ),
-                      child: const Text(
-                        'ข้อมูลจำลอง',
-                        style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF92400E),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -327,7 +325,7 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
                   children: [
                     const Text('⚡ ', style: TextStyle(fontSize: 9.5)),
                     Text(
-                      'ไฟฟ้า ${effectiveEnergySummary.totalKwh.toStringAsFixed(0)} kWh',
+                      'ไฟฟ้า ${effectiveEnergySummary!.totalKwh.toStringAsFixed(0)} kWh',
                       style: const TextStyle(
                         fontSize: 10,
                         color: Color(0xFF854D0E),
@@ -349,7 +347,7 @@ class _SchoolUtilityTrendCardState extends State<SchoolUtilityTrendCard>
                   children: [
                     const Text('💧 ', style: TextStyle(fontSize: 9.5)),
                     Text(
-                      'น้ำ ${effectiveWaterSummary.totalM3.toStringAsFixed(1)} m³',
+                      'น้ำ ${effectiveWaterSummary!.totalM3.toStringAsFixed(1)} m³',
                       style: const TextStyle(
                         fontSize: 10,
                         color: Color(0xFF0369A1),

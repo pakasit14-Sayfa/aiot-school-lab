@@ -80,13 +80,37 @@ void main() {
     expect(find.text('ข้อมูลจำลอง'), findsNothing);
   });
 
-  testWidgets('zero meters on both utilities falls back to demo numbers, always with the demo badge', (
+  testWidgets('zero meters on both utilities is an honest empty state — no demo numbers, no badge', (
     tester,
   ) async {
     await _pump(tester);
-    expect(find.text('ข้อมูลจำลอง'), findsOneWidget);
-    // Demo energy total from the widget's own fixed demo data.
-    expect(find.textContaining('285'), findsOneWidget);
+    expect(find.text('ข้อมูลจำลอง'), findsNothing);
+    // The old fixed demo totals (285 kWh / 12.5 m³) must never render.
+    expect(find.textContaining('285'), findsNothing);
+    expect(find.textContaining('12.5'), findsNothing);
+    expect(find.textContaining('ยังไม่มีมิเตอร์ไฟฟ้า/น้ำ'), findsOneWidget);
+  });
+
+  testWidgets('a failed load is an error with retry, never the demo numbers', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      getEnergyUsageSummary: ({period = 'week'}) async {
+        calls++;
+        if (calls == 1) throw StateError('secret');
+        return _realEnergy;
+      },
+      getWaterUsageSummary: ({period = 'week'}) async => _realWater,
+    );
+    expect(find.textContaining('โหลดข้อมูลพลังงานไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('285'), findsNothing);
+    expect(find.textContaining('secret'), findsNothing);
+    await tester.tap(find.text('ลองใหม่'));
+    await tester.pumpAndSettle(const Duration(milliseconds: 1600));
+    expect(calls, 2);
+    expect(find.textContaining('150'), findsOneWidget);
   });
 
   testWidgets('a real zero-device energy summary is not silently swapped for the demo numbers when water is real', (
