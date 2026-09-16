@@ -1,3 +1,5 @@
+import 'dart:math' show pi;
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -100,11 +102,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     'ทางเข้าโรงเรียน',
   ];
 
-  final List<String> statuses = const [
-    'ทุกสถานะ',
-    'Online',
-    'Offline',
-  ];
+  final List<String> statuses = const ['ทุกสถานะ', 'Online', 'Offline'];
 
   // AI alerts have zero backend today (security_events table exists but no
   // RPC reads it) — showing an empty list with an honest disclosure below
@@ -126,36 +124,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                 'ดูสถานะกล้อง จุดติดตั้ง การบันทึก และเหตุจาก AI Camera พร้อมเปิดดูรายละเอียดของแต่ละกล้อง',
           ),
           const SizedBox(height: 14),
-          _summaryCards(),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 980) {
-                return Column(
-                  children: [
-                    _aiAlertsCard(),
-                    const SizedBox(height: 16),
-                    _systemHealthCard(),
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 5,
-                    child: _aiAlertsCard(),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    flex: 4,
-                    child: _systemHealthCard(),
-                  ),
-                ],
-              );
-            },
-          ),
+          _heroSection(),
           const SizedBox(height: 16),
           _cameraSection(filtered),
           const SizedBox(height: 16),
@@ -169,196 +138,300 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     final query = searchText.trim().toLowerCase();
 
     return cameras.where((camera) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           camera.id.toLowerCase().contains(query) ||
           camera.name.toLowerCase().contains(query) ||
           camera.location.toLowerCase().contains(query) ||
           camera.building.toLowerCase().contains(query);
 
       final matchesBuilding =
-          selectedBuilding == 'ทุกอาคาร' ||
-          camera.building == selectedBuilding;
+          selectedBuilding == 'ทุกอาคาร' || camera.building == selectedBuilding;
 
       final matchesStatus =
-          selectedStatus == 'ทุกสถานะ' ||
-          camera.status == selectedStatus;
+          selectedStatus == 'ทุกสถานะ' || camera.status == selectedStatus;
 
       return matchesSearch && matchesBuilding && matchesStatus;
     }).toList();
   }
 
-  Widget _summaryCards() {
+  // V2 (เลือกจาก mockup 2 แบบ, director-cctv-redesign.html) — เดิมหน้านี้
+  // แบ่งเป็น 3 การ์ดแยก (สถิติ 6 ช่อง / แจ้งเตือน AI / สถานะระบบ) ให้น้ำหนัก
+  // เท่ากับกล้องทั้งที่กล้องคือเนื้อหาเดียวที่มีรายละเอียดจริงให้กดดู — ยุบ
+  // เหลือสรุปเดียว (วงแหวน Online/ทั้งหมด + ประโยคสถานะ + การ์ดเล็ก 2 ใบ
+  // สำหรับสิ่งที่ยังไม่รองรับ) ไม่มีตัวเลข/เงื่อนไขไหนถูกแต่งขึ้นใหม่เลย ทุก
+  // ค่ายังมาจาก cameras/alerts เดิมทั้งหมด แค่จัดลำดับความสำคัญใหม่
+  Widget _heroSection() {
     final total = cameras.length;
     final online = cameras.where((c) => c.status == 'Online').length;
     final offline = total - online;
-    final onlinePct = total == 0 ? 0.0 : online / total * 100;
+    final offlineCameras = cameras.where((c) => c.status == 'Offline').toList();
+    final ratio = total == 0 ? 0.0 : online / total;
+    final statusColor = total == 0
+        ? AppPalette.textMuted
+        : offline == 0
+        ? AppPalette.success
+        : online == 0
+        ? AppPalette.danger
+        : AppPalette.warning;
+    final String headline = total == 0
+        ? 'ยังไม่มีกล้องในระบบนี้'
+        : offline == 0
+        ? 'กล้องทั้งหมด $total ตัว ทำงานออนไลน์ครบ'
+        : offline == 1
+        ? '$total กล้องทั้งหมด · ${offlineCameras.first.name} กำลัง Offline'
+        : '$total กล้องทั้งหมด · $offline กล้อง Offline';
 
-    final items = [
-      _CameraSummary(
-        title: 'กล้องทั้งหมด',
-        value: '$total',
-        subtitle: 'ทุกจุดติดตั้ง',
-        icon: Icons.videocam_rounded,
-        color: AppPalette.softPink,
-      ),
-      _CameraSummary(
-        title: 'Online',
-        value: '$online',
-        subtitle: total == 0 ? '-' : '${onlinePct.toStringAsFixed(1)}%',
-        icon: Icons.cloud_done_rounded,
-        color: AppPalette.softMint,
-      ),
-      _CameraSummary(
-        title: 'Offline',
-        value: '$offline',
-        subtitle: offline > 0 ? 'ควรตรวจสอบ' : 'ไม่มี',
-        icon: Icons.cloud_off_rounded,
-        color: AppPalette.softCream,
-      ),
-      // เปิด AI / แจ้งเตือนจาก AI / พื้นที่จัดเก็บ ไม่มีข้อมูลจริงรองรับเลย
-      // (ไม่มีคอลัมน์/RPC ใดบอกได้) — บอกตรงๆ ว่ายังไม่รองรับ แทนตัวเลข
-      // ที่แต่งขึ้นมาให้ดูสมจริง
-      const _CameraSummary(
-        title: 'เปิด AI',
-        value: '-',
-        subtitle: 'ยังไม่รองรับ',
-        icon: Icons.sensors_rounded,
-        color: AppPalette.softBlue,
-      ),
-      const _CameraSummary(
-        title: 'แจ้งเตือนจาก AI',
-        value: '-',
-        subtitle: 'ยังไม่รองรับ',
-        icon: Icons.warning_amber_rounded,
-        color: AppPalette.softPink2,
-      ),
-      const _CameraSummary(
-        title: 'พื้นที่จัดเก็บ',
-        value: '-',
-        subtitle: 'ยังไม่รองรับ',
-        icon: Icons.storage_rounded,
-        color: AppPalette.softBlue,
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int columns = 6;
-
-        if (constraints.maxWidth < 700) {
-          columns = 2;
-        } else if (constraints.maxWidth < 1120) {
-          columns = 3;
-        }
-
-        return GridView.builder(
-          itemCount: items.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: columns == 2 ? 126 : 116,
-          ),
-          itemBuilder: (context, index) {
-            final item = items[index];
-
-            return Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 31,
-                    height: 31,
-                    decoration: BoxDecoration(
-                      color:
-                          AppPalette.tint(Colors.white, 0.82),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 17,
-                      color: AppPalette.textDark,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 9.2,
-                      color: AppPalette.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    item.value,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    item.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 8.2,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _aiAlertsCard() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'แจ้งเตือนล่าสุดจาก AI Camera',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'เหตุที่ระบบกล้องตรวจจับได้และส่งเข้าหน้าฉุกเฉิน',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          if (alerts.isEmpty)
-            const Text(
-              'ระบบแจ้งเตือนอัตโนมัติจาก AI Camera ยังไม่รองรับในระบบนี้',
-              style: TextStyle(
-                fontSize: 9.5,
-                color: AppPalette.textMuted,
-              ),
+      child: _camerasLoading
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
             )
-          else
-            ...alerts.map(_alertTile),
-        ],
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final ring = SizedBox(
+                      width: 88,
+                      height: 88,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CustomPaint(
+                            size: const Size(88, 88),
+                            painter: _CctvRingPainter(
+                              ratio: ratio,
+                              color: statusColor,
+                            ),
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                total == 0 ? '—' : '$online/$total',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Text(
+                                'Online',
+                                style: TextStyle(
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppPalette.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                    final textCol = Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          top: box.maxWidth < 500 ? 14 : 0,
+                          left: box.maxWidth < 500 ? 0 : 18,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (total > 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 11,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppPalette.tint(statusColor, 0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      offline == 0
+                                          ? Icons.check_circle_rounded
+                                          : Icons.warning_amber_rounded,
+                                      size: 13,
+                                      color: statusColor,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      offline == 0
+                                          ? 'ทำงานปกติ'
+                                          : (offline == total
+                                                ? 'ควรตรวจสอบ — กล้องทุกตัว Offline'
+                                                : 'ควรตรวจสอบ — $offline กล้อง Offline'),
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: statusColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                            Text(
+                              headline,
+                              style: const TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if (offlineCameras.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                'สถานะการบันทึก เครือข่าย และพื้นที่จัดเก็บของ '
+                                '${offlineCameras.map((c) => c.id).join(', ')} ควรได้รับการตรวจสอบ',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  color: AppPalette.textMuted,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 13,
+                                  color: AppPalette.textMuted,
+                                ),
+                                const SizedBox(width: 6),
+                                const Expanded(
+                                  child: Text(
+                                    'เปิด AI, แจ้งเตือนอัตโนมัติ และพื้นที่จัดเก็บยังไม่รองรับในระบบนี้',
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      color: AppPalette.textMuted,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                    return box.maxWidth < 500
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [ring, textCol],
+                          )
+                        : Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [ring, textCol],
+                          );
+                  },
+                ),
+                const SizedBox(height: 16),
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final aiAlertsMini = _miniInfoCard(
+                      icon: Icons.notifications_none_rounded,
+                      title: 'แจ้งเตือนจาก AI Camera',
+                      body: alerts.isEmpty
+                          ? 'ยังไม่รองรับในระบบนี้ — เหตุที่ตรวจจับได้จะขึ้นตรงนี้เมื่อพร้อมใช้งาน'
+                          : null,
+                      child: alerts.isEmpty
+                          ? null
+                          : Column(children: alerts.map(_alertTile).toList()),
+                    );
+                    final storageMini = _miniInfoCard(
+                      icon: Icons.storage_rounded,
+                      title: 'พื้นที่จัดเก็บ & AI Detection',
+                      body:
+                          'ยังไม่มีข้อมูลจริงในระบบนี้ — ไม่มีคอลัมน์/RPC รองรับตอนนี้',
+                    );
+                    if (box.maxWidth < 620) {
+                      return Column(
+                        children: [
+                          aiAlertsMini,
+                          const SizedBox(height: 10),
+                          storageMini,
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: aiAlertsMini),
+                        const SizedBox(width: 10),
+                        Expanded(child: storageMini),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _miniInfoCard({
+    required IconData icon,
+    required String title,
+    String? body,
+    Widget? child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppPalette.border),
+        borderRadius: BorderRadius.circular(16),
       ),
+      child: child != null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                child,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 16, color: AppPalette.textMuted),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        body!,
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          color: AppPalette.textMuted,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
@@ -369,9 +442,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
       decoration: BoxDecoration(
         color: AppPalette.tint(item.color, 0.055),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppPalette.tint(item.color, 0.13),
-        ),
+        border: Border.all(color: AppPalette.tint(item.color, 0.13)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,11 +454,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(
-              item.icon,
-              size: 18,
-              color: item.color,
-            ),
+            child: Icon(item.icon, size: 18, color: item.color),
           ),
           const SizedBox(width: 9),
           Expanded(
@@ -437,151 +504,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
-  Widget _systemHealthCard() {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: directorWhiteCard(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'สถานะระบบกล้อง',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'สถานะการบันทึก เครือข่าย และพื้นที่จัดเก็บ',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Builder(
-            builder: (context) {
-              final total = cameras.length;
-              final online = cameras.where((c) => c.status == 'Online').length;
-              return _healthRow(
-                'กล้อง Online',
-                total == 0 ? '- / -' : '$online / $total',
-                total == 0 ? 0 : online / total,
-                AppPalette.environmentGreen,
-                Icons.videocam_rounded,
-              );
-            },
-          ),
-          // "กำลังบันทึก"/"AI Detection"/"พื้นที่จัดเก็บ" ไม่มีข้อมูลจริง
-          // รองรับเลย (ไม่มีคอลัมน์/RPC ใดบอกได้) — ของเดิมใส่ตัวเลขแต่ง
-          // ("21/24", "19/24", "76%") ที่ดูสมจริงแต่ไม่มีที่มา ตัดออกแทนที่
-          // จะเดาค่า
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(11),
-            margin: const EdgeInsets.only(top: 4, bottom: 4),
-            decoration: BoxDecoration(
-              color: AppPalette.tint(AppPalette.textMuted, 0.06),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Text(
-              'สถานะการบันทึก, AI Detection และพื้นที่จัดเก็บยังไม่มีข้อมูลจริงในระบบนี้',
-              style: TextStyle(
-                fontSize: 8.8,
-                height: 1.4,
-                color: AppPalette.textMuted,
-              ),
-            ),
-          ),
-          if (cameras.any((c) => c.status == 'Offline')) ...[
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: AppPalette.tint(AppPalette.warning, 0.07),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                'ควรตรวจสอบ ${cameras.where((c) => c.status == 'Offline').map((c) => c.id).join(', ')} ที่ Offline',
-                style: const TextStyle(
-                  fontSize: 8.8,
-                  height: 1.4,
-                  color: AppPalette.textMuted,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _healthRow(
-    String title,
-    String value,
-    double progress,
-    Color color,
-    IconData icon,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 11),
-      child: Row(
-        children: [
-          Container(
-            width: 33,
-            height: 33,
-            decoration: BoxDecoration(
-              color: AppPalette.tint(color, 0.08),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              icon,
-              size: 16,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 95,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 7,
-                backgroundColor: AppPalette.softTag,
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(color),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 46,
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _cameraSection(List<_CameraData> filtered) {
     return Container(
       width: double.infinity,
@@ -592,18 +514,12 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
         children: [
           const Text(
             'กล้องทั้งหมด',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           const Text(
             'กดที่กล้องเพื่อดูภาพขนาดใหญ่ สถานะ และเหตุ AI ล่าสุด',
-            style: TextStyle(
-              fontSize: 10,
-              color: AppPalette.textMuted,
-            ),
+            style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
           if (_camerasLoading)
@@ -612,70 +528,60 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               child: Center(child: CircularProgressIndicator()),
             )
           else ...[
-          _filters(),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Text(
-                'พบ ${filtered.length} กล้อง',
-                style: const TextStyle(
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppPalette.textMuted,
-                ),
-              ),
-              const Spacer(),
-              if (_hasActiveFilters())
-                TextButton.icon(
-                  onPressed: _clearFilters,
-                  icon: const Icon(
-                    Icons.refresh_rounded,
-                    size: 15,
+            _filters(),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  'พบ ${filtered.length} กล้อง',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.textMuted,
                   ),
-                  label: const Text('ล้างตัวกรอง'),
                 ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 620) {
-                return Column(
-                  children: [
-                    for (int i = 0;
-                        i < filtered.length;
-                        i++) ...[
-                      SizedBox(
-                        height: 276,
-                        child: _cameraCard(filtered[i]),
-                      ),
-                      if (i != filtered.length - 1)
-                        const SizedBox(height: 10),
+                const Spacer(),
+                if (_hasActiveFilters())
+                  TextButton.icon(
+                    onPressed: _clearFilters,
+                    icon: const Icon(Icons.refresh_rounded, size: 15),
+                    label: const Text('ล้างตัวกรอง'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                if (constraints.maxWidth < 620) {
+                  return Column(
+                    children: [
+                      for (int i = 0; i < filtered.length; i++) ...[
+                        SizedBox(height: 276, child: _cameraCard(filtered[i])),
+                        if (i != filtered.length - 1)
+                          const SizedBox(height: 10),
+                      ],
                     ],
-                  ],
+                  );
+                }
+
+                final columns = constraints.maxWidth < 1050 ? 2 : 3;
+
+                return GridView.builder(
+                  itemCount: filtered.length,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 276,
+                  ),
+                  itemBuilder: (context, index) {
+                    return _cameraCard(filtered[index]);
+                  },
                 );
-              }
-
-              final columns =
-                  constraints.maxWidth < 1050 ? 2 : 3;
-
-              return GridView.builder(
-                itemCount: filtered.length,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate:
-                    SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 276,
-                ),
-                itemBuilder: (context, index) {
-                  return _cameraCard(filtered[index]);
-                },
-              );
-            },
-          ),
+              },
+            ),
           ],
         ],
       ),
@@ -692,8 +598,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             setState(() => searchText = value);
           },
           decoration: InputDecoration(
-            hintText:
-                'ค้นหารหัสกล้อง จุดติดตั้ง อาคาร...',
+            hintText: 'ค้นหารหัสกล้อง จุดติดตั้ง อาคาร...',
             hintStyle: const TextStyle(fontSize: 9.4),
             prefixIcon: const Icon(
               Icons.search_rounded,
@@ -708,13 +613,11 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppPalette.border),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide:
-                  const BorderSide(color: AppPalette.border),
+              borderSide: const BorderSide(color: AppPalette.border),
             ),
           ),
         );
@@ -757,10 +660,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
 
         return Row(
           children: [
-            Expanded(
-              flex: 3,
-              child: search,
-            ),
+            Expanded(flex: 3, child: search),
             const SizedBox(width: 9),
             Expanded(child: building),
             const SizedBox(width: 9),
@@ -786,11 +686,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppPalette.primaryPink,
-          ),
+          Icon(icon, size: 16, color: AppPalette.primaryPink),
           const SizedBox(width: 6),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -803,8 +699,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                 ),
                 items: items
                     .map(
-                      (item) =>
-                          DropdownMenuItem<String>(
+                      (item) => DropdownMenuItem<String>(
                         value: item,
                         child: Text(
                           item,
@@ -847,8 +742,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -898,17 +792,13 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                       runSpacing: 6,
                       children: [
                         _miniTag(
-                          camera.aiEnabled
-                              ? 'AI เปิด'
-                              : 'AI ปิด',
+                          camera.aiEnabled ? 'AI เปิด' : 'AI ปิด',
                           camera.aiEnabled
                               ? AppPalette.primaryPink
                               : AppPalette.textMuted,
                         ),
                         _miniTag(
-                          camera.recording
-                              ? 'REC'
-                              : 'ไม่บันทึก',
+                          camera.recording ? 'REC' : 'ไม่บันทึก',
                           camera.recording
                               ? AppPalette.danger
                               : AppPalette.textMuted,
@@ -938,10 +828,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
-  Widget _cameraPreview(
-    _CameraData camera, {
-    required double height,
-  }) {
+  Widget _cameraPreview(_CameraData camera, {required double height}) {
     final online = camera.status == 'Online';
 
     return Container(
@@ -952,14 +839,8 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: online
-              ? const [
-                  Color(0xFF36363D),
-                  Color(0xFF17171B),
-                ]
-              : const [
-                  Color(0xFF68656A),
-                  Color(0xFF3C393E),
-                ],
+              ? const [Color(0xFF36363D), Color(0xFF17171B)]
+              : const [Color(0xFF68656A), Color(0xFF3C393E)],
         ),
       ),
       child: Stack(
@@ -967,9 +848,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           Positioned.fill(
             child: Center(
               child: Icon(
-                online
-                    ? Icons.videocam_rounded
-                    : Icons.videocam_off_rounded,
+                online ? Icons.videocam_rounded : Icons.videocam_off_rounded,
                 size: height > 200 ? 64 : 42,
                 color: Colors.white.withValues(alpha: 0.42),
               ),
@@ -984,9 +863,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                   width: 7,
                   height: 7,
                   decoration: BoxDecoration(
-                    color: online
-                        ? AppPalette.success
-                        : AppPalette.danger,
+                    color: online ? AppPalette.success : AppPalette.danger,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -1041,13 +918,11 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             right: 10,
             bottom: 9,
             child: Text(
-              camera.status == 'Online'
-                  ? '21/08/2569 14:36:24'
-                  : 'No signal',
-              style: const TextStyle(
-                fontSize: 7.8,
-                color: Colors.white70,
-              ),
+              // No field anywhere reports a real last-updated time for a
+              // camera feed — showing a fixed fake clock next to the "LIVE"
+              // badge implied a live stream that doesn't exist.
+              'ไม่มีข้อมูลเวลาล่าสุด',
+              style: const TextStyle(fontSize: 7.8, color: Colors.white70),
             ),
           ),
         ],
@@ -1057,10 +932,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
 
   Widget _miniTag(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 7,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: AppPalette.tint(color, 0.09),
         borderRadius: BorderRadius.circular(20),
@@ -1103,112 +975,149 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             borderRadius: BorderRadius.circular(24),
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 900,
-              maxHeight: 790,
-            ),
+            constraints: const BoxConstraints(maxWidth: 900, maxHeight: 790),
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 43,
-                        height: 43,
-                        decoration: BoxDecoration(
-                          color: AppPalette.tint(
-                            camera.color,
-                            0.10,
+                  Builder(
+                    builder: (context) {
+                      // เดิมสถานะ Offline ฝังอยู่แค่ 1 แถวในตาราง "ข้อมูลกล้อง"
+                      // ด้านล่าง ทั้งที่เป็นเรื่องสำคัญที่สุด — ดึงขึ้นมาเป็น
+                      // แบดจ์ที่หัวไดอะล็อกให้เห็นทันที (mockup V3,
+                      // director-cctv-redesign.html)
+                      final online = camera.status == 'Online';
+                      final statusColor = online
+                          ? AppPalette.success
+                          : AppPalette.danger;
+                      return Row(
+                        children: [
+                          Container(
+                            width: 43,
+                            height: 43,
+                            decoration: BoxDecoration(
+                              color: AppPalette.tint(statusColor, 0.10),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: Icon(
+                              Icons.videocam_rounded,
+                              color: statusColor,
+                            ),
                           ),
-                          borderRadius:
-                              BorderRadius.circular(13),
-                        ),
-                        child: Icon(
-                          Icons.videocam_rounded,
-                          color: camera.color,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              camera.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight:
-                                    FontWeight.w800,
-                              ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        camera.name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppPalette.tint(
+                                          statusColor,
+                                          0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            decoration: BoxDecoration(
+                                              color: statusColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            camera.status.toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.w800,
+                                              color: statusColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Text(
+                                  // building กับ location มาจาก field เดียวกัน
+                                  // (d.location ใน _loadCameras) เลยมีค่า
+                                  // เหมือนกันเป๊ะเสมอ — ใส่ทั้งคู่ไปแล้วออกมา
+                                  // เป็นข้อความซ้ำ "อาคาร 3... • ทางเข้าหลัก"
+                                  // 2 รอบ (เห็นจากสกรีนช็อตจริง) โชว์แค่ตัวเดียว
+                                  '${camera.id} • ${camera.location}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: AppPalette.textMuted,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '${camera.id} • ${camera.location}',
-                              style: const TextStyle(
-                                fontSize: 9,
-                                color:
-                                    AppPalette.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () =>
-                            Navigator.pop(dialogContext),
-                        icon:
-                            const Icon(Icons.close_rounded),
-                      ),
-                    ],
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 13),
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(18),
-                            child: _cameraPreview(
-                              camera,
-                              height: 360,
-                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            child: _cameraPreview(camera, height: 360),
                           ),
                           const SizedBox(height: 14),
                           LayoutBuilder(
                             builder: (context, constraints) {
-                              if (constraints.maxWidth <
-                                  650) {
+                              if (constraints.maxWidth < 650) {
                                 return Column(
                                   children: [
                                     _cameraInfoCard(camera),
-                                    const SizedBox(
-                                      height: 12,
-                                    ),
+                                    const SizedBox(height: 12),
                                     _cameraAiCard(camera),
                                   ],
                                 );
                               }
 
-                              return Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child:
-                                        _cameraInfoCard(camera),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child:
-                                        _cameraAiCard(camera),
-                                  ),
-                                ],
+                              return IntrinsicHeight(
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Expanded(child: _cameraInfoCard(camera)),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: _cameraAiCard(camera)),
+                                  ],
+                                ),
                               );
                             },
                           ),
@@ -1224,42 +1133,30 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                     children: [
                       OutlinedButton.icon(
                         onPressed: () {
-                          _showMessage(
-                            'ตัวอย่าง: บันทึกภาพจาก ${camera.id}',
-                          );
+                          _showMessage('ยังไม่มีระบบบันทึกภาพจากกล้องในแอปนี้');
                         },
-                        icon: const Icon(
-                          Icons.camera_alt_outlined,
-                          size: 16,
-                        ),
+                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
                         label: const Text('บันทึกภาพ'),
                       ),
                       OutlinedButton.icon(
                         onPressed: () {
                           _showMessage(
-                            'ตัวอย่าง: เปิด Playback ของ ${camera.id}',
+                            'ยังไม่มีระบบเปิดดูภาพย้อนหลัง (Playback) ในแอปนี้',
                           );
                         },
-                        icon: const Icon(
-                          Icons.history_rounded,
-                          size: 16,
-                        ),
+                        icon: const Icon(Icons.history_rounded, size: 16),
                         label: const Text('Playback'),
                       ),
                       FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor:
-                              AppPalette.primaryPink,
+                          backgroundColor: AppPalette.primaryPink,
                         ),
                         onPressed: () {
                           _showMessage(
-                            'เปิดกล้อง ${camera.id} แบบเต็มจอ',
+                            'ยังไม่มีระบบเปิดดูภาพกล้องแบบเต็มจอในแอปนี้',
                           );
                         },
-                        icon: const Icon(
-                          Icons.fullscreen_rounded,
-                          size: 17,
-                        ),
+                        icon: const Icon(Icons.fullscreen_rounded, size: 17),
                         label: const Text('เต็มจอ'),
                       ),
                     ],
@@ -1273,11 +1170,15 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
+  // สถานะ/รหัสกล้องย้ายขึ้นไปเป็นแบดจ์ที่หัวไดอะล็อกแล้ว (ดู _showCameraDetail)
+  // การ์ดนี้เลยเหลือแค่รายละเอียดที่ไม่ได้อยู่ในหัวเรื่องแล้ว — เปลี่ยนจาก
+  // แถวข้อความล้วนๆ (label ซ้าย/value ซ้ายติดกัน) เป็นคู่ label/value ชิดขอบ
+  // ซ้าย-ขวาคั่นเส้นบางๆ อ่านไวกว่า (mockup V3, director-cctv-redesign.html)
   Widget _cameraInfoCard(_CameraData camera) {
     final online = camera.status == 'Online';
 
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppPalette.pageBg,
         borderRadius: BorderRadius.circular(16),
@@ -1288,47 +1189,61 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
         children: [
           const Text(
             'ข้อมูลกล้อง',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 9),
-          _detailRow('รหัสกล้อง', camera.id),
-          _detailRow('อาคาร', camera.building),
-          _detailRow('จุดติดตั้ง', camera.location),
-          _detailRow('สถานะ', camera.status),
+          const SizedBox(height: 6),
+          // อาคาร/จุดติดตั้งเดิมเป็น 2 แถวแยกกัน แต่ทั้งคู่มาจาก field เดียวกัน
+          // (d.location ใน _loadCameras — ยังไม่มีการแยกอาคารออกจากจุดติดตั้ง
+          // ในระบบจริง) โชว์แยก 2 แถวเลยออกมาเป็นค่าเดียวกันเป๊ะ ดูเหมือนบั๊ก
+          // (เห็นจากสกรีนช็อตจริง) — รวมเป็นแถวเดียว ไม่ทำเป็นข้อมูล 2 ชิ้นที่
+          // ไม่มีอยู่จริง
+          _detailRow('อาคาร/จุดติดตั้ง', camera.location),
           _detailRow(
             'การบันทึก',
-            camera.recording
-                ? 'กำลังบันทึก'
-                : 'ไม่ได้บันทึก',
+            camera.recording ? 'กำลังบันทึก' : 'ไม่ได้บันทึก',
           ),
           _detailRow(
             'อัปเดตล่าสุด',
             camera.lastUpdate,
+            muted: true,
+            last: true,
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 9),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               color: AppPalette.tint(
-                online
-                    ? AppPalette.environmentGreen
-                    : AppPalette.warning,
+                online ? AppPalette.environmentGreen : AppPalette.danger,
                 0.08,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              online
-                  ? 'กล้องเชื่อมต่อระบบกลางตามปกติ'
-                  : 'กล้องไม่ตอบสนอง ควรตรวจสอบไฟเลี้ยงหรือเครือข่าย',
-              style: const TextStyle(
-                fontSize: 8.5,
-                color: AppPalette.textMuted,
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  online
+                      ? Icons.check_circle_rounded
+                      : Icons.warning_amber_rounded,
+                  size: 13,
+                  color: online
+                      ? AppPalette.environmentGreen
+                      : AppPalette.danger,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    online
+                        ? 'กล้องเชื่อมต่อระบบกลางตามปกติ'
+                        : 'กล้องไม่ตอบสนอง ควรตรวจสอบไฟเลี้ยงหรือเครือข่าย',
+                    style: const TextStyle(
+                      fontSize: 8.5,
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1336,13 +1251,17 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
+  // AI ปิดอยู่จริงสำหรับทุกกล้องตอนนี้ (ไม่มี field รองรับ) — เดิมโชว์เป็นแค่
+  // แถว "สถานะ AI: ปิดใช้งาน" ปนกับแถวอื่น ดูเหมือนข้อมูลหายไปเฉยๆ เปลี่ยน
+  // เป็นแบนเนอร์กรอบเส้นประแยกต่างหากด้านบน ให้ชัดว่า "ตั้งใจปิดไว้" ไม่ใช่
+  // "ข้อมูลขาด"
   Widget _cameraAiCard(_CameraData camera) {
     final relatedAlerts = alerts
         .where((alert) => alert.cameraId == camera.id)
         .toList();
 
     return Container(
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppPalette.pageBg,
         borderRadius: BorderRadius.circular(16),
@@ -1353,32 +1272,49 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
         children: [
           const Text(
             'AI Detection',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-            ),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 9),
-          _detailRow(
-            'สถานะ AI',
-            camera.aiEnabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
-          ),
-          _detailRow(
-            'โหมด',
-            camera.aiMode,
-          ),
+          if (!camera.aiEnabled)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppPalette.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.block_rounded,
+                    size: 14,
+                    color: AppPalette.textMuted,
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'AI ปิดใช้งานสำหรับกล้องนี้',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: AppPalette.textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          _detailRow('โหมด', camera.aiMode, muted: true),
           _detailRow(
             'แจ้งเตือนวันนี้',
             '${camera.alertCount} รายการ',
+            last: true,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 9),
           if (relatedAlerts.isEmpty)
             const Text(
               'วันนี้ยังไม่มีเหตุจาก AI ของกล้องนี้',
-              style: TextStyle(
-                fontSize: 8.5,
-                color: AppPalette.textMuted,
-              ),
+              style: TextStyle(fontSize: 8.5, color: AppPalette.textMuted),
             )
           else
             ...relatedAlerts.map(
@@ -1386,18 +1322,12 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color:
-                      AppPalette.tint(alert.color, 0.06),
-                  borderRadius:
-                      BorderRadius.circular(11),
+                  color: AppPalette.tint(alert.color, 0.06),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      alert.icon,
-                      size: 15,
-                      color: alert.color,
-                    ),
+                    Icon(alert.icon, size: 15, color: alert.color),
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
@@ -1417,29 +1347,35 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
-  Widget _detailRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 92,
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 8.6,
-                color: AppPalette.textMuted,
-              ),
+  Widget _detailRow(
+    String title,
+    String value, {
+    bool muted = false,
+    bool last = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: last
+          ? null
+          : const BoxDecoration(
+              border: Border(bottom: BorderSide(color: AppPalette.border)),
             ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 9, color: AppPalette.textMuted),
           ),
-          Expanded(
+          Flexible(
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                color: muted ? AppPalette.textMuted : AppPalette.textDark,
               ),
             ),
           ),
@@ -1451,9 +1387,9 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Widget _accessGrantsSection() {
@@ -1528,10 +1464,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               ),
               child: const Text(
                 'ไม่มีรายการสิทธิ์การเข้าถึงกล้องที่บันทึกไว้ในระบบ',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppPalette.textMuted,
-                ),
+                style: TextStyle(fontSize: 11, color: AppPalette.textMuted),
               ),
             )
           else
@@ -1634,13 +1567,16 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                               final confirmed = await showDialog<bool>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
-                                  title: const Text('ยกเลิกสิทธิ์การเข้าถึงกล้อง'),
+                                  title: const Text(
+                                    'ยกเลิกสิทธิ์การเข้าถึงกล้อง',
+                                  ),
                                   content: Text(
                                     'คุณต้องการยกเลิกสิทธิ์ของ ${grant.userName} สำหรับกล้อง ${grant.cameraName} หรือไม่?',
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
+                                      onPressed: () =>
+                                          Navigator.pop(ctx, false),
                                       child: const Text('ยกเลิก'),
                                     ),
                                     FilledButton(
@@ -1654,12 +1590,17 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                                 ),
                               );
                               if (confirmed == true) {
-                                await ExecutiveService.revokeCameraAccess(grant.grantId);
+                                await ExecutiveService.revokeCameraAccess(
+                                  grant.grantId,
+                                );
                                 _loadGrants();
                               }
                             },
                             icon: const Icon(Icons.block_rounded, size: 14),
-                            label: const Text('เพิกถอนสิทธิ์', style: TextStyle(fontSize: 9.5)),
+                            label: const Text(
+                              'เพิกถอนสิทธิ์',
+                              style: TextStyle(fontSize: 9.5),
+                            ),
                           ),
                       ],
                     ),
@@ -1672,21 +1613,46 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   }
 }
 
-
-class _CameraSummary {
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
+// วาดวงแหวนสรุป Online/ทั้งหมดในการ์ดสรุปด้านบน (_heroSection) — ส่วนที่ปิด
+// เป็นสีเทาอ่อน (border) ส่วนที่เปิด (ตามสัดส่วน online/total) เป็นสีตาม
+// สถานะจริง (เขียว=ครบ, เหลือง=บางส่วน offline, แดง=ทุกตัว offline)
+class _CctvRingPainter extends CustomPainter {
+  const _CctvRingPainter({required this.ratio, required this.color});
+  final double ratio;
   final Color color;
 
-  const _CameraSummary({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-  });
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const strokeWidth = 9.0;
+    final radius = size.width / 2 - strokeWidth / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = AppPalette.border
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth,
+    );
+    final sweep = ratio.clamp(0.0, 1.0) * 2 * pi;
+    if (sweep <= 0) return;
+    canvas.drawArc(
+      rect,
+      -pi / 2,
+      sweep,
+      false,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CctvRingPainter oldDelegate) =>
+      oldDelegate.ratio != ratio || oldDelegate.color != color;
 }
 
 class _CameraData {

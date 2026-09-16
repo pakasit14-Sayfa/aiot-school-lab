@@ -85,8 +85,11 @@ void main() {
     'the AI alerts section discloses it is unavailable instead of showing fake alerts',
     (tester) async {
       await _pump(tester, listSchoolDevices: () async => const []);
+      expect(find.text('แจ้งเตือนจาก AI Camera'), findsOneWidget);
       expect(
-        find.text('ระบบแจ้งเตือนอัตโนมัติจาก AI Camera ยังไม่รองรับในระบบนี้'),
+        find.text(
+          'ยังไม่รองรับในระบบนี้ — เหตุที่ตรวจจับได้จะขึ้นตรงนี้เมื่อพร้อมใช้งาน',
+        ),
         findsOneWidget,
       );
       // None of the old fabricated alert titles should ever appear.
@@ -95,16 +98,29 @@ void main() {
   );
 
   testWidgets(
-    'the summary cards use real online/offline counts, not the old fake 24/22/2',
+    'the hero summary uses real online/offline counts, not the old fake 24/22/2',
     (tester) async {
       await _pump(
         tester,
         listSchoolDevices: () async => const [_onlineCamera, _offlineCamera],
       );
-      expect(find.text('2'), findsWidgets); // total = 2
-      expect(find.text('1'), findsWidgets); // online = 1, offline = 1
-      // The AI/alert/storage tiles have zero real backing - must say so.
-      expect(find.text('ยังไม่รองรับ'), findsNWidgets(3));
+      // วงแหวนสรุปกลางการ์ด: online/total จริง
+      expect(find.text('1/2'), findsOneWidget);
+      // มีกล้อง Offline แค่ตัวเดียว - พาดหัวเอ่ยชื่อกล้องนั้นตรงๆ แทนจำนวน
+      expect(
+        find.text('2 กล้องทั้งหมด · โถงอาคาร 3 กำลัง Offline'),
+        findsOneWidget,
+      );
+      expect(find.text('ควรตรวจสอบ — 1 กล้อง Offline'), findsOneWidget);
+      // AI/แจ้งเตือน/พื้นที่จัดเก็บ ไม่มีข้อมูลจริงรองรับเลย - ต้องบอกตรงๆ
+      expect(
+        find.text('เปิด AI, แจ้งเตือนอัตโนมัติ และพื้นที่จัดเก็บยังไม่รองรับในระบบนี้'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('ยังไม่มีข้อมูลจริงในระบบนี้ — ไม่มีคอลัมน์/RPC รองรับตอนนี้'),
+        findsOneWidget,
+      );
     },
   );
 }
