@@ -72,15 +72,21 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
       CourseDetail? course;
       try {
         course = await getCourse(lesson.courseId);
-      } catch (_) {}
+      } catch (e) {
+        // ไม่มีชื่อวิชาก็ยังเปิดบทเรียนได้ — แค่บันทึกไว้ว่าทำไม
+        debugPrint('StudentLessonViewPage: โหลดข้อมูลวิชาไม่สำเร็จ — $e');
+      }
 
-      // Auto update progress when opening lesson
-      try {
-        await updateProgress(
-          lessonId: widget.lessonId,
-          progressPct: lesson.progressPct ?? 50,
-        );
-      } catch (_) {}
+      // เปิดบทเรียน = เริ่มเรียนแล้ว บันทึกความคืบหน้าขั้นต่ำ 10% (กติกาเดียว
+      // กับ pages/student/lesson_view_page.dart) — เดิมเขียน 50% ให้ทันทีเมื่อ
+      // ยังไม่มีค่า ทำให้นักเรียนที่แค่กดเปิดดูมีความคืบหน้าครึ่งบทในทันที
+      if ((lesson.progressPct ?? 0) < 10) {
+        try {
+          await updateProgress(lessonId: widget.lessonId, progressPct: 10);
+        } catch (e) {
+          debugPrint('StudentLessonViewPage: บันทึกความคืบหน้าไม่สำเร็จ — $e');
+        }
+      }
 
       if (mounted) {
         setState(() {

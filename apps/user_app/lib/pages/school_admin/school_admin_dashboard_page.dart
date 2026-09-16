@@ -109,6 +109,13 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     _MenuItemData('รายงาน ESG', Icons.eco_rounded),
     _MenuItemData('ควบคุมไฟและน้ำ', Icons.lightbulb_rounded),
     _MenuItemData('กล่องแจ้งเหตุการณ์', Icons.inbox_rounded),
+    // ตำแหน่งในลิสต์นี้ = เลขหน้าใน _buildCurrentPage ตรง ๆ (sidebar ส่ง
+    // index ของแถวที่กด) — รายการ "สายการเรียน" (หน้า 20) เคยหายไปจากลิสต์
+    // ทำให้ 3 แถวท้ายเลื่อนขึ้นคนละหนึ่ง: กด "ตั้งเวลาปฏิบัติงาน" ได้หน้า
+    // สายการเรียน · "อนุมัติการลา" ได้หน้าตั้งเวลา · "รายงานที่ต้องส่ง" ได้
+    // หน้าอนุมัติการลา และหน้ารายงานที่ต้องส่ง (23) เปิดจาก sidebar ไม่ได้เลย
+    // เทสต์ school_admin_dashboard_page_test ล็อกคู่ป้าย↔หน้าไว้แล้ว
+    _MenuItemData('สายการเรียน', Icons.alt_route_rounded),
     _MenuItemData('ตั้งเวลาปฏิบัติงาน', Icons.access_time_rounded),
     _MenuItemData('อนุมัติการลา', Icons.fact_check_rounded),
     _MenuItemData('รายการรายงานที่ต้องส่ง', Icons.assignment_turned_in_rounded),

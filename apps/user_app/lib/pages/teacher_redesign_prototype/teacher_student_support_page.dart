@@ -74,15 +74,32 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
     String riskLevel = 'medium';
     String? selectedStudentId;
 
-    // Load actual students from school
+    // รายชื่อจากทุกวิชาที่สอน — เดิมดึงแค่ `courses.first` ครูที่สอนหลายวิชา
+    // จึงเปิดเคสให้เด็กวิชาอื่นไม่ได้เลย (เด็กคนเดียวกันอาจอยู่หลายวิชา →
+    // ตัดซ้ำด้วย studentId)
     List<CourseStudent> students = [];
     try {
       final courses = await CourseService.listMyCourses();
-      if (courses.isNotEmpty) {
-        final list = await CourseService.listCourseStudents(courses.first.id);
-        students = list;
-      }
-    } catch (_) {}
+      final rosters = await Future.wait(
+        courses.map((c) => CourseService.listCourseStudents(c.id)),
+      );
+      final seen = <String>{};
+      students = [
+        for (final roster in rosters)
+          for (final st in roster)
+            if (seen.add(st.studentId)) st,
+      ];
+    } catch (e) {
+      // เดิมกลืนเงียบ → ตัวเลือกนักเรียนว่างเปล่า ครูอ่านว่า "ไม่มีนักเรียน"
+      debugPrint('StudentSupportPage: โหลดรายชื่อนักเรียนไม่สำเร็จ — $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('โหลดรายชื่อนักเรียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'),
+        ),
+      );
+      return;
+    }
 
     if (!mounted) return;
 

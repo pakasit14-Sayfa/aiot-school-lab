@@ -146,9 +146,10 @@ class _StudentCourseCatalogPageState extends State<StudentCourseCatalogPage> {
         _loading = false;
       });
     } catch (e) {
+      debugPrint('StudentCourseCatalogPage: โหลดรายวิชาไม่สำเร็จ — $e');
       if (!mounted) return;
       setState(() {
-        _error = 'โหลดข้อมูลไม่สำเร็จ: $e';
+        _error = 'โหลดรายวิชาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
         _loading = false;
       });
     }

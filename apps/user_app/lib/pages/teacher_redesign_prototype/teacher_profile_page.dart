@@ -135,7 +135,10 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     if (confirmed == true && context.mounted) {
       try {
         await AuthService.signOut();
-      } catch (_) {}
+      } catch (e) {
+        // ออกจากระบบฝั่งเครื่องต่อได้เสมอ แต่ session ฝั่งเซิร์ฟเวอร์อาจยังอยู่
+        debugPrint('TeacherProfilePage: signOut ไม่สำเร็จ — $e');
+      }
       if (context.mounted) {
         Navigator.of(
           context,

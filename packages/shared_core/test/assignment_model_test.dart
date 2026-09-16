@@ -80,9 +80,14 @@ void main() {
         'version': 2,
         'content': 'แก้ไข: ค่าเฉลี่ย PM2.5 คือ 30',
         'submitted_at': '2026-08-01T10:00:00Z',
+        // RPC คืน id ของเวอร์ชันมาตั้งแต่ 20260827050000 (ไฟล์แนบต่อเวอร์ชัน)
+        // และ fromRow cast เป็น String แบบไม่ยอมรับ null — fixture นี้ตกหล่น
+        // ทำให้เทสต์แดงมาตั้งแต่ 94ea879 ทั้งที่แอปถูก
+        'submission_version_id': 'sv-2',
       });
 
       expect(version.version, 2);
+      expect(version.submissionVersionId, 'sv-2');
       expect(version.content, 'แก้ไข: ค่าเฉลี่ย PM2.5 คือ 30');
     });
   });

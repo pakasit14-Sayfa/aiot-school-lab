@@ -72,6 +72,20 @@ Future<void> _pump(
 }
 
 void main() {
+  /// สวิตช์แจ้งเตือน 3 ตัวเคย setState อย่างเดียว — ไม่มี RPC ไม่มีตารางเก็บ
+  /// และไม่มีระบบส่งอีเมล/แจ้งเตือนความปลอดภัยที่อ่านค่านั้น ถูกปิดไว้ก่อน
+  /// (2026-09-13) แล้วถอดออกทั้งส่วน (2026-09-14): ควบคุมที่ไม่มีผลอะไรเลย
+  /// ไม่ควรอยู่บนหน้าจอ เทสต์นี้กันไม่ให้มันกลับมาโดยไม่มี backend
+  testWidgets('no notification switches without a backend behind them', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    expect(find.byType(Switch), findsNothing);
+    expect(find.text('การแจ้งเตือนของฉัน'), findsNothing);
+    expect(find.text('แจ้งเตือนทางอีเมล'), findsNothing);
+  });
+
   testWidgets('no log history says so, not an error', (tester) async {
     await _pump(tester);
     await tester.pumpAndSettle();

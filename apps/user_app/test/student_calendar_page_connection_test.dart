@@ -8,10 +8,19 @@ import 'package:shared_core/shared_core.dart';
 /// these tests pin that down so a future edit can't quietly turn a mutation
 /// into a client-side-only fake success.
 
-// The day board only shows events for the week containing _selectedDay,
-// which defaults to DateTime.now() — dueAt must land on today for the
-// widget to render it regardless of when this test actually runs.
-final _todayForTest = DateTime.now();
+// The desktop week board renders only Monday–Friday of the week containing
+// _selectedDay (which defaults to DateTime.now()) — school timetables have
+// no weekend columns. A fixture dated "today" therefore vanished whenever
+// the suite ran on a Saturday or Sunday (first seen 2026-09-13, a Sunday):
+// two tests went red and the other two passed only through their silent
+// early-return. Pin every fixture to the Monday of the current week instead,
+// which the board always shows no matter which day the tests run.
+final DateTime _now = DateTime.now();
+final DateTime _mondayThisWeek = DateTime(
+  _now.year,
+  _now.month,
+  _now.day,
+).subtract(Duration(days: _now.weekday - DateTime.monday));
 
 PersonalTask _task({
   String id = 'task-1',
@@ -22,9 +31,9 @@ PersonalTask _task({
   title: title,
   note: null,
   dueAt: DateTime(
-    _todayForTest.year,
-    _todayForTest.month,
-    _todayForTest.day,
+    _mondayThisWeek.year,
+    _mondayThisWeek.month,
+    _mondayThisWeek.day,
     16,
   ),
   done: done,
@@ -93,13 +102,10 @@ void main() {
     await tester.tap(find.textContaining('ทบทวนวิชาเคมี').first);
     await tester.pumpAndSettle();
 
+    // Used to `return` silently when the icon was missing — which is exactly
+    // what happened every weekend, so the RPC assertions below never ran.
     final deleteButton = find.byIcon(Icons.delete_outline_rounded);
-    if (deleteButton.evaluate().isEmpty) {
-      // Layout may put delete behind a different affordance depending on
-      // viewport; skip silently rather than false-fail on UI chrome not
-      // under test here — the RPC-wiring assertion below still matters.
-      return;
-    }
+    expect(deleteButton, findsWidgets, reason: 'selecting a personal task must offer delete');
     await tester.tap(deleteButton.first);
     await tester.pumpAndSettle();
 
@@ -127,12 +133,19 @@ void main() {
       },
     );
 
-    final checkbox = find.byType(Checkbox);
-    if (checkbox.evaluate().isEmpty) return;
-    await tester.tap(checkbox.first);
+    // There is no Checkbox anywhere on this page — the old finder never
+    // matched, so the `if (isEmpty) return` that followed it made this test
+    // pass without ever tapping anything. The real affordance is the
+    // "ทำเครื่องหมายว่าเสร็จ" button in the detail panel of a selected event.
+    await tester.tap(find.textContaining('ทบทวนวิชาเคมี').first);
     await tester.pumpAndSettle();
 
-    expect(toggleCalls, 1);
+    final markDone = find.text('ทำเครื่องหมายว่าเสร็จ');
+    expect(markDone, findsOneWidget, reason: 'an undone personal task must offer mark-as-done');
+    await tester.tap(markDone);
+    await tester.pumpAndSettle();
+
+    expect(toggleCalls, 1, reason: 'toggle must call the real RPC exactly once');
   });
 
   testWidgets('an empty account shows an honest empty state, no fabricated events', (
@@ -155,7 +168,7 @@ void main() {
           id: 'sch-1',
           courseId: 'course-1',
           subjectName: 'คณิตศาสตร์',
-          dayOfWeek: DateTime.now().weekday - 1,
+          dayOfWeek: 0, // จันทร์ — คอลัมน์แรกของบอร์ด แสดงเสมอ
           startTime: '09:00:00',
           endTime: '10:00:00',
           room: '101',

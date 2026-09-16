@@ -5,6 +5,33 @@ class DeviceOption {
   final String? location;
   final String status;
 
+  /// ชนิดอุปกรณ์ที่เป็น "เซนเซอร์" และ metric ที่แต่ละชนิดวัดได้ — mirror ของ
+  /// enum `device_type` / `metric_type` ในฐานข้อมูล (20260715 initial_schema)
+  /// เก็บไว้ที่เดียวใน Dart: อุปกรณ์ที่ไม่อยู่ในนี้ (relay, camera,
+  /// emergency_button, warning_light, mini_pc, aiot_gateway) ไม่มีค่าอ่าน
+  /// จึงห้ามเสนอเป็นแหล่งข้อมูลกราฟ เมื่อ migration เพิ่มชนิด/metric ใหม่
+  /// ให้เพิ่มที่นี่ที่เดียว
+  static const Map<String, List<String>> sensorMetricsByType = {
+    'pm25_sensor': ['pm25'],
+    'air_quality_sensor': [
+      'pm25',
+      'aqi',
+      'co2',
+      'tvoc',
+      'temperature',
+      'humidity',
+      'gas_mq2_percent',
+    ],
+    'light_sensor': ['light_lux'],
+    'energy_meter': ['energy_kwh', 'power_w'],
+    'water_meter': ['water_flow_lmin', 'water_volume_l', 'water_m3'],
+  };
+
+  bool get isSensor => sensorMetricsByType.containsKey(type);
+
+  /// metric ที่อุปกรณ์นี้วัดได้ — ว่างถ้าไม่ใช่เซนเซอร์
+  List<String> get metrics => sensorMetricsByType[type] ?? const [];
+
   const DeviceOption({
     required this.id,
     required this.name,

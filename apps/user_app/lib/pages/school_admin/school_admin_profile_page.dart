@@ -52,9 +52,6 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   final TextEditingController _departmentController = TextEditingController();
 
   String? _profileImageUrl;
-  bool _emailNotification = true;
-  bool _systemNotification = true;
-  bool _securityNotification = true;
 
   List<_ProfileLog> _logs = [];
 
@@ -436,8 +433,10 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                   const SizedBox(height: 14),
                   _buildAccountInformation(),
                   const SizedBox(height: 14),
-                  _buildNotificationPreferences(),
-                  const SizedBox(height: 14),
+                  // ส่วน "การแจ้งเตือนของฉัน" (สวิตช์ 3 ตัว) ถูกถอดออก 2026-09-14:
+                  // ไม่มี RPC/ตารางเก็บค่า และไม่มีระบบส่งอีเมล/แจ้งเตือนความ
+                  // ปลอดภัยที่จะอ่านค่านั้น — สวิตช์ที่กดแล้วไม่มีผลอะไรเลย
+                  // ไม่ควรอยู่บนหน้าจอ เอากลับมาพร้อมที่เก็บค่าและระบบที่ใช้ค่า
                   _buildSecurity(),
                   const SizedBox(height: 14),
                   _buildLogs(),
@@ -804,47 +803,6 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     );
   }
 
-  Widget _buildNotificationPreferences() {
-    return _ProfileSection(
-      title: 'การแจ้งเตือนของฉัน',
-      subtitle: 'เลือกช่องทางและประเภทการแจ้งเตือนที่ต้องการรับ',
-      child: Column(
-        children: [
-          _ProfileSwitchRow(
-            icon: Icons.notifications_rounded,
-            title: 'แจ้งเตือนในระบบ',
-            detail: 'แสดงการแจ้งเตือนสำคัญในหน้าแอดมิน',
-            value: _systemNotification,
-            onChanged: (bool value) {
-              setState(() => _systemNotification = value);
-            },
-          ),
-          const SizedBox(height: 9),
-          _ProfileSwitchRow(
-            icon: Icons.email_rounded,
-            title: 'แจ้งเตือนทางอีเมล',
-            detail: 'ส่งเรื่องสำคัญและรายการเร่งด่วนทางอีเมล',
-            value: _emailNotification,
-            onChanged: (bool value) {
-              setState(() => _emailNotification = value);
-            },
-          ),
-          const SizedBox(height: 9),
-          _ProfileSwitchRow(
-            icon: Icons.security_rounded,
-            title: 'แจ้งเตือนด้านความปลอดภัย',
-            detail:
-                'รับแจ้งเมื่อมีการเข้าสู่ระบบผิดปกติหรือใส่รหัสผิดหลายครั้ง',
-            value: _securityNotification,
-            onChanged: (bool value) {
-              setState(() => _securityNotification = value);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSecurity() {
     return _ProfileSection(
       title: 'ความปลอดภัยของบัญชี',
@@ -1122,71 +1080,6 @@ class _ReadOnlyProfileField extends StatelessWidget {
             size: 17,
             color: SchoolAdminPalette.textMuted,
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileSwitchRow extends StatelessWidget {
-  const _ProfileSwitchRow({
-    required this.icon,
-    required this.title,
-    required this.detail,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final IconData icon;
-  final String title;
-  final String detail;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: SchoolAdminPalette.border),
-      ),
-      child: Row(
-        children: [
-          _ProfileIconBox(
-            icon: icon,
-            color: value
-                ? SchoolAdminPalette.primaryDark
-                : SchoolAdminPalette.textMuted,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w900,
-                    color: SchoolAdminPalette.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  detail,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    height: 1.4,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );

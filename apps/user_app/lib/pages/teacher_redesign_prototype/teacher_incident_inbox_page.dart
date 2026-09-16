@@ -863,15 +863,12 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
                           foregroundColor: const Color(0xFF475569),
                         ),
-                        onPressed: () {
-                          final room = resolved?.room;
-                          _showMessage(room != null && room.isNotEmpty
-                              ? 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ห้อง $room ช่วงเกิดเหตุ...'
-                              : 'กำลังเปิดคลิปบันทึกย้อนหลัง CCTV ช่วงเกิดเหตุ...');
-                        },
-                        icon: const Icon(Icons.videocam_outlined, size: 16),
+                        // เดิมกดแล้วขึ้น "กำลังเปิดคลิป..." ทั้งที่ระบบไม่ได้
+                        // เชื่อมกับกล้องตัวไหนเลย — ปิดปุ่มพร้อมบอกเหตุผล
+                        onPressed: null,
+                        icon: const Icon(Icons.videocam_off_outlined, size: 16),
                         label: const Text(
-                          'ดูภาพย้อนหลัง CCTV',
+                          'ภาพย้อนหลัง CCTV (ยังไม่เชื่อมระบบกล้อง)',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -1376,19 +1373,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                     SizedBox(
                       width: double.infinity,
                       child: TextButton.icon(
-                        onPressed: () {
-                          final room = activeIncident?.room;
-                          _showMessage(room != null && room.isNotEmpty
-                              ? 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง $room...'
-                              : 'กำลังเชื่อมต่อสัญญาณกล้อง CCTV ห้อง ม.3/2...');
-                        },
-                        icon: const Icon(Icons.videocam_rounded, size: 16, color: Color(0xFFE11D48)),
+                        // เดิมกดแล้วขึ้น "กำลังเชื่อมต่อสัญญาณกล้อง...ห้อง ม.3/2"
+                        // (ห้องแต่งขึ้นเมื่อไม่มีข้อมูล) ทั้งที่ไม่มีระบบกล้อง
+                        onPressed: null,
+                        icon: const Icon(Icons.videocam_off_rounded, size: 16),
                         label: const Text(
-                          'เปิดดูกล้อง CCTV ห้องนี้',
+                          'กล้อง CCTV ห้องนี้ (ยังไม่เชื่อมระบบกล้อง)',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFFE11D48),
                           ),
                         ),
                       ),

@@ -36,7 +36,12 @@ class TeacherLibrarySubject {
     required this.icon,
     required this.color,
     required this.files,
+    this.filesLoadFailed = false,
   });
+
+  /// list_course_files ของวิชานี้ล้ม — ต้องแยกจาก "ยังไม่มีไฟล์" เพราะเดิม
+  /// กลืนเงียบแล้วโชว์รายการว่าง ครูอ่านว่าวิชานี้ไม่มีไฟล์ทั้งที่โหลดไม่ขึ้น
+  final bool filesLoadFailed;
 
   final String id;
   final String code;
@@ -159,10 +164,16 @@ class _TeacherKnowledgeLibraryPageState
         for (var i = 0; i < courses.length; i++) {
           final c = courses[i];
           List<CourseFile> files = [];
+          var filesLoadFailed = false;
           try {
             final listFiles = widget.listFiles ?? CourseFileService.listFiles;
             files = await listFiles(c.id);
-          } catch (_) {}
+          } catch (e) {
+            debugPrint(
+              'TeacherKnowledgeLibraryPage: โหลดไฟล์วิชา ${c.subjectName} ไม่สำเร็จ — $e',
+            );
+            filesLoadFailed = true;
+          }
 
           final mappedFiles = files.map((f) {
             final ext = f.fileName.contains('.')
@@ -188,6 +199,7 @@ class _TeacherKnowledgeLibraryPageState
               icon: paletteIcons[i % paletteIcons.length],
               color: paletteColors[i % paletteColors.length],
               files: mappedFiles,
+              filesLoadFailed: filesLoadFailed,
             ),
           );
         }
@@ -484,7 +496,9 @@ class _TeacherKnowledgeLibraryPageState
             ),
             const SizedBox(height: 16),
             Text(
-              '${files.length} ไฟล์ · ${currentSubject?.name ?? ""}',
+              (currentSubject?.filesLoadFailed ?? false)
+                  ? 'โหลดไฟล์ไม่สำเร็จ · ${currentSubject?.name ?? ""}'
+                  : '${files.length} ไฟล์ · ${currentSubject?.name ?? ""}',
               style: const TextStyle(
                 color: TeacherPalette.muted,
                 fontWeight: FontWeight.w700,
@@ -492,7 +506,46 @@ class _TeacherKnowledgeLibraryPageState
               ),
             ),
             const SizedBox(height: 12),
-            if (files.isEmpty)
+            if (currentSubject?.filesLoadFailed ?? false)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 28),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: TeacherPalette.border),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_rounded,
+                      size: 34,
+                      color: TeacherPalette.red,
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'โหลดไฟล์ของวิชานี้ไม่สำเร็จ',
+                      style: TextStyle(
+                        color: TeacherPalette.ink,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _loadLibraryData,
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('ลองใหม่'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: TeacherPalette.primary,
+                        shape: const StadiumBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (files.isEmpty)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 40),

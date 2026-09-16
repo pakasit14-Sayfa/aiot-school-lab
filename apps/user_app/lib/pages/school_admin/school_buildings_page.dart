@@ -9,6 +9,8 @@ class SchoolBuildingsPage extends StatefulWidget {
     this.loadBuildings,
     this.loadRooms,
     this.loadLogs,
+    this.createBuilding,
+    this.createRoom,
   });
 
   /// Injectable seams for tests — production leaves these null and uses the
@@ -16,6 +18,14 @@ class SchoolBuildingsPage extends StatefulWidget {
   final Future<List<SchoolBuildingRecord>> Function()? loadBuildings;
   final Future<List<SchoolRoomRecord>> Function()? loadRooms;
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+
+  /// สร้างอาคาร/ห้องผ่าน `import_school_buildings_batch` /
+  /// `import_school_rooms_batch` (RPC เดียวกับหน้านำเข้าข้อมูล ส่งทีละ 1 แถว)
+  /// — ยังไม่มี RPC แก้ไข/ลบ จึงมีแค่ "สร้าง" ที่ต่อจริง
+  final Future<BulkImportResult> Function(Map<String, dynamic> building)?
+  createBuilding;
+  final Future<BulkImportResult> Function(Map<String, dynamic> room)?
+  createRoom;
 
   @override
   State<SchoolBuildingsPage> createState() => _SchoolBuildingsPageState();
@@ -45,12 +55,15 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
       });
     }
     try {
-      final buildings = await (widget.loadBuildings ??
-          () => SchoolAdminPlatformService().fetchBuildings())();
-      final rooms = await (widget.loadRooms ??
-          () => SchoolAdminPlatformService().fetchRooms())();
-      final logs = await (widget.loadLogs ??
-          () => SchoolAdminPlatformService().fetchAuditLogs(limit: 6))();
+      final buildings =
+          await (widget.loadBuildings ??
+              () => SchoolAdminPlatformService().fetchBuildings())();
+      final rooms =
+          await (widget.loadRooms ??
+              () => SchoolAdminPlatformService().fetchRooms())();
+      final logs =
+          await (widget.loadLogs ??
+              () => SchoolAdminPlatformService().fetchAuditLogs(limit: 6))();
       if (!mounted) return;
       setState(() {
         _buildings = buildings
@@ -175,7 +188,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     if (a.contains('fail') || a.contains('denied') || a.contains('revoke')) {
       return 'danger';
     }
-    if (a.contains('delete') || a.contains('suspend') || a.contains('archive')) {
+    if (a.contains('delete') ||
+        a.contains('suspend') ||
+        a.contains('archive')) {
       return 'warning';
     }
     return 'neutral';
@@ -196,33 +211,250 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
     });
   }
 
-  /// สร้าง/แก้ไข/ลบ อาคารและห้อง ยังไม่มี RPC รองรับเลย (มีแค่ `fetchBuildings`
-  /// / `fetchRooms` แบบอ่านอย่างเดียว) ของเดิมเปิดฟอร์มเต็มรูปแบบแล้วเขียนผล
-  /// ลง `setState` ในหน่วยความจำ พร้อมข้อความ "บันทึกแล้ว" — ดูเหมือนสำเร็จ
-  /// จริงทุกประการ แต่รีเฟรชหน้าแล้วหายหมด
-  void _showMutationsUnavailable() {
-    _showMessage('ยังไม่มีระบบบันทึกข้อมูลอาคาร/ห้องในเวอร์ชันนี้ กำลังพัฒนา RPC รองรับ');
+  /// แก้ไข/ลบ อาคารและห้อง ยังไม่มี RPC รองรับ (มีแค่ import batch สำหรับ
+  /// สร้าง) ของเดิมเปิดฟอร์มเต็มรูปแบบแล้วเขียนผลลง `setState` ในหน่วยความจำ
+  /// พร้อมข้อความ "บันทึกแล้ว" — รีเฟรชหน้าแล้วหายหมด ตอนนี้ "สร้าง" ต่อ RPC
+  /// จริง ส่วนแก้ไข/ลบบอกตรง ๆ ว่ายังทำไม่ได้
+  void _showEditUnavailable() {
+    _showMessage('ยังไม่มีระบบแก้ไข/ลบข้อมูลอาคารและห้องในเวอร์ชันนี้');
+  }
+
+  /// แปลผลจาก import batch (ส่ง 1 แถว) เป็นประโยคที่แอดมินแก้เองได้ —
+  /// RPC ไม่ raise เมื่อข้ามแถว แต่คืน `skipped` พร้อมเหตุผลเป็นรหัส
+  static String? _skipReasonMessage(BulkImportResult result, String what) {
+    if (result.insertedCount >= 1) return null;
+    final reason = result.skipped.isEmpty ? '' : result.skipped.first.reason;
+    switch (reason) {
+      case 'duplicate_code':
+        return 'รหัส$whatนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น';
+      case 'missing_required_field':
+        return 'กรอกชื่อและรหัส$whatให้ครบก่อนบันทึก';
+      case 'building_not_found':
+        return 'ไม่พบอาคารที่เลือก กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง';
+      default:
+        return 'สร้าง$whatไม่สำเร็จ${reason.isEmpty ? '' : ' ($reason)'}';
+    }
   }
 
   Future<void> _openBuildingForm({_BuildingRecord? building}) async {
-    _showMutationsUnavailable();
+    if (building != null) {
+      _showEditUnavailable();
+      return;
+    }
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    final floorsCtrl = TextEditingController(text: '1');
+    var submitting = false;
+    String? formError;
 
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final name = nameCtrl.text.trim();
+            final code = codeCtrl.text.trim();
+            final floors = int.tryParse(floorsCtrl.text.trim());
+            if (name.isEmpty || code.isEmpty) {
+              setSheet(() => formError = 'กรอกชื่อและรหัสอาคารให้ครบ');
+              return;
+            }
+            if (floors == null || floors < 1) {
+              setSheet(() => formError = 'จำนวนชั้นต้องเป็นตัวเลขตั้งแต่ 1');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              formError = null;
+            });
+            try {
+              final create =
+                  widget.createBuilding ??
+                  (b) => SchoolAdminPlatformService().importBuildingsBatch([b]);
+              final result = await create({
+                'name': name,
+                'code': code,
+                'floors': floors,
+              });
+              // แอดมินอาจกดพื้นหลังปิดแผ่นไปแล้วระหว่างรอ — ห้าม setState บน
+              // StatefulBuilder ที่ถูกถอดไปแล้ว
+              if (!sheetContext.mounted) return;
+              final problem = _skipReasonMessage(result, 'อาคาร');
+              if (problem != null) {
+                setSheet(() {
+                  submitting = false;
+                  formError = problem;
+                });
+                return;
+              }
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage('สร้างอาคาร "$name" แล้ว');
+              await _loadData();
+            } catch (e) {
+              debugPrint('SchoolBuildingsPage: สร้างอาคารไม่สำเร็จ — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                formError = 'สร้างอาคารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _DisposeOnClose(
+            controllers: [nameCtrl, codeCtrl, floorsCtrl],
+            child: _MutationSheet(
+              title: 'สร้างอาคารใหม่',
+              subtitle: 'บันทึกลงระบบจริงผ่านการนำเข้าข้อมูลอาคาร',
+              submitting: submitting,
+              error: formError,
+              onSubmit: submit,
+              fields: [
+                _SheetField(
+                  controller: nameCtrl,
+                  label: 'ชื่ออาคาร',
+                  autofocus: true,
+                ),
+                _SheetField(controller: codeCtrl, label: 'รหัสอาคาร (ไม่ซ้ำ)'),
+                _SheetField(
+                  controller: floorsCtrl,
+                  label: 'จำนวนชั้น',
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _openRoomForm({
     _RoomRecord? room,
     String? initialBuilding,
   }) async {
-    _showMutationsUnavailable();
+    if (room != null) {
+      _showEditUnavailable();
+      return;
+    }
+    if (_buildings.isEmpty) {
+      _showMessage('ต้องสร้างอาคารก่อน จึงจะเพิ่มห้องได้');
+      return;
+    }
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    final floorCtrl = TextEditingController();
+    final capacityCtrl = TextEditingController(text: '30');
+    var buildingCode = _buildings
+        .firstWhere(
+          (b) => b.name == initialBuilding,
+          orElse: () => _buildings.first,
+        )
+        .code;
+    var submitting = false;
+    String? formError;
 
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final name = nameCtrl.text.trim();
+            final code = codeCtrl.text.trim();
+            final capacity = int.tryParse(capacityCtrl.text.trim());
+            if (name.isEmpty || code.isEmpty) {
+              setSheet(() => formError = 'กรอกชื่อและรหัสห้องให้ครบ');
+              return;
+            }
+            if (capacity == null || capacity < 1) {
+              setSheet(() => formError = 'ความจุต้องเป็นตัวเลขตั้งแต่ 1');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              formError = null;
+            });
+            try {
+              final create =
+                  widget.createRoom ??
+                  (r) => SchoolAdminPlatformService().importRoomsBatch([r]);
+              final result = await create({
+                'name': name,
+                'code': code,
+                'building_code': buildingCode,
+                'floor': floorCtrl.text.trim(),
+                'capacity': capacity,
+              });
+              if (!sheetContext.mounted) return;
+              final problem = _skipReasonMessage(result, 'ห้อง');
+              if (problem != null) {
+                setSheet(() {
+                  submitting = false;
+                  formError = problem;
+                });
+                return;
+              }
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage('สร้างห้อง "$name" แล้ว');
+              await _loadData();
+            } catch (e) {
+              debugPrint('SchoolBuildingsPage: สร้างห้องไม่สำเร็จ — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                formError = 'สร้างห้องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _DisposeOnClose(
+            controllers: [nameCtrl, codeCtrl, floorCtrl, capacityCtrl],
+            child: _MutationSheet(
+              title: 'สร้างห้องใหม่',
+              subtitle: 'บันทึกลงระบบจริงผ่านการนำเข้าข้อมูลห้อง',
+              submitting: submitting,
+              error: formError,
+              onSubmit: submit,
+              fields: [
+                DropdownButtonFormField<String>(
+                  value: buildingCode,
+                  decoration: const InputDecoration(labelText: 'อาคาร'),
+                  items: [
+                    for (final b in _buildings)
+                      DropdownMenuItem(value: b.code, child: Text(b.name)),
+                  ],
+                  onChanged: submitting
+                      ? null
+                      : (v) => setSheet(() => buildingCode = v ?? buildingCode),
+                ),
+                _SheetField(
+                  controller: nameCtrl,
+                  label: 'ชื่อห้อง',
+                  autofocus: true,
+                ),
+                _SheetField(controller: codeCtrl, label: 'รหัสห้อง (ไม่ซ้ำ)'),
+                _SheetField(controller: floorCtrl, label: 'ชั้น (ถ้ามี)'),
+                _SheetField(
+                  controller: capacityCtrl,
+                  label: 'ความจุ (คน)',
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
-
 
   Future<void> _deleteRoom(_RoomRecord room) async {
-    _showMutationsUnavailable();
-
+    _showEditUnavailable();
   }
-
 
   Future<void> _openBuildingRooms(_BuildingRecord building) async {
     final List<_RoomRecord> rooms = _rooms
@@ -400,7 +632,8 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                           // ได้เปิดอะไรจริง — ยังไม่มีทางกรองหน้าอุปกรณ์ตามห้อง
                           // ปิดไว้พร้อมเหตุผลแทนปุ่มที่กดแล้วไม่มีอะไรเกิดขึ้น
                           child: Tooltip(
-                            message: 'หน้าอุปกรณ์ยังไม่รองรับการกรองตามห้องในเวอร์ชันนี้',
+                            message:
+                                'หน้าอุปกรณ์ยังไม่รองรับการกรองตามห้องในเวอร์ชันนี้',
                             child: OutlinedButton.icon(
                               onPressed: null,
                               style: OutlinedButton.styleFrom(
@@ -863,10 +1096,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
           final Widget type = _BuildingFilterDropdown(
             label: 'ประเภทห้อง',
             value: _selectedType,
-            items: [
-              'ทุกประเภท',
-              ..._rooms.map((r) => r.type).toSet(),
-            ],
+            items: ['ทุกประเภท', ..._rooms.map((r) => r.type).toSet()],
             onChanged: (String value) {
               setState(() => _selectedType = value);
             },
@@ -875,10 +1105,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
           final Widget status = _BuildingFilterDropdown(
             label: 'สถานะ',
             value: _selectedStatus,
-            items: [
-              'ทุกสถานะ',
-              ..._rooms.map((r) => r.status).toSet(),
-            ],
+            items: ['ทุกสถานะ', ..._rooms.map((r) => r.status).toSet()],
             onChanged: (String value) {
               setState(() => _selectedStatus = value);
             },
@@ -960,14 +1187,16 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                       6: FlexColumnWidth(1.15),
                       7: FlexColumnWidth(0.65),
                     },
-                    defaultVerticalAlignment:
-                        TableCellVerticalAlignment.middle,
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     children: [
                       const TableRow(
                         decoration: BoxDecoration(
                           color: Color(0xFFF8FAFC),
                           border: Border(
-                            bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                            bottom: BorderSide(
+                              color: Color(0xFFE2E8F0),
+                              width: 1,
+                            ),
                           ),
                         ),
                         children: [
@@ -1032,9 +1261,7 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                               child: _RoomStatusBadge(value: room.status),
                             ),
                             _RoomTableCell(
-                              child: _ResourceBadge(
-                                value: room.resourceStatus,
-                              ),
+                              child: _ResourceBadge(value: room.resourceStatus),
                             ),
                             _RoomTableCell(
                               child: PopupMenuButton<String>(
@@ -1043,7 +1270,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                                 surfaceTintColor: Colors.transparent,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                                  side: const BorderSide(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 elevation: 6,
                                 shadowColor: const Color(0x1A000000),
@@ -1107,7 +1336,9 @@ class _SchoolBuildingsPageState extends State<SchoolBuildingsPage> {
                                           SizedBox(width: 10),
                                           Text(
                                             'ลบห้อง',
-                                            style: TextStyle(color: Color(0xFFEF4444)),
+                                            style: TextStyle(
+                                              color: Color(0xFFEF4444),
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -1818,7 +2049,7 @@ class _BuildingRoomsBrowserSheetState
         Text(
           recordedRooms == configuredRooms
               ? 'รายละเอียดห้องที่บันทึกไว้ในระบบครบ $recordedRooms ห้อง'
-              : 'มีรายละเอียดห้องในข้อมูลตัวอย่าง $recordedRooms ห้อง '
+              : 'มีรายละเอียดห้องที่บันทึกไว้ในระบบ $recordedRooms ห้อง '
                     'จากจำนวนห้องที่กำหนดไว้ $configuredRooms ห้อง',
           style: const TextStyle(
             fontSize: 12,
@@ -2612,10 +2843,7 @@ class _BuildingMetricRow extends StatelessWidget {
 }
 
 class _RoomTableHeader extends StatelessWidget {
-  const _RoomTableHeader({
-    required this.text,
-    this.align = TextAlign.center,
-  });
+  const _RoomTableHeader({required this.text, this.align = TextAlign.center});
 
   final String text;
   final TextAlign align;
@@ -3016,7 +3244,6 @@ class _BuildingFilterDropdown extends StatelessWidget {
     );
   }
 }
-
 
 class _BuildingManagerRow extends StatelessWidget {
   const _BuildingManagerRow({required this.building});
@@ -3443,4 +3670,139 @@ class _BuildingLogRecord {
   final String detail;
   final String by;
   final String type;
+}
+
+/// แผ่นฟอร์มสร้างอาคาร/ห้อง — ใช้ร่วมกัน 2 ฟอร์ม
+class _MutationSheet extends StatelessWidget {
+  const _MutationSheet({
+    required this.title,
+    required this.subtitle,
+    required this.fields,
+    required this.submitting,
+    required this.error,
+    required this.onSubmit,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<Widget> fields;
+  final bool submitting;
+  final String? error;
+  final Future<void> Function() onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: SchoolAdminPalette.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: SchoolAdminPalette.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final f in fields) ...[f, const SizedBox(height: 10)],
+              if (error != null) ...[
+                Text(
+                  error!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: submitting
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    child: const Text('ยกเลิก'),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: submitting ? null : onSubmit,
+                    child: Text(submitting ? 'กำลังบันทึก…' : 'บันทึก'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetField extends StatelessWidget {
+  const _SheetField({
+    required this.controller,
+    required this.label,
+    this.keyboardType,
+    this.autofocus = false,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final TextInputType? keyboardType;
+  final bool autofocus;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      autofocus: autofocus,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(labelText: label),
+    );
+  }
+}
+
+/// ถือ controller ของฟอร์มในแผ่นไว้จน route ของแผ่นถูกถอดจริง — dispose ทันที
+/// หลัง `showModalBottomSheet` คืนค่าจะชนแอนิเมชันปิดที่ยังวาด TextField อยู่
+class _DisposeOnClose extends StatefulWidget {
+  const _DisposeOnClose({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_DisposeOnClose> createState() => _DisposeOnCloseState();
+}
+
+class _DisposeOnCloseState extends State<_DisposeOnClose> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

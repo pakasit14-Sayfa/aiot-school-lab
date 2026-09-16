@@ -12,9 +12,10 @@ import 'package:shared_core/shared_core.dart';
 /// As of 2026-09-07 the create/edit/delete building & room dialogs were
 /// entirely fake: they wrote to in-memory lists via setState and showed a
 /// "บันทึกแล้ว" message without calling any RPC, so the change vanished on
-/// refresh. There is no backend for building/room mutations at all, so those
-/// entry points were changed to disclose that plainly instead of pretending
-/// to save — this test pins that disclosure.
+/// refresh. They were first changed to disclose that plainly. Since
+/// 2026-09-14 "create" goes through the real batch-import RPCs
+/// (`import_school_buildings_batch` / `import_school_rooms_batch`, one row
+/// at a time) — edit/delete still have no RPC and still say so.
 
 SchoolBuildingRecord _building({
   String id = 'bld-1',
@@ -70,6 +71,8 @@ Future<void> _pump(
   Future<List<SchoolBuildingRecord>> Function()? loadBuildings,
   Future<List<SchoolRoomRecord>> Function()? loadRooms,
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
+  Future<BulkImportResult> Function(Map<String, dynamic>)? createBuilding,
+  Future<BulkImportResult> Function(Map<String, dynamic>)? createRoom,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -83,10 +86,19 @@ Future<void> _pump(
         loadBuildings: loadBuildings ?? () async => <SchoolBuildingRecord>[],
         loadRooms: loadRooms ?? () async => <SchoolRoomRecord>[],
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
+        createBuilding: createBuilding,
+        createRoom: createRoom,
       ),
     ),
   );
 }
+
+const _inserted = BulkImportResult(success: true, insertedCount: 1, skipped: []);
+const _duplicate = BulkImportResult(
+  success: true,
+  insertedCount: 0,
+  skipped: [SkippedRow(row: 1, reason: 'duplicate_code')],
+);
 
 void main() {
   testWidgets('real buildings and rooms are rendered', (tester) async {
@@ -168,36 +180,114 @@ void main() {
   });
 
   testWidgets(
-    'creating a building discloses there is no backend, instead of faking success',
+    'creating a building sends the form to the real import RPC and reloads',
     (tester) async {
-      await _pump(tester);
+      Map<String, dynamic>? sent;
+      var loads = 0;
+      await _pump(
+        tester,
+        loadBuildings: () async {
+          loads++;
+          return <SchoolBuildingRecord>[];
+        },
+        createBuilding: (b) async {
+          sent = b;
+          return _inserted;
+        },
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('สร้างอาคาร'));
       await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคารวิทยาศาสตร์');
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'), 'SCI');
+      await tester.enterText(find.widgetWithText(TextField, 'จำนวนชั้น'), '4');
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
 
-      expect(
-        find.text('ยังไม่มีระบบบันทึกข้อมูลอาคาร/ห้องในเวอร์ชันนี้ กำลังพัฒนา RPC รองรับ'),
-        findsOneWidget,
-      );
-      // No fake building must appear in the list as a result of the tap.
-      expect(find.text('ยังไม่มีประวัติการจัดการอาคารและห้อง'), findsOneWidget);
+      expect(sent, {'name': 'อาคารวิทยาศาสตร์', 'code': 'SCI', 'floors': 4});
+      expect(loads, 2, reason: 'a successful create reloads from the backend');
+      expect(find.text('สร้างอาคาร "อาคารวิทยาศาสตร์" แล้ว'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'creating a room discloses there is no backend, instead of faking success',
+    'a skipped row (duplicate code) is reported as such, never as success',
     (tester) async {
-      await _pump(tester);
+      var loads = 0;
+      await _pump(
+        tester,
+        loadBuildings: () async {
+          loads++;
+          return <SchoolBuildingRecord>[];
+        },
+        createBuilding: (_) async => _duplicate,
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('สร้างอาคาร'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคาร 1');
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'), 'BLD-1');
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('รหัสอาคารนี้มีอยู่แล้ว กรุณาใช้รหัสอื่น'), findsOneWidget);
+      expect(find.textContaining('แล้ว"'), findsNothing);
+      expect(loads, 1, reason: 'nothing was written, so nothing reloads');
+    },
+  );
+
+  testWidgets(
+    'creating a room sends the chosen building code to the real import RPC',
+    (tester) async {
+      Map<String, dynamic>? sent;
+      await _pump(
+        tester,
+        loadBuildings: () async => [_building(), _building(id: 'bld-2', name: 'อาคาร 2', code: 'BLD-2')],
+        createRoom: (r) async {
+          sent = r;
+          return _inserted;
+        },
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('สร้างห้อง'));
       await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'ชื่อห้อง'), 'ห้องแล็บ AIoT');
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสห้อง (ไม่ซ้ำ)'), 'LAB-1');
+      await tester.enterText(find.widgetWithText(TextField, 'ชั้น (ถ้ามี)'), '2');
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
 
-      expect(
-        find.text('ยังไม่มีระบบบันทึกข้อมูลอาคาร/ห้องในเวอร์ชันนี้ กำลังพัฒนา RPC รองรับ'),
-        findsOneWidget,
+      expect(sent, {
+        'name': 'ห้องแล็บ AIoT',
+        'code': 'LAB-1',
+        'building_code': 'BLD-1',
+        'floor': '2',
+        'capacity': 30,
+      });
+    },
+  );
+
+  testWidgets(
+    'a failing create RPC shows a fixed sentence, not the exception',
+    (tester) async {
+      await _pump(
+        tester,
+        createBuilding: (_) async => throw Exception('PostgrestException: boom_secret'),
       );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('สร้างอาคาร'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'ชื่ออาคาร'), 'อาคาร X');
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสอาคาร (ไม่ซ้ำ)'), 'X');
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('สร้างอาคารไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
+      expect(find.textContaining('boom_secret'), findsNothing);
     },
   );
 

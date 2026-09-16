@@ -18,7 +18,17 @@ typedef ParentPagesBuilder =
 class ParentNavigationShell extends StatefulWidget {
   final ParentPagesBuilder? pagesBuilder;
 
-  const ParentNavigationShell({super.key, this.pagesBuilder});
+  /// seam สำหรับเทสต์ — production ใช้ NotificationService.listMyNotifications
+  /// / markNotificationRead
+  final Future<List<AppNotification>> Function()? loadNotifications;
+  final Future<void> Function(String notificationId)? markNotificationRead;
+
+  const ParentNavigationShell({
+    super.key,
+    this.pagesBuilder,
+    this.loadNotifications,
+    this.markNotificationRead,
+  });
 
   @override
   State<ParentNavigationShell> createState() => _ParentNavigationShellState();
@@ -27,6 +37,83 @@ class ParentNavigationShell extends StatefulWidget {
 class _ParentNavigationShellState extends State<ParentNavigationShell> {
   int selectedIndex = 0;
   LinkedStudentItem? _selectedStudent;
+
+  // กระดิ่งบน AppBar เคยเป็น `onPressed: () {}` พร้อมจุดแดงถาวร — ผู้ปกครอง
+  // ทุกคนเห็น "มีแจ้งเตือนใหม่" ตลอดเวลาโดยกดแล้วไม่มีอะไรเกิดขึ้น ตอนนี้
+  // จุดแดงมาจากจำนวนที่ยังไม่อ่านจริง และกดแล้วเปิดรายการจริง
+  List<AppNotification> _notifications = const [];
+  bool _notificationsFailed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final list = await (widget.loadNotifications ??
+          NotificationService.listMyNotifications)();
+      if (!mounted) return;
+      setState(() {
+        _notifications = list;
+        _notificationsFailed = false;
+      });
+    } catch (e) {
+      debugPrint('ParentNavigationShell: โหลดการแจ้งเตือนไม่สำเร็จ — $e');
+      if (!mounted) return;
+      setState(() => _notificationsFailed = true);
+    }
+  }
+
+  int get _unreadCount => _notifications.where((n) => n.readAt == null).length;
+
+  /// แตะรายการ = อ่านแล้ว: เขียนผ่าน mark_notification_read แล้วอ่านรายการ
+  /// กลับ — จุดแดงจึงหายเมื่อหลังบ้านยืนยันว่าอ่านแล้วจริง ไม่ใช่แค่ในเครื่อง
+  Future<bool> _markRead(String id) async {
+    try {
+      await (widget.markNotificationRead ??
+          NotificationService.markNotificationRead)(id);
+      await _loadNotifications();
+      return true;
+    } catch (e) {
+      debugPrint('ParentNavigationShell: mark_notification_read ล้ม — $e');
+      return false;
+    }
+  }
+
+  Future<void> _openNotifications() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      // สร้าง sheet ใหม่ทุกครั้งที่ state ของ shell เปลี่ยน (หลัง mark read)
+      // เพื่อให้แถวที่เพิ่งแตะเปลี่ยนเป็น "อ่านแล้ว" ทันทีในแผ่นเดียวกัน
+      builder: (_) => StatefulBuilder(
+        builder: (sheetContext, setSheet) => _ParentNotificationSheet(
+          notifications: _notifications,
+          failed: _notificationsFailed,
+          onRetry: _loadNotifications,
+          onTap: (n) async {
+            if (n.readAt != null) return;
+            final ok = await _markRead(n.id);
+            if (!sheetContext.mounted) return;
+            if (ok) {
+              setSheet(() {});
+            } else {
+              ScaffoldMessenger.of(sheetContext).showSnackBar(
+                const SnackBar(
+                  content: Text('บันทึกว่าอ่านแล้วไม่สำเร็จ กรุณาลองใหม่'),
+                ),
+              );
+            }
+          },
+        ),
+      ),
+    );
+    // โหลดใหม่หลังปิดแผ่น เผื่อมีรายการใหม่เข้ามาระหว่างที่เปิดอยู่
+    await _loadNotifications();
+  }
 
   List<Widget> get pages {
     final customPages = widget.pagesBuilder?.call(
@@ -160,7 +247,7 @@ class _ParentNavigationShellState extends State<ParentNavigationShell> {
         actions: [
           IconButton(
             tooltip: 'การแจ้งเตือน',
-            onPressed: () {},
+            onPressed: _openNotifications,
             icon: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -168,18 +255,19 @@ class _ParentNavigationShellState extends State<ParentNavigationShell> {
                   Icons.notifications_none_rounded,
                   color: Color(0xFF536071),
                 ),
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFDF5660),
-                      shape: BoxShape.circle,
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFDF5660),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -672,4 +760,108 @@ class _NavItem {
   final IconData icon;
 
   const _NavItem(this.title, this.icon);
+}
+
+/// รายการแจ้งเตือนจริงของผู้ปกครอง (list_my_notifications) — ว่างบอกว่าว่าง
+/// โหลดล้มบอกว่าล้ม ไม่มีรายการตัวอย่าง
+class _ParentNotificationSheet extends StatelessWidget {
+  const _ParentNotificationSheet({
+    required this.notifications,
+    required this.failed,
+    required this.onRetry,
+    required this.onTap,
+  });
+
+  final List<AppNotification> notifications;
+  final bool failed;
+  final Future<void> Function() onRetry;
+  final Future<void> Function(AppNotification) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.7;
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'การแจ้งเตือน',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF202A3A),
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (failed)
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'โหลดการแจ้งเตือนไม่สำเร็จ',
+                    style: TextStyle(color: Color(0xFFB91C1C)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    onRetry();
+                  },
+                  child: const Text('ลองใหม่'),
+                ),
+              ],
+            )
+          else if (notifications.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Text(
+                'ยังไม่มีการแจ้งเตือน',
+                style: TextStyle(color: Color(0xFF8A94A6)),
+              ),
+            )
+          else
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: notifications.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final n = notifications[i];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    onTap: () => onTap(n),
+                    leading: Icon(
+                      n.readAt == null
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_none_rounded,
+                      color: n.readAt == null
+                          ? const Color(0xFFDF5660)
+                          : const Color(0xFF8A94A6),
+                    ),
+                    title: Text(
+                      n.title,
+                      style: TextStyle(
+                        fontWeight: n.readAt == null
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: n.body == null || n.body!.isEmpty
+                        ? null
+                        : Text(n.body!, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }

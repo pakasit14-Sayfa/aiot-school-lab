@@ -96,6 +96,20 @@ void main() {
     expect(find.textContaining('200.0 KB'), findsOneWidget);
   });
 
+  /// list_course_files ของวิชาหนึ่งล้ม เคยถูกกลืนเงียบแล้วโชว์ "ยังไม่มีไฟล์
+  /// ในวิชานี้" — ครูอ่านว่าวิชาว่างทั้งที่โหลดไม่ขึ้น
+  testWidgets('a failed per-subject file load is distinct from an empty subject', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      listFiles: (_) async => throw Exception('PostgrestException: files_boom'),
+    );
+    expect(find.text('โหลดไฟล์ของวิชานี้ไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ยังไม่มีไฟล์ในวิชานี้'), findsNothing);
+    expect(find.textContaining('files_boom'), findsNothing);
+  });
+
   testWidgets('downloading a file resolves the real signed URL for its real id', (
     tester,
   ) async {
