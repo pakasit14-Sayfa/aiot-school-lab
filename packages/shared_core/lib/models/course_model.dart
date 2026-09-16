@@ -21,6 +21,36 @@ class StudentLookup {
   String get fullName => '$firstName $lastName'.trim();
 }
 
+/// ปีการศึกษาของโรงเรียน (list_academic_years) — ใช้ในหน้าตั้งค่าของแอดมิน
+class AcademicYearOption {
+  final String id;
+  final String name;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final int termsCount;
+
+  const AcademicYearOption({
+    required this.id,
+    required this.name,
+    required this.startDate,
+    required this.endDate,
+    required this.termsCount,
+  });
+
+  factory AcademicYearOption.fromRow(Map<String, dynamic> row) =>
+      AcademicYearOption(
+        id: row['id'] as String,
+        name: row['name'] as String,
+        startDate: row['start_date'] == null
+            ? null
+            : DateTime.parse(row['start_date'] as String),
+        endDate: row['end_date'] == null
+            ? null
+            : DateTime.parse(row['end_date'] as String),
+        termsCount: (row['terms_count'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class TermOption {
   final String id;
   final String name;

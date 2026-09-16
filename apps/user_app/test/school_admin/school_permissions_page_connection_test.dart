@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/school_admin/school_permissions_page.dart';
@@ -51,6 +53,10 @@ Future<void> _pump(
   Future<List<UserModel>> Function()? loadUsers,
   Future<List<SchoolAdminAuditLog>> Function()? loadLogs,
   Future<List<RolePermissionEntry>> Function()? loadPermissionMatrix,
+  Future<StaffInvitationTicket> Function({required String email, required UserRole role})?
+  createInvitation,
+  void Function({required String filename, required List<int> bytes, required String mimeType})?
+  downloadBytesOverride,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -65,6 +71,9 @@ Future<void> _pump(
         loadLogs: loadLogs ?? () async => <SchoolAdminAuditLog>[],
         loadPermissionMatrix:
             loadPermissionMatrix ?? () async => <RolePermissionEntry>[],
+        createInvitation: createInvitation,
+        downloadBytesOverride: downloadBytesOverride ??
+            ({required filename, required bytes, required mimeType}) {},
       ),
     ),
   );
@@ -143,34 +152,54 @@ void main() {
   });
 
   testWidgets(
-    '"เพิ่มสิทธิ์" is disabled rather than faking a new user',
+    '"เชิญผู้ใช้งาน" creates a real invitation and shows the one-time token',
     (tester) async {
-      await _pump(tester);
+      String? sentEmail;
+      UserRole? sentRole;
+      await _pump(
+        tester,
+        createInvitation: ({required email, required role}) async {
+          sentEmail = email;
+          sentRole = role;
+          return StaffInvitationTicket(token: 'inv_xyz789', expiresAt: DateTime(2026, 9, 21, 12));
+        },
+      );
       await tester.pumpAndSettle();
 
-      final addButton = find.byWidgetPredicate(
-        (w) => w is ButtonStyleButton && w.onPressed == null,
-      );
-      expect(
-        find.descendant(of: addButton, matching: find.text('เพิ่มสิทธิ์')),
-        findsOneWidget,
-      );
+      await tester.tap(find.text('เชิญผู้ใช้งาน'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'อีเมลผู้ถูกเชิญ'), 'New.Teacher@school.test');
+      await tester.tap(find.text('สร้างคำเชิญ'));
+      await tester.pumpAndSettle();
+
+      expect(sentEmail, 'new.teacher@school.test');
+      expect(sentRole, UserRole.teacher);
+      expect(find.text('inv_xyz789'), findsOneWidget, reason: 'token shown once to relay by hand');
+      expect(find.text('เพิ่มสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว'), findsNothing);
     },
   );
 
   testWidgets(
-    '"ส่งออกรายการ" is disabled rather than faking a download',
+    '"ส่งออก CSV" downloads the filtered permission list as a real file',
     (tester) async {
-      await _pump(tester);
+      String? savedName;
+      List<int>? savedBytes;
+      await _pump(
+        tester,
+        loadUsers: () async => [_user(name: 'ครูส่งออก ทดสอบ', email: 'export@school.test')],
+        downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
+          savedName = filename;
+          savedBytes = bytes;
+        },
+      );
       await tester.pumpAndSettle();
 
-      final exportButton = find.byWidgetPredicate(
-        (w) => w is ButtonStyleButton && w.onPressed == null,
-      );
-      expect(
-        find.descendant(of: exportButton, matching: find.text('ส่งออกรายการ')),
-        findsOneWidget,
-      );
+      await tester.tap(find.text('ส่งออก CSV'));
+      await tester.pumpAndSettle();
+
+      expect(savedName, startsWith('permissions_'));
+      expect(utf8.decode(savedBytes!), contains('export@school.test'));
+      expect(find.text('ส่งออกรายการสิทธิ์ตัวอย่างแล้ว'), findsNothing);
     },
   );
 

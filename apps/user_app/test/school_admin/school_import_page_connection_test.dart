@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/school_admin/school_import_page.dart';
@@ -17,7 +19,7 @@ import 'package:shared_core/shared_core.dart';
 /// Accounts are created `status = 'active'`, so importing 500 students meant
 /// 500 accounts anyone could sign into knowing only the email address.
 ///
-/// Per task_plan §"Security defects", the user-import path stays disabled
+/// (History) Per task_plan §"Security defects", the user-import path stayed disabled
 /// until a real credential delivery/reset flow exists. Building, room and
 /// device imports create no credentials and are unaffected.
 
@@ -45,72 +47,61 @@ void main() {
 
   tearDown(() => currentUserModel = null);
 
-  testWidgets('user-creating import types are visibly marked as disabled', (
+  /// รอบ 2026-09-07 การนำเข้าผู้ใช้ถูกปิดเพราะรหัส 'Test1234!' เหมือนกันทุกคน —
+  /// ตั้งแต่ 20260914020000 หลังบ้านออกรหัสชั่วคราวต่อคน + บังคับเปลี่ยน
+  /// จึงเปิดใช้ได้ ไม่มีชิป "(ปิดชั่วคราว)" และปุ่มนำเข้าไม่ถูกล็อกตามชนิดข้อมูล
+  testWidgets('user-creating import types are no longer marked as disabled', (
     tester,
   ) async {
     await _pump(tester);
 
-    expect(find.text('นักเรียน (ปิดชั่วคราว)'), findsOneWidget);
-    expect(find.text('ครูและบุคลากร (ปิดชั่วคราว)'), findsOneWidget);
+    expect(find.text('นักเรียน'), findsWidgets);
+    expect(find.text('นักเรียน (ปิดชั่วคราว)'), findsNothing);
+    expect(find.text('ครูและบุคลากร (ปิดชั่วคราว)'), findsNothing);
 
-    // Types that create no credentials must stay usable.
-    expect(find.text('อาคารและห้อง'), findsOneWidget);
-    expect(find.text('อุปกรณ์'), findsOneWidget);
-    expect(find.text('ชุดฝึก'), findsOneWidget);
-  });
-
-  testWidgets('the page does not default to a blocked type', (tester) async {
-    await _pump(tester);
-
-    // Defaulting to นักเรียน would land every admin on a dead-end screen.
-    expect(find.text('เริ่มนำเข้าข้อมูล'), findsOneWidget);
-    expect(
-      find.text('ปิดชั่วคราวด้วยเหตุผลด้านความปลอดภัย'),
-      findsNothing,
-    );
-  });
-
-  testWidgets(
-    'choosing a user type replaces the import action with a locked control',
-    (tester) async {
-      await _pump(tester);
-
-      await tester.tap(find.text('นักเรียน (ปิดชั่วคราว)'));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text('ปิดชั่วคราวด้วยเหตุผลด้านความปลอดภัย'),
-        findsOneWidget,
-      );
-      expect(find.text('เริ่มนำเข้าข้อมูล'), findsNothing);
-
-      // Genuinely disabled, not just relabelled. Matched by predicate because
-      // FilledButton.icon builds a private subclass that find.byType misses.
-      final disabled = find.byWidgetPredicate(
-        (w) => w is ButtonStyleButton && w.onPressed == null,
-      );
-      expect(
-        find.descendant(
-          of: disabled,
-          matching: find.text('ปิดชั่วคราวด้วยเหตุผลด้านความปลอดภัย'),
-        ),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets('switching back to a safe type restores the import action', (
-    tester,
-  ) async {
-    await _pump(tester);
-
-    await tester.tap(find.text('ครูและบุคลากร (ปิดชั่วคราว)'));
+    await tester.tap(find.text('นักเรียน').first);
     await tester.pumpAndSettle();
-    expect(find.text('เริ่มนำเข้าข้อมูล'), findsNothing);
-
-    await tester.tap(find.text('อุปกรณ์'));
-    await tester.pumpAndSettle();
-    expect(find.text('เริ่มนำเข้าข้อมูล'), findsOneWidget);
     expect(find.text('ปิดชั่วคราวด้วยเหตุผลด้านความปลอดภัย'), findsNothing);
+  });
+
+  /// กล่องรหัสชั่วคราว: แสดงทุกบัญชี ดาวน์โหลดเป็น CSV ได้จริง
+  testWidgets('the credentials dialog lists each new account and downloads a real CSV', (
+    tester,
+  ) async {
+    String? savedName;
+    List<int>? savedBytes;
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            ctx = context;
+            return const Scaffold(body: SizedBox());
+          },
+        ),
+      ),
+    );
+    showImportedCredentialsDialog(
+      ctx,
+      const [
+        ImportedCredential(row: 1, email: 'a@school.test', tempPassword: 'Xk3pQ7mN2r'),
+        ImportedCredential(row: 2, email: 'b@school.test', tempPassword: 'Ht8wZ4cL6v'),
+      ],
+      downloadBytesOverride: ({required filename, required bytes, required mimeType}) {
+        savedName = filename;
+        savedBytes = bytes;
+      },
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('a@school.test'), findsOneWidget);
+    expect(find.text('Xk3pQ7mN2r'), findsOneWidget);
+    expect(find.textContaining('ต้องตั้งรหัสใหม่ในการเข้าสู่ระบบครั้งแรก'), findsOneWidget);
+
+    await tester.tap(find.text('ดาวน์โหลด CSV'));
+    await tester.pumpAndSettle();
+    expect(savedName, startsWith('temp_passwords_'));
+    final csv = utf8.decode(savedBytes!);
+    expect(csv, contains('b@school.test,Ht8wZ4cL6v'));
   });
 }

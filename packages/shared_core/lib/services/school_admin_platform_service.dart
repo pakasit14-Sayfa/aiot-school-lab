@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/super_admin_model.dart';
 import '../models/school_building_model.dart';
+import '../models/course_model.dart' show AcademicYearOption;
+import '../models/school_device_identity.dart' show SchoolDeviceDetail;
 import '../models/executive_overview_model.dart'
     show PlatformSettings, CourseOverviewRecord;
 import 'auth_service.dart';
@@ -113,6 +115,179 @@ class SchoolAdminPlatformService {
     });
 
     return DeviceControlDataModel.fromJson(Map<String, dynamic>.from(res as Map));
+  }
+
+  // ── School Admin: อาคาร/ห้อง/อุปกรณ์/แจ้งเตือน/ปีการศึกษา (20260914010000) ──
+
+  Future<void> updateBuilding({
+    required String buildingId,
+    required String name,
+    required String code,
+    int? floors,
+    String? note,
+  }) async {
+    final token = await _requireToken();
+    await _resolvedClient.rpc('update_school_building', params: {
+      'p_token': token,
+      'p_building_id': buildingId,
+      'p_name': name,
+      'p_code': code,
+      'p_floors': floors,
+      'p_note': note,
+    });
+  }
+
+  Future<void> deleteBuilding(String buildingId) async {
+    final token = await _requireToken();
+    await _resolvedClient.rpc('delete_school_building', params: {
+      'p_token': token,
+      'p_building_id': buildingId,
+    });
+  }
+
+  /// ผู้รับผิดชอบอาคาร = ชื่อใน buildings.manager_name — ส่ง null เพื่อล้าง
+  Future<void> setBuildingManager({
+    required String buildingId,
+    required String? managerName,
+  }) async {
+    final token = await _requireToken();
+    await _resolvedClient.rpc('set_school_building_manager', params: {
+      'p_token': token,
+      'p_building_id': buildingId,
+      'p_manager_name': managerName,
+    });
+  }
+
+  Future<void> updateRoom({
+    required String roomId,
+    required String name,
+    required String code,
+    String? floor,
+    String? roomType,
+    int? capacity,
+  }) async {
+    final token = await _requireToken();
+    await _resolvedClient.rpc('update_school_room', params: {
+      'p_token': token,
+      'p_room_id': roomId,
+      'p_name': name,
+      'p_code': code,
+      'p_floor': floor,
+      'p_room_type': roomType,
+      'p_capacity': capacity,
+    });
+  }
+
+  Future<void> deleteRoom(String roomId) async {
+    final token = await _requireToken();
+    await _resolvedClient.rpc('delete_school_room', params: {
+      'p_token': token,
+      'p_room_id': roomId,
+    });
+  }
+
+  /// ลงทะเบียนอุปกรณ์ในโรงเรียนตัวเอง (register_device — school_admin)
+  /// คืน device_token ครั้งเดียวสำหรับตั้งค่าตัวอุปกรณ์จริง
+  Future<Map<String, dynamic>> registerSchoolDevice({
+    required String type,
+    required String name,
+    String? serialNo,
+    String? location,
+    String? kitCode,
+  }) async {
+    final token = await _requireToken();
+    final rows = await _resolvedClient.rpc('register_device', params: {
+      'p_token': token,
+      'p_type': type,
+      'p_name': name,
+      'p_serial_no': serialNo,
+      'p_location': location,
+      'p_kit_code': kitCode,
+    }) as List;
+    if (rows.isEmpty) throw StateError('register_device returned no row');
+    return Map<String, dynamic>.from(rows.first as Map);
+  }
+
+  Future<void> updateDevice({
+    required String deviceId,
+    required String name,
+    String? location,
+    String? building,
+    String? room,
+    String? status,
+  }) async {
+    final token = await _requireToken();
+    await _resolvedClient.rpc('update_school_device', params: {
+      'p_token': token,
+      'p_device_id': deviceId,
+      'p_name': name,
+      'p_location': location,
+      'p_building': building,
+      'p_room': room,
+      'p_status': status,
+    });
+  }
+
+  /// รายละเอียดอุปกรณ์รายตัว (get_school_device_detail) — null ถ้าไม่พบ/นอกโรงเรียน
+  Future<SchoolDeviceDetail?> getDeviceDetail(String deviceId) async {
+    final token = await _requireToken();
+    final rows = await _resolvedClient.rpc('get_school_device_detail', params: {
+      'p_token': token,
+      'p_device_id': deviceId,
+    }) as List;
+    if (rows.isEmpty) return null;
+    return SchoolDeviceDetail.fromRow(Map<String, dynamic>.from(rows.first as Map));
+  }
+
+  /// รับทราบแจ้งเตือนที่ยังเป็น new ทั้งโรงเรียน — คืนจำนวนที่เปลี่ยน
+  Future<int> acknowledgeAllAlerts() async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('acknowledge_all_school_alerts', params: {
+      'p_token': token,
+    });
+    return (res as num?)?.toInt() ?? 0;
+  }
+
+  Future<List<AcademicYearOption>> listAcademicYears() async {
+    final token = await _requireToken();
+    final rows = await _resolvedClient.rpc('list_academic_years', params: {
+      'p_token': token,
+    }) as List;
+    return rows
+        .map((r) => AcademicYearOption.fromRow(Map<String, dynamic>.from(r as Map)))
+        .toList();
+  }
+
+  Future<String> createAcademicYear({
+    required String name,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('create_academic_year', params: {
+      'p_token': token,
+      'p_name': name,
+      'p_start_date': startDate?.toIso8601String().substring(0, 10),
+      'p_end_date': endDate?.toIso8601String().substring(0, 10),
+    });
+    return res as String;
+  }
+
+  Future<String> createTerm({
+    required String academicYearId,
+    required String name,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final token = await _requireToken();
+    final res = await _resolvedClient.rpc('create_term', params: {
+      'p_token': token,
+      'p_academic_year_id': academicYearId,
+      'p_name': name,
+      'p_start_date': startDate?.toIso8601String().substring(0, 10),
+      'p_end_date': endDate?.toIso8601String().substring(0, 10),
+    });
+    return res as String;
   }
 
   /// Register a new device to a school (Super Admin). Returns

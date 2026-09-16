@@ -43,6 +43,13 @@ Future<void> _pump(
   Future<void> Function({required String uid, required String name})?
   updateProfile,
   Future<void> Function()? signOutAllDevices,
+  Future<List<StaffDirectoryEntry>> Function()? loadDirectory,
+  Future<void> Function({required String userId, String? positionTitle, String? phone})?
+  saveStaffProfile,
+  Future<void> Function({required String currentPassword, required String newPassword})?
+  changePassword,
+  Future<List<MySessionRecord>> Function()? loadSessions,
+  Future<void> Function(String sessionId)? revokeSession,
 }) async {
   tester.view.physicalSize = const Size(1400, 2600);
   tester.view.devicePixelRatio = 1;
@@ -66,6 +73,12 @@ Future<void> _pump(
         loadSummary: loadSummary ?? () async => _summary(),
         updateProfile: updateProfile,
         signOutAllDevices: signOutAllDevices,
+        loadDirectory: loadDirectory ?? () async => const <StaffDirectoryEntry>[],
+        saveStaffProfile: saveStaffProfile ??
+            ({required userId, positionTitle, phone}) async {},
+        changePassword: changePassword,
+        loadSessions: loadSessions,
+        revokeSession: revokeSession,
       ),
     ),
   );
@@ -165,33 +178,63 @@ void main() {
     tester,
   ) async {
     var saved = false;
+    String? savedPhone, savedPosition, savedFor;
     await _pump(
       tester,
       updateProfile: ({required uid, required name}) async {
         saved = true;
       },
+      saveStaffProfile: ({required userId, positionTitle, phone}) async {
+        savedFor = userId;
+        savedPosition = positionTitle;
+        savedPhone = phone;
+      },
     );
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.widgetWithText(TextField, 'เบอร์โทรศัพท์'), '0812345678');
+    await tester.enterText(find.widgetWithText(TextField, 'ตำแหน่ง'), 'รองผู้อำนวยการ');
     await tester.tap(find.text('บันทึก'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ยืนยัน'));
     await tester.pumpAndSettle();
 
     expect(saved, isTrue);
-    expect(
-      find.text('บันทึกชื่อเรียบร้อยแล้ว (ฟิลด์อื่นยังไม่รองรับการบันทึก)'),
-      findsOneWidget,
-    );
+    // เบอร์โทร/ตำแหน่ง ลง staff_profiles ของบัญชีตัวเอง — ไม่ใช่ "ยังไม่รองรับ" อีกต่อไป
+    expect(savedFor, 'admin-1');
+    expect(savedPhone, '0812345678');
+    expect(savedPosition, 'รองผู้อำนวยการ');
+    expect(find.text('บันทึกโปรไฟล์เรียบร้อยแล้ว'), findsOneWidget);
   });
 
   testWidgets(
-    'unsupported fields are disclosed as not-saveable, not silently accepted',
+    'phone/position/department come from the staff directory, and no field claims to be unsaveable',
     (tester) async {
-      await _pump(tester);
+      await _pump(
+        tester,
+        loadDirectory: () async => const [
+          StaffDirectoryEntry(
+            userId: 'admin-1',
+            fullName: 'ผู้ดูแล ทดสอบ',
+            email: 'admin@school.test',
+            status: 'active',
+            positionTitle: 'หัวหน้างานทะเบียน',
+            phone: '0899999999',
+            roles: ['school_admin'],
+            administrativeDepartments: ['ฝ่ายบริหารทั่วไป'],
+            subjectGroups: [],
+            headsDepartments: [],
+          ),
+        ],
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('ยังไม่รองรับการบันทึก'), findsWidgets);
+      expect(find.text('ยังไม่รองรับการบันทึก'), findsNothing);
+      expect(find.widgetWithText(TextField, '0899999999'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'หัวหน้างานทะเบียน'), findsOneWidget);
+      expect(find.text('ฝ่ายบริหารทั่วไป'), findsOneWidget);
+      // ไม่มีคอลัมน์ไหนเก็บรหัสบุคลากร — ช่องนั้นต้องไม่อยู่บนจอ
+      expect(find.text('รหัสผู้ใช้งาน / รหัสบุคลากร'), findsNothing);
     },
   );
 
@@ -228,39 +271,81 @@ void main() {
   );
 
   testWidgets(
-    '"เปลี่ยนรหัสผ่าน" explains the real OTP flow instead of faking a change',
+    '"เปลี่ยนรหัสผ่าน" sends current+new password to the real RPC and translates a wrong current password',
     (tester) async {
-      await _pump(tester);
-      await tester.pumpAndSettle();
-
-      await tester.tap(
-        find.widgetWithText(OutlinedButton, 'เปลี่ยนรหัสผ่าน'),
+      final calls = <String>[];
+      await _pump(
+        tester,
+        changePassword: ({required currentPassword, required newPassword}) async {
+          calls.add('$currentPassword→$newPassword');
+          if (currentPassword == 'wrong') {
+            throw Exception('PostgrestException: wrong_current_password');
+          }
+        },
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('OTP'), findsOneWidget);
-      expect(find.text('รับทราบ'), findsOneWidget);
-      // No password fields in the dialog — the old 3-field dialog claimed a
-      // change that never reached the backend, and must never come back.
-      expect(find.text('รหัสผ่านปัจจุบัน'), findsNothing);
-      expect(find.text('รหัสผ่านใหม่'), findsNothing);
-
-      await tester.tap(find.text('รับทราบ'));
+      await tester.tap(find.widgetWithText(OutlinedButton, 'เปลี่ยนรหัสผ่าน'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'wrong');
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'), 'NewPass12345');
+      await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass12345');
+      await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
       await tester.pumpAndSettle();
 
-      expect(find.text('เปลี่ยนรหัสผ่านแล้ว'), findsNothing);
+      expect(calls, ['wrong→NewPass12345']);
+      expect(find.text('รหัสผ่านปัจจุบันไม่ถูกต้อง'), findsOneWidget);
+      expect(find.textContaining('wrong_current_password'), findsNothing);
+      expect(find.byType(AlertDialog), findsOneWidget, reason: 'stays open to retry');
+
+      await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'OldPass123');
+      await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
+      await tester.pumpAndSettle();
+
+      expect(calls.last, 'OldPass123→NewPass12345');
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsOneWidget);
     },
   );
 
   testWidgets(
-    '"ดูอุปกรณ์" is disabled — no RPC lists active sessions',
+    '"ดูอุปกรณ์" lists real sessions, marks this device, and revokes another through the RPC',
     (tester) async {
-      await _pump(tester);
+      var revoked = <String>[];
+      var loads = 0;
+      await _pump(
+        tester,
+        loadSessions: () async {
+          loads++;
+          return [
+            MySessionRecord(
+              id: 's-here', deviceInfo: 'MacBook', ipAddress: '10.0.0.2',
+              createdAt: DateTime(2026, 9, 14, 8), expiresAt: DateTime(2026, 9, 21, 8), isCurrent: true,
+            ),
+            if (!revoked.contains('s-phone'))
+              MySessionRecord(
+                id: 's-phone', deviceInfo: 'iPhone', ipAddress: null,
+                createdAt: DateTime(2026, 9, 13, 20), expiresAt: DateTime(2026, 9, 20, 20), isCurrent: false,
+              ),
+          ];
+        },
+        revokeSession: (id) async => revoked.add(id),
+      );
       await tester.pumpAndSettle();
 
-      final button = find.widgetWithText(OutlinedButton, 'ดูอุปกรณ์');
-      expect(button, findsOneWidget);
-      expect(tester.widget<OutlinedButton>(button).onPressed, isNull);
+      await tester.tap(find.widgetWithText(OutlinedButton, 'ดูอุปกรณ์'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('MacBook'), findsOneWidget);
+      expect(find.text('เครื่องนี้'), findsOneWidget);
+      expect(find.text('iPhone'), findsOneWidget);
+
+      await tester.tap(find.text('ถอนออก'));
+      await tester.pumpAndSettle();
+
+      expect(revoked, ['s-phone']);
+      expect(loads, 2, reason: 'reads back after revoking, not local removal');
+      expect(find.text('iPhone'), findsNothing);
     },
   );
 

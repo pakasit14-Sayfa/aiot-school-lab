@@ -1,5 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_core/shared_core.dart';
+import 'package:shared_core/models/school_device_identity.dart'
+    show SchoolDeviceDetail;
+
+import '../../utils/web_download.dart';
 
 import 'theme/school_admin_palette.dart';
 
@@ -40,13 +48,48 @@ import 'theme/school_admin_palette.dart';
 ///   (`queue_device_command` + ยืนยันผ่าน `list_device_relay_states`)
 ///   หน้านี้เป็นทะเบียนอุปกรณ์อย่างเดียว ไม่ทำ mutation ซ้ำอีกเลน
 class SchoolDevicesPage extends StatefulWidget {
-  const SchoolDevicesPage({super.key, this.loadDevices, this.loadLogs});
+  const SchoolDevicesPage({
+    super.key,
+    this.loadDevices,
+    this.loadLogs,
+    this.loadDeviceDetail,
+    this.registerDevice,
+    this.updateDevice,
+    this.downloadBytesOverride,
+  });
 
   /// Seam สำหรับเทสต์ (แบบเดียวกับ `school_resources_page`) — production
   /// ไม่ส่งอะไรมาแล้วใช้ service จริง เทสต์ส่งเข้ามาเพื่อขับ
   /// loading / data / empty / error โดยไม่ต้องมี Supabase จริง
   final Future<List<DeviceOption>> Function()? loadDevices;
   final Future<List<SchoolAdminAuditLog>> Function()? loadLogs;
+
+  /// get_school_device_detail / register_device / update_school_device
+  /// (20260914010000, 20260914040000) — ส่งออก CSV ทำฝั่งเครื่องจากข้อมูลที่โหลด
+  final Future<SchoolDeviceDetail?> Function(String deviceId)? loadDeviceDetail;
+  final Future<Map<String, dynamic>> Function({
+    required String type,
+    required String name,
+    String? serialNo,
+    String? location,
+    String? kitCode,
+  })?
+  registerDevice;
+  final Future<void> Function({
+    required String deviceId,
+    required String name,
+    String? location,
+    String? building,
+    String? room,
+    String? status,
+  })?
+  updateDevice;
+  final void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
+  downloadBytesOverride;
 
   @override
   State<SchoolDevicesPage> createState() => _SchoolDevicesPageState();
@@ -258,36 +301,38 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
   List<DeviceOption> get _filteredDevices {
     final keyword = _searchController.text.trim().toLowerCase();
 
-    return _devices.where((device) {
-      final matchesSearch =
-          keyword.isEmpty ||
-          device.name.toLowerCase().contains(keyword) ||
-          device.type.toLowerCase().contains(keyword) ||
-          _typeLabel(device.type).toLowerCase().contains(keyword) ||
-          (device.location ?? '').toLowerCase().contains(keyword);
+    return _devices
+        .where((device) {
+          final matchesSearch =
+              keyword.isEmpty ||
+              device.name.toLowerCase().contains(keyword) ||
+              device.type.toLowerCase().contains(keyword) ||
+              _typeLabel(device.type).toLowerCase().contains(keyword) ||
+              (device.location ?? '').toLowerCase().contains(keyword);
 
-      final matchesCategory =
-          _selectedCategory == _allCategories ||
-          _typeLabel(device.type) == _selectedCategory;
+          final matchesCategory =
+              _selectedCategory == _allCategories ||
+              _typeLabel(device.type) == _selectedCategory;
 
-      final matchesLocation =
-          _selectedLocation == _allLocations ||
-          _locationOf(device) == _selectedLocation;
+          final matchesLocation =
+              _selectedLocation == _allLocations ||
+              _locationOf(device) == _selectedLocation;
 
-      final bool matchesStatus;
-      if (_filterIssuesOnly) {
-        matchesStatus = device.status.toLowerCase() != 'online';
-      } else {
-        matchesStatus =
-            _selectedStatus == _allStatuses ||
-            _statusLabel(device.status) == _selectedStatus;
-      }
+          final bool matchesStatus;
+          if (_filterIssuesOnly) {
+            matchesStatus = device.status.toLowerCase() != 'online';
+          } else {
+            matchesStatus =
+                _selectedStatus == _allStatuses ||
+                _statusLabel(device.status) == _selectedStatus;
+          }
 
-      return matchesSearch &&
-          matchesCategory &&
-          matchesLocation &&
-          matchesStatus;
-    }).toList(growable: false);
+          return matchesSearch &&
+              matchesCategory &&
+              matchesLocation &&
+              matchesStatus;
+        })
+        .toList(growable: false);
   }
 
   int _countWithStatus(String status) =>
@@ -295,11 +340,10 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
 
   int get _onlineCount => _countWithStatus('online');
   int get _offlineCount => _countWithStatus('offline');
-  int get _attentionCount =>
-      _devices.where((d) {
-        final s = d.status.toLowerCase();
-        return s == 'error' || s == 'maintenance';
-      }).length;
+  int get _attentionCount => _devices.where((d) {
+    final s = d.status.toLowerCase();
+    return s == 'error' || s == 'maintenance';
+  }).length;
 
   /// อุปกรณ์ที่มี `location` จริงในฐานข้อมูล — ใช้แยก "มี 0 เครื่องที่ระบุ
   /// ตำแหน่ง" ออกจาก "ยังไม่มีอุปกรณ์เลย" (บทเรียนเดียวกับ energy page:
@@ -344,8 +388,6 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
                   _buildHeader(),
                   const SizedBox(height: 18),
                   _buildSummary(),
-                  const SizedBox(height: 18),
-                  _buildUnavailableActions(),
                   const SizedBox(height: 18),
                   _buildCoverage(),
                   const SizedBox(height: 18),
@@ -417,20 +459,38 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
                   foregroundColor: const Color(0xFF334155),
                 ),
               ),
-              // ไม่มี RPC ส่งออกไฟล์ในระบบ — ปิดปุ่มพร้อมบอกเหตุผล
-              // ของเดิมกดแล้วขึ้น "เตรียมข้อมูลส่งออกเป็นไฟล์ Excel/CSV
-              // เรียบร้อย" ทั้งที่ไม่มีไฟล์ใดถูกสร้าง
-              const _DisabledAction(
-                icon: Icons.download_rounded,
-                label: 'ส่งออก',
-                reason: 'ยังไม่มีระบบส่งออกไฟล์อุปกรณ์ในเวอร์ชันนี้',
+              // ส่งออก CSV จริงจากรายการที่กรองอยู่ (มติเจ้าของ 2026-09-08:
+              // CSV export จริงในหน้า School Admin)
+              OutlinedButton.icon(
+                onPressed: _exportCsv,
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text('ส่งออก CSV'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  foregroundColor: const Color(0xFF334155),
+                ),
               ),
-              // `register_device` มีจริงแต่ยังไม่มีเมธอดใน shared_core และ
-              // หน้าเพจเรียก supabase.rpc ตรง ๆ ไม่ได้ (hard rule 4)
-              const _DisabledAction(
-                icon: Icons.add_rounded,
-                label: 'เพิ่มอุปกรณ์',
-                reason: 'การลงทะเบียนอุปกรณ์ยังไม่เปิดใช้งานในหน้านี้',
+              // register_device (school_admin) — คืน device_token ครั้งเดียว
+              FilledButton.icon(
+                onPressed: _openRegisterDeviceForm,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('เพิ่มอุปกรณ์'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ],
           );
@@ -523,53 +583,13 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
           runSpacing: spacing,
           children: [
             for (final item in items)
-              SizedBox(width: width, child: _SummaryCard(data: item)),
+              SizedBox(
+                width: width,
+                child: _SummaryCard(data: item),
+              ),
           ],
         );
       },
-    );
-  }
-
-  /// รวมทุกคำสั่งที่ "ไม่มี backend" ไว้ที่เดียว แทนที่จะเป็นการ์ดกดได้ที่
-  /// ขึ้น snackbar ขอโทษ ตาม DoD: ปุ่มที่ไม่มี backend = disable + บอกเหตุผล
-  Widget _buildUnavailableActions() {
-    return const _ModernSectionCard(
-      title: 'คำสั่งที่ยังไม่เปิดใช้งาน',
-      subtitle:
-          'รายการต่อไปนี้ยังไม่มีคำสั่งฝั่งเซิร์ฟเวอร์รองรับ จึงปิดไว้แทนการแสดงผลลัพธ์ที่ไม่ได้เกิดขึ้นจริง',
-      child: Column(
-        children: [
-          _UnavailableRow(
-            icon: Icons.add_circle_outline_rounded,
-            title: 'ลงทะเบียน / แก้ไขข้อมูลอุปกรณ์',
-            reason: 'ยังไม่มีช่องทางบันทึกข้อมูลอุปกรณ์จากหน้านี้',
-          ),
-          SizedBox(height: 10),
-          _UnavailableRow(
-            icon: Icons.network_ping_rounded,
-            title: 'ทดสอบสัญญาณ (Ping)',
-            reason: 'ระบบไม่มีคำสั่งทดสอบสัญญาณอุปกรณ์',
-          ),
-          SizedBox(height: 10),
-          _UnavailableRow(
-            icon: Icons.qr_code_2_rounded,
-            title: 'QR Code ประจำอุปกรณ์',
-            reason: 'ระบบยังไม่ได้ออกรหัส QR ให้อุปกรณ์',
-          ),
-          SizedBox(height: 10),
-          _UnavailableRow(
-            icon: Icons.power_settings_new_rounded,
-            title: 'เปิด / ปิดอุปกรณ์',
-            reason: 'สั่งงานอุปกรณ์ได้ที่หน้า "ควบคุมอุปกรณ์"',
-          ),
-          SizedBox(height: 10),
-          _UnavailableRow(
-            icon: Icons.build_circle_rounded,
-            title: 'แผนการบำรุงรักษาและการสอบเทียบ',
-            reason: 'ระบบยังไม่เก็บกำหนดการบำรุงรักษาอุปกรณ์',
-          ),
-        ],
-      ),
     );
   }
 
@@ -643,7 +663,10 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
             runSpacing: spacing,
             children: [
               for (final item in items)
-                SizedBox(width: width, child: _CoverageCard(data: item)),
+                SizedBox(
+                  width: width,
+                  child: _CoverageCard(data: item),
+                ),
             ],
           );
         },
@@ -847,8 +870,7 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
                       3: FlexColumnWidth(1.3),
                       4: FlexColumnWidth(0.9),
                     },
-                    defaultVerticalAlignment:
-                        TableCellVerticalAlignment.middle,
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     children: [
                       const TableRow(
                         decoration: BoxDecoration(color: Color(0xFFF8FAFC)),
@@ -958,7 +980,340 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
     );
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  static String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportCsv() {
+    final rows = _filteredDevices;
+    if (rows.isEmpty) {
+      _showMessage('ไม่มีอุปกรณ์ให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+    final lines = <List<String>>[
+      ['ชื่ออุปกรณ์', 'ประเภท', 'จุดติดตั้ง', 'สถานะ', 'รหัสอุปกรณ์'],
+      for (final d in rows)
+        [
+          d.name,
+          _typeLabel(d.type),
+          _locationOf(d),
+          _statusLabel(d.status),
+          d.id,
+        ],
+    ];
+    final csv = lines.map((r) => r.map(_csvField).join(',')).join('\r\n');
+    final doDownload = widget.downloadBytesOverride ?? downloadBytes;
+    doDownload(
+      filename:
+          'devices_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('\ufeff$csv'),
+      mimeType: 'text/csv',
+    );
+    _showMessage('ส่งออกรายการอุปกรณ์ ${rows.length} รายการแล้ว (CSV)');
+  }
+
+  Future<void> _openRegisterDeviceForm() async {
+    final nameCtrl = TextEditingController();
+    final serialCtrl = TextEditingController();
+    final locationCtrl = TextEditingController();
+    final kitCtrl = TextEditingController();
+    var type = _typeLabels.keys.first;
+    var submitting = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final name = nameCtrl.text.trim();
+            if (name.isEmpty) {
+              setSheet(() => error = 'กรอกชื่ออุปกรณ์');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final register =
+                  widget.registerDevice ??
+                  ({
+                    required String type,
+                    required String name,
+                    String? serialNo,
+                    String? location,
+                    String? kitCode,
+                  }) => SchoolAdminPlatformService().registerSchoolDevice(
+                    type: type,
+                    name: name,
+                    serialNo: serialNo,
+                    location: location,
+                    kitCode: kitCode,
+                  );
+              final result = await register(
+                type: type,
+                name: name,
+                serialNo: serialCtrl.text.trim().isEmpty
+                    ? null
+                    : serialCtrl.text.trim(),
+                location: locationCtrl.text.trim().isEmpty
+                    ? null
+                    : locationCtrl.text.trim(),
+                kitCode: kitCtrl.text.trim().isEmpty
+                    ? null
+                    : kitCtrl.text.trim(),
+              );
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              await _showDeviceToken(
+                name,
+                result['device_token'] as String? ?? '',
+              );
+              await _reloadAll();
+            } catch (e) {
+              debugPrint('SchoolDevicesPage: register_device ล้ม — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                error = 'ลงทะเบียนอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _OwnControllers(
+            controllers: [nameCtrl, serialCtrl, locationCtrl, kitCtrl],
+            child: _FormSheet(
+              title: 'ลงทะเบียนอุปกรณ์ใหม่',
+              subtitle:
+                  'บันทึกลงระบบจริง — ระบบจะออก token ให้ตั้งค่าตัวอุปกรณ์ครั้งเดียว',
+              submitting: submitting,
+              error: error,
+              submitLabel: 'ลงทะเบียน',
+              onSubmit: submit,
+              fields: [
+                DropdownButtonFormField<String>(
+                  value: type,
+                  decoration: const InputDecoration(labelText: 'ประเภทอุปกรณ์'),
+                  items: [
+                    for (final e in _typeLabels.entries)
+                      DropdownMenuItem(value: e.key, child: Text(e.value)),
+                  ],
+                  onChanged: submitting
+                      ? null
+                      : (v) => setSheet(() => type = v ?? type),
+                ),
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'ชื่ออุปกรณ์'),
+                ),
+                TextField(
+                  controller: serialCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Serial Number (ถ้ามี)',
+                  ),
+                ),
+                TextField(
+                  controller: locationCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'จุดติดตั้ง (ถ้ามี)',
+                  ),
+                ),
+                TextField(
+                  controller: kitCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'รหัสชุดฝึก (ถ้ามี)',
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  /// token ของอุปกรณ์คืนจาก register_device ครั้งเดียว — หลังปิดกล่องนี้ไม่มีทาง
+  /// ดูซ้ำ (เก็บเป็น hash) จึงต้องคัดลอกทันที
+  Future<void> _showDeviceToken(String name, String token) async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('ลงทะเบียน "$name" แล้ว'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'token สำหรับตั้งค่าตัวอุปกรณ์ — แสดงครั้งเดียว คัดลอกเก็บไว้ก่อนปิด',
+              style: TextStyle(fontSize: 12.5),
+            ),
+            const SizedBox(height: 10),
+            SelectableText(
+              token,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Clipboard.setData(ClipboardData(text: token)),
+            icon: const Icon(Icons.copy_rounded, size: 16),
+            label: const Text('คัดลอก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('เก็บไว้แล้ว ปิด'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openEditDeviceForm(SchoolDeviceDetail detail) async {
+    final nameCtrl = TextEditingController(text: detail.name);
+    final locationCtrl = TextEditingController(text: detail.location ?? '');
+    final buildingCtrl = TextEditingController(text: detail.building ?? '');
+    final roomCtrl = TextEditingController(text: detail.room ?? '');
+    var status = detail.status;
+    var submitting = false;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> submit() async {
+            final name = nameCtrl.text.trim();
+            if (name.isEmpty) {
+              setSheet(() => error = 'กรอกชื่ออุปกรณ์');
+              return;
+            }
+            setSheet(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final update =
+                  widget.updateDevice ??
+                  ({
+                    required String deviceId,
+                    required String name,
+                    String? location,
+                    String? building,
+                    String? room,
+                    String? status,
+                  }) => SchoolAdminPlatformService().updateDevice(
+                    deviceId: deviceId,
+                    name: name,
+                    location: location,
+                    building: building,
+                    room: room,
+                    status: status,
+                  );
+              await update(
+                deviceId: detail.id,
+                name: name,
+                location: locationCtrl.text.trim(),
+                building: buildingCtrl.text.trim(),
+                room: roomCtrl.text.trim(),
+                status: status,
+              );
+              if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              if (!mounted) return;
+              _showMessage('บันทึกอุปกรณ์ "$name" แล้ว');
+              await _reloadAll();
+            } catch (e) {
+              debugPrint('SchoolDevicesPage: update_school_device ล้ม — $e');
+              if (!sheetContext.mounted) return;
+              setSheet(() {
+                submitting = false;
+                error = 'บันทึกอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _OwnControllers(
+            controllers: [nameCtrl, locationCtrl, buildingCtrl, roomCtrl],
+            child: _FormSheet(
+              title: 'แก้ไขอุปกรณ์',
+              subtitle: 'บันทึกลงระบบจริงผ่าน update_school_device',
+              submitting: submitting,
+              error: error,
+              submitLabel: 'บันทึก',
+              onSubmit: submit,
+              fields: [
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'ชื่ออุปกรณ์'),
+                ),
+                TextField(
+                  controller: locationCtrl,
+                  decoration: const InputDecoration(labelText: 'จุดติดตั้ง'),
+                ),
+                TextField(
+                  controller: buildingCtrl,
+                  decoration: const InputDecoration(labelText: 'อาคาร'),
+                ),
+                TextField(
+                  controller: roomCtrl,
+                  decoration: const InputDecoration(labelText: 'ห้อง'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: status,
+                  decoration: const InputDecoration(
+                    labelText: 'สถานะที่ตั้งเอง',
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'online', child: Text('ใช้งาน')),
+                    DropdownMenuItem(
+                      value: 'offline',
+                      child: Text('ปิดใช้งาน'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'maintenance',
+                      child: Text('ซ่อมบำรุง'),
+                    ),
+                    DropdownMenuItem(value: 'error', child: Text('ขัดข้อง')),
+                  ],
+                  onChanged: submitting
+                      ? null
+                      : (v) => setSheet(() => status = v ?? status),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  static String _fmtTs(DateTime? t) {
+    if (t == null) return _noData;
+    final l = t.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(l.day)}/${two(l.month)}/${l.year + 543} ${two(l.hour)}:${two(l.minute)}';
+  }
+
   void _showDeviceDetail(DeviceOption device) {
+    final load =
+        widget.loadDeviceDetail ??
+        (id) => SchoolAdminPlatformService().getDeviceDetail(id);
+    final detailFuture = load(device.id);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1015,79 +1370,161 @@ class _SchoolDevicesPageState extends State<SchoolDevicesPage> {
                       ],
                     ),
                     const SizedBox(height: 18),
-                    const Text(
-                      'ข้อมูลที่ระบบเก็บไว้',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    _DetailBox(
-                      rows: [
-                        _DetailRowData(
-                          icon: Icons.category_rounded,
-                          label: 'ประเภทอุปกรณ์',
-                          value: _typeLabel(device.type),
-                        ),
-                        _DetailRowData(
-                          icon: Icons.place_rounded,
-                          label: 'จุดติดตั้ง',
-                          value: _locationOf(device),
-                        ),
-                        _DetailRowData(
-                          icon: Icons.sensors_rounded,
-                          label: 'สถานะเชื่อมต่อ',
-                          value: _statusLabel(device.status),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'ข้อมูลที่ระบบยังไม่ได้เก็บ',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // ของเดิมโชว์ค่าพวกนี้เป็นตัวเลข/ข้อความที่ดูจริงทั้งหมด
-                    // ทั้งที่ไม่มีค่าไหนมาจากฐานข้อมูล
-                    const _DetailBox(
-                      rows: [
-                        _DetailRowData(
-                          icon: Icons.confirmation_number_rounded,
-                          label: 'Serial Number',
-                          value: _noData,
-                        ),
-                        _DetailRowData(
-                          icon: Icons.meeting_room_rounded,
-                          label: 'ห้อง',
-                          value: _noData,
-                        ),
-                        _DetailRowData(
-                          icon: Icons.router_rounded,
-                          label: 'IP Address',
-                          value: _noData,
-                        ),
-                        _DetailRowData(
-                          icon: Icons.system_update_rounded,
-                          label: 'เวอร์ชันเฟิร์มแวร์',
-                          value: _noData,
-                        ),
-                        _DetailRowData(
-                          icon: Icons.access_time_rounded,
-                          label: 'ตอบสนองล่าสุด',
-                          value: _noData,
-                        ),
-                        _DetailRowData(
-                          icon: Icons.signal_cellular_alt_rounded,
-                          label: 'ความแรงสัญญาณ',
-                          value: _noData,
-                        ),
-                      ],
+                    FutureBuilder<SchoolDeviceDetail?>(
+                      future: detailFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState != ConnectionState.done) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (snapshot.hasError || snapshot.data == null) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Text(
+                              'โหลดรายละเอียดอุปกรณ์ไม่สำเร็จ',
+                              style: TextStyle(
+                                color: Color(0xFFB91C1C),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          );
+                        }
+                        final d = snapshot.data!;
+                        final qrPayload = d.deviceCode ?? d.id;
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'ข้อมูลอุปกรณ์',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _DetailBox(
+                              rows: [
+                                _DetailRowData(
+                                  icon: Icons.category_rounded,
+                                  label: 'ประเภทอุปกรณ์',
+                                  value: _typeLabel(d.type),
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.place_rounded,
+                                  label: 'จุดติดตั้ง',
+                                  value: d.location ?? _noData,
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.apartment_rounded,
+                                  label: 'อาคาร',
+                                  value: d.building ?? _noData,
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.meeting_room_rounded,
+                                  label: 'ห้อง',
+                                  value: d.room ?? _noData,
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.sensors_rounded,
+                                  label: 'สถานะเชื่อมต่อ',
+                                  value: _statusLabel(d.effectiveStatus),
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.confirmation_number_rounded,
+                                  label: 'Serial Number',
+                                  value: d.serialNo ?? _noData,
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.qr_code_rounded,
+                                  label: 'รหัสอุปกรณ์',
+                                  value: d.deviceCode ?? _noData,
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.inventory_2_rounded,
+                                  label: 'รหัสชุดฝึก',
+                                  value: d.kitCode ?? _noData,
+                                ),
+                                // ค่าพวกนี้มาจาก record_device_heartbeat ของตัวอุปกรณ์เท่านั้น —
+                                // อุปกรณ์ที่ยังไม่เคยรายงานเป็น null จริง ไม่ใช่ค่าเริ่มต้นแต่ง
+                                _DetailRowData(
+                                  icon: Icons.router_rounded,
+                                  label: 'IP Address',
+                                  value: d.ipAddress ?? 'ยังไม่เคยรายงาน',
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.system_update_rounded,
+                                  label: 'เวอร์ชันเฟิร์มแวร์',
+                                  value: d.firmwareVersion ?? 'ยังไม่เคยรายงาน',
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.access_time_rounded,
+                                  label: 'ตอบสนองล่าสุด',
+                                  value: d.lastSeenAt == null
+                                      ? 'ยังไม่เคยรายงาน'
+                                      : _fmtTs(d.lastSeenAt),
+                                ),
+                                _DetailRowData(
+                                  icon: Icons.event_rounded,
+                                  label: 'ลงทะเบียนเมื่อ',
+                                  value: _fmtTs(d.registeredAt),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            const Text(
+                              'QR Code ประจำอุปกรณ์',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'เข้ารหัส ${d.deviceCode == null ? 'id ของอุปกรณ์' : 'รหัสอุปกรณ์'} — ใช้สแกนที่หน้า "สแกนคิวอาร์โค้ด" เพื่อเปิดอุปกรณ์นี้',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: QrImageView(data: qrPayload, size: 160),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: () {
+                                      Navigator.of(sheetContext).pop();
+                                      _openEditDeviceForm(d);
+                                    },
+                                    icon: const Icon(
+                                      Icons.edit_rounded,
+                                      size: 16,
+                                    ),
+                                    label: const Text('แก้ไขข้อมูลอุปกรณ์'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1384,106 +1821,6 @@ class _CoverageCard extends StatelessWidget {
   }
 }
 
-class _DisabledAction extends StatelessWidget {
-  const _DisabledAction({
-    required this.icon,
-    required this.label,
-    required this.reason,
-  });
-
-  final IconData icon;
-  final String label;
-  final String reason;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: reason,
-      child: OutlinedButton.icon(
-        onPressed: null,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          side: const BorderSide(color: Color(0xFFE2E8F0)),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UnavailableRow extends StatelessWidget {
-  const _UnavailableRow({
-    required this.icon,
-    required this.title,
-    required this.reason,
-  });
-
-  final IconData icon;
-  final String title;
-  final String reason;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF94A3B8)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF475569),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  reason,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE2E8F0),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'ปิดใช้งาน',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF64748B),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FilterChipRow extends StatelessWidget {
   const _FilterChipRow({
     required this.label,
@@ -1592,11 +1929,7 @@ class _EmptyBlock extends StatelessWidget {
       alignment: Alignment.center,
       child: Column(
         children: [
-          const Icon(
-            Icons.inbox_rounded,
-            size: 34,
-            color: Color(0xFFCBD5E1),
-          ),
+          const Icon(Icons.inbox_rounded, size: 34, color: Color(0xFFCBD5E1)),
           const SizedBox(height: 10),
           Text(
             title,
@@ -1902,8 +2235,7 @@ class _LogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time =
-        '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)} น.';
+    final time = '${_two(log.createdAt.hour)}:${_two(log.createdAt.minute)} น.';
     final action = log.action.trim().isEmpty ? 'ยังไม่มีข้อมูล' : log.action;
     final detail = log.detail.trim().isNotEmpty
         ? log.detail
@@ -1922,11 +2254,7 @@ class _LogRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.history_rounded,
-            size: 18,
-            color: Color(0xFF94A3B8),
-          ),
+          const Icon(Icons.history_rounded, size: 18, color: Color(0xFF94A3B8)),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1963,4 +2291,115 @@ class _LogRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// แผ่นฟอร์มลงทะเบียน/แก้ไขอุปกรณ์
+class _FormSheet extends StatelessWidget {
+  const _FormSheet({
+    required this.title,
+    required this.subtitle,
+    required this.fields,
+    required this.submitting,
+    required this.error,
+    required this.submitLabel,
+    required this.onSubmit,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<Widget> fields;
+  final bool submitting;
+  final String? error;
+  final String submitLabel;
+  final Future<void> Function() onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 12),
+              for (final f in fields) ...[f, const SizedBox(height: 10)],
+              if (error != null) ...[
+                Text(
+                  error!,
+                  style: const TextStyle(
+                    color: Color(0xFFB91C1C),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: submitting
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    child: const Text('ยกเลิก'),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: submitting ? null : onSubmit,
+                    child: Text(submitting ? 'กำลังบันทึก…' : submitLabel),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ถือ TextEditingController ของแผ่นไว้จน route ถูกถอดจริง
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:excel/excel.dart' as xls;
@@ -27,6 +28,8 @@ class SchoolResourcesPage extends StatefulWidget {
     this.loadWaterScore,
     this.loadAlerts,
     this.downloadBytesOverride,
+    this.loadUsageByLocation,
+    this.loadSensorLatest,
   });
 
   /// Injectable read seams, same pattern as the other connected School Admin
@@ -40,6 +43,13 @@ class SchoolResourcesPage extends StatefulWidget {
   final Future<UtilityEfficiencyScore?> Function()? loadEnergyScore;
   final Future<UtilityEfficiencyScore?> Function()? loadWaterScore;
   final Future<List<SchoolSensorAlertRecord>> Function()? loadAlerts;
+
+  /// get_utility_usage_by_location (20260914030000) — ไฟฟ้า/น้ำ แยกรายอาคาร/ห้อง
+  /// · sensor_latest — ค่า PM2.5 ล่าสุดของทุกเซนเซอร์ในโรงเรียน สำหรับการ์ด
+  /// คุณภาพอากาศ (เฉลี่ยจากค่าจริง ไม่ใช่ตัวเลขตายตัว)
+  final Future<List<UtilityLocationUsage>> Function(String metric, int days)?
+  loadUsageByLocation;
+  final Future<List<Map<String, dynamic>>> Function()? loadSensorLatest;
   // Seam for tests: lets a test prove the export button actually calls a
   // download instead of the old always-disabled button with a tooltip.
   final SchoolResourcesDownloadBytes? downloadBytesOverride;
@@ -50,9 +60,20 @@ class SchoolResourcesPage extends StatefulWidget {
 
 class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   _ResourcePeriod _period = _ResourcePeriod.daily;
-  final String _selectedBuilding = 'ทุกอาคาร';
-  final String _selectedRoom = 'ทุกห้อง';
+  String _selectedBuilding = 'ทุกอาคาร';
+  String _selectedRoom = 'ทุกห้อง';
+
+  /// แถวรายอาคาร/ห้องจาก get_utility_usage_by_location (ไฟฟ้า + น้ำ รวมกัน)
+  List<_LocationUsageRow> _locationRows = const [];
+  bool _locationLoading = true;
+  bool _locationFailed = false;
+
+  /// PM2.5 เฉลี่ยจากเซนเซอร์ที่มีค่าล่าสุด — null = ไม่มีเซนเซอร์คุณภาพอากาศ
+  double? _avgPm25;
+  int _pm25SensorCount = 0;
+  bool _airFailed = false;
   bool _isLoading = false;
+
   /// ป้าย "IoT Live Sync" เคยเป็น `final bool = true` ติดค้างเสมอ — ขึ้นเป็น
   /// สีเขียวแม้ในโรงเรียนที่ไม่มีมิเตอร์สักตัวและไม่มีข้อมูลไหลเข้าเลย
   /// ตอนนี้ผูกกับจำนวนมิเตอร์ที่ backend เห็นจริง
@@ -167,9 +188,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งออกรายงานแล้ว (CSV)')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานแล้ว (CSV)')));
     }
   }
 
@@ -207,9 +228,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งออกรายงานแล้ว (Excel)')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานแล้ว (Excel)')));
     }
   }
 
@@ -240,7 +261,6 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     }
   }
 
-
   String get _periodTitle {
     switch (_period) {
       case _ResourcePeriod.daily:
@@ -264,8 +284,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   Future<void> _loadAlerts() async {
     if (mounted) setState(() => _alertsLoading = true);
     try {
-      final rows = await (widget.loadAlerts?.call() ??
-          IncidentService.listSchoolAlerts(status: 'new'));
+      final rows =
+          await (widget.loadAlerts?.call() ??
+              IncidentService.listSchoolAlerts(status: 'new'));
       if (!mounted) return;
       setState(() {
         _alerts = rows;
@@ -285,6 +306,94 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
   /// **ทิ้งผลลัพธ์ทันที** ไม่เก็บใส่ตัวแปรใด ๆ ส่วน `catch (_)` เขียนคอมเมนต์ว่า
   /// "Offline fallback" ทั้งที่ไม่มี fallback อะไรเลย — หน้าจึงแสดงค่าคงที่
   /// เหมือนเดิมไม่ว่าจะโหลดสำเร็จหรือล้มเหลว
+  Future<void> _loadLocationUsage() async {
+    if (mounted) {
+      setState(() {
+        _locationLoading = true;
+        _locationFailed = false;
+      });
+    }
+    try {
+      final load =
+          widget.loadUsageByLocation ??
+          (metric, days) =>
+              UtilityService.getUsageByLocation(metric: metric, days: days);
+      final results = await Future.wait([
+        load('energy_kwh', _trendDays),
+        load('water_m3', _trendDays),
+      ]);
+      final rows = <String, _LocationUsageRow>{};
+      for (final e in results[0]) {
+        rows['${e.building}|${e.room}'] = _LocationUsageRow(
+          building: e.building,
+          room: e.room,
+          energyKwh: e.total,
+          energyMeters: e.deviceCount,
+          waterM3: 0,
+          waterMeters: 0,
+        );
+      }
+      for (final w in results[1]) {
+        final key = '${w.building}|${w.room}';
+        final prev = rows[key];
+        rows[key] = _LocationUsageRow(
+          building: w.building,
+          room: w.room,
+          energyKwh: prev?.energyKwh ?? 0,
+          energyMeters: prev?.energyMeters ?? 0,
+          waterM3: w.total,
+          waterMeters: w.deviceCount,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _locationRows = rows.values.toList()
+          ..sort(
+            (a, b) =>
+                '${a.building}${a.room}'.compareTo('${b.building}${b.room}'),
+          );
+        _locationLoading = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolResourcesPage: get_utility_usage_by_location ล้ม — $e');
+      if (!mounted) return;
+      setState(() {
+        _locationLoading = false;
+        _locationFailed = true;
+      });
+    }
+  }
+
+  Future<void> _loadAirQuality() async {
+    try {
+      final rows =
+          await (widget.loadSensorLatest ??
+              AiotLabService.getLatestSensorReadings)();
+      final pm = rows
+          .where((r) => r['metric'] == 'pm25' && r['value'] != null)
+          .map((r) => (r['value'] as num).toDouble())
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _pm25SensorCount = pm.length;
+        _avgPm25 = pm.isEmpty ? null : pm.reduce((a, b) => a + b) / pm.length;
+        _airFailed = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolResourcesPage: sensor_latest ล้ม — $e');
+      if (!mounted) return;
+      setState(() => _airFailed = true);
+    }
+  }
+
+  List<_LocationUsageRow> get _filteredLocationRows => _locationRows
+      .where(
+        (r) =>
+            _selectedBuilding == 'ทุกอาคาร' || r.building == _selectedBuilding,
+      )
+      .where((r) => _selectedRoom == 'ทุกห้อง' || r.room == _selectedRoom)
+      .toList();
+
   Future<void> _loadUtilityData() async {
     if (mounted) {
       setState(() {
@@ -292,6 +401,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
         _loadFailed = false;
       });
     }
+    // แยก future — ตาราง/การ์ดอากาศล้มไม่ควรทำให้ KPI หลักล้มตาม
+    unawaited(_loadLocationUsage());
+    unawaited(_loadAirQuality());
     try {
       final results = await Future.wait([
         widget.loadEnergySummary?.call(_periodParam) ??
@@ -391,9 +503,8 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
       }
     }
 
-    String stat(double Function(List<double>) pick) => values.isEmpty
-        ? noData
-        : '${pick(values).toStringAsFixed(1)} $unit';
+    String stat(double Function(List<double>) pick) =>
+        values.isEmpty ? noData : '${pick(values).toStringAsFixed(1)} $unit';
 
     return _ChartSeries(
       labels: labels,
@@ -451,7 +562,9 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
       final rows = await RealtimeService.listThresholds();
       double? maxFor(String metric) {
         for (final r in rows) {
-          if (r['metric'] == metric) return (r['max_value'] as num?)?.toDouble();
+          if (r['metric'] == metric) {
+            return (r['max_value'] as num?)?.toDouble();
+          }
         }
         return null;
       }
@@ -499,11 +612,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     setState(() => _thresholdSaving = true);
     try {
       for (final e in wanted.entries) {
-        await RealtimeService.setThreshold(
-          metric: e.key,
-          min: 0,
-          max: e.value,
-        );
+        await RealtimeService.setThreshold(metric: e.key, min: 0, max: e.value);
       }
       // อ่าน canonical กลับมาตรวจว่าเขียนติดจริง
       final rows = await RealtimeService.listThresholds();
@@ -613,120 +722,6 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                 foregroundColor: Colors.white,
               ),
               child: const Text('บันทึกการตั้งค่า'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showBuildingDetailDialog(_BuildingResourceRecord building) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.apartment_rounded,
-                  color: SchoolAdminPalette.primaryDark,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      building.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      'พื้นที่ ${building.area} • มิเตอร์ IoT ${building.meterCount} จุด',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 480,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _BuildingModalMetricRow(
-                    label: 'การใช้ไฟฟ้า$_periodTitle',
-                    value: building.electricityText,
-                    subValue: 'คิดเป็น ${building.electricityPercent}% ของโรงเรียน',
-                    icon: Icons.bolt_rounded,
-                    color: const Color(0xFFD97706),
-                  ),
-                  const SizedBox(height: 10),
-                  _BuildingModalMetricRow(
-                    label: 'การใช้น้ำประปา$_periodTitle',
-                    value: building.waterText,
-                    subValue: 'คิดเป็น ${building.waterPercent}% ของโรงเรียน',
-                    icon: Icons.water_drop_rounded,
-                    color: const Color(0xFF0284C7),
-                  ),
-                  const SizedBox(height: 10),
-                  _BuildingModalMetricRow(
-                    label: 'ดัชนีประสิทธิภาพพลังงาน',
-                    value: 'เกรด ${building.efficiencyGrade}',
-                    subValue: building.efficiencyDetail,
-                    icon: Icons.eco_rounded,
-                    color: const Color(0xFF16A34A),
-                  ),
-                  const SizedBox(height: 10),
-                  _BuildingModalMetricRow(
-                    label: 'คุณภาพอากาศเฉลี่ย',
-                    value: 'PM2.5 ${building.pm25} µg/m³',
-                    subValue: 'สถานะ: ${building.airQualityStatus}',
-                    icon: Icons.air_rounded,
-                    color: const Color(0xFF059669),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('ปิด'),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _showMessage('เปิดหน้าควบคุมอุปกรณ์ของ ${building.name}');
-              },
-              icon: const Icon(Icons.tune_rounded, size: 16),
-              label: const Text('ปรับแต่งระบบอัตโนมัติ'),
-              style: FilledButton.styleFrom(
-                backgroundColor: SchoolAdminPalette.primaryDark,
-                foregroundColor: Colors.white,
-              ),
             ),
           ],
         );
@@ -914,7 +909,10 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                     value == 'csv' ? _exportReport() : _exportReportExcel(),
                 itemBuilder: (context) => const [
                   PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
-                  PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
+                  PopupMenuItem(
+                    value: 'excel',
+                    child: Text('ส่งออกเป็น Excel'),
+                  ),
                 ],
                 child: FilledButton.icon(
                   onPressed: null,
@@ -939,11 +937,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
           if (constraints.maxWidth < 850) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleArea,
-                const SizedBox(height: 14),
-                actionButtons,
-              ],
+              children: [titleArea, const SizedBox(height: 14), actionButtons],
             );
           }
 
@@ -988,79 +982,69 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
             ),
           );
 
-          // เดิม dropdown ทั้งสองนี้ setState ตัวเองได้ แต่ _selectedBuilding/
-          // _selectedRoom ไม่เคยถูกส่งเข้าการโหลดข้อมูลไฟฟ้า/น้ำเลยสักจุด —
-          // เลือกอาคาร/ห้องแล้วไม่กรองอะไรจริง ไม่มี RPC ระดับอาคาร/ห้องให้
-          // หน้านี้เรียกด้วย (ตารางการใช้งานรายอาคารด้านล่างเองก็แสดง
-          // honest empty state ด้วยเหตุผลเดียวกัน) ปิดไว้พร้อม tooltip แทน
-          // ปล่อยให้เลือกได้แต่ไม่มีผลอะไรจริง
-          final Widget buildingFilter = Tooltip(
-            message: 'ยังไม่มีระบบแยกข้อมูลไฟฟ้า/น้ำรายอาคารในเวอร์ชันนี้',
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String>(
-                value: _selectedBuilding,
-                isExpanded: true,
-                isDense: true,
-                decoration: InputDecoration(
-                  labelText: 'เลือกอาคาร',
-                  prefixIcon: const Icon(
-                    Icons.apartment_rounded,
-                    color: Color(0xFF64748B),
-                    size: 20,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'ทุกอาคาร', child: Text('ทุกอาคาร')),
-                ],
-                onChanged: null,
-              ),
+          // ตัวเลือกมาจากอาคาร/ห้องที่มีมิเตอร์จริง (get_utility_usage_by_location)
+          // เลือกแล้วกรองตารางรายอาคาร/ห้องด้านล่าง — KPI ด้านบนยังเป็นระดับ
+          // โรงเรียนตามที่ป้ายบอก
+          final buildingOptions = <String>{
+            'ทุกอาคาร',
+            for (final r in _locationRows) r.building,
+          }.toList();
+          final roomOptions = <String>{
+            'ทุกห้อง',
+            for (final r in _locationRows)
+              if (_selectedBuilding == 'ทุกอาคาร' ||
+                  r.building == _selectedBuilding)
+                r.room,
+          }.toList();
+          InputDecoration deco(String label, IconData icon) => InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 20),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
           );
 
-          final Widget roomFilter = Tooltip(
-            message: 'ยังไม่มีระบบแยกข้อมูลไฟฟ้า/น้ำรายห้องในเวอร์ชันนี้',
-            child: DropdownButtonHideUnderline(
-              child: DropdownButtonFormField<String>(
-                value: _selectedRoom,
-                isExpanded: true,
-                isDense: true,
-                decoration: InputDecoration(
-                  labelText: 'เลือกห้อง / โซน',
-                  prefixIcon: const Icon(
-                    Icons.meeting_room_rounded,
-                    color: Color(0xFF64748B),
-                    size: 20,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'ทุกห้อง', child: Text('ทุกห้อง')),
-                ],
-                onChanged: null,
-              ),
+          final Widget buildingFilter = DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: buildingOptions.contains(_selectedBuilding)
+                  ? _selectedBuilding
+                  : 'ทุกอาคาร',
+              isExpanded: true,
+              isDense: true,
+              decoration: deco('เลือกอาคาร', Icons.apartment_rounded),
+              items: [
+                for (final b in buildingOptions)
+                  DropdownMenuItem(value: b, child: Text(b)),
+              ],
+              onChanged: (v) => setState(() {
+                _selectedBuilding = v ?? 'ทุกอาคาร';
+                _selectedRoom = 'ทุกห้อง';
+              }),
+            ),
+          );
+
+          final Widget roomFilter = DropdownButtonHideUnderline(
+            child: DropdownButtonFormField<String>(
+              value: roomOptions.contains(_selectedRoom)
+                  ? _selectedRoom
+                  : 'ทุกห้อง',
+              isExpanded: true,
+              isDense: true,
+              decoration: deco('เลือกห้อง / โซน', Icons.meeting_room_rounded),
+              items: [
+                for (final r in roomOptions)
+                  DropdownMenuItem(value: r, child: Text(r)),
+              ],
+              onChanged: (v) => setState(() => _selectedRoom = v ?? 'ทุกห้อง'),
             ),
           );
 
@@ -1185,14 +1169,22 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
             accentColor: const Color(0xFF0284C7),
             accentBg: const Color(0xFFE0F2FE),
           ),
-          // เดิม 'PM2.5 18.2' / '0.21 tCO2e' hardcode ตายตัว ไม่มี RPC ใดใน
-          // หน้านี้ให้ค่าคุณภาพอากาศ/คาร์บอนระดับโรงเรียนเลย บอกตรง ๆ แทน
+          // เดิม 'PM2.5 18.2' hardcode → เฉลี่ยจากค่า pm25 ล่าสุดของเซนเซอร์จริง
+          // (sensor_latest) ไม่มีเซนเซอร์ก็บอกว่าไม่มี ล้มก็บอกว่าล้ม
           _buildKpiCard(
-            title: 'คุณภาพอากาศ & ESG',
-            value: 'ยังไม่มีข้อมูล',
-            subValue: 'ยังไม่มีระบบวัดคุณภาพอากาศระดับโรงเรียนในเวอร์ชันนี้',
+            title: 'คุณภาพอากาศ (PM2.5)',
+            value: _airFailed
+                ? 'โหลดไม่สำเร็จ'
+                : _avgPm25 == null
+                ? 'ยังไม่มีข้อมูล'
+                : '${_avgPm25!.toStringAsFixed(1)} µg/m³',
+            subValue: _airFailed
+                ? 'อ่านค่าเซนเซอร์ไม่สำเร็จ'
+                : _avgPm25 == null
+                ? 'ยังไม่มีเซนเซอร์ PM2.5 ที่ส่งค่าเข้ามา'
+                : 'เฉลี่ยจาก $_pm25SensorCount เซนเซอร์ · ${_pm25Label(_avgPm25!)}',
             trendText: '—',
-            isPositive: true,
+            isPositive: _avgPm25 == null || _avgPm25! <= 37.5,
             icon: Icons.eco_rounded,
             accentColor: const Color(0xFF16A34A),
             accentBg: const Color(0xFFDCFCE7),
@@ -1209,10 +1201,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                 ? 'กำลังโหลด…'
                 : (_alerts.isEmpty
                       ? 'ไม่มีจุดที่ต้องเฝ้าระวังในขณะนี้'
-                      : _alerts
-                            .take(2)
-                            .map((a) => a.deviceName)
-                            .join(' / ')),
+                      : _alerts.take(2).map((a) => a.deviceName).join(' / ')),
             trendText: _alertsLoading
                 ? '—'
                 : (_alerts.any((a) => a.status == 'new')
@@ -1378,11 +1367,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
 
         if (constraints.maxWidth < 1050) {
           return Column(
-            children: [
-              electricityCard,
-              const SizedBox(height: 16),
-              waterCard,
-            ],
+            children: [electricityCard, const SizedBox(height: 16), waterCard],
           );
         }
 
@@ -1549,17 +1534,147 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
     );
   }
 
-  // 5. Building Consumption & Efficiency Table Section
+  static String _pm25Label(double v) {
+    if (v <= 15) return 'ดีมาก';
+    if (v <= 25) return 'ดี';
+    if (v <= 37.5) return 'ปานกลาง';
+    if (v <= 75) return 'เริ่มมีผลต่อสุขภาพ';
+    return 'มีผลต่อสุขภาพ';
+  }
+
+  // 5. Building / room consumption — get_utility_usage_by_location
+  // (ตารางเดิมเป็นอาคาร 4 หลังที่แต่งขึ้น แล้วถูกเปลี่ยนเป็น "ยังไม่มีข้อมูล"
+  // ตอนนี้แสดงยอดจริงตามที่มิเตอร์ระบุอาคาร/ห้อง — คอลัมน์เกรด/สถานะที่ไม่มี
+  // ที่มาถูกถอดออก)
   Widget _buildBuildingTableSection() {
-    // ตารางนี้เคยเป็นอาคาร 4 หลังที่แต่งขึ้นทั้งหมด — ชื่อ พื้นที่ จำนวนมิเตอร์
-    // ยอดใช้ไฟ/น้ำ เกรดประสิทธิภาพ และค่า PM2.5 รายอาคาร
-    //
-    // ตรวจแล้วว่าไม่มีทางแสดงของจริงได้ตอนนี้ ด้วยเหตุผลสองชั้น:
-    //   1. ไม่มี RPC รวมยอดรายอาคารเลย (มีแค่ระดับโรงเรียน: summary/trend/score)
-    //   2. ต่อให้เขียน RPC ก็ยังไม่มีอะไรให้จัดกลุ่ม — devices.building เป็น
-    //      null ทั้งหมด ยังไม่มีการผูกมิเตอร์เข้ากับอาคาร
-    // จึงแสดง empty state ที่บอกเงื่อนไขตรง ๆ แทนการเดาตัวเลขรายอาคาร
-    final List<_BuildingResourceRecord> buildings = const [];
+    final rows = _filteredLocationRows;
+    final maxEnergy = rows.fold<double>(
+      0,
+      (m, r) => r.energyKwh > m ? r.energyKwh : m,
+    );
+    final maxWater = rows.fold<double>(
+      0,
+      (m, r) => r.waterM3 > m ? r.waterM3 : m,
+    );
+
+    Widget body;
+    if (_locationLoading) {
+      body = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 28),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_locationFailed) {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'โหลดยอดรายอาคาร/ห้องไม่สำเร็จ',
+                style: TextStyle(
+                  color: Color(0xFFB91C1C),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: _loadLocationUsage,
+              child: const Text('ลองใหม่'),
+            ),
+          ],
+        ),
+      );
+    } else if (rows.isEmpty) {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Text(
+          _locationRows.isEmpty
+              ? 'ยังไม่มีมิเตอร์ไฟฟ้า/น้ำในระบบ — ลงทะเบียนอุปกรณ์และระบุอาคาร/ห้องก่อน'
+              : 'ไม่มีมิเตอร์ในอาคาร/ห้องที่เลือก',
+          style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+        ),
+      );
+    } else {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+        child: Table(
+          columnWidths: const {
+            0: FlexColumnWidth(2.2),
+            1: FlexColumnWidth(1.6),
+            2: FlexColumnWidth(1.6),
+            3: FlexColumnWidth(1),
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+          children: [
+            const TableRow(
+              decoration: BoxDecoration(color: Color(0xFFF8FAFC)),
+              children: [
+                _ResourceTableHeader(
+                  text: 'อาคาร / ห้อง',
+                  align: TextAlign.left,
+                ),
+                _ResourceTableHeader(text: 'ไฟฟ้า (kWh)'),
+                _ResourceTableHeader(text: 'น้ำประปา (m³)'),
+                _ResourceTableHeader(text: 'มิเตอร์'),
+              ],
+            ),
+            for (final r in rows)
+              TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          r.building,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          r.room,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _buildUsageBarCell(
+                    r.energyMeters == 0
+                        ? 'ไม่มีมิเตอร์'
+                        : r.energyKwh.toStringAsFixed(1),
+                    maxEnergy == 0 ? 0 : r.energyKwh / maxEnergy,
+                    const Color(0xFFD97706),
+                  ),
+                  _buildUsageBarCell(
+                    r.waterMeters == 0
+                        ? 'ไม่มีมิเตอร์'
+                        : r.waterM3.toStringAsFixed(2),
+                    maxWater == 0 ? 0 : r.waterM3 / maxWater,
+                    const Color(0xFF0284C7),
+                  ),
+                  Center(
+                    child: Text(
+                      '${r.energyMeters + r.waterMeters}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       width: double.infinity,
@@ -1568,18 +1683,6 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x060F172A),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-          BoxShadow(
-            color: Color(0x0E0F172A),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1587,7 +1690,6 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Container(
                   width: 4,
@@ -1598,22 +1700,22 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'การใช้ทรัพยากรและประสิทธิภาพแยกตามอาคาร',
+                      const Text(
+                        'การใช้ทรัพยากรแยกตามอาคาร / ห้อง',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF0F172A),
                         ),
                       ),
-                      SizedBox(height: 2),
+                      const SizedBox(height: 2),
                       Text(
-                        'เปรียบเทียบปริมาณการใช้ไฟฟ้า น้ำประปา และดัชนีประสิทธิภาพพลังงาน (Energy Efficiency Grade)',
-                        style: TextStyle(
+                        'รวมค่าอ่านของมิเตอร์ที่ระบุอาคาร/ห้อง ในช่วง $_trendDays วันล่าสุด — มิเตอร์ที่ยังไม่ระบุที่ตั้งอยู่ในกลุ่ม "ยังไม่ระบุ"',
+                        style: const TextStyle(
                           fontSize: 12.5,
                           color: Color(0xFF64748B),
                         ),
@@ -1624,160 +1726,7 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
               ],
             ),
           ),
-          LayoutBuilder(
-            builder: (BuildContext context, BoxConstraints constraints) {
-              if (constraints.maxWidth >= 980) {
-                return Table(
-                  border: const TableBorder(
-                    top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-                    horizontalInside: BorderSide(
-                      color: Color(0xFFF1F5F9),
-                      width: 1,
-                    ),
-                  ),
-                  columnWidths: const {
-                    0: FlexColumnWidth(2.2),
-                    1: FlexColumnWidth(1.6),
-                    2: FlexColumnWidth(1.6),
-                    3: FlexColumnWidth(1.3),
-                    4: FlexColumnWidth(1.1),
-                    5: FlexColumnWidth(1.0),
-                    6: FlexColumnWidth(0.9),
-                  },
-                  defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                  children: [
-                    const TableRow(
-                      decoration: BoxDecoration(
-                        color: Color(0xFFF8FAFC),
-                        border: Border(
-                          bottom: BorderSide(
-                            color: Color(0xFFE2E8F0),
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      children: [
-                        _ResourceTableHeader(text: 'อาคาร / พื้นที่', align: TextAlign.left),
-                        _ResourceTableHeader(text: 'การใช้ไฟฟ้า'),
-                        _ResourceTableHeader(text: 'การใช้น้ำประปา'),
-                        _ResourceTableHeader(text: 'เกรดประสิทธิภาพ'),
-                        _ResourceTableHeader(text: 'PM2.5 / อากาศ'),
-                        _ResourceTableHeader(text: 'สถานะ'),
-                        _ResourceTableHeader(text: 'จัดการ'),
-                      ],
-                    ),
-                    if (buildings.isEmpty)
-                      const TableRow(
-                        children: [
-                          _ResourceTableHeader(
-                            text: 'ยังไม่มีข้อมูล — ต้องผูกมิเตอร์เข้ากับอาคารก่อน',
-                            align: TextAlign.left,
-                          ),
-                          SizedBox.shrink(),
-                          SizedBox.shrink(),
-                          SizedBox.shrink(),
-                          SizedBox.shrink(),
-                          SizedBox.shrink(),
-                          SizedBox.shrink(),
-                        ],
-                      ),
-                    ...buildings.map((_BuildingResourceRecord b) {
-                      return TableRow(
-                        children: [
-                          _buildBuildingNameCell(b),
-                          _buildUsageBarCell(
-                            b.electricityText,
-                            b.electricityPercent / 100,
-                            const Color(0xFFD97706),
-                          ),
-                          _buildUsageBarCell(
-                            b.waterText,
-                            b.waterPercent / 100,
-                            const Color(0xFF0284C7),
-                          ),
-                          _buildEfficiencyGradeCell(b.efficiencyGrade),
-                          _buildAirQualityCell(b.pm25, b.airQualityStatus),
-                          _buildStatusBadgeCell(b.status),
-                          _buildActionCell(b),
-                        ],
-                      );
-                    }),
-                  ],
-                );
-              }
-
-              // Mobile Card List
-              return Padding(
-                padding: const EdgeInsets.all(14),
-                child: buildings.isEmpty
-                    ? const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Text(
-                          'ยังไม่มีข้อมูล — ต้องผูกมิเตอร์เข้ากับอาคารก่อน '
-                          'จึงจะแยกยอดรายอาคารได้',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      )
-                    : Column(
-                        children: buildings
-                            .map((b) => _buildMobileBuildingCard(b))
-                            .toList(),
-                      ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBuildingNameCell(_BuildingResourceRecord b) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.apartment_rounded,
-              color: SchoolAdminPalette.primaryDark,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  b.name,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${b.area} • ${b.meterCount} มิเตอร์',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          body,
         ],
       ),
     );
@@ -1805,217 +1754,6 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
               minHeight: 6,
               backgroundColor: const Color(0xFFF1F5F9),
               valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEfficiencyGradeCell(String grade) {
-    Color bg = const Color(0xFFDCFCE7);
-    Color text = const Color(0xFF166534);
-    if (grade.startsWith('B')) {
-      bg = const Color(0xFFFEF3C7);
-      text = const Color(0xFF92400E);
-    } else if (grade.startsWith('C') || grade.startsWith('D')) {
-      bg = const Color(0xFFFEE2E2);
-      text = const Color(0xFF991B1B);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'เกรด $grade',
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w900,
-              color: text,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAirQualityCell(int pm25, String status) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Center(
-        child: Column(
-          children: [
-            Text(
-              '$pm25 µg/m³',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              status,
-              style: const TextStyle(
-                fontSize: 10.5,
-                color: Color(0xFF16A34A),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBadgeCell(String status) {
-    final bool isWarning = status == 'เฝ้าระวัง';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isWarning ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isWarning
-                  ? const Color(0xFFFECACA)
-                  : const Color(0xFFBBF7D0),
-            ),
-          ),
-          child: Text(
-            status,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: isWarning
-                  ? const Color(0xFFDC2626)
-                  : const Color(0xFF16A34A),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionCell(_BuildingResourceRecord b) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-      child: Center(
-        child: IconButton(
-          tooltip: 'ดูรายละเอียด',
-          onPressed: () => _showBuildingDetailDialog(b),
-          icon: const Icon(
-            Icons.chevron_right_rounded,
-            color: Color(0xFF64748B),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMobileBuildingCard(_BuildingResourceRecord b) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                b.name,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const Spacer(),
-              _buildEfficiencyGradeCell(b.efficiencyGrade),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'ไฟฟ้า',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    Text(
-                      b.electricityText,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFFD97706),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'น้ำประปา',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    Text(
-                      b.waterText,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0284C7),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'PM2.5',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    Text(
-                      '${b.pm25} µg/m³',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF16A34A),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _showBuildingDetailDialog(b),
-              child: const Text('ดูรายละเอียดอาคาร'),
             ),
           ),
         ],
@@ -2099,25 +1837,29 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
                   ),
                 )
               else
-                ..._alerts.take(5).map(
-                  (a) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _buildAnomalyItem(
-                      title: '${a.metric} เกินเกณฑ์ (${a.value})',
-                      subtitle: '${a.deviceName} · ${a.deviceCode}',
-                      severity: a.status == 'new' ? 'ยังไม่รับเรื่อง' : a.status,
-                      time:
-                          '${a.triggeredAt.hour.toString().padLeft(2, '0')}:'
-                          '${a.triggeredAt.minute.toString().padLeft(2, '0')} น.',
-                      color: a.status == 'new'
-                          ? const Color(0xFFDC2626)
-                          : const Color(0xFFD97706),
-                      // ไม่มี RPC สำหรับสั่งปิดอุปกรณ์หรือแจ้งฝ่ายอาคารจากหน้านี้
-                      // จึงไม่ให้ปุ่มที่กดแล้วไม่เกิดอะไร
-                      onAction: null,
+                ..._alerts
+                    .take(5)
+                    .map(
+                      (a) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _buildAnomalyItem(
+                          title: '${a.metric} เกินเกณฑ์ (${a.value})',
+                          subtitle: '${a.deviceName} · ${a.deviceCode}',
+                          severity: a.status == 'new'
+                              ? 'ยังไม่รับเรื่อง'
+                              : a.status,
+                          time:
+                              '${a.triggeredAt.hour.toString().padLeft(2, '0')}:'
+                              '${a.triggeredAt.minute.toString().padLeft(2, '0')} น.',
+                          color: a.status == 'new'
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFFD97706),
+                          // ไม่มี RPC สำหรับสั่งปิดอุปกรณ์หรือแจ้งฝ่ายอาคารจากหน้านี้
+                          // จึงไม่ให้ปุ่มที่กดแล้วไม่เกิดอะไร
+                          onAction: null,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
             ],
           ),
         );
@@ -2195,8 +1937,12 @@ class _SchoolResourcesPageState extends State<SchoolResourcesPage> {
               ),
               const SizedBox(height: 10),
               _buildIoTMeterStatusRow(
-                title: 'เซนเซอร์สภาพอากาศ & PM2.5 (LoRaWAN)',
-                detail: 'ยังไม่มีระบบวัดคุณภาพอากาศระดับโรงเรียนในเวอร์ชันนี้',
+                title: 'เซนเซอร์สภาพอากาศ & PM2.5',
+                detail: _airFailed
+                    ? 'อ่านค่าเซนเซอร์ไม่สำเร็จ'
+                    : _pm25SensorCount > 0
+                    ? 'มีเซนเซอร์ที่ส่งค่า PM2.5 จริง $_pm25SensorCount เครื่อง'
+                    : 'ยังไม่มีเซนเซอร์ PM2.5 ที่ส่งค่าเข้ามา',
                 icon: Icons.air_rounded,
                 color: const Color(0xFF16A34A),
               ),
@@ -2476,8 +2222,8 @@ class _ModernChartPainter extends CustomPainter {
       final String valStr = val >= 1000
           ? '${(val / 1000).toStringAsFixed(1)}k'
           : val >= 100
-              ? val.toStringAsFixed(0)
-              : val.toStringAsFixed(1);
+          ? val.toStringAsFixed(0)
+          : val.toStringAsFixed(1);
 
       textPainter.text = TextSpan(
         text: valStr,
@@ -2619,77 +2365,6 @@ class _ResourceTableHeader extends StatelessWidget {
   }
 }
 
-class _BuildingModalMetricRow extends StatelessWidget {
-  const _BuildingModalMetricRow({
-    required this.label,
-    required this.value,
-    required this.subValue,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final String subValue;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withAlpha(20),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF64748B),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
-                    color: color,
-                  ),
-                ),
-                Text(
-                  subValue,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // Data model definitions
 class _ChartSeries {
@@ -2720,33 +2395,21 @@ class _ChartSeries {
   final String lowestValue;
 }
 
-class _BuildingResourceRecord {
-  const _BuildingResourceRecord({
-    required this.name,
-    required this.area,
-    required this.meterCount,
-    required this.electricityText,
-    required this.electricityPercent,
-    required this.waterText,
-    required this.waterPercent,
-    required this.efficiencyGrade,
-    required this.efficiencyDetail,
-    required this.pm25,
-    required this.airQualityStatus,
-    required this.status,
+/// ยอดไฟฟ้า/น้ำ ต่ออาคาร/ห้อง (รวม 2 RPC call ของ get_utility_usage_by_location)
+class _LocationUsageRow {
+  const _LocationUsageRow({
+    required this.building,
+    required this.room,
+    required this.energyKwh,
+    required this.energyMeters,
+    required this.waterM3,
+    required this.waterMeters,
   });
 
-  final String name;
-  final String area;
-  final int meterCount;
-  final String electricityText;
-  final int electricityPercent;
-  final String waterText;
-  final int waterPercent;
-  final String efficiencyGrade;
-  final String efficiencyDetail;
-  final int pm25;
-  final String airQualityStatus;
-  final String status;
+  final String building;
+  final String room;
+  final double energyKwh;
+  final int energyMeters;
+  final double waterM3;
+  final int waterMeters;
 }
-

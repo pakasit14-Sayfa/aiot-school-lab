@@ -14,10 +14,12 @@ class BulkImportResult {
     required this.success,
     required this.insertedCount,
     required this.skipped,
+    this.credentials = const [],
   });
 
   factory BulkImportResult.fromJson(Map<String, dynamic> json) {
     final rawSkipped = json['skipped'];
+    final rawCredentials = json['credentials'];
     return BulkImportResult(
       success: json['success'] == true,
       insertedCount: (json['inserted_count'] as num?)?.toInt() ?? 0,
@@ -26,12 +28,40 @@ class BulkImportResult {
               .map((e) => SkippedRow.fromJson(Map<String, dynamic>.from(e as Map)))
               .toList()
           : const [],
+      credentials: rawCredentials is List
+          ? rawCredentials
+              .map((e) => ImportedCredential.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList()
+          : const [],
     );
   }
 
   final bool success;
   final int insertedCount;
   final List<SkippedRow> skipped;
+
+  /// รหัสชั่วคราวของบัญชีผู้ใช้ที่เพิ่งสร้าง (เฉพาะ import ผู้ใช้) — หลังบ้าน
+  /// คืนให้ครั้งเดียว ไม่เก็บลง log ผู้เรียกต้องส่งมอบ/ดาวน์โหลดทันที
+  final List<ImportedCredential> credentials;
+}
+
+class ImportedCredential {
+  const ImportedCredential({
+    required this.row,
+    required this.email,
+    required this.tempPassword,
+  });
+
+  factory ImportedCredential.fromJson(Map<String, dynamic> json) =>
+      ImportedCredential(
+        row: (json['row'] as num?)?.toInt() ?? 0,
+        email: (json['email'] as String?) ?? '',
+        tempPassword: (json['temp_password'] as String?) ?? '',
+      );
+
+  final int row;
+  final String email;
+  final String tempPassword;
 }
 
 class SkippedRow {
@@ -48,6 +78,7 @@ class SkippedRow {
   static String reasonLabel(String reason) => switch (reason) {
         'missing_required_field' => 'ข้อมูลที่จำเป็นไม่ครบ',
         'duplicate_code' => 'รหัสซ้ำกับข้อมูลที่มีอยู่',
+        'duplicate_email' => 'อีเมลนี้มีบัญชีอยู่แล้ว',
         'duplicate_serial_no' => 'หมายเลขซีเรียลซ้ำกับข้อมูลที่มีอยู่',
         'building_not_found' => 'ไม่พบอาคารที่อ้างอิง',
         'invalid_device_type' => 'ประเภทอุปกรณ์ไม่ถูกต้อง',

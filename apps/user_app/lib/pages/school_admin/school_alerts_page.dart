@@ -64,6 +64,8 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
           loadAlerts: () => IncidentService.listSchoolAlerts(),
           acknowledgeAlert: IncidentService.acknowledgeSensorAlert,
           resolveAlert: IncidentService.resolveSensorAlert,
+          acknowledgeAllAlerts: () =>
+              SchoolAdminPlatformService().acknowledgeAllAlerts(),
         );
     _loadAuditLogs =
         widget.loadAuditLogs ??
@@ -298,6 +300,8 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
   }
 
   int get _newCount => _alerts.where((alert) => alert.status == 'ใหม่').length;
+  int get _acknowledgedCount =>
+      _alerts.where((alert) => alert.status == 'รับทราบแล้ว').length;
 
   int get _resolvedCount => _alerts.where((alert) {
     return alert.status == 'แก้ไขแล้ว' ||
@@ -325,9 +329,6 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
     _AlertRecord alert,
     String status,
   ) async {
-    // Unreachable from the UI now that the button is disabled, but kept as
-    // a guard: nothing in `sensor_alerts` can hold this state.
-    if (status == 'กำลังตรวจสอบ') return;
     final isAcknowledge = status == 'รับทราบแล้ว';
     final isResolve = status == 'แก้ไขแล้ว';
     if (!isAcknowledge && !isResolve) {
@@ -513,17 +514,6 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                             },
                             icon: const Icon(Icons.visibility_rounded),
                             label: const Text('รับทราบ'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () {
-                              Navigator.of(sheetContext).pop();
-                              _confirmAndUpdateAlertStatus(
-                                alert,
-                                'กำลังตรวจสอบ',
-                              );
-                            },
-                            icon: const Icon(Icons.manage_search_rounded),
-                            label: const Text('กำลังตรวจสอบ'),
                           ),
                           FilledButton.icon(
                             onPressed: () {
@@ -734,13 +724,19 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                       label: const Text('ส่งออกรายงาน'),
                     ),
                   ),
-                  Tooltip(
-                    message:
-                        'ยังไม่เปิดใช้งาน — รับทราบได้ทีละรายการจากปุ่มในตาราง',
-                    child: FilledButton.icon(
-                      onPressed: null,
-                      icon: const Icon(Icons.done_all_rounded),
-                      label: const Text('รับทราบทั้งหมด (ยังไม่เปิดใช้งาน)'),
+                  // acknowledge_all_school_alerts (20260914010000) — เขียนทีเดียว
+                  // แล้วอ่านกลับ ต้องไม่เหลือรายการ new จึงถือว่าสำเร็จ
+                  FilledButton.icon(
+                    onPressed: _controller.canAcknowledgeAll
+                        ? () async {
+                            final count = await _controller.acknowledgeAll();
+                            if (!mounted || count == null) return;
+                            _showMessage('รับทราบแล้ว $count รายการ');
+                          }
+                        : null,
+                    icon: const Icon(Icons.done_all_rounded),
+                    label: Text(
+                      _controller.bulkBusy ? 'กำลังรับทราบ…' : 'รับทราบทั้งหมด',
                     ),
                   ),
                 ],
@@ -776,18 +772,13 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
         icon: Icons.notifications_none_rounded,
         color: SchoolAdminPalette.red,
       ),
+      // "เร่งด่วน" และ "กำลังตรวจสอบ" ถูกถอด 2026-09-14: ไม่มีระดับความเร่งด่วน
+      // และไม่มีสถานะกำลังตรวจสอบในสคีมา การ์ดที่ขึ้น "--" ตลอดกาลไม่ใช่ข้อมูล
       _AlertSummaryData(
-        title: 'เร่งด่วน',
-        value: '--',
-        detail: 'ยังไม่มีข้อมูลระดับความเร่งด่วน',
-        icon: Icons.priority_high_rounded,
-        color: SchoolAdminPalette.primaryDark,
-      ),
-      _AlertSummaryData(
-        title: 'กำลังตรวจสอบ',
-        value: '--',
-        detail: 'ยังไม่มีสถานะนี้จากระบบหลังบ้าน',
-        icon: Icons.manage_search_rounded,
+        title: 'รับทราบแล้ว',
+        value: '$_acknowledgedCount',
+        detail: 'รอการแก้ไข',
+        icon: Icons.done_rounded,
         color: SchoolAdminPalette.secondary,
       ),
       _AlertSummaryData(
@@ -1083,10 +1074,6 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                                       alert,
                                       'รับทราบแล้ว',
                                     ),
-                                onChecking: () => _confirmAndUpdateAlertStatus(
-                                  alert,
-                                  'กำลังตรวจสอบ',
-                                ),
                                 onResolved: () => _confirmAndUpdateAlertStatus(
                                   alert,
                                   'แก้ไขแล้ว',
@@ -1115,10 +1102,6 @@ class _SchoolAlertsPageState extends State<SchoolAlertsPage> {
                           onAcknowledge: () => _confirmAndUpdateAlertStatus(
                             alert,
                             'รับทราบแล้ว',
-                          ),
-                          onChecking: () => _confirmAndUpdateAlertStatus(
-                            alert,
-                            'กำลังตรวจสอบ',
                           ),
                           onResolved: () =>
                               _confirmAndUpdateAlertStatus(alert, 'แก้ไขแล้ว'),
@@ -1515,7 +1498,6 @@ class _AlertMobileCard extends StatelessWidget {
     required this.statusColor,
     required this.onTap,
     required this.onAcknowledge,
-    required this.onChecking,
     required this.onResolved,
   });
 
@@ -1525,7 +1507,6 @@ class _AlertMobileCard extends StatelessWidget {
   final Color statusColor;
   final VoidCallback onTap;
   final VoidCallback onAcknowledge;
-  final VoidCallback onChecking;
   final VoidCallback onResolved;
 
   @override
@@ -1624,7 +1605,6 @@ class _AlertMobileCard extends StatelessWidget {
             alert: alert,
             onView: onTap,
             onAcknowledge: onAcknowledge,
-            onChecking: onChecking,
             onResolved: onResolved,
             compact: false,
           ),
@@ -1639,7 +1619,6 @@ class _AlertActionButtons extends StatelessWidget {
     required this.alert,
     required this.onView,
     required this.onAcknowledge,
-    required this.onChecking,
     required this.onResolved,
     this.compact = true,
   });
@@ -1647,14 +1626,12 @@ class _AlertActionButtons extends StatelessWidget {
   final _AlertRecord alert;
   final VoidCallback onView;
   final VoidCallback onAcknowledge;
-  final VoidCallback onChecking;
   final VoidCallback onResolved;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final bool acknowledged = alert.status == 'รับทราบแล้ว';
-    final bool checking = alert.status == 'กำลังตรวจสอบ';
     final bool resolved = alert.status == 'แก้ไขแล้ว';
 
     final ButtonStyle smallOutlinedStyle = OutlinedButton.styleFrom(
@@ -1694,7 +1671,7 @@ class _AlertActionButtons extends StatelessWidget {
           label: const Text('ดู'),
         ),
         OutlinedButton.icon(
-          onPressed: acknowledged || checking || resolved
+          onPressed: acknowledged || resolved
               ? null
               : onAcknowledge,
           style: smallOutlinedStyle,
@@ -1704,21 +1681,9 @@ class _AlertActionButtons extends StatelessWidget {
           ),
           label: Text(acknowledged ? 'รับทราบแล้ว' : 'รับทราบ'),
         ),
-        // `sensor_alerts.status` only ever holds 'acknowledged' or
-        // 'resolved' — `acknowledge_sensor_alert` and `resolve_sensor_alert`
-        // are the only writers and there is no investigating state for this
-        // to move an alert into. The button used to be tappable and answer
-        // with "ยังไม่เชื่อมต่อระบบหลังบ้าน", which reads as "not wired up
-        // yet" when in fact nothing in the schema can back it.
-        Tooltip(
-          message: 'ยังไม่เปิดใช้งาน — ระบบยังไม่มีสถานะ "กำลังตรวจสอบ"',
-          child: OutlinedButton.icon(
-            onPressed: null,
-            style: smallOutlinedStyle,
-            icon: Icon(Icons.manage_search_rounded, size: compact ? 14 : 16),
-            label: Text(checking ? 'กำลังตรวจสอบ' : 'ตรวจสอบ'),
-          ),
-        ),
+        // ปุ่ม "ตรวจสอบ" ถูกถอด 2026-09-14: alert_status มีแค่ new/acknowledged/
+        // resolved ไม่มีสถานะ "กำลังตรวจสอบ" ให้เขียน — ควบคุมที่ไม่มีสถานะ
+        // รองรับไม่ควรอยู่บนจอ (แม้จะ disable ไว้)
         FilledButton.icon(
           onPressed: resolved ? null : onResolved,
           style: smallFilledStyle,

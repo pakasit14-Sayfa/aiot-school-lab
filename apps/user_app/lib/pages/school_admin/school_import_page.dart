@@ -1,41 +1,49 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_core/shared_core.dart';
+
+import '../../utils/web_download.dart';
 
 import 'theme/school_admin_palette.dart';
 
 enum _ImportSource { file, googleSheets }
 
 class SchoolImportPage extends StatefulWidget {
-  const SchoolImportPage({super.key});
+  const SchoolImportPage({
+    super.key,
+    this.importUsers,
+    this.downloadBytesOverride,
+  });
+
+  /// seam สำหรับเทสต์ — production ใช้ UserAdminService.importSchoolUsersBatch
+  final Future<BulkImportResult> Function({
+    required UserRole role,
+    required List<Map<String, dynamic>> users,
+  })?
+  importUsers;
+  final void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
+  downloadBytesOverride;
 
   @override
   State<SchoolImportPage> createState() => _SchoolImportPageState();
 }
 
 class _SchoolImportPageState extends State<SchoolImportPage> {
-  /// 🔐 การนำเข้า "นักเรียน" และ "ครูและบุคลากร" ถูกปิดไว้
+  /// 🔐 การนำเข้า "นักเรียน" และ "ครูและบุคลากร" เคยถูกปิดไว้ (2026-09-07)
+  /// เพราะ `import_school_users_batch_for_school_admin` ตั้งรหัส 'Test1234!'
+  /// เหมือนกันทุกคน ไม่ตั้ง must_change_password และไม่มีใครบังคับเปลี่ยน
   ///
-  /// ตรวจกับฐานข้อมูลที่รันอยู่เมื่อ 2026-09-07 พบว่าเส้นทางนี้สร้างบัญชีที่
-  /// เข้าใช้งานได้ทันทีด้วยรหัสผ่านที่เดาได้ ครบทั้งสามชั้น:
-  ///   1. `import_school_users_batch_for_school_admin` ตั้งรหัสเป็น
-  ///      `crypt('Test1234!', ...)` เหมือนกันทุกคน
-  ///   2. คำสั่ง INSERT ไม่ตั้ง `must_change_password` และค่า default คือ false
-  ///   3. ไม่มีโค้ด Dart ที่ไหนในทั้ง repo อ่าน `must_change_password` เลย
-  ///      แปลว่าไม่มีการบังคับเปลี่ยนรหัสอยู่จริง
-  /// บัญชีถูกสร้างเป็น `status = 'active'` ด้วย
-  ///
-  /// ผลคือ นำเข้านักเรียน 500 คน = 500 บัญชีที่ใครรู้อีเมลก็ล็อกอินแทนได้
-  ///
-  /// ทำตามมติที่บันทึกไว้ใน task_plan §"Security defects": ถ้ายังไม่มีเส้นทาง
-  /// ส่งมอบ/รีเซ็ตรหัสที่สมบูรณ์ ให้ปิดการนำเข้าผู้ใช้ไว้ก่อน ดีกว่าแจกรหัส
-  /// ที่เดาได้ การนำเข้าอาคาร/ห้อง/อุปกรณ์/ชุดฝึกไม่สร้างบัญชี จึงยังใช้ได้ปกติ
-  static const Set<String> _credentialCreatingTypes = {
-    'นักเรียน',
-    'ครูและบุคลากร',
-  };
-
-  bool get _importBlocked => _credentialCreatingTypes.contains(_dataType);
+  /// เปิดใช้ได้ตั้งแต่ 20260914020000: หลังบ้านออกรหัสชั่วคราวสุ่มต่อคน ตั้ง
+  /// must_change_password = true และ RoleRouter บังคับตั้งรหัสใหม่ก่อนเข้า
+  /// ระบบ รหัสชั่วคราวคืนมาครั้งเดียวใน `credentials` — หน้านี้ให้ดาวน์โหลด
+  /// เป็น CSV ทันทีหลังนำเข้า เพราะไม่มีทางดูซ้ำ (เก็บเป็น hash)
 
   String _dataType = 'อาคารและห้อง';
   _ImportSource _source = _ImportSource.file;
@@ -219,15 +227,6 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
   }
 
   Future<void> _startImport() async {
-    // ด่านที่สอง นอกเหนือจากปุ่มที่ถูก disable ไว้ — กันไม่ให้เส้นทางสร้าง
-    // บัญชีถูกเรียกจากทางอื่นโดยไม่ตั้งใจ
-    if (_importBlocked) {
-      _showMessage(
-        'ยังนำเข้าบัญชีผู้ใช้ไม่ได้ — ระบบยังตั้งรหัสผ่านเริ่มต้นเหมือนกันทุกบัญชี',
-      );
-      return;
-    }
-
     if (!_hasPreview) {
       _showMessage('กรุณาเลือกไฟล์หรือโหลด Google Sheets ก่อน');
       return;
@@ -268,6 +267,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
 
     int inserted = 0;
     List<SkippedRow> skipped = const [];
+    List<ImportedCredential> credentials = const [];
     String? errorMessage;
 
     try {
@@ -312,10 +312,14 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
               : UserRole.student;
           final payload = rowsToSend.map((r) => r.payload).toList();
           if (payload.isNotEmpty) {
-            inserted = await UserAdminService.importSchoolUsersBatch(
+            final res = await (widget.importUsers ??
+                UserAdminService.importSchoolUsersBatch)(
               role: role,
               users: payload,
             );
+            inserted = res.insertedCount;
+            skipped = res.skipped;
+            credentials = res.credentials;
           }
       }
     } catch (e) {
@@ -373,7 +377,17 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
         : ' และข้าม ${skipped.length} รายการ ($skipReasons)';
 
     _showMessage('นำเข้า $inserted รายการเรียบร้อย$skipNote');
+    if (credentials.isNotEmpty) {
+      await _showCredentials(credentials);
+    }
   }
+
+  Future<void> _showCredentials(List<ImportedCredential> credentials) =>
+      showImportedCredentialsDialog(
+        context,
+        credentials,
+        downloadBytesOverride: widget.downloadBytesOverride,
+      );
 
   void _showLogDetail(_ImportLogRecord log) {
     showModalBottomSheet<void>(
@@ -708,12 +722,9 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
               'ชุดฝึก',
             ].map((String type) {
               final bool selected = _dataType == type;
-              final bool blocked = _credentialCreatingTypes.contains(type);
 
-              // ยังเลือกดูได้ เพื่อให้เห็นว่าฟีเจอร์มีอยู่และทำไมถึงปิด — แต่
-              // ขั้นตอนนำเข้าจริงจะถูกล็อกไว้ในขั้นที่ 4
               return ChoiceChip(
-                label: Text(blocked ? '$type (ปิดชั่วคราว)' : type),
+                label: Text(type),
                 selected: selected,
                 onSelected: (_) {
                   setState(() {
@@ -878,19 +889,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
             ),
           );
 
-          final Widget button = _importBlocked
-              ? Tooltip(
-                  message:
-                      'ปิดไว้ด้วยเหตุผลด้านความปลอดภัย — ระบบยังตั้งรหัสผ่าน'
-                      'เริ่มต้นเหมือนกันทุกบัญชีและยังไม่มีการบังคับเปลี่ยนรหัส '
-                      'จึงยังนำเข้าบัญชีผู้ใช้ไม่ได้',
-                  child: FilledButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.lock_outline_rounded),
-                    label: const Text('ปิดชั่วคราวด้วยเหตุผลด้านความปลอดภัย'),
-                  ),
-                )
-              : FilledButton.icon(
+          final Widget button = FilledButton.icon(
                   onPressed: _isImporting ? null : _startImport,
                   icon: _isImporting
                       ? const SizedBox(
@@ -2033,4 +2032,87 @@ class _ImportLogRecord {
   final int success;
   final int failed;
   final String status;
+}
+
+/// รหัสชั่วคราวของบัญชีที่เพิ่งสร้าง — หลังบ้านคืนครั้งเดียว ไม่เก็บลง log
+/// แอดมินต้องดาวน์โหลด/คัดลอกจากกล่องนี้แล้วส่งมอบให้แต่ละคน (ใช้ร่วมกันโดย
+/// หน้านำเข้าและ "เพิ่มนักเรียนรายคน")
+Future<void> showImportedCredentialsDialog(
+BuildContext context,
+List<ImportedCredential> credentials, {
+void Function({
+  required String filename,
+  required List<int> bytes,
+  required String mimeType,
+})?
+downloadBytesOverride,
+}) async {
+  String csvField(String v) =>
+      (v.contains(',') || v.contains('"') || v.contains('\n'))
+      ? '"${v.replaceAll('"', '""')}"'
+      : v;
+  final csv = [
+    ['email', 'temp_password'],
+    for (final c in credentials) [c.email, c.tempPassword],
+  ].map((r) => r.map(csvField).join(',')).join('\r\n');
+
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('รหัสชั่วคราว ${credentials.length} บัญชี — แสดงครั้งเดียว'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'ทุกบัญชีต้องตั้งรหัสใหม่ในการเข้าสู่ระบบครั้งแรก '
+              'ดาวน์โหลดหรือคัดลอกรายการนี้ก่อนปิด — ระบบไม่เก็บรหัสชั่วคราวไว้',
+              style: TextStyle(fontSize: 12.5),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: credentials.length,
+                itemBuilder: (_, i) => ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(credentials[i].email),
+                  trailing: SelectableText(
+                    credentials[i].tempPassword,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton.icon(
+          onPressed: () => Clipboard.setData(ClipboardData(text: csv)),
+          icon: const Icon(Icons.copy_rounded, size: 16),
+          label: const Text('คัดลอกทั้งหมด'),
+        ),
+        TextButton.icon(
+          onPressed: () => (downloadBytesOverride ?? downloadBytes)(
+            filename:
+                'temp_passwords_${DateTime.now().toIso8601String().split('T').first}.csv',
+            bytes: utf8.encode('\ufeff$csv'),
+            mimeType: 'text/csv',
+          ),
+          icon: const Icon(Icons.download_rounded, size: 16),
+          label: const Text('ดาวน์โหลด CSV'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('เก็บไว้แล้ว ปิด'),
+        ),
+      ],
+    ),
+  );
 }

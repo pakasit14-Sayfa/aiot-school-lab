@@ -71,6 +71,10 @@ class UserModel {
   final String room;
   final String status;
 
+  /// บัญชีที่ถูกนำเข้าด้วยรหัสชั่วคราว ต้องเปลี่ยนรหัสก่อนใช้งาน —
+  /// RoleRouter เปิดหน้าเปลี่ยนรหัสแทนหน้าแรกจนกว่าจะเป็น false
+  final bool mustChangePassword;
+
   const UserModel({
     required this.uid,
     required this.name,
@@ -81,6 +85,7 @@ class UserModel {
     this.building = '',
     this.room = '',
     this.status = 'active',
+    this.mustChangePassword = false,
   });
 
   /// True if this user holds [target] as any of their roles, not just
@@ -113,6 +118,7 @@ class UserModel {
       schoolId: row['active_school_id'] as String? ?? '',
       building: row['building'] as String? ?? '',
       status: row['status'] as String? ?? 'active',
+      mustChangePassword: row['must_change_password'] == true,
     );
   }
 
@@ -159,4 +165,32 @@ class UserModel {
       status: status ?? this.status,
     );
   }
+}
+
+/// เซสชัน (เครื่อง) ที่ล็อกอินอยู่ของผู้ใช้ปัจจุบัน — list_my_sessions
+class MySessionRecord {
+  const MySessionRecord({
+    required this.id,
+    required this.deviceInfo,
+    required this.ipAddress,
+    required this.createdAt,
+    required this.expiresAt,
+    required this.isCurrent,
+  });
+
+  final String id;
+  final String? deviceInfo;
+  final String? ipAddress;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final bool isCurrent;
+
+  factory MySessionRecord.fromRow(Map<String, dynamic> row) => MySessionRecord(
+    id: row['id'] as String,
+    deviceInfo: row['device_info'] as String?,
+    ipAddress: row['ip_address'] as String?,
+    createdAt: DateTime.parse(row['created_at'] as String),
+    expiresAt: DateTime.parse(row['expires_at'] as String),
+    isCurrent: row['is_current'] == true,
+  );
 }

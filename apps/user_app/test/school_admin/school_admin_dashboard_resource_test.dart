@@ -211,8 +211,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verified against pg_trigger and cron.job on 2026-09-07: only the
-    // threshold check runs. The card used to present all four as working.
+    // threshold check runs. The card used to present all four as working;
+    // since 2026-09-16 the three that never ran are gone (DoD: a rule with
+    // no backend is removed, not shown as "coming soon").
     expect(find.text('เปิดใช้งาน'), findsOneWidget);
-    expect(find.text('ยังไม่เปิดใช้งาน'), findsNWidgets(3));
+    expect(find.text('ยังไม่เปิดใช้งาน'), findsNothing);
   });
 }

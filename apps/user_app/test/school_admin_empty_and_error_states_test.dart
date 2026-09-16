@@ -221,7 +221,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('ข้อมูลโปรไฟล์ดึงจากบัญชีปัจจุบัน'),
+        find.textContaining('บันทึกลงระบบได้จากหน้านี้'),
         findsOneWidget,
       );
       expect(find.text('โหลดประวัติไม่สำเร็จ'), findsOneWidget);

@@ -1,5 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
+import '../../utils/web_download.dart';
+import 'widgets/invite_user_sheet.dart';
 
 import 'theme/school_admin_palette.dart';
 
@@ -12,7 +17,19 @@ class SchoolPermissionsPage extends StatefulWidget {
     this.updateRole,
     this.suspendUser,
     this.reactivateUser,
+    this.createInvitation,
+    this.downloadBytesOverride,
   });
+
+  /// create_staff_invitation — ทางเดียวที่เพิ่มบุคลากรรายคน (ไม่มีอีเมลเชิญ
+  /// แอดมินส่ง token ให้เอง) · ส่งออก CSV ทำฝั่งเครื่องจากรายการที่กรองอยู่
+  final InvitationCreator? createInvitation;
+  final void Function({
+    required String filename,
+    required List<int> bytes,
+    required String mimeType,
+  })?
+  downloadBytesOverride;
 
   /// Injectable seams for tests — production leaves these null and uses the
   /// real service (same pattern as school_resources_page).
@@ -191,9 +208,46 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
   /// "เพิ่มสิทธิ์ผู้ใช้งานเรียบร้อยแล้ว" — ดูเหมือนสร้างบัญชีจริงทั้งที่ไม่มีอะไร
   /// ถูกบันทึกลงฐานข้อมูลเลย ส่วนการแก้ไข (editing == true) เรียก
   /// `update_user_role` จริง จึงยังเปิดใช้งานได้ตามเดิม
+  Future<void> _openInvite() {
+    return showInviteUserSheet(
+      context,
+      create: widget.createInvitation ??
+          ({required String email, required UserRole role}) =>
+              InvitationService.createInvitation(email: email, role: role),
+      onInvited: _loadPermissions,
+    );
+  }
+
+  static String _csvField(String value) {
+    if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+      return '"${value.replaceAll('"', '""')}"';
+    }
+    return value;
+  }
+
+  void _exportCsv() {
+    final users = _filteredUsers;
+    if (users.isEmpty) {
+      _showMessage('ไม่มีรายการสิทธิ์ให้ส่งออกตามตัวกรองปัจจุบัน');
+      return;
+    }
+    final lines = <List<String>>[
+      ['ชื่อ', 'อีเมล', 'บทบาท', 'ขอบเขต', 'สถานะ', 'แก้ไขล่าสุด', 'โดย'],
+      for (final u in users)
+        [u.name, u.email, u.role, u.scope, u.status, u.lastUpdated, u.updatedBy],
+    ];
+    final csv = lines.map((r) => r.map(_csvField).join(',')).join('\r\n');
+    (widget.downloadBytesOverride ?? downloadBytes)(
+      filename: 'permissions_${DateTime.now().toIso8601String().split('T').first}.csv',
+      bytes: utf8.encode('\ufeff$csv'),
+      mimeType: 'text/csv',
+    );
+    _showMessage('ส่งออกรายการสิทธิ์ ${users.length} รายการแล้ว (CSV)');
+  }
+
   Future<void> _openPermissionDialog({_PermissionUser? user}) async {
     if (user == null) {
-      _showMessage('ยังไม่มีระบบเพิ่มผู้ใช้งานใหม่จากหน้านี้ ใช้ "นำเข้ารายชื่อ" แทน');
+      await _openInvite();
       return;
     }
 
@@ -1173,12 +1227,9 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              // ไม่มี RPC ส่งออกไฟล์ในระบบ — ปิดปุ่มพร้อมบอกเหตุผลแทนข้อความ
-              // "ส่งออกรายการสิทธิ์ตัวอย่างแล้ว" ที่ไม่มีไฟล์ใดถูกสร้างจริง
-              Tooltip(
-                message: 'ยังไม่มีระบบส่งออกไฟล์รายการสิทธิ์ในเวอร์ชันนี้',
-                child: OutlinedButton.icon(
-                onPressed: null,
+              // CSV จริงจากรายการที่กรองอยู่ (มติเจ้าของ 2026-09-08)
+              OutlinedButton.icon(
+                onPressed: _exportCsv,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(
@@ -1186,15 +1237,11 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                   ),
                 ),
                 icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text('ส่งออกรายการ', style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
+                label: const Text('ส่งออก CSV', style: TextStyle(fontWeight: FontWeight.w800)),
               ),
-              // ไม่มี RPC สร้างบัญชีใหม่จากหน้านี้ — ทางเดียวที่สร้างบัญชีได้คือ
-              // "นำเข้ารายชื่อ" ปิดปุ่มพร้อมบอกเหตุผลแทนการกดแล้วขึ้น snackbar
-              Tooltip(
-                message: 'ยังไม่มีระบบเพิ่มผู้ใช้งานใหม่จากหน้านี้ ใช้ "นำเข้ารายชื่อ" แทน',
-                child: FilledButton.icon(
-                onPressed: null,
+              // เชิญบุคลากรใหม่ผ่าน create_staff_invitation (token ส่งมือ)
+              FilledButton.icon(
+                onPressed: _openInvite,
                 style: FilledButton.styleFrom(
                   backgroundColor: SchoolAdminPalette.primaryDark,
                   foregroundColor: Colors.white,
@@ -1204,8 +1251,7 @@ class _SchoolPermissionsPageState extends State<SchoolPermissionsPage> {
                   ),
                 ),
                 icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                label: const Text('เพิ่มสิทธิ์', style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
+                label: const Text('เชิญผู้ใช้งาน', style: TextStyle(fontWeight: FontWeight.w800)),
               ),
             ],
           );

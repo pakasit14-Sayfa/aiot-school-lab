@@ -303,6 +303,43 @@ class AuthService {
     }
   }
 
+  /// เปลี่ยนรหัสผ่านด้วยรหัสปัจจุบัน (change_my_password) — เซสชันอื่นทั้งหมด
+  /// หลุด และ must_change_password ถูกล้าง จากนั้นอ่านโปรไฟล์กลับให้
+  /// currentUserModel ตรงกับหลังบ้าน
+  static Future<void> changeMyPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await supabase.rpc(
+      'change_my_password',
+      params: {
+        'p_token': _sessionToken,
+        'p_current_password': currentPassword,
+        'p_new_password': newPassword,
+      },
+    );
+    await initialize();
+  }
+
+  static Future<List<MySessionRecord>> listMySessions() async {
+    final rows =
+        await supabase.rpc(
+              'list_my_sessions',
+              params: {'p_token': _sessionToken},
+            )
+            as List;
+    return rows
+        .map((r) => MySessionRecord.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<void> revokeMySession(String sessionId) async {
+    await supabase.rpc(
+      'revoke_my_session',
+      params: {'p_token': _sessionToken, 'p_session_id': sessionId},
+    );
+  }
+
   static Future<void> signOutAllDevices() async {
     try {
       if (_sessionToken != null) {

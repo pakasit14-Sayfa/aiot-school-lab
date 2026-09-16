@@ -11,18 +11,33 @@ typedef SchoolAdminAlertAcknowledger = Future<void> Function(String alertId);
 typedef SchoolAdminAlertResolver =
     Future<void> Function(String alertId, {String? note});
 
+/// รับทราบทุกรายการที่ยังเป็น new — acknowledge_all_school_alerts คืนจำนวน
+typedef SchoolAdminAlertsBulkAcknowledger = Future<int> Function();
+
 final class SchoolAdminAlertsController extends ChangeNotifier {
   SchoolAdminAlertsController({
     required SchoolAdminAlertsLoader loadAlerts,
     required SchoolAdminAlertAcknowledger acknowledgeAlert,
     required SchoolAdminAlertResolver resolveAlert,
+    SchoolAdminAlertsBulkAcknowledger? acknowledgeAllAlerts,
   }) : _loadAlerts = loadAlerts,
        _acknowledgeAlert = acknowledgeAlert,
-       _resolveAlert = resolveAlert;
+       _resolveAlert = resolveAlert,
+       _acknowledgeAllAlerts = acknowledgeAllAlerts;
 
   final SchoolAdminAlertsLoader _loadAlerts;
   final SchoolAdminAlertAcknowledger _acknowledgeAlert;
   final SchoolAdminAlertResolver _resolveAlert;
+  final SchoolAdminAlertsBulkAcknowledger? _acknowledgeAllAlerts;
+
+  bool _bulkBusy = false;
+  bool get bulkBusy => _bulkBusy;
+
+  /// รับทราบทั้งหมดได้เมื่อมีตัวรับทราบแบบกลุ่ม และมีรายการ new อยู่จริง
+  bool get canAcknowledgeAll =>
+      _acknowledgeAllAlerts != null &&
+      !_bulkBusy &&
+      (_lastConfirmedData ?? const []).any((a) => a.status == 'new');
 
   SchoolAdminAsyncState<List<SchoolSensorAlertRecord>> _state =
       const SchoolAdminLoading<List<SchoolSensorAlertRecord>>();
@@ -61,6 +76,38 @@ final class SchoolAdminAlertsController extends ChangeNotifier {
       confirmedStatuses: const <String>{'acknowledged', 'resolved'},
       failureMessage: 'รับทราบการแจ้งเตือนไม่สำเร็จ',
     );
+  }
+
+  /// รับทราบทั้งหมด: เขียนทีเดียว แล้วอ่านรายการกลับ — สำเร็จก็ต่อเมื่อไม่เหลือ
+  /// รายการสถานะ new (ไม่เชื่อตัวเลขที่ RPC คืนอย่างเดียว)
+  Future<int?> acknowledgeAll() async {
+    final bulk = _acknowledgeAllAlerts;
+    if (_disposed || bulk == null || _bulkBusy) return null;
+    final previousData = _lastConfirmedData;
+    _bulkBusy = true;
+    _notifySafely();
+    try {
+      final count = await bulk();
+      final alerts = await _loadCanonicalAlerts();
+      if (alerts.any((a) => a.status == 'new')) {
+        throw StateError('backend_status_not_confirmed');
+      }
+      _publishCanonical(alerts);
+      return count;
+    } catch (error, stackTrace) {
+      _publish(
+        SchoolAdminError(
+          message: 'รับทราบทั้งหมดไม่สำเร็จ',
+          error: error,
+          stackTrace: stackTrace,
+          previousData: previousData,
+        ),
+      );
+      return null;
+    } finally {
+      _bulkBusy = false;
+      _notifySafely();
+    }
   }
 
   Future<bool> resolve(String alertId, {String? note}) {

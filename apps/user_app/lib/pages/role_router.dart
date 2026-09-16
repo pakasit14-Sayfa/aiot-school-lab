@@ -7,6 +7,7 @@ import 'school_admin/school_admin_dashboard_page.dart';
 import 'executive_redesign_prototype/widgets/director_navigation_shell.dart';
 import 'super_admin/widgets/super_admin_navigation_shell.dart';
 import 'parent_redesign_prototype/widgets/parent_navigation_shell.dart';
+import 'force_password_change_page.dart';
 
 /// RoleRouter routes authenticated users to their respective dashboard/shells
 /// for the 6 core system roles.
@@ -17,6 +18,9 @@ class RoleRouter extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = currentUserModel;
     if (user == null) return const LoginPage();
+
+    // บัญชีที่นำเข้าด้วยรหัสชั่วคราวต้องตั้งรหัสของตัวเองก่อน — ไม่ว่าบทบาทไหน
+    if (user.mustChangePassword) return const ForcePasswordChangePage();
 
     switch (user.role) {
       case UserRole.student:
