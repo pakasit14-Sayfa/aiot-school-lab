@@ -17,7 +17,7 @@
 | Student | เขียว-เหลือง `#1C7F46` · `#FFC939` | `pages/student_redesign_prototype/widgets/student_redesign_palette.dart` | `SchoolPalette` |
 | Teacher | ม่วง `#35204E` · `#9367C1` | `pages/teacher_redesign_prototype/teacher_redesign_prototype_page.dart` ⚠️ | `TeacherPalette` |
 | Parent | น้ำเงิน `#2867B2` · `#2E83C5` | ❌ **ไม่มี** — ฮาร์ดโค้ดทั้งเลน | — |
-| Executive (ผอ.) | ชมพู `#D85A8C` · `#B63E70` | `pages/executive_redesign_prototype/theme/app_palette.dart` | `AppPalette` |
+| Executive (ผอ.) | กรมท่า/สเลท `#4A5578` · `#363F5C` (เปลี่ยนจากชมพูเมื่อ 2026-09-14 — ทั้งเลน ไม่ใช่แค่หน้าประชุมที่เคยเป็นข้อยกเว้น) | `pages/executive_redesign_prototype/theme/app_palette.dart` | `AppPalette` |
 | School Admin | น้ำตาล `#A45C23` · `#4C2113` | `pages/school_admin/theme/school_admin_palette.dart` | `SchoolAdminPalette` |
 | Super Admin | ครีม-ทอง `#F8F4EE` · `#ECC412` · `#0D5C9D` | `pages/super_admin/theme/app_palette.dart` | `AppPalette` |
 
@@ -27,7 +27,7 @@
 ❌ **Parent ไม่มี palette class เลย** สี 306 จุดเป็น `Color(0xFF...)` ดิบ
 ถ้าจะแก้สีเลนนี้ต้องไล่แก้ทีละจุด — ควรสร้าง `ParentPalette` ก่อน
 
-**หมายเหตุ: `AppPalette` มี 2 คลาสคนละสีสนิท** (Executive = ชมพู, Super Admin = ครีม)
+**หมายเหตุ: `AppPalette` มี 2 คลาสคนละสีสนิท** (Executive = กรมท่า/สเลท, Super Admin = ครีม)
 เวลาอ่านโค้ดให้ดูที่ import ไม่ใช่ชื่อคลาส
 
 ## 2. สีที่มีความหมายตายตัว (ทุกเลนใช้เหมือนกัน)
