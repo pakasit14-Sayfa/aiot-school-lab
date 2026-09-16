@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../../../widgets/change_password_dialog.dart';
 import '../../widgets/parent_common_widgets.dart';
 
 typedef ParentSettingsStudentsLoader =
@@ -15,6 +16,9 @@ class ParentSettingsPage extends StatefulWidget {
   final ParentSignOut? signOut;
   final VoidCallback? onSignedOut;
 
+  /// `change_my_password` seam behind "เปลี่ยนรหัสผ่าน".
+  final PasswordChanger? changePassword;
+
   const ParentSettingsPage({
     super.key,
     this.studentsLoader,
@@ -22,6 +26,7 @@ class ParentSettingsPage extends StatefulWidget {
     this.profileUpdater,
     this.signOut,
     this.onSignedOut,
+    this.changePassword,
   });
 
   @override
@@ -186,8 +191,9 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
                     const SizedBox(height: 14),
                     _studentsCard(),
                     const SizedBox(height: 14),
-                    _notificationSettingsCard(),
-                    const SizedBox(height: 14),
+                    // The "การตั้งค่าการแจ้งเตือน" card said "ระบบยังไม่มี API
+                    // สำหรับบันทึกค่ารายบุคคล" over an empty state. A section
+                    // for a feature that does not exist is removed, not shown.
                     _securityCard(user),
                   ],
                 ],
@@ -305,20 +311,18 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
     ),
   );
 
-  Widget _notificationSettingsCard() => const ParentCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(
-          icon: Icons.notifications_rounded,
-          title: 'การตั้งค่าการแจ้งเตือน',
-          subtitle: 'ระบบยังไม่มี API สำหรับบันทึกค่ารายบุคคล',
-        ),
-        SizedBox(height: 14),
-        _EmptyState(),
-      ],
-    ),
-  );
+  Future<void> _changePassword() async {
+    final changed = await showChangePasswordDialog(
+      context,
+      change: widget.changePassword,
+    );
+    if (!changed || !mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ'),
+      ),
+    );
+  }
 
   Widget _securityCard(UserModel? user) => ParentCard(
     child: Column(
@@ -330,7 +334,13 @@ class _ParentSettingsPageState extends State<ParentSettingsPage> {
           subtitle: 'จัดการเซสชันของบัญชีปัจจุบัน',
         ),
         const SizedBox(height: 14),
-        const _InfoRow(label: 'เปลี่ยนรหัสผ่าน', value: 'ยังไม่มีข้อมูล'),
+        // Was `_InfoRow('เปลี่ยนรหัสผ่าน', 'ยังไม่มีข้อมูล')` — a label with
+        // nothing behind it. change_my_password exists since 2026-09-14.
+        OutlinedButton.icon(
+          onPressed: user == null ? null : _changePassword,
+          icon: const Icon(Icons.lock_outline_rounded),
+          label: const Text('เปลี่ยนรหัสผ่าน'),
+        ),
         const SizedBox(height: 10),
         OutlinedButton.icon(
           onPressed: user == null ? null : _confirmSignOut,

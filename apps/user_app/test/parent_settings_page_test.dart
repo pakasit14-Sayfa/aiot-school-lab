@@ -14,6 +14,8 @@ const _user = UserModel(
 Widget _app({
   required ParentSettingsStudentsLoader loader,
   ParentProfileUpdater? updater,
+  Future<void> Function({required String currentPassword, required String newPassword})?
+  changePassword,
 }) => MaterialApp(
   routes: {'/login': (_) => const Scaffold(body: Text('หน้าเข้าสู่ระบบ'))},
   home: ParentSettingsPage(
@@ -22,6 +24,7 @@ Widget _app({
     profileUpdater: updater ?? (uid, name) async {},
     signOut: () async {},
     onSignedOut: () {},
+    changePassword: changePassword,
   ),
 );
 
@@ -89,5 +92,32 @@ void main() {
     expect(updatedName, 'ผู้ปกครอง คนใหม่');
     expect(find.text('ผู้ปกครอง คนใหม่'), findsOneWidget);
     expect(find.text('บันทึกข้อมูลแล้ว'), findsOneWidget);
+  });
+
+  testWidgets('no API-less notification card; "เปลี่ยนรหัสผ่าน" is a real action', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1400));
+    String? sentNew;
+    await tester.pumpWidget(
+      _app(
+        loader: () async => const [],
+        changePassword: ({required currentPassword, required newPassword}) async =>
+            sentNew = newPassword,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('การตั้งค่าการแจ้งเตือน'), findsNothing);
+    expect(find.textContaining('ยังไม่มี API'), findsNothing);
+
+    await tester.tap(find.text('เปลี่ยนรหัสผ่าน'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านปัจจุบัน'), 'Test1234!');
+    await tester.enterText(find.widgetWithText(TextField, 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)'), 'NewPass9!');
+    await tester.enterText(find.widgetWithText(TextField, 'ยืนยันรหัสผ่านใหม่'), 'NewPass9!');
+    await tester.tap(find.widgetWithText(FilledButton, 'เปลี่ยนรหัสผ่าน'));
+    await tester.pumpAndSettle();
+    expect(sentNew, 'NewPass9!');
+    expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsOneWidget);
   });
 }
