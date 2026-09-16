@@ -80,7 +80,10 @@ DirectorLearningController fixture({
 );
 Widget page(DirectorLearningController controller) => MaterialApp(
   home: Scaffold(
-    body: DirectorLearningPage(key: ValueKey(controller), controller: controller),
+    body: DirectorLearningPage(
+      key: ValueKey(controller),
+      controller: controller,
+    ),
   ),
 );
 
@@ -121,20 +124,24 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('นักเรียนที่ใช้งานอยู่ 3 คน'), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
-      expect(find.text('มา 1 · สาย 0 · ขาด 0 · ลา 0'), findsOneWidget);
-      // ม.1/1: present=1,unknown=1 → เช็คไปแล้วบางส่วน ต้องยังบอกจำนวนที่
-      // เหลือไว้ ไม่ใช่แค่ % ของคนที่เช็คแล้ว
-      expect(find.text('มาเรียน 100.0% · ยังไม่เช็คชื่อ 1 คน'), findsOneWidget);
-      // ม.2/1: present=0,unknown=1 → ยังไม่เช็คเลยทั้งห้อง
-      expect(find.text('ยังไม่เช็คชื่อ 1 คน'), findsOneWidget);
+      // ม.1/1: present=1,unknown=1 → เช็คไปแล้วบางส่วน (100% ของคนที่เช็ค
+      // แล้วเท่านั้น ไม่ใช่ 100% ของทั้งห้อง) และ ม.2/1: present=0,unknown=1
+      // → ยังไม่เช็คเลยทั้งห้อง — ทั้งคู่ต้องขึ้น "ยังไม่เช็คชื่อ 1 คน" เหมือน
+      // กัน (โครงต้นไม้ V3: ดูจุดนี้ยังคงพฤติกรรมเดิมของ _roomDetailCard)
+      expect(find.text('ยังไม่เช็คชื่อ 1 คน'), findsNWidgets(2));
+      // ม.1 มีห้องเดียว (ม.1/1) ทั้งหัวข้อระดับชั้นและแถวห้องเลยขึ้น 100%
+      // ตรงกันทั้งคู่ — คนละ Text widget กัน (แถวระดับชั้น vs แถวห้อง)
+      expect(find.text('100%'), findsNWidgets(2));
+      expect(find.text('ม.1/1'), findsOneWidget);
+      expect(find.text('ม.2/1'), findsOneWidget);
       expect(find.text('ยังไม่มีคะแนนที่ยืนยันแล้ว'), findsOneWidget);
       expect(find.textContaining('1,248'), findsNothing);
       await tester.tap(find.text('ทุกระดับชั้น'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('ม.2').last);
       await tester.pumpAndSettle();
-      expect(find.text('ม.1/1 · 2 คน'), findsNothing);
-      expect(find.text('ม.2/1 · 1 คน'), findsOneWidget);
+      expect(find.text('ม.1/1'), findsNothing);
+      expect(find.text('ม.2/1'), findsOneWidget);
       await tester.tap(find.text('ทุกสายการเรียน'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('สายจริง').last);
@@ -147,12 +154,14 @@ void main() {
       // ButtonStyleButton base rather than a specific button type.
       expect(
         (tester.widget(
-              find.ancestor(
-                of: find.text('เปิดระบบติดตามนักเรียน'),
-                matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-              ),
-            )
-            as ButtonStyleButton)
+                  find.ancestor(
+                    of: find.text('เปิดระบบติดตามนักเรียน'),
+                    matching: find.byWidgetPredicate(
+                      (w) => w is ButtonStyleButton,
+                    ),
+                  ),
+                )
+                as ButtonStyleButton)
             .onPressed,
         isNotNull,
       );
@@ -417,8 +426,14 @@ void main() {
       // หัวการ์ดใช้ข้อมูลจริงจาก StudentSupportCase ที่มีอยู่แล้ว
       expect(find.text('ด.ช.ทดสอบ จริงใจ'), findsOneWidget);
       expect(find.textContaining('ห้อง ม.3/ม.3/2'), findsOneWidget);
-      expect(find.textContaining('AIoT ชีววิทยาและสิ่งแวดล้อม'), findsOneWidget);
-      expect(find.textContaining('ประเด็นที่ต้องติดตาม: ขาดเรียนต่อเนื่อง'), findsOneWidget);
+      expect(
+        find.textContaining('AIoT ชีววิทยาและสิ่งแวดล้อม'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('ประเด็นที่ต้องติดตาม: ขาดเรียนต่อเนื่อง'),
+        findsOneWidget,
+      );
       expect(
         find.textContaining('หมวดหมู่: ด้านพฤติกรรม & การเข้าเรียน • เปิดเคส'),
         findsOneWidget,
@@ -487,10 +502,9 @@ void main() {
       // 1 ใน 2 เคสด้านการเรียนปิดแล้ว = 50% ไม่ใช่ตัวเลขคุณภาพงานที่แต่งขึ้น
       // แบบ "คัดกรองครบ 1,228/1,248 คน" ของเวอร์ชัน 7 ก.ย. — ข้อความ "ด้านการ
       // เรียน" ขึ้น 2 จุดจริง (legend ของวงแหวนสรุป + badge ของแต่ละเคสใน
-      // รายการด้านล่าง) วงแหวนกลางโชว์ "ปิดแล้ว/ทั้งหมด" รวม (1/2) ส่วน
-      // legend รายมิติโชว์ % ปิดของมิตินั้น (50%)
+      // รายการด้านล่าง) วงแหวนซ้อน 4 ชั้น (V5) ไม่มีตัวเลขกลางวงแล้ว ตัวเลข
+      // % ปิดของแต่ละมิติอยู่ที่ legend ทั้งหมด
       expect(find.text('ด้านการเรียน'), findsWidgets);
-      expect(find.text('1/2'), findsOneWidget);
       expect(find.text('50%'), findsOneWidget);
 
       for (final invented in <String>[
@@ -534,10 +548,14 @@ void main() {
           .getTopLeft(find.textContaining('ข้อเสนอแนะเชิงบริหารและงานติดตาม'))
           .dy;
       final programAnalyticsTop = tester
-          .getTopLeft(find.textContaining('การวิเคราะห์ผลการเรียนและสายการเรียน'))
+          .getTopLeft(
+            find.textContaining('การวิเคราะห์ผลการเรียนและสายการเรียน'),
+          )
           .dy;
       final gradeDeepDiveTop = tester
-          .getTopLeft(find.text('ข้อมูลเจาะลึกรายระดับชั้น (Grade-Level Deep Dive)'))
+          .getTopLeft(
+            find.text('ข้อมูลเจาะลึกรายระดับชั้น (Grade-Level Deep Dive)'),
+          )
           .dy;
       expect(
         actionItemsTop,
@@ -614,7 +632,8 @@ void main() {
       expect(
         tester.widget<Text>(countFinder).data,
         '1',
-        reason: 'กรอง "ปิดเคสสำเร็จ" แล้วต้องเหลือแค่เคสที่ปิดจริง ไม่ใช่ยอดรวมเดิม',
+        reason:
+            'กรอง "ปิดเคสสำเร็จ" แล้วต้องเหลือแค่เคสที่ปิดจริง ไม่ใช่ยอดรวมเดิม',
       );
     },
   );
@@ -650,20 +669,21 @@ void main() {
       // different starting tabs, which read as 4 fake choices once you
       // noticed they landed on one screen; consolidated to one entry point
       // plus the genuinely distinct "export a file" action.
-      for (final label in [
-        'เปิดระบบติดตามนักเรียน',
-        'ส่งออกรายงานการเรียน',
-      ]) {
+      for (final label in ['เปิดระบบติดตามนักเรียน', 'ส่งออกรายงานการเรียน']) {
         // "เปิดระบบติดตามนักเรียน" is a FilledButton.icon, "ส่งออกรายงานการเรียน"
         // an OutlinedButton.icon — both .icon factories build internal
         // subclasses, so match the shared ButtonStyleButton base instead of
         // one concrete type.
-        final button = tester.widget(
-          find.ancestor(
-            of: find.text(label),
-            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
-          ),
-        ) as ButtonStyleButton;
+        final button =
+            tester.widget(
+                  find.ancestor(
+                    of: find.text(label),
+                    matching: find.byWidgetPredicate(
+                      (w) => w is ButtonStyleButton,
+                    ),
+                  ),
+                )
+                as ButtonStyleButton;
         expect(
           button.onPressed,
           isNotNull,
@@ -687,7 +707,10 @@ void main() {
 
       // The rest of the page — real, previously-working data — still loads.
       expect(find.text('นักเรียนที่ใช้งานอยู่ 3 คน'), findsOneWidget);
-      expect(find.textContaining('ยังโหลดสรุปงานติดตามไม่สำเร็จ'), findsOneWidget);
+      expect(
+        find.textContaining('ยังโหลดสรุปงานติดตามไม่สำเร็จ'),
+        findsOneWidget,
+      );
       expect(find.textContaining('summary_unreachable'), findsNothing);
     },
   );
@@ -736,7 +759,10 @@ void main() {
         matching: find.byType(Row),
       );
       expect(
-        find.descendant(of: allRow.first, matching: find.byIcon(Icons.check_rounded)),
+        find.descendant(
+          of: allRow.first,
+          matching: find.byIcon(Icons.check_rounded),
+        ),
         findsOneWidget,
       );
       final gradeRow = find.ancestor(
@@ -744,7 +770,10 @@ void main() {
         matching: find.byType(Row),
       );
       expect(
-        find.descendant(of: gradeRow.first, matching: find.byIcon(Icons.check_rounded)),
+        find.descendant(
+          of: gradeRow.first,
+          matching: find.byIcon(Icons.check_rounded),
+        ),
         findsNothing,
       );
     },

@@ -122,6 +122,9 @@ class AutoFlaggedStudent {
   final String detail;
   final String actionLabel;
   final String severity;
+  final String? gradeLevel;
+  final String? room;
+  final String? advisorName;
 
   const AutoFlaggedStudent({
     required this.studentId,
@@ -130,6 +133,9 @@ class AutoFlaggedStudent {
     required this.detail,
     required this.actionLabel,
     required this.severity,
+    this.gradeLevel,
+    this.room,
+    this.advisorName,
   });
 
   factory AutoFlaggedStudent.fromRow(Map<String, dynamic> row) =>
@@ -140,5 +146,8 @@ class AutoFlaggedStudent {
         detail: (row['detail'] as String?) ?? '',
         actionLabel: (row['action_label'] as String?) ?? '',
         severity: (row['severity'] as String?) ?? 'normal',
+        gradeLevel: row['grade_level'] as String?,
+        room: row['room'] as String?,
+        advisorName: row['advisor_name'] as String?,
       );
 }

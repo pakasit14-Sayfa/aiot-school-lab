@@ -22,6 +22,14 @@ const _kStatusWarningSoft = Color(0xFFFEF3D6);
 const _kStatusCriticalSoft = Color(0xFFFBE4E4);
 const _kStatusWarningInk = Color(0xFF8A5A00);
 const _kAttendanceTarget = 90.0;
+// ความสูงคงที่ของแถวในโครงต้นไม้ชั้น/ห้อง — เดิมปล่อยให้สูงตามเนื้อหา (ยืดหด
+// ตามความยาวข้อความ) แล้วพยายาม "เดา" ความสูงรวมจากค่าคงที่ที่ไม่ตรงกับของ
+// จริงที่ browser render เลย (ทำให้กรอบเลื่อนสั้น/ยาวผิดซ้ำแล้วซ้ำเล่า) บังคับ
+// ทุกแถวให้สูงตายตัวแทน เพื่อให้คำนวณความสูงกรอบเลื่อนล่วงหน้าได้แม่นจริง
+// ไม่ใช่แค่ประมาณ
+const _kGroupHeaderHeight = 34.0;
+const _kRoomRowHeight = 30.0;
+const _kRoomRowHeightWithNote = 46.0;
 
 enum _AttendanceStatus { none, good, warning, critical }
 
@@ -55,43 +63,52 @@ class _GradeAttendanceStat {
 // พื้นขาว (บั๊กที่ทำให้การ์ดนี้ดูเหมือนพังในสกรีนช็อตที่ผู้ใช้ส่งมา) —
 // เปลี่ยนเป็นกรอบเส้นประที่มองเห็นชัดว่า "ระบบทำงานอยู่ แค่ยังไม่มีใครเช็คชื่อ"
 class _DashedTrack extends StatelessWidget {
-  const _DashedTrack();
+  const _DashedTrack({this.dense = false});
+  final bool dense;
   @override
   Widget build(BuildContext context) => SizedBox(
-    height: 18,
+    height: dense ? 14 : 18,
     child: Stack(
       alignment: Alignment.center,
       children: [
-        Positioned.fill(child: CustomPaint(painter: _DashedTrackPainter())),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.schedule_rounded,
-              size: 12,
-              color: AppPalette.textMuted,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'ยังไม่เช็คชื่อ',
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w600,
+        Positioned.fill(
+          child: CustomPaint(
+            painter: _DashedTrackPainter(barHeight: dense ? 8 : 12),
+          ),
+        ),
+        if (!dense)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.schedule_rounded,
+                size: 12,
                 color: AppPalette.textMuted,
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 5),
+              Text(
+                'ยังไม่เช็คชื่อ',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppPalette.textMuted,
+                ),
+              ),
+            ],
+          ),
       ],
     ),
   );
 }
 
 class _DashedTrackPainter extends CustomPainter {
+  _DashedTrackPainter({this.barHeight = 12});
+  final double barHeight;
+
   @override
   void paint(Canvas canvas, Size size) {
     final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, (size.height - 12) / 2, size.width, 12),
+      Rect.fromLTWH(0, (size.height - barHeight) / 2, size.width, barHeight),
       const Radius.circular(3),
     );
     final paint = Paint()
@@ -118,40 +135,50 @@ class _DashedTrackPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// วาดวงแหวนสรุป 4 มิติของระบบดูแลช่วยเหลือนักเรียนเป็นส่วนโค้งสีตามหมวดจริง
-// (สัดส่วน = จำนวนเคสของมิตินั้นเทียบทั้งหมด) — ช่องว่าง 2px ระหว่างส่วนโค้ง
-// ตามธรรมเนียม "surface gap" กันมิติที่ติดกันดูเป็นก้อนเดียว
+// วงแหวนซ้อน 4 ชั้นของระบบดูแลช่วยเหลือนักเรียน — แต่ละวงเป็นอิสระต่อมิติ
+// (สัดส่วน = ปิดแล้ว/ทั้งหมด "ของมิตินั้นเอง" ไม่ใช่สัดส่วนจำนวนเคสเทียบ
+// มิติอื่นแบบวงเดียวที่เคยลองก่อนหน้า — วงเต็ม = ปิดครบจริง อ่านตรงตัวกว่า)
+// วงนอกสุด→ในสุดตามลำดับ segments ที่ส่งเข้ามา แถบที่ยังไม่ปิดใช้สีเดียวกัน
+// แบบจาง (meter spec), แถบที่ปิดแล้วไล่สีอ่อน→เข้มแนวทแยงตามภาพอ้างอิงที่
+// ผู้ใช้ส่งมา (care-system-card-redesign.html V5)
 class _CareDonutPainter extends CustomPainter {
   _CareDonutPainter(this.segments);
-  final List<(double fraction, Color color)> segments;
+  final List<(double fraction, Color light, Color dark)> segments;
+  // ช่วงห่างเดิม (.42/.33/.24/.15, step .09) กับ track alpha .16 ทำให้ 3 วงที่
+  // ยังไม่มีอะไรปิดเลย (0%) ยังขึ้นเป็นวงสีชัดเจนคนละเฉด (ส้ม/ม่วง/แดงจาง)
+  // แน่นติดกัน — ดูเหมือน "4 วงสี" แทนที่จะเป็น "1 วงจริง + 3 วงว่าง" ตามที่
+  // ผู้ใช้ทักว่าดูแปลกๆ จากสกรีนช็อตจริง ขยับ 2 อย่าง: step กว้างขึ้น (.11)
+  // ให้เห็นช่องว่างจริงระหว่างวง และ track จางลงกว่าเดิมมาก (.16 → .08)
+  static const _radiusFractions = [0.44, 0.33, 0.22, 0.11];
 
   @override
   void paint(Canvas canvas, Size size) {
-    const strokeWidth = 10.0;
-    final rect = Rect.fromLTWH(
-      strokeWidth / 2,
-      strokeWidth / 2,
-      size.width - strokeWidth,
-      size.height - strokeWidth,
-    );
-    const gapRadians = 0.06;
-    var start = -pi / 2;
-    for (final (fraction, color) in segments) {
-      final sweep = fraction * 2 * pi;
+    final center = Offset(size.width / 2, size.height / 2);
+    final strokeWidth = size.width * 0.065;
+    for (var i = 0; i < segments.length && i < _radiusFractions.length; i++) {
+      final (fraction, light, dark) = segments[i];
+      final radius = size.width * _radiusFractions[i];
+      final rect = Rect.fromCircle(center: center, radius: radius);
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = dark.withValues(alpha: .08)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = strokeWidth,
+      );
+      final sweep = fraction.clamp(0.0, 1.0) * 2 * pi;
       if (sweep <= 0) continue;
-      final paint = Paint()
-        ..color = color
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [light, dark],
+        ).createShader(rect)
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.butt;
-      canvas.drawArc(
-        rect,
-        start + gapRadians / 2,
-        (sweep - gapRadians).clamp(0.0, sweep),
-        false,
-        paint,
-      );
-      start += sweep;
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(rect, -pi / 2, sweep, false, fillPaint);
     }
   }
 
@@ -1208,17 +1235,23 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
 
   // กราฟอัตรามาเรียนแยกระดับชั้น — เดิมมี 2 บั๊ก: (1) ความสูงแท่งใช้ค่า %
   // ดิบเป็นพิกเซลตรงๆ ไม่ scale ตามพื้นที่จริง (2) "ไม่มีข้อมูล" วาดเป็นแท่ง
-  // สูง 4px สีขอบอ่อนมาก แทบมองไม่เห็น ฉบับนี้เปลี่ยนเป็นแท่งแนวนอนเรียงจาก
-  // แย่สุดขึ้นก่อน (เจอปัญหาได้ทันที ไม่ต้องกวาดตาหาเอง) สีสถานะใช้ status
-  // palette ที่ผ่านการ validate ของ dataviz skill ตรงๆ ไม่ใช่เลือกเอง และ
-  // ไม่ทาสีตัวเลข % (ตัวเลขใช้สีหมึกปกติเสมอ ความหมายมาจากแท่ง/ไอคอนข้างๆ
-  // แทน) รายละเอียดมา/สาย/ขาด/ลา ย้ายไปอยู่ใน tooltip ต่อแถวแทนการยัดใส่แท่ง
+  // สูง 4px สีขอบอ่อนมาก แทบมองไม่เห็น สีสถานะใช้ status palette ที่ผ่าน
+  // การ validate ของ dataviz skill ตรงๆ ไม่ใช่เลือกเอง และไม่ทาสีตัวเลข %
+  // (ตัวเลขใช้สีหมึกปกติเสมอ ความหมายมาจากแท่ง/ไอคอนข้างๆ แทน)
+  //
+  // V3 (เลือกจาก mockup 3 แบบ, attendance-card-taller-redesign.html): เดิม
+  // การ์ดนี้แยกเป็น 2 บล็อก — กราฟสรุประดับชั้น (ใช้ controller.attendance
+  // ทั้งหมด ไม่กรอง) กับรายละเอียดห้อง (ใช้ filteredRows ที่กรองตามตัวกรอง
+  // ชั้น/สายของหน้าแล้ว) ทำให้กราฟบนกับรายชื่อห้องล่างอาจไม่ตรงกันเมื่อมี
+  // ตัวกรองเลือกอยู่ — รวมเป็นต้นไม้ชิ้นเดียว (ระดับชั้น → ห้องซ้อนข้างใน)
+  // โดยใช้ filteredRows เป็นแหล่งข้อมูลเดียวทั้งการ์ด ความไม่ตรงกันแบบเดิม
+  // เลยหายไปเอง (กรองแล้วทั้งการ์ดตรงกันเสมอ ไม่ใช่แค่ครึ่งล่าง)
   Widget _attendanceByGrade(List<SchoolHomeroomAttendance> filteredRows) {
+    if (controller.attendance.isEmpty) return const SizedBox.shrink();
     final byGrade = <String, List<SchoolHomeroomAttendance>>{};
-    for (final r in controller.attendance) {
+    for (final r in filteredRows) {
       byGrade.putIfAbsent(r.gradeLevel ?? 'ไม่ระบุชั้น', () => []).add(r);
     }
-    if (byGrade.isEmpty) return const SizedBox.shrink();
     final stats =
         byGrade.entries
             .map((e) => _GradeAttendanceStat(e.key, e.value))
@@ -1232,12 +1265,47 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
           });
     final totalPresent = stats.fold<int>(0, (n, s) => n + s.present);
     final totalRecorded = stats.fold<int>(0, (n, s) => n + s.recorded);
+    // ความสูงกล่องรายการ — 3 รอบก่อนหน้าเดาค่าคงที่ต่อแถว (42/30px) ที่ไม่ตรง
+    // กับของจริงที่ browser render (แถวจริงยาวสั้นตามความยาวข้อความ/ว่ามี
+    // บรรทัด "ยังไม่เช็คชื่อ" แทรกหรือไม่) เลยพลาดซ้ำๆ ทั้งสั้นไปบ้างยาวไปบ้าง
+    // รอบนี้แก้ที่ต้นตอ: บังคับทุกแถวให้สูงตายตัวจริง (_kGroupHeaderHeight,
+    // _kRoomRowHeight, _kRoomRowHeightWithNote — ดูคอมเมนต์ที่นิยามค่าคงที่)
+    // แทนที่จะปล่อยให้ยืดหดตามเนื้อหาแล้วมาเดาทีหลัง คำนวณตรงนี้เลยแม่นเป๊ะ
+    // ไม่ใช่ประมาณอีกต่อไป — 7 ชั้นที่มีข้อมูลจริงตอนนี้รวมกันสูง ~572px พอดี
+    // (คำนวณตรงจากค่าคงที่ข้างบน) 580 คือค่าที่พอดีกับ "ของจริงทั้งหมด" ไม่ต้อง
+    // เลื่อนดูเลย — ผู้ใช้ขอปรับลงเป็น 550 แทน (ต่ำกว่า 572 เล็กน้อย แปลว่า
+    // ชั้นที่แย่ที่สุดยังครบ แต่ชั้นท้ายๆ 1 ชั้นอาจต้องเลื่อนดูเพิ่ม)
+    const targetMaxHeight = 550.0, minHeight = 140.0;
+    var acc = 0.0;
+    var fittedGroups = 0;
+    for (final s in stats) {
+      final roomsHeight = byGrade[s.grade]!.fold<double>(
+        0,
+        (n, r) =>
+            n + (r.unknown > 0 ? _kRoomRowHeightWithNote : _kRoomRowHeight),
+      );
+      final groupHeight = _kGroupHeaderHeight + roomsHeight;
+      if (fittedGroups > 0 && acc + groupHeight > targetMaxHeight) break;
+      acc += groupHeight;
+      fittedGroups++;
+    }
+    final listHeight = acc.clamp(minHeight, targetMaxHeight).toDouble();
+    final needsScrollHint = fittedGroups < stats.length;
     final avgPct = totalRecorded == 0
         ? null
         : totalPresent * 100 / totalRecorded;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
+      // clipBehavior กันเนื้อหาล้นขอบการ์ดโค้งมนออกไปนอกจอ (เจอจริงจาก
+      // สกรีนช็อต — แถว ม.1/1 กับ tooltip ของมันหลุดไปโผล่ใต้การ์ดทั้งใบ)
+      // สาเหตุคือความสูงกรอบเลื่อนที่คำนวณจากค่าคงที่ต่อแถวเป็นแค่การประมาณ
+      // ไม่ตรงกับความสูงจริงที่ browser render เป๊ะๆ เสมอไป (โดยเฉพาะตอนอยู่
+      // ใต้ IntrinsicHeight ที่สูงทั้งคู่ถูกยืดเท่ากัน) clip ไว้ให้เนื้อหาที่
+      // ประมาณผิดพลาดเล็กน้อยโดนตัดสวยๆ ที่ขอบการ์ดแทนที่จะล้นออกไปทั้งกล่อง
+      // (ยอมรับแถวท้ายอาจถูกตัดครึ่งได้ — เป็น cue ปกติของรายการเลื่อนดูอยู่
+      // แล้ว ดีกว่าเนื้อหาหลุดไปนอกการ์ด)
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -1249,11 +1317,11 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'การมาเรียนแยกตามระดับชั้น (Attendance Rate)',
                       style: TextStyle(
                         fontSize: 13,
@@ -1261,8 +1329,15 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                       ),
                     ),
                     Text(
-                      'คำนวณจากข้อมูลเช็คชื่อจริงของวันที่เลือก · ชี้ที่แถวเพื่อดูรายละเอียด',
-                      style: TextStyle(
+                      // "ชี้ที่แถวเพื่อดูรายละเอียด" มีความหมายก็ต่อเมื่อมีแถว
+                      // ที่ชี้แล้วเจอ tooltip จริง (แถวที่ recorded>0) — ถ้ายัง
+                      // ไม่มีการเช็คชื่อเลยสักแถว (avgPct null) ทุกแถวเป็น
+                      // dashed placeholder ไม่มี tooltip ให้ชี้ พูดถึงมันจะ
+                      // หลอกผู้ใช้ว่ามีอะไรให้กดดูอยู่ทั้งที่ไม่มี
+                      avgPct == null
+                          ? 'คำนวณจากข้อมูลเช็คชื่อจริงของวันที่เลือก'
+                          : 'คำนวณจากข้อมูลเช็คชื่อจริงของวันที่เลือก · ชี้ที่แถวเพื่อดูรายละเอียด',
+                      style: const TextStyle(
                         fontSize: 10,
                         color: AppPalette.textMuted,
                       ),
@@ -1295,193 +1370,275 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          for (final s in stats) _gradeRow(s),
-          const SizedBox(height: 6),
-          _attendanceLegend(),
-          const SizedBox(height: 16),
-          const Divider(height: 1, color: AppPalette.border),
-          const SizedBox(height: 12),
-          Text(
-            'รายละเอียดตามห้อง · วันที่ ${dateLabel(controller.date)}',
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          if (filteredRows.isEmpty)
+          const SizedBox(height: 14),
+          if (stats.isEmpty)
             const Text(
               'ยังไม่มีข้อมูลนักเรียนในตัวกรองนี้',
               style: TextStyle(fontSize: 11.5, color: AppPalette.textMuted),
             )
-          else
-            // เดิมเรียงแนวตั้งทีละห้อง 3 บรรทัด (ชื่อห้อง, ตัวเลขราย
-            // สถานะ, ข้อความซ้ำ "ยังไม่มีข้อมูลการเช็คชื่อ") ห้องเยอะแล้วยาว
-            // มาก — ย่อเป็นตารางการ์ดกะทัดรัดแทน และตัดบรรทัดที่ 3 ทิ้งเมื่อ
-            // ไม่มีอะไรใหม่กว่าบรรทัดที่ 2 อยู่แล้ว (unknown เท่ากับจำนวนคน
-            // ทั้งห้อง = ยังไม่เช็คชื่อเลยสักคน) — ใช้ Wrap กว้างคงที่แทน
-            // LayoutBuilder เพราะการ์ดนี้อยู่ใต้ IntrinsicHeight ของคู่การ์ด
-            // ข้างบน (attendance/care) และ LayoutBuilder ไม่รองรับ intrinsic
-            // dimensions ทำให้พังทันทีที่จอกว้าง ≥1050px (จับได้จากเทสต์)
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+          else ...[
+            // ไม่มีเพดานความสูงเดิม แปลว่าโรงเรียนที่มีหลายชั้น/สาย (เช่น
+            // ม.1-ม.6 แยกสายวิทย์-ศิลป์) จะทำให้การ์ดนี้ยาวเกินการ์ด
+            // "ระบบดูแลช่วยเหลือนักเรียน" ข้างๆ ไปมาก (สลับด้านจากปัญหาเดิมที่
+            // เคยสั้นกว่าตอนข้อมูลน้อย) — ครอบด้วยกรอบสูงคงที่ + เลื่อนดู
+            // เหมือนที่ทำกับรายการเคสฝั่งขวาไปแล้ว ให้ทั้ง 2 การ์ดมีเพดาน
+            // ความสูงใกล้เคียงกันเสมอไม่ว่าข้อมูลจะน้อยหรือเยอะแค่ไหน — แต่
+            // การตัดแบบนี้ไม่มีคำใบ้เลยว่ายังมีระดับชั้นซ่อนอยู่ด้านล่าง (ผู้ใช้
+            // ทักหลังเทียบกับ "เลื่อนเพื่อดูเพิ่ม" ของการ์ดฝั่งขวา) เพิ่มบรรทัด
+            // เดียวกันไว้ตรงนี้ด้วย
+            Text(
+              'ทั้งหมด ${stats.length} ระดับชั้น'
+              '${needsScrollHint ? ' · เลื่อนเพื่อดูเพิ่ม' : ''}',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: AppPalette.textMuted,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _fadedScrollBox(
+              height: listHeight,
               children: [
-                for (final r in filteredRows)
-                  SizedBox(width: 190, child: _roomDetailCard(r)),
+                for (final s in stats) _gradeTreeGroup(s, byGrade[s.grade]!),
               ],
             ),
+          ],
+          // การ์ดนี้อยู่ข้างการ์ด "ระบบดูแลช่วยเหลือนักเรียน" ซึ่งมักมีของจริง
+          // ให้โชว์เยอะกว่าโดยธรรมชาติ — ตอนที่ยังไม่มีใครเช็คชื่อเลยสักคน
+          // (avgPct null) การ์ดนี้จะสั้นกว่ามากเพราะไม่มีข้อมูลจริงให้แสดง
+          // เพิ่ม ผู้ใช้เลือกให้เติมพื้นที่ว่างด้วยข้อความอธิบายเหตุผลตรงๆ
+          // แทนการยืดพื้นที่ว่างเปล่าหรือใส่ตัวเลขที่แต่งขึ้น
+          if (stats.isNotEmpty && avgPct == null) _attendanceEmptyStateNote(),
+          // Legend อธิบายสีเขียว/เหลือง/แดง+เส้นเกณฑ์ — ไม่มีประโยชน์ถ้ายังไม่
+          // มีแถวไหนมีข้อมูลจริงเลย (ทุกแถวเป็นกล่องเส้นประสีเทาหมด) โชว์ไป
+          // จะกลายเป็นคำอธิบายสีที่ไม่มีอยู่จริงบนหน้าจอตอนนั้น ดูแปลกกว่าไม่มี
+          if (avgPct != null) ...[
+            const SizedBox(height: 6),
+            _attendanceLegend(),
+          ],
         ],
       ),
     );
   }
 
-  Widget _roomDetailCard(SchoolHomeroomAttendance r) {
-    final fullyUnchecked = r.recorded == 0;
-    // บรรทัด 3 ต้องยังบอก "เหลือกี่คนที่ยังไม่เช็คชื่อ" ไว้เสมอเมื่อ unknown>0
-    // แม้จะเช็คไปแล้วบางส่วน (ไม่ใช่แค่ตอนยังไม่เช็คเลยทั้งห้อง) ไม่งั้นจะดูเหมือน
-    // ห้องเช็คชื่อครบแล้วทั้งที่ยังไม่ครบจริง
-    final statusParts = <String>[
-      if (!fullyUnchecked)
-        'มาเรียน ${r.attendancePercent!.toStringAsFixed(1)}%',
-      if (r.unknown > 0) 'ยังไม่เช็คชื่อ ${r.unknown} คน',
-    ];
-    final statusLine = statusParts.isEmpty
-        ? 'เช็คชื่อครบแล้ว'
-        : statusParts.join(' · ');
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppPalette.pageBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '${r.roomLabel} · ${r.studentCount} คน',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            'มา ${r.present} · สาย ${r.late} · ขาด ${r.absent} · ลา ${r.excused}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: AppPalette.textMuted),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            statusLine,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: fullyUnchecked
-                  ? AppPalette.textMuted
-                  : const Color(0xFF356A9A),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _gradeRow(_GradeAttendanceStat stat) {
+  // V3: รวมกราฟสรุประดับชั้น + รายละเอียดห้องเป็นต้นไม้ชิ้นเดียว (ระดับชั้น
+  // → ห้องที่ซ้อนอยู่ข้างใน) แทน 2 บล็อกแยกกันแบบเดิม — หัวข้อระดับชั้นกับ
+  // แถวห้องที่ซ้อนอยู่ใต้ใช้แถบสัดส่วนตัวเดียวกัน (_attendanceTrack) ต่างกัน
+  // แค่ขนาด (dense=true สำหรับห้อง ซึ่งอยู่ลึกกว่า)
+  Widget _gradeTreeGroup(
+    _GradeAttendanceStat stat,
+    List<SchoolHomeroomAttendance> rooms,
+  ) {
     final pct = stat.pct;
     final status = _attendanceStatusFor(pct);
-    // Positioned.fill รอบ Align/FractionallySizedBox ทุกชั้น (ไม่ใช้ Align
-    // เปล่าๆ เป็นลูกตรงของ Stack) เพราะ Align ที่ไม่ได้อยู่ใต้ Positioned จะ
-    // ได้ loose constraints จาก Stack ทำให้ Container ที่ไม่มี width ชัดเจน
-    // (แถบพื้นหลัง) ยุบเหลือ 0 กว้าง — ต้องห่อด้วย Positioned.fill ก่อนเพื่อ
-    // ให้ได้ tight constraints เท่าขนาด Stack จริงก่อนค่อยคำนวณสัดส่วน
-    final track = pct == null
-        ? const _DashedTrack()
+    final header = SizedBox(
+      height: _kGroupHeaderHeight,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              stat.grade,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: _attendanceTrack(pct, status)),
+          const SizedBox(width: 10),
+          _gradeValueLabel(status, pct),
+        ],
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        stat.recorded == 0
+            ? header
+            : Tooltip(
+                waitDuration: const Duration(milliseconds: 200),
+                richMessage: _attendanceTooltipMessage(
+                  stat.grade,
+                  stat.present,
+                  stat.late,
+                  stat.absent,
+                  stat.excused,
+                ),
+                child: header,
+              ),
+        Padding(
+          padding: const EdgeInsets.only(left: 18),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              border: Border(
+                left: BorderSide(color: AppPalette.border, width: 1.5),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, bottom: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [for (final r in rooms) _roomTreeRow(r)],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _roomTreeRow(SchoolHomeroomAttendance r) {
+    final pct = r.attendancePercent;
+    final status = _attendanceStatusFor(pct);
+    final mainLine = Row(
+      children: [
+        SizedBox(
+          width: 74,
+          child: Text(
+            r.roomLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+        ),
+        SizedBox(
+          width: 44,
+          child: Text(
+            '${r.studentCount} คน',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 9.5, color: AppPalette.textMuted),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(child: _attendanceTrack(pct, status, dense: true)),
+        const SizedBox(width: 10),
+        _gradeValueLabel(status, pct, dense: true),
+      ],
+    );
+    // ต้องบอก "ยังไม่เช็คชื่อ N คน" เสมอเมื่อ unknown>0 ไม่ใช่แค่ตอนยังไม่
+    // เช็คเลยทั้งห้อง — ห้องที่เช็คไปแล้วบางส่วนค่า % ที่เห็นคำนวณจากคนที่
+    // เช็คแล้วเท่านั้น ("100%" ทั้งที่จริงเช็คไปแค่ครึ่งห้องก็เป็นไปได้) ถ้าไม่
+    // บอกไว้จะดูเหมือนห้องเช็คชื่อครบแล้วทั้งที่ยังไม่ครบจริง ส่วนห้องที่ยังไม่
+    // เช็คเลยทั้งห้อง แท่งเส้นประแบบ dense (dense=true) ซ่อนไอคอน+ข้อความไว้
+    // (แคบเกินจะใส่พอดี) เลยต้องมีบรรทัดนี้มาบอกแทนเหมือนกัน ไม่งั้นเงียบไป
+    // เลยว่าห้องนี้ยังไม่มีใครเช็คชื่อ (เดิมเคยมีเฉพาะใน _roomDetailCard ก่อน
+    // ย้ายมาเป็นโครงต้นไม้)
+    final row = r.unknown == 0
+        ? SizedBox(height: _kRoomRowHeight, child: mainLine)
         : SizedBox(
-            height: 18,
-            child: Stack(
-              clipBehavior: Clip.none,
+            height: _kRoomRowHeightWithNote,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 3,
-                  bottom: 3,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppPalette.pageBg,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 3,
-                  bottom: 3,
-                  child: FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: (pct / 100).clamp(0.0, 1.0),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: _attendanceStatusColor(status),
-                        borderRadius: const BorderRadius.horizontal(
-                          right: Radius.circular(4),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: Align(
-                    alignment: Alignment(2 * (_kAttendanceTarget / 100) - 1, 0),
-                    child: Container(
-                      width: 1.5,
-                      color: AppPalette.textDark.withValues(alpha: .28),
+                mainLine,
+                Padding(
+                  padding: const EdgeInsets.only(left: 118, top: 1),
+                  child: Text(
+                    'ยังไม่เช็คชื่อ ${r.unknown} คน',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: AppPalette.textMuted,
                     ),
                   ),
                 ),
               ],
             ),
           );
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 84,
-            child: Text(
-              stat.grade,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: track),
-          const SizedBox(width: 10),
-          _gradeValueLabel(status, pct),
-        ],
-      ),
-    );
-    if (stat.recorded == 0) return row;
+    if (r.recorded == 0) return row;
     return Tooltip(
       waitDuration: const Duration(milliseconds: 200),
-      richMessage: _gradeTooltipMessage(stat),
+      richMessage: _attendanceTooltipMessage(
+        r.roomLabel,
+        r.present,
+        r.late,
+        r.absent,
+        r.excused,
+      ),
       child: row,
     );
   }
 
-  Widget _gradeValueLabel(_AttendanceStatus status, double? pct) {
+  // Positioned.fill รอบ Align/FractionallySizedBox ทุกชั้น (ไม่ใช้ Align
+  // เปล่าๆ เป็นลูกตรงของ Stack) เพราะ Align ที่ไม่ได้อยู่ใต้ Positioned จะ
+  // ได้ loose constraints จาก Stack ทำให้ Container ที่ไม่มี width ชัดเจน
+  // (แถบพื้นหลัง) ยุบเหลือ 0 กว้าง — ต้องห่อด้วย Positioned.fill ก่อนเพื่อ
+  // ให้ได้ tight constraints เท่าขนาด Stack จริงก่อนค่อยคำนวณสัดส่วน
+  Widget _attendanceTrack(
+    double? pct,
+    _AttendanceStatus status, {
+    bool dense = false,
+  }) {
+    if (pct == null) return _DashedTrack(dense: dense);
+    final height = dense ? 14.0 : 18.0;
+    final barHeight = dense ? 8.0 : 12.0;
+    final inset = (height - barHeight) / 2;
+    return SizedBox(
+      height: height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: inset,
+            bottom: inset,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppPalette.pageBg,
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: inset,
+            bottom: inset,
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: (pct / 100).clamp(0.0, 1.0),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: _attendanceStatusColor(status),
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: Align(
+              alignment: Alignment(2 * (_kAttendanceTarget / 100) - 1, 0),
+              child: Container(
+                width: 1.5,
+                color: AppPalette.textDark.withValues(alpha: .28),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gradeValueLabel(
+    _AttendanceStatus status,
+    double? pct, {
+    bool dense = false,
+  }) {
     if (pct == null) {
       // ป้าย "ยังไม่เช็คชื่อ" ย้ายไปอยู่กลางกล่องเส้นประแล้ว (ดู _DashedTrack)
       // — ตรงนี้เหลือแค่ — กันคอลัมน์เลื่อน ไม่ต้องพูดซ้ำ
-      return const Text(
+      return Text(
         '—',
         style: TextStyle(
-          fontSize: 12,
+          fontSize: dense ? 10.5 : 12,
           fontWeight: FontWeight.w700,
           color: AppPalette.textMuted,
         ),
@@ -1489,14 +1646,17 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     }
     final valueText = Text(
       '${pct.toStringAsFixed(pct % 1 == 0 ? 0 : 1)}%',
-      style: const TextStyle(
-        fontSize: 12,
+      style: TextStyle(
+        fontSize: dense ? 10.5 : 12,
         fontWeight: FontWeight.w800,
-        color: AppPalette.textDark,
-        fontFeatures: [FontFeature.tabularFigures()],
+        color: dense ? _attendanceStatusColor(status) : AppPalette.textDark,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
-    if (status == _AttendanceStatus.good) return valueText;
+    // แถวห้อง (dense) แคบเกินจะใส่ chip ไอคอน+ป้ายแบบแถวระดับชั้นได้พอดี —
+    // ใช้สีตัวเลขแทนสถานะแทน (ข้อยกเว้นเดียวที่ตัวเลขทาสีสถานะได้ในการ์ดนี้
+    // เพราะไม่มี chip คู่กันมาช่วยสื่อความหมายแทน)
+    if (dense || status == _AttendanceStatus.good) return valueText;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [valueText, const SizedBox(width: 6), _statusChip(status)],
@@ -1534,11 +1694,19 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     );
   }
 
-  // เดิม V3 พยายามโชว์ present/late/absent/excused ด้วยแท่ง segmented ในแท่ง
+  // เดิมพยายามโชว์ present/late/absent/excused ด้วยแท่ง segmented ในแท่ง
   // เดียว แต่ส่วนแบ่งแคบ (3-5%) มองแทบไม่เห็น — ย้ายรายละเอียดนี้มาไว้ที่
-  // tooltip แทน ใช้จำนวนคนจริง (ไม่ใช่ % ที่ปัดแล้ว) ให้ตรงกับ _roomDetailCard
-  // ด้านล่างที่ใช้หน่วยเดียวกันอยู่แล้ว
-  InlineSpan _gradeTooltipMessage(_GradeAttendanceStat stat) {
+  // tooltip แทน ใช้จำนวนคนจริง (ไม่ใช่ % ที่ปัดแล้ว) ให้ตรงกับ label เดียวกัน
+  // ที่ใช้ในโครงต้นไม้ (เรียกได้ทั้งระดับชั้นและรายห้อง ไม่ผูกกับ
+  // _GradeAttendanceStat โดยตรงเพราะรายห้องเป็น SchoolHomeroomAttendance
+  // แถวเดียว ไม่ใช่ค่ารวม)
+  InlineSpan _attendanceTooltipMessage(
+    String label,
+    int present,
+    int late,
+    int absent,
+    int excused,
+  ) {
     Widget line(String label, int value, Color color) => Padding(
       padding: const EdgeInsets.only(top: 3),
       child: Row(
@@ -1569,22 +1737,92 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            stat.grade,
+            label,
             style: const TextStyle(
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
               color: Colors.white,
             ),
           ),
-          if (stat.present > 0) line('มาเรียน', stat.present, _kStatusGood),
-          if (stat.late > 0) line('มาสาย', stat.late, _kStatusWarning),
-          if (stat.absent > 0) line('ขาด', stat.absent, _kStatusCritical),
-          if (stat.excused > 0)
-            line('ลา', stat.excused, const Color(0xFF7FA9D8)),
+          if (present > 0) line('มาเรียน', present, _kStatusGood),
+          if (late > 0) line('มาสาย', late, _kStatusWarning),
+          if (absent > 0) line('ขาด', absent, _kStatusCritical),
+          if (excused > 0) line('ลา', excused, const Color(0xFF7FA9D8)),
         ],
       ),
     );
   }
+
+  // ผู้ใช้เลือกให้เติมพื้นที่ว่างด้วยคำอธิบายตรงๆ แทนการยืดพื้นที่เปล่าหรือ
+  // ใส่ตัวเลขที่แต่งขึ้นเพื่อให้ "ยาวเท่าการ์ดข้างๆ" — บอกเหตุผลจริงว่าทำไม
+  // การ์ดนี้ยังสั้น (ยังไม่มีใครเช็คชื่อ) และจะมีอะไรโผล่มาเมื่อเริ่มมีข้อมูล
+  // จริง ไม่ใช่การหลอกว่ามีเนื้อหาเพิ่ม
+  // แถวที่โดนตัดครึ่งพอดีตรงขอบบน/ล่างกล่องเลื่อน (เจอจริงจากสกรีนช็อต — ผู้ใช้
+  // เลื่อนแล้วเจอ "ม.5" ถูกตัดครึ่งด้านบนจนอ่านป้ายชื่อไม่ออก) เป็นพฤติกรรม
+  // ปกติของ ListView ทุกตัว (ไม่ใช่บั๊ก) แต่ดูเหมือนพังถ้าไม่มีอะไรบอกใบ้ว่า
+  // "นี่คือขอบเลื่อน ไม่ใช่เนื้อหาขาดหาย" — ไล่จางขอบบน/ล่างด้วย ShaderMask
+  // แทน ใช้ร่วมกันทั้งกล่องต้นไม้ชั้น/ห้องและกล่องรายการเคส (careCard)
+  Widget _fadedScrollBox({
+    required double height,
+    required List<Widget> children,
+  }) => SizedBox(
+    height: height,
+    child: ShaderMask(
+      shaderCallback: (rect) => const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.transparent,
+          Colors.black,
+          Colors.black,
+          Colors.transparent,
+        ],
+        stops: [0.0, 0.06, 0.94, 1.0],
+      ).createShader(rect),
+      blendMode: BlendMode.dstIn,
+      child: ListView(children: children),
+    ),
+  );
+
+  Widget _attendanceEmptyStateNote() => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(top: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+    decoration: BoxDecoration(
+      border: Border.all(color: AppPalette.border),
+      borderRadius: BorderRadius.circular(14),
+      color: AppPalette.pageBg,
+    ),
+    child: Column(
+      children: [
+        Icon(
+          Icons.fact_check_outlined,
+          size: 34,
+          color: AppPalette.textMuted.withValues(alpha: .7),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'ยังไม่มีการเช็คชื่อวันนี้',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.textDark,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'เมื่อครูเริ่มเช็คชื่อนักเรียน การ์ดนี้จะแสดงอัตรามาเรียนจริงแยกตามระดับชั้นและห้อง '
+          'พร้อมสีเขียว/เหลือง/แดงตามเกณฑ์ และรายละเอียดมา/สาย/ขาด/ลาต่อห้อง',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 10.5,
+            color: AppPalette.textMuted,
+            height: 1.5,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _attendanceLegend() {
     final lowTarget = (_kAttendanceTarget - 5).toInt();
@@ -1829,6 +2067,16 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     _ => (Icons.folder_rounded, AppPalette.textMuted),
   };
 
+  // จุดเริ่มไล่สี (อ่อน) ของวงแหวนแต่ละมิติใน _careDonutSummary — ไล่ไปจบที่
+  // สีเข้มเดียวกับ _categoryStyle เพื่อให้วงดูมีมิติ ไม่ใช่สีแบนเรียบ
+  Color _careDonutLightColor(String category) => switch (category) {
+    'academic' => const Color(0xFF93B8F7),
+    'behavioral' => const Color(0xFFF3C48A),
+    'emotional' => const Color(0xFFD3A6F5),
+    'safety' => const Color(0xFFF2A3A3),
+    _ => AppPalette.border,
+  };
+
   Color _statusColor(String status) => switch (status) {
     'resolved' => const Color(0xFF15803D),
     'in_progress' => const Color(0xFFD97706),
@@ -1847,50 +2095,31 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
     };
     final total = byCat.values.fold<int>(0, (n, l) => n + l.length);
     if (total == 0) return const SizedBox.shrink();
-    final closed = byCat.values.fold<int>(
-      0,
-      (n, l) => n + l.where((c) => c.status == 'resolved').length,
-    );
     final present = cats.where((cat) => byCat[cat]!.isNotEmpty).toList();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         SizedBox(
-          width: 72,
-          height: 72,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CustomPaint(
-                size: const Size(72, 72),
-                painter: _CareDonutPainter([
-                  for (final cat in cats)
-                    (byCat[cat]!.length / total, _categoryStyle(cat).$2),
-                ]),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$closed/$total',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: AppPalette.textDark,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const Text(
-                    'ปิดแล้ว',
-                    style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          width: 84,
+          height: 84,
+          // ไม่มีตัวเลขกลางวงเหมือนรุ่นก่อน — วงในสุด (มิติ "ความปลอดภัย")
+          // เหลือพื้นที่ตรงกลางแคบเกินจะใส่ตัวเลขให้อ่านง่าย ตัวเลขทั้งหมด
+          // ย้ายไปอยู่ที่ legend ข้างๆ แทน (ตามที่ตกลงกับผู้ใช้ตอนดู mockup)
+          child: CustomPaint(
+            size: const Size(84, 84),
+            painter: _CareDonutPainter([
+              for (final cat in cats)
+                (
+                  byCat[cat]!.isEmpty
+                      ? 0.0
+                      : byCat[cat]!
+                                .where((c) => c.status == 'resolved')
+                                .length /
+                            byCat[cat]!.length,
+                  _careDonutLightColor(cat),
+                  _categoryStyle(cat).$2,
+                ),
+            ]),
           ),
         ),
         const SizedBox(width: 14),
@@ -2394,6 +2623,10 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                     final careCard = Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
+                      // เหตุผลเดียวกับ attendanceCard — กันเนื้อหา (วงแหวน/
+                      // legend/รายการเคส) ล้นขอบการ์ดโค้งมนออกไปนอกจอตอนอยู่
+                      // ใต้ IntrinsicHeight ที่บังคับสูงเท่ากันทั้งคู่
+                      clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(22),
@@ -2510,13 +2743,11 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            SizedBox(
+                            _fadedScrollBox(
                               height: 280,
-                              child: ListView(
-                                children: [
-                                  for (final c in cases) _caseListTile(c),
-                                ],
-                              ),
+                              children: [
+                                for (final c in cases) _caseListTile(c),
+                              ],
                             ),
                           ],
                         ],
@@ -2531,13 +2762,23 @@ class _DirectorLearningPageState extends State<DirectorLearningPage> {
                         ],
                       );
                     }
+                    // รอบแรกบังคับสูงเท่ากันด้วย IntrinsicHeight+stretch ตอน
+                    // นั้นการ์ดซ้ายไม่มีเพดานบน/ล่างเลย (ไม่มีข้อมูล = แทบไม่มี
+                    // อะไร, ข้อมูลเยอะ = ยาวไม่จำกัด) พอถูกยืดให้เท่าฝั่งขวาที่
+                    // ความสูงค่อนข้างคงที่ เลยเกิดพื้นที่ว่างเปล่ามาก (ทักจาก
+                    // สกรีนช็อตจริง) จึงเลิกบังคับไปก่อน — ตอนนี้ทั้ง 2 การ์ด
+                    // มีเพดานทั้งบนและล่างแล้ว (การ์ดซ้าย: empty-state note ให้
+                    // พื้นตอนไม่มีข้อมูล + กรอบเลื่อน 300px ให้เพดานตอนข้อมูล
+                    // เยอะ, การ์ดขวา: กรอบเลื่อน 280px) ความสูงธรรมชาติของทั้ง
+                    // คู่เลยใกล้เคียงกันมากขึ้น กลับมาใช้ IntrinsicHeight+
+                    // stretch อีกครั้งจึงไม่ควรสร้างช่องว่างเปล่ามากเหมือนรอบแรก
                     return IntrinsicHeight(
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(flex: 5, child: attendanceCard),
+                          Expanded(flex: 40, child: attendanceCard),
                           const SizedBox(width: 16),
-                          Expanded(flex: 4, child: careCard),
+                          Expanded(flex: 60, child: careCard),
                         ],
                       ),
                     );
