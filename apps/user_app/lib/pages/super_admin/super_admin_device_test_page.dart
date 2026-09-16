@@ -69,13 +69,9 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
       latencyMs: null,
       detail: 'ยังไม่ได้ทดสอบ (กด "เริ่มทดสอบระบบ" ด้านบนเพื่อวัดเวลาตอบสนองจริง)',
     ),
-    _DiagnosticCheck(
-      name: 'MQTT Gateway Direct Probe',
-      target: 'Local Gateway / Edge Node',
-      status: _CheckStatus.idle,
-      latencyMs: null,
-      detail: 'ยังไม่สามารถวัดได้ (ยังไม่มีการเชื่อมต่อกับ Local Gateway Hardware)',
-    ),
+    // A permanent "MQTT Gateway Direct Probe — ยังไม่สามารถวัดได้" row used to
+    // sit here. There is no MQTT gateway in this system (boards write
+    // sensor_ingest directly), so it could never report anything. Removed.
     _DiagnosticCheck(
       name: 'อุปกรณ์ที่เลือก: ข้อมูลเซนเซอร์ล่าสุด',
       target: 'Selected Device Telemetry',
@@ -191,11 +187,6 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
       _checks[2].detail = 'ไม่สามารถตรวจสอบท่อส่งข้อมูลได้: $e';
     }
 
-    // 4. Check 3: Honest unmeasured hardware check
-    _checks[3].status = _CheckStatus.idle;
-    _checks[3].latencyMs = null;
-    _checks[3].detail = 'ยังไม่สามารถวัดได้ (ยังไม่มีการเชื่อมต่อกับ Local Gateway Hardware)';
-
     // 5. Check 4: Real check scoped to the device picked in the selector
     // above — reads that specific device's latest sensor_readings row
     // (via reading_metric/reading_value/reading_ts, added by
@@ -210,20 +201,20 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
             );
 
     if (selected == null) {
-      _checks[4].status = _CheckStatus.idle;
-      _checks[4].latencyMs = null;
-      _checks[4].detail = 'ไม่มีอุปกรณ์ให้ทดสอบ (ยังไม่มีอุปกรณ์ลงทะเบียนในระบบ)';
+      _checks[3].status = _CheckStatus.idle;
+      _checks[3].latencyMs = null;
+      _checks[3].detail = 'ไม่มีอุปกรณ์ให้ทดสอบ (ยังไม่มีอุปกรณ์ลงทะเบียนในระบบ)';
     } else if (selected.readingAt == null) {
-      _checks[4].status = _CheckStatus.warning;
-      _checks[4].latencyMs = null;
-      _checks[4].detail =
+      _checks[3].status = _CheckStatus.warning;
+      _checks[3].latencyMs = null;
+      _checks[3].detail =
           '${selected.name} (${selected.deviceCode}) ยังไม่เคยส่งค่าเซนเซอร์เข้าระบบ';
     } else {
       final Duration age = DateTime.now().difference(selected.readingAt!);
       final bool fresh = age.inHours < 24;
-      _checks[4].status = fresh ? _CheckStatus.passed : _CheckStatus.warning;
-      _checks[4].latencyMs = null;
-      _checks[4].detail = fresh
+      _checks[3].status = fresh ? _CheckStatus.passed : _CheckStatus.warning;
+      _checks[3].latencyMs = null;
+      _checks[3].detail = fresh
           ? '${selected.name} (${selected.deviceCode}) ส่งค่าล่าสุด ${selected.readingLabel} '
               '(${age.inMinutes} นาทีที่แล้ว)'
           : '${selected.name} (${selected.deviceCode}) ไม่มีค่าใหม่ในช่วง 24 ชม.ที่ผ่านมา '
@@ -271,7 +262,7 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
         children: [
-          _buildTierBDisclosureBanner(),
+          _buildScopeBanner(),
           const SizedBox(height: 16),
           if (_loadError != null && _schools.isEmpty) ...[
             _buildErrorNotice(),
@@ -319,7 +310,7 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
     );
   }
 
-  Widget _buildTierBDisclosureBanner() {
+  Widget _buildScopeBanner() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -334,7 +325,7 @@ class _SuperAdminDeviceTestPageState extends State<SuperAdminDeviceTestPage> {
           SizedBox(width: 12),
           Expanded(
             child: Text(
-              'หมายเหตุ: ระบบทดสอบฮาร์ดแวร์จริงยังอยู่ระหว่างการพัฒนา การทดสอบนี้เป็นการตรวจสอบความพร้อมของ API และสถานะระบบส่วนกลาง',
+              'การทดสอบนี้วัดจริง 4 อย่าง: ฐานข้อมูล/Realtime · เซสชันและ RPC ยืนยันตัวตน · ท่อรับข้อมูลเซนเซอร์ · ข้อมูลล่าสุดของอุปกรณ์ที่เลือก — ไม่มีการทดสอบฮาร์ดแวร์โดยตรง (บอร์ดส่งข้อมูลเข้าฐานข้อมูลตรง ไม่ผ่านเกตเวย์)',
               style: TextStyle(
                 fontSize: 12,
                 height: 1.4,

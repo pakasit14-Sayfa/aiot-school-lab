@@ -90,14 +90,27 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('real settings are rendered', (tester) async {
+  testWidgets('only the enforced setting is offered; the 16 unenforced ones are gone', (
+    tester,
+  ) async {
     await _pump(
       tester,
-      loadSettings: () async => _settings(mqttHost: '10.0.0.5'),
+      loadSettings: () async => _settings(offlineMinutes: 12, mqttHost: '10.0.0.5'),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('10.0.0.5'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+    expect(find.textContaining('ค่าที่บันทึกในระบบตอนนี้: 12 นาที'), findsOneWidget);
+    // Sensor thresholds / MQTT / alert channels / security policy / backup —
+    // saved "for reference", read by nothing. Not shown any more.
+    expect(find.text('10.0.0.5'), findsNothing);
+    expect(find.textContaining('MQTT'), findsNothing);
+    expect(find.textContaining('Sensor Thresholds'), findsNothing);
+    expect(find.textContaining('Alert Channels'), findsNothing);
+    expect(find.textContaining('Security & Policy'), findsNothing);
+    expect(find.textContaining('System & Maintenance'), findsNothing);
+    expect(find.textContaining('ยังไม่มีการบังคับใช้'), findsNothing);
+    expect(find.byType(Switch), findsNothing);
   });
 
   testWidgets('a failed settings load falls back to defaults, visibly', (
@@ -176,6 +189,47 @@ void main() {
 
     expect(calls, 1);
     expect(find.textContaining('บันทึกไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('rpc rejected'), findsNothing);
+  });
+
+  testWidgets('save sends the typed minutes and trusts only the row the backend returns', (
+    tester,
+  ) async {
+    int? sent;
+    await _pump(
+      tester,
+      saveSettings:
+          ({
+            mq2Threshold,
+            pm25Threshold,
+            temperatureThreshold,
+            offlineMinutes,
+            mqttHost,
+            mqttPort,
+            lineNotify,
+            emailNotify,
+            pushNotify,
+            automaticBackup,
+            maintenanceMode,
+            twoFactorRequired,
+            auditLogEnabled,
+            language,
+            timezone,
+            logRetentionDays,
+            backupTime,
+          }) async {
+            sent = offlineMinutes;
+            return _settings(offlineMinutes: 5); // backend did not change
+          },
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '20');
+    await tester.tap(find.text('บันทึกการตั้งค่า'));
+    await tester.pumpAndSettle();
+
+    expect(sent, 20);
+    expect(find.textContaining('ค่าในระบบยังเป็น 5 นาที'), findsOneWidget);
+    expect(find.textContaining('บันทึกแล้ว —'), findsNothing);
   });
 
   testWidgets('save shows a confirmation once the RPC resolves', (
@@ -202,14 +256,15 @@ void main() {
             timezone,
             logRetentionDays,
             backupTime,
-          }) async => _settings(),
+          }) async => _settings(offlineMinutes: offlineMinutes ?? 5),
     );
     await tester.pumpAndSettle();
 
+    await tester.enterText(find.byType(TextField), '20');
     await tester.tap(find.text('บันทึกการตั้งค่า'));
     await tester.pumpAndSettle();
 
-    expect(find.text('บันทึกการตั้งค่าแล้ว'), findsOneWidget);
+    expect(find.textContaining('บันทึกแล้ว — อุปกรณ์ที่เงียบเกิน 20 นาที'), findsOneWidget);
   });
 
   /// เดิม `catch (_)` แค่ปิดสถานะโหลด — "อ่าน audit log ไม่ได้" จึงอ่านเหมือน

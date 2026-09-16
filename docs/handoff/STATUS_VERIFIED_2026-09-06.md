@@ -101,6 +101,8 @@ Executive 6 หน้า: `learning`(2,815) `meetings`(2,216) `teachers`(1,927) 
 
 ### 3.6 Test debt ยังไม่เคลียร์ — Flutter fail 16 + pgTAP fail 6
 
+> 2026-09-16 (ดึก): **Super Admin 100% — ครบทั้ง 6 เลน** — หน้าตั้งค่าส่วนกลางเหลือค่าเดียวที่มีผลจริง (offline_minutes → device_effective_status, migration 20260916020000) · ถอด MQTT probe ที่วัดไม่ได้ · runbook 4.3
+>
 > 2026-09-16 (ดึก): **Parent 100%** — ถอดการ์ดแจ้งเตือนที่ไม่มี API · เปลี่ยนรหัสผ่านจริง — แถว WORK_LOG "Parent → 100%"
 >
 > 2026-09-16 (ดึก): **Student 100%** — demo fallback การ์ดพลังงาน (ที่ error ก็เข้าสาขานี้) ถอดแล้ว · QR login ไม่มี preview ปลอม/ปุ่มจำลองสแกน · โปรไฟล์เหลือแต่ของจริง + เปลี่ยนรหัส · หน้าแรกมีเทสต์ error ครบ — แถว WORK_LOG "Student → 100%"

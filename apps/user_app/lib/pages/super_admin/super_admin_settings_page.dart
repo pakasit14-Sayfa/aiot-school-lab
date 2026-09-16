@@ -50,31 +50,17 @@ typedef SettingsPage = SuperAdminSettingsPage;
 class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
   final SchoolAdminPlatformService _service = SchoolAdminPlatformService();
 
-  final TextEditingController _mq2Controller =
-      TextEditingController(text: '2.2');
-  final TextEditingController _pmController =
-      TextEditingController(text: '35');
-  final TextEditingController _temperatureController =
-      TextEditingController(text: '45');
+  // Until 2026-09-16 this page held 17 settings (sensor thresholds, MQTT
+  // host/port, LINE/email/push toggles, backup, maintenance mode, 2FA, audit
+  // log, language, timezone, retention, backup time) behind a banner saying
+  // they were "saved for reference, not enforced". Nothing in the schema,
+  // any RPC or any edge function read them. Only `offline_minutes` has a
+  // real consumer — device_effective_status() since 20260916020000 — so it
+  // is the only setting left. The other columns stay in platform_settings
+  // untouched; they are simply no longer offered as if they did something.
   final TextEditingController _offlineMinutesController =
       TextEditingController(text: '5');
-  final TextEditingController _mqttHostController =
-      TextEditingController(text: '192.168.1.180');
-  final TextEditingController _mqttPortController =
-      TextEditingController(text: '1883');
-
-  bool _lineNotify = true;
-  bool _emailNotify = true;
-  bool _pushNotify = true;
-  bool _automaticBackup = true;
-  bool _maintenanceMode = false;
-  bool _twoFactorRequired = true;
-  bool _auditLogEnabled = true;
-
-  String _language = 'ภาษาไทย';
-  String _timezone = 'Asia/Bangkok (UTC+7)';
-  String _logRetention = '365 วัน';
-  String _backupTime = '02:00 น.';
+  int _savedOfflineMinutes = 5;
 
   bool _isLoadingLogs = true;
 
@@ -99,42 +85,23 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
       final s = await (widget.loadSettings ?? _service.getPlatformSettings)();
       if (!mounted) return;
       setState(() {
-        _mq2Controller.text = s.mq2Threshold.toString();
-        _pmController.text = s.pm25Threshold.toString();
-        _temperatureController.text = s.temperatureThreshold.toString();
         _offlineMinutesController.text = s.offlineMinutes.toString();
-        _mqttHostController.text = s.mqttHost;
-        _mqttPortController.text = s.mqttPort.toString();
-        _lineNotify = s.lineNotify;
-        _emailNotify = s.emailNotify;
-        _pushNotify = s.pushNotify;
-        _automaticBackup = s.automaticBackup;
-        _maintenanceMode = s.maintenanceMode;
-        _twoFactorRequired = s.twoFactorRequired;
-        _auditLogEnabled = s.auditLogEnabled;
-        _language = s.language;
-        _timezone = s.timezone;
-        _logRetention = '${s.logRetentionDays} วัน';
-        _backupTime = s.backupTime;
+        _savedOfflineMinutes = s.offlineMinutes;
         _isLoadingSettings = false;
       });
     } catch (e) {
+      debugPrint('SuperAdminSettingsPage: settings load failed: $e');
       if (!mounted) return;
       setState(() {
         _isLoadingSettings = false;
-        _loadError = e.toString();
+        _loadError = 'โหลดค่าที่บันทึกไว้ไม่สำเร็จ';
       });
     }
   }
 
   @override
   void dispose() {
-    _mq2Controller.dispose();
-    _pmController.dispose();
-    _temperatureController.dispose();
     _offlineMinutesController.dispose();
-    _mqttHostController.dispose();
-    _mqttPortController.dispose();
     super.dispose();
   }
 
@@ -161,61 +128,34 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
   }
 
   Future<void> _saveSettings() async {
+    final minutes = int.tryParse(_offlineMinutesController.text.trim());
+    if (minutes == null || minutes < 1 || minutes > 1440) {
+      _message('กรอกจำนวนนาทีระหว่าง 1 ถึง 1440');
+      return;
+    }
     setState(() => _isSaving = true);
     try {
-      final logRetentionDays =
-          int.tryParse(_logRetention.replaceAll(RegExp(r'[^0-9]'), '')) ?? 365;
       final save = widget.saveSettings ?? _service.updatePlatformSettings;
-      await save(
-        mq2Threshold: double.tryParse(_mq2Controller.text),
-        pm25Threshold: double.tryParse(_pmController.text),
-        temperatureThreshold: double.tryParse(_temperatureController.text),
-        offlineMinutes: int.tryParse(_offlineMinutesController.text),
-        mqttHost: _mqttHostController.text.trim(),
-        mqttPort: int.tryParse(_mqttPortController.text),
-        lineNotify: _lineNotify,
-        emailNotify: _emailNotify,
-        pushNotify: _pushNotify,
-        automaticBackup: _automaticBackup,
-        maintenanceMode: _maintenanceMode,
-        twoFactorRequired: _twoFactorRequired,
-        auditLogEnabled: _auditLogEnabled,
-        language: _language,
-        timezone: _timezone,
-        logRetentionDays: logRetentionDays,
-        backupTime: _backupTime,
-      );
+      // Write, then trust only the row the backend returns.
+      final saved = await save(offlineMinutes: minutes);
       if (!mounted) return;
-      setState(() => _isSaving = false);
-      _message('บันทึกการตั้งค่าแล้ว');
+      if (saved.offlineMinutes != minutes) {
+        setState(() => _isSaving = false);
+        _message('บันทึกไม่สำเร็จ ค่าในระบบยังเป็น ${saved.offlineMinutes} นาที');
+        return;
+      }
+      setState(() {
+        _isSaving = false;
+        _savedOfflineMinutes = saved.offlineMinutes;
+      });
+      _message('บันทึกแล้ว — อุปกรณ์ที่เงียบเกิน $minutes นาทีจะขึ้นออฟไลน์');
+      await _loadAuditLogs();
     } catch (e) {
+      debugPrint('SuperAdminSettingsPage: save failed: $e');
       if (!mounted) return;
       setState(() => _isSaving = false);
-      _message('บันทึกไม่สำเร็จ: $e');
+      _message('บันทึกไม่สำเร็จ ค่าในระบบยังเป็น $_savedOfflineMinutes นาที');
     }
-  }
-
-  Future<void> _restoreDefaults() async {
-    setState(() {
-      _mq2Controller.text = '2.2';
-      _pmController.text = '35';
-      _temperatureController.text = '45';
-      _offlineMinutesController.text = '5';
-      _mqttHostController.text = '192.168.1.180';
-      _mqttPortController.text = '1883';
-      _lineNotify = true;
-      _emailNotify = true;
-      _pushNotify = true;
-      _automaticBackup = true;
-      _maintenanceMode = false;
-      _twoFactorRequired = true;
-      _auditLogEnabled = true;
-      _language = 'ภาษาไทย';
-      _timezone = 'Asia/Bangkok (UTC+7)';
-      _logRetention = '365 วัน';
-      _backupTime = '02:00 น.';
-    });
-    await _saveSettings();
   }
 
   @override
@@ -256,7 +196,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  'โหลดค่าที่บันทึกไว้ไม่สำเร็จ: $_loadError (แสดงค่าเริ่มต้นแทน)',
+                  '$_loadError — แสดงค่าเริ่มต้น 5 นาทีแทน',
                   style: const TextStyle(
                     color: AppPalette.carnivalRed,
                     fontSize: 12,
@@ -264,54 +204,13 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                   ),
                 ),
               ),
-            _buildTierBDisclosureBanner(),
-            const SizedBox(height: 16),
             _buildHeroCard(),
             const SizedBox(height: 18),
-            _buildThresholdsSection(),
-            const SizedBox(height: 18),
-            _buildMqttSection(),
-            const SizedBox(height: 18),
-            _buildNotificationSection(),
-            const SizedBox(height: 18),
-            _buildSecuritySection(),
-            const SizedBox(height: 18),
-            _buildSystemMaintenanceSection(),
+            _buildOfflineSection(),
             const SizedBox(height: 18),
             _buildAuditLogsSection(),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildTierBDisclosureBanner() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF9EE),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFFFE0B2)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_outline_rounded, color: Color(0xFFB45309), size: 20),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'ค่าที่กรอกในหน้านี้ถูกบันทึกจริงแล้ว แต่ระบบยังไม่มีการบังคับใช้อัตโนมัติตามค่าเหล่านี้ '
-              '(เช่น ยังไม่ส่งแจ้งเตือนผ่านช่องทางที่เลือกจริง ยังไม่บังคับ MFA จริง) — ใช้เป็นค่าที่บันทึกไว้ '
-              'สำหรับอ้างอิง รอการเชื่อมต่อระบบจริงในแต่ละส่วนต่อไป',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.4,
-                color: Color(0xFF92400E),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -338,7 +237,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
           ),
           const SizedBox(height: 14),
           const Text(
-            'กำหนดเกณฑ์ความปลอดภัย การแจ้งเตือน และนโยบายระบบ',
+            'ค่ากลางของระบบที่มีผลจริงกับทุกโรงเรียน',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
@@ -348,7 +247,7 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            'ปรับแต่งค่าเกณฑ์เซนเซอร์ (Thresholds) ความถี่การสำรองข้อมูล และนโยบายความปลอดภัยของระบบ AIoT Smart Lab',
+            'ตอนนี้มีค่าเดียวที่ระบบอ่านไปใช้จริง: เกณฑ์เวลาที่ถือว่าอุปกรณ์ออฟไลน์ (ใช้ในสถานะอุปกรณ์ทุกหน้า)',
             style: TextStyle(
               color: Colors.white.withAlpha(210),
               fontSize: 13,
@@ -376,15 +275,6 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
                 label: const Text('บันทึกการตั้งค่า',
                     style: TextStyle(fontWeight: FontWeight.w800)),
               ),
-              OutlinedButton.icon(
-                onPressed: _restoreDefaults,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withAlpha(160)),
-                ),
-                icon: const Icon(Icons.restore_rounded),
-                label: const Text('เรียกคืนค่าเริ่มต้น'),
-              ),
             ],
           ),
         ],
@@ -392,193 +282,27 @@ class _SuperAdminSettingsPageState extends State<SuperAdminSettingsPage> {
     );
   }
 
-  Widget _buildThresholdsSection() {
+  Widget _buildOfflineSection() {
     return _panel(
-      title: 'เกณฑ์แจ้งเตือนเซนเซอร์ (Sensor Thresholds)',
+      title: 'เกณฑ์อุปกรณ์ออฟไลน์',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: _pmController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'เกณฑ์ PM2.5 สูงสุด (µg/m³)',
-              prefixIcon: Icon(Icons.air_rounded),
-              helperText: 'หากค่าเกินเกณฑ์จะแจ้งเตือนระดับสูง (High Alert)',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _temperatureController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'เกณฑ์อุณหภูมิห้องควบคุมสูงสุด (°C)',
-              prefixIcon: Icon(Icons.thermostat_rounded),
-              helperText: 'ค่าอุณหภูมิปกติไม่ควรเกิน 45°C',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _mq2Controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'เกณฑ์ควันและแก๊ส MQ-2 (Volt)',
-              prefixIcon: Icon(Icons.local_fire_department_rounded),
-              helperText: 'แรงดันไฟฟ้าเซนเซอร์เกินเกณฑ์จะแจ้งเตือนวิกฤต (Critical)',
-            ),
-          ),
-          const SizedBox(height: 12),
           TextField(
             controller: _offlineMinutesController,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-              labelText: 'แจ้งเตือนอุปกรณ์ออฟไลน์หลัง (นาที)',
+              labelText: 'ถือว่าออฟไลน์เมื่อไม่รายงานตัวเกิน (นาที)',
               prefixIcon: Icon(Icons.wifi_off_rounded),
-              helperText: 'อุปกรณ์ที่ไม่ส่งข้อมูลเกินเวลานี้จะถูกแจ้งเตือนว่าออฟไลน์',
+              helperText:
+                  'device_effective_status ใช้ค่านี้คำนวณสถานะ online/offline '
+                  'ที่แสดงในหน้าอุปกรณ์ของทุกบทบาท',
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMqttSection() {
-    return _panel(
-      title: 'การเชื่อมต่อ MQTT / Local Gateway',
-      child: Column(
-        children: [
-          TextField(
-            controller: _mqttHostController,
-            decoration: const InputDecoration(
-              labelText: 'MQTT Host',
-              prefixIcon: Icon(Icons.dns_rounded),
-              helperText: 'ที่อยู่ IP ของ Local Gateway ที่รับส่งข้อมูลอุปกรณ์',
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _mqttPortController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'MQTT Port',
-              prefixIcon: Icon(Icons.numbers_rounded),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNotificationSection() {
-    return _panel(
-      title: 'ช่องทางการแจ้งเตือนอัตโนมัติ (Alert Channels)',
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('แจ้งเตือนผ่าน LINE Notify / LINE Bot',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('ส่งข้อความแจ้งเตือนเหตุวิกฤตไปยังกลุ่มผู้ดูแล'),
-            value: _lineNotify,
-            activeColor: AppPalette.deepBlue,
-            onChanged: (val) => setState(() => _lineNotify = val),
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: const Text('แจ้งเตือนทางอีเมล (Email Alerts)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('ส่งสรุปรายงานรายวันและเหตุการณ์สำคัญ'),
-            value: _emailNotify,
-            activeColor: AppPalette.deepBlue,
-            onChanged: (val) => setState(() => _emailNotify = val),
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: const Text('แจ้งเตือนแบบพุชบนมือถือ (Push Notification)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('ส่งการแจ้งเตือนไปยังแอปพลิเคชันทันที'),
-            value: _pushNotify,
-            activeColor: AppPalette.deepBlue,
-            onChanged: (val) => setState(() => _pushNotify = val),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSecuritySection() {
-    return _panel(
-      title: 'นโยบายความปลอดภัยและระบบ (Security & Policy)',
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('บังคับเปิด MFA สำหรับบัญชีผู้ดูแล (MFA Enforcement)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('Super Admin และ School Admin ต้องยืนยันตัวตนสองขั้นตอน'),
-            value: _twoFactorRequired,
-            activeColor: AppPalette.deepBlue,
-            onChanged: (val) => setState(() => _twoFactorRequired = val),
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: const Text('โหมดปิดปรับปรุงระบบ (Maintenance Mode)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('จำกัดการเข้าถึงเฉพาะ Super Admin ชั่วคราว'),
-            value: _maintenanceMode,
-            activeColor: AppPalette.carnivalRed,
-            onChanged: (val) => setState(() => _maintenanceMode = val),
-          ),
-          const Divider(),
-          SwitchListTile(
-            title: const Text('บันทึกประวัติการดำเนินการ (Audit Logging)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: const Text('บันทึกคำสั่งควบคุมและแก้ไขสิทธิ์ลงระบบอย่างถาวร'),
-            value: _auditLogEnabled,
-            activeColor: AppPalette.deepBlue,
-            onChanged: (val) => setState(() => _auditLogEnabled = val),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSystemMaintenanceSection() {
-    return _panel(
-      title: 'ระบบและการสำรองข้อมูล (System & Maintenance)',
-      child: Column(
-        children: [
-          SwitchListTile(
-            title: const Text('สำรองข้อมูลอัตโนมัติประจำวัน (Daily Auto Backup)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text('รอบเวลาสำรองข้อมูล: $_backupTime'),
-            value: _automaticBackup,
-            activeColor: AppPalette.deepBlue,
-            onChanged: (val) => setState(() => _automaticBackup = val),
-          ),
-          const Divider(),
-          ListTile(
-            title: const Text('ภาษาของระบบ',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            trailing: Text(_language,
-                style: const TextStyle(
-                    color: AppPalette.textSecondary,
-                    fontWeight: FontWeight.w600)),
-          ),
-          const Divider(),
-          ListTile(
-            title: const Text('เขตเวลา (Timezone)',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            trailing: Text(_timezone,
-                style: const TextStyle(
-                    color: AppPalette.textSecondary,
-                    fontWeight: FontWeight.w600)),
-          ),
-          const Divider(),
-          ListTile(
-            title: const Text('ระยะเวลาจัดเก็บ Log',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            trailing: Text(_logRetention,
-                style: const TextStyle(
-                    color: AppPalette.textSecondary,
-                    fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(
+            'ค่าที่บันทึกในระบบตอนนี้: $_savedOfflineMinutes นาที',
+            style: const TextStyle(fontSize: 12, color: AppPalette.textSecondary),
           ),
         ],
       ),

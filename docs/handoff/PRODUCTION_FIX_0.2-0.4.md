@@ -252,6 +252,14 @@ npx supabase db query --linked "select count(*) from pg_proc where proname in ('
 
 ตรวจ: `select count(*) from pg_proc where proname='list_lesson_progress'` → `1`
 
+### ขั้น 4.3 — migration Super Admin 100% (2026-09-16) — 1 ไฟล์
+
+`20260916020000_offline_minutes_enforced.sql` — เขียนทับ `device_effective_status()` ให้อ่าน
+`platform_settings.offline_minutes` แทนค่าตายตัว 5 นาที (ค่าใน prod ตอนนี้คือ 5 อยู่แล้ว →
+พฤติกรรมไม่เปลี่ยนจนกว่า Super Admin จะแก้ค่าในหน้าตั้งค่า) ไม่แตะข้อมูล
+
+ตรวจ: `select device_effective_status('online', now() - interval '8 minutes')` → `offline`
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้
