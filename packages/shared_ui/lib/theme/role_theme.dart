@@ -49,6 +49,16 @@ ThemeData buildRoleTheme(RoleColors colors) {
 
   return ThemeData(
     useMaterial3: true,
+    // Flutter's default (Roboto) has no Thai glyphs, so unset text silently
+    // fell back to whatever font each OS/browser substitutes for Thai —
+    // different on every device and never actually chosen by anyone.
+    // Referenced by name (not `GoogleFonts.notoSansThai().fontFamily`) so
+    // this package doesn't need to depend on google_fonts and so building
+    // this ThemeData never triggers a font fetch — the actual dynamic load
+    // that registers 'NotoSansThai' happens once, in the app's root
+    // `AppTheme.lightTheme` (apps/user_app/lib/theme/app_theme.dart), which
+    // always builds before any role-specific Theme() wraps a subtree.
+    fontFamily: 'NotoSansThai',
     colorScheme: colorScheme,
     scaffoldBackgroundColor: colors.background,
     appBarTheme: AppBarTheme(

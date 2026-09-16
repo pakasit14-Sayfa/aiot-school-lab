@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ไฟล์นี้ใช้กำหนดธีมหลักของแอปทั้งหมด
 class AppTheme {
@@ -23,6 +24,13 @@ class AppTheme {
   // ธีมหลักของแอป
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
+
+    // Flutter default (Roboto) มีตัวอักษรไทยไม่ครบ — ข้อความไทยที่ไม่ได้
+    // กำหนด fontFamily ไว้เอง จึงถูกเบราว์เซอร์/OS แต่ละเครื่อง fallback
+    // ไปคนละฟอนต์กันเงียบ ๆ (ไม่เคยมีใครเลือกฟอนต์นี้จริงจัง) กำหนดไว้ตรงนี้
+    // ที่เดียวให้ทุกหน้าที่ไม่ได้ห่อ Theme ของตัวเอง (student/parent/teacher/
+    // executive/super_admin) เรนเดอร์เหมือนกันทุกเครื่อง
+    fontFamily: GoogleFonts.notoSansThai().fontFamily,
 
     // โทนสีหลักของแอป
     colorScheme: ColorScheme.fromSeed(

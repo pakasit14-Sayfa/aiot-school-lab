@@ -51,7 +51,12 @@ class AppPalette {
       useMaterial3: true,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
-      fontFamily: 'Arial',
+      // Arial has no Thai glyphs — every Thai character here was silently
+      // substituted by whatever font each OS/browser falls back to.
+      // Referenced by name, not `GoogleFonts.notoSansThai().fontFamily` —
+      // the actual dynamic load that registers 'NotoSansThai' happens once
+      // in the app's root `AppTheme.lightTheme`, which always builds first.
+      fontFamily: 'NotoSansThai',
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         backgroundColor: Colors.transparent,
