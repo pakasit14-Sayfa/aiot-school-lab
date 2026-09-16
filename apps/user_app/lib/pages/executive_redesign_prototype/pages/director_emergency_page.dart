@@ -719,8 +719,11 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         headerBg: const Color(0xFFFEF3C7),
         headerColor: const Color(0xFF92400E),
         isReal: _hasRealData,
+        // Was a snackbar saying "กำลังแสดง…" that showed nothing. Jump the
+        // history list to the open incidents instead — the same thing the
+        // "ปิดเหตุแล้ว" card does for closed ones.
         onTap: () {
-          _showMessage('กำลังแสดงเหตุการณ์ที่กำลังติดตามในระบบ');
+          setState(() => selectedFilter = 'กำลังช่วยเหลือ');
         },
       ),
       _EmergencySummaryData(
@@ -751,9 +754,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         headerBg: const Color(0xFFF3E8FF),
         headerColor: const Color(0xFF6D28D9),
         isReal: false,
-        onTap: () {
-          _showMessage('ยังไม่มีข้อมูลยืนยันความพร้อมของทีมครูเวร');
-        },
+        onTap: null,
       ),
     ];
 
@@ -1562,30 +1563,8 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          _showMessage(
-                            'ยังไม่เชื่อมกล้อง CCTV รายห้องจากหน้านี้ — ดูได้ที่เมนู "กล้องวงจรปิด"',
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.videocam_rounded,
-                          size: 16,
-                          color: Color(0xFFE11D48),
-                        ),
-                        label: const Text(
-                          'เปิดดูกล้อง CCTV ห้องนี้',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFE11D48),
-                          ),
-                        ),
-                      ),
-                    ),
+                    // "เปิดดูกล้อง CCTV ห้องนี้" was here, enabled, and only
+                    // raised a snackbar — there is no per-room camera link.
                   ],
                 );
 
@@ -1879,6 +1858,8 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
           // Bottom Action Bar to match right card
           Row(
             children: [
+              // "แผนที่จุดเกิดเหตุ" (no map backend) was the first button
+              // in this row; it only raised a snackbar and is gone.
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
@@ -1889,38 +1870,13 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
+                  // Used to say "กำลังเปิดรายงาน…" and open nothing. The
+                  // history list further down is real; show all of it.
                   onPressed: () {
-                    _showMessage('แผนที่จุดเกิดเหตุยังไม่เปิดใช้งานในระบบนี้');
-                  },
-                  icon: const Icon(
-                    Icons.map_rounded,
-                    size: 14,
-                    color: Color(0xFF0284C7),
-                  ),
-                  label: const Text(
-                    'แผนที่จุดเกิดเหตุ',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    padding: const EdgeInsets.symmetric(vertical: 9.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () {
-                    _showMessage(
-                      'กำลังเปิดรายงานการติดตามเหตุการณ์ย้อนหลัง...',
-                    );
+                    setState(() {
+                      selectedFilter = 'ทั้งหมด';
+                      searchText = '';
+                    });
                   },
                   icon: const Icon(
                     Icons.history_rounded,
@@ -2321,68 +2277,8 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
             ),
           ),
 
-          const SizedBox(height: 10),
-
-          // Bottom Action Bar
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF059669),
-                    side: const BorderSide(color: Color(0xFFA7F3D0)),
-                    padding: const EdgeInsets.symmetric(vertical: 9.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () {
-                    _showMessage('ยังไม่มีระบบโทรออกจากในแอปนี้');
-                  },
-                  icon: const Icon(
-                    Icons.phone_rounded,
-                    size: 14,
-                    color: Color(0xFF059669),
-                  ),
-                  label: const Text(
-                    'โทรครูเวร',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFE11D48),
-                    side: const BorderSide(color: Color(0xFFFECDD3)),
-                    padding: const EdgeInsets.symmetric(vertical: 9.5),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () {
-                    _showMessage('ยังไม่มีระบบส่งสัญญาณแจ้งเตือนซ้ำในแอปนี้');
-                  },
-                  icon: const Icon(
-                    Icons.notifications_active_rounded,
-                    size: 14,
-                    color: Color(0xFFE11D48),
-                  ),
-                  label: const Text(
-                    'แจ้งเตือนซ้ำ',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          // "โทรครูเวร" and "แจ้งเตือนซ้ำ" sat here as live buttons with no
+          // dialer or re-broadcast behind them (snackbar only). Removed.
         ],
       ),
     );
@@ -3325,109 +3221,9 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 14),
-
-                                  // Quick tactical buttons (CCTV + Call Teacher)
-                                  LayoutBuilder(
-                                    builder: (context, c) {
-                                      final isCompact = c.maxWidth < 430;
-
-                                      final cctv = OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(
-                                            0xFFE11D48,
-                                          ),
-                                          side: const BorderSide(
-                                            color: Color(0xFFFDA4AF),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        onPressed: () {
-                                          Navigator.pop(dialogContext);
-                                          _showMessage(
-                                            'ยังไม่เชื่อมกล้อง CCTV รายห้องจากหน้านี้ — ดูได้ที่เมนู "กล้องวงจรปิด"',
-                                          );
-                                        },
-                                        icon: const Icon(
-                                          Icons.videocam_rounded,
-                                          size: 16,
-                                        ),
-                                        label: const Text(
-                                          'เปิดกล้อง CCTV ห้องนี้',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      );
-
-                                      final call = OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(
-                                            0xFF2563EB,
-                                          ),
-                                          side: const BorderSide(
-                                            color: Color(0xFFBFDBFE),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                          ),
-                                        ),
-                                        onPressed: () {
-                                          _showMessage(
-                                            'ยังไม่มีระบบโทรออกจากในแอปนี้',
-                                          );
-                                        },
-                                        icon: const Icon(
-                                          Icons.phone_in_talk_rounded,
-                                          size: 16,
-                                        ),
-                                        label: const Text(
-                                          'โทรด่วนหาครูประจำห้อง',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      );
-
-                                      if (isCompact) {
-                                        return Column(
-                                          children: [
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: cctv,
-                                            ),
-                                            const SizedBox(height: 8),
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: call,
-                                            ),
-                                          ],
-                                        );
-                                      }
-
-                                      return Row(
-                                        children: [
-                                          Expanded(child: cctv),
-                                          const SizedBox(width: 10),
-                                          Expanded(child: call),
-                                        ],
-                                      );
-                                    },
-                                  ),
+                                  // "เปิดกล้อง CCTV" / "โทรด่วนหาครูประจำห้อง"
+                                  // were here — enabled, snackbar-only. Gone
+                                  // until a camera link or dialer exists.
                                   const SizedBox(height: 16),
 
                                   // Section 3: ขั้นตอนตอบสนองและไทม์ไลน์
@@ -3468,15 +3264,12 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                                     'sos_detail_opened_without_active_incident',
                                                   ));
 
-                                      final broadcastTime =
-                                          activeIncident != null
-                                          ? '${activeIncident.createdAt.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.createdAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeIncident.createdAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
-                                          : (activeEvt != null
-                                                ? '${activeEvt.triggeredAt.toLocal().hour.toString().padLeft(2, "0")}:${activeEvt.triggeredAt.toLocal().minute.toString().padLeft(2, "0")}:${(activeEvt.triggeredAt.toLocal().second + 1).clamp(0, 59).toString().padLeft(2, "0")} น.'
-                                                : throw StateError(
-                                                    'sos_detail_opened_without_active_incident',
-                                                  ));
-
+                                      // There used to be a "broadcastTime"
+                                      // here: createdAt + 1 second, shown
+                                      // as the moment the alert was "sent
+                                      // via app and urgent messaging". No
+                                      // such send is recorded anywhere, so
+                                      // the step now states only what is.
                                       final ackTime =
                                           activeIncident?.acknowledgedAt != null
                                           ? '${activeIncident!.acknowledgedAt!.toLocal().hour.toString().padLeft(2, "0")}:${activeIncident.acknowledgedAt!.toLocal().minute.toString().padLeft(2, "0")} น. (ผู้อำนวยการ/ครูรับเรื่องแล้ว)'
@@ -3498,15 +3291,6 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                           _sosTimelineItem(
                                             stepNumber: '2',
                                             title:
-                                                'ส่งสัญญาณแจ้งผู้อำนวยการและครูเวร',
-                                            subtitle:
-                                                '$broadcastTime (ส่งผ่านแอปและระบบข้อความด่วน)',
-                                            isDone: true,
-                                            isCurrent: false,
-                                          ),
-                                          _sosTimelineItem(
-                                            stepNumber: '3',
-                                            title:
                                                 'ผู้อำนวยการรับ SOS และเข้าคุมเหตุการณ์',
                                             subtitle: ackTime,
                                             isDone:
@@ -3520,15 +3304,19 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                                         ?.acknowledgedAt ==
                                                     null,
                                           ),
+                                          // Was "ครูห้องพยาบาลและครูเวรเข้า
+                                          // พื้นที่ · กำลังเข้าพื้นที่พร้อมชุด
+                                          // ปฐมพยาบาล" — a claim about people
+                                          // moving that nothing in the system
+                                          // records. Only the close is real.
                                           _sosTimelineItem(
-                                            stepNumber: '4',
-                                            title:
-                                                'ครูห้องพยาบาลและครูเวรเข้าพื้นที่',
+                                            stepNumber: '3',
+                                            title: 'ปิดเหตุการณ์ในระบบ',
                                             subtitle: sosResolved
-                                                ? 'ดำเนินการปฐมพยาบาลและดูแลนักเรียนเรียบร้อย'
+                                                ? 'บันทึกปิดเหตุแล้ว'
                                                 : (sosAccepted
-                                                      ? 'กำลังเข้าพื้นที่พร้อมชุดปฐมพยาบาล'
-                                                      : 'รอดำเนินการสั่งการ'),
+                                                      ? 'รอผู้อำนวยการกดปิดเหตุเมื่อจัดการเรียบร้อย'
+                                                      : 'รอรับเรื่องก่อน'),
                                             isDone: sosResolved,
                                             isCurrent:
                                                 sosAccepted && !sosResolved,
@@ -3563,34 +3351,26 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                           ),
                                         ),
                                       ),
-                                      const Spacer(),
-                                      _demoBadge(),
                                     ],
                                   ),
                                   const SizedBox(height: 8),
 
-                                  _sosTeamRow(
-                                    name: 'ครูเวรอาคาร 3',
-                                    role: 'เข้าคุมพื้นที่และดูแลความเรียบร้อย',
-                                    status: 'ได้รับแจ้งแล้ว',
-                                    statusColor: const Color(0xFF059669),
-                                    statusBg: const Color(0xFFD1FAE5),
-                                  ),
-                                  _sosTeamRow(
-                                    name: 'ฝ่ายกิจการนักเรียน / ครูปกครอง',
-                                    role:
-                                        'ประสานงานและดูแลความปลอดภัยในจุดเกิดเหตุ',
-                                    status: 'ได้รับแจ้งแล้ว',
-                                    statusColor: const Color(0xFF059669),
-                                    statusBg: const Color(0xFFD1FAE5),
-                                  ),
-                                  _sosTeamRow(
-                                    name: 'ครูห้องพยาบาล / อนามัยโรงเรียน',
-                                    role:
-                                        'เตรียมเวชภัณฑ์และเข้าปฐมพยาบาลเบื้องต้น',
-                                    status: 'Standby พร้อม',
-                                    statusColor: const Color(0xFF2563EB),
-                                    statusBg: const Color(0xFFDBEAFE),
+                                  // Three hardcoded rows lived here —
+                                  // "ครูเวรอาคาร 3 · ได้รับแจ้งแล้ว",
+                                  // "ครูห้องพยาบาล · Standby พร้อม" — under a
+                                  // demo badge, on top of a real SOS. There is
+                                  // no duty roster or notify-receipt table, so
+                                  // the section says exactly that, matching
+                                  // the response-team card on the main page.
+                                  const Text(
+                                    'ระบบยังไม่มีตารางเวรและการยืนยันรับแจ้งของผู้รับผิดชอบ '
+                                    'จึงยังบอกไม่ได้ว่าใครได้รับแจ้งหรืออยู่ในพื้นที่แล้ว '
+                                    'กรุณาประสานงานตามช่องทางของโรงเรียนโดยตรง',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      height: 1.5,
+                                      color: Color(0xFF64748B),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -4011,74 +3791,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
     );
   }
 
-  Widget _sosTeamRow({
-    required String name,
-    required String role,
-    required String status,
-    required Color statusColor,
-    required Color statusBg,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: statusColor,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                Text(
-                  role,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                color: statusColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showEventDetail(_EmergencyEvent item) {
     showGeneralDialog<void>(
@@ -4500,7 +4213,7 @@ class _EmergencySummaryData {
   final IconData icon;
   final Color headerBg;
   final Color headerColor;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool isReal;
 
   const _EmergencySummaryData({

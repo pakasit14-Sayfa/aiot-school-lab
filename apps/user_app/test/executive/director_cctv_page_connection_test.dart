@@ -19,6 +19,16 @@ const _offlineCamera = DeviceOption(
   status: 'offline',
 );
 
+// A real location string from the seeded camera — the old const filter list
+// ('อาคาร 1', 'อาคาร 2', ...) could never equal it.
+const _realLocationCamera = DeviceOption(
+  id: 'cam-3',
+  name: 'กล้อง CCTV ทางเข้าหลัก',
+  type: 'camera',
+  location: 'อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก',
+  status: 'online',
+);
+
 const _nonCameraDevice = DeviceOption(
   id: 'dev-1',
   name: 'เซนเซอร์ PM2.5',
@@ -123,4 +133,65 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'the building filter offers the real locations and keeps the matching camera',
+    (tester) async {
+      await _pump(
+        tester,
+        listSchoolDevices: () async => const [_realLocationCamera, _onlineCamera],
+      );
+      expect(find.text('กล้อง CCTV ทางเข้าหลัก'), findsOneWidget);
+
+      // Open the building dropdown: every option must be a real location.
+      await tester.tap(find.text('ทุกอาคาร'));
+      await tester.pumpAndSettle();
+      expect(find.text('อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก'), findsWidgets);
+      expect(find.text('สนามกีฬา'), findsNothing);
+      expect(find.text('ทางเข้าโรงเรียน'), findsNothing);
+
+      await tester.tap(find.text('อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก').last);
+      await tester.pumpAndSettle();
+
+      // The chosen building still shows its camera — the old const list
+      // filtered every real camera out.
+      expect(find.text('กล้อง CCTV ทางเข้าหลัก'), findsOneWidget);
+      expect(find.text('ทางเข้าอาคาร 1'), findsNothing);
+      expect(find.text('พบ 1 กล้อง'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a failed camera load is an error with retry, not "no cameras"', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pump(
+      tester,
+      listSchoolDevices: () async {
+        calls++;
+        if (calls == 1) throw StateError('backend-secret');
+        return const [_onlineCamera];
+      },
+    );
+    expect(find.text('ยังไม่มีกล้องในระบบนี้'), findsNothing);
+    expect(find.text('โหลดรายชื่อกล้องไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('backend-secret'), findsNothing);
+
+    await tester.tap(find.text('ลองใหม่').first);
+    await tester.pumpAndSettle();
+    expect(calls, 2, reason: 'retry must re-issue the load');
+    expect(find.text('ทางเข้าอาคาร 1'), findsOneWidget);
+    expect(find.text('โหลดรายชื่อกล้องไม่สำเร็จ'), findsNothing);
+  });
+
+  testWidgets('the camera detail has no inert record/playback/fullscreen buttons', (
+    tester,
+  ) async {
+    await _pump(tester, listSchoolDevices: () async => const [_onlineCamera]);
+    await tester.tap(find.text('ทางเข้าอาคาร 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('บันทึกภาพ'), findsNothing);
+    expect(find.text('Playback'), findsNothing);
+    expect(find.text('เต็มจอ'), findsNothing);
+  });
 }

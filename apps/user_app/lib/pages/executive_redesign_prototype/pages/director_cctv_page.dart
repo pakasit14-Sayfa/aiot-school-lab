@@ -25,6 +25,9 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
 
   List<CameraAccessGrantItem> _grants = [];
   bool _loadingGrants = false;
+  // A failed load must not read as "no grants" — the two look identical
+  // without this flag.
+  bool _grantsFailed = false;
 
   // เดิมทั้ง 8 กล้อง/สถานะ/เวลาอัปเดตเป็นค่าคงที่ปลอมทั้งหมด (aiEnabled/
   // recording/alertCount/lastUpdate ก็เช่นกัน) ทำให้ ผอ. เข้าใจว่ากำลังดู
@@ -33,6 +36,10 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   // ไม่มีข้อมูลจริงรองรับเลย (AI/บันทึก/แจ้งเตือน/เวลาอัปเดต) ใส่ค่ากลาง
   // ที่สื่อว่า "ไม่มีข้อมูล" แทนการแต่งค่าที่ดูสมจริงขึ้นมา
   bool _camerasLoading = true;
+  // Same reason as _grantsFailed: a backend that is down used to render as
+  // "ยังไม่มีกล้องในระบบนี้", which is the opposite of what the director
+  // needs to know.
+  bool _camerasFailed = false;
   List<_CameraData> cameras = const [];
 
   @override
@@ -43,7 +50,10 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
   }
 
   Future<void> _loadGrants() async {
-    setState(() => _loadingGrants = true);
+    setState(() {
+      _loadingGrants = true;
+      _grantsFailed = false;
+    });
     try {
       final list = await ExecutiveService.listCameraAccessGrants();
       if (mounted) {
@@ -52,13 +62,22 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           _loadingGrants = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loadingGrants = false);
+    } catch (e) {
+      debugPrint('DirectorCctvPage grants load failed: $e');
+      if (mounted) {
+        setState(() {
+          _loadingGrants = false;
+          _grantsFailed = true;
+        });
+      }
     }
   }
 
   Future<void> _loadCameras() async {
-    setState(() => _camerasLoading = true);
+    setState(() {
+      _camerasLoading = true;
+      _camerasFailed = false;
+    });
     try {
       final listDevices =
           widget.listSchoolDevices ?? LessonService.listSchoolDevices;
@@ -87,19 +106,32 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             )
             .toList();
         _camerasLoading = false;
+        // The building options are derived from `cameras`; a stale choice
+        // would leave the dropdown holding a value it no longer offers.
+        if (!buildings.contains(selectedBuilding)) {
+          selectedBuilding = 'ทุกอาคาร';
+        }
       });
-    } catch (_) {
-      if (mounted) setState(() => _camerasLoading = false);
+    } catch (e) {
+      debugPrint('DirectorCctvPage cameras load failed: $e');
+      if (mounted) {
+        setState(() {
+          _camerasLoading = false;
+          _camerasFailed = true;
+          cameras = const [];
+        });
+      }
     }
   }
 
-  final List<String> buildings = const [
+  // Was a const list ('อาคาร 1', 'อาคาร 2', 'สนามกีฬา', ...) compared with
+  // `device.location`, whose real values look like
+  // 'อาคาร 3 (วิทยาศาสตร์) · ทางเข้าหลัก' — so picking any building hid every
+  // camera. The options now come from the cameras actually loaded, so each
+  // one matches at least one camera by construction.
+  List<String> get buildings => [
     'ทุกอาคาร',
-    'อาคาร 1',
-    'อาคาร 2',
-    'อาคาร 3',
-    'สนามกีฬา',
-    'ทางเข้าโรงเรียน',
+    ...{for (final c in cameras) c.building}.toList()..sort(),
   ];
 
   final List<String> statuses = const ['ทุกสถานะ', 'Online', 'Offline'];
@@ -174,7 +206,9 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
         : online == 0
         ? AppPalette.danger
         : AppPalette.warning;
-    final String headline = total == 0
+    final String headline = _camerasFailed
+        ? 'โหลดรายชื่อกล้องไม่สำเร็จ'
+        : total == 0
         ? 'ยังไม่มีกล้องในระบบนี้'
         : offline == 0
         ? 'กล้องทั้งหมด $total ตัว ทำงานออนไลน์ครบ'
@@ -526,6 +560,11 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_camerasFailed)
+            _loadFailedBox(
+              'โหลดรายชื่อกล้องไม่สำเร็จ — ยังไม่ทราบว่ามีกล้องกี่ตัว',
+              onRetry: _loadCameras,
             )
           else ...[
             _filters(),
@@ -1125,42 +1164,10 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.end,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          _showMessage('ยังไม่มีระบบบันทึกภาพจากกล้องในแอปนี้');
-                        },
-                        icon: const Icon(Icons.camera_alt_outlined, size: 16),
-                        label: const Text('บันทึกภาพ'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          _showMessage(
-                            'ยังไม่มีระบบเปิดดูภาพย้อนหลัง (Playback) ในแอปนี้',
-                          );
-                        },
-                        icon: const Icon(Icons.history_rounded, size: 16),
-                        label: const Text('Playback'),
-                      ),
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppPalette.primaryPink,
-                        ),
-                        onPressed: () {
-                          _showMessage(
-                            'ยังไม่มีระบบเปิดดูภาพกล้องแบบเต็มจอในแอปนี้',
-                          );
-                        },
-                        icon: const Icon(Icons.fullscreen_rounded, size: 17),
-                        label: const Text('เต็มจอ'),
-                      ),
-                    ],
-                  ),
+                  // บันทึกภาพ / Playback / เต็มจอ used to sit here as live
+                  // buttons that only raised a "ยังไม่มีระบบ…" snackbar. There
+                  // is no recording, playback or stream backend, so per the
+                  // DoD they are gone rather than clickable-and-inert.
                 ],
               ),
             ),
@@ -1384,12 +1391,29 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
-  void _showMessage(String message) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+  Widget _loadFailedBox(String text, {required VoidCallback onRetry}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECDD3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, size: 18, color: AppPalette.danger),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(fontSize: 11, color: AppPalette.danger),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('ลองใหม่')),
+        ],
+      ),
+    );
   }
 
   Widget _accessGrantsSection() {
@@ -1453,7 +1477,12 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
             ],
           ),
           const SizedBox(height: 14),
-          if (_grants.isEmpty && !_loadingGrants)
+          if (_grantsFailed && !_loadingGrants)
+            _loadFailedBox(
+              'โหลดรายการสิทธิ์ไม่สำเร็จ — ยังไม่ทราบว่ามีสิทธิ์ค้างอยู่หรือไม่',
+              onRetry: _loadGrants,
+            )
+          else if (_grants.isEmpty && !_loadingGrants)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),

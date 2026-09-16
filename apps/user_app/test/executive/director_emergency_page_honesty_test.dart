@@ -141,6 +141,77 @@ void main() {
     expect(find.textContaining('SOS จากนักเรียน ห้อง ม.3/2'), findsNothing);
   });
 
+  testWidgets('no button is left that only raises a "ยังไม่มีระบบ…" snackbar', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      events: () async => const [],
+      summary: () async => const [],
+      incidents: () async => [
+        TeacherIncidentReport(
+          id: 'incident-1',
+          category: IncidentCategory.sos,
+          room: 'ม.3/2',
+          status: 'acknowledged',
+          reporterName: 'นักเรียนทดสอบ',
+          createdAt: DateTime.utc(2026, 9, 7, 8),
+        ),
+      ],
+    );
+    for (final label in [
+      'แผนที่จุดเกิดเหตุ',
+      'โทรครูเวร',
+      'แจ้งเตือนซ้ำ',
+      'เปิดดูกล้อง CCTV ห้องนี้',
+    ]) {
+      expect(find.text(label), findsNothing, reason: label);
+    }
+
+    // "ประวัติเหตุการณ์" used to say "กำลังเปิดรายงาน…" and open nothing;
+    // now it resets the real history list to show everything.
+    await tester.tap(find.text('ปิดเหตุแล้ว').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ประวัติเหตุการณ์'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('กำลังเปิดรายงาน'), findsNothing);
+    expect(find.text('SOS จากนักเรียน'), findsWidgets);
+  });
+
+  testWidgets('the SOS detail does not invent a notified team or a broadcast', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      events: () async => const [],
+      summary: () async => const [],
+      incidents: () async => [
+        TeacherIncidentReport(
+          id: 'incident-1',
+          category: IncidentCategory.sos,
+          room: 'ม.3/2',
+          status: 'acknowledged',
+          reporterName: 'นักเรียนทดสอบ',
+          createdAt: DateTime.utc(2026, 9, 7, 8),
+        ),
+      ],
+    );
+    await tester.tap(find.text('✓ ผอ. รับเรื่องแล้ว'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ครูเวรอาคาร 3'), findsNothing);
+    expect(find.textContaining('ครูห้องพยาบาล / อนามัยโรงเรียน'), findsNothing);
+    expect(find.text('ได้รับแจ้งแล้ว'), findsNothing);
+    expect(find.text('Standby พร้อม'), findsNothing);
+    expect(find.textContaining('ส่งผ่านแอปและระบบข้อความด่วน'), findsNothing);
+    expect(find.textContaining('กำลังเข้าพื้นที่พร้อมชุดปฐมพยาบาล'), findsNothing);
+    expect(find.text('โทรด่วนหาครูประจำห้อง'), findsNothing);
+    expect(
+      find.textContaining('ยังไม่มีตารางเวรและการยืนยันรับแจ้ง'),
+      findsOneWidget,
+    );
+  });
+
   group('closing an SOS', () {
     final openIncident = TeacherIncidentReport(
       id: 'incident-1',
