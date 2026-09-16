@@ -84,6 +84,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
     int selectedDay = 0; // Monday
     TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 30);
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
+    String periodType = 'regular';
     final roomController = TextEditingController();
 
     // Default room from course if available
@@ -240,6 +241,25 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
+                    const SizedBox(height: 14),
+
+                    const Text('ประเภทคาบ:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('ปกติ'),
+                          selected: periodType == 'regular',
+                          onSelected: (_) => setDialogState(() => periodType = 'regular'),
+                        ),
+                        ChoiceChip(
+                          label: const Text('กิจกรรม & แล็บ'),
+                          selected: periodType == 'activity_lab',
+                          onSelected: (_) => setDialogState(() => periodType = 'activity_lab'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -269,6 +289,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         startTime: startStr,
                         endTime: endStr,
                         room: roomController.text.trim().isNotEmpty ? roomController.text.trim() : null,
+                        periodType: periodType,
                       );
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -283,6 +304,175 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('บันทึกคาบเรียนไม่สำเร็จ')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TeacherPalette.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('บันทึก'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // บันทึกช่วงเตรียมสอนของตัวเอง (staff_prep_blocks) — ไม่ผูกกับวิชาไหน
+  // เพราะเตรียมสอนไม่ใช่คาบเรียนจริง ต่างจากตารางเรียนด้านบน ใช้เติมข้อมูล
+  // จริงให้หมวด "เตรียมสอน/ประชุม" ในการ์ดภาพรวมของผู้บริหาร
+  Future<void> _openAddPrepBlockDialog() async {
+    DateTime date = DateTime.now();
+    TimeOfDay startTime = TimeOfDay.now();
+    TimeOfDay endTime = TimeOfDay(hour: (TimeOfDay.now().hour + 1) % 24, minute: TimeOfDay.now().minute);
+    final labelController = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String formatTime(TimeOfDay t) =>
+                '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.edit_calendar_rounded, color: TeacherPalette.primary),
+                  SizedBox(width: 8),
+                  Text('บันทึกช่วงเตรียมสอน', style: TextStyle(fontWeight: FontWeight.w800)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('วันที่:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: date,
+                          firstDate: DateTime(now.year - 1),
+                          lastDate: DateTime(now.year + 1),
+                        );
+                        if (picked != null) setDialogState(() => date = picked);
+                      },
+                      icon: const Icon(Icons.calendar_today_rounded, size: 16),
+                      label: Text('${date.day}/${date.month}/${date.year}'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('เวลาเริ่ม:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const SizedBox(height: 6),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  final picked = await showTimePicker(context: context, initialTime: startTime);
+                                  if (picked != null) setDialogState(() => startTime = picked);
+                                },
+                                icon: const Icon(Icons.access_time_rounded, size: 16),
+                                label: Text(formatTime(startTime)),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('เวลาสิ้นสุด:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const SizedBox(height: 6),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  final picked = await showTimePicker(context: context, initialTime: endTime);
+                                  if (picked != null) setDialogState(() => endTime = picked);
+                                },
+                                icon: const Icon(Icons.access_time_rounded, size: 16),
+                                label: Text(formatTime(endTime)),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text('รายละเอียด (ถ้ามี):', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: labelController,
+                      decoration: InputDecoration(
+                        hintText: 'เช่น เตรียมสอนหน่วยที่ 3',
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('ยกเลิก'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final startStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
+                    final endStr = '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
+                    if (startTime.hour > endTime.hour ||
+                        (startTime.hour == endTime.hour && startTime.minute >= endTime.minute)) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(dialogCtx);
+                    try {
+                      await ClassSubstitutionService.logPrepBlock(
+                        date: date,
+                        startTime: startStr,
+                        endTime: endStr,
+                        label: labelController.text.trim().isNotEmpty ? labelController.text.trim() : null,
+                      );
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('บันทึกช่วงเตรียมสอนเรียบร้อยแล้ว'),
+                          backgroundColor: TeacherPalette.primary,
+                        ),
+                      );
+                    } catch (e) {
+                      debugPrint('Error logging prep block: $e');
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('บันทึกไม่สำเร็จ')),
                       );
                     }
                   },
@@ -452,18 +642,35 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
             ),
           ),
           const SizedBox(width: 12),
-          ElevatedButton.icon(
-            onPressed: _openAddScheduleDialog,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('เพิ่มคาบเรียน'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: TeacherPalette.primary,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                onPressed: _openAddScheduleDialog,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('เพิ่มคาบเรียน'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: TeacherPalette.primary,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _openAddPrepBlockDialog,
+                icon: const Icon(Icons.edit_calendar_rounded, size: 16, color: Colors.white),
+                label: const Text('เตรียมสอน', style: TextStyle(color: Colors.white)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white70),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -655,13 +862,39 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    slot.subjectName,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF0F172A),
-                                    ),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          slot.subjectName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFF0F172A),
+                                          ),
+                                        ),
+                                      ),
+                                      if (slot.isActivityLab) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFDCFCE7),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'กิจกรรม & แล็บ',
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF059669),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(

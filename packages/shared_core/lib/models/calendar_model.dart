@@ -7,6 +7,7 @@ class ClassScheduleSlot {
     required this.startTime,
     required this.endTime,
     required this.room,
+    this.periodType = 'regular',
   });
 
   final String id;
@@ -16,6 +17,9 @@ class ClassScheduleSlot {
   final String startTime; // "09:00:00"
   final String endTime;
   final String? room;
+  final String periodType; // 'regular' | 'activity_lab'
+
+  bool get isActivityLab => periodType == 'activity_lab';
 
   static const dayLabels = [
     'จันทร์',
@@ -43,6 +47,7 @@ class ClassScheduleSlot {
         startTime: row['start_time'] as String,
         endTime: row['end_time'] as String,
         room: row['room'] as String?,
+        periodType: (row['period_type'] as String?) ?? 'regular',
       );
 }
 

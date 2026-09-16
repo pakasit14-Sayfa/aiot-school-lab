@@ -82,6 +82,8 @@ Future<void> _pump(
   List<StaffLeaveRequest>? pendingLeave,
   bool fail = false,
   bool attendanceFails = false,
+  PeriodsNeedingSubstituteLoader? loadPeriodsNeedingSubstitute,
+  RecordSubstitutionFn? recordSubstitution,
 }) async {
   tester.view.physicalSize = const Size(1500, 2600);
   tester.view.devicePixelRatio = 1;
@@ -105,6 +107,9 @@ Future<void> _pump(
           },
           loadLeaveRequests: () async =>
               pendingLeave ?? const <StaffLeaveRequest>[],
+          loadPeriodsNeedingSubstitute: loadPeriodsNeedingSubstitute ??
+              (_) async => const <PeriodNeedingSubstitute>[],
+          recordSubstitution: recordSubstitution,
         ),
       ),
     ),
@@ -160,6 +165,58 @@ void main() {
     expect(find.text('ยังไม่ได้สังกัดฝ่าย/กลุ่มสาระ'), findsOneWidget);
     // A department with nobody marked as head does not borrow one.
     expect(find.text('ยังไม่ได้ระบุหัวหน้ากลุ่มสาระ'), findsOneWidget);
+  });
+
+  testWidgets(
+    'roster card keeps role, contact and status that the old card showed',
+    (tester) async {
+      await _pump(
+        tester,
+        staff: [
+          _staff(
+            name: 'ครูรวมข้อมูล ทดสอบ',
+            position: 'ครูชำนาญการ',
+            status: 'suspended',
+          ),
+        ],
+      );
+
+      // Role + contact are consolidated onto one line under the position —
+      // not dropped when the per-person card collapsed into a table row.
+      expect(
+        find.textContaining('ครูผู้สอน · ครูรวมข้อมูล ทดสอบ@test.local'),
+        findsOneWidget,
+      );
+      // Also appears as a segmented-filter pill option now, not just the
+      // row's own status badge.
+      expect(find.text('ระงับการใช้งาน'), findsWidgets);
+    },
+  );
+
+  testWidgets('roster row reflows on a narrow screen without dropping data', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pump(
+      tester,
+      staff: [
+        _staff(
+          name: 'ครูจอเล็ก ทดสอบ',
+          admin: ['ฝ่ายวิชาการ'],
+          heads: ['ฝ่ายวิชาการ'],
+          position: 'ครูชำนาญการ',
+        ),
+      ],
+    );
+
+    expect(find.textContaining('ครูจอเล็ก ทดสอบ'), findsWidgets);
+    expect(find.text('ครูชำนาญการ'), findsWidgets);
+    expect(find.textContaining('หัวหน้า: ฝ่ายวิชาการ'), findsWidgets);
+    // Also appears as a segmented-filter pill option now, not just the row's
+    // own status badge.
+    expect(find.text('ใช้งานอยู่'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('counts are derived, and only from what exists', (tester) async {
@@ -293,11 +350,20 @@ void main() {
       reason: 'ตัวเลือกฝ่ายต้องมาจาก departments ที่โหลดมา',
     );
 
-    final statusDropdown = tester.widget<DropdownButton<String>>(
-      find.byType(DropdownButton<String>).at(2),
-    );
+    // Status is a segmented pill toggle, not a dropdown — scope to its own
+    // subtree since 'ใช้งานอยู่'/'ระงับการใช้งาน' also appear on the roster
+    // rows below it.
+    final statusLabels = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(const Key('statusSegmented')),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((t) => t.data)
+        .toList();
     expect(
-      statusDropdown.items?.map((i) => i.value).toList(),
+      statusLabels,
       ['ทุกสถานะ', 'ระงับการใช้งาน', 'ใช้งานอยู่'],
       reason: 'สถานะต้องเป็นสถานะบัญชีจริงที่ตัวกรองเทียบได้',
     );
@@ -324,4 +390,194 @@ void main() {
     expect(find.text('—'), findsWidgets);
     expect(find.textContaining('staff_unreachable'), findsNothing);
   });
+
+  // ครูสอนแทน — เดิมไม่มีตารางในระบบเลย เพิ่มมาพร้อม migration
+  // 20260910160000_teacher_workload_categories.sql
+  testWidgets('a clean day of coverage says so, not a fake percentage', (
+    tester,
+  ) async {
+    await _pump(tester);
+    expect(find.text('ไม่มีคาบที่ต้องจัดครูสอนแทนในวันนี้'), findsOneWidget);
+  });
+
+  testWidgets('an unreachable substitute-coverage read is stated, not blank', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadPeriodsNeedingSubstitute: (_) async =>
+          throw StateError('substitute_unreachable'),
+    );
+    expect(find.text('โหลดข้อมูลครูสอนแทนไม่สำเร็จ'), findsOneWidget);
+    expect(find.textContaining('substitute_unreachable'), findsNothing);
+  });
+
+  testWidgets(
+    'a period needing coverage shows the real teacher and room, with an assign action',
+    (tester) async {
+      await _pump(
+        tester,
+        loadPeriodsNeedingSubstitute: (_) async => const [
+          PeriodNeedingSubstitute(
+            classScheduleId: 'cs-1',
+            subjectName: 'คณิตศาสตร์',
+            gradeLevel: 'ม.2',
+            room: 'ม.2/1',
+            startTime: '10:30:00',
+            endTime: '11:30:00',
+            originalTeacherId: 'u-เดิม',
+            originalTeacherName: 'ครูเดิม ทดสอบ',
+            alreadyCovered: false,
+          ),
+        ],
+      );
+      expect(find.textContaining('คณิตศาสตร์'), findsOneWidget);
+      expect(find.textContaining('ม.2'), findsWidgets);
+      expect(find.textContaining('10:30-11:30'), findsOneWidget);
+      expect(find.textContaining('ครูเดิม ทดสอบ'), findsOneWidget);
+      expect(find.text('มอบหมายครูสอนแทน'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an already-covered period shows the substitute name, not a button',
+    (tester) async {
+      await _pump(
+        tester,
+        loadPeriodsNeedingSubstitute: (_) async => const [
+          PeriodNeedingSubstitute(
+            classScheduleId: 'cs-1',
+            subjectName: 'คณิตศาสตร์',
+            gradeLevel: 'ม.2',
+            room: 'ม.2/1',
+            startTime: '10:30:00',
+            endTime: '11:30:00',
+            originalTeacherId: 'u-เดิม',
+            originalTeacherName: 'ครูเดิม ทดสอบ',
+            alreadyCovered: true,
+            substituteTeacherName: 'ครูสอนแทน ทดสอบ',
+          ),
+        ],
+      );
+      expect(find.textContaining('ครูสอนแทน: ครูสอนแทน ทดสอบ'), findsOneWidget);
+      expect(find.text('มอบหมายครูสอนแทน'), findsNothing);
+    },
+  );
+
+  // red-team: record_class_substitution เดิมเขียนทับเงียบๆ ไม่มีร่องรอยว่าใคร
+  // เปลี่ยนอะไร — ตอนนี้ RPC คืน assigned_by_name/reassigned จริง ต้องเห็นบน UI
+  testWidgets(
+    'a first-time assignment shows who assigned it without a "แก้ไขแล้ว" badge',
+    (tester) async {
+      await _pump(
+        tester,
+        loadPeriodsNeedingSubstitute: (_) async => const [
+          PeriodNeedingSubstitute(
+            classScheduleId: 'cs-1',
+            subjectName: 'คณิตศาสตร์',
+            gradeLevel: 'ม.2',
+            room: 'ม.2/1',
+            startTime: '10:30:00',
+            endTime: '11:30:00',
+            originalTeacherId: 'u-เดิม',
+            originalTeacherName: 'ครูเดิม ทดสอบ',
+            alreadyCovered: true,
+            substituteTeacherName: 'ครูสอนแทน ทดสอบ',
+            assignedByName: 'ผอ. ทดสอบ',
+          ),
+        ],
+      );
+      expect(find.text('มอบหมายโดย ผอ. ทดสอบ'), findsOneWidget);
+      expect(find.text('แก้ไขแล้ว'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a reassigned period shows who last changed it, not who assigned it first',
+    (tester) async {
+      await _pump(
+        tester,
+        loadPeriodsNeedingSubstitute: (_) async => const [
+          PeriodNeedingSubstitute(
+            classScheduleId: 'cs-1',
+            subjectName: 'คณิตศาสตร์',
+            gradeLevel: 'ม.2',
+            room: 'ม.2/1',
+            startTime: '10:30:00',
+            endTime: '11:30:00',
+            originalTeacherId: 'u-เดิม',
+            originalTeacherName: 'ครูเดิม ทดสอบ',
+            alreadyCovered: true,
+            substituteTeacherName: 'ครูสอนแทนคนใหม่',
+            assignedByName: 'ผู้ดูแลระบบโรงเรียน',
+            reassigned: true,
+          ),
+        ],
+      );
+      expect(find.text('แก้ไขล่าสุดโดย ผู้ดูแลระบบโรงเรียน'), findsOneWidget);
+      expect(find.text('แก้ไขแล้ว'), findsOneWidget);
+      expect(find.textContaining('มอบหมายโดย '), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'assigning a substitute calls the real RPC with the right period and teacher, then reloads',
+    (tester) async {
+      var reloadCount = 0;
+      String? recordedClassScheduleId;
+      String? recordedSubstituteId;
+      await _pump(
+        tester,
+        staff: [
+          _staff(name: 'ครูเดิม ทดสอบ'),
+          _staff(name: 'ครูสำรอง ทดสอบ'),
+        ],
+        loadPeriodsNeedingSubstitute: (_) async {
+          reloadCount++;
+          return reloadCount == 1
+              ? const [
+                  PeriodNeedingSubstitute(
+                    classScheduleId: 'cs-1',
+                    subjectName: 'คณิตศาสตร์',
+                    gradeLevel: 'ม.2',
+                    room: 'ม.2/1',
+                    startTime: '10:30:00',
+                    endTime: '11:30:00',
+                    originalTeacherId: 'u-ครูเดิม ทดสอบ',
+                    originalTeacherName: 'ครูเดิม ทดสอบ',
+                    alreadyCovered: false,
+                  ),
+                ]
+              : const [];
+        },
+        recordSubstitution: ({
+          required String classScheduleId,
+          required DateTime date,
+          required String originalTeacherId,
+          required String substituteTeacherId,
+          String? note,
+        }) async {
+          recordedClassScheduleId = classScheduleId;
+          recordedSubstituteId = substituteTeacherId;
+          return 'sub-1';
+        },
+      );
+
+      await tester.tap(find.text('มอบหมายครูสอนแทน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      // ครูเดิมต้องไม่อยู่ในตัวเลือก (ลาอยู่ จะมอบหมายให้สอนแทนตัวเองไม่ได้)
+      expect(find.text('ครูเดิม ทดสอบ').hitTestable(), findsNothing);
+      await tester.tap(find.text('ครูสำรอง ทดสอบ').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('บันทึก'));
+      await tester.pumpAndSettle();
+
+      expect(recordedClassScheduleId, 'cs-1');
+      expect(recordedSubstituteId, 'u-ครูสำรอง ทดสอบ');
+      expect(reloadCount, 2, reason: 'ต้องโหลดใหม่หลังบันทึกสำเร็จเพื่อยืนยันจาก backend');
+      expect(find.text('ไม่มีคาบที่ต้องจัดครูสอนแทนในวันนี้'), findsOneWidget);
+    },
+  );
 }

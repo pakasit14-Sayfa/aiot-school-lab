@@ -1,8 +1,22 @@
 import '../models/executive_overview_model.dart';
+import '../models/teacher_workload_model.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
 
 class ExecutiveService {
+  static Future<TeacherWorkloadSummary?> getTeacherWorkloadSummary() async {
+    final token = AuthService.sessionToken;
+    if (token == null) return null;
+    final rows =
+        await supabase.rpc(
+              'get_teacher_workload_summary',
+              params: {'p_token': token},
+            )
+            as List;
+    if (rows.isEmpty) return null;
+    return TeacherWorkloadSummary.fromRow(rows.first as Map<String, dynamic>);
+  }
+
   static Future<ClassroomsOverviewItem?> getClassroomsOverview() async {
     final token = AuthService.sessionToken;
     if (token == null) return null;

@@ -10,6 +10,16 @@ typedef DepartmentsLoader = Future<List<SchoolDepartment>> Function();
 typedef StaffAttendanceSummaryLoader =
     Future<StaffAttendanceSummary?> Function();
 typedef StaffLeaveLoader = Future<List<StaffLeaveRequest>> Function();
+typedef PeriodsNeedingSubstituteLoader =
+    Future<List<PeriodNeedingSubstitute>> Function(DateTime date);
+typedef RecordSubstitutionFn =
+    Future<String> Function({
+      required String classScheduleId,
+      required DateTime date,
+      required String originalTeacherId,
+      required String substituteTeacherId,
+      String? note,
+    });
 
 class DirectorTeachersPage extends StatefulWidget {
   const DirectorTeachersPage({
@@ -18,12 +28,16 @@ class DirectorTeachersPage extends StatefulWidget {
     this.loadDepartments,
     this.loadAttendanceSummary,
     this.loadLeaveRequests,
+    this.loadPeriodsNeedingSubstitute,
+    this.recordSubstitution,
   });
 
   final StaffDirectoryLoader? loadStaff;
   final DepartmentsLoader? loadDepartments;
   final StaffAttendanceSummaryLoader? loadAttendanceSummary;
   final StaffLeaveLoader? loadLeaveRequests;
+  final PeriodsNeedingSubstituteLoader? loadPeriodsNeedingSubstitute;
+  final RecordSubstitutionFn? recordSubstitution;
 
   @override
   State<DirectorTeachersPage> createState() => _DirectorTeachersPageState();
@@ -49,6 +63,10 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
   bool _loading = true;
   bool _loadFailed = false;
 
+  DateTime _substituteDate = DateTime.now();
+  List<PeriodNeedingSubstitute> _periodsNeedingSubstitute = const [];
+  bool _substituteLoadFailed = false;
+
   @override
   void initState() {
     super.initState();
@@ -72,12 +90,35 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         _loading = false;
       });
       await _loadAttendance();
+      await _loadSubstitutes();
     } catch (e) {
       debugPrint('DirectorTeachersPage load failed: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
         _loadFailed = true;
+      });
+    }
+  }
+
+  Future<void> _loadSubstitutes() async {
+    try {
+      final periods =
+          await (widget.loadPeriodsNeedingSubstitute?.call(_substituteDate) ??
+              ClassSubstitutionService.listPeriodsNeedingSubstitute(
+                _substituteDate,
+              ));
+      if (!mounted) return;
+      setState(() {
+        _periodsNeedingSubstitute = periods;
+        _substituteLoadFailed = false;
+      });
+    } catch (e) {
+      debugPrint('DirectorTeachersPage substitute load failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _periodsNeedingSubstitute = const [];
+        _substituteLoadFailed = true;
       });
     }
   }
@@ -199,16 +240,26 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                 );
               }
 
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 5, child: _todayStatusCard()),
-                  const SizedBox(width: 16),
-                  Expanded(flex: 4, child: _directorFollowUpCard()),
-                ],
+              // IntrinsicHeight + stretch so the shorter follow-up card
+              // matches the status card's height instead of floating short
+              // beside it. Safe here: neither card's subtree has a
+              // LayoutBuilder or a Column with its own vertical Expanded
+              // child (_statusGrid is a Column of Rows with only
+              // horizontal Expanded cells).
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 5, child: _todayStatusCard()),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 4, child: _directorFollowUpCard()),
+                  ],
+                ),
               );
             },
           ),
+          const SizedBox(height: 16),
+          _substituteCoverageCard(),
           if (_loading) ...[
             const SizedBox(height: 20),
             const Center(child: CircularProgressIndicator()),
@@ -309,6 +360,10 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
+  // "ครูและบุคลากรทั้งหมด" used to be one of 5 equal-weight pastel cards in a
+  // grid — but it's the number the other 4 are all breakdowns of, so it's
+  // now a hero on its own with the rest as a secondary 2x2 grid beside it,
+  // same hero+grid pattern used on the Overview page's attendance cards.
   Widget _summaryCards() {
     // Counted from the loaded directory. All six were fixed strings — 86
     // staff, 82 present today, 3 on leave, 2 late, 96% of periods started on
@@ -327,15 +382,15 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
 
     String figure(int n) => _loadFailed ? '—' : '$n';
 
-    final items = [
-      _SummaryItem(
-        title: 'ครูและบุคลากรทั้งหมด',
-        value: figure(_staff.length),
-        subtitle:
-            'ครู ${figure(teacherCount)} • ผู้ดูแลระบบ ${figure(adminCount)}',
-        icon: Icons.groups_rounded,
-        color: AppPalette.softPink,
-      ),
+    final heroItem = _SummaryItem(
+      title: 'ครูและบุคลากรทั้งหมด',
+      value: figure(_staff.length),
+      subtitle:
+          'ครู ${figure(teacherCount)} • ผู้ดูแลระบบ ${figure(adminCount)}',
+      icon: Icons.groups_rounded,
+      color: AppPalette.softPink,
+    );
+    final gridItems = [
       _SummaryItem(
         title: 'ฝ่าย',
         value: figure(_administrative.length),
@@ -368,83 +423,179 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        int columns = 6;
-        if (constraints.maxWidth < 720) {
-          columns = 2;
-        } else if (constraints.maxWidth < 1120) {
-          columns = 3;
+        final hero = _summaryHero(heroItem);
+        final grid = _summaryGrid(gridItems);
+        if (constraints.maxWidth < 640) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [hero, const SizedBox(height: 10), grid],
+          );
         }
-
-        return GridView.builder(
-          itemCount: items.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            mainAxisExtent: 118,
+        // IntrinsicHeight + stretch so the hero matches the grid's height
+        // instead of sizing to its own (much shorter) content — safe here
+        // because neither hero nor grid contains a LayoutBuilder or a
+        // Column with its own Expanded/Flexible child, the two things that
+        // actually break under an ancestor IntrinsicHeight.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 34, child: hero),
+              const SizedBox(width: 10),
+              Expanded(flex: 66, child: grid),
+            ],
           ),
-          itemBuilder: (context, index) {
-            final item = items[index];
-
-            return Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 31,
-                    height: 31,
-                    decoration: BoxDecoration(
-                      color: AppPalette.tint(Colors.white, 0.82),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 17,
-                      color: AppPalette.textDark,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 9.3,
-                      color: AppPalette.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    item.value,
-                    style: const TextStyle(
-                      fontSize: 21,
-                      height: 1.05,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    item.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 8.3,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
         );
       },
+    );
+  }
+
+  Widget _summaryHero(_SummaryItem item) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppPalette.primaryPink, AppPalette.primaryPinkDark],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: Colors.white.withAlpha(46),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(item.icon, size: 17, color: Colors.white),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                item.value,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.subtitle,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white70,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Plain Column of Rows (each Row's own cells wrapped in Expanded) rather
+  // than GridView — GridView needs an explicit extent and doesn't
+  // participate safely in the IntrinsicHeight/stretch pairing with the hero
+  // above; this does, for the same reason a Row's own main-axis Expanded is
+  // safe under an ancestor's height-intrinsic query but a Column's isn't.
+  Widget _summaryGrid(List<_SummaryItem> items) {
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i += 2) {
+      if (i > 0) rows.add(const SizedBox(height: 10));
+      rows.add(
+        Row(
+          children: [
+            Expanded(child: _summaryCell(items[i])),
+            const SizedBox(width: 10),
+            if (i + 1 < items.length)
+              Expanded(child: _summaryCell(items[i + 1]))
+            else
+              const Spacer(),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
+    );
+  }
+
+  Widget _summaryCell(_SummaryItem item) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: item.color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: AppPalette.tint(Colors.white, 0.7),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(item.icon, size: 12, color: AppPalette.textDark),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            item.value,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              height: 1.05,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            item.subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 8.5, color: AppPalette.textMuted),
+          ),
+        ],
+      ),
     );
   }
 
@@ -624,32 +775,46 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                 title: 'ยังไม่มีบุคลากรในระบบ',
               )
             else ...[
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _statusChip(
-                    'มาปฏิบัติงาน',
-                    summary.presentCount,
-                    const Color(0xFF059669),
-                  ),
-                  _statusChip('มาสาย', summary.lateCount, const Color(0xFFD97706)),
-                  _statusChip('ลา', summary.leaveCount, const Color(0xFF7C3AED)),
-                  _statusChip(
-                    'ไปราชการ / อบรม',
-                    summary.officialDutyCount,
-                    const Color(0xFF2563EB),
-                  ),
-                  _statusChip('ขาดงาน', summary.absentCount, const Color(0xFFDC2626)),
-                  // Kept visibly separate from ขาดงาน: nobody has asserted
-                  // anything about these people today.
-                  _statusChip(
-                    'ยังไม่ลงเวลา',
-                    summary.noRecordCount,
-                    AppPalette.textMuted,
-                  ),
-                ],
-              ),
+              _statusGrid([
+                _statusChip(
+                  label: 'มาปฏิบัติงาน',
+                  count: summary.presentCount,
+                  icon: Icons.check_rounded,
+                  color: const Color(0xFF059669),
+                ),
+                _statusChip(
+                  label: 'มาสาย',
+                  count: summary.lateCount,
+                  icon: Icons.schedule_rounded,
+                  color: const Color(0xFFD97706),
+                ),
+                _statusChip(
+                  label: 'ลา',
+                  count: summary.leaveCount,
+                  icon: Icons.event_busy_rounded,
+                  color: const Color(0xFF7C3AED),
+                ),
+                _statusChip(
+                  label: 'ไปราชการ/อบรม',
+                  count: summary.officialDutyCount,
+                  icon: Icons.card_travel_rounded,
+                  color: const Color(0xFF2563EB),
+                ),
+                _statusChip(
+                  label: 'ขาดงาน',
+                  count: summary.absentCount,
+                  icon: Icons.person_off_rounded,
+                  color: const Color(0xFFDC2626),
+                ),
+                // Kept visibly separate from ขาดงาน: nobody has asserted
+                // anything about these people today.
+                _statusChip(
+                  label: 'ยังไม่ลงเวลา',
+                  count: summary.noRecordCount,
+                  icon: Icons.help_outline_rounded,
+                  color: AppPalette.textMuted,
+                ),
+              ]),
               const SizedBox(height: 10),
               Text(
                 'บุคลากรทั้งหมด ${summary.totalStaff} คน',
@@ -677,29 +842,439 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  Widget _statusChip(String label, int count, Color color) {
+  // "ครูสอนแทน" — คาบของครูที่ลาอนุมัติแล้วในวันที่เลือก, จาก
+  // `list_periods_needing_substitute`. RPC เดิมไม่เคยมีแนวคิดนี้เลยในระบบ
+  // (เพิ่มพร้อมตาราง class_substitutions ใน migration
+  // 20260910160000_teacher_workload_categories.sql) — การ์ดนี้คือจุดเดียวที่
+  // ทำให้ตัวเลข "จัดครูสอนแทน" บนการ์ดภาพรวมของผู้บริหารมีข้อมูลจริงให้แสดง
+  Widget _substituteCoverageCard() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: directorWhiteCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'ครูสอนแทน',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: AppPalette.textDark,
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _substituteDate,
+                    firstDate: DateTime(now.year - 1),
+                    lastDate: DateTime(now.year + 1),
+                  );
+                  if (picked == null) return;
+                  setState(() => _substituteDate = picked);
+                  await _loadSubstitutes();
+                },
+                icon: const Icon(Icons.calendar_today_rounded, size: 14),
+                label: Text(
+                  '${_substituteDate.day}/${_substituteDate.month}/${_substituteDate.year}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'คาบเรียนของครูที่ลาอนุมัติแล้วในวันที่เลือก',
+            style: TextStyle(fontSize: 10.5, color: AppPalette.textMuted),
+          ),
+          const SizedBox(height: 12),
+          if (_substituteLoadFailed)
+            _attendanceNotice(
+              icon: Icons.cloud_off_rounded,
+              title: 'โหลดข้อมูลครูสอนแทนไม่สำเร็จ',
+            )
+          else if (_periodsNeedingSubstitute.isEmpty)
+            _attendanceNotice(
+              icon: Icons.check_circle_outline_rounded,
+              title: 'ไม่มีคาบที่ต้องจัดครูสอนแทนในวันนี้',
+            )
+          else
+            for (final period in _periodsNeedingSubstitute)
+              _substitutePeriodTile(period),
+        ],
+      ),
+    );
+  }
+
+  Widget _substitutePeriodTile(PeriodNeedingSubstitute period) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: period.alreadyCovered
+            ? const Color(0xFFF0FDF4)
+            : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: period.alreadyCovered
+              ? const Color(0xFFBBF7D0)
+              : const Color(0xFFFECACA),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${period.subjectName} • ${period.gradeLevel ?? "ไม่ระบุชั้น"}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${period.timeRangeLabel} น. • ห้อง ${period.room ?? "ไม่ระบุ"} • ครูประจำวิชา: ${period.originalTeacherName}',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+                if (period.alreadyCovered) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'ครูสอนแทน: ${period.substituteTeacherName ?? "ไม่ทราบชื่อ"}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                  // red-team: การมอบหมายเดิมเขียนทับเงียบๆ ไม่มีร่องรอยว่าใคร
+                  // เปลี่ยนอะไร — ตอนนี้แยกให้เห็นว่าเป็นการมอบหมายครั้งแรกหรือ
+                  // แก้ไขภายหลัง และใครเป็นคนทำล่าสุดจริง (ไม่ใช่คนแรกเสมอไป)
+                  if (period.assignedByName != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          '${period.reassigned ? "แก้ไขล่าสุดโดย" : "มอบหมายโดย"} ${period.assignedByName}',
+                          style: const TextStyle(
+                            fontSize: 9.5,
+                            color: AppPalette.textMuted,
+                          ),
+                        ),
+                        if (period.reassigned) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'แก้ไขแล้ว',
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFB45309),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (period.alreadyCovered)
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF15803D),
+              size: 20,
+            )
+          else
+            OutlinedButton(
+              onPressed: () => _openAssignSubstituteDialog(period),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'มอบหมายครูสอนแทน',
+                style: TextStyle(fontSize: 11),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ต้องไม่ใช้ teacher_picker_dialog.dart — widget นั้นดึงรายชื่อจาก
+  // DirectorMockData ที่แต่งขึ้นทั้งหมด ไม่ใช่ของจริง ใช้ _staff ที่หน้านี้โหลด
+  // จริงจาก StaffOrgService แทน กรองเอาเฉพาะครู (ไม่รวมครูที่ลาอยู่คนเดิม)
+  Future<void> _openAssignSubstituteDialog(
+    PeriodNeedingSubstitute period,
+  ) async {
+    final candidates =
+        _staff
+            .where(
+              (s) =>
+                  s.hasRole('teacher') && s.userId != period.originalTeacherId,
+            )
+            .toList()
+          ..sort((a, b) => a.fullName.compareTo(b.fullName));
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ไม่พบครูคนอื่นในระบบที่มอบหมายได้')),
+      );
+      return;
+    }
+    String? selected;
+    var isSaving = false;
+    final noteController = TextEditingController();
+    final pageContext = context;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'มอบหมายครูสอนแทน\n${period.subjectName} (${period.timeRangeLabel} น.)',
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ครูสอนแทน:',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: selected,
+                  isExpanded: true,
+                  hint: const Text('เลือกครู'),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: [
+                    for (final c in candidates)
+                      DropdownMenuItem(
+                        value: c.userId,
+                        child: Text(c.fullName),
+                      ),
+                  ],
+                  onChanged: (val) => setDialogState(() => selected = val),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'หมายเหตุ (ถ้ามี):',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: noteController,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+              child: const Text('ยกเลิก'),
+            ),
+            ElevatedButton(
+              onPressed: (selected == null || isSaving)
+                  ? null
+                  : () async {
+                      final substituteId = selected!;
+                      setDialogState(() => isSaving = true);
+                      try {
+                        final record =
+                            widget.recordSubstitution ??
+                            ({
+                              required String classScheduleId,
+                              required DateTime date,
+                              required String originalTeacherId,
+                              required String substituteTeacherId,
+                              String? note,
+                            }) => ClassSubstitutionService.recordSubstitution(
+                              classScheduleId: classScheduleId,
+                              date: date,
+                              originalTeacherId: originalTeacherId,
+                              substituteTeacherId: substituteTeacherId,
+                              note: note,
+                            );
+                        await record(
+                          classScheduleId: period.classScheduleId,
+                          date: _substituteDate,
+                          originalTeacherId: period.originalTeacherId,
+                          substituteTeacherId: substituteId,
+                          note: noteController.text.trim().isNotEmpty
+                              ? noteController.text.trim()
+                              : null,
+                        );
+                        // Pop only after the RPC actually confirms the write —
+                        // popping first would tell the user "saved" before
+                        // the backend agreed, and hide a real failure behind
+                        // a dialog that already looked done.
+                        if (!dialogCtx.mounted) return;
+                        Navigator.pop(dialogCtx);
+                        if (!pageContext.mounted) return;
+                        ScaffoldMessenger.of(pageContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('มอบหมายครูสอนแทนเรียบร้อยแล้ว'),
+                          ),
+                        );
+                        await _loadSubstitutes();
+                      } catch (e) {
+                        debugPrint('recordSubstitution failed: $e');
+                        if (!dialogCtx.mounted) return;
+                        setDialogState(() => isSaving = false);
+                        ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                          const SnackBar(
+                            content: Text('มอบหมายไม่สำเร็จ ลองอีกครั้ง'),
+                          ),
+                        );
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('บันทึก'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 3-per-row grid (Column of Rows, not GridView/Wrap) so 6 chips form 2
+  // even rows instead of wrapping unpredictably at odd widths.
+  Widget _statusGrid(List<Widget> chips) {
+    final rows = <Widget>[];
+    for (var i = 0; i < chips.length; i += 3) {
+      if (i > 0) rows.add(const SizedBox(height: 10));
+      rows.add(
+        Row(
+          children: [
+            Expanded(child: chips[i]),
+            const SizedBox(width: 10),
+            if (i + 1 < chips.length) ...[
+              Expanded(child: chips[i + 1]),
+              const SizedBox(width: 10),
+            ] else
+              const Expanded(child: SizedBox()),
+            if (i + 2 < chips.length)
+              Expanded(child: chips[i + 2])
+            else
+              const Expanded(child: SizedBox()),
+          ],
+        ),
+      );
+    }
+    return Column(children: rows);
+  }
+
+  Widget _statusChip({
+    required String label,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(height: 8),
           Text(
             '$count',
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 19,
               fontWeight: FontWeight.w800,
               color: color,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: 9.5,
               fontWeight: FontWeight.w700,
               color: AppPalette.textMuted,
             ),
@@ -757,17 +1332,40 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
   /// and a suggested action, all computed from the invented attendance
   /// numbers. Every line here is a count the backend returned, and when there
   /// is nothing to report it says so rather than filling the space.
-  List<String> _followUpItems() {
+  ///
+  /// Each item's color/icon now matches the _statusChip it was derived from
+  /// (มาสาย → the same amber as the "มาสาย" chip, ยังไม่ลงเวลา → the same
+  /// grey), so a flag visually traces back to the number it came from
+  /// instead of every flag looking identical regardless of what it's about.
+  List<_FollowUpItem> _followUpItems() {
     final summary = _attendance;
     if (summary == null) return const [];
 
     return [
       if (_pendingLeave.isNotEmpty)
-        'มีคำขอลาที่ยังไม่ได้พิจารณา ${_pendingLeave.length} รายการ',
-      if (summary.lateCount > 0) 'มาสายวันนี้ ${summary.lateCount} คน',
-      if (summary.absentCount > 0) 'ขาดงานวันนี้ ${summary.absentCount} คน',
+        _FollowUpItem(
+          text: 'มีคำขอลาที่ยังไม่ได้พิจารณา ${_pendingLeave.length} รายการ',
+          icon: Icons.event_busy_rounded,
+          color: const Color(0xFF7C3AED),
+        ),
+      if (summary.lateCount > 0)
+        _FollowUpItem(
+          text: 'มาสายวันนี้ ${summary.lateCount} คน',
+          icon: Icons.schedule_rounded,
+          color: const Color(0xFFD97706),
+        ),
+      if (summary.absentCount > 0)
+        _FollowUpItem(
+          text: 'ขาดงานวันนี้ ${summary.absentCount} คน',
+          icon: Icons.person_off_rounded,
+          color: const Color(0xFFDC2626),
+        ),
       if (summary.noRecordCount > 0)
-        'ยังไม่ได้ลงเวลาวันนี้ ${summary.noRecordCount} คน',
+        _FollowUpItem(
+          text: 'ยังไม่ได้ลงเวลาวันนี้ ${summary.noRecordCount} คน',
+          icon: Icons.help_outline_rounded,
+          color: AppPalette.textMuted,
+        ),
     ];
   }
 
@@ -804,26 +1402,36 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
             )
           else
             ...items.map(
-              (text) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+              (item) => Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 3),
-                      child: Icon(
-                        Icons.flag_rounded,
-                        size: 14,
-                        color: Color(0xFFD97706),
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: item.color,
+                        borderRadius: BorderRadius.circular(9),
                       ),
+                      child: Icon(item.icon, size: 15, color: Colors.white),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        text,
+                        item.text,
                         style: const TextStyle(
-                          fontSize: 11,
-                          height: 1.5,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
                           color: AppPalette.textDark,
                         ),
                       ),
@@ -962,7 +1570,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
               Text(
                 'พบ ${filtered.length} คน',
                 style: const TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: AppPalette.textMuted,
                 ),
@@ -990,7 +1598,10 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
           if (filtered.isEmpty)
             _emptyPersonnel()
           else
-            ...filtered.map(_personnelCard),
+            for (var i = 0; i < filtered.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              _personnelRow(filtered[i]),
+            ],
         ],
       ),
     );
@@ -1007,7 +1618,10 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
           },
           decoration: InputDecoration(
             hintText: 'ค้นหาชื่อ ตำแหน่ง ฝ่าย หรือกลุ่มสาระ...',
-            hintStyle: const TextStyle(fontSize: 10),
+            hintStyle: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
             prefixIcon: const Icon(
               Icons.search_rounded,
               size: 18,
@@ -1016,16 +1630,26 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
             filled: true,
             fillColor: AppPalette.pageBg,
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 11,
+              horizontal: 16,
+              vertical: 12,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(999),
               borderSide: const BorderSide(color: AppPalette.border),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(999),
               borderSide: const BorderSide(color: AppPalette.border),
+            ),
+            // Theme's own focusedBorder is a 12px-radius rect (buildRoleTheme) —
+            // without overriding it here too, focusing this field would snap
+            // its corners from the pill shape to that rect.
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: const BorderSide(
+                color: AppPalette.primaryPink,
+                width: 1.5,
+              ),
             ),
           ),
         );
@@ -1050,15 +1674,7 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
           },
         );
 
-        final status = _dropdownBox(
-          value: _safeSelection(selectedStatus, _statusOptions),
-          items: _statusOptions,
-          icon: Icons.fact_check_rounded,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => selectedStatus = value);
-          },
-        );
+        final status = _statusSegmented();
 
         if (compact) {
           return Column(
@@ -1100,10 +1716,10 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppPalette.pageBg,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: AppPalette.border),
       ),
       child: Row(
@@ -1116,7 +1732,8 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
                 value: value,
                 isExpanded: true,
                 style: const TextStyle(
-                  fontSize: 10,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
                   color: AppPalette.textDark,
                 ),
                 items: items
@@ -1140,15 +1757,89 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  /// One staff row. Carries name, position, groups, roles and account status —
-  /// everything `list_staff_directory` can answer.
+  /// Segmented pill toggle for the account-status filter, replacing a
+  /// dropdown. Options still come from `_statusOptions` (only statuses that
+  /// actually exist among loaded staff, plus "ทุกสถานะ") — this is a layout
+  /// change only, not a return to a fixed/hardcoded option list.
+  Widget _statusSegmented() {
+    final options = _statusOptions;
+    final selected = _safeSelection(selectedStatus, options);
+
+    return Container(
+      key: const Key('statusSegmented'),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppPalette.pageBg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          for (final option in options)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => selectedStatus = option),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: option == selected ? Colors.white : null,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: option == selected
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    option,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: option == selected
+                          ? AppPalette.textDark
+                          : AppPalette.textMuted,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// One staff row. Same fields `_personnelCard` used to show — name,
+  /// position, groups, role, contact, head badge and account status —
+  /// reflowed onto a soft floating card matching the tile pattern in
+  /// `director_emergency_page.dart` (radius 18, thin light border, blur-10
+  /// shadow at 3% opacity, a rounded icon box instead of a bare avatar
+  /// circle) instead of the flat 4px-radius table row this replaced.
+  ///
+  /// Accent uses learningBlueDark instead of primaryPink — pink stays for
+  /// brand/header moments, structural accents (avatar box, "หัวหน้า" label)
+  /// use blue so it doesn't repeat on every single row of a long roster.
   ///
   /// Gone with the data that never existed: the attendance percentage, the
   /// teaching-compliance percentage and the task-progress bar. There is no
   /// staff attendance table, nothing records whether a teacher started a
   /// period, and no task tracker exists — so all three were assessments of a
   /// named colleague that no system had made.
-  Widget _personnelCard(StaffDirectoryEntry person) {
+  // Flat pageBg tile instead of a bordered/shadowed white card — matches the
+  // icon-badge rows already shipped on this page ("สิ่งที่ควรติดตาม"), not a
+  // new visual language.
+  static final BoxDecoration _softCard = BoxDecoration(
+    color: AppPalette.pageBg,
+    borderRadius: BorderRadius.circular(18),
+  );
+
+  Widget _personnelRow(StaffDirectoryEntry person) {
     final groups = [
       ...person.administrativeDepartments,
       ...person.subjectGroups,
@@ -1157,113 +1848,174 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
         ? AppPalette.success
         : AppPalette.textMuted;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
+    final avatar = Container(
+      width: 30,
+      height: 30,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.border),
+        color: AppPalette.tint(AppPalette.learningBlueDark, 0.12),
+        borderRadius: BorderRadius.circular(9),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 19,
-            backgroundColor: AppPalette.tint(AppPalette.primaryPink, 0.12),
-            child: Text(
-              _firstLetter(person.fullName),
-              style: const TextStyle(
-                color: AppPalette.primaryPink,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+      alignment: Alignment.center,
+      child: Text(
+        _firstLetter(person.fullName),
+        style: const TextStyle(
+          color: AppPalette.learningBlueDark,
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+        ),
+      ),
+    );
+
+    final nameBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          person.fullName,
+          style: const TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w800,
+            color: AppPalette.textDark,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  person.fullName,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppPalette.textDark,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  person.positionTitle ?? 'ยังไม่ได้ระบุตำแหน่ง',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  groups.isEmpty
-                      ? 'ยังไม่ได้สังกัดฝ่าย/กลุ่มสาระ'
-                      : groups.join(' • '),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                if (person.headsDepartments.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    'หัวหน้า: ${person.headsDepartments.join(', ')}',
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.primaryPinkDark,
-                    ),
-                  ),
-                ],
-              ],
+        ),
+        if (person.headsDepartments.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            'หัวหน้า: ${person.headsDepartments.join(', ')}',
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              color: AppPalette.learningBlueDark,
             ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppPalette.tint(statusColor, 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  person.isActive ? 'ใช้งานอยู่' : 'ระงับการใช้งาน',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: statusColor,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _roleLabel(person),
-                style: const TextStyle(
-                  fontSize: 9,
-                  color: AppPalette.textMuted,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                person.phone ?? person.email,
-                style: const TextStyle(
-                  fontSize: 8.5,
-                  color: AppPalette.textMuted,
-                ),
-              ),
-            ],
           ),
         ],
+        const SizedBox(height: 2),
+        // No italic — Noto Sans Thai has no real italic forms for Thai
+        // glyphs, so a synthetic slant just misaligns tone marks. Muted
+        // color alone signals "unset" instead.
+        Text(
+          person.positionTitle ?? 'ยังไม่ได้ระบุตำแหน่ง',
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: AppPalette.textMuted,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${_roleLabel(person)} · ${person.phone ?? person.email}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: AppPalette.textMuted,
+          ),
+        ),
+      ],
+    );
+
+    final deptPill = Container(
+      constraints: const BoxConstraints(maxWidth: 190),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        groups.isEmpty ? 'ยังไม่ได้สังกัดฝ่าย/กลุ่มสาระ' : groups.join(' • '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: AppPalette.textMuted,
+        ),
+      ),
+    );
+
+    // Icon-badge pill — same language as the "สิ่งที่ควรติดตาม" rows
+    // (colored squircle icon on a soft-tint pill) instead of plain text.
+    final statusBadge = Container(
+      padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+      decoration: BoxDecoration(
+        color: AppPalette.tint(statusColor, 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 15,
+            height: 15,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Icon(
+              person.isActive ? Icons.check_rounded : Icons.pause_rounded,
+              size: 10,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            person.isActive ? 'ใช้งานอยู่' : 'ระงับการใช้งาน',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: statusColor,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+      decoration: _softCard,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          if (box.maxWidth < 680) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                avatar,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: nameBlock),
+                          const SizedBox(width: 8),
+                          statusBadge,
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      deptPill,
+                    ],
+                  ),
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              avatar,
+              const SizedBox(width: 12),
+              Expanded(child: nameBlock),
+              const SizedBox(width: 10),
+              deptPill,
+              const SizedBox(width: 10),
+              statusBadge,
+            ],
+          );
+        },
       ),
     );
   }
@@ -1461,6 +2213,18 @@ class _SummaryItem {
     required this.title,
     required this.value,
     required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+}
+
+class _FollowUpItem {
+  final String text;
+  final IconData icon;
+  final Color color;
+
+  const _FollowUpItem({
+    required this.text,
     required this.icon,
     required this.color,
   });

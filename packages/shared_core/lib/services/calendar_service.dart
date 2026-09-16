@@ -4,9 +4,9 @@ import 'auth_service.dart';
 import 'supabase_config.dart';
 
 /// ตารางเรียนจริงต่อวิชา + แพลนงานส่วนตัวของนักเรียน. RPCs from
-/// 20260818010000_calendar.sql. Teacher-side schedule-editing RPCs exist for
-/// completeness but there's no schedule-editing UI yet — only the
-/// student-facing read + personal-task CRUD flow is wired in the app.
+/// 20260818010000_calendar.sql, `period_type` from
+/// 20260910160000_teacher_workload_categories.sql. Teacher-side
+/// schedule-editing is wired into `teacher_class_schedule_page.dart`.
 class CalendarService {
   /// School-wide calendar entries (`list_calendar_events`).
   ///
@@ -101,6 +101,7 @@ class CalendarService {
     required String startTime,
     required String endTime,
     String? room,
+    String periodType = 'regular',
   }) async {
     final token = AuthService.sessionToken;
     if (token == null) throw Exception('not_signed_in');
@@ -114,6 +115,7 @@ class CalendarService {
                 'p_start_time': startTime,
                 'p_end_time': endTime,
                 'p_room': room,
+                'p_period_type': periodType,
               },
             )
             as List;
