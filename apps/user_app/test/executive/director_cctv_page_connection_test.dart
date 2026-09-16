@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/executive_redesign_prototype/pages/director_cctv_page.dart';
+import 'package:shared_core/models/school_device_identity.dart';
 import 'package:shared_core/shared_core.dart';
 
 const _onlineCamera = DeviceOption(
@@ -40,6 +41,7 @@ const _nonCameraDevice = DeviceOption(
 Future<void> _pump(
   WidgetTester tester, {
   Future<List<DeviceOption>> Function()? listSchoolDevices,
+  Future<SchoolDeviceDetail?> Function(String)? loadDeviceDetail,
 }) async {
   tester.view.physicalSize = const Size(1400, 2400);
   tester.view.devicePixelRatio = 1;
@@ -50,7 +52,10 @@ Future<void> _pump(
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: DirectorCctvPage(listSchoolDevices: listSchoolDevices),
+        body: DirectorCctvPage(
+          listSchoolDevices: listSchoolDevices,
+          loadDeviceDetail: loadDeviceDetail,
+        ),
       ),
     ),
   );
@@ -92,17 +97,24 @@ void main() {
   });
 
   testWidgets(
-    'the AI alerts section discloses it is unavailable instead of showing fake alerts',
+    'no AI / recording / storage claims are made — there is no backend for any of them',
     (tester) async {
-      await _pump(tester, listSchoolDevices: () async => const []);
-      expect(find.text('แจ้งเตือนจาก AI Camera'), findsOneWidget);
-      expect(
-        find.text(
-          'ยังไม่รองรับในระบบนี้ — เหตุที่ตรวจจับได้จะขึ้นตรงนี้เมื่อพร้อมใช้งาน',
-        ),
-        findsOneWidget,
-      );
-      // None of the old fabricated alert titles should ever appear.
+      await _pump(tester, listSchoolDevices: () async => const [_onlineCamera]);
+      // The old "แจ้งเตือนจาก AI Camera" / "พื้นที่จัดเก็บ & AI Detection"
+      // cards, the "AI ปิด" / "ไม่บันทึก" tags and the "LIVE" badge asserted a
+      // state nothing records. None may come back.
+      for (final claim in [
+        'แจ้งเตือนจาก AI Camera',
+        'พื้นที่จัดเก็บ & AI Detection',
+        'AI ปิด',
+        'AI เปิด',
+        'ไม่บันทึก',
+        'REC',
+        'LIVE',
+        'ไม่มีข้อมูลเวลาล่าสุด',
+      ]) {
+        expect(find.text(claim), findsNothing, reason: claim);
+      }
       expect(find.textContaining('ตรวจพบพฤติกรรมเสี่ยง'), findsNothing);
     },
   );
@@ -122,15 +134,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('ควรตรวจสอบ — 1 กล้อง Offline'), findsOneWidget);
-      // AI/แจ้งเตือน/พื้นที่จัดเก็บ ไม่มีข้อมูลจริงรองรับเลย - ต้องบอกตรงๆ
-      expect(
-        find.text('เปิด AI, แจ้งเตือนอัตโนมัติ และพื้นที่จัดเก็บยังไม่รองรับในระบบนี้'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('ยังไม่มีข้อมูลจริงในระบบนี้ — ไม่มีคอลัมน์/RPC รองรับตอนนี้'),
-        findsOneWidget,
-      );
     },
   );
 
@@ -193,5 +196,40 @@ void main() {
     expect(find.text('บันทึกภาพ'), findsNothing);
     expect(find.text('Playback'), findsNothing);
     expect(find.text('เต็มจอ'), findsNothing);
+  });
+
+  testWidgets('the camera detail shows the real heartbeat, and "never reported" when null', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      listSchoolDevices: () async => const [_onlineCamera],
+      loadDeviceDetail: (id) async => SchoolDeviceDetail(
+        id: id,
+        name: 'ทางเข้าอาคาร 1',
+        type: 'camera',
+        status: 'online',
+        effectiveStatus: 'online',
+        serialNo: null,
+        deviceCode: null,
+        kitCode: null,
+        categoryCode: null,
+        location: 'อาคาร 1',
+        building: null,
+        room: null,
+        ipAddress: null,
+        firmwareVersion: 'cam-fw 2.1.0',
+        lastSeenAt: DateTime(2026, 9, 16, 8, 5),
+        registeredAt: null,
+        updatedAt: null,
+      ),
+    );
+    await tester.tap(find.text('ทางเข้าอาคาร 1'));
+    await tester.pumpAndSettle();
+    expect(find.text('การรายงานตัวของอุปกรณ์'), findsOneWidget);
+    expect(find.text('16/09/2569 08:05'), findsOneWidget);
+    expect(find.text('cam-fw 2.1.0'), findsOneWidget);
+    expect(find.text('ยังไม่เคยรายงาน'), findsOneWidget);
+    expect(find.text('AI Detection'), findsNothing);
   });
 }

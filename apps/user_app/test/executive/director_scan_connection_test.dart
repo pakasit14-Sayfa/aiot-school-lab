@@ -53,14 +53,9 @@ void main() {
       expect(find.text('อุปกรณ์จริง'), findsOneWidget);
       expect(find.text('สถานะในทะเบียน: ออฟไลน์'), findsOneWidget);
       expect(find.textContaining('พร้อมใช้งาน'), findsNothing);
-      expect(
-        tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'บันทึกยืม–คืน'),
-            )
-            .onPressed,
-        isNull,
-      );
+      // The loan/scan-history/staff-card placeholders are gone entirely.
+      expect(find.text('บันทึกยืม–คืน'), findsNothing);
+      expect(find.text('บริการเพิ่มเติม · ยังไม่เปิดใช้งาน'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

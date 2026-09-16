@@ -886,35 +886,12 @@ class _DirectorEnvironmentPageState extends State<DirectorEnvironmentPage> {
               );
             },
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'ข้อเสนอแนะการประหยัดพลังงาน',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w800,
-              color: AppPalette.textDark,
-            ),
-          ),
+          // "ข้อเสนอแนะการประหยัดพลังงาน" used to sit here: first as three "AI"
+          // recommendations asserting things nothing observes ("AI พบว่าอาคาร 2
+          // เปิดแอร์ก่อนเข้าเรียน 40 นาที"), then as an empty box saying no such
+          // analysis exists. A heading for a feature that does not exist is
+          // removed rather than shown empty.
           const SizedBox(height: 10),
-          // Three "AI" recommendations used to render here, each asserting a
-          // specific observation — "AI พบว่าอาคาร 2 เปิดแอร์ก่อนเข้าเรียน 40
-          // นาที". Nothing in this system watches an individual appliance's
-          // runtime, so the analysis it claimed to have done never happened.
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
-            decoration: BoxDecoration(
-              color: AppPalette.pageBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Text(
-              'ยังไม่มีระบบวิเคราะห์การใช้พลังงานรายอุปกรณ์ '
-              'จึงยังไม่มีข้อเสนอแนะที่อ้างอิงข้อมูลจริงได้',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11.5, color: AppPalette.textMuted),
-            ),
-          ),
-          const SizedBox(height: 6),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(11),

@@ -193,61 +193,11 @@ class _DirectorScanPageState extends State<DirectorScanPage> {
                       ),
                   ],
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    'บริการเพิ่มเติม · ยังไม่เปิดใช้งาน',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
-                ),
-                DirectorWorkspaceGrid(
-                  children: [
-                    card(
-                      'บัตรบุคลากร',
-                      [
-                        const Text(
-                          'ยังไม่มีระบบเชื่อมรหัสบนบัตรกับตัวบุคลากร จึงยังยืนยันตัวตนหรือบันทึกเวลาเข้างานจากหน้านี้ไม่ได้',
-                        ),
-                        const OutlinedButton(
-                          onPressed: null,
-                          child: Text('สแกนบัตร / บันทึกเวลาเข้างาน'),
-                        ),
-                      ],
-                      accent: AppPalette.textMuted,
-                      surface: AppPalette.softTag,
-                      icon: Icons.badge_outlined,
-                    ),
-                    card(
-                      'ยืม–คืนและประวัติการสแกน',
-                      [
-                        const Text(
-                          'ยังไม่มีทะเบียนยืม–คืนและระบบบันทึกประวัติการสแกน การค้นหานี้แสดงข้อมูลอุปกรณ์เท่านั้น',
-                        ),
-                        const Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OutlinedButton(
-                              onPressed: null,
-                              child: Text('บันทึกยืม–คืน'),
-                            ),
-                            OutlinedButton(
-                              onPressed: null,
-                              child: Text('ประวัติการสแกน'),
-                            ),
-                          ],
-                        ),
-                      ],
-                      accent: AppPalette.textMuted,
-                      surface: AppPalette.softTag,
-                      icon: Icons.history,
-                    ),
-                  ],
-                ),
+                // "บริการเพิ่มเติม · ยังไม่เปิดใช้งาน" (บัตรบุคลากร · ยืม–คืน ·
+                // ประวัติการสแกน) used to follow as three disabled cards. No
+                // table maps a card code to a person and there is no loan
+                // ledger or scan log — placeholders for features that do not
+                // exist are removed, not greyed.
               ],
             ),
           );

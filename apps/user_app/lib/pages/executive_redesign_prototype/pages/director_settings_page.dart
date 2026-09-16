@@ -2,16 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
+import '../../../widgets/change_password_dialog.dart';
 import '../widgets/director_common_widgets.dart';
 
 class DirectorSettingsPage extends StatefulWidget {
-  const DirectorSettingsPage({super.key});
+  const DirectorSettingsPage({super.key, this.changePassword});
+
+  /// Injectable write behind "เปลี่ยนรหัส" (defaults to
+  /// `AuthService.changeMyPassword`) so tests can drive it.
+  final PasswordChanger? changePassword;
 
   @override
   State<DirectorSettingsPage> createState() => _DirectorSettingsPageState();
 }
 
-enum _SettingsSection { profile, notifications, dashboard, reports, security }
+// การแจ้งเตือน / การแสดงผล / รายงาน used to be three more tabs, each a
+// "ยังไม่เปิดใช้งาน" placeholder: there is no per-user preferences table,
+// no report generator and no digest mailer. A tab that can never do anything
+// is removed, not greyed (same rule as the School Admin settings page).
+enum _SettingsSection { profile, security }
 
 class _SectionMeta {
   const _SectionMeta({required this.icon, required this.label, this.dotColor});
@@ -88,21 +97,6 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
     _SettingsSection.profile: _SectionMeta(
       icon: Icons.person_outline_rounded,
       label: 'บัญชีส่วนตัว',
-    ),
-    _SettingsSection.notifications: _SectionMeta(
-      icon: Icons.notifications_active_outlined,
-      label: 'การแจ้งเตือน',
-      dotColor: AppPalette.border,
-    ),
-    _SettingsSection.dashboard: _SectionMeta(
-      icon: Icons.dashboard_customize_outlined,
-      label: 'การแสดงผล',
-      dotColor: AppPalette.border,
-    ),
-    _SettingsSection.reports: _SectionMeta(
-      icon: Icons.description_outlined,
-      label: 'รายงาน',
-      dotColor: AppPalette.border,
     ),
     _SettingsSection.security: _SectionMeta(
       icon: Icons.security_outlined,
@@ -286,29 +280,6 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
     switch (_activeSection) {
       case _SettingsSection.profile:
         return _profileSectionContent();
-      case _SettingsSection.notifications:
-        return _unavailableSectionContent(
-          title: 'การแจ้งเตือน',
-          subtitle: 'เลือกเรื่องที่ต้องการรับแจ้งเตือนและช่องทางที่ใช้',
-          reason:
-              'ระบบยังไม่มีที่เก็บการตั้งค่าการแจ้งเตือนรายบุคคล '
-              'การแจ้งเตือนทั้งหมดจึงยังส่งตามค่าเริ่มต้นของระบบ',
-        );
-      case _SettingsSection.dashboard:
-        return _unavailableSectionContent(
-          title: 'การแสดงผลหน้าหลัก',
-          subtitle: 'หน้าเริ่มต้น ช่วงข้อมูล และความหนาแน่นของการ์ด',
-          reason:
-              'ระบบยังไม่มีที่เก็บการตั้งค่าส่วนตัวของผู้ใช้ '
-              'หน้าหลักจึงเปิดด้วยค่าเริ่มต้นเสมอ',
-        );
-      case _SettingsSection.reports:
-        return _unavailableSectionContent(
-          title: 'รายงานและสรุปประจำงวด',
-          subtitle: 'รูปแบบไฟล์ ช่วงข้อมูล และสรุปรายวัน/รายสัปดาห์',
-          reason:
-              'ระบบยังไม่มีตัวสร้างไฟล์รายงานและยังไม่มีตัวส่งอีเมลสรุปตามรอบ',
-        );
       case _SettingsSection.security:
         return _securitySectionContent();
     }
@@ -379,13 +350,8 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
                 ],
               ),
             ),
-            OutlinedButton.icon(
-              onPressed: () {
-                _showMessage('ยังไม่มีระบบเปลี่ยนรูปโปรไฟล์ในแอปนี้');
-              },
-              icon: const Icon(Icons.photo_camera_outlined, size: 15),
-              label: const Text('เปลี่ยนรูป', style: TextStyle(fontSize: 9)),
-            ),
+            // "เปลี่ยนรูป" was an enabled button that only said there is no
+            // avatar storage. `users` has no avatar column — button removed.
           ],
         ),
         const SizedBox(height: 14),
@@ -407,79 +373,13 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
           icon: Icons.email_outlined,
           helper: 'ใช้อีเมลบัญชีหลัก ไม่สามารถแก้จากหน้านี้',
         ),
-        const SizedBox(height: 10),
-
-        _readOnlyField(
-          label: 'เบอร์โทรศัพท์',
-          value: 'ยังไม่รองรับ',
-          icon: Icons.phone_outlined,
-          helper: 'ระบบยังไม่ได้เก็บเบอร์โทรศัพท์ของผู้ใช้',
-        ),
+        // The phone field ("ยังไม่รองรับ") is gone: `users` has no phone
+        // column and `set_staff_profile` is school_admin-only, so a director
+        // cannot store one from here.
       ],
     );
   }
 
-  /// A section explaining that this group of settings has nowhere to be
-  /// stored.
-  ///
-  /// The notification, dashboard, report and digest sections were fully
-  /// interactive — toggles, dropdowns, times, a weekly digest day — and none
-  /// of it persisted. There is no per-user preferences table anywhere in the
-  /// schema; `school_settings` holds `email_notify`/`line_notify` but they are
-  /// school-wide and school_admin-scoped. Reopening the page silently reset
-  /// everything, so a director who switched off emergency notifications was
-  /// told it was saved and kept receiving them.
-  Widget _unavailableSectionContent({
-    required String title,
-    required String subtitle,
-    required String reason,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionHeading(title, subtitle),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
-          decoration: BoxDecoration(
-            color: AppPalette.pageBg,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: [
-              const Icon(
-                Icons.settings_suggest_outlined,
-                size: 28,
-                color: AppPalette.textMuted,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'ยังไม่เปิดใช้งาน',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: AppPalette.textDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                reason,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  height: 1.5,
-                  color: AppPalette.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// A security fact the user cannot change, stated instead of offered as a
-  /// switch.
   Widget _securityStatusTile({
     required IconData icon,
     required String title,
@@ -571,14 +471,8 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
           status: 'เปิดใช้งานอยู่',
           statusColor: AppPalette.success,
         ),
-        const SizedBox(height: 10),
-        _securityStatusTile(
-          icon: Icons.notifications_active_outlined,
-          title: 'แจ้งเตือนเมื่อมีการเข้าสู่ระบบ',
-          subtitle: 'ระบบยังไม่ได้แจ้งเตือนเมื่อมีการเข้าสู่ระบบจากอุปกรณ์ใหม่',
-          status: 'ยังไม่เปิดใช้งาน',
-          statusColor: AppPalette.textMuted,
-        ),
+        // The "แจ้งเตือนเมื่อมีการเข้าสู่ระบบ · ยังไม่เปิดใช้งาน" tile is gone —
+        // nothing sends login alerts and nothing stores the preference.
         const SizedBox(height: 10),
         // Used to live behind a ⋮ on the sidebar's profile card — moved
         // here per an explicit follow-up request, next to the existing
@@ -1087,29 +981,18 @@ class _DirectorSettingsPageState extends State<DirectorSettingsPage> {
   /// supported path is `request_password_reset_otp` + `confirm_password_reset`,
   /// which is an email-OTP flow rather than a three-field dialog, so it needs
   /// its own screen rather than being faked behind this button.
-  void _showPasswordDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('เปลี่ยนรหัสผ่าน'),
-        content: const Text(
-          'การเปลี่ยนรหัสผ่านต้องยืนยันผ่านรหัส OTP ที่ส่งไปยังอีเมลของบัญชี '
-          'ยังไม่เปิดใช้งานจากหน้านี้ — ใช้ "ลืมรหัสผ่าน" ที่หน้าเข้าสู่ระบบแทน',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('รับทราบ'),
-          ),
-        ],
-      ),
+  /// `change_my_password` (2026-09-14) verifies the current password,
+  /// enforces ≥ 8 chars and revokes every other session. Before it existed
+  /// this button opened a notice pointing at the OTP reset flow.
+  Future<void> _showPasswordDialog() async {
+    final changed = await showChangePasswordDialog(
+      context,
+      change: widget.changePassword,
     );
+    if (!changed || !mounted) return;
+    _showMessage('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ');
   }
 
-  /// Was a dialog whose confirm button popped itself and announced
-  /// "ออกจากระบบอุปกรณ์อื่นทั้งหมดแล้ว" without calling anything — so a
-  /// director who suspected their account was open on someone else's device
-  /// was told it had been closed while every session stayed live.
   void _showLogoutAllDialog() => _signOutAllDevices();
 
   void _showMessage(String message) {

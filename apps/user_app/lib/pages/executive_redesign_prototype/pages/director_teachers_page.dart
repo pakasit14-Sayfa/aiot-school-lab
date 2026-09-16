@@ -1042,8 +1042,8 @@ class _DirectorTeachersPageState extends State<DirectorTeachersPage> {
     );
   }
 
-  // ต้องไม่ใช้ teacher_picker_dialog.dart — widget นั้นดึงรายชื่อจาก
-  // DirectorMockData ที่แต่งขึ้นทั้งหมด ไม่ใช่ของจริง ใช้ _staff ที่หน้านี้โหลด
+  // (teacher_picker_dialog.dart / DirectorMockData เคยเป็นรายชื่อครูที่แต่งขึ้น
+  // ทั้งหมด — ลบทิ้งแล้ว 2026-09-16) ใช้ _staff ที่หน้านี้โหลด
   // จริงจาก StaffOrgService แทน กรองเอาเฉพาะครู (ไม่รวมครูที่ลาอยู่คนเดิม)
   Future<void> _openAssignSubstituteDialog(
     PeriodNeedingSubstitute period,

@@ -49,6 +49,10 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
   List<IncidentSummaryItem> _realIncidentSummary = [];
   List<TeacherIncidentReport> _realIncidents = [];
   bool _isLoadingRealData = false;
+  // True when at least one incident/event row came back. Only the SOS card
+  // still keys off it; every other "real data" badge keys off `_loadFailed`,
+  // because a school with zero incidents is real data, not missing data —
+  // it used to wear a "ยังไม่มีข้อมูลรองรับ" badge on four cards.
   bool _hasRealData = false;
 
   /// The read failed. Kept apart from "no incidents" because on this page the
@@ -700,7 +704,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         icon: Icons.notifications_active_rounded,
         headerBg: const Color(0xFFFFE4E6),
         headerColor: const Color(0xFFBE123C),
-        isReal: _hasRealData,
+        isReal: !_loadFailed,
         onTap: _showSosDetail,
       ),
       _EmergencySummaryData(
@@ -718,7 +722,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         icon: Icons.warning_amber_rounded,
         headerBg: const Color(0xFFFEF3C7),
         headerColor: const Color(0xFF92400E),
-        isReal: _hasRealData,
+        isReal: !_loadFailed,
         // Was a snackbar saying "กำลังแสดง…" that showed nothing. Jump the
         // history list to the open incidents instead — the same thing the
         // "ปิดเหตุแล้ว" card does for closed ones.
@@ -737,7 +741,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
         icon: Icons.task_alt_rounded,
         headerBg: const Color(0xFFE6F7ED),
         headerColor: const Color(0xFF047857),
-        isReal: _hasRealData,
+        isReal: !_loadFailed,
         onTap: () {
           setState(() => selectedFilter = 'ปิดเหตุแล้ว');
         },
@@ -833,7 +837,18 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                   ),
                                 ),
                               ),
-                              if (item.isReal) _realBadge() else _demoBadge(),
+                              // Flexible + scaleDown: four cards across a
+                              // 1024px desktop leave ~17px too little for an
+                              // unshrinkable badge (layout audit test).
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerRight,
+                                  child: item.isReal
+                                      ? _realBadge()
+                                      : _demoBadge(),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -1702,11 +1717,14 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                 ],
               );
 
-              final badgeBlock = Row(
-                mainAxisSize: MainAxisSize.min,
+              // Wrap, not Row: two badges side by side overflow a 320px
+              // phone by ~50px (caught by director_emergency_page_test).
+              final badgeBlock = Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (_hasRealData) _realBadge() else _demoBadge(),
-                  const SizedBox(width: 6),
+                  if (_loadFailed) _demoBadge(text: 'โหลดไม่สำเร็จ') else _realBadge(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8.5,
@@ -2323,7 +2341,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (_hasRealData) _realBadge() else _demoBadge(),
+                  if (_loadFailed) _demoBadge(text: 'โหลดไม่สำเร็จ') else _realBadge(),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -3888,7 +3906,7 @@ class _DirectorEmergencyPageState extends State<DirectorEmergencyPage> {
                                 ],
                               ),
                             ),
-                            if (_hasRealData) _realBadge() else _demoBadge(),
+                            if (_loadFailed) _demoBadge(text: 'โหลดไม่สำเร็จ') else _realBadge(),
                             const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(

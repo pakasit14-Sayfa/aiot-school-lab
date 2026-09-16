@@ -960,21 +960,10 @@ class _MeetingDetailPageState extends State<MeetingDetailPage> {
                         icon: Icons.attach_file,
                       ),
                     ),
-                    section(
-                      'การเตือนนัดหมาย',
-                      [
-                        const Text(
-                          'การแจ้งเชิญและการเปลี่ยนสถานะส่งผ่านระบบแจ้งเตือนแล้ว ส่วนการเตือนล่วงหน้ายังไม่มีงานตั้งเวลา',
-                        ),
-                        const OutlinedButton(
-                          onPressed: null,
-                          child: Text('ตั้งเตือนล่วงหน้า — ยังไม่รองรับ'),
-                        ),
-                      ],
-                      accent: AppPalette.textMuted,
-                      surface: AppPalette.softTag,
-                      icon: Icons.notifications_none,
-                    ),
+                    // A "การเตือนนัดหมาย" section with a disabled
+                    // "ตั้งเตือนล่วงหน้า — ยังไม่รองรับ" button sat here. There is
+                    // no scheduled-reminder job; invitations and status changes
+                    // already go through notifications. Removed.
                   ],
                 ),
               ),

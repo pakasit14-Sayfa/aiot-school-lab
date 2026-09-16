@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../../widgets/change_password_dialog.dart';
 import 'theme/school_admin_palette.dart';
 
 class SchoolAdminProfilePage extends StatefulWidget {
@@ -383,117 +384,12 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   /// รอบก่อนปุ่มนี้แค่บอกให้ไปใช้ "ลืมรหัสผ่าน" เพราะยังไม่มี RPC; ตอนนี้
   /// เขียนจริง ตรวจรหัสปัจจุบันฝั่งเซิร์ฟเวอร์ และเซสชันเครื่องอื่นหลุดทั้งหมด
   Future<void> _changePassword() async {
-    final current = TextEditingController();
-    final next = TextEditingController();
-    final confirm = TextEditingController();
-    var submitting = false;
-    String? error;
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialog) {
-          Future<void> submit() async {
-            if (next.text.length < 8) {
-              setDialog(() => error = 'รหัสใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร');
-              return;
-            }
-            if (next.text != confirm.text) {
-              setDialog(() => error = 'รหัสใหม่ทั้งสองช่องไม่ตรงกัน');
-              return;
-            }
-            setDialog(() {
-              submitting = true;
-              error = null;
-            });
-            try {
-              final change = widget.changePassword ??
-                  ({
-                    required String currentPassword,
-                    required String newPassword,
-                  }) => AuthService.changeMyPassword(
-                    currentPassword: currentPassword,
-                    newPassword: newPassword,
-                  );
-              await change(currentPassword: current.text, newPassword: next.text);
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-              if (!mounted) return;
-              _message('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ');
-            } catch (e) {
-              debugPrint('SchoolAdminProfilePage: change_my_password ล้ม — $e');
-              if (!dialogContext.mounted) return;
-              final raw = e.toString();
-              setDialog(() {
-                submitting = false;
-                error = raw.contains('wrong_current_password')
-                    ? 'รหัสผ่านปัจจุบันไม่ถูกต้อง'
-                    : raw.contains('password_unchanged')
-                    ? 'รหัสใหม่ต้องต่างจากรหัสเดิม'
-                    : 'เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
-              });
-            }
-          }
-
-          return _OwnControllers(
-            controllers: [current, next, confirm],
-            child: AlertDialog(
-              title: const Text('เปลี่ยนรหัสผ่าน'),
-              content: SizedBox(
-                width: 380,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: current,
-                      obscureText: true,
-                      autofocus: true,
-                      decoration: const InputDecoration(labelText: 'รหัสผ่านปัจจุบัน'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: next,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)',
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: confirm,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: 'ยืนยันรหัสผ่านใหม่'),
-                    ),
-                    if (error != null) ...[
-                      const SizedBox(height: 10),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          error!,
-                          style: const TextStyle(
-                            color: Color(0xFFB91C1C),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('ยกเลิก'),
-                ),
-                FilledButton(
-                  onPressed: submitting ? null : submit,
-                  child: Text(submitting ? 'กำลังบันทึก…' : 'เปลี่ยนรหัสผ่าน'),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+    final changed = await showChangePasswordDialog(
+      context,
+      change: widget.changePassword,
     );
+    if (!changed || !mounted) return;
+    _message('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ');
   }
 
   /// อุปกรณ์/เซสชันที่ล็อกอินอยู่ — list_my_sessions + revoke_my_session

@@ -1,18 +1,23 @@
 import 'dart:math' show pi;
 
 import 'package:flutter/material.dart';
+import 'package:shared_core/models/school_device_identity.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../theme/app_palette.dart';
 import '../widgets/director_common_widgets.dart';
 
 class DirectorCctvPage extends StatefulWidget {
-  const DirectorCctvPage({super.key, this.listSchoolDevices});
+  const DirectorCctvPage({super.key, this.listSchoolDevices, this.loadDeviceDetail});
 
   /// Injectable seam so widget tests can control the camera inventory
   /// without initializing a real Supabase client. Defaults to the real
   /// service call used in production.
   final Future<List<DeviceOption>> Function()? listSchoolDevices;
+
+  /// Heartbeat facts for one camera (`get_school_device_detail`: last seen,
+  /// firmware, IP) shown in the detail dialog. Injectable for tests.
+  final Future<SchoolDeviceDetail?> Function(String deviceId)? loadDeviceDetail;
 
   @override
   State<DirectorCctvPage> createState() => _DirectorCctvPageState();
@@ -93,14 +98,11 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                 building: d.location ?? 'ไม่ระบุอาคาร',
                 location: d.location ?? 'ไม่ระบุตำแหน่ง',
                 status: d.status == 'online' ? 'Online' : 'Offline',
-                // ไม่มี field ไหนในระบบบอกได้จริงว่ากล้องนี้เปิด AI/บันทึกอยู่
-                // ไหม หรืออัปเดตล่าสุดเมื่อไหร่ — ใส่ค่า "ไม่มีข้อมูล" แทน
-                // การเดาว่าเปิดอยู่/กำลังบันทึกอยู่เหมือนของเดิม
-                aiEnabled: false,
-                recording: false,
-                lastUpdate: 'ไม่มีข้อมูลเวลาล่าสุด',
-                aiMode: 'ไม่มีข้อมูล',
-                alertCount: 0,
+                // aiEnabled / recording / aiMode / alertCount / lastUpdate
+                // used to be hardcoded here (false / "ไม่มีข้อมูล") and then
+                // rendered as "AI ปิด", "ไม่บันทึก", "ไม่ได้บันทึก" — claims
+                // about a state no table records. Gone; the detail dialog
+                // shows the real heartbeat (last seen / firmware / IP).
                 color: AppPalette.learningBlue,
               ),
             )
@@ -136,11 +138,10 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
 
   final List<String> statuses = const ['ทุกสถานะ', 'Online', 'Offline'];
 
-  // AI alerts have zero backend today (security_events table exists but no
-  // RPC reads it) — showing an empty list with an honest disclosure below
-  // rather than either fabricated alerts or a misleading "all clear" empty
-  // state (see _aiAlertsCard).
-  final List<_CameraAlert> alerts = const [];
+  // "แจ้งเตือนจาก AI Camera" / "พื้นที่จัดเก็บ & AI Detection" cards and the
+  // per-camera AI panel are gone: no RPC reads security_events and nothing
+  // stores recording/storage state, so there was nothing to show but the
+  // sentence saying so.
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +154,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           const DirectorSectionHeader(
             title: 'กล้องวงจรปิด',
             subtitle:
-                'ดูสถานะกล้อง จุดติดตั้ง การบันทึก และเหตุจาก AI Camera พร้อมเปิดดูรายละเอียดของแต่ละกล้อง',
+                'สถานะออนไลน์ จุดติดตั้ง และการรายงานตัวล่าสุดของกล้องแต่ละตัว',
           ),
           const SizedBox(height: 14),
           _heroSection(),
@@ -321,8 +322,8 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                             if (offlineCameras.isNotEmpty) ...[
                               const SizedBox(height: 3),
                               Text(
-                                'สถานะการบันทึก เครือข่าย และพื้นที่จัดเก็บของ '
-                                '${offlineCameras.map((c) => c.id).join(', ')} ควรได้รับการตรวจสอบ',
+                                '${offlineCameras.map((c) => c.name).join(', ')} '
+                                'ไม่ได้รายงานตัวเข้ามา ควรตรวจสอบไฟเลี้ยงหรือเครือข่าย',
                                 style: const TextStyle(
                                   fontSize: 10.5,
                                   color: AppPalette.textMuted,
@@ -330,27 +331,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.info_outline_rounded,
-                                  size: 13,
-                                  color: AppPalette.textMuted,
-                                ),
-                                const SizedBox(width: 6),
-                                const Expanded(
-                                  child: Text(
-                                    'เปิด AI, แจ้งเตือนอัตโนมัติ และพื้นที่จัดเก็บยังไม่รองรับในระบบนี้',
-                                    style: TextStyle(
-                                      fontSize: 9.5,
-                                      color: AppPalette.textMuted,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),
@@ -366,175 +346,8 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                           );
                   },
                 ),
-                const SizedBox(height: 16),
-                LayoutBuilder(
-                  builder: (context, box) {
-                    final aiAlertsMini = _miniInfoCard(
-                      icon: Icons.notifications_none_rounded,
-                      title: 'แจ้งเตือนจาก AI Camera',
-                      body: alerts.isEmpty
-                          ? 'ยังไม่รองรับในระบบนี้ — เหตุที่ตรวจจับได้จะขึ้นตรงนี้เมื่อพร้อมใช้งาน'
-                          : null,
-                      child: alerts.isEmpty
-                          ? null
-                          : Column(children: alerts.map(_alertTile).toList()),
-                    );
-                    final storageMini = _miniInfoCard(
-                      icon: Icons.storage_rounded,
-                      title: 'พื้นที่จัดเก็บ & AI Detection',
-                      body:
-                          'ยังไม่มีข้อมูลจริงในระบบนี้ — ไม่มีคอลัมน์/RPC รองรับตอนนี้',
-                    );
-                    if (box.maxWidth < 620) {
-                      return Column(
-                        children: [
-                          aiAlertsMini,
-                          const SizedBox(height: 10),
-                          storageMini,
-                        ],
-                      );
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: aiAlertsMini),
-                        const SizedBox(width: 10),
-                        Expanded(child: storageMini),
-                      ],
-                    );
-                  },
-                ),
               ],
             ),
-    );
-  }
-
-  Widget _miniInfoCard({
-    required IconData icon,
-    required String title,
-    String? body,
-    Widget? child,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppPalette.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: child != null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                child,
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 16, color: AppPalette.textMuted),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        body!,
-                        style: const TextStyle(
-                          fontSize: 9.5,
-                          color: AppPalette.textMuted,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-
-  Widget _alertTile(_CameraAlert item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 9),
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: AppPalette.tint(item.color, 0.055),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppPalette.tint(item.color, 0.13)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 37,
-            height: 37,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(item.icon, size: 18, color: item.color),
-          ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.detail,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 8.6,
-                    height: 1.35,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${item.location} • ${item.time} • ${item.cameraId}',
-                  style: const TextStyle(
-                    fontSize: 8,
-                    color: AppPalette.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 7),
-          Text(
-            item.status,
-            style: TextStyle(
-              fontSize: 8.2,
-              fontWeight: FontWeight.w700,
-              color: item.color,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -552,7 +365,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           ),
           const SizedBox(height: 4),
           const Text(
-            'กดที่กล้องเพื่อดูภาพขนาดใหญ่ สถานะ และเหตุ AI ล่าสุด',
+            'กดที่กล้องเพื่อดูสถานะและการรายงานตัวล่าสุด (ยังไม่มีภาพสดในแอปนี้)',
             style: TextStyle(fontSize: 10, color: AppPalette.textMuted),
           ),
           const SizedBox(height: 14),
@@ -825,38 +638,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                         color: AppPalette.textMuted,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _miniTag(
-                          camera.aiEnabled ? 'AI เปิด' : 'AI ปิด',
-                          camera.aiEnabled
-                              ? AppPalette.primaryPink
-                              : AppPalette.textMuted,
-                        ),
-                        _miniTag(
-                          camera.recording ? 'REC' : 'ไม่บันทึก',
-                          camera.recording
-                              ? AppPalette.danger
-                              : AppPalette.textMuted,
-                        ),
-                        if (camera.alertCount > 0)
-                          _miniTag(
-                            '${camera.alertCount} แจ้งเตือน',
-                            AppPalette.warning,
-                          ),
-                      ],
-                    ),
                     const Spacer(),
-                    Text(
-                      camera.lastUpdate,
-                      style: const TextStyle(
-                        fontSize: 7.9,
-                        color: AppPalette.textMuted,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -908,7 +690,8 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  online ? 'LIVE' : 'OFFLINE',
+                  // "LIVE" implied a stream; this is a status tile.
+                  online ? 'ONLINE' : 'OFFLINE',
                   style: const TextStyle(
                     fontSize: 8,
                     fontWeight: FontWeight.w800,
@@ -918,29 +701,6 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               ],
             ),
           ),
-          if (camera.recording)
-            const Positioned(
-              right: 10,
-              top: 9,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.fiber_manual_record_rounded,
-                    size: 12,
-                    color: Colors.redAccent,
-                  ),
-                  SizedBox(width: 3),
-                  Text(
-                    'REC',
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           Positioned(
             left: 10,
             bottom: 9,
@@ -953,36 +713,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
               ),
             ),
           ),
-          Positioned(
-            right: 10,
-            bottom: 9,
-            child: Text(
-              // No field anywhere reports a real last-updated time for a
-              // camera feed — showing a fixed fake clock next to the "LIVE"
-              // badge implied a live stream that doesn't exist.
-              'ไม่มีข้อมูลเวลาล่าสุด',
-              style: const TextStyle(fontSize: 7.8, color: Colors.white70),
-            ),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _miniTag(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppPalette.tint(color, 0.09),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 7.8,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
       ),
     );
   }
@@ -1142,7 +873,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                                   children: [
                                     _cameraInfoCard(camera),
                                     const SizedBox(height: 12),
-                                    _cameraAiCard(camera),
+                                    _cameraHeartbeatCard(camera),
                                   ],
                                 );
                               }
@@ -1154,7 +885,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
                                   children: [
                                     Expanded(child: _cameraInfoCard(camera)),
                                     const SizedBox(width: 12),
-                                    Expanded(child: _cameraAiCard(camera)),
+                                    Expanded(child: _cameraHeartbeatCard(camera)),
                                   ],
                                 ),
                               );
@@ -1204,17 +935,7 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
           // ในระบบจริง) โชว์แยก 2 แถวเลยออกมาเป็นค่าเดียวกันเป๊ะ ดูเหมือนบั๊ก
           // (เห็นจากสกรีนช็อตจริง) — รวมเป็นแถวเดียว ไม่ทำเป็นข้อมูล 2 ชิ้นที่
           // ไม่มีอยู่จริง
-          _detailRow('อาคาร/จุดติดตั้ง', camera.location),
-          _detailRow(
-            'การบันทึก',
-            camera.recording ? 'กำลังบันทึก' : 'ไม่ได้บันทึก',
-          ),
-          _detailRow(
-            'อัปเดตล่าสุด',
-            camera.lastUpdate,
-            muted: true,
-            last: true,
-          ),
+          _detailRow('อาคาร/จุดติดตั้ง', camera.location, last: true),
           const SizedBox(height: 9),
           Container(
             width: double.infinity,
@@ -1258,14 +979,18 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
     );
   }
 
-  // AI ปิดอยู่จริงสำหรับทุกกล้องตอนนี้ (ไม่มี field รองรับ) — เดิมโชว์เป็นแค่
-  // แถว "สถานะ AI: ปิดใช้งาน" ปนกับแถวอื่น ดูเหมือนข้อมูลหายไปเฉยๆ เปลี่ยน
-  // เป็นแบนเนอร์กรอบเส้นประแยกต่างหากด้านบน ให้ชัดว่า "ตั้งใจปิดไว้" ไม่ใช่
-  // "ข้อมูลขาด"
-  Widget _cameraAiCard(_CameraData camera) {
-    final relatedAlerts = alerts
-        .where((alert) => alert.cameraId == camera.id)
-        .toList();
+  /// Real heartbeat facts from `get_school_device_detail` — last report,
+  /// firmware, IP. Replaces the "AI Detection" panel, whose every value was
+  /// a hardcoded placeholder.
+  Widget _cameraHeartbeatCard(_CameraData camera) {
+    final load = widget.loadDeviceDetail ??
+        (String id) => SchoolAdminPlatformService().getDeviceDetail(id);
+    String stamp(DateTime? t) {
+      if (t == null) return 'ยังไม่เคยรายงาน';
+      final l = t.toLocal();
+      String two(int n) => n.toString().padLeft(2, '0');
+      return '${two(l.day)}/${two(l.month)}/${l.year + 543} ${two(l.hour)}:${two(l.minute)}';
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1278,77 +1003,36 @@ class _DirectorCctvPageState extends State<DirectorCctvPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'AI Detection',
+            'การรายงานตัวของอุปกรณ์',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 9),
-          if (!camera.aiEnabled)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppPalette.border),
-              ),
-              child: Row(
+          FutureBuilder<SchoolDeviceDetail?>(
+            future: load(camera.id),
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Text(
+                  'กำลังโหลด…',
+                  style: TextStyle(fontSize: 9, color: AppPalette.textMuted),
+                );
+              }
+              if (snap.hasError || snap.data == null) {
+                return const Text(
+                  'โหลดข้อมูลการรายงานตัวไม่สำเร็จ',
+                  style: TextStyle(fontSize: 9, color: AppPalette.danger),
+                );
+              }
+              final d = snap.data!;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.block_rounded,
-                    size: 14,
-                    color: AppPalette.textMuted,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'AI ปิดใช้งานสำหรับกล้องนี้',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: AppPalette.textMuted,
-                    ),
-                  ),
+                  _detailRow('รายงานตัวล่าสุด', stamp(d.lastSeenAt)),
+                  _detailRow('เฟิร์มแวร์', d.firmwareVersion ?? 'ยังไม่เคยรายงาน'),
+                  _detailRow('IP', d.ipAddress ?? 'ยังไม่เคยรายงาน', last: true),
                 ],
-              ),
-            ),
-          _detailRow('โหมด', camera.aiMode, muted: true),
-          _detailRow(
-            'แจ้งเตือนวันนี้',
-            '${camera.alertCount} รายการ',
-            last: true,
+              );
+            },
           ),
-          const SizedBox(height: 9),
-          if (relatedAlerts.isEmpty)
-            const Text(
-              'วันนี้ยังไม่มีเหตุจาก AI ของกล้องนี้',
-              style: TextStyle(fontSize: 8.5, color: AppPalette.textMuted),
-            )
-          else
-            ...relatedAlerts.map(
-              (alert) => Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppPalette.tint(alert.color, 0.06),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Row(
-                  children: [
-                    Icon(alert.icon, size: 15, color: alert.color),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        alert.title,
-                        style: const TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -1690,11 +1374,6 @@ class _CameraData {
   final String building;
   final String location;
   final String status;
-  final bool aiEnabled;
-  final bool recording;
-  final String lastUpdate;
-  final String aiMode;
-  final int alertCount;
   final Color color;
 
   const _CameraData({
@@ -1703,33 +1382,7 @@ class _CameraData {
     required this.building,
     required this.location,
     required this.status,
-    required this.aiEnabled,
-    required this.recording,
-    required this.lastUpdate,
-    required this.aiMode,
-    required this.alertCount,
     required this.color,
   });
 }
 
-class _CameraAlert {
-  final String cameraId;
-  final String title;
-  final String detail;
-  final String location;
-  final String time;
-  final String status;
-  final IconData icon;
-  final Color color;
-
-  const _CameraAlert({
-    required this.cameraId,
-    required this.title,
-    required this.detail,
-    required this.location,
-    required this.time,
-    required this.status,
-    required this.icon,
-    required this.color,
-  });
-}

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../models/director_models.dart';
 import '../theme/app_palette.dart';
 
 BoxDecoration directorWhiteCard() {
@@ -46,59 +45,3 @@ class DirectorSectionHeader extends StatelessWidget {
   }
 }
 
-class DirectorListCard extends StatelessWidget {
-  final ListItemData item;
-  final VoidCallback? onTap;
-
-  const DirectorListCard({super.key, required this.item, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: directorWhiteCard(),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppPalette.tint(item.color, 0.12),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Icon(item.icon, color: item.color),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 3),
-                    Text(item.subtitle, style: const TextStyle(fontSize: 10.5, color: AppPalette.textMuted)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppPalette.tint(item.color, 0.10),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Text(
-                  item.status,
-                  style: TextStyle(fontSize: 9.8, fontWeight: FontWeight.w700, color: item.color),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

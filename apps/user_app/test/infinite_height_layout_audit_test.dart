@@ -59,10 +59,19 @@ void main() {
     });
 
     testWidgets('DirectorEmergencyPage (Desktop & Mobile)', (tester) async {
-      await tester.pumpWidget(createTestWidget(const DirectorEmergencyPage(), desktopSize));
-      await tester.pump();
-      await tester.pumpWidget(createTestWidget(const DirectorEmergencyPage(), mobileSize));
-      await tester.pump();
+      // Drive the read seams: the page's initState otherwise reaches the
+      // Supabase singleton, which no widget test initializes.
+      Widget page() => DirectorEmergencyPage(
+        watchUpdates: false,
+        loadEmergencyEvents: () async => const [],
+        loadIncidentSummary: () async => const [],
+        loadIncidentReports: () async => const [],
+      );
+      await tester.pumpWidget(createTestWidget(page(), desktopSize));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(createTestWidget(page(), mobileSize));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('DirectorLearningPage (Desktop & Mobile)', (tester) async {
