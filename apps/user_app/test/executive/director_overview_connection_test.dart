@@ -10,7 +10,7 @@ DirectorOverviewData data({
   List<AppNotification> notices = const [],
   List<SchoolHomeroomAttendance> studentAttendance = const [],
   StaffAttendanceSummary? staffAttendance,
-  List<SchoolDepartment> subjectGroups = const [],
+  TeacherWorkloadSummary? teacherWorkload,
 }) => DirectorOverviewData(
   counts: empty ? {} : {'student': 3, 'teacher': 1},
   devices: [],
@@ -23,7 +23,7 @@ DirectorOverviewData data({
   water: [],
   studentAttendance: studentAttendance,
   staffAttendance: staffAttendance,
-  subjectGroups: subjectGroups,
+  teacherWorkload: teacherWorkload,
 );
 Widget page(DirectorOverviewController c, {ValueChanged<int>? navigate}) =>
     MaterialApp(
@@ -142,51 +142,101 @@ void main() {
     expect(target, 10);
   });
   testWidgets(
-    'teacher subject-group bubbles show real names and counts, not invented categories',
+    'teacher workload bubbles show the 4 real weekly period categories, not invented ones',
     (t) async {
       await t.binding.setSurfaceSize(const Size(1200, 900));
       addTearDown(() => t.binding.setSurfaceSize(null));
-      final groups = [
-        const SchoolDepartment(
-          departmentId: 'd1',
-          name: 'คณิตศาสตร์',
-          kind: 'subject_group',
-          sortOrder: 0,
-          memberCount: 6,
-        ),
-        const SchoolDepartment(
-          departmentId: 'd2',
-          name: 'ภาษาไทย',
-          kind: 'subject_group',
-          sortOrder: 1,
-          memberCount: 3,
-        ),
-        const SchoolDepartment(
-          departmentId: 'd3',
-          name: 'ศิลปะ',
-          kind: 'subject_group',
-          sortOrder: 2,
-          memberCount: 0,
-        ),
-      ];
+      const workload = TeacherWorkloadSummary(
+        regularPeriods: 6,
+        activityLabPeriods: 3,
+        regularTeacherCount: 4,
+        activityLabTeacherCount: 2,
+        substitutionRecorded: 1,
+        substitutionNeeded: 2,
+        prepMeetingCount: 0,
+        prepMeetingTeacherCount: 0,
+      );
       final c = DirectorOverviewController(
-        loader: (_) async => data(subjectGroups: groups),
+        loader: (_) async => data(teacherWorkload: workload),
       );
       addTearDown(c.dispose);
       await t.pumpWidget(page(c));
       await t.pumpAndSettle();
-      expect(find.text('คณิตศาสตร์'), findsOneWidget);
-      expect(find.text('6 คน'), findsOneWidget);
-      expect(find.text('ภาษาไทย'), findsOneWidget);
-      expect(find.text('3 คน'), findsOneWidget);
-      expect(find.text('67%'), findsOneWidget);
-      expect(find.text('33%'), findsOneWidget);
-      // กลุ่มสาระที่ไม่มีครูสังกัดเลยต้องไม่ขึ้นเป็นฟองที่ 0%
-      expect(find.text('ศิลปะ'), findsNothing);
+      expect(find.text('สอนในตารางปกติ'), findsOneWidget);
+      expect(find.text('6 คาบ (ครู 4 คน)'), findsOneWidget);
+      expect(find.text('กิจกรรม & แล็บ'), findsOneWidget);
+      expect(find.text('3 คาบ (ครู 2 คน)'), findsOneWidget);
+      expect(find.text('จัดครูสอนแทน'), findsOneWidget);
+      // ไม่ใช่ "ครบ 100%" ที่แต่งขึ้นแบบเวอร์ชัน 7 ก.ย. — ต้องบอกสัดส่วนที่
+      // บันทึกแล้วจริงจากคาบที่ต้องจัดครูสอนแทนจริง
+      expect(find.text('1 คาบ (บันทึกแล้ว 1/2)'), findsOneWidget);
+      expect(find.text('เตรียมสอน/ประชุม'), findsOneWidget);
+      expect(find.text('0 คาบ (ครู 0 คน)'), findsOneWidget);
+      // bubble % ของ 4 หมวดจริง (total = 6+3+1+0 = 10): เตรียมสอน/ประชุม เป็น
+      // 0 จึงไม่ขึ้นเป็นฟองเลย (กันฟอง 0% ทับกันจนอ่านไม่ออก)
+      expect(find.text('60%'), findsOneWidget);
+      expect(find.text('30%'), findsOneWidget);
+      expect(find.text('10%'), findsOneWidget);
+      // red-team: 0 เตรียมสอน/ประชุม อาจแปลว่ายังไม่มีใครบันทึก ไม่ใช่ไม่มี
+      // เหตุการณ์จริง — ต้องมีคำเตือนกำกับ ไม่ให้ ผอ. เข้าใจผิดว่าระบบพัง
       expect(
-        find.text('ยังไม่มีข้อมูลยืนยันสัดส่วนการเข้าสอน สอนแทน และเตรียมสอน'),
+        find.textContaining('นับจากการบันทึกของครู/ผู้ดูแลเอง'),
+        findsOneWidget,
+      );
+    },
+  );
+  testWidgets(
+    'no self-report note when substitution and prep/meeting are both genuinely recorded',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      const workload = TeacherWorkloadSummary(
+        regularPeriods: 6,
+        activityLabPeriods: 3,
+        regularTeacherCount: 4,
+        activityLabTeacherCount: 2,
+        substitutionRecorded: 2,
+        substitutionNeeded: 2,
+        prepMeetingCount: 3,
+        prepMeetingTeacherCount: 2,
+      );
+      final c = DirectorOverviewController(
+        loader: (_) async => data(teacherWorkload: workload),
+      );
+      addTearDown(c.dispose);
+      await t.pumpWidget(page(c));
+      await t.pumpAndSettle();
+      // ทั้งสองหมวดมีข้อมูลจริงไม่เป็นศูนย์ — ไม่ต้องมีคำเตือน ไม่งั้นจะกลาย
+      // เป็นข้อความรกจอที่ไม่มีความหมายเมื่อระบบถูกใช้งานจริงแล้ว
+      expect(
+        find.textContaining('นับจากการบันทึกของครู/ผู้ดูแลเอง'),
         findsNothing,
       );
+    },
+  );
+  testWidgets(
+    'substitution legend says there is nothing to cover instead of a fake 100%',
+    (t) async {
+      await t.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      const workload = TeacherWorkloadSummary(
+        regularPeriods: 4,
+        activityLabPeriods: 0,
+        regularTeacherCount: 2,
+        activityLabTeacherCount: 0,
+        substitutionRecorded: 0,
+        substitutionNeeded: 0,
+        prepMeetingCount: 1,
+        prepMeetingTeacherCount: 1,
+      );
+      final c = DirectorOverviewController(
+        loader: (_) async => data(teacherWorkload: workload),
+      );
+      addTearDown(c.dispose);
+      await t.pumpWidget(page(c));
+      await t.pumpAndSettle();
+      expect(find.text('ไม่มีคาบที่ต้องจัดครูสอนแทน'), findsOneWidget);
+      expect(find.textContaining('บันทึกแล้ว'), findsNothing);
     },
   );
   testWidgets(
@@ -254,4 +304,62 @@ void main() {
     expect(c.days, 30);
     expect(c.data!.counts['student'], 3);
   });
+
+  testWidgets(
+    'sensor tiles with long danger-level real values do not overflow',
+    (t) async {
+      addTearDown(() => t.binding.setSurfaceSize(null));
+      final stale = DateTime.now().toUtc().subtract(const Duration(hours: 6));
+      final sensor = SensorModel(
+        pm25: 999,
+        co2: 9999,
+        tvoc: 9999,
+        temperature: 99.9,
+        humidity: 100,
+        lux: 99999,
+        updatedAt: stale,
+        metricUpdatedAt: {
+          'pm25': stale,
+          'temperature': stale,
+          'humidity': stale,
+          'light_lux': stale,
+          'co2': stale,
+          'tvoc': stale,
+        },
+      );
+      final c = DirectorOverviewController(loader: (_) async => data());
+      addTearDown(c.dispose);
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DirectorOverviewPage(
+              controller: c,
+              onNavigate: (_) {},
+              sensorStreamOverride: Stream<SensorModel?>.value(
+                sensor,
+              ).asBroadcastStream(),
+              rawReadingsStreamOverride: Stream.value([
+                {'metric': 'aqi', 'value': 5, 'ts': stale.toIso8601String()},
+                {
+                  'metric': 'gas_mq2_percent',
+                  'value': 100,
+                  'ts': stale.toIso8601String(),
+                },
+              ]).asBroadcastStream(),
+            ),
+          ),
+        ),
+      );
+      for (final size in [
+        const Size(360, 800),
+        const Size(768, 1024),
+        const Size(1200, 900),
+        const Size(1440, 900),
+      ]) {
+        await t.binding.setSurfaceSize(size);
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull, reason: 'Layout at $size');
+      }
+    },
+  );
 }

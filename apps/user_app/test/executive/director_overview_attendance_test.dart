@@ -25,7 +25,7 @@ void main() {
     water: const [],
     studentAttendance: rooms,
     staffAttendance: staff,
-    subjectGroups: const [],
+    teacherWorkload: null,
   );
 
   Future<void> pump(WidgetTester t, DirectorOverviewData d) async {
@@ -80,7 +80,43 @@ void main() {
     expect(find.text('การเข้าเรียนของนักเรียน'), findsOneWidget);
     expect(find.text('45'), findsOneWidget); // มาเรียน 25+20
     expect(find.text('จาก 58 คน'), findsOneWidget); // นักเรียนรวม 30+28
-    expect(find.textContaining('เช็กชื่อแล้ว 2 ห้อง'), findsOneWidget);
+    expect(find.textContaining('เช็กชื่อแล้ว 2 จาก 2 ห้อง'), findsOneWidget);
+  });
+
+  testWidgets('ห้องที่ยังไม่มีใครเช็กชื่อเลยต้องไม่ถูกนับว่าเช็กชื่อแล้ว', (
+    t,
+  ) async {
+    await pump(
+      t,
+      data(
+        rooms: const [
+          SchoolHomeroomAttendance(
+            gradeLevel: 'ม.4',
+            room: 'ม.4/1',
+            studentCount: 30,
+            present: 25,
+            late: 2,
+            absent: 1,
+            excused: 2,
+            unknown: 0,
+          ),
+          // ห้องนี้ครูยังไม่กดเช็กชื่อเลยสักคน — unknown เท่ากับ studentCount
+          // ทั้งห้อง ต้องไม่ถูกนับรวมอยู่ใน "เช็กชื่อแล้ว"
+          SchoolHomeroomAttendance(
+            gradeLevel: 'ม.5',
+            room: 'ม.5/2',
+            studentCount: 28,
+            present: 0,
+            late: 0,
+            absent: 0,
+            excused: 0,
+            unknown: 28,
+          ),
+        ],
+      ),
+    );
+
+    expect(find.textContaining('เช็กชื่อแล้ว 1 จาก 2 ห้อง'), findsOneWidget);
   });
 
   testWidgets('ยังไม่เช็กชื่อ ต้องบอกว่ายังไม่เช็ก ไม่ใช่โชว์ 0 คน', (t) async {

@@ -12,7 +12,7 @@ class DirectorOverviewData {
     required this.water,
     required this.studentAttendance,
     required this.staffAttendance,
-    required this.subjectGroups,
+    required this.teacherWorkload,
   });
   final Map<String, int> counts;
   final List<DeviceOption> devices;
@@ -21,10 +21,13 @@ class DirectorOverviewData {
   final List<AppNotification> notices;
   final List<UtilityTrendPoint> energy, water;
 
-  /// สัดส่วนครูตามกลุ่มสาระจริงจากระบบ (`list_departments` kind=subject_group)
-  /// — แทนที่กราฟฟองสบู่ "สอนตารางปกติ/กิจกรรม/สอนแทน/เตรียมสอน" เวอร์ชัน 7 ก.ย.
-  /// ที่เป็นตัวเลขแต่งขึ้น (ไม่มีคอลัมน์จำแนกประเภทคาบสอนในระบบเลย)
-  final List<SchoolDepartment> subjectGroups;
+  /// สัดส่วนคาบสอนจริง 4 หมวด (ตารางปกติ/กิจกรรม&แล็บ/ครูสอนแทน/เตรียมสอน-
+  /// ประชุม) จาก `get_teacher_workload_summary` ของสัปดาห์นี้ — เดิมการ์ดนี้
+  /// เคยลองแทนด้วยสัดส่วนกลุ่มสาระ (`list_departments`) ไปก่อน แต่เป็นคนละ
+  /// ตัวชี้วัดกับของจริงในเวอร์ชัน 7 ก.ย. ("สัดส่วนการสอน" ไม่ใช่ "สัดส่วนกลุ่ม
+  /// สาระ") จึงต่อ backend ใหม่ให้ตรงหมวดจริง (migration
+  /// 20260910160000_teacher_workload_categories.sql)
+  final TeacherWorkloadSummary? teacherWorkload;
 
   /// การเข้าเรียนของนักเรียนรายห้อง และการมาปฏิบัติหน้าที่ของครู "ของวันนี้"
   /// — 2 บล็อกนี้เคยอยู่บนหน้าภาพรวมเวอร์ชัน 7 ก.ย. แต่เป็นตัวเลขที่แต่งขึ้น
@@ -42,7 +45,7 @@ class DirectorOverviewData {
       water.isEmpty &&
       studentAttendance.isEmpty &&
       staffAttendance == null &&
-      subjectGroups.isEmpty;
+      (teacherWorkload?.isEmpty ?? true);
 }
 
 class DirectorOverviewController extends ChangeNotifier {
@@ -69,7 +72,7 @@ class DirectorOverviewController extends ChangeNotifier {
       // เป็นยอดรวมของทั้งสัปดาห์/เดือนตามตัวเลือกที่เลือกอยู่
       HomeroomService.listSchoolAttendance(DateTime.now()),
       StaffAttendanceService.getSummary(),
-      StaffOrgService.listDepartments(kind: 'subject_group'),
+      ExecutiveService.getTeacherWorkloadSummary(),
     ]);
     return DirectorOverviewData(
       counts: r[0] as Map<String, int>,
@@ -81,7 +84,7 @@ class DirectorOverviewController extends ChangeNotifier {
       water: r[6] as List<UtilityTrendPoint>,
       studentAttendance: r[7] as List<SchoolHomeroomAttendance>,
       staffAttendance: r[8] as StaffAttendanceSummary?,
-      subjectGroups: r[9] as List<SchoolDepartment>,
+      teacherWorkload: r[9] as TeacherWorkloadSummary?,
     );
   }
 

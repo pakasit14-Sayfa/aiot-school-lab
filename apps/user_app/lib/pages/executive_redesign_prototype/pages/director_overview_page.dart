@@ -606,34 +606,53 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
       const SizedBox(height: 14),
       if (rooms.isEmpty)
         const _AttendanceEmpty(
+          icon: Icons.checklist_rtl_rounded,
           message: 'ยังไม่มีการเช็กชื่อของวันนี้',
           hint: 'ตัวเลขจะขึ้นเมื่อครูประจำชั้นบันทึกการเข้าเรียนแล้ว',
         )
       else ...[
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _AttendanceStat(
-              label: 'มาเรียน',
-              value: present,
-              total: students,
-              color: AppPalette.chartPink2,
+        _attendanceHeroLayout(
+          hero: _AttendanceHero(
+            label: 'มาเรียน',
+            icon: Icons.how_to_reg_rounded,
+            value: present,
+            total: students,
+          ),
+          chipGrid: _chipGrid([
+            _AttendanceChip(
+              label: 'สาย',
+              value: late,
+              color: AppPalette.chartCream,
+              icon: Icons.schedule_rounded,
             ),
-            _AttendanceStat(label: 'สาย', value: late, color: AppPalette.chartCream),
-            _AttendanceStat(label: 'ลา', value: excused, color: AppPalette.chartBlue),
-            _AttendanceStat(label: 'ขาด', value: absent, color: AppPalette.chartPink),
+            _AttendanceChip(
+              label: 'ลา',
+              value: excused,
+              color: AppPalette.chartBlue,
+              icon: Icons.event_busy_rounded,
+            ),
+            _AttendanceChip(
+              label: 'ขาด',
+              value: absent,
+              color: AppPalette.chartPink,
+              icon: Icons.person_off_rounded,
+            ),
             if (unknown > 0)
-              _AttendanceStat(
+              _AttendanceChip(
                 label: 'ยังไม่เช็ก',
                 value: unknown,
                 color: AppPalette.textMuted,
+                icon: Icons.help_outline_rounded,
               ),
-          ],
+          ]),
         ),
         const SizedBox(height: 12),
         Text(
-          'เช็กชื่อแล้ว ${rooms.length} ห้อง · นักเรียนรวม $students คน',
+          // เดิมใช้ rooms.length เฉยๆ ซึ่งนับ "ห้องที่มีในระบบ" ไม่ใช่ "ห้องที่
+          // เช็กชื่อแล้วจริง" — ทุกห้องที่ยังไม่มีใครกดเช็กชื่อเลยก็ถูกนับรวมว่า
+          // "เช็กชื่อแล้ว" ไปด้วย ทั้งที่แถวนั้น unknown เท่ากับ studentCount
+          // ทั้งห้อง แก้ให้นับเฉพาะห้องที่มีการบันทึกจริงอย่างน้อย 1 คน
+          'เช็กชื่อแล้ว ${rooms.where((r) => r.recorded > 0).length} จาก ${rooms.length} ห้อง · นักเรียนรวม $students คน',
           style: const TextStyle(fontSize: 12, color: AppPalette.textMuted),
         ),
       ],
@@ -647,6 +666,7 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
       const SizedBox(height: 14),
       if (s == null)
         const _AttendanceEmpty(
+          icon: Icons.lock_outline_rounded,
           message: 'ยังไม่มีข้อมูลการลงเวลา',
           hint: 'ต้องเข้าสู่ระบบด้วยบัญชีที่มีสิทธิ์ดูข้อมูลบุคลากร',
         )
@@ -654,36 +674,51 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
         // เคสจริงที่เกิดบ่อย: โรงเรียนยังไม่ตั้งเวลาปฏิบัติงาน ครูจึงลงเวลา
         // ไม่ได้เลย — ต้องบอกสาเหตุ ไม่ใช่โชว์ 0 เฉย ๆ ให้เข้าใจว่าไม่มีใครมา
         const _AttendanceEmpty(
+          icon: Icons.schedule_rounded,
           message: 'ยังไม่ได้ตั้งเวลาปฏิบัติงานของโรงเรียน',
           hint: 'ครูจะลงเวลาไม่ได้จนกว่าผู้ดูแลโรงเรียนจะตั้งค่าก่อน',
         )
       else ...[
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _AttendanceStat(
-              label: 'มาปฏิบัติงาน',
-              value: s.presentCount,
-              total: s.totalStaff,
-              color: AppPalette.chartPink2,
-            ),
-            _AttendanceStat(label: 'สาย', value: s.lateCount, color: AppPalette.chartCream),
-            _AttendanceStat(label: 'ลา', value: s.leaveCount, color: AppPalette.chartBlue),
-            _AttendanceStat(
-              label: 'ไปราชการ',
-              value: s.officialDutyCount,
-              color: AppPalette.chartPink3,
-            ),
-            _AttendanceStat(label: 'ขาด', value: s.absentCount, color: AppPalette.chartPink),
-            if (s.noRecordCount > 0)
-              _AttendanceStat(
-                label: 'ยังไม่ลงเวลา',
-                value: s.noRecordCount,
-                color: AppPalette.textMuted,
-              ),
-          ],
+        // Deliberately not _attendanceHeroLayout — student and staff
+        // attendance used to be visually identical (same pink hero+grid,
+        // told apart only by reading the header text). Staff gets its own
+        // shape too now (wide banner + a horizontal strip of cells below,
+        // blue instead of pink) so the two cards read as different sections
+        // at a glance, not just a copy-pasted card with different numbers.
+        _StaffAttendanceBanner(
+          label: 'มาปฏิบัติงาน',
+          icon: Icons.how_to_reg_rounded,
+          value: s.presentCount,
+          total: s.totalStaff,
         ),
+        _StaffAttendanceStrip([
+          _StaffCell(
+            label: 'สาย',
+            value: s.lateCount,
+            color: AppPalette.chartCream,
+          ),
+          _StaffCell(
+            label: 'ลา',
+            value: s.leaveCount,
+            color: AppPalette.chartBlue,
+          ),
+          _StaffCell(
+            label: 'ไปราชการ',
+            value: s.officialDutyCount,
+            color: AppPalette.chartPink3,
+          ),
+          _StaffCell(
+            label: 'ขาด',
+            value: s.absentCount,
+            color: AppPalette.chartPink,
+          ),
+          if (s.noRecordCount > 0)
+            _StaffCell(
+              label: 'ยังไม่ลงเวลา',
+              value: s.noRecordCount,
+              color: AppPalette.textMuted,
+            ),
+        ]),
         const SizedBox(height: 12),
         Text(
           'บุคลากรทั้งหมด ${s.totalStaff} คน',
@@ -786,7 +821,7 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
                   const SizedBox(height: 4),
                   Text(
                     d.counts.containsKey('teacher')
-                        ? 'ครูและบุคลากรทั้งหมด ${d.counts['teacher']} คน • สัดส่วนตามกลุ่มสาระจากทะเบียนโรงเรียน'
+                        ? 'ครูและบุคลากรทั้งหมด ${d.counts['teacher']} คน • สัดส่วนคาบสอนสัปดาห์นี้จากตารางสอนจริง'
                         : 'ยังไม่มีข้อมูลจำนวนครู',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -819,24 +854,61 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
           ],
         ),
         const SizedBox(height: 8),
-        if (d.subjectGroups.isEmpty)
-          const _Empty('ยังไม่มีข้อมูลกลุ่มสาระในระบบ')
+        if (d.teacherWorkload == null || d.teacherWorkload!.isEmpty)
+          const _Empty('ยังไม่มีข้อมูลตารางสอนในระบบ')
         else ...[
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 145),
-            child: _SubjectGroupBubbleCluster(groups: d.subjectGroups),
+            child: _BubbleCluster(bubbles: _workloadBubbles(d.teacherWorkload!)),
           ),
           const SizedBox(height: 10),
           const _DottedLine(),
           const SizedBox(height: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 150),
-            child: _SubjectGroupLegend(groups: d.subjectGroups),
+            child: _WorkloadLegend(summary: d.teacherWorkload!),
           ),
+          // red-team: "จัดครูสอนแทน"/"เตรียมสอน-ประชุม" พึ่งการบันทึกด้วยมือของ
+          // ครู/ผู้ดูแล — เลข 0 ต่อเนื่องอาจแปลว่า "ยังไม่มีใครบันทึก" ไม่ใช่
+          // "ไม่มีเหตุการณ์จริง" ต้องบอกไว้ตรงๆ ไม่งั้น ผอ. จะเข้าใจผิดว่าระบบ
+          // พังหรือไม่มีครูสอนแทนเลยทั้งสัปดาห์
+          if (d.teacherWorkload!.substitutionRecorded == 0 ||
+              d.teacherWorkload!.prepMeetingCount == 0) ...[
+            const SizedBox(height: 6),
+            const Text(
+              'หมายเหตุ: "จัดครูสอนแทน" และ "เตรียมสอน/ประชุม" นับจากการบันทึกของครู/ผู้ดูแลเอง ตัวเลขต่ำอาจแปลว่ายังไม่มีใครบันทึก ไม่ใช่ไม่มีเหตุการณ์จริง',
+              style: TextStyle(fontSize: 8.5, color: AppPalette.textMuted, height: 1.3),
+            ),
+          ],
         ],
       ],
     ),
   );
+
+  // 4 หมวดคาบสอนจริงของสัปดาห์นี้ — สีคงที่ต่อหมวด (ไม่ใช่สีตามอันดับขนาด)
+  // ให้ตรงกับสีของ legend ด้านล่างเสมอไม่ว่าหมวดไหนจะใหญ่กว่ากัน
+  List<_WorkloadBubble> _workloadBubbles(TeacherWorkloadSummary w) => [
+    _WorkloadBubble(
+      count: w.regularPeriods,
+      bg: const Color(0xFFEDE9FE),
+      text: const Color(0xFF5B21B6),
+    ),
+    _WorkloadBubble(
+      count: w.activityLabPeriods,
+      bg: const Color(0xFFDCFCE7),
+      text: const Color(0xFF059669),
+    ),
+    _WorkloadBubble(
+      count: w.substitutionRecorded,
+      bg: const Color(0xFFFFE4E6),
+      text: const Color(0xFFE11D48),
+    ),
+    _WorkloadBubble(
+      count: w.prepMeetingCount,
+      bg: const Color(0xFFFEF3C7),
+      text: const Color(0xFFD97706),
+    ),
+  ];
 
   // isCompact มาจาก breakpoint ระดับหน้า (resourceRow, width<1020) ไม่ใช่ความ
   // กว้างของการ์ดนี้เอง — ตรงกับเวอร์ชัน 7 ก.ย. ที่ _utilityCard(isCompact)
@@ -1194,61 +1266,130 @@ class _DirectorOverviewPageState extends State<DirectorOverviewPage> {
       children: children,
     ),
   );
+
+  // Hero stat on the left, chip grid on the right — stacks instead below
+  // 480px. IntrinsicHeight + stretch makes the hero match whatever height
+  // the chip grid needs (usually taller, being 2 rows), same technique used
+  // for the notifications page's bento header. Safe here for the same
+  // reason it was safe there: neither the hero nor the chip grid contains a
+  // LayoutBuilder or a Column with its own Expanded/Flexible child, which is
+  // what actually breaks under an ancestor IntrinsicHeight.
+  Widget _attendanceHeroLayout({required Widget hero, required Widget chipGrid}) {
+    return LayoutBuilder(
+      builder: (context, box) {
+        if (box.maxWidth < 480) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [hero, const SizedBox(height: 10), chipGrid],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 4, child: hero),
+              const SizedBox(width: 10),
+              Expanded(flex: 6, child: chipGrid),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Pairs chips two-per-row regardless of count (4 or 5, depending on
+  // whether an "unknown/no record" chip is present) — a lone odd chip out
+  // gets a Spacer instead of stretching to double width, so chip size stays
+  // consistent whether the row is full or not.
+  Widget _chipGrid(List<Widget> chips) {
+    final rows = <Widget>[];
+    for (var i = 0; i < chips.length; i += 2) {
+      if (i > 0) rows.add(const SizedBox(height: 10));
+      rows.add(
+        Row(
+          children: [
+            Expanded(child: chips[i]),
+            const SizedBox(width: 10),
+            if (i + 1 < chips.length)
+              Expanded(child: chips[i + 1])
+            else
+              const Spacer(),
+          ],
+        ),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+  }
 }
 
-class _AttendanceStat extends StatelessWidget {
-  const _AttendanceStat({
+// The primary stat of an attendance card ("มาเรียน" / "มาปฏิบัติงาน") —
+// pulled out of the old equal-weight grid of cards so it reads as the
+// number that matters most, with the rest demoted to _AttendanceChip.
+class _AttendanceHero extends StatelessWidget {
+  const _AttendanceHero({
     required this.label,
+    required this.icon,
     required this.value,
-    required this.color,
-    this.total,
+    required this.total,
   });
 
   final String label;
+  final IconData icon;
   final int value;
-  final int? total;
-  final Color color;
+  final int total;
 
   @override
   Widget build(BuildContext context) {
-    final t = total;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppPalette.tint(color, .12),
-        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppPalette.chartPink2, AppPalette.primaryPinkDark],
+        ),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: AppPalette.textMuted,
-            ),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: Colors.white),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
                 '$value',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: color,
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1,
                 ),
               ),
-              const SizedBox(width: 3),
+              const SizedBox(width: 5),
               Text(
-                t == null ? 'คน' : 'จาก $t คน',
+                'จาก $total คน',
                 style: const TextStyle(
-                  fontSize: 11,
-                  color: AppPalette.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
                 ),
               ),
             ],
@@ -1259,9 +1400,232 @@ class _AttendanceStat extends StatelessWidget {
   }
 }
 
-class _AttendanceEmpty extends StatelessWidget {
-  const _AttendanceEmpty({required this.message, required this.hint});
+// The secondary stats beside the hero — small bordered chips instead of the
+// old full-size card, so 4-5 of them together read as "detail" rather than
+// competing with the hero for attention.
+class _AttendanceChip extends StatelessWidget {
+  const _AttendanceChip({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
 
+  final String label;
+  final int value;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.textMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$value',
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Wide banner (blue, full width) instead of the student card's tall hero —
+// staff attendance never has more than a handful of people (total_staff is
+// teacher+school_admin+executive at this school), so giving it the same
+// tall square hero as the 6-student card would out-weigh what it's actually
+// reporting. Deliberately not rounded on the bottom — _StaffAttendanceStrip
+// continues directly underneath it as one continuous shape.
+class _StaffAttendanceBanner extends StatelessWidget {
+  const _StaffAttendanceBanner({
+    required this.label,
+    required this.icon,
+    required this.value,
+    required this.total,
+  });
+
+  final String label;
+  final IconData icon;
+  final int value;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6D95C4), Color(0xFF3D5D85)],
+        ),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(18),
+          topRight: Radius.circular(18),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 17, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$value',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1,
+                ),
+              ),
+              Text(
+                'จาก $total คน',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffCell {
+  const _StaffCell({required this.label, required this.value, required this.color});
+  final String label;
+  final int value;
+  final Color color;
+}
+
+// The row of cells under _StaffAttendanceBanner — same border radius on the
+// bottom corners as the banner has on top, no border between them, so the
+// two read as one shape split into a colored header and a data strip.
+class _StaffAttendanceStrip extends StatelessWidget {
+  const _StaffAttendanceStrip(this.cells);
+
+  final List<_StaffCell> cells;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.1),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(18),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          for (var i = 0; i < cells.length; i++)
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                decoration: BoxDecoration(
+                  border: i == 0
+                      ? null
+                      : const Border(left: BorderSide(color: Color(0xFFE2E8F0), width: 1.1)),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(color: cells[i].color, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      cells[i].label,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppPalette.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${cells[i].value}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// "ไม่มีข้อมูล/ยังไม่ได้ตั้งค่า" — dashed border instead of a filled grey box,
+// so an empty state reads as empty from its shape alone, not just its text.
+class _AttendanceEmpty extends StatelessWidget {
+  const _AttendanceEmpty({
+    required this.icon,
+    required this.message,
+    required this.hint,
+  });
+
+  final IconData icon;
   final String message;
   final String hint;
 
@@ -1269,13 +1633,23 @@ class _AttendanceEmpty extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
       decoration: BoxDecoration(
-        color: AppPalette.softTag,
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppPalette.softTag,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: AppPalette.textMuted),
+          ),
+          const SizedBox(height: 12),
           Text(
             message,
             textAlign: TextAlign.center,
@@ -2494,64 +2868,54 @@ class _StudentAttendanceSummaryDialog extends StatelessWidget {
 
 /// (พื้นหลังพาสเทล, ตัวหนังสือสี) — สีชุดเดียวกับกราฟฟองสบู่เวอร์ชัน 7 ก.ย.
 /// เป๊ะ (ม่วง/เขียว/ชมพู/ส้ม) บวกอีก 2 คู่โทนเดียวกันสำหรับกลุ่มสาระที่ 5-6
-const _kSubjectGroupColors = [
-  (Color(0xFFEDE9FE), Color(0xFF5B21B6)),
-  (Color(0xFFDCFCE7), Color(0xFF059669)),
-  (Color(0xFFFFE4E6), Color(0xFFE11D48)),
-  (Color(0xFFFEF3C7), Color(0xFFD97706)),
-  (Color(0xFFDBEAFE), Color(0xFF1D4ED8)),
-  (Color(0xFFFCE7F3), Color(0xFFBE185D)),
-];
+/// หนึ่งหมวดคาบสอน — สีคงที่ต่อหมวด ไม่ใช่สีตามอันดับขนาดหลังเรียง
+class _WorkloadBubble {
+  const _WorkloadBubble({required this.count, required this.bg, required this.text});
+  final int count;
+  final Color bg, text;
+}
 
 /// วงกลมทับกันเป็นก้อนเดียว แบบเดียวกับกราฟฟองสบู่เวอร์ชัน 7 ก.ย. — ต่างจาก
-/// ของเดิมตรงที่สัดส่วนมาจากกลุ่มสาระจริง ไม่ใช่หมวดคาบสอนที่แต่งขึ้น
-class _SubjectGroupBubbleCluster extends StatelessWidget {
-  const _SubjectGroupBubbleCluster({required this.groups});
-  final List<SchoolDepartment> groups;
+/// ของเดิมตรงที่สัดส่วนมาจาก 4 หมวดคาบสอนจริงของสัปดาห์นี้ ไม่ใช่ตัวเลขแต่งขึ้น
+class _BubbleCluster extends StatelessWidget {
+  const _BubbleCluster({required this.bubbles});
+  final List<_WorkloadBubble> bubbles;
 
-  // ผ้าใบตรรกะขนาดคงที่ + จัดตำแหน่งวงกลมแบบเดียวกับ 4 วงตายตัวของเวอร์ชัน
-  // 7 ก.ย. (ใหญ่บนซ้าย, รองบนขวาทับกัน, เล็กล่างกลางทับทั้งคู่, จิ๋วขวาสุด)
-  // แล้วใช้ Center+FittedBox ย่อพอดีการ์ดเหมือนต้นฉบับ แทนที่จะคำนวณตำแหน่ง
-  // ใหม่ตาม LayoutBuilder ซึ่งทำให้ก้อนเลื่อนไม่ตรงกลาง
+  // ตำแหน่งตายตัวต่อ "หมวด" (ไม่ใช่ต่ออันดับขนาด) คัดลอกพิกัดพิกเซลจริงจาก
+  // เวอร์ชัน 7 ก.ย. ตรง ๆ (left:10,top:14 / left:148,top:8 / left:144,top:96 /
+  // left:236,top:92 บนผ้าใบ 300x180) แล้วแปลงเป็นจุดศูนย์กลาง — ตอนแรกลองใช้
+  // สูตรเรียงตามอันดับขนาดแทน แต่หมวดจริงมักมีค่าเท่ากันหลายหมวด (เช่น 1/1/1
+  // คาบ) ทำให้เรียงแล้วได้แถวเกือบเป็นเส้นตรง ไม่ใช่ก้อนคลัสเตอร์เหมือนต้นฉบับ
+  // — ของจริงควรคงตำแหน่ง "กิจกรรม&แล็บ" ไว้ขวาบนเสมอไม่ว่าค่าจะเท่ากับหมวด
+  // อื่นแค่ไหน เพราะแต่ละวงคือหมวดที่มีอัตลักษณ์ตายตัว ไม่ใช่อันดับที่เปลี่ยนได้
   static const _canvasWidth = 300.0;
   static const _canvasHeight = 180.0;
+  static const _slotCenters = [
+    Offset(82, 86), // สอนในตารางปกติ — ใหญ่ซ้ายล่าง
+    Offset(202, 62), // กิจกรรม & แล็บ — ขวาบน ทับหมวดแรกเบาๆ
+    Offset(185, 137), // จัดครูสอนแทน — ล่างกลาง ทับทั้งสองหมวดบน
+    Offset(260, 116), // เตรียมสอน/ประชุม — ขวาสุด เล็กสุด
+  ];
 
   @override
   Widget build(BuildContext context) {
-    final total = groups.fold<int>(0, (n, g) => n + g.memberCount);
+    final total = bubbles.fold<int>(0, (n, b) => n + b.count);
     if (total == 0) {
-      return const _Empty('ยังไม่มีครูสังกัดกลุ่มสาระใดเลย');
+      return const _Empty('ยังไม่มีคาบสอนในระบบสัปดาห์นี้');
     }
-    final sorted = [...groups.where((g) => g.memberCount > 0)]
-      ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
-    final maxCount = sorted.first.memberCount;
-    final sizes = [
-      for (final g in sorted) 48.0 + (g.memberCount / maxCount).clamp(0.0, 1.0) * 96.0,
+    final present = <int>[
+      for (var i = 0; i < bubbles.length; i++)
+        if (bubbles[i].count > 0) i,
     ];
+    final maxCount = present.map((i) => bubbles[i].count).reduce((a, b) => a > b ? a : b);
+    final sizes = {
+      for (final i in present) i: 48.0 + (bubbles[i].count / maxCount).clamp(0.0, 1.0) * 96.0,
+    };
 
-    // เดินหน้าไปทางขวาเป็นหลัก (canvas 300x180 เป็นแนวนอน) พร้อมสลับสูง-ต่ำ
-    // เบา ๆ กันไม่ให้เรียงเป็นเส้นตรงทื่อ ๆ — ความทับกันเบา (~20%) กันไม่ให้
-    // ตัวเลขในวงบังกันเมื่อสัดส่วนเท่ากันทุกกลุ่ม (ที่เคยเป็นปัญหาตอนใช้มุมชัน)
-    final centers = <Offset>[Offset(sizes[0] / 2 + 10, _canvasHeight * .58)];
-    for (var i = 1; i < sorted.length; i++) {
-      final prev = centers[i - 1];
-      final rSum = sizes[i - 1] / 2 + sizes[i] / 2;
-      final dx = rSum * .75;
-      final dy = (i.isOdd ? -1 : 1) * sizes[i - 1] * .35;
-      centers.add(Offset(prev.dx + dx, prev.dy + dy));
-    }
-    final clusterLeft = [
-      for (var i = 0; i < centers.length; i++) centers[i].dx - sizes[i] / 2,
-    ].reduce((a, b) => a < b ? a : b);
-    final clusterRight = [
-      for (var i = 0; i < centers.length; i++) centers[i].dx + sizes[i] / 2,
-    ].reduce((a, b) => a > b ? a : b);
-    final clusterTop = [
-      for (var i = 0; i < centers.length; i++) centers[i].dy - sizes[i] / 2,
-    ].reduce((a, b) => a < b ? a : b);
-    final clusterBottom = [
-      for (var i = 0; i < centers.length; i++) centers[i].dy + sizes[i] / 2,
-    ].reduce((a, b) => a > b ? a : b);
+    final clusterLeft = present.map((i) => _slotCenters[i].dx - sizes[i]! / 2).reduce((a, b) => a < b ? a : b);
+    final clusterRight = present.map((i) => _slotCenters[i].dx + sizes[i]! / 2).reduce((a, b) => a > b ? a : b);
+    final clusterTop = present.map((i) => _slotCenters[i].dy - sizes[i]! / 2).reduce((a, b) => a < b ? a : b);
+    final clusterBottom = present.map((i) => _slotCenters[i].dy + sizes[i]! / 2).reduce((a, b) => a > b ? a : b);
     final shift = (_canvasWidth - (clusterRight - clusterLeft)) / 2 - clusterLeft;
     final shiftY = (_canvasHeight - (clusterBottom - clusterTop)) / 2 - clusterTop;
 
@@ -2564,27 +2928,27 @@ class _SubjectGroupBubbleCluster extends StatelessWidget {
           child: Stack(
             clipBehavior: Clip.none,
             children: [
-              for (var i = sorted.length - 1; i >= 0; i--)
+              for (final i in present)
                 Positioned(
-                  left: centers[i].dx + shift - sizes[i] / 2,
-                  top: centers[i].dy + shiftY - sizes[i] / 2,
+                  left: _slotCenters[i].dx + shift - sizes[i]! / 2,
+                  top: _slotCenters[i].dy + shiftY - sizes[i]! / 2,
                   child: Container(
                     width: sizes[i],
                     height: sizes[i],
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _kSubjectGroupColors[i % _kSubjectGroupColors.length].$1,
+                      color: bubbles[i].bg,
                     ),
                     child: Text(
-                      '${(sorted[i].memberCount * 100 / total).round()}%',
+                      '${(bubbles[i].count * 100 / total).round()}%',
                       style: TextStyle(
-                        color: _kSubjectGroupColors[i % _kSubjectGroupColors.length].$2,
+                        color: bubbles[i].text,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -.5,
                         // สัดส่วน font/ขนาดวงกลม ~0.23 เท่ากับ 4 วงตายตัวของ
                         // เวอร์ชัน 7 ก.ย. (144→32, 108→25, 82→19, 48→13)
-                        fontSize: (sizes[i] * 0.23).clamp(10.0, 34.0),
+                        fontSize: (sizes[i]! * 0.23).clamp(10.0, 34.0),
                       ),
                     ),
                   ),
@@ -2597,19 +2961,55 @@ class _SubjectGroupBubbleCluster extends StatelessWidget {
   }
 }
 
-/// ตำนานใต้กราฟฟองสบู่ — ตาราง 2 คอลัมน์คั่นด้วยเส้นประ แบบเดียวกับ
-/// "สอนในตารางปกติ / กิจกรรม&แล็บ" ของเวอร์ชัน 7 ก.ย. เป๊ะ ต่างแค่ชื่อ
-/// กลุ่มสาระ+จำนวนคนเป็นของจริง ไม่ใช่หมวดคาบสอนที่แต่งขึ้น
-class _SubjectGroupLegend extends StatelessWidget {
-  const _SubjectGroupLegend({required this.groups});
-  final List<SchoolDepartment> groups;
+class _LegendEntry {
+  const _LegendEntry({required this.label, required this.value, this.detail, required this.color});
+  final String label, value;
+  final String? detail;
+  final Color color;
+  String get line => detail == null ? value : '$value ($detail)';
+}
+
+/// ตำนานใต้กราฟฟองสบู่ — ตาราง 2 คอลัมน์คั่นด้วยเส้นประ + ลำดับ 4 หมวดคงที่
+/// แบบเดียวกับเวอร์ชัน 7 ก.ย. เป๊ะ (ไม่เรียงตามขนาดเหมือนกราฟฟองสบู่ด้านบน)
+/// ต่างแค่ตัวเลขเป็นคาบสอนจริงของสัปดาห์นี้ ไม่ใช่หมวดที่แต่งขึ้น
+class _WorkloadLegend extends StatelessWidget {
+  const _WorkloadLegend({required this.summary});
+  final TeacherWorkloadSummary summary;
 
   @override
   Widget build(BuildContext context) {
-    final sorted = [...groups.where((g) => g.memberCount > 0)]
-      ..sort((a, b) => b.memberCount.compareTo(a.memberCount));
+    final entries = [
+      _LegendEntry(
+        label: 'สอนในตารางปกติ',
+        value: '${summary.regularPeriods} คาบ',
+        detail: 'ครู ${summary.regularTeacherCount} คน',
+        color: const Color(0xFF5B21B6),
+      ),
+      _LegendEntry(
+        label: 'กิจกรรม & แล็บ',
+        value: '${summary.activityLabPeriods} คาบ',
+        detail: 'ครู ${summary.activityLabTeacherCount} คน',
+        color: const Color(0xFF059669),
+      ),
+      _LegendEntry(
+        label: 'จัดครูสอนแทน',
+        value: summary.substitutionNeeded == 0
+            ? 'ไม่มีคาบที่ต้องจัดครูสอนแทน'
+            : '${summary.substitutionRecorded} คาบ',
+        detail: summary.substitutionNeeded == 0
+            ? null
+            : 'บันทึกแล้ว ${summary.substitutionRecorded}/${summary.substitutionNeeded}',
+        color: const Color(0xFFE11D48),
+      ),
+      _LegendEntry(
+        label: 'เตรียมสอน/ประชุม',
+        value: '${summary.prepMeetingCount} คาบ',
+        detail: 'ครู ${summary.prepMeetingTeacherCount} คน',
+        color: const Color(0xFFD97706),
+      ),
+    ];
     final rows = <Widget>[];
-    for (var i = 0; i < sorted.length; i += 2) {
+    for (var i = 0; i < entries.length; i += 2) {
       if (rows.isNotEmpty) {
         rows
           ..add(const SizedBox(height: 6))
@@ -2620,11 +3020,11 @@ class _SubjectGroupLegend extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _legendItem(sorted[i], i)),
+            Expanded(child: _legendItem(entries[i])),
             const SizedBox(width: 12),
             Expanded(
-              child: i + 1 < sorted.length
-                  ? _legendItem(sorted[i + 1], i + 1)
+              child: i + 1 < entries.length
+                  ? _legendItem(entries[i + 1])
                   : const SizedBox.shrink(),
             ),
           ],
@@ -2638,8 +3038,7 @@ class _SubjectGroupLegend extends StatelessWidget {
     );
   }
 
-  Widget _legendItem(SchoolDepartment group, int colorIndex) {
-    final (_, textColor) = _kSubjectGroupColors[colorIndex % _kSubjectGroupColors.length];
+  Widget _legendItem(_LegendEntry entry) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
@@ -2650,18 +3049,18 @@ class _SubjectGroupLegend extends StatelessWidget {
               Container(
                 width: 8,
                 height: 8,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: textColor),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: entry.color),
               ),
               const SizedBox(width: 7),
               Flexible(
                 child: Text(
-                  group.name,
+                  entry.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
-                    color: textColor,
+                    color: entry.color,
                   ),
                 ),
               ),
@@ -2671,7 +3070,7 @@ class _SubjectGroupLegend extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(left: 15),
             child: Text(
-              '${group.memberCount} คน',
+              entry.line,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

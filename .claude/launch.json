@@ -9,6 +9,15 @@
         "cd apps/user_app && exec flutter run -d web-server --web-port 5599 --web-hostname 127.0.0.1 --dart-define-from-file=../../env.json"
       ],
       "port": 5599
+    },
+    {
+      "name": "user_app_prod",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd apps/user_app && exec flutter run -d web-server --web-port 5601 --web-hostname 127.0.0.1 --dart-define=SUPABASE_URL=https://smqoknnftgjyhrnzugar.supabase.co --dart-define=SUPABASE_ANON_KEY=sb_publishable_IFaGjUFwiBeBH_M-GYrSZA_Fywg9Tk9"
+      ],
+      "port": 5601
     }
   ]
 }

@@ -172,30 +172,21 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
             final bool hasTvoc =
                 sensor != null && sensor.metricUpdatedAt.containsKey('tvoc');
 
-            final pm25Val = hasPm25
-                ? '${sensor.pm25.toStringAsFixed(0)} µg/m³ · ${_levelLabel(sensor.pm25Level)}'
-                : 'ไม่มีข้อมูล';
+            // เดิมรวม "ตัวเลข · ระดับ" เป็นสตริงเดียว — ดีไซน์ใหม่ (อ้างอิงการ์ด
+            // สไตล์ Apple Health ที่ผู้ใช้ส่งมา) แยกตัวเลข/หน่วยกับป้ายระดับ
+            // ออกจากกัน ป้ายระดับให้ _resourceTile คำนวณเองจาก level โดยตรง
+            final pm25Val = hasPm25 ? sensor.pm25.toStringAsFixed(0) : null;
             final tempVal = hasTemp
-                ? '${sensor.temperature.toStringAsFixed(1)} °C · ${_levelLabel(sensor.tempLevel)}'
-                : 'ไม่มีข้อมูล';
-            final luxVal = hasLux
-                ? '${sensor.lux.toStringAsFixed(0)} lux · ${_levelLabel(sensor.luxLevel)}'
-                : 'ไม่มีข้อมูล';
+                ? sensor.temperature.toStringAsFixed(1)
+                : null;
+            final luxVal = hasLux ? sensor.lux.toStringAsFixed(0) : null;
             final humidityVal = hasHumidity
-                ? '${sensor.humidity.toStringAsFixed(0)}%RH · ${_levelLabel(sensor.humidityLevel)}'
-                : 'ไม่มีข้อมูล';
-            final aqiVal = aqiReading != null
-                ? '${aqiReading.value.toStringAsFixed(0)} · ${_aqiUbaLabel(aqiReading.value)}'
-                : 'ไม่มีข้อมูล';
-            final gasVal = gasReading != null
-                ? '${gasReading.value.toStringAsFixed(0)}% (ดิบ)'
-                : 'ไม่มีข้อมูล';
-            final co2Val = hasCo2
-                ? '${sensor.co2.toStringAsFixed(0)} ppm · ${_levelLabel(sensor.co2Level)}'
-                : 'ไม่มีข้อมูล';
-            final tvocVal = hasTvoc
-                ? '${sensor.tvoc.toStringAsFixed(0)} ppb · ${_levelLabel(sensor.tvocLevel)}'
-                : 'ไม่มีข้อมูล';
+                ? sensor.humidity.toStringAsFixed(0)
+                : null;
+            final aqiVal = aqiReading?.value.toStringAsFixed(0);
+            final gasVal = gasReading?.value.toStringAsFixed(0);
+            final co2Val = hasCo2 ? sensor.co2.toStringAsFixed(0) : null;
+            final tvocVal = hasTvoc ? sensor.tvoc.toStringAsFixed(0) : null;
 
             // สีของแต่ละ tile ตามระดับความรุนแรงจริง (ปรับสีเมื่อค่าเกินเกณฑ์)
             // ใช้เกณฑ์ good/moderate/danger ที่มีอยู่แล้วบน SensorModel — ไม่มี
@@ -326,6 +317,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                 child: _resourceTile(
                                   title: 'PM2.5',
                                   value: pm25Val,
+                                  unit: 'µg/m³',
                                   icon: Icons.air_rounded,
                                   color: pm25Color,
                                   level: hasPm25 ? sensor.pm25Level : null,
@@ -342,6 +334,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                 child: _resourceTile(
                                   title: 'ความเข้มแสง',
                                   value: luxVal,
+                                  unit: 'lux',
                                   icon: Icons.light_mode_rounded,
                                   color: luxColor,
                                   level: hasLux ? sensor.luxLevel : null,
@@ -366,6 +359,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                 child: _resourceTile(
                                   title: 'อุณหภูมิ',
                                   value: tempVal,
+                                  unit: '°C',
                                   icon: Icons.thermostat_rounded,
                                   color: tempColor,
                                   level: hasTemp ? sensor.tempLevel : null,
@@ -382,6 +376,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                 child: _resourceTile(
                                   title: 'ความชื้น',
                                   value: humidityVal,
+                                  unit: '%RH',
                                   icon: Icons.water_drop_rounded,
                                   color: humidityColor,
                                   level: hasHumidity
@@ -412,10 +407,17 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                   // กรมควบคุมมลพิษไทย — ห้ามเขียนแค่ "AQI" เฉยๆ
                                   title: 'AQI-UBA (ENS160)',
                                   value: aqiVal,
+                                  unit: '',
                                   icon: Icons.eco_rounded,
                                   color: aqiColor,
                                   level: aqiReading != null
                                       ? _aqiUbaSensorLevel(aqiReading.value)
+                                      : null,
+                                  // สเกล UBA 5 ระดับมีความหมายเฉพาะของตัวเอง
+                                  // (ดีมาก/ดี/ปานกลาง/แย่/ไม่ปลอดภัย) ไม่ใช่
+                                  // ปกติ/ปานกลาง/เกินเกณฑ์ ทั่วไปแบบ metric อื่น
+                                  levelLabelOverride: aqiReading != null
+                                      ? _aqiUbaLabel(aqiReading.value)
                                       : null,
                                   freshness: _freshnessOf(aqiReading?.ts),
                                   timeLabel: aqiReading != null
@@ -438,6 +440,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                   // ที่ calibrate แล้วมาตัดสินว่า "เกิน" จริงๆ
                                   title: 'แก๊ส/ควัน (MQ-2)',
                                   value: gasVal,
+                                  unit: '% (ดิบ)',
                                   freshness: _freshnessOf(gasReading?.ts),
                                   timeLabel: gasReading != null
                                       ? _relativeTimeLabel(gasReading.ts)
@@ -466,6 +469,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                   // "ประมาณการ" เสมอ
                                   title: 'eCO2 (ประมาณการ)',
                                   value: co2Val,
+                                  unit: 'ppm',
                                   icon: Icons.cloud_outlined,
                                   color: co2Color,
                                   level: hasCo2 ? sensor.co2Level : null,
@@ -489,6 +493,7 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
                                   // firmware อีกครั้ง
                                   title: 'TVOC',
                                   value: tvocVal,
+                                  unit: 'ppb',
                                   icon: Icons.science_outlined,
                                   color: tvocColor,
                                   level: hasTvoc ? sensor.tvocLevel : null,
@@ -515,113 +520,208 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
     );
   }
 
+  // ดีไซน์อ้างอิงการ์ดสไตล์ Apple Health ที่ผู้ใช้ส่งมา: ไอคอน+ป้ายชื่อสีเทา
+  // (ไม่ใช่กล่องสี), ตัวเลขใหญ่สีเข้ม+หน่วยเล็กข้างๆ, แถวสถานะสีพร้อมไอคอน,
+  // และแท่งวัดแนวตั้งด้านขวา —ต่างจากต้นฉบับตรงตำแหน่งจุดบนแท่งวัด: ของจริง
+  // อิงจากระดับ good/moderate/danger ที่มีเกณฑ์รองรับอยู่แล้วเท่านั้น (ไม่ใช่
+  // ตำแหน่งเทียบช่วงค่าปกติเฉพาะบุคคล/เซนเซอร์แบบแอปต้นแบบ เพราะไม่มีข้อมูล
+  // ช่วงอ้างอิงที่ calibrate จริงมาให้ใช้)
   Widget _resourceTile({
     required String title,
-    required String value,
     required IconData icon,
     required Color color,
+    String? value,
+    String unit = '',
     SensorFreshness freshness = SensorFreshness.noData,
     String? timeLabel,
     SensorLevel? level,
+    String? levelLabelOverride,
   }) {
-    // เซนเซอร์ตัวนี้เอง "ออนไลน์ (สด/ล่าช้าเล็กน้อย)" หรือ "ไม่ออนไลน์"
-    // แยกทีละ tile — ค่าแต่ละตัวอาจมาจากอุปกรณ์/เวลาอัปเดตคนละตัวกัน
-    // (เดียวกับที่เพิ่มในหน้านักเรียน aiot_weather_sensors_card.dart)
     final bool isOnline =
         freshness == SensorFreshness.live ||
         freshness == SensorFreshness.delayed;
-
-    // สีเข้มขึ้นทั้งหมด (ตามที่ผู้ใช้ขอ — ค่าพวกนี้สำคัญ ต้องเด่นชัด) และ
-    // เข้มขึ้นไปอีกเป็นพิเศษเมื่อ "เกินเกณฑ์" เพื่อให้สายตาสะดุดจุดที่ต้อง
-    // ระวังก่อนจุดที่ปกติ
-    final bool isDanger = level == SensorLevel.danger;
-    final double bgAlpha = isDanger ? 0.24 : 0.15;
-    final double borderAlpha = isDanger ? 0.65 : 0.4;
-    final double borderWidth = isDanger ? 2.0 : 1.3;
+    final String? statusLabel =
+        levelLabelOverride ?? (level != null ? _levelLabel(level) : null);
+    final IconData? statusIcon = switch (level) {
+      SensorLevel.good => Icons.check_circle_rounded,
+      SensorLevel.moderate => Icons.remove_circle_rounded,
+      SensorLevel.danger => Icons.arrow_circle_down_rounded,
+      null => null,
+    };
+    final double? gaugePosition = switch (level) {
+      SensorLevel.good => .82,
+      SensorLevel.moderate => .5,
+      SensorLevel.danger => .18,
+      null => null,
+    };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppPalette.tint(color, bgAlpha),
-        borderRadius: BorderRadius.circular(13),
-        border: Border.all(
-          color: AppPalette.tint(color, borderAlpha),
-          width: borderWidth,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, size: 15, color: color),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    color: AppPalette.textMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                    color: isDanger ? color : AppPalette.textDark,
-                  ),
-                ),
-                if (timeLabel != null) ...[
-                  const SizedBox(height: 2),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
                   Row(
                     children: [
-                      Container(
-                        width: 5,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: freshness.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
+                      Icon(icon, size: 13, color: AppPalette.textMuted),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          isOnline
-                              ? 'ออนไลน์ • $timeLabel'
-                              : 'ไม่ออนไลน์ • $timeLabel',
+                          title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 7.5,
-                            fontWeight: FontWeight.w700,
-                            color: freshness.color,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppPalette.textMuted,
                           ),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 3),
+                  value == null
+                      ? const Text(
+                          'ไม่มีข้อมูล',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppPalette.textMuted,
+                          ),
+                        )
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              value,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w900,
+                                color: AppPalette.textDark,
+                                letterSpacing: -.5,
+                              ),
+                            ),
+                            if (unit.isNotEmpty) ...[
+                              const SizedBox(width: 3),
+                              Text(
+                                unit,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppPalette.textMuted,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                  // แถวสถานะ+ความสดรวมกันบรรทัดเดียว (เดิมแยก 2 บรรทัด แต่
+                  // พื้นที่ต่อ tile มีจำกัดแค่ ~66px ทำให้ล้นออกนอกกรอบ) ยังคง
+                  // บอกทั้งระดับจริงและความสดของข้อมูลไว้ครบ ไม่ตัดออก
+                  if (statusLabel != null || timeLabel != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        if (statusLabel != null)
+                          Icon(statusIcon, size: 10, color: color),
+                        if (statusLabel != null) const SizedBox(width: 2),
+                        Expanded(
+                          child: Text(
+                            [
+                              if (statusLabel case final label?) label,
+                              if (timeLabel != null)
+                                isOnline ? 'ออนไลน์' : 'ไม่ออนไลน์ $timeLabel',
+                            ].join(' • '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w700,
+                              color: statusLabel != null ? color : freshness.color,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
+            if (gaugePosition != null) ...[
+              const SizedBox(width: 6),
+              _SensorGauge(color: color, position: gaugePosition),
+            ],
+          ],
+        ),
       ),
     );
   }
+}
+
+/// แท่งวัดแนวตั้งเล็กๆ ด้านขวาของแต่ละ tile — จุดสีอยู่ตามตำแหน่งที่คำนวณจาก
+/// [position] (0=ล่างสุด, 1=บนสุด) ซึ่งมาจากระดับ good/moderate/danger จริง
+class _SensorGauge extends StatelessWidget {
+  const _SensorGauge({required this.color, required this.position});
+  final Color color;
+  final double position;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 14,
+    child: LayoutBuilder(
+      builder: (_, box) {
+        final h = box.hasBoundedHeight ? box.maxHeight : 60.0;
+        const dot = 10.0;
+        final top = ((1 - position) * (h - dot)).clamp(0.0, h - dot);
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Container(
+                width: 4,
+                height: h,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .16),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Positioned(
+              top: top,
+              left: (14 - dot) / 2,
+              child: Container(
+                width: dot,
+                height: dot,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: [
+                    BoxShadow(color: color.withValues(alpha: .4), blurRadius: 4),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }
