@@ -327,7 +327,9 @@ class _StudentNavigationPrototypeState
                 tooltip: 'ค้นหารายวิชาและบทเรียน',
                 onPressed: _openInPlaceSearchDialog,
               ),
-              StudentNotificationBell(loadNotifications: widget.loadNotifications),
+              StudentNotificationBell(
+                loadNotifications: widget.loadNotifications,
+              ),
               const SizedBox(width: 6),
             ],
           ),
@@ -393,15 +395,20 @@ class _StudentNavigationPrototypeState
       );
     }
 
+    // The gradient header paints up under the iPhone status bar; only its
+    // content is inset. With the SafeArea outside the header a white strip
+    // sat above the green on every notched phone.
+    final topInset = MediaQuery.paddingOf(context).top;
     return Drawer(
       backgroundColor: Colors.white,
       child: SafeArea(
+        top: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+              padding: EdgeInsets.fromLTRB(20, 20 + topInset, 20, 18),
               decoration: const BoxDecoration(
                 gradient: SchoolPalette.primaryGradient,
               ),
@@ -1266,7 +1273,7 @@ class _StudentNotificationBellState extends State<StudentNotificationBell> {
                         FutureBuilder<List<AppNotification>>(
                           future:
                               (widget.loadNotifications ??
-                                  NotificationService.listMyNotifications)(),
+                              NotificationService.listMyNotifications)(),
                           builder: (context, snapshot) {
                             if (!snapshot.hasData) {
                               return const Padding(

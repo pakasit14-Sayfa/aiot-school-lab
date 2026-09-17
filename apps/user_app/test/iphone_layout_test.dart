@@ -1,0 +1,93 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:my_first_app/pages/student_redesign_prototype/student_safety_page.dart';
+import 'package:my_first_app/widgets/sensor_card.dart';
+import 'package:shared_core/shared_core.dart';
+
+/// The app was only ever run in a desktop Chrome window until 2026-09-17.
+/// The first run on an iPhone 17 Pro simulator (390pt wide) showed two
+/// layouts that had silently relied on the wide window:
+///   - every SensorCard on the AIoT dashboard overflowed its bottom by
+///     36–150px and its label broke one character per line;
+///   - the safety-history row overflowed 43px on the right when the
+///     category was "ขอความช่วยเหลือด่วน (SOS)" with a severity badge.
+/// Every other test in this suite pumps at 900px wide, which is why neither
+/// ever failed. These pump at phone size; a RenderFlex overflow is thrown
+/// as a FlutterError and fails the test on its own.
+Future<void> _phone(WidgetTester tester, Widget home) async {
+  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+  tester.view.devicePixelRatio = 3;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+  await tester.pumpWidget(MaterialApp(home: home));
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  testWidgets('AIoT sensor grid fits a 390pt phone with offline badges', (
+    tester,
+  ) async {
+    final stale = DateTime(2026, 9, 1);
+    await _phone(
+      tester,
+      Scaffold(
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: SensorGrid(
+            sensor: SensorModel(
+              pm25: 39.8,
+              co2: 448,
+              tvoc: 46,
+              temperature: 30.5,
+              humidity: 41,
+              lux: 56,
+              updatedAt: stale,
+              metricUpdatedAt: {
+                'pm25': stale,
+                'co2': stale,
+                'tvoc': stale,
+                'temperature': stale,
+                'humidity': stale,
+                'light_lux': stale,
+              },
+            ),
+            aqiReading: (value: 1, ts: stale),
+            gasReading: (value: 9, ts: stale),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('PM2.5'), findsOneWidget);
+    expect(find.text('เซนเซอร์ไม่ทำงาน'), findsWidgets);
+  });
+
+  testWidgets(
+    'safety history row keeps the SOS title, badge and status on a phone',
+    (tester) async {
+      await _phone(
+        tester,
+        StudentSafetyPage(
+          loadRoom: () async =>
+              const MyStudentRoom(room: 'ม.1/1', gradeLevel: 'ม.1'),
+          loadIncidents: () async => [
+            MyIncidentReport(
+              id: 'inc-1',
+              category: IncidentCategory.sos,
+              room: null,
+              status: 'closed',
+              createdAt: DateTime(2026, 9, 17, 15, 18),
+              acknowledgedAt: null,
+              closedAt: DateTime(2026, 9, 17, 16),
+              severity: 'high',
+              reason: 'เจ็บป่วย / ไม่สบายด่วน',
+            ),
+          ],
+          watchIncidents: () => const Stream.empty(),
+        ),
+      );
+      expect(find.text('🔴 เหตุใหญ่'), findsOneWidget);
+    },
+  );
+}

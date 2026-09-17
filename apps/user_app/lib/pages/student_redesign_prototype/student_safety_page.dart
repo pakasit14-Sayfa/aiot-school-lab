@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
 import 'widgets/student_redesign_palette.dart';
 
 String _statusLabel(String status) => switch (status) {
@@ -60,7 +62,8 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
   void initState() {
     super.initState();
     _load();
-    final watch = widget.watchIncidents ?? IncidentService.streamIncidentReports;
+    final watch =
+        widget.watchIncidents ?? IncidentService.streamIncidentReports;
     _incidentSub = watch().listen((_) {
       if (mounted) _load();
     });
@@ -119,7 +122,8 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
     String reason,
     String severity,
   ) async {
-    final submit = widget.submitIncident ?? IncidentService.createIncidentReport;
+    final submit =
+        widget.submitIncident ?? IncidentService.createIncidentReport;
     await submit(
       category: category,
       room: room.trim().isEmpty ? null : room.trim(),
@@ -248,9 +252,10 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return FutureBuilder<IncidentReportDetail>(
-          future: (widget.loadIncidentDetail ?? IncidentService.getIncidentReport)(
-            incident.id,
-          ),
+          future:
+              (widget.loadIncidentDetail ?? IncidentService.getIncidentReport)(
+                incident.id,
+              ),
           builder: (context, snapshot) {
             return Container(
               decoration: const BoxDecoration(
@@ -614,16 +619,20 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                _hasOpenIncident
-                                    ? 'มีเหตุผิดปกติ'
-                                    : 'ปกติ / ปลอดภัย',
-                                style: TextStyle(
-                                  color: _hasOpenIncident
-                                      ? const Color(0xFFDC2626)
-                                      : const Color(0xFF16A34A),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
+                              Flexible(
+                                child: Text(
+                                  _hasOpenIncident
+                                      ? 'มีเหตุผิดปกติ'
+                                      : 'ปกติ / ปลอดภัย',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _hasOpenIncident
+                                        ? const Color(0xFFDC2626)
+                                        : const Color(0xFF16A34A),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
                                 ),
                               ),
                             ],
@@ -776,11 +785,15 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                     children: [
                       Icon(Icons.warning_amber_rounded, size: 20),
                       SizedBox(width: 8),
-                      Text(
-                        'แจ้งพบเหตุผิดปกติหรือจุดเสี่ยงในห้องเรียน',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13.5,
+                      Flexible(
+                        child: Text(
+                          'แจ้งพบเหตุผิดปกติหรือจุดเสี่ยงในห้องเรียน',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
                     ],
@@ -859,12 +872,16 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                                 children: [
                                   Row(
                                     children: [
-                                      Text(
-                                        _categoryLabel(incident.category),
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          color: SchoolPalette.ink,
-                                          fontSize: 13.5,
+                                      Flexible(
+                                        child: Text(
+                                          _categoryLabel(incident.category),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            color: SchoolPalette.ink,
+                                            fontSize: 13.5,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(width: 6),
@@ -1189,7 +1206,9 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
                       decoration: InputDecoration(
                         isDense: true,
                         hintText: 'หรือพิมพ์ระบุเหตุผลรายละเอียดเพิ่มเติม...',
-                        errorText: !_canSubmit ? 'กรุณาเลือกหรือระบุเหตุผล' : null,
+                        errorText: !_canSubmit
+                            ? 'กรุณาเลือกหรือระบุเหตุผล'
+                            : null,
                         border: const OutlineInputBorder(
                           borderRadius: BorderRadius.all(Radius.circular(10)),
                         ),
@@ -1241,15 +1260,15 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
                 !_canSubmit
                     ? '⚠️ กรุณาเลือกหรือพิมพ์ระบุเหตุผลด้านบนก่อนกดส่ง'
                     : _holding
-                        ? 'กำลังยืนยัน... ห้ามปล่อยนิ้ว'
-                        : 'กดปุ่มด้านล่างค้างไว้ 3 วินาทีเพื่อยืนยันการส่ง',
+                    ? 'กำลังยืนยัน... ห้ามปล่อยนิ้ว'
+                    : 'กดปุ่มด้านล่างค้างไว้ 3 วินาทีเพื่อยืนยันการส่ง',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: !_canSubmit
                       ? const Color(0xFFDC2626)
                       : _holding
-                          ? accent
-                          : SchoolPalette.muted,
+                      ? accent
+                      : SchoolPalette.muted,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1290,7 +1309,9 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
                           _isSOS
                               ? Icons.emergency_rounded
                               : Icons.warning_amber_rounded,
-                          color: _canSubmit ? Colors.white : const Color(0xFF64748B),
+                          color: _canSubmit
+                              ? Colors.white
+                              : const Color(0xFF64748B),
                           size: 34,
                         ),
                       ),
