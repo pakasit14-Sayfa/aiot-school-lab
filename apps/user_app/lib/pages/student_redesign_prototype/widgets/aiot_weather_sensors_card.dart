@@ -319,221 +319,146 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                     // ขยายเต็มความสูงที่ไม่จำกัด เกิด "BoxConstraints forces
                     // an infinite height" ตอนรันจริง — ต้องห่อ IntrinsicHeight
                     // ก่อนเสมอ (แพทเทิร์นเดียวกับ teacher_redesign_prototype_page.dart:1106)
-                    IntrinsicHeight(
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _WeatherTile(
-                            icon: Icons.air_rounded,
-                            title: 'PM2.5',
-                            value: hasPm25
-                                ? '${sensor.pm25.toStringAsFixed(0)} µg/m³'
-                                : '—',
-                            levelLabel: hasPm25
-                                ? '${_levelLabel(sensor.pm25Level)}'
-                                : 'ไม่มีข้อมูล',
-                            color: pm25Color,
-                            level: hasPm25 ? sensor.pm25Level : null,
-                            freshness: hasPm25
-                                ? sensor.freshnessOf('pm25')
-                                : SensorFreshness.noData,
-                            timeLabel: hasPm25
-                                ? sensor.relativeTimeLabel('pm25')
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _WeatherTile(
-                            icon: Icons.wb_sunny_rounded,
-                            title: 'ความเข้มแสง',
-                            value: hasLux
-                                ? '${sensor.lux.toStringAsFixed(0)} lux'
-                                : '—',
-                            levelLabel: hasLux
-                                ? '${_levelLabel(sensor.luxLevel)}'
-                                : 'ไม่มีข้อมูล',
-                            color: luxColor,
-                            level: hasLux ? sensor.luxLevel : null,
-                            freshness: hasLux
-                                ? sensor.freshnessOf('light_lux')
-                                : SensorFreshness.noData,
-                            timeLabel: hasLux
-                                ? sensor.relativeTimeLabel('light_lux')
-                                : null,
-                          ),
-                        ),
-                      ],
+                    _SensorTiles(
+                      tiles: [
+                        _WeatherTile(
+                        icon: Icons.air_rounded,
+                        title: 'PM2.5',
+                        value: hasPm25
+                            ? '${sensor.pm25.toStringAsFixed(0)} µg/m³'
+                            : '—',
+                        levelLabel: hasPm25
+                            ? '${_levelLabel(sensor.pm25Level)}'
+                            : 'ไม่มีข้อมูล',
+                        color: pm25Color,
+                        level: hasPm25 ? sensor.pm25Level : null,
+                        freshness: hasPm25
+                            ? sensor.freshnessOf('pm25')
+                            : SensorFreshness.noData,
+                        timeLabel: hasPm25
+                            ? sensor.relativeTimeLabel('pm25')
+                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    IntrinsicHeight(
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _WeatherTile(
-                            icon: Icons.thermostat_rounded,
-                            title: 'อุณหภูมิ',
-                            value: hasTemp
-                                ? '${sensor.temperature.toStringAsFixed(1)} °C'
-                                : '—',
-                            levelLabel: hasTemp
-                                ? '${_levelLabel(sensor.tempLevel)}'
-                                : 'ไม่มีข้อมูล',
-                            color: tempColor,
-                            level: hasTemp ? sensor.tempLevel : null,
-                            freshness: hasTemp
-                                ? sensor.freshnessOf('temperature')
-                                : SensorFreshness.noData,
-                            timeLabel: hasTemp
-                                ? sensor.relativeTimeLabel('temperature')
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _WeatherTile(
-                            icon: Icons.water_drop_rounded,
-                            title: 'ความชื้น',
-                            value: hasHumidity
-                                ? '${sensor.humidity.toStringAsFixed(0)}%RH'
-                                : '—',
-                            levelLabel: hasHumidity
-                                ? '${_levelLabel(sensor.humidityLevel)}'
-                                : 'ไม่มีข้อมูล',
-                            color: humidityColor,
-                            level: hasHumidity ? sensor.humidityLevel : null,
-                            freshness: hasHumidity
-                                ? sensor.freshnessOf('humidity')
-                                : SensorFreshness.noData,
-                            timeLabel: hasHumidity
-                                ? sensor.relativeTimeLabel('humidity')
-                                : null,
-                          ),
-                        ),
-                      ],
+                        _WeatherTile(
+                        icon: Icons.wb_sunny_rounded,
+                        title: 'ความเข้มแสง',
+                        value: hasLux
+                            ? '${sensor.lux.toStringAsFixed(0)} lux'
+                            : '—',
+                        levelLabel: hasLux
+                            ? '${_levelLabel(sensor.luxLevel)}'
+                            : 'ไม่มีข้อมูล',
+                        color: luxColor,
+                        level: hasLux ? sensor.luxLevel : null,
+                        freshness: hasLux
+                            ? sensor.freshnessOf('light_lux')
+                            : SensorFreshness.noData,
+                        timeLabel: hasLux
+                            ? sensor.relativeTimeLabel('light_lux')
+                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    IntrinsicHeight(
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): นี่คือ
-                          // ดัชนี AQI-UBA ของชิป ENS160 สเกล 1-5 (ตาม
-                          // German UBA) ไม่ใช่ AQI มาตรฐาน 0-500 ของ US EPA/
-                          // กรมควบคุมมลพิษไทย — ห้ามเขียนแค่ "AQI" เฉยๆ
-                          child: _WeatherTile(
-                            icon: Icons.eco_rounded,
-                            title: 'AQI-UBA (ENS160)',
-                            value: aqi != null
-                                ? '${aqi.value.toStringAsFixed(0)}'
-                                : '—',
-                            levelLabel: aqi != null
-                                ? '${_aqiUbaLabel(aqi.value)}'
-                                : 'ไม่มีข้อมูล',
-                            color: aqiColor,
-                            level: aqi != null ? _aqiUbaSensorLevel(aqi.value) : null,
-                            freshness: _freshnessOf(aqi?.ts),
-                            timeLabel: aqi != null
-                                ? _relativeTimeLabel(aqi.ts)
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          // MQ-2 ตอบสนองต่อทั้งแก๊สติดไฟและควันจริงตามสเปกชิป
-                          // แต่ส่งออกมาเป็นสัญญาณตัวเลขเดียวรวมกัน แยกไม่ออก
-                          // ว่าเกิดจากแก๊สหรือควัน — ห้ามเขียนค่าเป็น
-                          // "แก๊ส/ควัน X%" เฉยๆ (จะดูเหมือนความเข้มข้นที่
-                          // calibrate แล้ว) ต้องกำกับ "(ดิบ)" เสมอจนกว่าจะ
-                          // calibrate เป็น ppm จริง (แพทเทิร์นเดียวกับ
-                          // director_environment_page.dart /
-                          // teacher_aiot_lab_page.dart) — สีคงที่ไม่ปรับ
-                          // ตามระดับเหมือน metric อื่น เพราะไม่มีเกณฑ์ที่
-                          // calibrate แล้วมาตัดสินว่า "เกิน" จริงๆ
-                          child: _WeatherTile(
-                            icon: Icons.local_fire_department_rounded,
-                            title: 'แก๊ส/ควัน (MQ-2)',
-                            value: gas != null
-                                ? '${gas.value.toStringAsFixed(0)}% (ดิบ)'
-                                : '—',
-                            levelLabel: gas != null ? 'ยังไม่มีเกณฑ์' : 'ไม่มีข้อมูล',
-                            color: const Color(0xFFE11D48),
-                            freshness: _freshnessOf(gas?.ts),
-                            timeLabel: gas != null
-                                ? _relativeTimeLabel(gas.ts)
-                                : null,
-                          ),
-                        ),
-                      ],
+                        _WeatherTile(
+                        icon: Icons.thermostat_rounded,
+                        title: 'อุณหภูมิ',
+                        value: hasTemp
+                            ? '${sensor.temperature.toStringAsFixed(1)} °C'
+                            : '—',
+                        levelLabel: hasTemp
+                            ? '${_levelLabel(sensor.tempLevel)}'
+                            : 'ไม่มีข้อมูล',
+                        color: tempColor,
+                        level: hasTemp ? sensor.tempLevel : null,
+                        freshness: hasTemp
+                            ? sensor.freshnessOf('temperature')
+                            : SensorFreshness.noData,
+                        timeLabel: hasTemp
+                            ? sensor.relativeTimeLabel('temperature')
+                            : null,
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    IntrinsicHeight(
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          // ยืนยันกับผู้ทำ firmware แล้ว (2026-08-31): บอร์ด
-                          // ใช้ชิปแก๊ส ENS160 (ScioSense, MOX multi-gas —
-                          // ไม่ใช่ SGP30/SGP40 ตามที่เคยสันนิษฐานไว้) ค่า
-                          // "co2" ที่ส่งเข้าระบบคือ eCO2 (Equivalent CO2) ที่
-                          // ชิปคำนวณจาก VOCs/hydrogen ภายใน ไม่ใช่การวัด CO2
-                          // ตรงแบบเซนเซอร์ NDIR — ต้องเขียนกำกับว่า
-                          // "ประมาณการ" เสมอ
-                          child: _WeatherTile(
-                            icon: Icons.cloud_outlined,
-                            title: 'eCO2 (ประมาณการ)',
-                            value: hasCo2
-                                ? '${sensor.co2.toStringAsFixed(0)} ppm'
-                                : '—',
-                            levelLabel: hasCo2
-                                ? '${_levelLabel(sensor.co2Level)}'
-                                : 'ไม่มีข้อมูล',
-                            color: co2Color,
-                            level: hasCo2 ? sensor.co2Level : null,
-                            freshness: hasCo2
-                                ? sensor.freshnessOf('co2')
-                                : SensorFreshness.noData,
-                            timeLabel: hasCo2
-                                ? sensor.relativeTimeLabel('co2')
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          // ใช้เกณฑ์ SensorModel.tvocLevel (0.3/0.5) ที่มี
-                          // อยู่แล้วใน widgets/sensor_card.dart — แต่ยัง
-                          // ไม่ยืนยัน 100% ว่าหน่วยที่ ENS160 ส่งมาคือ ppb
-                          // (ตามที่แสดงไว้) หรือ mg/m³ (ตามที่
-                          // sensor_card.dart กำกับหน่วยไว้) ถ้าคลาดเคลื่อน
-                          // สีตรงนี้อาจผิดไปด้วย — ควรยืนยันหน่วยกับผู้ทำ
-                          // firmware อีกครั้ง
-                          child: _WeatherTile(
-                            icon: Icons.science_outlined,
-                            title: 'TVOC',
-                            value: hasTvoc
-                                ? '${sensor.tvoc.toStringAsFixed(0)} ppb'
-                                : '—',
-                            levelLabel: hasTvoc
-                                ? '${_levelLabel(sensor.tvocLevel)}'
-                                : 'ไม่มีข้อมูล',
-                            color: tvocColor,
-                            level: hasTvoc ? sensor.tvocLevel : null,
-                            freshness: hasTvoc
-                                ? sensor.freshnessOf('tvoc')
-                                : SensorFreshness.noData,
-                            timeLabel: hasTvoc
-                                ? sensor.relativeTimeLabel('tvoc')
-                                : null,
-                          ),
-                        ),
-                      ],
+                        _WeatherTile(
+                        icon: Icons.water_drop_rounded,
+                        title: 'ความชื้น',
+                        value: hasHumidity
+                            ? '${sensor.humidity.toStringAsFixed(0)}%RH'
+                            : '—',
+                        levelLabel: hasHumidity
+                            ? '${_levelLabel(sensor.humidityLevel)}'
+                            : 'ไม่มีข้อมูล',
+                        color: humidityColor,
+                        level: hasHumidity ? sensor.humidityLevel : null,
+                        freshness: hasHumidity
+                            ? sensor.freshnessOf('humidity')
+                            : SensorFreshness.noData,
+                        timeLabel: hasHumidity
+                            ? sensor.relativeTimeLabel('humidity')
+                            : null,
                       ),
+                        _WeatherTile(
+                        icon: Icons.eco_rounded,
+                        title: 'AQI-UBA (ENS160)',
+                        value: aqi != null
+                            ? '${aqi.value.toStringAsFixed(0)}'
+                            : '—',
+                        levelLabel: aqi != null
+                            ? '${_aqiUbaLabel(aqi.value)}'
+                            : 'ไม่มีข้อมูล',
+                        color: aqiColor,
+                        level: aqi != null ? _aqiUbaSensorLevel(aqi.value) : null,
+                        freshness: _freshnessOf(aqi?.ts),
+                        timeLabel: aqi != null
+                            ? _relativeTimeLabel(aqi.ts)
+                            : null,
+                      ),
+                        _WeatherTile(
+                        icon: Icons.local_fire_department_rounded,
+                        title: 'แก๊ส/ควัน (MQ-2)',
+                        value: gas != null
+                            ? '${gas.value.toStringAsFixed(0)}% (ดิบ)'
+                            : '—',
+                        levelLabel: gas != null ? 'ยังไม่มีเกณฑ์' : 'ไม่มีข้อมูล',
+                        color: const Color(0xFFE11D48),
+                        freshness: _freshnessOf(gas?.ts),
+                        timeLabel: gas != null
+                            ? _relativeTimeLabel(gas.ts)
+                            : null,
+                      ),
+                        _WeatherTile(
+                        icon: Icons.cloud_outlined,
+                        title: 'eCO2 (ประมาณการ)',
+                        value: hasCo2
+                            ? '${sensor.co2.toStringAsFixed(0)} ppm'
+                            : '—',
+                        levelLabel: hasCo2
+                            ? '${_levelLabel(sensor.co2Level)}'
+                            : 'ไม่มีข้อมูล',
+                        color: co2Color,
+                        level: hasCo2 ? sensor.co2Level : null,
+                        freshness: hasCo2
+                            ? sensor.freshnessOf('co2')
+                            : SensorFreshness.noData,
+                        timeLabel: hasCo2
+                            ? sensor.relativeTimeLabel('co2')
+                            : null,
+                      ),
+                        _WeatherTile(
+                        icon: Icons.science_outlined,
+                        title: 'TVOC',
+                        value: hasTvoc
+                            ? '${sensor.tvoc.toStringAsFixed(0)} ppb'
+                            : '—',
+                        levelLabel: hasTvoc
+                            ? '${_levelLabel(sensor.tvocLevel)}'
+                            : 'ไม่มีข้อมูล',
+                        color: tvocColor,
+                        level: hasTvoc ? sensor.tvocLevel : null,
+                        freshness: hasTvoc
+                            ? sensor.freshnessOf('tvoc')
+                            : SensorFreshness.noData,
+                        timeLabel: hasTvoc
+                            ? sensor.relativeTimeLabel('tvoc')
+                            : null,
+                      ),
+                      ],
                     ),
                   ],
                 );
@@ -585,6 +510,181 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Lays the eight readings out for the width it gets: the 2-column tile
+/// grid on anything ≥430pt, and on a phone a single-column list — one row
+/// per reading — because eight stacked tiles were four screens of cards on
+/// 390pt and the owner called it "ไม่เข้ากับมือถือ" (2026-09-18).
+class _SensorTiles extends StatelessWidget {
+  const _SensorTiles({required this.tiles});
+  final List<_WeatherTile> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= 430) {
+          return Column(
+            children: [
+              for (var i = 0; i < tiles.length; i += 2) ...[
+                if (i > 0) const SizedBox(height: 10),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: tiles[i]),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: i + 1 < tiles.length
+                            ? tiles[i + 1]
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          );
+        }
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SchoolPalette.glassBorder),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < tiles.length; i++) ...[
+                if (i > 0)
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 52,
+                    color: SchoolPalette.softGreenBg,
+                  ),
+                _SensorRow(tile: tiles[i]),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// One reading as a list row: icon · name + freshness · value · level chip.
+class _SensorRow extends StatelessWidget {
+  const _SensorRow({required this.tile});
+  final _WeatherTile tile;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = tile.color;
+    final isOnline =
+        tile.freshness == SensorFreshness.live ||
+        tile.freshness == SensorFreshness.delayed;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(tile.icon, size: 17, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tile.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: SchoolPalette.ink,
+                  ),
+                ),
+                if (tile.timeLabel != null) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: tile.freshness.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          isOnline
+                              ? 'ออนไลน์ • ${tile.timeLabel}'
+                              : 'ไม่ออนไลน์ • ${tile.timeLabel}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: tile.freshness.color,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                tile.value,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                  height: 1.1,
+                ),
+              ),
+              if (tile.levelLabel != null) ...[
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    tile.levelLabel!,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
