@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import 'student_empty_state.dart';
 import 'student_redesign_palette.dart';
 
 /// Where a calendar entry came from — drives its color/icon and whether
@@ -501,7 +502,8 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
                     isCompact: isCompact,
                     showFilterTabs: isDesktop,
                   ),
-                  const SizedBox(height: 16),
+                  if (!isCompact || Navigator.canPop(context))
+                    const SizedBox(height: 16),
                   Expanded(
                     child: isDesktop
                         ? Row(
@@ -554,6 +556,12 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
     required bool isCompact,
     required bool showFilterTabs,
   }) {
+    // Inside the tab shell on a phone the app bar already reads
+    // "ปฏิทิน / ตารางเรียน" — a second heading was the first thing the
+    // owner flagged on the 2026-09-18 phone review.
+    if (isCompact && !Navigator.canPop(context)) {
+      return const SizedBox.shrink();
+    }
     return Row(
       children: [
         if (Navigator.canPop(context))
@@ -584,7 +592,11 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
     // สีของแต่ละแท็บตรงกับจุดสัญลักษณ์ (ม่วง/ส้ม/เขียวมิ้นต์) แทนสีดำ
     // กลางๆ เดียวกันหมด ให้เห็นเชื่อมโยงกับสีในการ์ด/ปฏิทินทันที
     const tabs = [
-      (filter: _EventFilter.all, label: 'ทั้งหมด', color: SchoolPalette.ink),
+      (
+        filter: _EventFilter.all,
+        label: 'ทั้งหมด',
+        color: SchoolPalette.deepGreen,
+      ),
       (
         filter: _EventFilter.schedule,
         label: 'ตารางเรียน',
@@ -604,7 +616,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: SchoolPalette.softGreenBg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -721,74 +733,115 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
   }
 
   Widget _buildDateBadgeCard() {
-    return Row(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          alignment: Alignment.center,
-          // สีแดงส้มแบบกล่อง "APR" ในภาพต้นแบบ แทน gradient เขียวแบรนด์
-          decoration: BoxDecoration(
-            color: const Color(0xFFEF4444),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40EF4444),
-                blurRadius: 14,
-                offset: Offset(0, 6),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _monthShort[_selectedDay.month - 1],
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
+    final isToday = _isSameDay(_selectedDay, _today);
+    final count = _eventsFor(_selectedDay).length;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        gradient: SchoolPalette.primaryGradient,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _monthShort[_selectedDay.month - 1],
+                  style: const TextStyle(
+                    color: SchoolPalette.green,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
+                Text(
+                  '${_selectedDay.day}',
+                  style: const TextStyle(
+                    color: SchoolPalette.deepGreen,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_weekdayFull[_selectedDay.weekday - 1]}ที่ ${_selectedDay.day} ${_monthNames[_selectedDay.month - 1]} ${_selectedDay.year + 543}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  count == 0 ? 'ไม่มีรายการ' : '$count รายการ',
+                  style: const TextStyle(
+                    color: SchoolPalette.cream,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (isToday)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: SchoolPalette.yellow,
+                borderRadius: BorderRadius.circular(999),
               ),
-              Text(
-                '${_selectedDay.day}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
+              child: const Text(
+                'วันนี้',
+                style: TextStyle(
+                  color: SchoolPalette.deepGreen,
+                  fontSize: 11,
                   fontWeight: FontWeight.w900,
-                  height: 1.1,
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_selectedDay.day} ${_monthNames[_selectedDay.month - 1]} ${_selectedDay.year + 543}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: SchoolPalette.navy,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w900,
+            )
+          else
+            TextButton(
+              onPressed: _goToToday,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.white.withValues(alpha: 0.14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              Text(
-                _weekdayFull[_selectedDay.weekday - 1],
-                style: const TextStyle(
-                  color: SchoolPalette.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: const Text(
+                'ไปวันนี้',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
               ),
-            ],
-          ),
-        ),
-      ],
+            ),
+        ],
+      ),
     );
   }
 
@@ -807,7 +860,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBEDCD0), width: 1.2),
+        border: Border.all(color: SchoolPalette.glassBorder, width: 1.2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x080F172A),
@@ -907,11 +960,14 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
                   margin: const EdgeInsets.all(1.5),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? SchoolPalette.ink
+                        ? SchoolPalette.green
                         : isToday
-                        ? const Color(0xFFFEE2E2)
+                        ? SchoolPalette.softGreenBg
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(10),
+                    border: isToday && !isSelected
+                        ? Border.all(color: SchoolPalette.green, width: 1.2)
+                        : null,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -922,7 +978,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
                           color: isSelected
                               ? Colors.white
                               : isToday
-                              ? const Color(0xFFEF4444)
+                              ? SchoolPalette.deepGreen
                               : SchoolPalette.navy,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w800,
@@ -974,7 +1030,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBEDCD0), width: 1.2),
+        border: Border.all(color: SchoolPalette.glassBorder, width: 1.2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x080F172A),
@@ -1110,7 +1166,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFBEDCD0), width: 1.2),
+        border: Border.all(color: SchoolPalette.glassBorder, width: 1.2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x080F172A),
@@ -1232,7 +1288,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBEDCD0), width: 1.2),
+        border: Border.all(color: SchoolPalette.glassBorder, width: 1.2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x080F172A),
@@ -1356,7 +1412,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFBEDCD0), width: 1.2),
+        border: Border.all(color: SchoolPalette.glassBorder, width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1365,7 +1421,9 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             children: [
               Expanded(
                 child: Text(
-                  'รายการวันที่ ${_selectedDay.day} ${_monthNames[_selectedDay.month - 1]} ${_selectedDay.year + 543}',
+                  _isSameDay(_selectedDay, _today)
+                      ? 'รายการวันนี้'
+                      : 'รายการวันที่ ${_selectedDay.day} ${_monthShort[_selectedDay.month - 1]}',
                   style: const TextStyle(
                     color: SchoolPalette.navy,
                     fontSize: 13.5,
@@ -1378,12 +1436,15 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('เพิ่ม'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: SchoolPalette.ink,
+                  backgroundColor: SchoolPalette.green,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,
                   ),
-                  textStyle: const TextStyle(fontSize: 11.5),
+                  textStyle: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(999),
                   ),
@@ -1393,26 +1454,10 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
           ),
           const SizedBox(height: 12),
           if (events.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.event_available_rounded,
-                    size: 32,
-                    color: SchoolPalette.muted.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'ไม่มีรายการในวันนี้',
-                    style: TextStyle(
-                      color: SchoolPalette.muted,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
+            const StudentEmptyState(
+              icon: Icons.event_available_rounded,
+              title: 'ไม่มีรายการในวันนี้',
+              hint: 'กด "เพิ่ม" เพื่อจดกิจกรรมส่วนตัว หรือเลือกวันอื่นในปฏิทิน',
             )
           else
             Column(

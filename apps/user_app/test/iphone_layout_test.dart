@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/student_redesign_prototype/student_safety_page.dart';
+import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_calendar_page.dart';
 import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_variant_school_home.dart';
 import 'package:my_first_app/widgets/sensor_card.dart';
 import 'package:shared_core/shared_core.dart';
@@ -115,5 +116,21 @@ void main() {
     expect(find.text('ความคืบหน้าการเรียน'), findsOneWidget);
     expect(find.text('0 บทเรียน'), findsOneWidget);
     expect(find.text('ส่งแล้ว 0/0'), findsOneWidget);
+  });
+
+  testWidgets('student calendar fits a 390pt phone with no events', (
+    tester,
+  ) async {
+    await _phone(
+      tester,
+      StudentCalendarPage(
+        loadCourses: () async => const [],
+        loadSchedule: () async => const [],
+        loadTasks: () async => const [],
+        loadAssignmentsForCourse: (_) async => const [],
+      ),
+    );
+    expect(find.text('รายการวันนี้'), findsOneWidget);
+    expect(find.text('ไม่มีรายการในวันนี้'), findsOneWidget);
   });
 }
