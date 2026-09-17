@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/student_redesign_prototype/student_safety_page.dart';
+import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_variant_school_home.dart';
 import 'package:my_first_app/widgets/sensor_card.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -90,4 +91,29 @@ void main() {
       expect(find.text('🔴 เหตุใหญ่'), findsOneWidget);
     },
   );
+
+  testWidgets('student home hero fits a 390pt phone with no data', (
+    tester,
+  ) async {
+    await _phone(
+      tester,
+      Scaffold(
+        body: StudentVariantSchoolHome(
+          loadCourses: () async => const [],
+          loadGrades: () async => const [],
+          loadNotifications: () async => const [],
+          loadLessons: (_) async => const [],
+          loadAssignments: (_) async => const [],
+          loadSubmissionVersions: (_) async => const [],
+          sensorStreamOverride: const Stream.empty(),
+          rawReadingsStreamOverride: const Stream.empty(),
+          now: () => DateTime(2026, 9, 18, 22),
+        ),
+      ),
+    );
+    expect(find.text('สวัสดีตอนเย็น 👋'), findsOneWidget);
+    expect(find.text('ความคืบหน้าการเรียน'), findsOneWidget);
+    expect(find.text('0 บทเรียน'), findsOneWidget);
+    expect(find.text('ส่งแล้ว 0/0'), findsOneWidget);
+  });
 }
