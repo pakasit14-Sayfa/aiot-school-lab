@@ -72,7 +72,6 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _positionController = TextEditingController();
 
-  String? _profileImageUrl;
 
   List<_ProfileLog> _logs = [];
 
@@ -241,84 +240,9 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
     return result == true;
   }
 
-  Future<void> _changeProfileImage() async {
-    final TextEditingController urlController = TextEditingController(
-      text: _profileImageUrl ?? '',
-    );
-
-    final String? result = await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          insetPadding: const EdgeInsets.all(16),
-          title: const Text('เปลี่ยนรูปโปรไฟล์'),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'ในหน้า Preview นี้สามารถวางลิงก์รูปภาพเพื่อเปลี่ยนรูปโปรไฟล์ได้ '
-                  'เมื่อเชื่อมฐานข้อมูลจริงจึงเปลี่ยนเป็นอัปโหลดไฟล์ไปยัง Storage ได้',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1.45,
-                    color: SchoolAdminPalette.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: urlController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: 'ลิงก์รูปโปรไฟล์',
-                    hintText: 'https://...',
-                    prefixIcon: Icon(Icons.image_rounded),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('ยกเลิก'),
-            ),
-            if (_profileImageUrl != null)
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop('__REMOVE__'),
-                child: const Text('ลบรูป'),
-              ),
-            FilledButton.icon(
-              onPressed: () {
-                final String value = urlController.text.trim();
-                if (value.isNotEmpty) {
-                  Navigator.of(dialogContext).pop(value);
-                }
-              },
-              icon: const Icon(Icons.check_rounded),
-              label: const Text('ใช้รูปนี้'),
-            ),
-          ],
-        );
-      },
-    );
-
-    urlController.dispose();
-
-    if (result == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _profileImageUrl = result == '__REMOVE__' ? null : result;
-    });
-
-    _message(
-      result == '__REMOVE__' ? 'ลบรูปโปรไฟล์แล้ว' : 'เปลี่ยนรูปโปรไฟล์แล้ว',
-    );
-  }
+  // "เปลี่ยนรูปโปรไฟล์" used to open a dialog that took an image URL, kept it
+  // in page state and announced "เปลี่ยนรูปโปรไฟล์แล้ว". users has no avatar
+  // column and no upload path exists — removed (2026-09-17).
 
   Future<void> _saveProfile() async {
     if (_fullNameController.text.trim().isEmpty ||
@@ -429,44 +353,21 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
   }
 
   Widget _profileAvatar(double size) {
-    if (_profileImageUrl == null || _profileImageUrl!.trim().isEmpty) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: SchoolAdminPalette.primary,
-        ),
-        child: Icon(
-          Icons.person_rounded,
-          size: size * 0.48,
-          color: Colors.white,
-        ),
-      );
-    }
-
-    return ClipOval(
-      child: Image.network(
-        _profileImageUrl!,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder:
-            (BuildContext context, Object error, StackTrace? stackTrace) {
-              return Container(
-                width: size,
-                height: size,
-                color: SchoolAdminPalette.primary,
-                child: Icon(
-                  Icons.person_rounded,
-                  size: size * 0.48,
-                  color: Colors.white,
-                ),
-              );
-            },
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: SchoolAdminPalette.primary,
+      ),
+      child: Icon(
+        Icons.person_rounded,
+        size: size * 0.48,
+        color: Colors.white,
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -517,33 +418,7 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
 
               final Widget profile = Row(
                 children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _profileAvatar(mobile ? 78 : 92),
-                      Positioned(
-                        right: -3,
-                        bottom: -3,
-                        child: Material(
-                          color: SchoolAdminPalette.primaryDark,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: _changeProfileImage,
-                            child: const SizedBox(
-                              width: 34,
-                              height: 34,
-                              child: Icon(
-                                Icons.camera_alt_rounded,
-                                size: 17,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _profileAvatar(mobile ? 78 : 92),
                   const SizedBox(width: 15),
                   Expanded(
                     child: Column(
@@ -605,11 +480,6 @@ class _SchoolAdminProfilePageState extends State<SchoolAdminProfilePage> {
                     onPressed: widget.onBack,
                     icon: const Icon(Icons.arrow_back_rounded),
                     label: const Text('กลับ'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _changeProfileImage,
-                    icon: const Icon(Icons.image_rounded),
-                    label: const Text('เปลี่ยนรูป'),
                   ),
                   FilledButton.icon(
                     // ปิดปุ่มระหว่างบันทึก กันกดซ้ำแล้วยิง RPC ซ้อน

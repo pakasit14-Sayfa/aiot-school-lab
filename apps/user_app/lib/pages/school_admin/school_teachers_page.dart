@@ -49,8 +49,12 @@ class SchoolTeachersPage extends StatefulWidget {
   /// Injectable seams — production ปล่อยว่างแล้วใช้ service จริง
   final Future<List<UserModel>> Function()? loadUsers;
   final Future<List<HomeroomAssignment>> Function()? loadHomerooms;
-  final Future<String?> Function(String gradeLevel, String room, String teacherId)?
-      setHomeroomTeacher;
+  final Future<String?> Function(
+    String gradeLevel,
+    String room,
+    String teacherId,
+  )?
+  setHomeroomTeacher;
   final Future<bool> Function(String assignmentId)? removeHomeroomTeacher;
   final Future<void> Function(String uid)? suspendUser;
   final Future<void> Function(String uid)? reactivateUser;
@@ -221,8 +225,7 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
           t.email.toLowerCase().contains(keyword);
 
       final bool matchesRole =
-          role == kAllRoles ||
-          t.roles.any((UserRole r) => r.label == role);
+          role == kAllRoles || t.roles.any((UserRole r) => r.label == role);
 
       final bool matchesHomeroom = homeroom == kAllHomerooms
           ? true
@@ -262,8 +265,9 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
   Future<void> _openBuildingManagerPicker() async {
     List<SchoolBuildingRecord> buildings;
     try {
-      buildings = await (widget.loadBuildings ??
-          () => SchoolAdminPlatformService().fetchBuildings())();
+      buildings =
+          await (widget.loadBuildings ??
+              () => SchoolAdminPlatformService().fetchBuildings())();
     } catch (e) {
       debugPrint('SchoolTeachersPage: list_school_buildings ล้ม — $e');
       if (!mounted) return;
@@ -275,9 +279,12 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       _showMessage('ยังไม่มีอาคารในระบบ — สร้างจากหน้า "อาคารและห้อง" ก่อน');
       return;
     }
-    final names = <String>{for (final t in _teachers) t.fullName}.toList()..sort();
+    final names = <String>{for (final t in _teachers) t.fullName}.toList()
+      ..sort();
     var buildingId = buildings.first.id;
-    String? manager = buildings.first.managerName.isEmpty ? null : buildings.first.managerName;
+    String? manager = buildings.first.managerName.isEmpty
+        ? null
+        : buildings.first.managerName;
     if (manager != null && !names.contains(manager)) names.add(manager);
     var submitting = false;
     String? error;
@@ -295,18 +302,24 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
             });
             try {
               await (widget.setBuildingManager ??
-                  ({required String buildingId, required String? managerName}) =>
-                      SchoolAdminPlatformService().setBuildingManager(
-                        buildingId: buildingId,
-                        managerName: managerName,
-                      ))(buildingId: buildingId, managerName: manager);
+                  ({
+                    required String buildingId,
+                    required String? managerName,
+                  }) => SchoolAdminPlatformService().setBuildingManager(
+                    buildingId: buildingId,
+                    managerName: managerName,
+                  ))(buildingId: buildingId, managerName: manager);
               if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               if (!mounted) return;
-              _showMessage(manager == null
-                  ? 'ล้างผู้รับผิดชอบอาคารแล้ว'
-                  : 'กำหนด $manager เป็นผู้รับผิดชอบอาคารแล้ว');
+              _showMessage(
+                manager == null
+                    ? 'ล้างผู้รับผิดชอบอาคารแล้ว'
+                    : 'กำหนด $manager เป็นผู้รับผิดชอบอาคารแล้ว',
+              );
             } catch (e) {
-              debugPrint('SchoolTeachersPage: set_school_building_manager ล้ม — $e');
+              debugPrint(
+                'SchoolTeachersPage: set_school_building_manager ล้ม — $e',
+              );
               if (!sheetContext.mounted) return;
               setSheet(() {
                 submitting = false;
@@ -316,7 +329,9 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
           }
 
           return Padding(
-            padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+            ),
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               decoration: const BoxDecoration(
@@ -327,8 +342,10 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('กำหนดครูประจำอาคาร',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+                  const Text(
+                    'กำหนดครูประจำอาคาร',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                  ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: buildingId,
@@ -340,31 +357,51 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
                     onChanged: submitting
                         ? null
                         : (v) => setSheet(() {
-                              buildingId = v ?? buildingId;
-                              final current = buildings.firstWhere((b) => b.id == buildingId).managerName;
-                              manager = current.isEmpty ? null : current;
-                              if (manager != null && !names.contains(manager)) names.add(manager!);
-                            }),
+                            buildingId = v ?? buildingId;
+                            final current = buildings
+                                .firstWhere((b) => b.id == buildingId)
+                                .managerName;
+                            manager = current.isEmpty ? null : current;
+                            if (manager != null && !names.contains(manager))
+                              names.add(manager!);
+                          }),
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String?>(
                     value: manager,
-                    decoration: const InputDecoration(labelText: 'ผู้รับผิดชอบ'),
+                    decoration: const InputDecoration(
+                      labelText: 'ผู้รับผิดชอบ',
+                    ),
                     items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('— ไม่กำหนด —')),
-                      for (final n in names) DropdownMenuItem<String?>(value: n, child: Text(n)),
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('— ไม่กำหนด —'),
+                      ),
+                      for (final n in names)
+                        DropdownMenuItem<String?>(value: n, child: Text(n)),
                     ],
-                    onChanged: submitting ? null : (v) => setSheet(() => manager = v),
+                    onChanged: submitting
+                        ? null
+                        : (v) => setSheet(() => manager = v),
                   ),
                   if (error != null) ...[
                     const SizedBox(height: 10),
-                    Text(error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12, fontWeight: FontWeight.w700)),
+                    Text(
+                      error!,
+                      style: const TextStyle(
+                        color: Color(0xFFB91C1C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       TextButton(
-                        onPressed: submitting ? null : () => Navigator.of(sheetContext).pop(),
+                        onPressed: submitting
+                            ? null
+                            : () => Navigator.of(sheetContext).pop(),
                         child: const Text('ยกเลิก'),
                       ),
                       const Spacer(),
@@ -449,48 +486,51 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
     final String? newName = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('แก้ไขชื่อ–นามสกุลบุคลากร'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'ชื่อ–นามสกุล',
-                  prefixIcon: Icon(Icons.person_outline_rounded),
+        return _OwnControllers(
+          controllers: [nameController],
+          child: AlertDialog(
+            title: const Text('แก้ไขชื่อ–นามสกุลบุคลากร'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'ชื่อ–นามสกุล',
+                    prefixIcon: Icon(Icons.person_outline_rounded),
+                  ),
                 ),
+                const SizedBox(height: 12),
+                const Text(
+                  'ระบบรองรับการแก้ไขเฉพาะชื่อ–นามสกุล '
+                  'ส่วนกลุ่มสาระ เบอร์โทร ตำแหน่ง และอาคารที่รับผิดชอบ '
+                  'ยังไม่มีที่เก็บในฐานข้อมูล จึงยังแก้ไขไม่ได้',
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.45,
+                    color: SchoolAdminPalette.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('ยกเลิก'),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'ระบบรองรับการแก้ไขเฉพาะชื่อ–นามสกุล '
-                'ส่วนกลุ่มสาระ เบอร์โทร ตำแหน่ง และอาคารที่รับผิดชอบ '
-                'ยังไม่มีที่เก็บในฐานข้อมูล จึงยังแก้ไขไม่ได้',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.45,
-                  color: SchoolAdminPalette.textSecondary,
-                ),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop(nameController.text.trim()),
+                child: const Text('บันทึก'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('ยกเลิก'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(dialogContext).pop(nameController.text.trim()),
-              child: const Text('บันทึก'),
-            ),
-          ],
         );
       },
     );
-    nameController.dispose();
+    // Disposed by _OwnControllers (see _assignHomeroom).
 
     if (newName == null || !mounted) return;
     if (newName.isEmpty) {
@@ -541,85 +581,89 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
       builder: (BuildContext dialogContext) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
-            return AlertDialog(
-              title: const Text('มอบหมายครูประจำชั้น'),
-              content: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: gradeController,
-                      decoration: const InputDecoration(
-                        labelText: 'ระดับชั้น',
-                        hintText: 'เช่น ม.1',
-                        prefixIcon: Icon(Icons.layers_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: roomController,
-                      decoration: const InputDecoration(
-                        labelText: 'ห้อง',
-                        hintText: 'เช่น 1',
-                        prefixIcon: Icon(Icons.meeting_room_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    // รายชื่อในดรอปดาวน์มาจากครูที่โหลดมาจริงเท่านั้น
-                    InputDecorator(
-                      decoration: const InputDecoration(labelText: 'ครู'),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: teacherId,
-                          isExpanded: true,
-                          isDense: true,
-                          items: _teachers.map((_TeacherRecord t) {
-                            return DropdownMenuItem<String>(
-                              value: t.id,
-                              child: Text(
-                                t.fullName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (String? v) {
-                            if (v != null) {
-                              setDialogState(() => teacherId = v);
-                            }
-                          },
+            return _OwnControllers(
+              controllers: [gradeController, roomController],
+              child: AlertDialog(
+                title: const Text('มอบหมายครูประจำชั้น'),
+                content: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: gradeController,
+                        decoration: const InputDecoration(
+                          labelText: 'ระดับชั้น',
+                          hintText: 'เช่น ม.1',
+                          prefixIcon: Icon(Icons.layers_outlined),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('ยกเลิก'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(
-                    _HomeroomDraft(
-                      gradeLevel: gradeController.text.trim(),
-                      room: roomController.text.trim(),
-                      teacherId: teacherId,
-                    ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: roomController,
+                        decoration: const InputDecoration(
+                          labelText: 'ห้อง',
+                          hintText: 'เช่น 1',
+                          prefixIcon: Icon(Icons.meeting_room_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      // รายชื่อในดรอปดาวน์มาจากครูที่โหลดมาจริงเท่านั้น
+                      InputDecorator(
+                        decoration: const InputDecoration(labelText: 'ครู'),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: teacherId,
+                            isExpanded: true,
+                            isDense: true,
+                            items: _teachers.map((_TeacherRecord t) {
+                              return DropdownMenuItem<String>(
+                                value: t.id,
+                                child: Text(
+                                  t.fullName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (String? v) {
+                              if (v != null) {
+                                setDialogState(() => teacherId = v);
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Text('บันทึก'),
                 ),
-              ],
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('ยกเลิก'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(
+                      _HomeroomDraft(
+                        gradeLevel: gradeController.text.trim(),
+                        room: roomController.text.trim(),
+                        teacherId: teacherId,
+                      ),
+                    ),
+                    child: const Text('บันทึก'),
+                  ),
+                ],
+              ),
             );
           },
         );
       },
     );
-
-    gradeController.dispose();
-    roomController.dispose();
+    // Controllers are disposed by _OwnControllers with the dialog's own
+    // element. Disposing them here — right after showDialog returned —
+    // hit Flutter's `_dependents.isEmpty` assertion on production
+    // (2026-09-17): the TextFields were still painting the close animation.
 
     if (draft == null || !mounted) return;
     if (draft.gradeLevel.isEmpty || draft.room.isEmpty) {
@@ -976,7 +1020,10 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
           spacing: spacing,
           runSpacing: spacing,
           children: items.map((_TeacherSummaryData item) {
-            return SizedBox(width: width, child: _TeacherSummaryCard(data: item));
+            return SizedBox(
+              width: width,
+              child: _TeacherSummaryCard(data: item),
+            );
           }).toList(),
         );
       },
@@ -1011,7 +1058,8 @@ class _SchoolTeachersPageState extends State<SchoolTeachersPage> {
         icon: Icons.person_add_alt_1_rounded,
         onTap: () => showInviteUserSheet(
           context,
-          create: widget.createInvitation ??
+          create:
+              widget.createInvitation ??
               ({required String email, required UserRole role}) =>
                   InvitationService.createInvitation(email: email, role: role),
           onInvited: _loadTeachers,
@@ -2001,4 +2049,31 @@ class _TeacherQuickActionData {
   /// null = ยังไม่มี backend รองรับ การ์ดจะถูก disable พร้อมบอกเหตุผล
   final VoidCallback? onTap;
   final bool isActive;
+}
+
+/// Disposes dialog controllers with the dialog's own element instead of
+/// right after `showDialog` returns — the latter tears them down while the
+/// close animation is still painting the fields (Flutter asserts
+/// `_dependents.isEmpty`). Same helper as school_admin_profile_page.
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

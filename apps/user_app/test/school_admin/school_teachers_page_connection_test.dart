@@ -258,4 +258,48 @@ void main() {
     expect(sentBuilding, 'bld-1');
     expect(sentManager, 'ครูสมชาย ใจดี');
   });
+
+  testWidgets('assigning a homeroom does not throw while the dialog closes (prod crash 2026-09-17)', (
+    tester,
+  ) async {
+    // On production the save hit Flutter's `_dependents.isEmpty` assertion:
+    // the dialog's TextEditingControllers were disposed right after
+    // showDialog returned, while the fields were still animating out.
+    String? sent;
+    await _pump(
+      tester,
+      loadUsers: () async => [_teacher()],
+      setHomeroomTeacher: (grade, room, teacherId) async {
+        sent = '$grade/$room';
+        return 'hr-1';
+      },
+      loadHomerooms: () async => sent == null
+          ? const []
+          : [
+              HomeroomAssignment(
+                assignmentId: 'hr-1',
+                gradeLevel: 'ม.1',
+                room: '1',
+                teacherId: _teacher().uid,
+                teacherName: _teacher().name,
+                studentCount: 3,
+              ),
+            ],
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('มอบหมายครูประจำชั้น').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ระดับชั้น'), 'ม.1');
+    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '1');
+    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+    // Pump frame by frame through the close animation — this is where the
+    // assertion used to fire.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpAndSettle();
+    expect(sent, 'ม.1/1');
+    expect(tester.takeException(), isNull);
+  });
 }

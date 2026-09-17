@@ -397,4 +397,12 @@ void main() {
       expect(find.text('ออกจากระบบไม่สำเร็จ กรุณาลองใหม่'), findsOneWidget);
     },
   );
+
+  testWidgets('no "เปลี่ยนรูป" — there is no avatar storage to change', (tester) async {
+    await _pump(tester);
+    // Used to open a URL dialog, keep the URL in page state and announce
+    // "เปลี่ยนรูปโปรไฟล์แล้ว" without writing anywhere (found 2026-09-17).
+    expect(find.text('เปลี่ยนรูป'), findsNothing);
+    expect(find.byIcon(Icons.camera_alt_rounded), findsNothing);
+  });
 }
