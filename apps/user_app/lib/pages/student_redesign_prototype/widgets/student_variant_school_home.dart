@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../../notifications_page.dart';
+import 'student_empty_state.dart';
 import 'student_redesign_palette.dart';
 import 'aiot_weather_sensors_card.dart';
 import 'school_encouragement_card.dart';
@@ -632,12 +633,10 @@ class SchoolAnnouncementsCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         if (notification == null)
-          const SoftCard(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'ยังไม่มีประกาศ',
-              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
-            ),
+          const StudentEmptyState(
+            icon: Icons.campaign_rounded,
+            title: 'ยังไม่มีประกาศ',
+            hint: 'ข่าวสารจากโรงเรียนจะแสดงที่นี่',
           )
         else
           InkWell(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'student_empty_state.dart';
 import 'student_redesign_palette.dart';
 import 'student_lessons_page.dart';
 
@@ -34,12 +35,10 @@ class AcademyContinueLearningCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const SoftCard(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'ยังไม่มีบทเรียนที่เปิดสอนในวิชาที่คุณลงทะเบียน',
-              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
-            ),
+          const StudentEmptyState(
+            icon: Icons.menu_book_rounded,
+            title: 'ยังไม่มีบทเรียนให้เรียนต่อ',
+            hint: 'เมื่อครูเปิดบทเรียนในวิชาที่คุณลงทะเบียน จะแสดงที่นี่',
           ),
         ],
       );
