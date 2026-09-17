@@ -81,7 +81,7 @@ void main() {
       find.widgetWithText(TextField, 'วันที่ขอเข้าพบ (ปี-เดือน-วัน)'),
       '2026-09-20',
     );
-    await tester.tap(find.widgetWithText(FilledButton, 'ยื่นคำขอ'));
+    await tester.tap(find.widgetWithText(FilledButton, 'ยื่นคำขอ').last);
     await tester.pumpAndSettle();
 
     expect(backend.calls, contains('create_staff_request'));
@@ -97,7 +97,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.widgetWithText(TextField, 'เรื่อง'), 'x');
     await tester.enterText(find.widgetWithText(TextField, 'วันที่ขอเข้าพบ (ปี-เดือน-วัน)'), '2026-09-20');
-    await tester.tap(find.widgetWithText(FilledButton, 'ยื่นคำขอ'));
+    await tester.tap(find.widgetWithText(FilledButton, 'ยื่นคำขอ').last);
     await tester.pumpAndSettle();
     expect(find.text('ยื่นคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'), findsOneWidget);
     expect(find.textContaining('secret-backend'), findsNothing);

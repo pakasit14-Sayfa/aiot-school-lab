@@ -9,11 +9,10 @@ import '../pages/parent/parent_schedule_page.dart';
 import '../pages/parent/parent_messages_page.dart';
 import '../pages/parent/parent_settings_page.dart';
 
-typedef ParentPagesBuilder =
-    List<Widget> Function(
-      String? selectedStudentId,
-      ValueChanged<LinkedStudentItem> onStudentSelected,
-    );
+typedef ParentPagesBuilder = List<Widget> Function(
+  String? selectedStudentId,
+  ValueChanged<LinkedStudentItem> onStudentSelected,
+);
 
 class ParentNavigationShell extends StatefulWidget {
   final ParentPagesBuilder? pagesBuilder;
@@ -52,8 +51,9 @@ class _ParentNavigationShellState extends State<ParentNavigationShell> {
 
   Future<void> _loadNotifications() async {
     try {
-      final list = await (widget.loadNotifications ??
-          NotificationService.listMyNotifications)();
+      final list =
+          await (widget.loadNotifications ??
+              NotificationService.listMyNotifications)();
       if (!mounted) return;
       setState(() {
         _notifications = list;
@@ -834,28 +834,35 @@ class _ParentNotificationSheet extends StatelessWidget {
                 separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (_, i) {
                   final n = notifications[i];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    onTap: () => onTap(n),
-                    leading: Icon(
-                      n.readAt == null
-                          ? Icons.notifications_active_rounded
-                          : Icons.notifications_none_rounded,
-                      color: n.readAt == null
-                          ? const Color(0xFFDF5660)
-                          : const Color(0xFF8A94A6),
-                    ),
-                    title: Text(
-                      n.title,
-                      style: TextStyle(
-                        fontWeight: n.readAt == null
-                            ? FontWeight.w800
-                            : FontWeight.w600,
+                  return Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      onTap: () => onTap(n),
+                      leading: Icon(
+                        n.readAt == null
+                            ? Icons.notifications_active_rounded
+                            : Icons.notifications_none_rounded,
+                        color: n.readAt == null
+                            ? const Color(0xFFDF5660)
+                            : const Color(0xFF8A94A6),
                       ),
+                      title: Text(
+                        n.title,
+                        style: TextStyle(
+                          fontWeight: n.readAt == null
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: n.body == null || n.body!.isEmpty
+                          ? null
+                          : Text(
+                              n.body!,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                     ),
-                    subtitle: n.body == null || n.body!.isEmpty
-                        ? null
-                        : Text(n.body!, maxLines: 2, overflow: TextOverflow.ellipsis),
                   );
                 },
               ),
