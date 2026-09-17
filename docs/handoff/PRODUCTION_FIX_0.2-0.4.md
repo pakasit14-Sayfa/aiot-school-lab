@@ -289,6 +289,9 @@ bash scripts/prod_apply_2026-09-17.sh
 bash scripts/prod_apply_2026-09-17b.sh
 ```
 
+**✅ รันบน prod แล้ว 2026-09-17** (เจ้าของรันเอง) — verify `delete_school_event_expect_1 = 1`,
+`migration list --linked` แสดง `20260917020000` ทั้ง local/remote
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้
