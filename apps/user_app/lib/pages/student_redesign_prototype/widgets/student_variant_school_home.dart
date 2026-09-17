@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
 import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
 import 'aiot_weather_sensors_card.dart';
@@ -23,7 +24,11 @@ class StudentVariantSchoolHome extends StatefulWidget {
     this.sensorStreamOverride,
     this.rawReadingsStreamOverride,
     this.utilityCardBuilder,
+    this.now,
   });
+
+  /// Clock for the greeting; tests pin it, production leaves it null.
+  final DateTime Function()? now;
 
   /// Lets the G-Score summary card open the full "คะแนน" page — the score
   /// snapshot lives on the home page since it updates daily, while the full
@@ -390,7 +395,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'สวัสดีตอนเช้า,',
+                      '${greetingForHour((widget.now?.call() ?? DateTime.now()).hour)},',
                       style: TextStyle(
                         color: SchoolPalette.cream,
                         fontSize: isCompact ? 19 : 23,
@@ -541,13 +546,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
             ),
             SizedBox(height: columnGap),
             widget.utilityCardBuilder?.call(utilityFullWidthHeight) ??
-                  SchoolUtilityTrendCard(height: utilityFullWidthHeight),
+                SchoolUtilityTrendCard(height: utilityFullWidthHeight),
           ],
         );
       },
     );
   }
-
 }
 
 /// The "ข่าวสารประกาศโรงเรียน" section: header "ดูทั้งหมด" button and the
@@ -951,4 +955,12 @@ class _SchoolHeroPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Same buckets as the login page's greeting so the two screens never
+/// disagree about the time of day.
+String greetingForHour(int hour) {
+  if (hour < 12) return 'สวัสดีตอนเช้า';
+  if (hour < 17) return 'สวัสดีตอนบ่าย';
+  return 'สวัสดีตอนเย็น';
 }
