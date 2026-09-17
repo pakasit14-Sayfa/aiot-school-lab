@@ -162,6 +162,9 @@ realtime, user admin). Each wraps its own RPCs; pages call the service, never
 ./scripts/build_app.sh sim   # iOS Simulator build + install + launch
 ```
 
+**Machine split (owner, 2026-09-17): this Mac builds iOS only. Android builds are done on
+the owner's Windows machine — do not set up or run `build apk` here.**
+
 Always goes through `env.prod.json` (production Supabase). A release build made
 without `--dart-define-from-file` **refuses to start** (`SupabaseConfig.assertConfigured`)
 rather than silently pointing the phone at `127.0.0.1`. App identity is
