@@ -1018,9 +1018,15 @@ class _HeroProgressStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -1038,14 +1044,14 @@ class _HeroProgressStrip extends StatelessWidget {
                     value: value,
                     strokeWidth: 4,
                     strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.white.withValues(alpha: 0.18),
-                    color: SchoolPalette.yellow,
+                    backgroundColor: SchoolPalette.softGreenBg,
+                    color: SchoolPalette.green,
                   ),
                 ),
                 Text(
                   '$percent%',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: SchoolPalette.ink,
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1063,7 +1069,7 @@ class _HeroProgressStrip extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: SchoolPalette.ink,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w900,
                   ),
@@ -1103,15 +1109,15 @@ class _HeroStat extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: SchoolPalette.cream),
+        Icon(icon, size: 13, color: SchoolPalette.green),
         const SizedBox(width: 4),
         Flexible(
           child: Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.9),
+            style: const TextStyle(
+              color: SchoolPalette.deepGreen,
               fontSize: 11.5,
               fontWeight: FontWeight.w700,
             ),
