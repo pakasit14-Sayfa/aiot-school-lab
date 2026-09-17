@@ -222,6 +222,8 @@ values ('<timestamp>','<ชื่อ_ไม่รวม_timestamp>') on conflict
 
 ### ขั้น 4.1 — migration ชุด School Admin 100% (2026-09-14) — 4 ไฟล์ รันตามลำดับ
 
+> ✅ **รันบน production แล้ว 2026-09-17** ด้วย `scripts/prod_apply_2026-09-16.sh` — ตรวจแล้ว: RPC ใหม่ 5 ตัวมีครบ · default ปลอมของ firmware ถูกถอด · `device_effective_status` อ่าน `offline_minutes` แล้ว · `migration list --linked` ทุกแถวมี remote
+
 รันได้เลย ไม่มีเงื่อนไขล่วงหน้า แต่**ต้องรันเรียงตามเลข** และรันในทรานแซกชันเดียว
 ต่อไฟล์ (ไฟล์ที่ 4 มี `alter table` + `update` ที่ต้องไปด้วยกัน):
 
@@ -246,6 +248,8 @@ npx supabase db query --linked "select count(*) from pg_proc where proname in ('
 
 ### ขั้น 4.2 — migration Teacher 100% (2026-09-16) — 1 ไฟล์
 
+> ✅ **รันบน production แล้ว 2026-09-17** ด้วย `scripts/prod_apply_2026-09-16.sh` — ตรวจแล้ว: RPC ใหม่ 5 ตัวมีครบ · default ปลอมของ firmware ถูกถอด · `device_effective_status` อ่าน `offline_minutes` แล้ว · `migration list --linked` ทุกแถวมี remote
+
 `20260916010000_list_lesson_progress.sql` — RPC อ่านอย่างเดียว `list_lesson_progress(p_token, p_lesson_id)`
 ให้ครูเจ้าของวิชา/school_admin ดูความคืบหน้าบทเรียนรายคน (นักเรียนเขียน `lesson_progress`
 มาตั้งแต่แรกแต่ไม่เคยมีตัวอ่านฝั่งครู) ไม่แตะข้อมูลเดิม รันได้ทุกลำดับหลัง 4.1 หรือก่อนก็ได้
@@ -253,6 +257,8 @@ npx supabase db query --linked "select count(*) from pg_proc where proname in ('
 ตรวจ: `select count(*) from pg_proc where proname='list_lesson_progress'` → `1`
 
 ### ขั้น 4.3 — migration Super Admin 100% (2026-09-16) — 1 ไฟล์
+
+> ✅ **รันบน production แล้ว 2026-09-17** ด้วย `scripts/prod_apply_2026-09-16.sh` — ตรวจแล้ว: RPC ใหม่ 5 ตัวมีครบ · default ปลอมของ firmware ถูกถอด · `device_effective_status` อ่าน `offline_minutes` แล้ว · `migration list --linked` ทุกแถวมี remote
 
 `20260916020000_offline_minutes_enforced.sql` — เขียนทับ `device_effective_status()` ให้อ่าน
 `platform_settings.offline_minutes` แทนค่าตายตัว 5 นาที (ค่าใน prod ตอนนี้คือ 5 อยู่แล้ว →

@@ -101,6 +101,8 @@ Executive 6 หน้า: `learning`(2,815) `meetings`(2,216) `teachers`(1,927) 
 
 ### 3.6 Test debt ยังไม่เคลียร์ — Flutter fail 16 + pgTAP fail 6
 
+> 2026-09-17: **production ตามทัน local แล้ว** — เจ้าของรัน `scripts/prod_apply_2026-09-16.sh` (6 migration: 4.1×4 · 4.2 · 4.3) ผ่านทั้งหมด `migration list --linked` ไม่มีแถวที่ remote ว่าง · ⚠️ พบตอน pre-check: `20260909010000` (3.5b) อยู่บน prod แล้วทั้งที่ `homeroom_assignments = 0` → ครูอนุมัติผู้ปกครองไม่ได้จนกว่าจะกรอกครูประจำชั้น (เจ้าของยังไม่เลือกว่าจะกรอกหรือย้อนกลับ) · ยังต้อง deploy แอป `04a552e`
+>
 > 2026-09-16 (ดึก): **Super Admin 100% — ครบทั้ง 6 เลน** — หน้าตั้งค่าส่วนกลางเหลือค่าเดียวที่มีผลจริง (offline_minutes → device_effective_status, migration 20260916020000) · ถอด MQTT probe ที่วัดไม่ได้ · runbook 4.3
 >
 > 2026-09-16 (ดึก): **Parent 100%** — ถอดการ์ดแจ้งเตือนที่ไม่มี API · เปลี่ยนรหัสผ่านจริง — แถว WORK_LOG "Parent → 100%"
