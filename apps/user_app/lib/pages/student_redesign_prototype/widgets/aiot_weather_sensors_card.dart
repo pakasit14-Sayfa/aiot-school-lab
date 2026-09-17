@@ -550,139 +550,104 @@ class _SensorTiles extends StatelessWidget {
             ],
           );
         }
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: SchoolPalette.glassBorder),
+        // Phone: a 4×2 grid of small chips — icon, value, short name — the
+        // level is the chip's tint. Eight readings fit in ~180pt; the
+        // freshness detail lives on the dashboard page one tap away.
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            mainAxisExtent: 84,
           ),
-          child: Column(
-            children: [
-              for (var i = 0; i < tiles.length; i++) ...[
-                if (i > 0)
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    indent: 52,
-                    color: SchoolPalette.softGreenBg,
-                  ),
-                _SensorRow(tile: tiles[i]),
-              ],
-            ],
-          ),
+          itemCount: tiles.length,
+          itemBuilder: (_, i) => _SensorChip(tile: tiles[i]),
         );
       },
     );
   }
 }
 
-/// One reading as a list row: icon · name + freshness · value · level chip.
-class _SensorRow extends StatelessWidget {
-  const _SensorRow({required this.tile});
+/// One reading as a small chip for the phone grid.
+class _SensorChip extends StatelessWidget {
+  const _SensorChip({required this.tile});
   final _WeatherTile tile;
+
+  static const _short = {
+    'ความเข้มแสง': 'แสง',
+    'AQI-UBA (ENS160)': 'AQI',
+    'แก๊ส/ควัน (MQ-2)': 'แก๊ส/ควัน',
+    'eCO2 (ประมาณการ)': 'eCO2',
+  };
 
   @override
   Widget build(BuildContext context) {
     final color = tile.color;
+    final isDanger = tile.level == SensorLevel.danger;
     final isOnline =
         tile.freshness == SensorFreshness.live ||
         tile.freshness == SensorFreshness.delayed;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
-      child: Row(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(6, 8, 6, 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDanger ? 0.16 : 0.09),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: color.withValues(alpha: isDanger ? 0.55 : 0.25),
+          width: isDanger ? 1.4 : 1,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(tile.icon, size: 17, color: color),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tile.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: SchoolPalette.ink,
-                  ),
-                ),
-                if (tile.timeLabel != null) ...[
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: tile.freshness.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          isOnline
-                              ? 'ออนไลน์ • ${tile.timeLabel}'
-                              : 'ไม่ออนไลน์ • ${tile.timeLabel}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            color: tile.freshness.color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Stack(
+            clipBehavior: Clip.none,
             children: [
-              Text(
-                tile.value,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: color,
-                  height: 1.1,
+              Icon(tile.icon, size: 20, color: color),
+              Positioned(
+                right: -5,
+                top: -2,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: tile.freshness.color,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.2),
+                  ),
                 ),
               ),
-              if (tile.levelLabel != null) ...[
-                const SizedBox(height: 3),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    tile.levelLabel!,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                    ),
-                  ),
-                ),
-              ],
             ],
+          ),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              tile.value,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: color,
+                height: 1.1,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _short[tile.title] ?? tile.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            semanticsLabel:
+                '${tile.title} ${tile.value} ${tile.levelLabel ?? ''} '
+                '${isOnline ? 'ออนไลน์' : 'ไม่ออนไลน์'}',
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              color: SchoolPalette.muted,
+            ),
           ),
         ],
       ),
