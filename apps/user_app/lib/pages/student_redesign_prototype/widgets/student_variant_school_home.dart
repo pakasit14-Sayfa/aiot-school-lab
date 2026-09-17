@@ -331,8 +331,8 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 430;
-        final mascotSize = isCompact ? 124.0 : 168.0;
-        final titleSize = isCompact ? 28.0 : 36.0;
+        final mascotSize = isCompact ? 104.0 : 150.0;
+        final titleSize = isCompact ? 26.0 : 34.0;
 
         return Container(
           clipBehavior: Clip.antiAlias,
@@ -354,10 +354,10 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(
-                  isCompact ? 20 : 26,
-                  isCompact ? 18 : 22,
-                  isCompact ? 16 : 22,
-                  isCompact ? 16 : 20,
+                  isCompact ? 18 : 26,
+                  isCompact ? 14 : 20,
+                  isCompact ? 14 : 22,
+                  isCompact ? 14 : 18,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -370,7 +370,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _HeroChip(label: '$greeting 👋'),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 8),
                               Text(
                                 '$name!',
                                 maxLines: 2,
@@ -383,7 +383,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                                   letterSpacing: -0.6,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 5),
                               Text(
                                 'มาต่อบทเรียน AIoT และงานทดลองวันนี้กัน',
                                 maxLines: 2,
@@ -402,7 +402,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                         _HeroMascot(size: mascotSize),
                       ],
                     ),
-                    SizedBox(height: isCompact ? 14 : 18),
+                    SizedBox(height: isCompact ? 10 : 16),
                     _HeroProgressStrip(
                       progress: progress,
                       lessonCount: _lessonCount,
@@ -1008,17 +1008,17 @@ class _HeroProgressStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final percent = (progress * 100).round();
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: [
           SizedBox(
-            width: 46,
-            height: 46,
+            width: 40,
+            height: 40,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -1028,7 +1028,7 @@ class _HeroProgressStrip extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   builder: (_, value, _) => CircularProgressIndicator(
                     value: value,
-                    strokeWidth: 4.5,
+                    strokeWidth: 4,
                     strokeCap: StrokeCap.round,
                     backgroundColor: Colors.white.withValues(alpha: 0.18),
                     color: SchoolPalette.yellow,
@@ -1038,14 +1038,14 @@ class _HeroProgressStrip extends StatelessWidget {
                   '$percent%',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1060,7 +1060,7 @@ class _HeroProgressStrip extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Row(
                   children: [
                     _HeroStat(
