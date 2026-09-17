@@ -331,7 +331,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxWidth < 430;
-        final mascotSize = isCompact ? 104.0 : 150.0;
+        // Mascot is bigger than the text block and anchored to the card's
+        // top-right, so it can dip into the empty right end of the progress
+        // strip without adding height; the text reserves its width.
+        final mascotSize = isCompact ? 150.0 : 196.0;
+        final mascotReserve = isCompact ? 118.0 : 160.0;
         final titleSize = isCompact ? 26.0 : 34.0;
 
         return Container(
@@ -351,6 +355,11 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
             children: [
               Positioned.fill(
                 child: CustomPaint(painter: _SchoolHeroPatternPainter()),
+              ),
+              Positioned(
+                right: isCompact ? 4 : 12,
+                top: isCompact ? 6 : 8,
+                child: _HeroMascot(size: mascotSize),
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(
@@ -398,8 +407,7 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        _HeroMascot(size: mascotSize),
+                        SizedBox(width: mascotReserve),
                       ],
                     ),
                     SizedBox(height: isCompact ? 10 : 16),
