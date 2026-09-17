@@ -33,8 +33,10 @@ class SchoolStudentsPage extends StatefulWidget {
   const SchoolStudentsPage({
     super.key,
     this.loadUsers,
+    this.loadSchoolStudents,
     this.loadHomerooms,
     this.loadRoster,
+    this.setStudentProfile,
     this.suspendUser,
     this.reactivateUser,
     this.updateName,
@@ -46,7 +48,17 @@ class SchoolStudentsPage extends StatefulWidget {
   /// เพื่อไล่สถานะ loading / data / empty / error / mutation ได้โดยไม่ต้องมี
   /// Supabase จริง (รูปแบบเดียวกับ school_resources_page / cctv page)
   final Future<List<UserModel>> Function()? loadUsers;
+
+  /// `list_school_students` — grade/room straight from student_profiles.
+  /// Until 2026-09-17 grade/room were derived from homeroom rosters only,
+  /// so a student in a room with no homeroom teacher yet showed no class.
+  final Future<List<SchoolStudentOption>> Function()? loadSchoolStudents;
   final Future<List<HomeroomAssignment>> Function()? loadHomerooms;
+
+  /// `set_student_profile` (20260917010000) — the first writer of
+  /// student_profiles; nothing in the app could set a class before.
+  final Future<void> Function(String uid, String gradeLevel, String room)?
+      setStudentProfile;
   final Future<List<HomeroomRosterItem>> Function(String gradeLevel, String room)?
       loadRoster;
   final Future<void> Function(String uid)? suspendUser;
@@ -112,10 +124,25 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
   /// (`users.building` / `users.room` ไม่เคยถูกเซ็ตจากฝั่งนี้ — ของเดิมอ่าน
   /// สองช่องนั้นแล้วตกไปที่ค่าคงที่ 'ม.1' / '1' เสมอ)
   Future<Map<String, _Placement>> _fetchPlacements() async {
+    final Map<String, _Placement> placements = <String, _Placement>{};
+    // Primary source: student_profiles via list_school_students.
+    final profiles =
+        await (widget.loadSchoolStudents?.call() ??
+            StudentFollowupService.listSchoolStudents());
+    for (final SchoolStudentOption p in profiles) {
+      final grade = p.gradeLevel?.trim();
+      final room = p.room?.trim();
+      placements[p.studentId] = _Placement(
+        gradeLevel: (grade == null || grade.isEmpty) ? null : grade,
+        room: (room == null || room.isEmpty) ? null : room,
+        studentCode: null,
+      );
+    }
+    // Student codes come from the homeroom roster (users.student_code is not
+    // on the users list RPC).
     final assignments =
         await (widget.loadHomerooms?.call() ??
             HomeroomService.listHomeroomAssignments());
-    final Map<String, _Placement> placements = <String, _Placement>{};
     for (final HomeroomAssignment a in assignments) {
       final roster =
           await (widget.loadRoster?.call(a.gradeLevel, a.room) ??
@@ -124,9 +151,11 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                 room: a.room,
               ));
       for (final HomeroomRosterItem item in roster) {
+        final existing = placements[item.studentId];
         placements[item.studentId] = _Placement(
-          gradeLevel: a.gradeLevel.trim().isEmpty ? null : a.gradeLevel.trim(),
-          room: a.room.trim().isEmpty ? null : a.room.trim(),
+          gradeLevel: existing?.gradeLevel ??
+              (a.gradeLevel.trim().isEmpty ? null : a.gradeLevel.trim()),
+          room: existing?.room ?? (a.room.trim().isEmpty ? null : a.room.trim()),
           studentCode:
               item.studentCode.trim().isEmpty ? null : item.studentCode.trim(),
         );
@@ -310,6 +339,8 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
     final firstCtrl = TextEditingController();
     final lastCtrl = TextEditingController();
     final codeCtrl = TextEditingController();
+    final gradeCtrl = TextEditingController();
+    final roomCtrl = TextEditingController();
     var submitting = false;
     String? error;
 
@@ -343,6 +374,10 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                     'first_name': firstCtrl.text.trim(),
                     'last_name': lastCtrl.text.trim(),
                     'student_code': codeCtrl.text.trim(),
+                    // Both or neither: the RPC writes student_profiles only
+                    // when both are present.
+                    'grade_level': gradeCtrl.text.trim(),
+                    'room': roomCtrl.text.trim(),
                   },
                 ],
               );
@@ -376,7 +411,7 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
           }
 
           return _OwnControllers(
-            controllers: [emailCtrl, firstCtrl, lastCtrl, codeCtrl],
+            controllers: [emailCtrl, firstCtrl, lastCtrl, codeCtrl, gradeCtrl, roomCtrl],
             child: Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
               child: Container(
@@ -410,6 +445,24 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                       TextField(controller: lastCtrl, decoration: const InputDecoration(labelText: 'นามสกุล')),
                       const SizedBox(height: 10),
                       TextField(controller: codeCtrl, decoration: const InputDecoration(labelText: 'รหัสนักเรียน (ถ้ามี)')),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: gradeCtrl,
+                              decoration: const InputDecoration(labelText: 'ระดับชั้น (เช่น ม.1)'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: roomCtrl,
+                              decoration: const InputDecoration(labelText: 'ห้อง (เช่น 1)'),
+                            ),
+                          ),
+                        ],
+                      ),
                       if (error != null) ...[
                         const SizedBox(height: 10),
                         Text(error!, style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 12, fontWeight: FontWeight.w700)),
@@ -591,6 +644,102 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
     }
   }
 
+  Future<void> _editStudentClass(_StudentRecord student) async {
+    if (_busyIds.contains(student.id)) return;
+    final gradeController = TextEditingController(text: student.gradeLevel ?? '');
+    final roomController = TextEditingController(text: student.room ?? '');
+    final bool? save = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => _OwnControllers(
+        controllers: [gradeController, roomController],
+        child: AlertDialog(
+          title: const Text('กำหนดระดับชั้น / ห้อง'),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  student.fullName,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: gradeController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    labelText: 'ระดับชั้น',
+                    hintText: 'เช่น ม.1',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: roomController,
+                  decoration: const InputDecoration(
+                    labelText: 'ห้อง',
+                    hintText: 'เช่น 1',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'บันทึกลงปีการศึกษาปัจจุบัน — ครูประจำชั้น เช็คชื่อ และหน้าผู้ปกครองใช้ค่านี้',
+                  style: TextStyle(fontSize: 11.5, color: SchoolAdminPalette.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('ยกเลิก'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('บันทึก'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (save != true || !mounted) return;
+    final grade = gradeController.text.trim();
+    final room = roomController.text.trim();
+    if (grade.isEmpty || room.isEmpty) {
+      _showMessage('กรุณากรอกทั้งระดับชั้นและห้อง');
+      return;
+    }
+
+    setState(() => _busyIds.add(student.id));
+    try {
+      await (widget.setStudentProfile?.call(student.id, grade, room) ??
+          HomeroomService.setStudentProfile(
+            studentId: student.id,
+            gradeLevel: grade,
+            room: room,
+          ));
+      final List<_StudentRecord> fresh = await _refetchAndConfirm(
+        (_StudentRecord s) => s.gradeLevel == grade && s.room == room,
+        student.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _students = fresh;
+        _loadFailed = false;
+      });
+      _showMessage('บันทึกชั้น/ห้องแล้ว (ยืนยันกับระบบเรียบร้อย)');
+    } catch (e) {
+      debugPrint('set_student_profile failed: $e');
+      final raw = e.toString();
+      _showMessage(
+        raw.contains('no_academic_year')
+            ? 'ยังไม่มีปีการศึกษาในระบบ — สร้างที่หน้าตั้งค่าก่อน'
+            : 'บันทึกชั้น/ห้องไม่สำเร็จ ระบบยังไม่ยืนยันการเปลี่ยนแปลง กรุณาลองใหม่อีกครั้ง',
+      );
+    } finally {
+      if (mounted) setState(() => _busyIds.remove(student.id));
+    }
+  }
+
   void _showStudentDetail(_StudentRecord student) {
     showModalBottomSheet<void>(
       context: context,
@@ -681,6 +830,18 @@ class _SchoolStudentsPageState extends State<SchoolStudentsPage> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _editStudentClass(student);
+                          },
+                          icon: const Icon(Icons.layers_outlined),
+                          label: const Text('กำหนดระดับชั้น / ห้อง'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
                           onPressed: () {
                             Navigator.of(sheetContext).pop();
                             _editStudentName(student);

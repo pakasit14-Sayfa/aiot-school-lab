@@ -96,6 +96,27 @@ class HomeroomService {
     return result;
   }
 
+  /// school_admin/super_admin: set (or clear, with both empty) a student's
+  /// grade/room for the current academic year — `set_student_profile`,
+  /// the only writer of student_profiles (20260917010000).
+  static Future<void> setStudentProfile({
+    required String studentId,
+    required String gradeLevel,
+    required String room,
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw StateError('no_session');
+    await supabase.rpc(
+      'set_student_profile',
+      params: {
+        'p_token': token,
+        'p_student_id': studentId,
+        'p_grade_level': gradeLevel,
+        'p_room': room,
+      },
+    );
+  }
+
   static Future<bool> removeHomeroomTeacher(String assignmentId) async {
     final token = AuthService.sessionToken;
     if (token == null) return false;

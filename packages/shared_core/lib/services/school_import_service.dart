@@ -218,9 +218,23 @@ class SchoolImportService {
       final name = (r['ชื่อ-สกุล'] ?? r['ชื่อ'] ?? '').trim();
       final email = (r['อีเมล'] ?? '').trim();
       final building = (r['ห้องเรียน'] ?? r['ห้อง'] ?? '').trim();
+      // Student class (2026-09-17): "ระดับชั้น" + "ห้องเรียน" → student_profiles
+      // via the import RPC. "ห้องเรียน" doubles as the legacy users.building
+      // column, which is why it is passed as both.
+      // The template's "ห้องเรียน" is written as "ม.1/1" — split it into
+      // grade + room unless a separate "ระดับชั้น" column is given.
+      var grade = (r['ระดับชั้น'] ?? r['ชั้น'] ?? '').trim();
+      var room = building;
+      if (grade.isEmpty && building.contains('/')) {
+        final slash = building.indexOf('/');
+        grade = building.substring(0, slash).trim();
+        room = building.substring(slash + 1).trim();
+      }
 
       ImportRowStatus status = ImportRowStatus.ready;
-      String detail = building.isEmpty ? '-' : building;
+      String detail = grade.isEmpty && room.isEmpty
+          ? '-'
+          : [if (grade.isNotEmpty) grade, if (room.isNotEmpty) room].join('/');
 
       if (name.isEmpty) {
         status = ImportRowStatus.needsFix;
@@ -247,6 +261,8 @@ class SchoolImportService {
           if (email.isNotEmpty) 'email': email,
           'student_code': code,
           'building': building,
+          if (!isTeacher) 'grade_level': grade,
+          if (!isTeacher) 'room': room,
         },
       ));
     }

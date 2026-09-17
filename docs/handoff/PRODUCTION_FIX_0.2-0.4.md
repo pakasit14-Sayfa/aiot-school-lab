@@ -266,6 +266,19 @@ npx supabase db query --linked "select count(*) from pg_proc where proname in ('
 
 ตรวจ: `select device_effective_status('online', now() - interval '8 minutes')` → `offline`
 
+### ขั้น 4.4 — `set_student_profile` (2026-09-17) — 1 ไฟล์
+
+`20260917010000_set_student_profile.sql` — RPC `set_student_profile(p_token, p_student_id, p_grade_level, p_room)`
+(school_admin/super_admin) **ตัวเขียน `student_profiles` ตัวแรกของระบบ** — พบตอนจะกรอกครูประจำชั้นบน prod ว่า
+18 RPC อ่านตารางนี้แต่ไม่มีตัวไหนเขียน (local มีข้อมูลเพราะ seed.sql เขียนตรง) + เขียนทับ import RPC ให้รับ
+`grade_level`/`room` ต่อแถว ไม่แตะข้อมูลเดิม
+
+```bash
+bash scripts/prod_apply_2026-09-17.sh
+```
+
+หลังรัน: หน้านักเรียน School Admin → กดรายชื่อ → "กำหนดระดับชั้น / ห้อง" แล้วค่อยไปมอบหมายครูประจำชั้น (ทาง ก)
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้

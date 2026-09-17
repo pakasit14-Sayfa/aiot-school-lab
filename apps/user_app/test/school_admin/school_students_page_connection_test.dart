@@ -54,6 +54,8 @@ HomeroomRosterItem _roster({
 Future<void> _pump(
   WidgetTester tester, {
   Future<List<UserModel>> Function()? loadUsers,
+  Future<List<SchoolStudentOption>> Function()? loadSchoolStudents,
+  Future<void> Function(String uid, String gradeLevel, String room)? setStudentProfile,
   Future<List<HomeroomAssignment>> Function()? loadHomerooms,
   Future<List<HomeroomRosterItem>> Function(String gradeLevel, String room)?
   loadRoster,
@@ -75,6 +77,8 @@ Future<void> _pump(
     MaterialApp(
       home: SchoolStudentsPage(
         loadUsers: loadUsers ?? () async => <UserModel>[],
+        loadSchoolStudents: loadSchoolStudents ?? () async => <SchoolStudentOption>[],
+        setStudentProfile: setStudentProfile,
         loadHomerooms: loadHomerooms ?? () async => <HomeroomAssignment>[],
         loadRoster: loadRoster ?? (_, _) async => <HomeroomRosterItem>[],
         suspendUser: suspendUser,
@@ -248,7 +252,15 @@ void main() {
 
     expect(sentRole, UserRole.student);
     expect(sent, [
-      {'email': 'new@school.test', 'first_name': 'ใหม่', 'last_name': 'เรียนดี', 'student_code': ''},
+      {
+        'email': 'new@school.test',
+        'first_name': 'ใหม่',
+        'last_name': 'เรียนดี',
+        'student_code': '',
+        // 2026-09-17: class fields travel with the row (empty = not set).
+        'grade_level': '',
+        'room': '',
+      },
     ]);
     expect(find.text('Qw7Rt4Yu9p'), findsOneWidget);
     expect(find.text('ยังไม่มีระบบหลังบ้านรองรับ ใช้ "นำเข้ารายชื่อ" แทน'), findsNothing);
@@ -294,5 +306,94 @@ void main() {
 
     expect(savedName, startsWith('students_'));
     expect(utf8.decode(savedBytes!), contains('export@school.test'));
+  });
+
+  // -------------------------------------------------------------------------
+  // 2026-09-17: grade/room come from student_profiles (list_school_students)
+  // and can be SET from this page (set_student_profile) — before this,
+  // nothing in the app wrote student_profiles at all.
+  // -------------------------------------------------------------------------
+
+  testWidgets('grade/room show from student_profiles even with no homeroom teacher yet', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadUsers: () async => [_student()],
+      loadSchoolStudents: () async => [
+        SchoolStudentOption(
+          studentId: _student().uid,
+          studentName: _student().name,
+          gradeLevel: 'ม.2',
+          room: '4',
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ม.2/4'), findsOneWidget);
+    // Only the summary tile's title says "ยังไม่ได้จัดห้องเรียน"; no row does.
+    expect(find.text('ยังไม่ได้จัดห้องเรียน'), findsOneWidget);
+  });
+
+  testWidgets('"กำหนดระดับชั้น / ห้อง" calls set_student_profile and confirms by read-back', (
+    tester,
+  ) async {
+    String? sentGrade, sentRoom;
+    var saved = false;
+    await _pump(
+      tester,
+      loadUsers: () async => [_student()],
+      loadSchoolStudents: () async => [
+        SchoolStudentOption(
+          studentId: _student().uid,
+          studentName: _student().name,
+          gradeLevel: saved ? 'ม.3' : null,
+          room: saved ? '2' : null,
+        ),
+      ],
+      setStudentProfile: (uid, grade, room) async {
+        expect(uid, _student().uid);
+        sentGrade = grade;
+        sentRoom = room;
+        saved = true;
+      },
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('ยังไม่ได้จัดห้องเรียน'), findsWidgets);
+
+    await tester.tap(find.text(_student().name).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('กำหนดระดับชั้น / ห้อง'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ระดับชั้น'), 'ม.3');
+    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '2');
+    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(sentGrade, 'ม.3');
+    expect(sentRoom, '2');
+    expect(find.text('ม.3/2'), findsOneWidget);
+    expect(find.textContaining('บันทึกชั้น/ห้องแล้ว'), findsOneWidget);
+  });
+
+  testWidgets('a class save the backend does not reflect is reported as a failure', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      loadUsers: () async => [_student()],
+      setStudentProfile: (_, _, _) async {}, // "succeeds" but read-back still empty
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(_student().name).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('กำหนดระดับชั้น / ห้อง'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ระดับชั้น'), 'ม.3');
+    await tester.enterText(find.widgetWithText(TextField, 'ห้อง'), '2');
+    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('บันทึกชั้น/ห้องไม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ม.3/2'), findsNothing);
   });
 }
