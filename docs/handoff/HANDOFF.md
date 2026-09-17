@@ -154,6 +154,28 @@ realtime, user admin). Each wraps its own RPCs; pages call the service, never
 
 ## Running it locally
 
+### Building for real phones (iOS / Android) — since 2026-09-17
+
+```bash
+./scripts/build_app.sh apk   # Android .apk to hand to testers (no store account needed)
+./scripts/build_app.sh ios   # iOS .ipa for TestFlight (needs Apple Developer signing)
+./scripts/build_app.sh sim   # iOS Simulator build + install + launch
+```
+
+Always goes through `env.prod.json` (production Supabase). A release build made
+without `--dart-define-from-file` **refuses to start** (`SupabaseConfig.assertConfigured`)
+rather than silently pointing the phone at `127.0.0.1`. App identity is
+`com.diliontech.aiotschoollab` (locked — never change after a store release);
+display name and icon are placeholders and can change any time.
+
+Known machine-level blockers on 2026-09-17 (not code): Flutter 3.32.4 with Xcode 26.6
+excludes `arm64` for the simulator, so `flutter run` on an Apple-silicon simulator
+fails with "Unable to find a destination" — `flutter upgrade` is the fix. An iOS build
+needs ~6 GB of scratch disk; the Mac had 121 MB free mid-build and Docker crashed
+(recovered per `local_dev_environment_recovery` memory notes). Android needs a JDK —
+none is installed (`java` missing), so `build apk` has not been exercised yet.
+
+
 ```bash
 cd ~/my_first_app
 
