@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
-import '../../aiot_dashboard_page.dart';
+import 'student_aiot_dashboard_page.dart';
 import 'student_redesign_palette.dart';
 
 class AiotWeatherSensorsCard extends StatefulWidget {
@@ -531,7 +531,7 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const AiotDashboardPage(),
+                      builder: (_) => const StudentAiotDashboardPage(),
                     ),
                   );
                 },

@@ -1,4 +1,5 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 class SchoolPalette {
@@ -22,6 +23,11 @@ class SchoolPalette {
   // (progress bar fill, subtle tints) — never in the primary gradient
   // itself, so it doesn't clash with the hero banner's established tones.
   static const mint = Color(0xFF35C99A);
+
+  // Danger tone for sensor readings past their threshold — the same rose
+  // the home page's AIoT card has used since 2026-08-31, promoted here so
+  // the full dashboard page shares it instead of re-declaring the hex.
+  static const danger = Color(0xFFE11D48);
 
   // Same three tones as the home page hero banner (_buildHeroHeader in
   // student_variant_school_home.dart) so every gradient surface across the
