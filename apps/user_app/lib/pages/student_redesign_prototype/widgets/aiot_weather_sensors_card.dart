@@ -328,7 +328,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.air_rounded,
                             title: 'PM2.5',
                             value: hasPm25
-                                ? '${sensor.pm25.toStringAsFixed(0)} µg/m³ · ${_levelLabel(sensor.pm25Level)}'
+                                ? '${sensor.pm25.toStringAsFixed(0)} µg/m³'
+                                : '—',
+                            levelLabel: hasPm25
+                                ? '${_levelLabel(sensor.pm25Level)}'
                                 : 'ไม่มีข้อมูล',
                             color: pm25Color,
                             level: hasPm25 ? sensor.pm25Level : null,
@@ -346,7 +349,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.wb_sunny_rounded,
                             title: 'ความเข้มแสง',
                             value: hasLux
-                                ? '${sensor.lux.toStringAsFixed(0)} lux · ${_levelLabel(sensor.luxLevel)}'
+                                ? '${sensor.lux.toStringAsFixed(0)} lux'
+                                : '—',
+                            levelLabel: hasLux
+                                ? '${_levelLabel(sensor.luxLevel)}'
                                 : 'ไม่มีข้อมูล',
                             color: luxColor,
                             level: hasLux ? sensor.luxLevel : null,
@@ -371,7 +377,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.thermostat_rounded,
                             title: 'อุณหภูมิ',
                             value: hasTemp
-                                ? '${sensor.temperature.toStringAsFixed(1)} °C · ${_levelLabel(sensor.tempLevel)}'
+                                ? '${sensor.temperature.toStringAsFixed(1)} °C'
+                                : '—',
+                            levelLabel: hasTemp
+                                ? '${_levelLabel(sensor.tempLevel)}'
                                 : 'ไม่มีข้อมูล',
                             color: tempColor,
                             level: hasTemp ? sensor.tempLevel : null,
@@ -389,7 +398,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.water_drop_rounded,
                             title: 'ความชื้น',
                             value: hasHumidity
-                                ? '${sensor.humidity.toStringAsFixed(0)}%RH · ${_levelLabel(sensor.humidityLevel)}'
+                                ? '${sensor.humidity.toStringAsFixed(0)}%RH'
+                                : '—',
+                            levelLabel: hasHumidity
+                                ? '${_levelLabel(sensor.humidityLevel)}'
                                 : 'ไม่มีข้อมูล',
                             color: humidityColor,
                             level: hasHumidity ? sensor.humidityLevel : null,
@@ -418,7 +430,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.eco_rounded,
                             title: 'AQI-UBA (ENS160)',
                             value: aqi != null
-                                ? '${aqi.value.toStringAsFixed(0)} · ${_aqiUbaLabel(aqi.value)}'
+                                ? '${aqi.value.toStringAsFixed(0)}'
+                                : '—',
+                            levelLabel: aqi != null
+                                ? '${_aqiUbaLabel(aqi.value)}'
                                 : 'ไม่มีข้อมูล',
                             color: aqiColor,
                             level: aqi != null ? _aqiUbaSensorLevel(aqi.value) : null,
@@ -445,7 +460,8 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             title: 'แก๊ส/ควัน (MQ-2)',
                             value: gas != null
                                 ? '${gas.value.toStringAsFixed(0)}% (ดิบ)'
-                                : 'ไม่มีข้อมูล',
+                                : '—',
+                            levelLabel: gas != null ? 'ยังไม่มีเกณฑ์' : 'ไม่มีข้อมูล',
                             color: const Color(0xFFE11D48),
                             freshness: _freshnessOf(gas?.ts),
                             timeLabel: gas != null
@@ -473,7 +489,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.cloud_outlined,
                             title: 'eCO2 (ประมาณการ)',
                             value: hasCo2
-                                ? '${sensor.co2.toStringAsFixed(0)} ppm · ${_levelLabel(sensor.co2Level)}'
+                                ? '${sensor.co2.toStringAsFixed(0)} ppm'
+                                : '—',
+                            levelLabel: hasCo2
+                                ? '${_levelLabel(sensor.co2Level)}'
                                 : 'ไม่มีข้อมูล',
                             color: co2Color,
                             level: hasCo2 ? sensor.co2Level : null,
@@ -498,7 +517,10 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                             icon: Icons.science_outlined,
                             title: 'TVOC',
                             value: hasTvoc
-                                ? '${sensor.tvoc.toStringAsFixed(0)} ppb · ${_levelLabel(sensor.tvocLevel)}'
+                                ? '${sensor.tvoc.toStringAsFixed(0)} ppb'
+                                : '—',
+                            levelLabel: hasTvoc
+                                ? '${_levelLabel(sensor.tvocLevel)}'
                                 : 'ไม่มีข้อมูล',
                             color: tvocColor,
                             level: hasTvoc ? sensor.tvocLevel : null,
@@ -574,6 +596,7 @@ class _WeatherTile extends StatelessWidget {
     required this.title,
     required this.value,
     required this.color,
+    this.levelLabel,
     this.freshness = SensorFreshness.noData,
     this.timeLabel,
     this.level,
@@ -583,106 +606,127 @@ class _WeatherTile extends StatelessWidget {
   final String title;
   final String value;
   final Color color;
+  final String? levelLabel;
   final SensorFreshness freshness;
   final String? timeLabel;
   final SensorLevel? level;
 
   @override
   Widget build(BuildContext context) {
-    // เซนเซอร์ตัวนี้เอง "ออนไลน์ (สด/ล่าช้าเล็กน้อย)" หรือ "ไม่ออนไลน์
-    // (เกิน 10 นาที/ไม่มีข้อมูล)" — สีจุด+ข้อความอิงจาก SensorFreshness
-    // เดียวกับที่ใช้ตัดสินจุดสถานะหัวการ์ด แค่แสดงแยกทีละอุปกรณ์/metric
+    // Redesigned 2026-09-18 for the phone: the value and the level label
+    // used to share one line ("40 µg/m³ · เกินเกณฑ์") and got cut to
+    // "เกินเ…" at 390pt. Now the value has its own line and the level is a
+    // small white chip underneath, same language as the full dashboard.
     final bool isOnline =
         freshness == SensorFreshness.live ||
         freshness == SensorFreshness.delayed;
-
-    // สีเข้มขึ้นทั้งหมด (ตามที่ผู้ใช้ขอ — ค่าพวกนี้สำคัญ ต้องเด่นชัด) และ
-    // เข้มขึ้นไปอีกเป็นพิเศษเมื่อ "เกินเกณฑ์" เพื่อให้สายตาสะดุดจุดที่ต้อง
-    // ระวังก่อนจุดที่ปกติ
     final bool isDanger = level == SensorLevel.danger;
-    final double bgAlpha = isDanger ? 0.24 : 0.15;
-    final double borderAlpha = isDanger ? 0.65 : 0.4;
-    final double borderWidth = isDanger ? 2.0 : 1.3;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: bgAlpha),
+        color: color.withValues(alpha: isDanger ? 0.14 : 0.08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: color.withValues(alpha: borderAlpha),
-          width: borderWidth,
+          color: color.withValues(alpha: isDanger ? 0.55 : 0.3),
+          width: isDanger ? 1.6 : 1.2,
         ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, size: 16, color: color),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 14, color: color),
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 10.5,
                     color: SchoolPalette.muted,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    color: color,
-                  ),
-                ),
-                if (timeLabel != null) ...[
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: freshness.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          isOnline ? 'ออนไลน์ • $timeLabel' : 'ไม่ออนไลน์ • $timeLabel',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w700,
-                            color: freshness.color,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 7),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: color,
+              height: 1.1,
             ),
           ),
+          if (levelLabel != null) ...[
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    levelLabel!,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (timeLabel != null) ...[
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: freshness.color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    isOnline ? 'ออนไลน์ • $timeLabel' : 'ไม่ออนไลน์ • $timeLabel',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      color: freshness.color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
