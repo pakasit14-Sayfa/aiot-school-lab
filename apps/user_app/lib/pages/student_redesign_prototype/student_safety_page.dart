@@ -1647,15 +1647,21 @@ class _ReportActionTile extends StatelessWidget {
                     gradient: g,
                     borderRadius: BorderRadius.circular(999),
                   ),
+                  // Flexible: on a 360pt Android phone each tile is ~146pt
+                  // wide and the pill text otherwise overflows by 9px.
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        action,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
+                      Flexible(
+                        child: Text(
+                          action,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 2),

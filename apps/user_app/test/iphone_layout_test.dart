@@ -16,14 +16,25 @@ import 'package:shared_core/shared_core.dart';
 /// Every other test in this suite pumps at 900px wide, which is why neither
 /// ever failed. These pump at phone size; a RenderFlex overflow is thrown
 /// as a FlutterError and fails the test on its own.
+/// Widths covered: 360 (common Android), 375 (iPhone SE/8), 390 (iPhone
+/// 14–16). Each test pumps at all three; a RenderFlex overflow at any of
+/// them fails the test.
+const _phoneSizes = [Size(360, 640), Size(375, 667), Size(390, 844)];
+
 Future<void> _phone(WidgetTester tester, Widget home) async {
-  tester.view.physicalSize = const Size(390 * 3, 844 * 3);
+  for (final size in _phoneSizes) {
+    await _phoneAt(tester, home, size);
+  }
+}
+
+Future<void> _phoneAt(WidgetTester tester, Widget home, Size size) async {
+  tester.view.physicalSize = Size(size.width * 3, size.height * 3);
   tester.view.devicePixelRatio = 3;
   addTearDown(() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
-  await tester.pumpWidget(MaterialApp(home: home));
+  await tester.pumpWidget(MaterialApp(key: ValueKey(size), home: home));
   await tester.pumpAndSettle();
 }
 
