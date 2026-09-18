@@ -7,7 +7,9 @@ import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_va
 // string literal. This pins the buckets to the login page's.
 void main() {
   test('greeting follows the hour with the login page buckets', () {
-    expect(greetingForHour(0), 'สวัสดีตอนเช้า');
+    expect(greetingForHour(0), 'สวัสดีตอนดึก');
+    expect(greetingForHour(4), 'สวัสดีตอนดึก');
+    expect(greetingForHour(5), 'สวัสดีตอนเช้า');
     expect(greetingForHour(11), 'สวัสดีตอนเช้า');
     expect(greetingForHour(12), 'สวัสดีตอนบ่าย');
     expect(greetingForHour(16), 'สวัสดีตอนบ่าย');

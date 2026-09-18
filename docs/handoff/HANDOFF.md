@@ -152,6 +152,17 @@ groups, utility/sensor costs, parent binding, invitations, password reset,
 realtime, user admin). Each wraps its own RPCs; pages call the service, never
 `supabase.rpc(...)` directly.
 
+## Realtime is not used — pages poll
+
+`RLS is deny-all with zero policies` (hard rule 2) also means Supabase Realtime
+delivers nothing: `supabase.from('incident_reports').stream(...)` and the
+`emergency_events` twin had been the "live refresh" trigger for the student
+safety page, the teacher incident inbox and the director emergency page since
+they were built, and never emitted once. Found 2026-09-18 on the phone review.
+Both service methods now return a 15-second tick and the pages re-run their
+own RPC loader on it. Do not add `.stream()` / `channel().onPostgresChanges`
+on a table expecting data — poll an RPC instead (the sensor card does the same).
+
 ## Running it locally
 
 ### Building for real phones (iOS / Android) — since 2026-09-17

@@ -20,6 +20,7 @@ class StudentProfilePage extends StatefulWidget {
     this.loadSubmissionVersions,
     this.signOut,
     this.changePassword,
+    this.updateName,
   });
 
   /// `change_my_password` seam for the "เปลี่ยนรหัสผ่าน" tile.
@@ -38,6 +39,11 @@ class StudentProfilePage extends StatefulWidget {
   final Future<List<SubmissionVersion>> Function(String assignmentId)?
   loadSubmissionVersions;
   final Future<void> Function()? signOut;
+
+  /// Saves the display name through `update_user_profile` (self-edit is
+  /// allowed by that RPC); tests inject a fake.
+  final Future<void> Function({required String uid, required String name})?
+  updateName;
 
   @override
   State<StudentProfilePage> createState() => _StudentProfilePageState();
@@ -126,6 +132,63 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     );
   }
 
+  Future<void> _rename() async {
+    final user = currentUserModel;
+    if (user == null) return;
+    final controller = TextEditingController(text: user.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'แก้ไขชื่อที่แสดง',
+          style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (v) => Navigator.of(dialogContext).pop(v),
+          decoration: const InputDecoration(
+            hintText: 'ชื่อ นามสกุล',
+            helperText: 'ครูและเพื่อนจะเห็นชื่อนี้',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: SchoolPalette.green,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('บันทึก'),
+          ),
+        ],
+      ),
+    );
+    // The dialog's exit animation still reads the controller for a frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    final trimmed = newName?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == user.name || !mounted) return;
+    final save = widget.updateName ?? AuthService.updateProfile;
+    try {
+      await save(uid: user.uid, name: trimmed);
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('บันทึกชื่อแล้ว')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('บันทึกชื่อไม่สำเร็จ ลองใหม่อีกครั้ง')),
+      );
+    }
+  }
+
   Future<void> _signOut() async {
     final doSignOut = widget.signOut ?? AuthService.signOut;
     await doSignOut();
@@ -197,7 +260,7 @@ class _ProfileMobileLayout extends StatelessWidget {
                 _ErrorBanner(message: state._error!, onRetry: state._load),
                 const SizedBox(height: 12),
               ],
-              const _ProfileHero(),
+              _ProfileHero(onEditName: state._rename),
               const SizedBox(height: 12),
               _MetricGrid(
                 state: state,
@@ -498,7 +561,8 @@ class _MetricGrid extends StatelessWidget {
 /// Phone identity block: brand gradient, initial-letter avatar, name,
 /// email and the role chip — the flat white card is kept for desktop.
 class _ProfileHero extends StatelessWidget {
-  const _ProfileHero();
+  const _ProfileHero({required this.onEditName});
+  final VoidCallback onEditName;
 
   @override
   Widget build(BuildContext context) {
@@ -536,16 +600,39 @@ class _ProfileHero extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    height: 1.1,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          height: 1.1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Material(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: onEditName,
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.edit_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(

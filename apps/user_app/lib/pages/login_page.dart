@@ -8,6 +8,7 @@ import 'accept_invitation_page.dart';
 import 'redeem_binding_code_page.dart';
 import 'student_redesign_prototype/widgets/student_qr_login_page.dart';
 import 'role_router.dart';
+import '../utils/greeting.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -237,12 +238,7 @@ class _LoginPageState extends State<LoginPage>
   static const Color _indigoLight = Color(0xFF6366F1);
   static const Color _sky = Color(0xFF38BDF8);
 
-  String get _greeting {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'สวัสดีตอนเช้า';
-    if (h < 17) return 'สวัสดีตอนบ่าย';
-    return 'สวัสดีตอนเย็น';
-  }
+  String get _greeting => greetingForHour(DateTime.now().hour);
 
   @override
   Widget build(BuildContext context) {

@@ -3,11 +3,19 @@ import 'auth_service.dart';
 import 'supabase_config.dart';
 
 class EmergencyService {
+  /// A refresh tick every 15 s. Pages listen and re-run their RPC load.
+  ///
+  /// This used to be `supabase.from('emergency_events').stream(...)`. RLS is
+  /// deny-all with zero policies, and Supabase Realtime honours RLS, so
+  /// that stream never emitted a row on any environment — every "live"
+  /// subscriber (student safety, teacher inbox, director emergency page)
+  /// silently never refreshed. Found 2026-09-18. The payload is empty on
+  /// purpose: no caller ever read it, they all call their own loader.
   static Stream<List<Map<String, dynamic>>> streamEmergencyEvents() {
-    return supabase
-        .from('emergency_events')
-        .stream(primaryKey: ['id'])
-        .order('triggered_at', ascending: false);
+    return Stream<List<Map<String, dynamic>>>.periodic(
+      const Duration(seconds: 15),
+      (_) => const <Map<String, dynamic>>[],
+    );
   }
 
   static Future<List<EmergencyEventItem>> listEmergencyEvents({

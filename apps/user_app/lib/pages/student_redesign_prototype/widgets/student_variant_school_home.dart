@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../../../utils/greeting.dart';
+export '../../../utils/greeting.dart' show greetingForHour;
 
 import '../../notifications_page.dart';
 import 'student_empty_state.dart';
@@ -927,13 +929,6 @@ class _SchoolHeroPatternPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Same buckets as the login page's greeting so the two screens never
-/// disagree about the time of day.
-String greetingForHour(int hour) {
-  if (hour < 12) return 'สวัสดีตอนเช้า';
-  if (hour < 17) return 'สวัสดีตอนบ่าย';
-  return 'สวัสดีตอนเย็น';
-}
 
 class _HeroChip extends StatelessWidget {
   const _HeroChip({required this.label});
