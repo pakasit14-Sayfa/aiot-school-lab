@@ -992,12 +992,12 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
     final accent = _isSOS ? const Color(0xFFDC2626) : const Color(0xFFD97706);
     final gradient = _isSOS
         ? const LinearGradient(
-            colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+            colors: [Color(0xFFEF4444), Color(0xFF991B1B)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           )
         : const LinearGradient(
-            colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+            colors: [Color(0xFFF59E0B), Color(0xFFB45309)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           );
@@ -1010,11 +1010,11 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
         child: SafeArea(
           top: false,
           child: SingleChildScrollView(
@@ -1022,328 +1022,412 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: SchoolPalette.glassBorder,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                // Header: what is being reported, in the category colour.
-                Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: gradient,
-                        borderRadius: BorderRadius.circular(14),
+                // Banner in the category colour — the one thing the eye
+                // must get right before anything else: what is being sent.
+                Container(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 14, 18),
+                  decoration: BoxDecoration(gradient: gradient),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
-                      child: Icon(
-                        _isSOS
-                            ? Icons.emergency_rounded
-                            : Icons.warning_amber_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(height: 14),
+                      Row(
                         children: [
-                          const Text(
-                            'ระบุเหตุผลและยืนยันการแจ้งเหตุ',
-                            style: TextStyle(
-                              color: SchoolPalette.ink,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.3),
+                              ),
+                            ),
+                            child: Icon(
+                              _isSOS
+                                  ? Icons.emergency_rounded
+                                  : Icons.warning_amber_rounded,
+                              color: Colors.white,
+                              size: 28,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _isSOS
-                                ? 'SOS ฉุกเฉิน · ครูจะได้รับแจ้งทันที'
-                                : 'แจ้งเหตุผิดปกติ · ครูจะเข้ามาตรวจสอบ',
-                            style: TextStyle(
-                              color: accent,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _isSOS ? 'SOS ฉุกเฉิน' : 'แจ้งเหตุผิดปกติ',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _isSOS
+                                      ? 'ครูและผู้ดูแลจะได้รับแจ้งทันที'
+                                      : 'ครูจะได้รับแจ้งและเข้ามาตรวจสอบ',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.88),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Material(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => Navigator.pop(context, null),
+                              child: const Padding(
+                                padding: EdgeInsets.all(8),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    Material(
-                      color: SchoolPalette.softGreenBg,
-                      shape: const CircleBorder(),
-                      child: InkWell(
-                        customBorder: const CircleBorder(),
-                        onTap: () => Navigator.pop(context, null),
-                        child: const Padding(
-                          padding: EdgeInsets.all(8),
-                          child: Icon(
-                            Icons.close_rounded,
-                            size: 18,
-                            color: SchoolPalette.muted,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _stepLabel('1', 'ความรุนแรง'),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _buildSeverityChip('low', '🟢 เหตุเล็ก'),
-                    const SizedBox(width: 8),
-                    _buildSeverityChip('medium', '🟠 เหตุปานกลาง'),
-                    const SizedBox(width: 8),
-                    _buildSeverityChip('high', '🔴 เหตุใหญ่ / ด่วน'),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _stepLabel('2', 'เหตุผล / สิ่งที่พบเห็น', required: true),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _quickReasons.map((r) {
-                    final isSelected = _reasonController.text == r;
-                    return Material(
-                      color: isSelected
-                          ? accent.withValues(alpha: 0.12)
-                          : Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                        side: BorderSide(
-                          color: isSelected
-                              ? accent
-                              : SchoolPalette.glassBorder,
-                          width: isSelected ? 1.5 : 1.2,
-                        ),
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(999),
-                        onTap: () => setState(() => _reasonController.text = r),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            r,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: isSelected ? accent : SchoolPalette.ink,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _reasonController,
-                  onChanged: (_) => setState(() {}),
-                  style: const TextStyle(
-                    color: SchoolPalette.ink,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    hintText: 'หรือพิมพ์รายละเอียดเพิ่มเติม…',
-                    hintStyle: const TextStyle(
-                      color: SchoolPalette.muted,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.notes_rounded,
-                      size: 20,
-                      color: SchoolPalette.muted,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: SchoolPalette.glassBorder,
-                        width: 1.2,
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide(color: accent, width: 1.5),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: SchoolPalette.softGreenBg,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.meeting_room_outlined,
-                        size: 18,
-                        color: SchoolPalette.muted,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'ห้อง',
-                        style: TextStyle(
-                          color: SchoolPalette.muted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: _roomController,
-                          style: const TextStyle(
-                            color: SchoolPalette.ink,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                          ),
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            isCollapsed: true,
-                            hintText: 'เช่น ม.5/2',
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Icon(
-                        Icons.schedule_rounded,
-                        size: 18,
-                        color: SchoolPalette.muted,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        timeStr,
-                        style: const TextStyle(
-                          color: SchoolPalette.ink,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                // Hold-to-send: a full-width bar whose fill is the 3-second
-                // progress. Same GestureDetector + icon as before, so the
-                // existing tests and the confirm logic are untouched.
-                Text(
-                  !_canSubmit
-                      ? 'เลือกหรือพิมพ์เหตุผลด้านบนก่อน'
-                      : _holding
-                      ? 'กำลังยืนยัน… ห้ามปล่อยนิ้ว'
-                      : 'กดค้าง 3 วินาทีเพื่อส่ง',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: !_canSubmit
-                        ? SchoolPalette.muted
-                        : _holding
-                        ? accent
-                        : SchoolPalette.ink,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTapDown: (_) => _startHold(),
-                  onTapUp: (_) => _cancelHold(),
-                  onTapCancel: _cancelHold,
-                  child: Container(
-                    height: 58,
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: _canSubmit
-                          ? accent.withValues(alpha: 0.16)
-                          : SchoolPalette.glassBorder,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: _canSubmit
-                            ? accent.withValues(alpha: 0.5)
-                            : SchoolPalette.glassBorder,
-                        width: 1.5,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Kept for the tests and as the form's own heading.
+                      const Text(
+                        'ระบุเหตุผลและยืนยันการแจ้งเหตุ',
+                        style: TextStyle(
+                          color: SchoolPalette.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    child: Stack(
-                      children: [
-                        FractionallySizedBox(
-                          widthFactor: _canSubmit
-                              ? _progress.clamp(0.0, 1.0)
-                              : 0.0,
-                          child: Container(
-                            decoration: BoxDecoration(gradient: gradient),
+                      const SizedBox(height: 14),
+                      _stepLabel('1', 'ความรุนแรง'),
+                      const SizedBox(height: 8),
+                      // iOS-style segmented control.
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: SchoolPalette.softGreenBg,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            _buildSeverityChip('low', '🟢 เหตุเล็ก'),
+                            _buildSeverityChip('medium', '🟠 เหตุปานกลาง'),
+                            _buildSeverityChip('high', '🔴 เหตุใหญ่ / ด่วน'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _stepLabel('2', 'เหตุผล / สิ่งที่พบเห็น', required: true),
+                      const SizedBox(height: 8),
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              mainAxisExtent: 52,
+                            ),
+                        itemCount: _quickReasons.length,
+                        itemBuilder: (_, i) {
+                          final r = _quickReasons[i];
+                          final isSelected = _reasonController.text == r;
+                          return Material(
+                            color: isSelected
+                                ? accent.withValues(alpha: 0.10)
+                                : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(
+                                color: isSelected
+                                    ? accent
+                                    : SchoolPalette.glassBorder,
+                                width: isSelected ? 1.6 : 1.2,
+                              ),
+                            ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(14),
+                              onTap: () =>
+                                  setState(() => _reasonController.text = r),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        r,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          height: 1.25,
+                                          fontWeight: isSelected
+                                              ? FontWeight.w800
+                                              : FontWeight.w600,
+                                          color: isSelected
+                                              ? accent
+                                              : SchoolPalette.ink,
+                                        ),
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        size: 18,
+                                        color: accent,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _reasonController,
+                        onChanged: (_) => setState(() {}),
+                        style: const TextStyle(
+                          color: SchoolPalette.ink,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: 'หรือพิมพ์รายละเอียดเพิ่มเติม…',
+                          hintStyle: const TextStyle(
+                            color: SchoolPalette.muted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.notes_rounded,
+                            size: 20,
+                            color: SchoolPalette.muted,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: SchoolPalette.glassBorder,
+                              width: 1.2,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: accent, width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
                           ),
                         ),
-                        Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _isSOS
-                                    ? Icons.emergency_rounded
-                                    : Icons.warning_amber_rounded,
-                                color: _canSubmit
-                                    ? (_holding ? Colors.white : accent)
-                                    : const Color(0xFF94A3B8),
-                                size: 24,
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _isSOS ? 'ส่ง SOS' : 'ส่งแจ้งเหตุ',
-                                style: TextStyle(
-                                  color: _canSubmit
-                                      ? (_holding ? Colors.white : accent)
-                                      : const Color(0xFF94A3B8),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
+                              decoration: BoxDecoration(
+                                color: SchoolPalette.softGreenBg,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.meeting_room_outlined,
+                                    size: 18,
+                                    color: SchoolPalette.muted,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    'ห้อง',
+                                    style: TextStyle(
+                                      color: SchoolPalette.muted,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _roomController,
+                                      style: const TextStyle(
+                                        color: SchoolPalette.ink,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        isCollapsed: true,
+                                        hintText: 'เช่น ม.5/2',
+                                        border: InputBorder.none,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: SchoolPalette.softGreenBg,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.schedule_rounded,
+                                  size: 18,
+                                  color: SchoolPalette.muted,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  timeStr,
+                                  style: const TextStyle(
+                                    color: SchoolPalette.ink,
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      // Hold-to-send bar: same GestureDetector, timer and
+                      // validation as before; the fill is the 3-second
+                      // progress.
+                      GestureDetector(
+                        onTapDown: (_) => _startHold(),
+                        onTapUp: (_) => _cancelHold(),
+                        onTapCancel: _cancelHold,
+                        child: Container(
+                          height: 60,
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            gradient: _canSubmit ? gradient : null,
+                            color: _canSubmit
+                                ? null
+                                : SchoolPalette.glassBorder,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: _canSubmit
+                                ? [
+                                    BoxShadow(
+                                      color: accent.withValues(alpha: 0.35),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Stack(
+                            children: [
+                              FractionallySizedBox(
+                                widthFactor: _canSubmit
+                                    ? _progress.clamp(0.0, 1.0)
+                                    : 0.0,
+                                child: Container(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              Center(
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _isSOS
+                                          ? Icons.emergency_rounded
+                                          : Icons.warning_amber_rounded,
+                                      color: _canSubmit
+                                          ? Colors.white
+                                          : const Color(0xFF94A3B8),
+                                      size: 24,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      !_canSubmit
+                                          ? 'เลือกเหตุผลก่อน'
+                                          : _holding
+                                          ? 'กำลังส่ง… กดค้างไว้'
+                                          : (_isSOS
+                                                ? 'กดค้างเพื่อส่ง SOS'
+                                                : 'กดค้างเพื่อส่งแจ้งเหตุ'),
+                                      style: TextStyle(
+                                        color: _canSubmit
+                                            ? Colors.white
+                                            : const Color(0xFF94A3B8),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text(
-                    'ยกเลิก',
-                    style: TextStyle(
-                      color: SchoolPalette.muted,
-                      fontWeight: FontWeight.w800,
-                    ),
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Text(
+                          _canSubmit
+                              ? 'กดค้าง 3 วินาที · ปล่อยก่อนครบเพื่อยกเลิก'
+                              : 'ครูจะเห็นเหตุผลที่คุณเลือกก่อนถึงห้อง',
+                          style: const TextStyle(
+                            color: SchoolPalette.muted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, null),
+                        child: const Text(
+                          'ยกเลิก',
+                          style: TextStyle(
+                            color: SchoolPalette.muted,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1404,27 +1488,34 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
       'medium' => const Color(0xFFD97706),
       _ => const Color(0xFF16A34A),
     };
-
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _severity = value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected ? color : SchoolPalette.glassBorder,
-              width: isSelected ? 1.5 : 1.2,
-            ),
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(11),
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-              color: isSelected ? color : SchoolPalette.ink,
+              fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+              color: isSelected ? color : SchoolPalette.muted,
             ),
           ),
         ),
