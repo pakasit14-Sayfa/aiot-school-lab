@@ -4111,12 +4111,18 @@ class _UtilityGradientAreaChartPainter extends CustomPainter {
     final minVal = values.reduce(math.min) * 0.7;
     final count = values.length;
     final band = bottomFraction - topFraction;
+    // A flat series (all zeros before the first load, or a school with no
+    // readings yet) makes maxVal == minVal and the division below NaN, which
+    // asserts inside canvas.drawLine and blanks the whole teacher home on
+    // every cold start. Pin such a series to the bottom of its band instead.
+    final range = maxVal - minVal;
+    final stepX = count > 1 ? w / (count - 1) : 0.0;
     return [
       for (var i = 0; i < count; i++)
         Offset(
-          (w / (count - 1)) * i,
+          stepX * i,
           h * bottomFraction -
-              (h * band) * ((values[i] - minVal) / (maxVal - minVal)),
+              (range > 0 ? (h * band) * ((values[i] - minVal) / range) : 0.0),
         ),
     ];
   }
