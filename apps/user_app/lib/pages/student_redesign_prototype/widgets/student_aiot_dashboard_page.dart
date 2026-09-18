@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import 'student_charts_page.dart';
 import 'student_redesign_palette.dart';
 
 /// Full-screen AIoT dashboard for the Student lane.
@@ -331,6 +332,26 @@ class _StudentAiotDashboardPageState extends State<StudentAiotDashboardPage> {
                       itemBuilder: (_, i) => _ReadingTile(
                         reading: readings[i],
                         levelColor: _levelColor,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    // PBL-7 entry: the student's own charts.
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const StudentChartsPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.insert_chart_outlined_rounded, size: 18),
+                      label: const Text('กราฟของฉัน'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SchoolPalette.deepGreen,
+                        side: const BorderSide(color: SchoolPalette.green),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 18),

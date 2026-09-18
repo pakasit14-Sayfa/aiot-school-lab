@@ -310,6 +310,19 @@ bash scripts/prod_apply_2026-09-18.sh
 **✅ รันบน prod แล้ว 2026-09-18** (เจ้าของรันเอง) — verify `has_is_group = true` ทั้ง 2 ฟังก์ชัน,
 `list_submissions_has_group_name = true`
 
+### ขั้น 4.7 — กราฟของนักเรียน PBL-7 (2026-09-18) — 1 ไฟล์
+
+`20260918020000_charts_rpc.sql` — ตาราง `charts` มีมาตั้งแต่แรกแต่ไม่มี RPC เลย → เพิ่ม
+`list_my_sensor_datasets` (ชุดข้อมูลที่ผู้ใช้อ่านได้ พร้อมชื่ออุปกรณ์) · `create_chart` (ตรวจขอบเขตเดียวกับ
+`sensor_history`: นักเรียนสร้างได้เฉพาะช่วงที่ครูผูกไว้ในใบงาน/บทเรียน) · `list_my_charts` · `delete_chart` ·
+helper `student_sensor_window_allowed` (ไม่ grant ให้ client) · pgTAP `66_charts_rpc` 13/13 · ไม่แตะข้อมูลเดิม
+
+```bash
+bash scripts/prod_apply_2026-09-18b.sh
+```
+
+หลังรัน: นักเรียน → AIoT Dashboard → "กราฟของฉัน" → สร้างกราฟ (เห็นเฉพาะชุดข้อมูลที่ครูผูก)
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้
