@@ -4,6 +4,7 @@ import 'package:shared_core/shared_core.dart';
 import '../../login_page.dart';
 import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
+import 'student_search_page.dart';
 import 'student_variant_school_home.dart';
 import 'student_assignments_page.dart';
 import 'student_course_catalog_minimal_page.dart';
@@ -54,220 +55,20 @@ class _StudentNavigationPrototypeState
   ];
 
   void _openInPlaceSearchDialog() {
-    _showGlobalGlassSearchDialog(context);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => StudentSearchPage(
+          onOpenTab: (index) => setState(() => _currentIndex = index),
+        ),
+      ),
+    );
   }
 
   void _openScorePage() {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const StudentScorePage()));
-  }
-
-  Future<void> _showGlobalGlassSearchDialog(BuildContext context) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.38),
-      builder: (dialogContext) {
-        String query = '';
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return Dialog(
-              alignment: Alignment.topCenter,
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              insetPadding: const EdgeInsets.only(
-                left: 14,
-                right: 14,
-                top: 44,
-                bottom: 20,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(36),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF7F8FA).withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(36),
-                      border: Border.all(
-                        color: const Color(0xFFFFFFFF).withValues(alpha: 0.9),
-                        width: 1.1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(
-                            0xFF0F172A,
-                          ).withValues(alpha: 0.10),
-                          blurRadius: 40,
-                          offset: const Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 540),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'ค้นหารายวิชาและบทเรียน',
-                                    style: TextStyle(
-                                      color: Color(0xFF0F172A),
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.6,
-                                    ),
-                                  ),
-                                ),
-                                Material(
-                                  color: const Color(0xFFF1F5F9),
-                                  shape: const CircleBorder(),
-                                  child: InkWell(
-                                    customBorder: const CircleBorder(),
-                                    onTap: () =>
-                                        Navigator.of(dialogContext).pop(),
-                                    child: const SizedBox(
-                                      width: 34,
-                                      height: 34,
-                                      child: Icon(
-                                        Icons.close_rounded,
-                                        size: 18,
-                                        color: Color(0xFF64748B),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF2F5F9),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: const Color(0xFFE1E7EF),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: TextField(
-                                  autofocus: true,
-                                  onChanged: (val) =>
-                                      setDialogState(() => query = val),
-                                  style: const TextStyle(
-                                    color: Color(0xFF0F172A),
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: const Color(0xFFF2F5F9),
-                                    focusedBorder: InputBorder.none,
-                                    enabledBorder: InputBorder.none,
-                                    border: InputBorder.none,
-                                    errorBorder: InputBorder.none,
-                                    disabledBorder: InputBorder.none,
-                                    hintText:
-                                        'ค้นหารายวิชา บทเรียน หรือครูผู้สอน',
-                                    hintStyle: const TextStyle(
-                                      color: Color(0xFF8A97A8),
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    prefixIcon: const Padding(
-                                      padding: EdgeInsets.only(
-                                        left: 14,
-                                        right: 8,
-                                      ),
-                                      child: Icon(
-                                        Icons.search_rounded,
-                                        color: Color(0xFF8A97A8),
-                                        size: 19,
-                                      ),
-                                    ),
-                                    prefixIconConstraints: const BoxConstraints(
-                                      minWidth: 40,
-                                      minHeight: 40,
-                                    ),
-                                    suffixIcon: query.isNotEmpty
-                                        ? IconButton(
-                                            icon: const Icon(
-                                              Icons.clear_rounded,
-                                              size: 18,
-                                              color: Color(0xFF64748B),
-                                            ),
-                                            onPressed: () => setDialogState(
-                                              () => query = '',
-                                            ),
-                                          )
-                                        : null,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: [
-                                _SearchFilterChip(
-                                  label: 'ทั้งหมด',
-                                  onPressed: () {},
-                                  selected: true,
-                                ),
-                                _SearchFilterChip(
-                                  label: 'AIoT',
-                                  onPressed: () {
-                                    Navigator.of(dialogContext).pop();
-                                    setState(() => _currentIndex = 1);
-                                  },
-                                ),
-                                _SearchFilterChip(
-                                  label: 'วิทย์',
-                                  onPressed: () {
-                                    Navigator.of(dialogContext).pop();
-                                    setState(() => _currentIndex = 1);
-                                  },
-                                ),
-                                _SearchFilterChip(
-                                  label: 'งานค้าง',
-                                  onPressed: () {
-                                    Navigator.of(dialogContext).pop();
-                                    setState(() => _currentIndex = 2);
-                                  },
-                                ),
-                                _SearchFilterChip(
-                                  label: 'ครูสมชาย',
-                                  onPressed: () {
-                                    Navigator.of(dialogContext).pop();
-                                    setState(() => _currentIndex = 1);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
   }
 
   List<Widget> get _pages => [
@@ -1423,48 +1224,6 @@ class _NavItem {
   final String label;
 }
 
-class _SearchFilterChip extends StatelessWidget {
-  const _SearchFilterChip({
-    required this.label,
-    required this.onPressed,
-    this.selected = false,
-  });
-
-  final String label;
-  final VoidCallback onPressed;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? const Color(0xFFEAF2FF) : const Color(0xFFF7F8FA),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-        side: BorderSide(
-          color: selected ? const Color(0xFFB7D1FF) : const Color(0xFFD9E1EA),
-          width: 1,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected
-                  ? const Color(0xFF1D4ED8)
-                  : const Color(0xFF243447),
-              fontSize: 13.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class _DesktopNavTile extends StatelessWidget {
   const _DesktopNavTile({
