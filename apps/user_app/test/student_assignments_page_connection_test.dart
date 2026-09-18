@@ -186,4 +186,43 @@ void main() {
     expect(find.textContaining('ส่งงานไม่สำเร็จ'), findsOneWidget);
     expect(find.textContaining('backend detail'), findsNothing);
   });
+
+  // ── PBL-6 (2026-09-18) ────────────────────────────────────────────────
+  testWidgets('a dataset the teacher pinned is listed in the sheet and opens the viewer', (
+    tester,
+  ) async {
+    final pinned = AssignmentDetail(
+      id: 'asg-1',
+      courseId: 'course-1',
+      type: 'homework',
+      title: 'แบบฝึกหัดบทที่ 3',
+      instructions: 'วิเคราะห์ฝุ่นในห้อง',
+      dueAt: null,
+      status: 'published',
+      sensorDatasets: [
+        AssignmentSensorDataset(
+          id: 'ds-1',
+          deviceId: 'dev-1',
+          metric: 'pm25',
+          timeStart: DateTime.utc(2026, 9, 10, 1),
+          timeEnd: DateTime.utc(2026, 9, 10, 9),
+          label: 'ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า',
+        ),
+      ],
+    );
+    await _pump(tester, getAssignmentDetail: (_) async => pinned);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsOneWidget);
+    expect(find.text('ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า'), findsOneWidget);
+  });
+
+  testWidgets('no pinned dataset → no dataset section, nothing invented', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsNothing);
+  });
 }

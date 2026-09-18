@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'student_redesign_palette.dart';
+import 'student_sensor_dataset_page.dart';
 
 class _AssignmentWithCourse {
   const _AssignmentWithCourse({
@@ -806,6 +807,36 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                 height: 1.4,
               ),
             ),
+          // PBL-6: datasets the teacher pinned to this assignment. The
+          // backend has returned them in get_assignment since 2026-07-31;
+          // the redesigned student UI never showed them until 2026-09-18.
+          if (_detail != null && _detail!.sensorDatasets.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'ชุดข้อมูลเซนเซอร์ที่ครูกำหนด',
+              style: TextStyle(
+                color: SchoolPalette.ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final ds in _detail!.sensorDatasets)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _DatasetTile(
+                  dataset: ds,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => StudentSensorDatasetPage(
+                        dataset: ds,
+                        assignmentTitle: widget.item.assignment.title,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
           if (_isEdit) ...[
             const SizedBox(height: 10),
             Container(
@@ -1235,5 +1266,90 @@ class AssignmentCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// One pinned dataset in the submit sheet: label (or metric name), the
+/// window the teacher chose, and a chevron into the viewer page.
+class _DatasetTile extends StatelessWidget {
+  const _DatasetTile({required this.dataset, required this.onTap});
+  final AssignmentSensorDataset dataset;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final info = sensorMetricInfo(dataset.metric);
+    final title = (dataset.label ?? '').trim().isNotEmpty
+        ? dataset.label!
+        : info.name;
+    final window = dataset.timeStart == null
+        ? '24 ชั่วโมงล่าสุด'
+        : '${_d(dataset.timeStart!)} – ${dataset.timeEnd == null ? 'ตอนนี้' : _d(dataset.timeEnd!)}';
+    return Material(
+      color: SchoolPalette.softGreenBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.show_chart_rounded,
+                  size: 18,
+                  color: SchoolPalette.green,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      '${info.name} · $window',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: SchoolPalette.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _d(DateTime d) {
+    final l = d.toLocal();
+    return '${l.day}/${l.month} ${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
   }
 }
