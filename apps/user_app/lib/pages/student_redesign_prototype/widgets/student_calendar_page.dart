@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'student_empty_state.dart';
@@ -302,19 +303,17 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
     }
   }
 
-  Future<void> _addPersonalEvent(String title, int hour, int minute) async {
-    final dueAt = DateTime(
-      _selectedDay.year,
-      _selectedDay.month,
-      _selectedDay.day,
-      hour,
-      minute,
-    );
+  Future<void> _addPersonalEvent(String title, DateTime dueAt) async {
     final create =
         widget.createTask ??
         ({required String title, required DateTime dueAt}) =>
             CalendarService.createPersonalTask(title: title, dueAt: dueAt);
     await create(title: title, dueAt: dueAt);
+    if (!mounted) return;
+    setState(() {
+      _selectedDay = DateTime(dueAt.year, dueAt.month, dueAt.day);
+      _focusedMonth = DateTime(dueAt.year, dueAt.month);
+    });
     await _load();
   }
 
@@ -334,147 +333,19 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
     await _load();
   }
 
-  void _openAddEventSheet() {
-    final titleController = TextEditingController();
-    final hourController = TextEditingController(text: '16');
-    final minuteController = TextEditingController(text: '00');
-
-    showModalBottomSheet(
+  Future<void> _openAddEventSheet() async {
+    final result = await showModalBottomSheet<({String title, DateTime dueAt})>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(28),
-                topRight: Radius.circular(28),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'เพิ่มกิจกรรมส่วนตัว · ${_selectedDay.day}/${_selectedDay.month}/${_selectedDay.year + 543}',
-                  style: const TextStyle(
-                    color: SchoolPalette.navy,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: titleController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    labelText: 'ชื่อกิจกรรม',
-                    hintText: 'เช่น อ่านหนังสือสอบวิทย์',
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: hourController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'ชั่วโมง (0-23)',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: minuteController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'นาที (0-59)',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () async {
-                      if (titleController.text.trim().isEmpty) return;
-                      final hour =
-                          int.tryParse(
-                            hourController.text.trim(),
-                          )?.clamp(0, 23) ??
-                          16;
-                      final minute =
-                          int.tryParse(
-                            minuteController.text.trim(),
-                          )?.clamp(0, 59) ??
-                          0;
-                      final navigator = Navigator.of(context);
-                      await _addPersonalEvent(
-                        titleController.text.trim(),
-                        hour,
-                        minute,
-                      );
-                      navigator.pop();
-                    },
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('เพิ่มลงปฏิทิน'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SchoolPalette.ink,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (_) => _AddPersonalEventSheet(
+        initialDay: _selectedDay,
+        monthNames: _monthNames,
+        weekdayFull: _weekdayFull,
+      ),
     );
+    if (result == null || !mounted) return;
+    await _addPersonalEvent(result.title, result.dueAt);
   }
 
   @override
@@ -1733,6 +1604,332 @@ class _EventRow extends StatelessWidget {
                 : Icon(event.icon, color: event.color, size: 17),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "เพิ่มกิจกรรมส่วนตัว" as a bottom sheet in the shape people know from
+/// iOS Calendar / Reminders (2026-09-18 owner review): a title field, a
+/// date row and a time row that open pickers (a Cupertino wheel for time
+/// instead of the old "ชั่วโมง (0-23)" text boxes that silently clamped
+/// typos), a disabled primary button until there is a title, and an
+/// explicit ยกเลิก. Pops with the value; the page does the RPC.
+class _AddPersonalEventSheet extends StatefulWidget {
+  const _AddPersonalEventSheet({
+    required this.initialDay,
+    required this.monthNames,
+    required this.weekdayFull,
+  });
+
+  final DateTime initialDay;
+  final List<String> monthNames;
+  final List<String> weekdayFull;
+
+  @override
+  State<_AddPersonalEventSheet> createState() => _AddPersonalEventSheetState();
+}
+
+class _AddPersonalEventSheetState extends State<_AddPersonalEventSheet> {
+  final _title = TextEditingController();
+  late DateTime _day = widget.initialDay;
+  TimeOfDay _time = const TimeOfDay(hour: 16, minute: 0);
+  bool _showTimeWheel = false;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    super.dispose();
+  }
+
+  String get _dayLabel =>
+      '${widget.weekdayFull[_day.weekday - 1]} ${_day.day} ${widget.monthNames[_day.month - 1]} ${_day.year + 543}';
+
+  String get _timeLabel =>
+      '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')} น.';
+
+  Future<void> _pickDay() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _day,
+      firstDate: DateTime(_day.year - 1),
+      lastDate: DateTime(_day.year + 1, 12, 31),
+      helpText: 'เลือกวัน',
+      cancelText: 'ยกเลิก',
+      confirmText: 'ตกลง',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: SchoolPalette.green,
+            onPrimary: Colors.white,
+            onSurface: SchoolPalette.ink,
+          ),
+        ),
+        child: child!,
+      ),
+    );
+    if (picked != null) setState(() => _day = picked);
+  }
+
+  void _submit() {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    Navigator.of(context).pop((
+      title: title,
+      dueAt: DateTime(
+        _day.year,
+        _day.month,
+        _day.day,
+        _time.hour,
+        _time.minute,
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canSave = _title.text.trim().isNotEmpty;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 10, 18, 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: SchoolPalette.glassBorder,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: SchoolPalette.muted,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'ยกเลิก',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'กิจกรรมส่วนตัว',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: canSave ? _submit : null,
+                    style: TextButton.styleFrom(
+                      foregroundColor: SchoolPalette.green,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'เพิ่ม',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _title,
+                autofocus: true,
+                textInputAction: TextInputAction.done,
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => _submit(),
+                style: const TextStyle(
+                  color: SchoolPalette.ink,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'ชื่อกิจกรรม เช่น อ่านหนังสือสอบวิทย์',
+                  hintStyle: const TextStyle(
+                    color: SchoolPalette.muted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  filled: true,
+                  fillColor: SchoolPalette.softGreenBg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: SchoolPalette.softGreenBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  children: [
+                    _FieldRow(
+                      icon: Icons.calendar_today_rounded,
+                      label: 'วัน',
+                      value: _dayLabel,
+                      onTap: _pickDay,
+                    ),
+                    const Divider(
+                      height: 1,
+                      indent: 44,
+                      color: SchoolPalette.glassBorder,
+                    ),
+                    _FieldRow(
+                      icon: Icons.schedule_rounded,
+                      label: 'เวลา',
+                      value: _timeLabel,
+                      highlighted: _showTimeWheel,
+                      onTap: () =>
+                          setState(() => _showTimeWheel = !_showTimeWheel),
+                    ),
+                    if (_showTimeWheel)
+                      SizedBox(
+                        height: 160,
+                        child: CupertinoDatePicker(
+                          mode: CupertinoDatePickerMode.time,
+                          use24hFormat: true,
+                          minuteInterval: 5,
+                          initialDateTime: DateTime(
+                            _day.year,
+                            _day.month,
+                            _day.day,
+                            _time.hour,
+                            _time.minute - _time.minute % 5,
+                          ),
+                          onDateTimeChanged: (dt) => setState(
+                            () => _time = TimeOfDay(
+                              hour: dt.hour,
+                              minute: dt.minute,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: canSave ? _submit : null,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text(
+                  'เพิ่มลงปฏิทิน',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: SchoolPalette.green,
+                  disabledBackgroundColor: SchoolPalette.glassBorder,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.highlighted = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: SchoolPalette.green),
+              const SizedBox(width: 14),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: SchoolPalette.ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: highlighted
+                        ? SchoolPalette.green
+                        : SchoolPalette.muted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: SchoolPalette.muted,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
