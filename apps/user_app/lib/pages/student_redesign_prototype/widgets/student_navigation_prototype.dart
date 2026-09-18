@@ -1,6 +1,8 @@
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
 import '../../login_page.dart';
 import '../../notifications_page.dart';
 import 'student_redesign_palette.dart';
@@ -59,9 +61,8 @@ class _StudentNavigationPrototypeState
   }
 
   void _openScorePage() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const StudentScorePage()));
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const StudentScorePage()));
   }
 
   Future<void> _showGlobalGlassSearchDialog(BuildContext context) async {
@@ -144,48 +145,69 @@ class _StudentNavigationPrototypeState
           key: _mobileScaffoldKey,
           backgroundColor: Colors.white,
           drawer: _buildMobileDrawer(context),
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            scrolledUnderElevation: 0.5,
-            centerTitle: true,
-            // iOS navigation-bar height (44) instead of Material's 56 —
-            // the owner wanted the bar tucked up under the status bar.
-            toolbarHeight: 44,
-            titleSpacing: 0,
-            leading: IconButton(
-              icon: const Icon(
-                Icons.menu_rounded,
-                color: SchoolPalette.ink,
-                size: 24,
-              ),
-              tooltip: 'เมนู',
-              onPressed: () => _mobileScaffoldKey.currentState?.openDrawer(),
+          // The bar tucks up under the Dynamic Island: on notched phones
+          // the system top inset (~59pt) leaves a visible gap between the
+          // island and the toolbar, so the inset the AppBar sees is trimmed
+          // by 12pt there (untouched on phones with a plain status bar).
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(44),
+            child: Builder(
+              builder: (context) {
+                final mq = MediaQuery.of(context);
+                final top = mq.padding.top;
+                final trimmed = top > 50 ? top - 12 : top;
+                return MediaQuery(
+                  data: mq.copyWith(
+                    padding: mq.padding.copyWith(top: trimmed),
+                    viewPadding: mq.viewPadding.copyWith(top: trimmed),
+                  ),
+                  child: AppBar(
+                    automaticallyImplyLeading: false,
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    scrolledUnderElevation: 0.5,
+                    centerTitle: true,
+                    // iOS navigation-bar height (44) instead of Material's 56 —
+                    // the owner wanted the bar tucked up under the status bar.
+                    toolbarHeight: 44,
+                    titleSpacing: 0,
+                    leading: IconButton(
+                      icon: const Icon(
+                        Icons.menu_rounded,
+                        color: SchoolPalette.ink,
+                        size: 24,
+                      ),
+                      tooltip: 'เมนู',
+                      onPressed: () =>
+                          _mobileScaffoldKey.currentState?.openDrawer(),
+                    ),
+                    title: Text(
+                      _titles[_currentIndex],
+                      style: const TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: const Icon(
+                          Icons.search_rounded,
+                          color: SchoolPalette.ink,
+                          size: 24,
+                        ),
+                        tooltip: 'ค้นหารายวิชาและบทเรียน',
+                        onPressed: _openInPlaceSearchDialog,
+                      ),
+                      StudentNotificationBell(
+                        loadNotifications: widget.loadNotifications,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                  ),
+                );
+              },
             ),
-            title: Text(
-              _titles[_currentIndex],
-              style: const TextStyle(
-                color: SchoolPalette.ink,
-                fontSize: 17.5,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(
-                  Icons.search_rounded,
-                  color: SchoolPalette.ink,
-                  size: 24,
-                ),
-                tooltip: 'ค้นหารายวิชาและบทเรียน',
-                onPressed: _openInPlaceSearchDialog,
-              ),
-              StudentNotificationBell(
-                loadNotifications: widget.loadNotifications,
-              ),
-              const SizedBox(width: 6),
-            ],
           ),
           body: SafeArea(
             child: Column(
@@ -1276,7 +1298,6 @@ class _NavItem {
   final IconData icon;
   final String label;
 }
-
 
 class _DesktopNavTile extends StatelessWidget {
   const _DesktopNavTile({
