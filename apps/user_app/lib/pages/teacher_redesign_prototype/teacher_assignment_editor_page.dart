@@ -9,7 +9,8 @@ import 'package:shared_core/shared_core.dart';
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart' show TeacherRubricPage;
-import 'teacher_shared_widgets.dart' show TeacherMockPageShell, TeacherSearchInput;
+import 'teacher_shared_widgets.dart'
+    show TeacherMockPageShell, TeacherSearchInput;
 
 /// Model สำหรับใบงาน (Assignment)
 class AssignmentModel {
@@ -61,6 +62,9 @@ class TeacherAssignmentEditorPage extends StatefulWidget {
     this.updateAssignment,
     this.createAssignment,
     this.publishAssignment,
+    this.listDevices,
+    this.linkSensorDataset,
+    this.loadAssignmentDetail,
   });
 
   /// Read seams threaded to the corresponding CourseService/
@@ -97,6 +101,21 @@ class TeacherAssignmentEditorPage extends StatefulWidget {
   createAssignment;
   final Future<void> Function(String assignmentId)? publishAssignment;
 
+  /// PBL-4 seams, threaded down through _openCreateEditForm to
+  /// openAssignmentFormModal / _AssignmentFormSheet.
+  final Future<List<DeviceOption>> Function()? listDevices;
+  final Future<void> Function({
+    required String assignmentId,
+    required String deviceId,
+    required String metric,
+    DateTime? timeStart,
+    DateTime? timeEnd,
+    String? label,
+  })?
+  linkSensorDataset;
+  final Future<AssignmentDetail> Function(String assignmentId)?
+  loadAssignmentDetail;
+
   @override
   State<TeacherAssignmentEditorPage> createState() =>
       _TeacherAssignmentEditorPageState();
@@ -128,6 +147,17 @@ void openAssignmentFormModal(
   })?
   createAssignment,
   Future<void> Function(String assignmentId)? publishAssignment,
+  Future<List<DeviceOption>> Function()? listDevices,
+  Future<void> Function({
+    required String assignmentId,
+    required String deviceId,
+    required String metric,
+    DateTime? timeStart,
+    DateTime? timeEnd,
+    String? label,
+  })?
+  linkSensorDataset,
+  Future<AssignmentDetail> Function(String assignmentId)? loadAssignmentDetail,
 }) {
   showModalBottomSheet(
     context: context,
@@ -141,6 +171,9 @@ void openAssignmentFormModal(
       updateAssignment: updateAssignment,
       createAssignment: createAssignment,
       publishAssignment: publishAssignment,
+      listDevices: listDevices,
+      linkSensorDataset: linkSensorDataset,
+      loadAssignmentDetail: loadAssignmentDetail,
     ),
   );
 }
@@ -197,9 +230,7 @@ class _TeacherAssignmentEditorPageState
         int submittedCount = 0;
         try {
           final subs = await loadSubmissions(a.id);
-          submittedCount = subs
-              .where((s) => s.submittedAt != null)
-              .length;
+          submittedCount = subs.where((s) => s.submittedAt != null).length;
         } catch (_) {
           // เหลือ 0 — ไม่ใช่ของปลอม แค่ยังไม่รู้ค่าจริง
         }
@@ -251,6 +282,9 @@ class _TeacherAssignmentEditorPageState
       updateAssignment: widget.updateAssignment,
       createAssignment: widget.createAssignment,
       publishAssignment: widget.publishAssignment,
+      listDevices: widget.listDevices,
+      linkSensorDataset: widget.linkSensorDataset,
+      loadAssignmentDetail: widget.loadAssignmentDetail,
       onSave: (savedItem) {
         setState(() {
           final idx = _assignments.indexWhere((a) => a.id == savedItem.id);
@@ -338,7 +372,8 @@ class _TeacherAssignmentEditorPageState
                 child: Column(
                   children: [
                     TeacherSearchInput(
-                      hintText: 'ค้นหาชื่อใบงาน, คำสั่ง หรือเซนเซอร์ที่ผูกไว้...',
+                      hintText:
+                          'ค้นหาชื่อใบงาน, คำสั่ง หรือเซนเซอร์ที่ผูกไว้...',
                       value: _searchQuery,
                       onChanged: (val) => setState(() => _searchQuery = val),
                       onClear: () => setState(() => _searchQuery = ''),
@@ -850,6 +885,9 @@ class _AssignmentFormSheet extends StatefulWidget {
     this.updateAssignment,
     this.createAssignment,
     this.publishAssignment,
+    this.listDevices,
+    this.linkSensorDataset,
+    this.loadAssignmentDetail,
   });
 
   final AssignmentModel? assignment;
@@ -877,6 +915,21 @@ class _AssignmentFormSheet extends StatefulWidget {
   createAssignment;
   final Future<void> Function(String assignmentId)? publishAssignment;
 
+  /// PBL-4 seams — same `??` fallback-to-real-service pattern as the rest
+  /// of this widget.
+  final Future<List<DeviceOption>> Function()? listDevices;
+  final Future<void> Function({
+    required String assignmentId,
+    required String deviceId,
+    required String metric,
+    DateTime? timeStart,
+    DateTime? timeEnd,
+    String? label,
+  })?
+  linkSensorDataset;
+  final Future<AssignmentDetail> Function(String assignmentId)?
+  loadAssignmentDetail;
+
   @override
   State<_AssignmentFormSheet> createState() => _AssignmentFormSheetState();
 }
@@ -896,6 +949,29 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
   bool _rubricsLoading = true;
   String? _selectedRubricId;
 
+  // PBL-4 — only meaningful once the assignment has a real backend id
+  // (link_assignment_sensor_dataset requires p_assignment_id), so this
+  // stays empty in "create new" mode and only loads in edit mode.
+  List<AssignmentSensorDataset> _sensorDatasets = [];
+  bool _sensorDatasetsLoading = false;
+  Map<String, String> _deviceNames = {};
+
+  /// Only the 7 values link_assignment_sensor_dataset's `p_metric metric_type`
+  /// column actually accepts (20260715000000_initial_schema.sql). Devices
+  /// like `water_meter` report metrics (water_flow_lmin, ...) entirely
+  /// outside this set — offering those here would fail the RPC's enum cast,
+  /// so they're filtered out below rather than copied in from
+  /// DeviceOption.metrics unfiltered.
+  static const _validMetricTypes = {
+    'pm25',
+    'aqi',
+    'temperature',
+    'humidity',
+    'light_lux',
+    'energy_kwh',
+    'power_w',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -911,6 +987,238 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     _isGroupWork = a?.isGroupWork ?? false;
     _selectedRubricId = a?.rubricId;
     _loadRubrics();
+    if (a != null) _refreshSensorDatasets();
+  }
+
+  Future<void> _refreshSensorDatasets() async {
+    final assignmentId = widget.assignment?.id;
+    if (assignmentId == null) return;
+    setState(() => _sensorDatasetsLoading = true);
+    try {
+      final loadDetail =
+          widget.loadAssignmentDetail ?? AssignmentService.getAssignment;
+      final detail = await loadDetail(assignmentId);
+      if (!mounted) return;
+      setState(() {
+        _sensorDatasets = detail.sensorDatasets;
+        _sensorDatasetsLoading = false;
+      });
+      if (detail.sensorDatasets.isNotEmpty && _deviceNames.isEmpty) {
+        await _loadDeviceNames();
+      }
+    } catch (e) {
+      debugPrint('_AssignmentFormSheet: โหลดชุดข้อมูลเซนเซอร์ไม่สำเร็จ — $e');
+      if (mounted) setState(() => _sensorDatasetsLoading = false);
+    }
+  }
+
+  Future<void> _loadDeviceNames() async {
+    try {
+      final listDevices = widget.listDevices ?? LessonService.listSchoolDevices;
+      final devices = await listDevices();
+      if (!mounted) return;
+      setState(() {
+        _deviceNames = {for (final d in devices) d.id: d.name};
+      });
+    } catch (e) {
+      debugPrint('_AssignmentFormSheet: โหลดชื่ออุปกรณ์ไม่สำเร็จ — $e');
+    }
+  }
+
+  Future<void> _openLinkSensorDialog() async {
+    final assignmentId = widget.assignment?.id;
+    if (assignmentId == null) return;
+
+    final listDevices = widget.listDevices ?? LessonService.listSchoolDevices;
+    List<DeviceOption> devices;
+    try {
+      // list_school_devices คืนทุกชนิด (รีเลย์ กล้อง gateway ปุ่มฉุกเฉิน ...)
+      // — ผูกได้เฉพาะเซนเซอร์ที่มี metric อยู่ใน metric_type enum จริง
+      // (ตัด water_meter ทิ้งไปเลยเพราะไม่มี metric ไหนอยู่ใน enum นี้)
+      devices = (await listDevices())
+          .where((d) => d.isSensor && d.metrics.any(_validMetricTypes.contains))
+          .toList();
+    } catch (e) {
+      debugPrint('_AssignmentFormSheet: โหลดรายการอุปกรณ์ไม่สำเร็จ — $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('โหลดรายการอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่'),
+        ),
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (devices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'โรงเรียนยังไม่มีอุปกรณ์เซนเซอร์ที่ผูกได้ในระบบ ให้แอดมินลงทะเบียนอุปกรณ์ก่อน',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _deviceNames = {..._deviceNames, for (final d in devices) d.id: d.name};
+    });
+
+    var deviceId = devices.first.id;
+    List<String> metricsFor(String id) => devices
+        .firstWhere((d) => d.id == id)
+        .metrics
+        .where(_validMetricTypes.contains)
+        .toList();
+
+    var metric = metricsFor(deviceId).first;
+    final labelCtrl = TextEditingController();
+    var submitting = false;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) {
+          Future<void> submit() async {
+            setDialog(() {
+              submitting = true;
+              error = null;
+            });
+            try {
+              final link =
+                  widget.linkSensorDataset ??
+                  ({
+                    required String assignmentId,
+                    required String deviceId,
+                    required String metric,
+                    DateTime? timeStart,
+                    DateTime? timeEnd,
+                    String? label,
+                  }) => AssignmentService.linkSensorDataset(
+                    assignmentId: assignmentId,
+                    deviceId: deviceId,
+                    metric: metric,
+                    timeStart: timeStart,
+                    timeEnd: timeEnd,
+                    label: label,
+                  );
+              final label = labelCtrl.text.trim();
+              await link(
+                assignmentId: assignmentId,
+                deviceId: deviceId,
+                metric: metric,
+                label: label.isEmpty ? null : label,
+              );
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ผูกชุดข้อมูลเซนเซอร์กับใบงานแล้ว'),
+                ),
+              );
+              // อ่านกลับจากหลังบ้าน ไม่เติมรายการในเครื่องเอง
+              await _refreshSensorDatasets();
+            } catch (e) {
+              debugPrint(
+                '_AssignmentFormSheet: link_assignment_sensor_dataset ล้ม — $e',
+              );
+              // ครูอาจกดพื้นหลังปิด dialog ไปแล้วระหว่างรอ — ห้าม setState
+              // บน StatefulBuilder ที่ถูกถอดไปแล้ว
+              if (!dialogContext.mounted) return;
+              setDialog(() {
+                submitting = false;
+                error = 'ผูกชุดข้อมูลเซนเซอร์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
+              });
+            }
+          }
+
+          return _OwnControllers(
+            controllers: [labelCtrl],
+            child: AlertDialog(
+              title: const Text('ผูกชุดข้อมูลเซนเซอร์ AIoT กับใบงาน'),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      value: deviceId,
+                      decoration: const InputDecoration(labelText: 'อุปกรณ์'),
+                      items: [
+                        for (final d in devices)
+                          DropdownMenuItem(
+                            value: d.id,
+                            child: Text(
+                              d.location == null || d.location!.isEmpty
+                                  ? d.name
+                                  : '${d.name} · ${d.location}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: submitting
+                          ? null
+                          : (v) {
+                              if (v == null) return;
+                              setDialog(() {
+                                deviceId = v;
+                                metric = metricsFor(v).first;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: metric,
+                      decoration: const InputDecoration(
+                        labelText: 'ค่าที่ต้องการให้นักเรียนดู',
+                      ),
+                      items: [
+                        for (final m in metricsFor(deviceId))
+                          DropdownMenuItem(value: m, child: Text(m)),
+                      ],
+                      onChanged: submitting
+                          ? null
+                          : (v) => setDialog(() => metric = v ?? metric),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: labelCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'คำอธิบายชุดข้อมูล (ถ้ามี)',
+                      ),
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        error!,
+                        style: const TextStyle(
+                          color: Color(0xFFB91C1C),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('ยกเลิก'),
+                ),
+                FilledButton(
+                  onPressed: submitting ? null : submit,
+                  child: Text(submitting ? 'กำลังบันทึก…' : 'ผูกข้อมูล'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _loadRubrics() async {
@@ -953,10 +1261,14 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     String realCourseName;
 
     try {
-      final update = widget.updateAssignment ?? AssignmentService.updateAssignment;
-      final create = widget.createAssignment ?? AssignmentService.createAssignment;
-      final publishFn = widget.publishAssignment ?? AssignmentService.publishAssignment;
-      final loadCourses = widget.loadCoursesForNew ?? CourseService.listMyCourses;
+      final update =
+          widget.updateAssignment ?? AssignmentService.updateAssignment;
+      final create =
+          widget.createAssignment ?? AssignmentService.createAssignment;
+      final publishFn =
+          widget.publishAssignment ?? AssignmentService.publishAssignment;
+      final loadCourses =
+          widget.loadCoursesForNew ?? CourseService.listMyCourses;
 
       if (widget.assignment != null) {
         // แก้ไขใบงานเดิม — ใช้วิชาเดิมของใบงาน ไม่ใช่ courses.first เสมอ
@@ -1037,7 +1349,8 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       isGroupWork: _isGroupWork,
       rubricId: _selectedRubricId,
       rubricTitle: selectedRubricTitle,
-      attachedSensorMetrics: widget.assignment?.attachedSensorMetrics ?? const [],
+      attachedSensorMetrics:
+          widget.assignment?.attachedSensorMetrics ?? const [],
       status: publish ? 'เผยแพร่แล้ว' : 'ร่าง',
       submittedCount: widget.assignment?.submittedCount ?? 0,
       totalStudents: widget.assignment?.totalStudents ?? 0,
@@ -1154,14 +1467,15 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            items: {'ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT', _type}
-                                .map(
-                                  (t) => DropdownMenuItem(
-                                    value: t,
-                                    child: Text(t),
-                                  ),
-                                )
-                                .toList(),
+                            items:
+                                {'ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT', _type}
+                                    .map(
+                                      (t) => DropdownMenuItem(
+                                        value: t,
+                                        child: Text(t),
+                                      ),
+                                    )
+                                    .toList(),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1320,12 +1634,99 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                         ],
                       ),
 
-                    // A "ผูกชุดข้อมูลเซนเซอร์ AIoT" heading used to follow, first
-                    // as chips that were never sent anywhere, then as a
-                    // "ยังไม่รองรับ" note. The redesigned student assignment
-                    // page does not render assignment_sensor_datasets, so a
-                    // link made here would be invisible to students — the
-                    // heading is gone rather than promising a feature.
+                    const SizedBox(height: 16),
+                    // PBL-4: this heading used to be removed with a comment
+                    // saying a link made here would be invisible to
+                    // students — true when written (2026-09-16), no longer
+                    // true since PBL-6 (2026-09-18) made the redesigned
+                    // student assignment sheet render pinned sensor
+                    // datasets via StudentSensorDatasetPage.
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'ชุดข้อมูลเซนเซอร์ AIoT',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13.5,
+                              color: TeacherPalette.ink,
+                            ),
+                          ),
+                        ),
+                        if (widget.assignment != null)
+                          TextButton.icon(
+                            onPressed: _openLinkSensorDialog,
+                            icon: const Icon(Icons.sensors_rounded, size: 16),
+                            label: const Text('ผูกข้อมูล'),
+                          ),
+                      ],
+                    ),
+                    if (widget.assignment == null)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'บันทึกร่างใบงานนี้ก่อน แล้วค่อยกลับมาผูกชุดข้อมูลเซนเซอร์ทีหลังได้',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      )
+                    else if (_sensorDatasetsLoading)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    else if (_sensorDatasets.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final d in _sensorDatasets)
+                        Container(
+                          margin: const EdgeInsets.only(top: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.sensors_rounded,
+                                size: 14,
+                                color: TeacherPalette.primary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${_deviceNames[d.deviceId] ?? d.deviceId} · ${d.metric}'
+                                  '${d.label != null && d.label!.isNotEmpty ? ' — ${d.label}' : ''}',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -1375,4 +1776,34 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       },
     );
   }
+}
+
+/// Same helper as teacher_lesson_editor_page.dart's private `_OwnControllers`
+/// (can't be reused across files — library-private). Disposing a dialog's
+/// TextEditingController right after `showDialog` returns races the pop
+/// animation: a pending rebuild frame can still reference the field after
+/// dispose() runs, throwing "used after being disposed". Tying dispose to
+/// this wrapper's own State.dispose() ties it to the dialog route's actual
+/// removal instead.
+class _OwnControllers extends StatefulWidget {
+  const _OwnControllers({required this.controllers, required this.child});
+
+  final List<TextEditingController> controllers;
+  final Widget child;
+
+  @override
+  State<_OwnControllers> createState() => _OwnControllersState();
+}
+
+class _OwnControllersState extends State<_OwnControllers> {
+  @override
+  void dispose() {
+    for (final c in widget.controllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
