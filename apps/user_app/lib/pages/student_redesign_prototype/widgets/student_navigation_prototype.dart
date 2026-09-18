@@ -221,37 +221,37 @@ class _StudentNavigationPrototypeState
                               spacing: 10,
                               runSpacing: 10,
                               children: [
+                                // Shortcuts to real tabs only — the chips
+                                // that used to sit here ("AIoT", "วิทย์",
+                                // "ครูสมชาย") were invented labels that
+                                // just switched tabs. Owner kept the popup
+                                // look on 2026-09-18; the fake labels go.
                                 _SearchFilterChip(
-                                  label: 'ทั้งหมด',
-                                  onPressed: () {},
-                                  selected: true,
-                                ),
-                                _SearchFilterChip(
-                                  label: 'AIoT',
+                                  label: 'บทเรียน',
                                   onPressed: () {
                                     Navigator.of(dialogContext).pop();
                                     setState(() => _currentIndex = 1);
                                   },
                                 ),
                                 _SearchFilterChip(
-                                  label: 'วิทย์',
-                                  onPressed: () {
-                                    Navigator.of(dialogContext).pop();
-                                    setState(() => _currentIndex = 1);
-                                  },
-                                ),
-                                _SearchFilterChip(
-                                  label: 'งานค้าง',
+                                  label: 'ใบงาน',
                                   onPressed: () {
                                     Navigator.of(dialogContext).pop();
                                     setState(() => _currentIndex = 2);
                                   },
                                 ),
                                 _SearchFilterChip(
-                                  label: 'ครูสมชาย',
+                                  label: 'ปฏิทิน',
                                   onPressed: () {
                                     Navigator.of(dialogContext).pop();
-                                    setState(() => _currentIndex = 1);
+                                    setState(() => _currentIndex = 3);
+                                  },
+                                ),
+                                _SearchFilterChip(
+                                  label: 'คะแนน',
+                                  onPressed: () {
+                                    Navigator.of(dialogContext).pop();
+                                    _openScorePage();
                                   },
                                 ),
                               ],
