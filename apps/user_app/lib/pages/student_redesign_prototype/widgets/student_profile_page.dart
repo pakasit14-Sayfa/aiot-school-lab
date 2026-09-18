@@ -179,23 +179,25 @@ class _ProfileMobileLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    // Align top — Center used to float the whole page mid-screen on a
+    // phone whenever the content was shorter than the viewport.
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(
             parent: BouncingScrollPhysics(),
           ),
-          padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 6),
               if (state._error != null) ...[
                 _ErrorBanner(message: state._error!, onRetry: state._load),
                 const SizedBox(height: 12),
               ],
-              const _ProfileCard(),
+              const _ProfileHero(),
               const SizedBox(height: 12),
               _MetricGrid(
                 state: state,
@@ -472,14 +474,123 @@ class _MetricGrid extends StatelessWidget {
       ),
     ];
 
-    return Row(
-      children: [
-        Expanded(child: cards[0]),
-        const SizedBox(width: 10),
-        Expanded(child: cards[1]),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Two side-by-side cards on a 390pt phone squeezed the captions to
+        // "ทุกวิชาที่ลงทะ…"; stack them full-width there.
+        if (constraints.maxWidth < 430) {
+          return Column(
+            children: [cards[0], const SizedBox(height: 10), cards[1]],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: cards[0]),
+            const SizedBox(width: 10),
+            Expanded(child: cards[1]),
+          ],
+        );
+      },
     );
   }
+}
+
+/// Phone identity block: brand gradient, initial-letter avatar, name,
+/// email and the role chip — the flat white card is kept for desktop.
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = currentUserModel;
+    final name = user?.name ?? 'นักเรียน';
+    final initial = name.trim().isEmpty ? 'น' : name.trim().characters.first;
+    final roomLabel = (user?.room ?? '').isNotEmpty ? 'ห้อง ${user!.room}' : null;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+      decoration: BoxDecoration(
+        gradient: SchoolPalette.primaryGradient,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: SchoolPalette.deepGreen,
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    height: 1.1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  user?.email ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    _heroChip('นักเรียน'),
+                    if (roomLabel != null) _heroChip(roomLabel),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroChip(String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.24)),
+    ),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: SchoolPalette.cream,
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
 }
 
 class _MetricCard extends StatelessWidget {
