@@ -208,12 +208,14 @@ void main() {
     expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
 
     // Nothing typed → the primary button is disabled, tapping does nothing.
-    final save = find.widgetWithText(FilledButton, 'เพิ่มลงปฏิทิน');
-    expect(tester.widget<FilledButton>(save).onPressed, isNull);
+    final save = find.text('เพิ่มลงปฏิทิน');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(gotTitle, isNull);
+    expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).last, 'อ่านหนังสือสอบวิทย์');
     await tester.pumpAndSettle();
-    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
     await tester.tap(save);
     await tester.pumpAndSettle();
 
@@ -235,7 +237,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'เพิ่ม').first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'x');
-    await tester.tap(find.text('ยกเลิก'));
+    await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pumpAndSettle();
     expect(created, isFalse);
     expect(find.text('กิจกรรมส่วนตัว'), findsNothing);
