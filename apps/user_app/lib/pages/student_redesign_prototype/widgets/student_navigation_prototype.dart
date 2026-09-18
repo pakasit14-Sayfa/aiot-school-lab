@@ -150,6 +150,10 @@ class _StudentNavigationPrototypeState
             elevation: 0,
             scrolledUnderElevation: 0.5,
             centerTitle: true,
+            // iOS navigation-bar height (44) instead of Material's 56 —
+            // the owner wanted the bar tucked up under the status bar.
+            toolbarHeight: 44,
+            titleSpacing: 0,
             leading: IconButton(
               icon: const Icon(
                 Icons.menu_rounded,
