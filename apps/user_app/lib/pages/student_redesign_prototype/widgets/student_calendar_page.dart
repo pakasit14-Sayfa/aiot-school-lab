@@ -364,7 +364,7 @@ class _StudentCalendarPageState extends State<StudentCalendarPage> {
             final isDesktop = constraints.maxWidth >= 980;
             final isCompact = constraints.maxWidth < 560;
             return Padding(
-              padding: EdgeInsets.all(isCompact ? 12 : 16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

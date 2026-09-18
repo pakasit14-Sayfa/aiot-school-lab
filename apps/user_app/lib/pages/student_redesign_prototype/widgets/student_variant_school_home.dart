@@ -220,7 +220,8 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
             final isDesktop = screenWidth >= 1024;
-            final horizontalPadding = screenWidth < 520 ? 12.0 : 16.0;
+            // 16pt on every width — Apple's standard layout margin.
+            const horizontalPadding = 16.0;
             final sectionGap = screenWidth < 520 ? 14.0 : 18.0;
             final afterSummaryGap = screenWidth < 520 ? 8.0 : 10.0;
 
