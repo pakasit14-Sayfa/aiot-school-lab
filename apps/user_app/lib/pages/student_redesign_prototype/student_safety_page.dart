@@ -654,152 +654,80 @@ class _StudentSafetyPageState extends State<StudentSafetyPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
+              // Two report actions, both unmistakably buttons (2026-09-18
+              // owner review: the amber one read as a banner). Each is a
+              // full card with an icon tile, a title, one line of when to
+              // use it and an explicit action pill.
               const Text(
-                'แจ้งเหตุความช่วยเหลือเร่งด่วน',
+                'แจ้งเหตุ',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 16,
                   color: SchoolPalette.ink,
                 ),
               ),
+              const SizedBox(height: 4),
+              const Text(
+                'เลือกให้ตรงกับความรุนแรงของเหตุ',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: SchoolPalette.muted,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 12),
-              Center(
-                child: SoftCard(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 28,
-                    horizontal: 20,
-                  ),
-                  child: Column(
-                    children: [
-                      InkWell(
-                        onTap: _hasOpenIncident
-                            ? null
-                            : () => _openConfirmSheet(IncidentCategory.sos),
-                        borderRadius: BorderRadius.circular(100),
-                        child: Container(
-                          width: 150,
-                          height: 150,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: _hasOpenIncident
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFF94A3B8),
-                                      Color(0xFF64748B),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  )
-                                : const LinearGradient(
-                                    colors: [
-                                      Color(0xFFEF4444),
-                                      Color(0xFFB91C1C),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                            boxShadow: _hasOpenIncident
-                                ? null
-                                : [
-                                    BoxShadow(
-                                      color: const Color(
-                                        0xFFEF4444,
-                                      ).withValues(alpha: 0.35),
-                                      blurRadius: 20,
-                                      spreadRadius: 4,
-                                      offset: const Offset(0, 8),
-                                    ),
-                                  ],
-                            border: Border.all(color: Colors.white, width: 6),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.emergency_rounded,
-                                color: Colors.white,
-                                size: 40,
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'SOS',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'ปุ่มแจ้งเหตุฉุกเฉินระดับวิกฤต (SOS)',
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w900,
-                          color: SchoolPalette.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'เกิดอุบัติเหตุรุนแรง ทะเลาะวิวาท หรือภัยคุกคามสวัสดิภาพทันที',
-                        textAlign: TextAlign.center,
+              _ReportActionCard(
+                enabled: !_hasOpenIncident,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                icon: Icons.emergency_rounded,
+                badge: 'SOS',
+                title: 'ฉุกเฉินระดับวิกฤต',
+                subtitle: 'อุบัติเหตุรุนแรง ทะเลาะวิวาท หรือภัยคุกคามทันที',
+                action: 'แจ้งด่วน',
+                onTap: () => _openConfirmSheet(IncidentCategory.sos),
+              ),
+              const SizedBox(height: 10),
+              _ReportActionCard(
+                enabled: !_hasOpenIncident,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                icon: Icons.warning_amber_rounded,
+                title: 'เหตุผิดปกติ / จุดเสี่ยง',
+                subtitle: 'ของชำรุด ไฟรั่ว พื้นลื่น หรือสิ่งที่ครูควรมาดู',
+                action: 'แจ้งเหตุ',
+                onTap: () => _openConfirmSheet(IncidentCategory.anomaly),
+              ),
+              if (_hasOpenIncident) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: const [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 15,
+                      color: SchoolPalette.muted,
+                    ),
+                    SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'มีเหตุที่ยังเปิดอยู่ — แจ้งใหม่ได้เมื่อครูปิดเหตุแล้ว',
                         style: TextStyle(
                           fontSize: 11.5,
                           color: SchoolPalette.muted,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFFBEB),
-                    foregroundColor: const Color(0xFFB45309),
-                    minimumSize: Size.zero,
-                    elevation: 0,
-                    side: const BorderSide(
-                      color: Color(0xFFFDE68A),
-                      width: 1.5,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  onPressed: _hasOpenIncident
-                      ? null
-                      : () => _openConfirmSheet(IncidentCategory.anomaly),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.warning_amber_rounded, size: 20),
-                      SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'แจ้งพบเหตุผิดปกติหรือจุดเสี่ยงในห้องเรียน',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
-              ),
+              ],
               const SizedBox(height: 28),
               const Text(
                 'ประวัติการแจ้งเหตุความปลอดภัยของฉัน',
@@ -1400,6 +1328,160 @@ class _IncidentConfirmSheetState extends State<_IncidentConfirmSheet> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// One report action as a whole-card button: gradient tile with the icon
+/// (and the "SOS" word for the critical one), title, when-to-use line and
+/// an action pill on the right. Greyed while an incident is still open.
+class _ReportActionCard extends StatelessWidget {
+  const _ReportActionCard({
+    required this.enabled,
+    required this.gradient,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.action,
+    required this.onTap,
+    this.badge,
+  });
+
+  final bool enabled;
+  final Gradient gradient;
+  final IconData icon;
+  final String? badge;
+  final String title;
+  final String subtitle;
+  final String action;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tile = Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        gradient: enabled
+            ? gradient
+            : const LinearGradient(
+                colors: [Color(0xFF94A3B8), Color(0xFF64748B)],
+              ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: enabled
+            ? [
+                BoxShadow(
+                  color: gradient.colors.last.withValues(alpha: 0.35),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.white, size: badge == null ? 30 : 24),
+          if (badge != null)
+            Text(
+              badge!,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
+            ),
+        ],
+      ),
+    );
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: enabled
+                ? gradient.colors.first.withValues(alpha: 0.35)
+                : SchoolPalette.glassBorder,
+            width: 1.4,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: enabled ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            child: Row(
+              children: [
+                tile,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.muted,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: enabled ? gradient : null,
+                    color: enabled ? null : SchoolPalette.glassBorder,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        action,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
