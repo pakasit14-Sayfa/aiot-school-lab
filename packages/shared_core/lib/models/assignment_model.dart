@@ -174,6 +174,11 @@ class SubmissionRoster {
   final DateTime? submittedAt;
   final List<SubmissionAttachment> latestAttachments;
 
+  /// Set when the assignment is group work — one row per group, the
+  /// student columns then hold the first submitter (PBL-10).
+  final String? groupId;
+  final String? groupName;
+
   const SubmissionRoster({
     required this.submissionId,
     required this.studentId,
@@ -184,6 +189,8 @@ class SubmissionRoster {
     required this.latestContent,
     required this.submittedAt,
     this.latestAttachments = const [],
+    this.groupId,
+    this.groupName,
   });
 
   factory SubmissionRoster.fromRow(Map<String, dynamic> row) =>
@@ -202,6 +209,8 @@ class SubmissionRoster {
             .cast<Map<String, dynamic>>()
             .map(SubmissionAttachment.fromMap)
             .toList(),
+        groupId: row['group_id'] as String?,
+        groupName: row['group_name'] as String?,
       );
 
   String get studentFullName => '$studentFirstName $studentLastName';

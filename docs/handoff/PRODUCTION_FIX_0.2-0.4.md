@@ -292,6 +292,21 @@ bash scripts/prod_apply_2026-09-17b.sh
 **✅ รันบน prod แล้ว 2026-09-17** (เจ้าของรันเอง) — verify `delete_school_event_expect_1 = 1`,
 `migration list --linked` แสดง `20260917020000` ทั้ง local/remote
 
+### ขั้น 4.6 — งานกลุ่ม PBL-10 (2026-09-18) — 1 ไฟล์
+
+`20260918010000_group_submissions.sql` — `create_assignment`/`update_assignment` รับ `p_is_group`
+(เดิม hardcode `false` → สวิตช์ "งานกลุ่ม" ของครูถูกทิ้งเงียบ ๆ มาตลอด) · `submit_assignment` งานกลุ่ม
+= กลุ่มของผู้ส่งเป็นเจ้าของแถวเดียว สมาชิกส่งซ้ำเป็นเวอร์ชันถัดไป G-Score ส่งตรงเวลาให้ทุกคน ·
+`list_my_submission_versions` สมาชิกเห็นเวอร์ชันร่วม · `list_submissions` เพิ่ม `group_id`/`group_name`
+(คอลัมน์เพิ่ม ไม่ลบ) · pgTAP `65_group_submissions` 13/13 บน local · **ไม่แตะข้อมูลเดิม** งานเดี่ยวทำงานเหมือนเดิม
+
+```bash
+bash scripts/prod_apply_2026-09-18.sh
+```
+
+หลังรัน: ครูสร้างใบงานติ๊ก "งานกลุ่ม" → นักเรียนในกลุ่มเห็นป้าย "งานกลุ่ม" ในแผ่นส่งงาน ·
+นักเรียนที่ยังไม่มีกลุ่มจะได้ข้อความบอกให้ครูจัดกลุ่มก่อน
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้

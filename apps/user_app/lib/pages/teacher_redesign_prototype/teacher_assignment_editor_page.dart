@@ -82,6 +82,7 @@ class TeacherAssignmentEditorPage extends StatefulWidget {
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool? isGroup,
   })?
   updateAssignment;
   final Future<String> Function({
@@ -91,6 +92,7 @@ class TeacherAssignmentEditorPage extends StatefulWidget {
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool isGroup,
   })?
   createAssignment;
   final Future<void> Function(String assignmentId)? publishAssignment;
@@ -112,6 +114,7 @@ void openAssignmentFormModal(
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool? isGroup,
   })?
   updateAssignment,
   Future<String> Function({
@@ -121,6 +124,7 @@ void openAssignmentFormModal(
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool isGroup,
   })?
   createAssignment,
   Future<void> Function(String assignmentId)? publishAssignment,
@@ -858,6 +862,7 @@ class _AssignmentFormSheet extends StatefulWidget {
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool? isGroup,
   })?
   updateAssignment;
   final Future<String> Function({
@@ -867,6 +872,7 @@ class _AssignmentFormSheet extends StatefulWidget {
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool isGroup,
   })?
   createAssignment;
   final Future<void> Function(String assignmentId)? publishAssignment;
@@ -964,6 +970,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
           title: title,
           instructions: _instructionsController.text.trim(),
           rubricId: _selectedRubricId,
+          isGroup: _isGroupWork,
         );
       } else {
         final courses = await loadCourses();
@@ -993,6 +1000,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
           title: title,
           instructions: _instructionsController.text.trim(),
           rubricId: _selectedRubricId,
+          isGroup: _isGroupWork,
         );
       }
 

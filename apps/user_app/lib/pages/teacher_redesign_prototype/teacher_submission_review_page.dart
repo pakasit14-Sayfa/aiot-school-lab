@@ -32,12 +32,17 @@ class _RosterEntry {
     required this.studentName,
     required this.submissionId,
     this.attachments = const [],
+    this.groupName,
   });
 
   final String studentId;
   final String studentName;
   final String submissionId;
   final List<SubmissionAttachment> attachments;
+
+  /// PBL-10: set for a group submission — the row stands for the whole
+  /// group; studentName is the member who submitted first.
+  final String? groupName;
   String? gradeId;
   num? score;
   num? maxScore;
@@ -158,6 +163,7 @@ class _TeacherSubmissionRosterPageState
           studentName: '${s.studentFirstName} ${s.studentLastName}',
           submissionId: s.submissionId,
           attachments: s.latestAttachments,
+          groupName: s.groupName,
         );
       }).toList();
 
@@ -563,6 +569,17 @@ class _RosterRow extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (entry.groupName != null)
+                  Text(
+                    'งานกลุ่ม · ${entry.groupName} (ส่งโดย ${entry.studentName})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TeacherPalette.primary,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 if (entry.isGraded && entry.confirmed)
                   const Text(
                     'ยืนยันคะแนนแล้ว',

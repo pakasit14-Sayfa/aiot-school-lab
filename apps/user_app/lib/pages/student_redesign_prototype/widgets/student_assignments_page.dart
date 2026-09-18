@@ -703,10 +703,19 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      messenger.showSnackBar(const SnackBar(content: Text('ส่งงานไม่สำเร็จ กรุณาลองใหม่')));
+      final notInGroup = e.toString().contains('not_in_group');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            notInGroup
+                ? 'ยังไม่ได้อยู่ในกลุ่มของวิชานี้ — ขอให้ครูจัดกลุ่มก่อนจึงจะส่งงานกลุ่มได้'
+                : 'ส่งงานไม่สำเร็จ กรุณาลองใหม่',
+          ),
+        ),
+      );
     }
   }
 
@@ -792,6 +801,36 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
           const SizedBox(height: 10),
           Container(height: 1, color: SchoolPalette.glassBorder),
           const SizedBox(height: 14),
+          // PBL-10: a group assignment is handed in once per group — every
+          // member sees and can add to the same submission.
+          if (widget.item.assignment.isGroup) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: SchoolPalette.softGreenBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: SchoolPalette.glassBorder),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.groups_rounded, size: 18, color: SchoolPalette.green),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'งานกลุ่ม — ส่งในนามกลุ่มของคุณ สมาชิกทุกคนเห็นและแก้ไขฉบับเดียวกัน',
+                      style: TextStyle(
+                        color: SchoolPalette.deepGreen,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (_detailError != null)
             Text(
               _detailError!,

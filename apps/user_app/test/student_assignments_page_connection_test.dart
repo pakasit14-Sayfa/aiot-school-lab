@@ -225,4 +225,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsNothing);
   });
+
+  // ── PBL-10 (2026-09-18) ───────────────────────────────────────────────
+  testWidgets('a group assignment says so in the sheet; not_in_group is explained', (
+    tester,
+  ) async {
+    const group = AssignmentSummary(
+      id: 'asg-g',
+      type: 'project',
+      title: 'โครงงานกลุ่ม',
+      dueAt: null,
+      status: 'published',
+      isGroup: true,
+    );
+    await _pump(
+      tester,
+      loadAssignmentsForCourse: (_) async => const [group],
+      submitAssignment: ({required assignmentId, required content}) async {
+        throw Exception('not_in_group');
+      },
+    );
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('งานกลุ่ม — ส่งในนามกลุ่มของคุณ'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'ส่งกลุ่ม');
+    await tester.tap(find.text('ยืนยันการส่งงาน'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ยังไม่ได้อยู่ในกลุ่มของวิชานี้'), findsOneWidget);
+  });
 }
