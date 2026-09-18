@@ -810,9 +810,14 @@ see `docs/handoff/WORK_LOG.md`.)*
   randomly bounces the whole app back to the unauthenticated "มีรหัสเชิญ?"
   screen, as if the router momentarily read a null/stale auth state.
   Roughly 50% of attempts hit it in Playwright testing; a plain page reload
-  after a successful login does **not** restore the session (confirmed no
-  client-side session persistence — full login+OTP is required again),
-  ruling out a token-expiry explanation (real session TTL is 7 days). Not
+  after a successful login did **not** restore the session — **root cause
+  found 2026-09-18 on the first iPhone run: `await AuthService.initialize()`
+  had been deleted from `main.dart` in `ea191dd` (2026-08-03), so the token
+  saved in secure storage was never read back on launch. Restored in
+  `main.dart`; a cold start now validates the stored token via
+  `auth_validate_session` before the first frame.** The 50% bounce-to-login
+  on navigation may be a separate race (not re-tested); the reload symptom
+  was this. Not
   reproducible on a fixed schedule or fixed action — looks like a real
   client-side race in the app's own auth-state stream, not something
   introduced this session (surfaced while building `teacher_attendance_page.dart`
