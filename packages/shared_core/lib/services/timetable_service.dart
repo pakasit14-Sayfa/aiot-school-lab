@@ -1,52 +1,88 @@
 import '../models/timetable_model.dart';
-import 'supabase_core.dart';
+import 'auth_service.dart';
+import 'supabase_config.dart';
 
+/// D6 phase 2: the school admin's timetable. Every call is a
+/// token-authenticated RPC from 20260919000000/20260920000000 — the token is
+/// the app's own session token (hard rule 1: this project does not use
+/// Supabase Auth, so `client.auth.currentSession` is always null here).
 class TimetableService {
-  static Future<List<Term>> listTerms() async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    final res = await SupabaseCore.client.rpc(
-      'list_terms',
-      params: {'p_token': token},
-    );
-    return (res as List).map((x) => Term.fromJson(x)).toList();
+  static String _token() {
+    final token = AuthService.sessionToken;
+    if (token == null) throw Exception('not_signed_in');
+    return token;
   }
 
-  static Future<List<SchoolRoom>> listSchoolRooms() async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    // Actually, list_school_rooms needs p_academic_year_id.
-    // Let's pass a null or just let it use the current year if it supports null?
-    // In Phase 1 I didn't change list_school_rooms.
-    // I'll fetch the current academic year using list_academic_years, OR just pass null.
-    // Let me check if list_school_rooms accepts null for p_academic_year_id.
-    final res = await SupabaseCore.client.rpc(
-      'list_school_rooms',
-      params: {'p_token': token, 'p_academic_year_id': null},
+  static Future<List<Term>> listTerms() async {
+    final res = await supabase.rpc('list_terms', params: {'p_token': _token()});
+    return (res as List)
+        .map((x) => Term.fromJson(x as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// `list_school_classes` needs an academic year; when none is given, pick
+  /// the year whose date range contains today (else the newest one).
+  static Future<List<SchoolRoom>> listSchoolRooms({
+    String? academicYearId,
+  }) async {
+    final token = _token();
+    var yearId = academicYearId;
+    if (yearId == null) {
+      final years =
+          (await supabase.rpc('list_academic_years', params: {'p_token': token})
+                  as List)
+              .cast<Map<String, dynamic>>();
+      if (years.isEmpty) return const [];
+      final today = DateTime.now();
+      Map<String, dynamic>? current;
+      for (final y in years) {
+        final start = DateTime.tryParse('${y['start_date']}');
+        final end = DateTime.tryParse('${y['end_date']}');
+        if (start != null &&
+            end != null &&
+            !today.isBefore(start) &&
+            !today.isAfter(end)) {
+          current = y;
+          break;
+        }
+      }
+      yearId = (current ?? years.first)['id'] as String;
+    }
+    final res = await supabase.rpc(
+      'list_school_classes',
+      params: {'p_token': token, 'p_academic_year_id': yearId},
     );
-    return (res as List).map((x) => SchoolRoom.fromJson(x)).toList();
+    return (res as List)
+        .map((x) => SchoolRoom.fromJson(x as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<List<SchoolPeriod>> listSchoolPeriods() async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    final res = await SupabaseCore.client.rpc(
+    final res = await supabase.rpc(
       'list_school_periods',
-      params: {'p_token': token},
+      params: {'p_token': _token()},
     );
-    return (res as List).map((x) => SchoolPeriod.fromJson(x)).toList();
+    return (res as List)
+        .map((x) => SchoolPeriod.fromJson(x as Map<String, dynamic>))
+        .toList();
   }
 
-  static Future<List<TeacherSubject>> listTeacherSubjects() async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    final res = await SupabaseCore.client.rpc(
+  /// `list_teacher_subjects` returns one teacher's subjects (admins must name
+  /// the teacher; teachers get their own). The RPC has no full name — the
+  /// UI merges it from the staff directory.
+  static Future<List<TeacherSubject>> listTeacherSubjects({
+    String? teacherId,
+  }) async {
+    final res = await supabase.rpc(
       'list_teacher_subjects',
-      params: {'p_token': token},
+      params: {'p_token': _token(), 'p_teacher_id': teacherId},
     );
-
     return (res as List)
         .map(
           (x) => TeacherSubject(
             teacherId: x['teacher_id'] as String,
             subjectName: x['subject_name'] as String,
-            fullName: '', // The UI will merge this with the staff directory
+            fullName: '',
           ),
         )
         .toList();
@@ -57,17 +93,18 @@ class TimetableService {
     String gradeLevel,
     String room,
   ) async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    final res = await SupabaseCore.client.rpc(
+    final res = await supabase.rpc(
       'list_room_timetable',
       params: {
-        'p_token': token,
+        'p_token': _token(),
         'p_term_id': termId,
         'p_grade_level': gradeLevel,
         'p_room': room,
       },
     );
-    return (res as List).map((x) => ClassSchedule.fromJson(x)).toList();
+    return (res as List)
+        .map((x) => ClassSchedule.fromJson(x as Map<String, dynamic>))
+        .toList();
   }
 
   static Future<void> adminSetRoomTimetableSlot({
@@ -79,11 +116,10 @@ class TimetableService {
     required String subjectName,
     required String? teacherId,
   }) async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    await SupabaseCore.client.rpc(
+    await supabase.rpc(
       'admin_set_room_timetable_slot',
       params: {
-        'p_token': token,
+        'p_token': _token(),
         'p_term_id': termId,
         'p_grade_level': gradeLevel,
         'p_room': room,
@@ -102,11 +138,10 @@ class TimetableService {
     required int dayOfWeek,
     required int periodNo,
   }) async {
-    final token = SupabaseCore.client.auth.currentSession?.accessToken ?? '';
-    await SupabaseCore.client.rpc(
+    await supabase.rpc(
       'admin_clear_room_timetable_slot',
       params: {
-        'p_token': token,
+        'p_token': _token(),
         'p_term_id': termId,
         'p_grade_level': gradeLevel,
         'p_room': room,
