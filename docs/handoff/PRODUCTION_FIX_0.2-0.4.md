@@ -381,7 +381,7 @@ verify ในสคริปต์: `set_class_schedule_overloads = 1` · `room_
 `create_course_checks_school = true` · **`auto_enrolled = 3`** (นักเรียน ม.1/1 ทั้ง 3 คน
 เข้าคอร์สคณิตศาสตร์ ม.1/1) — ถ้าไม่ตรง หยุดแล้วบอก
 
-### 4.10 (รอเจ้าของรัน) sensor_history ย่อข้อมูลตามช่วง — เลิกโดนตัดที่ 1,000 แถว
+### 4.10 ✅ รันแล้ว 2026-09-20 — sensor_history ย่อข้อมูลตามช่วง — เลิกโดนตัดที่ 1,000 แถว
 
 migration `20260920020000_sensor_history_downsample.sql` · pgTAP `69_sensor_history_downsample` 8/8 ·
 เพิ่ม `p_max_points integer default 1000` — RPC จัด bucket เฉลี่ยตามช่วงของข้อมูลที่มีจริง
@@ -391,5 +391,5 @@ migration `20260920020000_sensor_history_downsample.sql` · pgTAP `69_sensor_his
 bash scripts/prod_apply_2026-09-20b.sh
 ```
 
-verify: `has_max_points = true`, `overloads = 1` · แล้วเปิดแอปนักเรียน → ชุดข้อมูลอุณหภูมิ 21/8–20/9
+ผล: `has_max_points = true`, `overloads = 1`, raw 30 วัน = 20,812 แถว → แอปนักเรียนเห็น 135 จุด ครบ 29/8 09:46 – 2/9 14:06 (ต่ำสุด 23.6 / เฉลี่ย 28.4 / สูงสุด 32.8 °C) แกน X มีวันที่ · เดิมคาดว่า: เปิดแอปนักเรียน → ชุดข้อมูลอุณหภูมิ 21/8–20/9
 ต้องเห็นทั้งชุด 29 ส.ค. (ไม่ใช่แค่ 09:48–10:37) และแกน X มีวันที่
