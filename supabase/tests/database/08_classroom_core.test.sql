@@ -56,9 +56,10 @@ insert into devices (id, school_id, type, name, registered_by)
 values ('48600000-0000-0000-0000-000000000001', '48200000-0000-0000-0000-000000000001',
         'pm25_sensor', 'Classroom PM2.5', '48500000-0000-0000-0000-000000000001');
 
--- 1. teacher creates a course
+-- 1. the school admin creates a course and assigns teacher A as owner
+-- (D6, 20260919000000: teachers no longer create courses themselves)
 create temporary table created_course as
-select * from create_course('cls-student-a1-token', '48400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-08', '48400000-0000-0000-0000-000000000001',
   'Environmental Science', 'M.3', 'Room 301', 'ห้องเรียนวิทยาศาสตร์สิ่งแวดล้อม'
 , '48500000-0000-0000-0000-000000000001');
 

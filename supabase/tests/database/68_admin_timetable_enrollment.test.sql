@@ -2,7 +2,7 @@
 BEGIN;
 
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(26);
 
 -- Setup: create test users and tokens
 insert into packages (id, name, license_type) values ('68100000-0000-0000-0000-000000000001', 'SP package', 'perpetual') on conflict do nothing;
@@ -12,6 +12,16 @@ insert into academic_years (id, school_id, name)
 values ('68300000-0000-0000-0000-000000000001', '68200000-0000-0000-0000-000000000001', '2568') on conflict do nothing;
 insert into terms (id, academic_year_id, name, start_date, end_date)
 values ('68400000-0000-0000-0000-000000000001', '68300000-0000-0000-0000-000000000001', 'Term 1', '2026-05-16', '2026-10-10') on conflict do nothing;
+
+-- A second school with its own year/term, to prove an admin cannot create a
+-- course on another school's term (the room sync would otherwise pull that
+-- school's students in).
+insert into schools (id, package_id, name, school_code) values
+  ('68200000-0000-0000-0000-000000000002', '68100000-0000-0000-0000-000000000001', 'School 68b', 'SCH-68B') on conflict do nothing;
+insert into academic_years (id, school_id, name)
+values ('68300000-0000-0000-0000-000000000002', '68200000-0000-0000-0000-000000000002', '2568') on conflict do nothing;
+insert into terms (id, academic_year_id, name, start_date, end_date)
+values ('68400000-0000-0000-0000-000000000002', '68300000-0000-0000-0000-000000000002', 'Term 1', '2026-05-16', '2026-10-10') on conflict do nothing;
 
 insert into users (id, school_id, email, password_hash, first_name, last_name, created_by) values
   ('68500000-0000-0000-0000-000000000001', '68200000-0000-0000-0000-000000000001', 'admin68@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'A', '68500000-0000-0000-0000-000000000001'),
@@ -37,6 +47,12 @@ on conflict do nothing;
 select throws_ok(
   $$ select create_course('token_teacher', '68400000-0000-0000-0000-000000000001', 'Math 101', 'ม.1', '1', null, '68500000-0000-0000-0000-000000000003') $$,
   'forbidden', 'ครูสร้างคอร์สไม่ได้แล้ว'
+);
+
+-- 1b. แอดมินสร้างคอร์สบน term ของโรงเรียนอื่น → term_not_found
+select throws_ok(
+  $$ select create_course('token_admin', '68400000-0000-0000-0000-000000000002', 'Math 101', 'ม.1', '1', null, '68500000-0000-0000-0000-000000000003') $$,
+  'term_not_found', 'term ต้องเป็นของโรงเรียนตัวเอง'
 );
 
 -- 2. สร้างคอร์สด้วย admin
@@ -117,6 +133,21 @@ select lives_ok(
   'ย้ายกลับ ม.1/1'
 );
 select is((select count(*)::int from list_my_courses('token_student')), 3, 'list_my_courses ของนักเรียนเห็นคอร์สครบ 3 คอร์ส โดยไม่ต้อง enroll เอง');
+
+-- 13. รูปแบบห้องต่างกัน (สถานการณ์จริงบน prod): profile เก็บ (ม.1, '1') แต่คอร์สเก็บ (ม.1, 'ม.1/1')
+-- ต้องจับคู่กันได้ผ่าน _class_room_key
+select is(public._class_room_key('ม.1', '1'), 'ม.1/1', '_class_room_key เติม grade ให้ห้องสั้น');
+select is(public._class_room_key('ม.1', 'ม.1/1'), 'ม.1/1', '_class_room_key ไม่เติมซ้ำ');
+select lives_ok(
+  $$ select create_course('token_admin', '68400000-0000-0000-0000-000000000001', 'Thai 101', 'ม.1', 'ม.1/1', null, '68500000-0000-0000-0000-000000000003') $$,
+  'สร้างคอร์สที่เก็บห้องแบบยาว ม.1/1 (รูปแบบเดียวกับ prod)'
+);
+select is(
+  (select count(*)::int from course_students cs join courses c on c.id = cs.course_id
+   where cs.student_id = '68500000-0000-0000-0000-000000000002' and cs.enrolled_by is null and c.subject_name = 'Thai 101'),
+  1,
+  'นักเรียนที่ profile เก็บห้องแบบสั้น (1) ถูกดึงเข้าคอร์สที่เก็บห้องแบบยาว (ม.1/1)'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

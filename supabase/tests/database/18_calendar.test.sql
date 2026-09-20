@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 insert into packages (id, name, license_type)
 values ('98100000-0000-0000-0000-000000000001', 'Calendar test package', 'perpetual');
@@ -58,24 +58,45 @@ select enroll_student('admin-token-patched-18', (select course_id from created_c
   '98500000-0000-0000-0000-000000000002'
 );
 
--- 1. teacher sets a class schedule slot
+-- 1. the school admin sets a class schedule slot by period number
+-- (D6, 20260919000000: the timetable belongs to the admin)
 select is(
   (select count(*)::integer from set_class_schedule(
-    'cal-teacher-a-token', (select course_id from created_course),
-    1::smallint, null, null, 'Room 501', 1::smallint
+    'admin-token-patched-18', (select course_id from created_course),
+    1::smallint, null, null, 'Room 501', 'regular', 1::smallint
   ) where schedule_id is not null),
   1,
-  'teacher can set a class schedule slot'
+  'school admin can set a class schedule slot by period'
 );
 
--- 2. invalid period_no is rejected
+-- 2. end_time before start_time is rejected (explicit times, no period)
 select throws_ok(
   $$select set_class_schedule(
-    'cal-teacher-a-token', (select course_id from created_course),
-    2::smallint, null, null, 'Room 501', 99::smallint
+    'admin-token-patched-18', (select course_id from created_course),
+    2::smallint, '10:00'::time, '09:00'::time, 'Room 501'
+  )$$,
+  'P0001', 'end_time_must_be_after_start_time',
+  'end_time before start_time is rejected'
+);
+
+-- 2b. unknown period_no is rejected
+select throws_ok(
+  $$select set_class_schedule(
+    'admin-token-patched-18', (select course_id from created_course),
+    2::smallint, null, null, 'Room 501', 'regular', 99::smallint
   )$$,
   'P0001', 'period_not_found',
   'invalid period_no is rejected'
+);
+
+-- 2c. a teacher can no longer set the timetable
+select throws_ok(
+  $$select set_class_schedule(
+    'cal-teacher-a-token', (select course_id from created_course),
+    3::smallint, null, null, 'Room 501', 'regular', 1::smallint
+  )$$,
+  'P0001', 'forbidden',
+  'teachers cannot set class schedules (admin-owned timetable)'
 );
 
 -- 3. enrolled student sees the schedule

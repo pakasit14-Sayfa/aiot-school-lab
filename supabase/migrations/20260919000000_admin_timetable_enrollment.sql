@@ -169,6 +169,23 @@ BEGIN
 END;
 $$;
 
+-- 3a. Room key normaliser. The two sides of the sync store rooms in different
+-- shapes today: prod student_profiles has (grade 'ม.1', room '1') while the
+-- prod course has (grade 'ม.1', room 'ม.1/1'), and the local seed profiles
+-- use 'ม.4/1'. An exact match would enrol nobody on prod, so both sides are
+-- compared through this key ('ม.1' + '1' -> 'ม.1/1'; 'ม.1' + 'ม.1/1' -> 'ม.1/1').
+CREATE OR REPLACE FUNCTION public._class_room_key(p_grade text, p_room text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN nullif(trim(coalesce(p_room, '')), '') IS NULL THEN NULL
+    WHEN position(trim(p_grade) || '/' IN trim(p_room)) = 1 THEN trim(p_room)
+    ELSE trim(p_grade) || '/' || trim(p_room)
+  END
+$$;
+
 -- 3. sync_course_students_for_room
 CREATE OR REPLACE FUNCTION public.sync_course_students_for_room(p_school_id uuid, p_academic_year_id uuid, p_grade_level text, p_room text)
 RETURNS void
@@ -183,15 +200,16 @@ BEGIN
   JOIN public.terms t ON t.id = c.term_id
   JOIN public.student_profiles sp ON sp.academic_year_id = t.academic_year_id
     AND sp.grade_level = c.grade_level
-    AND sp.room = c.room
+    AND public._class_room_key(sp.grade_level, sp.room) = public._class_room_key(c.grade_level, c.room)
+  JOIN public.users u ON u.id = sp.student_id AND u.school_id = c.school_id
   WHERE c.school_id = p_school_id
     AND t.academic_year_id = p_academic_year_id
     AND c.grade_level = p_grade_level
-    AND c.room = p_room
+    AND public._class_room_key(c.grade_level, c.room) = public._class_room_key(p_grade_level, p_room)
   ON CONFLICT (course_id, student_id) DO NOTHING;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.sync_course_students_for_room(uuid, uuid, text, text) FROM public;
+REVOKE ALL ON FUNCTION public.sync_course_students_for_room(uuid, uuid, text, text) FROM public, anon, authenticated;
 
 -- 4. sync_course_students_for_student
 CREATE OR REPLACE FUNCTION public.sync_course_students_for_student(p_student_id uuid)
@@ -213,7 +231,7 @@ BEGIN
       WHERE sp.student_id = p_student_id
         AND sp.academic_year_id = t.academic_year_id
         AND sp.grade_level = c.grade_level
-        AND sp.room = c.room
+        AND public._class_room_key(sp.grade_level, sp.room) = public._class_room_key(c.grade_level, c.room)
     );
 
   -- Insert valid auto-enrollments
@@ -223,12 +241,13 @@ BEGIN
   JOIN public.terms t ON t.id = c.term_id
   JOIN public.student_profiles sp ON sp.academic_year_id = t.academic_year_id
     AND sp.grade_level = c.grade_level
-    AND sp.room = c.room
+    AND public._class_room_key(sp.grade_level, sp.room) = public._class_room_key(c.grade_level, c.room)
+  JOIN public.users u ON u.id = sp.student_id AND u.school_id = c.school_id
   WHERE sp.student_id = p_student_id
   ON CONFLICT (course_id, student_id) DO NOTHING;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.sync_course_students_for_student(uuid) FROM public;
+REVOKE ALL ON FUNCTION public.sync_course_students_for_student(uuid) FROM public, anon, authenticated;
 
 -- 5. Mod set_student_profile
 CREATE OR REPLACE FUNCTION public.set_student_profile(
@@ -437,7 +456,13 @@ BEGIN
     RAISE EXCEPTION 'forbidden';
   END IF;
 
-  SELECT * INTO v_term FROM terms WHERE id = p_term_id;
+  -- Same school check the original create_course had: without it an admin of
+  -- school A could create a course on school B's term, and the room sync below
+  -- would then pull school B's students (via academic_year_id) into A's course.
+  SELECT t.* INTO v_term
+  FROM terms t
+  JOIN academic_years ay ON ay.id = t.academic_year_id
+  WHERE t.id = p_term_id AND ay.school_id = v_actor.school_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'term_not_found'; END IF;
 
   IF trim(coalesce(p_subject_name, '')) = '' THEN RAISE EXCEPTION 'subject_name_required'; END IF;
@@ -473,6 +498,9 @@ BEGIN
   RETURN QUERY SELECT v_course_id;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.create_course(text, uuid, text, text, text, text, uuid) FROM public;
+GRANT EXECUTE ON FUNCTION public.create_course(text, uuid, text, text, text, text, uuid) TO anon, authenticated;
 
 -- 7. Mod enroll_student
 CREATE OR REPLACE FUNCTION public.enroll_student(
@@ -518,8 +546,12 @@ $$;
 
 -- 8. class_schedules changes
 ALTER TABLE public.class_schedules ADD COLUMN period_no smallint NULL;
--- Drop old set_class_schedule
+-- Drop the current overload (20260910160000 added p_period_type as the 7th
+-- arg). Leaving it in place next to the new signature makes every 6-arg call
+-- ambiguous ("function is not unique") and lets the client's named
+-- p_period_type call silently hit the old teacher-writable version.
 DROP FUNCTION IF EXISTS public.set_class_schedule(text, uuid, smallint, time, time, text);
+DROP FUNCTION IF EXISTS public.set_class_schedule(text, uuid, smallint, time, time, text, text);
 
 CREATE OR REPLACE FUNCTION public.set_class_schedule(
   p_token text,
@@ -528,6 +560,7 @@ CREATE OR REPLACE FUNCTION public.set_class_schedule(
   p_start_time time DEFAULT NULL,
   p_end_time time DEFAULT NULL,
   p_room text DEFAULT NULL,
+  p_period_type text DEFAULT 'regular',
   p_period_no smallint DEFAULT NULL
 )
 RETURNS TABLE (schedule_id uuid)
@@ -544,17 +577,19 @@ DECLARE
 BEGIN
   SELECT * INTO v_actor FROM get_session_actor(p_token);
   IF NOT FOUND THEN RAISE EXCEPTION 'invalid_session'; END IF;
-  IF v_actor.role NOT IN ('teacher', 'school_admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
+  -- D6 (DECISIONS_2026-09-18): the timetable is the school admin's; teachers
+  -- only read it. Before this migration teachers could set their own slots.
+  IF v_actor.role NOT IN ('school_admin') THEN RAISE EXCEPTION 'forbidden'; END IF;
 
   SELECT * INTO v_course FROM courses WHERE id = p_course_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'course_not_found'; END IF;
   IF v_course.school_id IS DISTINCT FROM v_actor.school_id THEN
     RAISE EXCEPTION 'forbidden';
   END IF;
-  IF v_actor.role = 'teacher' AND NOT EXISTS (
-    SELECT 1 FROM course_teachers ct
-    WHERE ct.course_id = p_course_id AND ct.teacher_id = v_actor.user_id
-  ) THEN RAISE EXCEPTION 'forbidden'; END IF;
+
+  IF p_period_type NOT IN ('regular', 'activity_lab') THEN
+    RAISE EXCEPTION 'invalid_period_type';
+  END IF;
 
   IF p_period_no IS NOT NULL THEN
     SELECT start_time, end_time INTO v_start, v_end
@@ -571,8 +606,8 @@ BEGIN
     RAISE EXCEPTION 'end_time_must_be_after_start_time';
   END IF;
 
-  INSERT INTO class_schedules (course_id, day_of_week, start_time, end_time, room, period_no, created_by)
-  VALUES (p_course_id, p_day_of_week, v_start, v_end, p_room, p_period_no, v_actor.user_id)
+  INSERT INTO class_schedules (course_id, day_of_week, start_time, end_time, room, period_type, period_no, created_by)
+  VALUES (p_course_id, p_day_of_week, v_start, v_end, p_room, p_period_type, p_period_no, v_actor.user_id)
   RETURNING id INTO v_schedule_id;
 
   RETURN QUERY SELECT v_schedule_id;
@@ -637,8 +672,9 @@ BEGIN
       SELECT 1 FROM public.course_teachers ct
       WHERE ct.course_id = v_target_course_id AND ct.teacher_id = p_teacher_id
     ) THEN
-      -- Replace owner
-      DELETE FROM public.course_teachers ct WHERE ct.course_id = v_target_course_id;
+      -- Replace the owner row only; co-teachers on the course stay.
+      DELETE FROM public.course_teachers ct
+      WHERE ct.course_id = v_target_course_id AND ct.is_owner = true;
       INSERT INTO public.course_teachers (course_id, teacher_id, is_owner)
       VALUES (v_target_course_id, p_teacher_id, true);
     END IF;
@@ -773,7 +809,8 @@ GRANT EXECUTE ON FUNCTION public.admin_set_room_timetable_slot(text, uuid, text,
 GRANT EXECUTE ON FUNCTION public.admin_clear_room_timetable_slot(text, uuid, text, text, smallint, smallint) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.list_room_timetable(text, uuid, text, text) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.list_school_classes(text, uuid) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.set_class_schedule(text, uuid, smallint, time, time, text, smallint) TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.set_class_schedule(text, uuid, smallint, time, time, text, text, smallint) FROM public;
+GRANT EXECUTE ON FUNCTION public.set_class_schedule(text, uuid, smallint, time, time, text, text, smallint) TO anon, authenticated;
 
 -- 10. Backfill course_students
 DO $$

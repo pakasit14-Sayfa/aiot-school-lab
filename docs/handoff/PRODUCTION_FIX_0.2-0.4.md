@@ -359,16 +359,16 @@ grant execute on function redeem_parent_binding_code(text,text,text,text,text,te
 ส่งผลลัพธ์ของขั้นที่ 2, 3, 3.5, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
 ใน `MASTER_PLAN_2026-09-06.md` ให้ — **จะไม่ติ๊กจนกว่าจะเห็นผลลัพธ์จริง**
 
-### 4.8 (รอเจ้าของรัน) Apply D6 Phase 1 DB Migration
+### 4.8 (รอเจ้าของรัน) D6 เฟส 1 — ตารางเรียนของแอดมิน → นักเรียนเข้าวิชาตามห้องอัตโนมัติ
 
-**สคริปต์ที่ต้องรัน:**
+migration `20260919000000_admin_timetable_enrollment.sql` · pgTAP `68_admin_timetable_enrollment` 26/26, ทั้งชุด 1,066 เคส PASS (local 2026-09-20)
+
 ```bash
-./scripts/prod_apply_2026-09-19.sh
+bash scripts/prod_apply_2026-09-19.sh
 ```
 
-**วิธี verify หลังรัน:**
-รันคำสั่ง SQL บน Production:
-```sql
-SELECT count(*) FROM course_students WHERE enrolled_by IS NULL;
-```
-ต้องได้ค่า > 0 (เป็นการยืนยันว่า backfill ทำงานและดึงนักเรียนเข้าคอร์สตามห้องสำเร็จ)
+สคริปต์ verify ให้เอง 3 ข้อ: `timetable_rpcs = 6` · `create_course_admin_only = true` ·
+`auto_enrolled` **คาดว่า = 3** (นักเรียน ม.1/1 ทั้ง 3 คนบน prod เข้าคอร์สคณิตศาสตร์ ม.1/1 — prod เก็บห้องใน profile เป็น `1` แต่ในคอร์สเป็น `ม.1/1`, migration จับคู่ผ่าน `_class_room_key` ให้แล้ว ถ้าได้ 0 ให้หยุดแล้วบอกก่อนไปต่อ)
+
+ผลข้างเคียงที่ตั้งใจ: ครูสร้างคอร์ส / เพิ่มนักเรียน / ตั้งตารางเรียนเองไม่ได้อีกแล้ว (RPC คืน `forbidden`)
+จนกว่าเฟส 3 จะซ่อนปุ่มฝั่งครู — ระหว่างนั้นปุ่มเก่าจะขึ้นข้อความไม่สำเร็จ
