@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -18,6 +19,7 @@ values ('98700000-0000-0000-0000-000000000009', '98700000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('47900000-0000-0000-0000-000000000000', '98700000-0000-0000-0000-000000000002', 'admin47@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '47900000-0000-0000-0000-000000000000'),
   ('98700000-0000-0000-0000-000000000003', '98700000-0000-0000-0000-000000000002',
    'quiz-teacher@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'A',
    '98700000-0000-0000-0000-000000000003'),
@@ -26,18 +28,19 @@ insert into users (
    '98700000-0000-0000-0000-000000000003');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('47900000-0000-0000-0000-000000000000', 'school_admin', '98700000-0000-0000-0000-000000000002', '47900000-0000-0000-0000-000000000000'),
   ('98700000-0000-0000-0000-000000000003', 'teacher', '98700000-0000-0000-0000-000000000002', '98700000-0000-0000-0000-000000000003'),
   ('98700000-0000-0000-0000-000000000004', 'teacher', '98700000-0000-0000-0000-000000000002', '98700000-0000-0000-0000-000000000003');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('47900000-0000-0000-0000-000000000000', 'school_admin', '98700000-0000-0000-0000-000000000002', encode(digest('admin-token-patched-47', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98700000-0000-0000-0000-000000000003', 'teacher', '98700000-0000-0000-0000-000000000002', encode(digest('quiz-teacher-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98700000-0000-0000-0000-000000000004', 'teacher', '98700000-0000-0000-0000-000000000002', encode(digest('quiz-other-teacher-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
 create temporary table created_course as
-select * from create_course(
-  'quiz-teacher-token', '98700000-0000-0000-0000-000000000009',
+select * from create_course('admin-token-patched-47', '98700000-0000-0000-0000-000000000009',
   'Quiz Questions Course', 'ม.1', 'Room 101', null
-);
+, '98700000-0000-0000-0000-000000000003');
 
 create temporary table created_quiz as
 select * from create_quiz(

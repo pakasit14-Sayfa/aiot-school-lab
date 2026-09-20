@@ -1,3 +1,4 @@
+-- admin_token_patched
 -- PBL-7 (2026-09-18): กราฟของนักเรียน — สร้าง/ดู/ลบ ภายในขอบเขตข้อมูลที่เรียนได้
 begin;
 
@@ -14,14 +15,17 @@ values ('66300000-0000-0000-0000-000000000001', '66200000-0000-0000-0000-0000000
 insert into terms (id, academic_year_id, name)
 values ('66400000-0000-0000-0000-000000000001', '66300000-0000-0000-0000-000000000001', 'Term 1/2026');
 insert into users (id, school_id, email, password_hash, first_name, last_name, created_by) values
+  ('66900000-0000-0000-0000-000000000000', '66200000-0000-0000-0000-000000000001', 'admin66@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '66900000-0000-0000-0000-000000000000'),
   ('66500000-0000-0000-0000-000000000001', '66200000-0000-0000-0000-000000000001', 'ch-teacher@pdpa.test', crypt('x', gen_salt('bf')), 'Tea', 'Cher', '66500000-0000-0000-0000-000000000001'),
   ('66500000-0000-0000-0000-000000000002', '66200000-0000-0000-0000-000000000001', 'ch-s1@pdpa.test', crypt('x', gen_salt('bf')), 'Stu', 'One', '66500000-0000-0000-0000-000000000001'),
   ('66500000-0000-0000-0000-000000000003', '66200000-0000-0000-0000-000000000001', 'ch-s2@pdpa.test', crypt('x', gen_salt('bf')), 'Stu', 'Two', '66500000-0000-0000-0000-000000000001');
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('66900000-0000-0000-0000-000000000000', 'school_admin', '66200000-0000-0000-0000-000000000001', '66900000-0000-0000-0000-000000000000'),
   ('66500000-0000-0000-0000-000000000001', 'teacher', '66200000-0000-0000-0000-000000000001', '66500000-0000-0000-0000-000000000001'),
   ('66500000-0000-0000-0000-000000000002', 'student', '66200000-0000-0000-0000-000000000001', '66500000-0000-0000-0000-000000000001'),
   ('66500000-0000-0000-0000-000000000003', 'student', '66200000-0000-0000-0000-000000000001', '66500000-0000-0000-0000-000000000001');
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('66900000-0000-0000-0000-000000000000', 'school_admin', '66200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-66', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('66500000-0000-0000-0000-000000000001', 'teacher', '66200000-0000-0000-0000-000000000001', encode(digest('ch-teacher', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('66500000-0000-0000-0000-000000000002', 'student', '66200000-0000-0000-0000-000000000001', encode(digest('ch-s1', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('66500000-0000-0000-0000-000000000003', 'student', '66200000-0000-0000-0000-000000000001', encode(digest('ch-s2', 'sha256'), 'hex'), now() + interval '1 hour');
@@ -30,8 +34,8 @@ insert into devices (id, school_id, type, name, registered_by) values
   ('66600000-0000-0000-0000-000000000002', '66200000-0000-0000-0000-000000000002', 'pm25_sensor', 'อุปกรณ์โรงเรียน B', '66500000-0000-0000-0000-000000000001');
 
 create temporary table c as
-select * from create_course('ch-teacher', '66400000-0000-0000-0000-000000000001', 'AIoT', 'ม.1', '101', 'x');
-select enroll_student('ch-teacher', (select course_id from c), '66500000-0000-0000-0000-000000000002');
+select * from create_course('admin-token-patched-66', '66400000-0000-0000-0000-000000000001', 'AIoT', 'ม.1', '101', 'x', '66500000-0000-0000-0000-000000000001');
+select enroll_student('admin-token-patched-66', (select course_id from c), '66500000-0000-0000-0000-000000000002');
 -- s2 ลงทะเบียนวิชา แต่ยังไม่มีชุดข้อมูลให้เรียน
 create temporary table a as
 select assignment_id from create_assignment('ch-teacher', (select course_id from c), 'homework', 'วิเคราะห์ฝุ่น');

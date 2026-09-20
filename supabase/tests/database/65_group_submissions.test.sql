@@ -1,3 +1,4 @@
+-- admin_token_patched
 -- PBL-10 (2026-09-18): งานกลุ่ม — สมาชิกกลุ่มส่งร่วมกันในแถวเดียว
 begin;
 
@@ -13,26 +14,29 @@ values ('65300000-0000-0000-0000-000000000001', '65200000-0000-0000-0000-0000000
 insert into terms (id, academic_year_id, name)
 values ('65400000-0000-0000-0000-000000000001', '65300000-0000-0000-0000-000000000001', 'Term 1/2026');
 insert into users (id, school_id, email, password_hash, first_name, last_name, created_by) values
+  ('65900000-0000-0000-0000-000000000000', '65200000-0000-0000-0000-000000000001', 'admin65@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '65900000-0000-0000-0000-000000000000'),
   ('65500000-0000-0000-0000-000000000001', '65200000-0000-0000-0000-000000000001', 'gs-teacher@pdpa.test', crypt('x', gen_salt('bf')), 'Tea', 'Cher', '65500000-0000-0000-0000-000000000001'),
   ('65500000-0000-0000-0000-000000000002', '65200000-0000-0000-0000-000000000001', 'gs-s1@pdpa.test', crypt('x', gen_salt('bf')), 'Stu', 'One', '65500000-0000-0000-0000-000000000001'),
   ('65500000-0000-0000-0000-000000000003', '65200000-0000-0000-0000-000000000001', 'gs-s2@pdpa.test', crypt('x', gen_salt('bf')), 'Stu', 'Two', '65500000-0000-0000-0000-000000000001'),
   ('65500000-0000-0000-0000-000000000004', '65200000-0000-0000-0000-000000000001', 'gs-s3@pdpa.test', crypt('x', gen_salt('bf')), 'Stu', 'Three', '65500000-0000-0000-0000-000000000001');
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('65900000-0000-0000-0000-000000000000', 'school_admin', '65200000-0000-0000-0000-000000000001', '65900000-0000-0000-0000-000000000000'),
   ('65500000-0000-0000-0000-000000000001', 'teacher', '65200000-0000-0000-0000-000000000001', '65500000-0000-0000-0000-000000000001'),
   ('65500000-0000-0000-0000-000000000002', 'student', '65200000-0000-0000-0000-000000000001', '65500000-0000-0000-0000-000000000001'),
   ('65500000-0000-0000-0000-000000000003', 'student', '65200000-0000-0000-0000-000000000001', '65500000-0000-0000-0000-000000000001'),
   ('65500000-0000-0000-0000-000000000004', 'student', '65200000-0000-0000-0000-000000000001', '65500000-0000-0000-0000-000000000001');
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('65900000-0000-0000-0000-000000000000', 'school_admin', '65200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-65', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('65500000-0000-0000-0000-000000000001', 'teacher', '65200000-0000-0000-0000-000000000001', encode(digest('gs-teacher', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('65500000-0000-0000-0000-000000000002', 'student', '65200000-0000-0000-0000-000000000001', encode(digest('gs-s1', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('65500000-0000-0000-0000-000000000003', 'student', '65200000-0000-0000-0000-000000000001', encode(digest('gs-s2', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('65500000-0000-0000-0000-000000000004', 'student', '65200000-0000-0000-0000-000000000001', encode(digest('gs-s3', 'sha256'), 'hex'), now() + interval '1 hour');
 
 create temporary table c as
-select * from create_course('gs-teacher', '65400000-0000-0000-0000-000000000001', 'AIoT', 'ม.1', '101', 'x');
-select enroll_student('gs-teacher', (select course_id from c), '65500000-0000-0000-0000-000000000002');
-select enroll_student('gs-teacher', (select course_id from c), '65500000-0000-0000-0000-000000000003');
-select enroll_student('gs-teacher', (select course_id from c), '65500000-0000-0000-0000-000000000004');
+select * from create_course('admin-token-patched-65', '65400000-0000-0000-0000-000000000001', 'AIoT', 'ม.1', '101', 'x', '65500000-0000-0000-0000-000000000001');
+select enroll_student('admin-token-patched-65', (select course_id from c), '65500000-0000-0000-0000-000000000002');
+select enroll_student('admin-token-patched-65', (select course_id from c), '65500000-0000-0000-0000-000000000003');
+select enroll_student('admin-token-patched-65', (select course_id from c), '65500000-0000-0000-0000-000000000004');
 
 -- กลุ่ม A = s1 + s2 · s3 ไม่มีกลุ่ม
 create temporary table g as

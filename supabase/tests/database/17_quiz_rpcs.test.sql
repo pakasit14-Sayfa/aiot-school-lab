@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -18,6 +19,7 @@ values ('97400000-0000-0000-0000-000000000001', '97300000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('17900000-0000-0000-0000-000000000000', '97200000-0000-0000-0000-000000000001', 'admin17@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '17900000-0000-0000-0000-000000000000'),
   ('97500000-0000-0000-0000-000000000001', '97200000-0000-0000-0000-000000000001',
    'qz-teacher-a@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'A',
    '97500000-0000-0000-0000-000000000001'),
@@ -29,11 +31,13 @@ insert into users (
    '97500000-0000-0000-0000-000000000001');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('17900000-0000-0000-0000-000000000000', 'school_admin', '97200000-0000-0000-0000-000000000001', '17900000-0000-0000-0000-000000000000'),
   ('97500000-0000-0000-0000-000000000001', 'teacher', '97200000-0000-0000-0000-000000000001', '97500000-0000-0000-0000-000000000001'),
   ('97500000-0000-0000-0000-000000000002', 'student', '97200000-0000-0000-0000-000000000001', '97500000-0000-0000-0000-000000000001'),
   ('97500000-0000-0000-0000-000000000003', 'student', '97200000-0000-0000-0000-000000000001', '97500000-0000-0000-0000-000000000001');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('17900000-0000-0000-0000-000000000000', 'school_admin', '97200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-17', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('97500000-0000-0000-0000-000000000001', 'teacher', '97200000-0000-0000-0000-000000000001',
    encode(digest('qz-teacher-a-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('97500000-0000-0000-0000-000000000002', 'student', '97200000-0000-0000-0000-000000000001',
@@ -42,14 +46,11 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
    encode(digest('qz-student-a2-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
 create temporary table created_course as
-select * from create_course(
-  'qz-teacher-a-token', '97400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-17', '97400000-0000-0000-0000-000000000001',
   'Quiz Science', 'M.3', 'Room 401', 'วิชาทดสอบแบบทดสอบ'
-);
+, '97500000-0000-0000-0000-000000000001');
 
-select enroll_student(
-  'qz-teacher-a-token',
-  (select course_id from created_course),
+select enroll_student('admin-token-patched-17', (select course_id from created_course),
   '97500000-0000-0000-0000-000000000002'
 );
 

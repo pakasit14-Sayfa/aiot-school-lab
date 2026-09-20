@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -19,6 +20,7 @@ values ('49400000-0000-0000-0000-000000000001', '49300000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('35900000-0000-0000-0000-000000000000', '49200000-0000-0000-0000-000000000001', 'admin35@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '35900000-0000-0000-0000-000000000000'),
   ('49500000-0000-0000-0000-000000000001', '49200000-0000-0000-0000-000000000001',
    'asg-teacher-a@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'A',
    '49500000-0000-0000-0000-000000000001'),
@@ -33,12 +35,14 @@ insert into users (
    '49500000-0000-0000-0000-000000000004');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('35900000-0000-0000-0000-000000000000', 'school_admin', '49200000-0000-0000-0000-000000000001', '35900000-0000-0000-0000-000000000000'),
   ('49500000-0000-0000-0000-000000000001', 'teacher', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001'),
   ('49500000-0000-0000-0000-000000000002', 'student', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001'),
   ('49500000-0000-0000-0000-000000000003', 'student', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001'),
   ('49500000-0000-0000-0000-000000000004', 'teacher', '49200000-0000-0000-0000-000000000002', '49500000-0000-0000-0000-000000000004');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('35900000-0000-0000-0000-000000000000', 'school_admin', '49200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-35', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('49500000-0000-0000-0000-000000000001', 'teacher', '49200000-0000-0000-0000-000000000001',
    encode(digest('asg-teacher-a-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('49500000-0000-0000-0000-000000000002', 'student', '49200000-0000-0000-0000-000000000001',
@@ -53,14 +57,11 @@ values ('49600000-0000-0000-0000-000000000001', '49200000-0000-0000-0000-0000000
         'pm25_sensor', 'Assignment PM2.5', '49500000-0000-0000-0000-000000000001');
 
 create temporary table created_course as
-select * from create_course(
-  'asg-teacher-a-token', '49400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-35', '49400000-0000-0000-0000-000000000001',
   'Environmental Science', 'M.3', 'Room 301', 'ห้องเรียนวิทยาศาสตร์สิ่งแวดล้อม'
-);
+, '49500000-0000-0000-0000-000000000001');
 
-select enroll_student(
-  'asg-teacher-a-token',
-  (select course_id from created_course),
+select enroll_student('admin-token-patched-35', (select course_id from created_course),
   '49500000-0000-0000-0000-000000000002'
 );
 
@@ -119,8 +120,8 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
   ('49500000-0000-0000-0000-000000000006', 'student', '49200000-0000-0000-0000-000000000001',
    encode(digest('asg-student-a4-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
-select enroll_student('asg-teacher-a-token', (select course_id from created_course), '49500000-0000-0000-0000-000000000005');
-select enroll_student('asg-teacher-a-token', (select course_id from created_course), '49500000-0000-0000-0000-000000000006');
+select enroll_student('admin-token-patched-35', (select course_id from created_course), '49500000-0000-0000-0000-000000000005');
+select enroll_student('admin-token-patched-35', (select course_id from created_course), '49500000-0000-0000-0000-000000000006');
 
 -- Recipients: a grade notifies only its own student, never another enrolled classmate
 select is((select count(*)::int from list_my_notifications('asg-student-a3-token') where type='grade_confirmed'),0,'other enrolled student receives no notification for a classmates grade');

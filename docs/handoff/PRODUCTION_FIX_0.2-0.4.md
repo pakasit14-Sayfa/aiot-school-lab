@@ -358,3 +358,17 @@ grant execute on function redeem_parent_binding_code(text,text,text,text,text,te
 
 ส่งผลลัพธ์ของขั้นที่ 2, 3, 3.5, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
 ใน `MASTER_PLAN_2026-09-06.md` ให้ — **จะไม่ติ๊กจนกว่าจะเห็นผลลัพธ์จริง**
+
+### 4.8 (รอเจ้าของรัน) Apply D6 Phase 1 DB Migration
+
+**สคริปต์ที่ต้องรัน:**
+```bash
+./scripts/prod_apply_2026-09-19.sh
+```
+
+**วิธี verify หลังรัน:**
+รันคำสั่ง SQL บน Production:
+```sql
+SELECT count(*) FROM course_students WHERE enrolled_by IS NULL;
+```
+ต้องได้ค่า > 0 (เป็นการยืนยันว่า backfill ทำงานและดึงนักเรียนเข้าคอร์สตามห้องสำเร็จ)
