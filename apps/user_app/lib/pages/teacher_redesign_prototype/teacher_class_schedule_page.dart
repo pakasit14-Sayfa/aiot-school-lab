@@ -645,20 +645,8 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              ElevatedButton.icon(
-                onPressed: _openAddScheduleDialog,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('เพิ่มคาบเรียน'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: TeacherPalette.primary,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                ),
-              ),
-              const SizedBox(height: 8),
+              // D6: the timetable is the school admin's (set_class_schedule
+              // rejects teachers since 20260919000000) — this page is read-only.
               OutlinedButton.icon(
                 onPressed: _openAddPrepBlockDialog,
                 icon: const Icon(Icons.edit_calendar_rounded, size: 16, color: Colors.white),
@@ -906,11 +894,6 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                                   ),
                                 ],
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                              onPressed: () => _deleteSchedule(slot),
-                              tooltip: 'ลบคาบเรียน',
                             ),
                           ],
                         ),

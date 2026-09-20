@@ -121,7 +121,9 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
       });
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('สร้างรหัสเข้าร่วมใหม่แล้ว (รหัสเดิมใช้ไม่ได้อีกต่อไป)'),
+          content: Text(
+            'สร้างรหัสเข้าร่วมใหม่แล้ว (รหัสเดิมใช้ไม่ได้อีกต่อไป)',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -247,7 +249,9 @@ class _JoinCodeDialogState extends State<_JoinCodeDialog> {
                 },
           icon: const Icon(Icons.copy_rounded, size: 16),
           label: const Text('คัดลอกรหัส'),
-          style: FilledButton.styleFrom(backgroundColor: TeacherPalette.primary),
+          style: FilledButton.styleFrom(
+            backgroundColor: TeacherPalette.primary,
+          ),
         ),
       ],
     );
@@ -594,16 +598,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
       title: 'จัดการรายวิชาที่สอน',
       activeMenuLabel: 'รายวิชา',
       actions: [
-        IconButton(
-          icon: const Icon(Icons.copy_all_rounded),
-          tooltip: 'คัดลอกรายวิชาจากภาคเรียนก่อน',
-          onPressed: _openCopyCourseModal,
-        ),
-        IconButton(
-          icon: const Icon(Icons.add_circle_outline_rounded),
-          tooltip: 'สร้างรายวิชาใหม่',
-          onPressed: _openNewCourseModal,
-        ),
+        // D6 (DECISIONS_2026-09-18): courses come from the admin's timetable.
+        // create_course rejects teachers since 20260919000000, so the
+        // create/copy buttons that used to sit here would only fail.
       ],
       builder: (context, isDesktop) {
         if (_loading) {
@@ -676,6 +673,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
               context: context,
               totalCourses: teacherCourses.length,
               totalStudents: totalStudents,
+              totalRooms: teacherCourses.expand((c) => c.rooms).toSet().length,
               totalPendingGrading: totalPendingGrading,
               isDesktop: isDesktop,
             ),
@@ -837,24 +835,37 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _openNewCourseModal,
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text(
-                      'เพิ่มรายวิชาใหม่',
-                      style: TextStyle(fontWeight: FontWeight.w800),
+                  // D6: no "add course" here — the school admin's timetable
+                  // creates courses and fills them with the room's students.
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 9,
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF35204E),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.calendar_month_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'รายวิชาและนักเรียนมาจากตารางเรียนที่แอดมินจัด',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   OutlinedButton.icon(
@@ -941,6 +952,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
     required BuildContext context,
     required int totalCourses,
     required int totalStudents,
+    required int totalRooms,
     required int totalPendingGrading,
     required bool isDesktop,
   }) {
@@ -951,14 +963,14 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
           _StatTile(
             title: 'รายวิชาทั้งหมด',
             value: '$totalCourses วิชา',
-            subtitle: '3 กลุ่มเรียนหลัก',
+            subtitle: '$totalRooms ห้องเรียน',
             icon: Icons.menu_book_rounded,
             gradientColors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
           ),
           _StatTile(
             title: 'นักเรียนรวม',
             value: '$totalStudents คน',
-            subtitle: 'อัตราเข้าเรียน 98.4%',
+            subtitle: 'ลงทะเบียนในวิชาของคุณ',
             icon: Icons.groups_rounded,
             gradientColors: const [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
           ),
@@ -975,13 +987,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
               );
             },
           ),
-          _StatTile(
-            title: 'ความคืบหน้าสอน',
-            value: '87%',
-            subtitle: 'ตามแผนการสอน',
-            icon: Icons.trending_up_rounded,
-            gradientColors: const [Color(0xFF6D28D9), Color(0xFF8B5CF6)],
-          ),
+          // "ความคืบหน้าสอน 87%" used to sit here — a constant with no data
+          // behind it (removed 2026-09-21, D6 phase 3).
         ];
 
         if (isWide) {
@@ -1053,14 +1060,14 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
+                  // rooms come from the teacher's real courses — the old
+                  // hardcoded ม.4/1 … ม.6/3 list filtered nothing
                   children:
                       [
                         'ทั้งหมด',
-                        'ม.4/1',
-                        'ม.4/2',
-                        'ม.5/2',
-                        'ม.6/1',
-                        'ม.6/3',
+                        ...({
+                          for (final c in teacherCourses) ...c.rooms,
+                        }.toList()..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -2240,7 +2247,8 @@ class TeacherCourseDetailPage extends StatefulWidget {
   /// Gradebook-tab seams (list_course_students / list_course_grades and the
   /// browser download) so the tab's load, failure and CSV export can be
   /// driven in a widget test.
-  final Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents;
+  final Future<List<CourseStudent>> Function(String courseId)?
+  loadCourseStudents;
   final Future<List<GradeRecord>> Function(String courseId)? loadCourseGrades;
   final void Function({
     required String filename,
@@ -2275,8 +2283,10 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
     final courseId = widget.course?.id ?? widget.course?.code;
     if (courseId == null) return;
     try {
-      final list = await (widget.loadCourseStudents ??
-          CourseService.listCourseStudents)(courseId);
+      final list =
+          await (widget.loadCourseStudents ?? CourseService.listCourseStudents)(
+            courseId,
+          );
       if (mounted) {
         setState(() {
           _dynamicStudentCount = list.length;
@@ -2315,20 +2325,8 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
       title: 'รายละเอียดวิชา ${c.name.isNotEmpty ? c.name : c.code}',
       activeMenuLabel: 'รายวิชา',
       actions: [
-        OutlinedButton.icon(
-          onPressed: () => _openJoinCodeModal(context, c),
-          icon: const Icon(Icons.qr_code_2_rounded, size: 16),
-          label: const Text('รหัสเข้าร่วม'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: TeacherPalette.primary,
-            side: const BorderSide(color: TeacherPalette.primary),
-            minimumSize: const Size(0, 40),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
+        // "รหัสเข้าร่วม" removed (D6): students never had an RPC to redeem
+        // a join code, and membership now follows the admin's timetable.
         const SizedBox(width: 8),
         ElevatedButton.icon(
           onPressed: () => _openGroupManagementModal(context, c),
@@ -2612,7 +2610,9 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
     final courseId = course.id;
     if (courseId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ไม่พบรหัสรายวิชา ไม่สามารถออกรหัสเข้าร่วมได้')),
+        const SnackBar(
+          content: Text('ไม่พบรหัสรายวิชา ไม่สามารถออกรหัสเข้าร่วมได้'),
+        ),
       );
       return;
     }
@@ -4140,8 +4140,10 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
       _loadFailed = false;
     });
     try {
-      final enrolled = await (widget.loadStudents ??
-          CourseService.listCourseStudents)(widget.course.id ?? '');
+      final enrolled =
+          await (widget.loadStudents ?? CourseService.listCourseStudents)(
+            widget.course.id ?? '',
+          );
       final List<Map<String, dynamic>> list = enrolled
           .map(
             (st) => {
@@ -4199,26 +4201,28 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                 color: TeacherPalette.ink,
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: () => openAddStudentModalSheet(
-                context,
-                widget.course,
-                _loadStudentsFromSupabase,
-              ),
-              icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
-              label: const Text('เพิ่มนักเรียนเข้ารายวิชา'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: TeacherPalette.primary,
-                foregroundColor: Colors.white,
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 0,
+            // D6: enroll_student is admin-only since 20260919000000; the room's
+            // students arrive through the timetable.
+            const Tooltip(
+              message: 'รายชื่อมาจากห้องเรียนที่แอดมินจัดในตารางเรียน',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    size: 14,
+                    color: TeacherPalette.muted,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'จากตารางเรียน',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: TeacherPalette.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -4298,7 +4302,7 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'กดปุ่ม "+ เพิ่มนักเรียนเข้ารายวิชา" ด้านบนเพื่อลงทะเบียนนักเรียนเข้าเรียน',
+                  'นักเรียนจะเข้าวิชาเองเมื่อแอดมินจัดวิชานี้ลงตารางเรียนของห้อง',
                   style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
                 ),
               ],
@@ -4430,7 +4434,8 @@ class _CourseGradebookTabWidget extends StatefulWidget {
   });
 
   final TeacherCourseModel course;
-  final Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents;
+  final Future<List<CourseStudent>> Function(String courseId)?
+  loadCourseStudents;
   final Future<List<GradeRecord>> Function(String courseId)? loadCourseGrades;
   final void Function({
     required String filename,
@@ -4465,10 +4470,14 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
     });
     try {
       final courseId = widget.course.id ?? '';
-      final enrolled = await (widget.loadCourseStudents ??
-          CourseService.listCourseStudents)(courseId);
-      final grades = await (widget.loadCourseGrades ??
-          GradeService.listCourseGrades)(courseId);
+      final enrolled =
+          await (widget.loadCourseStudents ?? CourseService.listCourseStudents)(
+            courseId,
+          );
+      final grades =
+          await (widget.loadCourseGrades ?? GradeService.listCourseGrades)(
+            courseId,
+          );
       final gradesByStudent = <String, List<GradeRecord>>{};
       for (final g in grades) {
         gradesByStudent.putIfAbsent(g.studentId, () => []).add(g);
@@ -4512,7 +4521,8 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
   }
 
   String _csvField(String value) {
-    final needsQuote = value.contains(',') || value.contains('"') || value.contains('\n');
+    final needsQuote =
+        value.contains(',') || value.contains('"') || value.contains('\n');
     final escaped = value.replaceAll('"', '""');
     return needsQuote ? '"$escaped"' : escaped;
   }
@@ -4540,16 +4550,19 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
     ];
     final csv = rows.map((r) => r.map(_csvField).join(',')).join('\r\n');
     final doDownload = widget.downloadBytesOverride ?? downloadBytes;
-    final code = (widget.course.code).replaceAll(RegExp(r'[^A-Za-z0-9ก-๙_-]'), '_');
+    final code = (widget.course.code).replaceAll(
+      RegExp(r'[^A-Za-z0-9ก-๙_-]'),
+      '_',
+    );
     doDownload(
       filename:
           'gradebook_${code}_${DateTime.now().toIso8601String().split('T').first}.csv',
       bytes: utf8.encode('\uFEFF$csv'),
       mimeType: 'text/csv',
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ส่งออกสมุดคะแนนแล้ว (CSV)')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('ส่งออกสมุดคะแนนแล้ว (CSV)')));
   }
 
   @override
@@ -4672,7 +4685,10 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                TextButton(onPressed: _fetchGradeData, child: const Text('ลองใหม่')),
+                TextButton(
+                  onPressed: _fetchGradeData,
+                  child: const Text('ลองใหม่'),
+                ),
               ],
             ),
           )
@@ -4810,7 +4826,8 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                                         ? Icons.check_circle_rounded
                                         : Icons.hourglass_bottom_rounded,
                                     size: 16,
-                                    color: (st['confirmedCount'] as int) ==
+                                    color:
+                                        (st['confirmedCount'] as int) ==
                                             st['entryCount']
                                         ? const Color(0xFF059669)
                                         : const Color(0xFFCA8A04),
@@ -4820,7 +4837,8 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
                                     'ยืนยันแล้ว ${st['confirmedCount']}/${st['entryCount']} รายการ',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      color: (st['confirmedCount'] as int) ==
+                                      color:
+                                          (st['confirmedCount'] as int) ==
                                               st['entryCount']
                                           ? const Color(0xFF059669)
                                           : const Color(0xFFCA8A04),
@@ -5155,15 +5173,9 @@ class _CourseAssignmentListTabWidgetState
                             ],
                           ),
                         ),
-                        const Spacer(),
-                        const Text(
-                          'ส่งแล้ว 1/1 คน (100%)',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: TeacherPalette.muted,
-                          ),
-                        ),
+                        // "ส่งแล้ว 1/1 คน (100%)" was a constant here;
+                        // list_assignments carries no per-assignment count,
+                        // so nothing is shown until it does.
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -5244,10 +5256,10 @@ class _CourseAssignmentListTabWidgetState
                               type: 'ใบงานทดลอง',
                               courseName: widget.course.name,
                               dueDate: a.dueAt != null
-                                  ? a.dueAt!
-                                        .toLocal()
-                                        .toString()
-                                        .substring(0, 16)
+                                  ? a.dueAt!.toLocal().toString().substring(
+                                      0,
+                                      16,
+                                    )
                                   : 'ไม่มีกำหนดส่ง',
                               status: a.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
                               isGroupWork: a.isGroup,
