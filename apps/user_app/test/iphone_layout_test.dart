@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/student_redesign_prototype/student_safety_page.dart';
 import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_calendar_page.dart';
+import 'package:my_first_app/pages/school_admin/school_timetable_page.dart';
+import 'package:my_first_app/pages/school_admin/controllers/school_timetable_controller.dart';
+
 import 'package:my_first_app/pages/student_redesign_prototype/widgets/student_variant_school_home.dart';
 import 'package:my_first_app/widgets/sensor_card.dart';
 import 'package:shared_core/shared_core.dart';
@@ -144,4 +147,43 @@ void main() {
     expect(find.text('รายการวันนี้'), findsOneWidget);
     expect(find.text('ไม่มีรายการในวันนี้'), findsOneWidget);
   });
+
+  testWidgets(
+    'school_timetable_page does not overflow vertically/horizontally on phones',
+    (tester) async {
+      final controller = SchoolTimetableController(
+        loadTerms: () async => const [
+          Term(termId: '1', termName: '1', academicYearName: '2569'),
+        ],
+        loadRooms: () async => const [
+          SchoolRoom(gradeLevel: 'ม.1', room: '1/1'),
+        ],
+        loadPeriods: () async => const [
+          SchoolPeriod(periodNo: 1, startTime: '08:30:00', endTime: '09:20:00'),
+        ],
+        loadSchedules: (a, b, c) async => const [],
+        loadTeacherSubjects: () async => const [],
+        loadStaff: () async => const [],
+        setSlot:
+            ({
+              required termId,
+              required gradeLevel,
+              required room,
+              required dayOfWeek,
+              required periodNo,
+              required subjectName,
+              required teacherId,
+            }) async {},
+        clearSlot:
+            ({
+              required termId,
+              required gradeLevel,
+              required room,
+              required dayOfWeek,
+              required periodNo,
+            }) async {},
+      );
+      await _phone(tester, SchoolTimetablePage(controller: controller));
+    },
+  );
 }

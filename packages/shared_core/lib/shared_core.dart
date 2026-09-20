@@ -87,3 +87,5 @@ export 'models/meeting_model.dart';
 export 'models/staff_request_model.dart';
 export 'services/meeting_service.dart';
 export 'services/staff_request_service.dart';
+export 'models/timetable_model.dart';
+export 'services/timetable_service.dart';

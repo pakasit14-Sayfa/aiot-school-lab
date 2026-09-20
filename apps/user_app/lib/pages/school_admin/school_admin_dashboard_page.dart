@@ -22,6 +22,8 @@ import 'school_admin_esg_page.dart';
 import 'school_admin_device_control_page.dart';
 import 'school_admin_incident_inbox_page.dart';
 import 'school_learning_tracks_page.dart';
+import 'school_timetable_page.dart';
+
 import 'school_admin_attendance_settings_page.dart';
 import 'school_admin_leave_approval_page.dart';
 import 'school_admin_report_requirements_page.dart';
@@ -73,8 +75,9 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
 
   Future<void> _loadSchoolName() async {
     try {
-      final summary = await (widget.loadSummary?.call() ??
-          SchoolAdminPlatformService().fetchDashboardSummary());
+      final summary =
+          await (widget.loadSummary?.call() ??
+              SchoolAdminPlatformService().fetchDashboardSummary());
       if (!mounted) return;
       setState(() {
         _schoolName = summary.schoolName;
@@ -116,6 +119,7 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     // หน้าอนุมัติการลา และหน้ารายงานที่ต้องส่ง (23) เปิดจาก sidebar ไม่ได้เลย
     // เทสต์ school_admin_dashboard_page_test ล็อกคู่ป้าย↔หน้าไว้แล้ว
     _MenuItemData('สายการเรียน', Icons.alt_route_rounded),
+    _MenuItemData('จัดตารางเรียน', Icons.calendar_month_rounded),
     _MenuItemData('ตั้งเวลาปฏิบัติงาน', Icons.access_time_rounded),
     _MenuItemData('อนุมัติการลา', Icons.fact_check_rounded),
     _MenuItemData('รายการรายงานที่ต้องส่ง', Icons.assignment_turned_in_rounded),
@@ -255,14 +259,18 @@ class _SchoolAdminDashboardPageState extends State<SchoolAdminDashboardPage> {
     }
 
     if (_selectedIndex == 21) {
-      return _themed(const SchoolAdminAttendanceSettingsPage());
+      return _themed(const SchoolTimetablePage());
     }
 
     if (_selectedIndex == 22) {
-      return _themed(const SchoolAdminLeaveApprovalPage());
+      return _themed(const SchoolAdminAttendanceSettingsPage());
     }
 
     if (_selectedIndex == 23) {
+      return _themed(const SchoolAdminLeaveApprovalPage());
+    }
+
+    if (_selectedIndex == 24) {
       return _themed(const SchoolAdminReportRequirementsPage());
     }
 
@@ -745,10 +753,7 @@ class _UserCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: const Color(0xFFF1F5F9),
-              width: 1.0,
-            ),
+            border: Border.all(color: const Color(0xFFF1F5F9), width: 1.0),
           ),
           // เดิม hardcode 'ผู้ดูแลโรงเรียน (Admin)' / 'admin@aiot-school.ac.th'
           // ตายตัว — ทุกคนที่ล็อกอินเห็นชื่อ/อีเมลเดียวกันหมด ไม่ว่าใครเป็นคนใช้
@@ -826,10 +831,7 @@ class _SchoolScopeCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFF1F5F9),
-          width: 1.0,
-        ),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.0),
       ),
       child: Row(
         children: [
@@ -2435,7 +2437,9 @@ class _HomeResourceOverviewState extends State<_HomeResourceOverview> {
     final hasPm25 = _metricsWithData.contains('pm25') && _sensor != null;
     return _ResourceData(
       title: 'คุณภาพอากาศ',
-      value: hasPm25 ? 'PM2.5 ${_sensor!.pm25.toStringAsFixed(0)}' : _stateText(),
+      value: hasPm25
+          ? 'PM2.5 ${_sensor!.pm25.toStringAsFixed(0)}'
+          : _stateText(),
       detail: hasPm25
           ? 'ค่าล่าสุดจากเซนเซอร์ในโรงเรียน'
           : 'ยังไม่มีเซนเซอร์ที่ส่งค่า PM2.5',
