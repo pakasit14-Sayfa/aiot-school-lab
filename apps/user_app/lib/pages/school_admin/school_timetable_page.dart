@@ -45,6 +45,7 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
           loadStaff: StaffOrgService.listStaffDirectory,
           setSlot: TimetableService.adminSetRoomTimetableSlot,
           clearSlot: TimetableService.adminClearRoomTimetableSlot,
+          savePeriods: TimetableService.setSchoolPeriods,
         );
 
     _controller.addListener(_onControllerChanged);
@@ -85,6 +86,45 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
     );
   }
 
+  /// RPC error codes → what the admin should read. Raw exception text never
+  /// reaches the screen (same rule as d8dcf6e on the teacher lane).
+  static String thaiError(Object e, {required String fallback}) {
+    final t = e.toString();
+    if (t.contains('period_not_found')) {
+      return 'ยังไม่ได้ตั้งค่าคาบเวลานี้ ตั้งค่าคาบเวลาก่อน';
+    }
+    if (t.contains('teacher_required')) return 'ต้องระบุครูผู้สอน';
+    if (t.contains('teacher_not_found')) {
+      return 'ไม่พบครูคนนี้ในโรงเรียน (ต้องมีบทบาทครู)';
+    }
+    if (t.contains('subject_name_required')) return 'กรุณาระบุชื่อวิชา';
+    if (t.contains('term_not_found')) return 'ไม่พบภาคเรียนที่เลือก';
+    if (t.contains('room_required')) return 'ต้องระบุชั้นและห้อง';
+    if (t.contains('invalid_period_time')) {
+      return 'เวลาสิ้นสุดของคาบต้องอยู่หลังเวลาเริ่ม';
+    }
+    if (t.contains('forbidden')) return 'บัญชีนี้ไม่มีสิทธิ์จัดตารางเรียน';
+    if (t.contains('invalid_session') || t.contains('not_signed_in')) {
+      return 'หมดเวลาเข้าสู่ระบบ กรุณาเข้าสู่ระบบใหม่';
+    }
+    return fallback;
+  }
+
+  Future<void> _openPeriodsSheet() async {
+    final result = await showModalBottomSheet<List<SchoolPeriod>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PeriodsSheet(initial: _controller.periods),
+    );
+    if (result == null) return;
+    try {
+      await _controller.replacePeriods(result);
+    } catch (e) {
+      if (!mounted) return;
+      _showError(thaiError(e, fallback: 'บันทึกคาบเวลาไม่สำเร็จ กรุณาลองใหม่'));
+    }
+  }
+
   Future<void> _openSlotSheet(int periodNo, int dayOfWeek) async {
     final schedule = _controller.schedules
         .where((s) => s.periodNo == periodNo && s.dayOfWeek == dayOfWeek)
@@ -111,13 +151,17 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
             dayOfWeek: dayOfWeek,
           );
         } catch (e) {
-          _showError('เกิดข้อผิดพลาดในการลบคาบ: $e');
+          _showError(thaiError(e, fallback: 'ลบคาบไม่สำเร็จ กรุณาลองใหม่'));
         }
       } else if (result['action'] == 'save') {
         final String subjectName = result['subject_name'];
         final String? teacherId = result['teacher_id'];
         if (subjectName.isEmpty) {
           _showError('กรุณาระบุชื่อวิชา');
+          return;
+        }
+        if (teacherId == null) {
+          _showError('ต้องระบุครูผู้สอน');
           return;
         }
         try {
@@ -128,7 +172,7 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
             teacherId: teacherId,
           );
         } catch (e) {
-          _showError('เกิดข้อผิดพลาดในการบันทึกคาบ: $e');
+          _showError(thaiError(e, fallback: 'บันทึกคาบไม่สำเร็จ กรุณาลองใหม่'));
         }
       }
     }
@@ -142,9 +186,26 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
       bodyWidget = const Center(child: CircularProgressIndicator());
     } else if (state is SchoolAdminError) {
       bodyWidget = Center(
-        child: Text(
-          'ข้อผิดพลาด: ${state.message}',
-          style: const TextStyle(color: SchoolAdminPalette.red),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                thaiError(
+                  state.message,
+                  fallback: 'โหลดตารางเรียนไม่สำเร็จ กรุณาลองใหม่',
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: SchoolAdminPalette.red),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _controller.load,
+                child: const Text('ลองใหม่'),
+              ),
+            ],
+          ),
         ),
       );
     } else if (state is SchoolAdminEmpty) {
@@ -158,6 +219,13 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
         title: const Text('จัดตารางเรียน'),
         backgroundColor: SchoolAdminPalette.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'ตั้งค่าคาบเวลา',
+            onPressed: state is SchoolAdminLoading ? null : _openPeriodsSheet,
+            icon: const Icon(Icons.schedule_rounded),
+          ),
+        ],
       ),
       body: bodyWidget,
     );
@@ -166,19 +234,38 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
   Widget _buildContent() {
     if (_controller.periods.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('ยังไม่ได้ตั้งค่าคาบเวลาเรียน'),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                // Link to settings or just show a message since we don't have a settings page route right here
-                Navigator.of(context).pushNamed('/school_admin/settings');
-              },
-              child: const Text('ไปตั้งค่าคาบเวลา'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.schedule_rounded,
+                size: 40,
+                color: SchoolAdminPalette.textMuted,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'ยังไม่ได้ตั้งค่าคาบเวลาเรียน',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'กำหนดว่าคาบ 1, 2, 3 … เริ่ม-จบกี่โมง ครั้งเดียวทั้งโรงเรียน แล้วค่อยจัดวิชาลงช่อง',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: SchoolAdminPalette.textMuted,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _openPeriodsSheet,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('ตั้งค่าคาบเวลา'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -205,11 +292,17 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
           Expanded(
             child: DropdownButtonFormField<String>(
               initialValue: _controller.selectedTermId,
+              // isExpanded: the two dropdowns share a 360-pt phone row; without
+              // it the inner Row overflowed by 1.2 px (iphone_layout_test).
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'เทอม'),
               items: _controller.terms.map((t) {
                 return DropdownMenuItem(
                   value: t.termId,
-                  child: Text('${t.termName} (${t.academicYearName})'),
+                  child: Text(
+                    '${t.termName} (${t.academicYearName})',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 );
               }).toList(),
               onChanged: (val) {
@@ -221,9 +314,13 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
           Expanded(
             child: DropdownButtonFormField<SchoolRoom>(
               initialValue: _controller.selectedRoom,
+              isExpanded: true,
               decoration: const InputDecoration(labelText: 'ห้องเรียน'),
               items: _controller.rooms.map((r) {
-                return DropdownMenuItem(value: r, child: Text(r.displayName));
+                return DropdownMenuItem(
+                  value: r,
+                  child: Text(r.displayName, overflow: TextOverflow.ellipsis),
+                );
               }).toList(),
               onChanged: (val) {
                 if (val != null) _controller.selectRoom(val);
@@ -287,7 +384,7 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            '${p.startTime.substring(0, 5)}-${p.endTime.substring(0, 5)}',
+                            '${p.startHm}-${p.endHm}',
                             style: const TextStyle(fontSize: 12),
                           ),
                         ],
@@ -329,7 +426,8 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
                                         ? const Center(
                                             child: Icon(
                                               Icons.add,
-                                              color: SchoolAdminPalette.textMuted,
+                                              color:
+                                                  SchoolAdminPalette.textMuted,
                                             ),
                                           )
                                         : Column(
@@ -351,7 +449,8 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
                                                   fontSize: 12,
-                                                  color: SchoolAdminPalette.textMuted,
+                                                  color: SchoolAdminPalette
+                                                      .textMuted,
                                                 ),
                                                 maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
@@ -466,11 +565,9 @@ class _SlotEditSheetState extends State<_SlotEditSheet> {
             const SizedBox(height: 8),
             DropdownButtonFormField<String?>(
               initialValue: _selectedTeacherId,
-              decoration: const InputDecoration(
-                labelText: 'ครูผู้สอน (ไม่บังคับ)',
-              ),
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'ครูผู้สอน *'),
               items: [
-                const DropdownMenuItem(value: null, child: Text('ไม่มี')),
                 if (!_showAllTeachers)
                   ...subjectTeachers.map(
                     (t) => DropdownMenuItem(
@@ -510,7 +607,8 @@ class _SlotEditSheetState extends State<_SlotEditSheet> {
               if (widget.initialSubject != null) const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: currentSubject.isEmpty
+                  onPressed:
+                      currentSubject.isEmpty || _selectedTeacherId == null
                       ? null
                       : () => Navigator.of(context).pop({
                           'action': 'save',
@@ -527,4 +625,225 @@ class _SlotEditSheetState extends State<_SlotEditSheet> {
       ),
     );
   }
+}
+
+/// Edits the school's period table in place: one row per period with
+/// start/end pickers. Saved as a whole (set_school_periods replaces the set).
+class _PeriodsSheet extends StatefulWidget {
+  const _PeriodsSheet({required this.initial});
+  final List<SchoolPeriod> initial;
+
+  @override
+  State<_PeriodsSheet> createState() => _PeriodsSheetState();
+}
+
+class _PeriodsSheetState extends State<_PeriodsSheet> {
+  late List<_EditablePeriod> _rows;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _rows = widget.initial.isEmpty
+        ? _defaultRows()
+        : widget.initial
+              .map(
+                (p) => _EditablePeriod(_parse(p.startTime), _parse(p.endTime)),
+              )
+              .toList();
+  }
+
+  /// 8 periods of 50 minutes from 08:30 — a starting point the admin edits,
+  /// shown only until saved (nothing is written until they press บันทึก).
+  static List<_EditablePeriod> _defaultRows() {
+    final rows = <_EditablePeriod>[];
+    var start = const TimeOfDay(hour: 8, minute: 30);
+    for (var i = 0; i < 8; i++) {
+      final end = _add(start, 50);
+      rows.add(_EditablePeriod(start, end));
+      start = end;
+    }
+    return rows;
+  }
+
+  static TimeOfDay _add(TimeOfDay t, int minutes) {
+    final total = t.hour * 60 + t.minute + minutes;
+    return TimeOfDay(hour: (total ~/ 60) % 24, minute: total % 60);
+  }
+
+  static TimeOfDay _parse(String hms) {
+    final parts = hms.split(':');
+    return TimeOfDay(
+      hour: int.tryParse(parts[0]) ?? 0,
+      minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
+    );
+  }
+
+  static String _fmt(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  static int _mins(TimeOfDay t) => t.hour * 60 + t.minute;
+
+  Future<void> _pick(int index, bool isStart) async {
+    final row = _rows[index];
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? row.start : row.end,
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        row.start = picked;
+      } else {
+        row.end = picked;
+      }
+      _error = null;
+    });
+  }
+
+  void _save() {
+    for (var i = 0; i < _rows.length; i++) {
+      final r = _rows[i];
+      if (_mins(r.end) <= _mins(r.start)) {
+        setState(
+          () => _error = 'คาบ ${i + 1}: เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม',
+        );
+        return;
+      }
+      if (i > 0 && _mins(r.start) < _mins(_rows[i - 1].end)) {
+        setState(() => _error = 'คาบ ${i + 1} เริ่มก่อนคาบ $i จบ');
+        return;
+      }
+    }
+    Navigator.of(context).pop([
+      for (var i = 0; i < _rows.length; i++)
+        SchoolPeriod(
+          periodNo: i + 1,
+          startTime: _fmt(_rows[i].start),
+          endTime: _fmt(_rows[i].end),
+          label: 'คาบ ${i + 1}',
+        ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: bottomInset,
+        left: 16,
+        right: 16,
+        top: 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'คาบเวลาเรียน',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'ใช้ร่วมกันทั้งโรงเรียน · ตารางของทุกห้องอิงเวลาชุดนี้',
+            style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textMuted),
+          ),
+          const SizedBox(height: 12),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _rows.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 6),
+              itemBuilder: (context, i) {
+                final r = _rows[i];
+                return Row(
+                  children: [
+                    SizedBox(
+                      width: 56,
+                      child: Text(
+                        'คาบ ${i + 1}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _pick(i, true),
+                        child: Text(_fmt(r.start)),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('–'),
+                    ),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _pick(i, false),
+                        child: Text(_fmt(r.end)),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'ลบคาบนี้',
+                      onPressed: _rows.length <= 1
+                          ? null
+                          : () => setState(() => _rows.removeAt(i)),
+                      icon: const Icon(Icons.remove_circle_outline, size: 18),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() {
+                final last = _rows.last;
+                _rows.add(_EditablePeriod(last.end, _add(last.end, 50)));
+              }),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('เพิ่มคาบ'),
+            ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                _error!,
+                style: const TextStyle(
+                  color: SchoolAdminPalette.red,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                ),
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('ยกเลิก'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _save,
+                  child: const Text('บันทึกคาบเวลา'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditablePeriod {
+  _EditablePeriod(this.start, this.end);
+  TimeOfDay start;
+  TimeOfDay end;
 }

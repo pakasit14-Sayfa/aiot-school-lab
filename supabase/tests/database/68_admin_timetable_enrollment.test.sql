@@ -2,7 +2,7 @@
 BEGIN;
 
 create extension if not exists pgtap with schema extensions;
-select plan(26);
+select plan(30);
 
 -- Setup: create test users and tokens
 insert into packages (id, name, license_type) values ('68100000-0000-0000-0000-000000000001', 'SP package', 'perpetual') on conflict do nothing;
@@ -147,6 +147,25 @@ select is(
    where cs.student_id = '68500000-0000-0000-0000-000000000002' and cs.enrolled_by is null and c.subject_name = 'Thai 101'),
   1,
   'นักเรียนที่ profile เก็บห้องแบบสั้น (1) ถูกดึงเข้าคอร์สที่เก็บห้องแบบยาว (ม.1/1)'
+);
+
+
+-- 14. (20260920030000) admin lists every teacher's subjects with names; assigning a slot records the pair
+select lives_ok(
+  $$ select * from list_teacher_subjects('token_admin') $$,
+  'แอดมินเรียก list_teacher_subjects โดยไม่ระบุครูได้ (เดิม forbidden)'
+);
+select ok(
+  exists (select 1 from list_teacher_subjects('token_admin') where subject_name = 'History 101' and teacher_name like 'Tea%'),
+  'จัดคาบ History 101 ให้ครูแล้ว teacher_subjects จำคู่ครู-วิชาให้เอง พร้อมชื่อครู'
+);
+select throws_ok(
+  $$ select admin_set_room_timetable_slot('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1', 2::smallint, 1::smallint, 'Art 101', null) $$,
+  'teacher_required', 'จัดคาบโดยไม่ระบุครู → teacher_required'
+);
+select throws_ok(
+  $$ select * from list_teacher_subjects('token_student') $$,
+  'forbidden', 'นักเรียนเรียก list_teacher_subjects ไม่ได้'
 );
 
 SELECT * FROM finish();

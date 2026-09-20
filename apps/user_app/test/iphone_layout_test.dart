@@ -182,6 +182,7 @@ void main() {
               required dayOfWeek,
               required periodNo,
             }) async {},
+        savePeriods: (_) async {},
       );
       await _phone(tester, SchoolTimetablePage(controller: controller));
     },

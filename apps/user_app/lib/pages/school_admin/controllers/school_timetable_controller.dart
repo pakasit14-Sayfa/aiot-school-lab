@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_core/shared_core.dart';
+
 import 'school_admin_async_state.dart';
 
 class SchoolTimetableController extends ChangeNotifier {
@@ -32,6 +33,7 @@ class SchoolTimetableController extends ChangeNotifier {
     required int dayOfWeek,
   })
   clearSlot;
+  final Future<void> Function(List<SchoolPeriod> periods) savePeriods;
 
   SchoolTimetableController({
     required this.loadTerms,
@@ -42,6 +44,7 @@ class SchoolTimetableController extends ChangeNotifier {
     required this.loadStaff,
     required this.setSlot,
     required this.clearSlot,
+    required this.savePeriods,
   });
 
   SchoolAdminAsyncState _state = const SchoolAdminLoading<void>();
@@ -82,8 +85,10 @@ class SchoolTimetableController extends ChangeNotifier {
       final rawTeacherSubjects = await loadTeacherSubjects();
       final staff = await loadStaff();
 
-      // Merge staff names into TeacherSubject
+      // The RPC returns teacher_name; fall back to the staff directory only
+      // for rows that arrive without one.
       _teacherSubjects = rawTeacherSubjects.map((ts) {
+        if (ts.fullName.isNotEmpty) return ts;
         final staffMember = staff
             .where((s) => s.userId == ts.teacherId)
             .firstOrNull;
@@ -100,7 +105,13 @@ class SchoolTimetableController extends ChangeNotifier {
       _staff = staff;
 
       if (terms.isNotEmpty) {
-        _selectedTermId = terms.first.termId;
+        // Default to the term running today, not whatever list_terms
+        // happens to return first.
+        final today = DateTime.now();
+        _selectedTermId =
+            (terms.where((t) => t.containsDate(today)).firstOrNull ??
+                    terms.first)
+                .termId;
       }
       if (rooms.isNotEmpty) {
         _selectedRoom = rooms.first;
@@ -205,5 +216,14 @@ class SchoolTimetableController extends ChangeNotifier {
     } catch (e) {
       throw Exception(e.toString());
     }
+  }
+
+  /// Replaces the school's period table, then reloads it from the backend
+  /// (never trusts the local list).
+  Future<void> replacePeriods(List<SchoolPeriod> periods) async {
+    await savePeriods(periods);
+    _periods = await loadPeriods();
+    await _loadSchedulesForSelectedRoom();
+    notifyListeners();
   }
 }

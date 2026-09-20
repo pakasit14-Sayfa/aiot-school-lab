@@ -1,12 +1,14 @@
 class SchoolPeriod {
   final int periodNo;
-  final String startTime;
+  final String startTime; // 'HH:mm' or 'HH:mm:ss' as the DB returns it
   final String endTime;
+  final String? label;
 
   const SchoolPeriod({
     required this.periodNo,
     required this.startTime,
     required this.endTime,
+    this.label,
   });
 
   factory SchoolPeriod.fromJson(Map<String, dynamic> json) {
@@ -14,8 +16,21 @@ class SchoolPeriod {
       periodNo: json['period_no'] as int,
       startTime: json['start_time'] as String,
       endTime: json['end_time'] as String,
+      label: json['label'] as String?,
     );
   }
+
+  /// Shape `set_school_periods(p_periods jsonb)` expects.
+  Map<String, dynamic> toJson() => {
+    'period_no': periodNo,
+    'start_time': startTime,
+    'end_time': endTime,
+    if (label != null) 'label': label,
+  };
+
+  String get startHm =>
+      startTime.length >= 5 ? startTime.substring(0, 5) : startTime;
+  String get endHm => endTime.length >= 5 ? endTime.substring(0, 5) : endTime;
 }
 
 class TeacherSubject {
@@ -33,7 +48,7 @@ class TeacherSubject {
     return TeacherSubject(
       teacherId: json['teacher_id'] as String,
       subjectName: json['subject_name'] as String,
-      fullName: json['full_name'] as String,
+      fullName: (json['teacher_name'] ?? json['full_name'] ?? '') as String,
     );
   }
 }
@@ -70,6 +85,7 @@ class ClassSchedule {
       startTime: json['start_time'] as String,
       endTime: json['end_time'] as String,
       subjectName: json['subject_name'] as String,
+      teacherId: json['teacher_id'] as String?,
       teacherName: json['teacher_name'] as String?,
     );
   }
@@ -79,11 +95,15 @@ class Term {
   final String termId;
   final String termName;
   final String academicYearName;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const Term({
     required this.termId,
     required this.termName,
     required this.academicYearName,
+    this.startDate,
+    this.endDate,
   });
 
   factory Term.fromJson(Map<String, dynamic> json) {
@@ -91,8 +111,16 @@ class Term {
       termId: json['term_id'] as String,
       termName: json['term_name'] as String,
       academicYearName: json['academic_year_name'] as String,
+      startDate: DateTime.tryParse('${json['start_date'] ?? ''}'),
+      endDate: DateTime.tryParse('${json['end_date'] ?? ''}'),
     );
   }
+
+  bool containsDate(DateTime d) =>
+      startDate != null &&
+      endDate != null &&
+      !d.isBefore(startDate!) &&
+      !d.isAfter(endDate!);
 }
 
 class SchoolRoom {

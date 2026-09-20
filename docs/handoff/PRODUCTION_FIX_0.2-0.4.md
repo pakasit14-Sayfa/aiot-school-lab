@@ -393,3 +393,15 @@ bash scripts/prod_apply_2026-09-20b.sh
 
 ผล: `has_max_points = true`, `overloads = 1`, raw 30 วัน = 20,812 แถว → แอปนักเรียนเห็น 135 จุด ครบ 29/8 09:46 – 2/9 14:06 (ต่ำสุด 23.6 / เฉลี่ย 28.4 / สูงสุด 32.8 °C) แกน X มีวันที่ · เดิมคาดว่า: เปิดแอปนักเรียน → ชุดข้อมูลอุณหภูมิ 21/8–20/9
 ต้องเห็นทั้งชุด 29 ส.ค. (ไม่ใช่แค่ 09:48–10:37) และแกน X มีวันที่
+
+### 4.11 (รอเจ้าของรัน) D6 เฟส 2 — RPC ที่หน้าจัดตารางแอดมินต้องใช้
+
+migration `20260920030000_timetable_phase2_rpc_fixes.sql` · pgTAP 68 30/30 (+4) · ทั้งชุด 66 ไฟล์ 1,078 เคส PASS
+- `list_teacher_subjects(p_token, null)` โดยแอดมิน = ครูทุกคนในโรงเรียน + `teacher_name` (เดิม forbidden → หน้าจัดตารางเปิดไม่ขึ้น)
+- `admin_set_room_timetable_slot` บังคับครู (`teacher_required`) และจำคู่ครู↔วิชาลง `teacher_subjects` ให้เอง
+
+```bash
+bash scripts/prod_apply_2026-09-20c.sh
+```
+verify: `returns_teacher_name = true`, `slot_records_subject = true`
+

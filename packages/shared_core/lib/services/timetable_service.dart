@@ -28,10 +28,10 @@ class TimetableService {
     final token = _token();
     var yearId = academicYearId;
     if (yearId == null) {
-      final years =
-          (await supabase.rpc('list_academic_years', params: {'p_token': token})
-                  as List)
-              .cast<Map<String, dynamic>>();
+      final years = (await supabase.rpc(
+        'list_academic_years',
+        params: {'p_token': token},
+      ) as List).cast<Map<String, dynamic>>();
       if (years.isEmpty) return const [];
       final today = DateTime.now();
       Map<String, dynamic>? current;
@@ -67,9 +67,9 @@ class TimetableService {
         .toList();
   }
 
-  /// `list_teacher_subjects` returns one teacher's subjects (admins must name
-  /// the teacher; teachers get their own). The RPC has no full name — the
-  /// UI merges it from the staff directory.
+  /// `list_teacher_subjects` (20260920030000): an admin with no teacher id
+  /// gets every teacher in the school, name included; a teacher gets their
+  /// own rows.
   static Future<List<TeacherSubject>> listTeacherSubjects({
     String? teacherId,
   }) async {
@@ -78,14 +78,19 @@ class TimetableService {
       params: {'p_token': _token(), 'p_teacher_id': teacherId},
     );
     return (res as List)
-        .map(
-          (x) => TeacherSubject(
-            teacherId: x['teacher_id'] as String,
-            subjectName: x['subject_name'] as String,
-            fullName: '',
-          ),
-        )
+        .map((x) => TeacherSubject.fromJson(x as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Replaces the school's whole period table (`set_school_periods`).
+  static Future<void> setSchoolPeriods(List<SchoolPeriod> periods) async {
+    await supabase.rpc(
+      'set_school_periods',
+      params: {
+        'p_token': _token(),
+        'p_periods': periods.map((p) => p.toJson()).toList(),
+      },
+    );
   }
 
   static Future<List<ClassSchedule>> listRoomTimetable(
