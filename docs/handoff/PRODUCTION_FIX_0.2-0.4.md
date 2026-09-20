@@ -359,16 +359,24 @@ grant execute on function redeem_parent_binding_code(text,text,text,text,text,te
 ส่งผลลัพธ์ของขั้นที่ 2, 3, 3.5, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
 ใน `MASTER_PLAN_2026-09-06.md` ให้ — **จะไม่ติ๊กจนกว่าจะเห็นผลลัพธ์จริง**
 
-### 4.8 (รอเจ้าของรัน) D6 เฟส 1 — ตารางเรียนของแอดมิน → นักเรียนเข้าวิชาตามห้องอัตโนมัติ
+### 4.8 ✅ รันแล้ว 2026-09-20 — แต่เป็นเวอร์ชันก่อนตรวจ (ต้องรัน 4.9 ซ่อม)
 
-migration `20260919000000_admin_timetable_enrollment.sql` · pgTAP `68_admin_timetable_enrollment` 26/26, ทั้งชุด 1,066 เคส PASS (local 2026-09-20)
+เจ้าของรัน `scripts/prod_apply_2026-09-19.sh` เวอร์ชันแรกของ agy ซึ่งใช้ `npx supabase db push`
+→ prod ได้ `20260919000000` ฉบับ `9bd32dc` (ก่อน review fix `5beea08`): ตัว sync จับคู่ห้องแบบ
+ตรงตัว (`auto_enrolled = 0`), `set_class_schedule` มี 2 overload, `create_course` ไม่เช็ค
+โรงเรียนของ term, ครูยังตั้งตารางได้ · สคริปต์ 09-19 ถูกแทนด้วย stub ที่ exit 1 กันรันซ้ำ
+
+### 4.9 (รอเจ้าของรัน) ซ่อม D6 เฟส 1 บน prod ให้ตรงกับฉบับที่ตรวจแล้ว
+
+migration `20260920000000_d6_phase1_prod_repair.sql` — ทุกคำสั่ง idempotent (CREATE OR REPLACE /
+DROP IF EXISTS / guarded) · ทดสอบ local ด้วยการจำลอง "ก่อน D6 → ฉบับ 9bd32dc → ซ่อม" ใน
+transaction เดียวแล้ว overload เหลือ 1, `_class_room_key` มา, `create_course` เช็คโรงเรียน ·
+ทั้งชุด 65 ไฟล์ PASS หลังเพิ่ม migration นี้
 
 ```bash
-bash scripts/prod_apply_2026-09-19.sh
+bash scripts/prod_apply_2026-09-20.sh
 ```
 
-สคริปต์ verify ให้เอง 3 ข้อ: `timetable_rpcs = 6` · `create_course_admin_only = true` ·
-`auto_enrolled` **คาดว่า = 3** (นักเรียน ม.1/1 ทั้ง 3 คนบน prod เข้าคอร์สคณิตศาสตร์ ม.1/1 — prod เก็บห้องใน profile เป็น `1` แต่ในคอร์สเป็น `ม.1/1`, migration จับคู่ผ่าน `_class_room_key` ให้แล้ว ถ้าได้ 0 ให้หยุดแล้วบอกก่อนไปต่อ)
-
-ผลข้างเคียงที่ตั้งใจ: ครูสร้างคอร์ส / เพิ่มนักเรียน / ตั้งตารางเรียนเองไม่ได้อีกแล้ว (RPC คืน `forbidden`)
-จนกว่าเฟส 3 จะซ่อนปุ่มฝั่งครู — ระหว่างนั้นปุ่มเก่าจะขึ้นข้อความไม่สำเร็จ
+verify ในสคริปต์: `set_class_schedule_overloads = 1` · `room_key_fn = 1` ·
+`create_course_checks_school = true` · **`auto_enrolled = 3`** (นักเรียน ม.1/1 ทั้ง 3 คน
+เข้าคอร์สคณิตศาสตร์ ม.1/1) — ถ้าไม่ตรง หยุดแล้วบอก

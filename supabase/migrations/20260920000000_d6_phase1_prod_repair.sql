@@ -1,7 +1,21 @@
--- 20260919000000_admin_timetable_enrollment.sql
+-- 20260920000000_d6_phase1_prod_repair.sql
 -- =====================================================================
--- Phase 1: Admin Timetable Enrollment
+-- Production received the UNREVIEWED version of 20260919000000 (agy's
+-- 9bd32dc, applied 2026-09-20 via `db push` before the review fixes in
+-- 5beea08 landed). Local resets already run the fixed 20260919 file, so
+-- this migration re-applies the fixed definitions idempotently on top of
+-- whichever version a database has:
+--   * create_course: term must belong to the actor's school (security)
+--   * set_class_schedule: drop the stale (...,text,text) overload, one
+--     signature with p_period_type + p_period_no, school_admin only
+--   * _class_room_key + room-key matching in both sync functions
+--     (prod stores profile room '1' vs course room 'ม.1/1')
+--   * owner-only replace in admin_set_room_timetable_slot
+--   * grants; backfill re-run so prod's ม.1/1 students get enrolled
+-- Every statement below is CREATE OR REPLACE / DROP IF EXISTS / guarded,
+-- so running it on the fixed schema changes nothing.
 -- =====================================================================
+
 
 -- 1. teacher_subjects
 CREATE TABLE IF NOT EXISTS public.teacher_subjects (
@@ -545,7 +559,7 @@ END;
 $$;
 
 -- 8. class_schedules changes
-ALTER TABLE public.class_schedules ADD COLUMN period_no smallint NULL;
+ALTER TABLE public.class_schedules ADD COLUMN IF NOT EXISTS period_no smallint NULL;
 -- Drop the current overload (20260910160000 added p_period_type as the 7th
 -- arg). Leaving it in place next to the new signature makes every 6-arg call
 -- ambiguous ("function is not unique") and lets the client's named
@@ -832,4 +846,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-ALTER TABLE public.class_schedules ADD CONSTRAINT class_schedules_course_day_period_key UNIQUE (course_id, day_of_week, period_no);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'class_schedules_course_day_period_key') THEN
+    ALTER TABLE public.class_schedules ADD CONSTRAINT class_schedules_course_day_period_key UNIQUE (course_id, day_of_week, period_no);
+  END IF;
+END $$;
