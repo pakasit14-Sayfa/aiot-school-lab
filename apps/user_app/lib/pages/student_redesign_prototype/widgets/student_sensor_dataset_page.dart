@@ -329,6 +329,8 @@ class _DatasetChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final multiDay =
+        points.last.ts.difference(points.first.ts) > const Duration(hours: 24);
     final spots = [
       for (var i = 0; i < points.length; i++)
         FlSpot(i.toDouble(), points[i].value),
@@ -348,22 +350,49 @@ class _DatasetChart extends StatelessWidget {
           topTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
-          leftTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+          // 40 was too narrow for "28.8" on the phone — the label wrapped
+          // to two lines ("28." / "8"). One decimal + sign needs ~44; the
+          // label itself is drawn at 10 so 46 keeps a hair of margin.
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 46,
+              getTitlesWidget: (value, meta) => Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Text(
+                  value == value.roundToDouble()
+                      ? value.toStringAsFixed(0)
+                      : value.toStringAsFixed(1),
+                  maxLines: 1,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: SchoolPalette.muted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
           ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 26,
+              reservedSize: multiDay ? 36 : 26,
               interval: (points.length / 4).clamp(1, 1e9).toDouble(),
               getTitlesWidget: (value, meta) {
                 final i = value.toInt();
                 if (i < 0 || i >= points.length) return const SizedBox();
                 final t = points[i].ts.toLocal();
+                final hm =
+                    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+                // A window longer than a day needs the date, or every
+                // label reads like the same afternoon.
+                final label = multiDay ? '${t.day}/${t.month}\n$hm' : hm;
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}',
+                    label,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 9.5,
                       color: SchoolPalette.muted,
