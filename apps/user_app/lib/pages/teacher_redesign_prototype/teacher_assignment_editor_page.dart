@@ -1075,6 +1075,48 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
     var submitting = false;
     String? error;
 
+    // ช่วงเวลาของชุดข้อมูล — link_assignment_sensor_dataset รับ
+    // p_time_start/p_time_end อยู่แล้ว แต่ dialog เดิมไม่มีช่องให้กรอก
+    // ทำให้ปักได้แค่ "24 ชม.ล่าสุด" ปักข้อมูลย้อนหลังไม่ได้เลย (พบ 2026-09-20
+    // ตอนทดสอบบน iPhone กับ prod ที่เซนเซอร์หยุดส่งไป 5 วัน). null = ไม่กำหนด
+    // = ฝั่งนักเรียนใช้ 24 ชม.ล่าสุด เหมือนเดิม
+    var windowPreset = _SensorWindowPreset.custom;
+    DateTime? timeStart;
+    DateTime? timeEnd;
+    void applyPreset(_SensorWindowPreset p) {
+      windowPreset = p;
+      final now = DateTime.now();
+      switch (p) {
+        case _SensorWindowPreset.last24h:
+          timeStart = now.subtract(const Duration(hours: 24));
+          timeEnd = now;
+        case _SensorWindowPreset.last7d:
+          timeStart = now.subtract(const Duration(days: 7));
+          timeEnd = now;
+        case _SensorWindowPreset.last30d:
+          timeStart = now.subtract(const Duration(days: 30));
+          timeEnd = now;
+        case _SensorWindowPreset.custom:
+          break;
+      }
+    }
+
+    Future<DateTime?> pickDateTime(BuildContext ctx, DateTime initial) async {
+      final date = await showDatePicker(
+        context: ctx,
+        initialDate: initial,
+        firstDate: DateTime(2024),
+        lastDate: DateTime.now().add(const Duration(days: 1)),
+      );
+      if (date == null || !ctx.mounted) return null;
+      final time = await showTimePicker(
+        context: ctx,
+        initialTime: TimeOfDay.fromDateTime(initial),
+      );
+      if (time == null) return null;
+      return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    }
+
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -1103,10 +1145,21 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                     label: label,
                   );
               final label = labelCtrl.text.trim();
+              if (timeStart != null &&
+                  timeEnd != null &&
+                  !timeEnd!.isAfter(timeStart!)) {
+                setDialog(() {
+                  submitting = false;
+                  error = 'เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม';
+                });
+                return;
+              }
               await link(
                 assignmentId: assignmentId,
                 deviceId: deviceId,
                 metric: metric,
+                timeStart: timeStart,
+                timeEnd: timeEnd,
                 label: label.isEmpty ? null : label,
               );
               if (dialogContext.mounted) Navigator.of(dialogContext).pop();
@@ -1138,68 +1191,149 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
               title: const Text('ผูกชุดข้อมูลเซนเซอร์ AIoT กับใบงาน'),
               content: SizedBox(
                 width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: deviceId,
-                      decoration: const InputDecoration(labelText: 'อุปกรณ์'),
-                      items: [
-                        for (final d in devices)
-                          DropdownMenuItem(
-                            value: d.id,
-                            child: Text(
-                              d.location == null || d.location!.isEmpty
-                                  ? d.name
-                                  : '${d.name} · ${d.location}',
-                              overflow: TextOverflow.ellipsis,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: deviceId,
+                        decoration: const InputDecoration(labelText: 'อุปกรณ์'),
+                        items: [
+                          for (final d in devices)
+                            DropdownMenuItem(
+                              value: d.id,
+                              child: Text(
+                                d.location == null || d.location!.isEmpty
+                                    ? d.name
+                                    : '${d.name} · ${d.location}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                      ],
-                      onChanged: submitting
-                          ? null
-                          : (v) {
-                              if (v == null) return;
-                              setDialog(() {
-                                deviceId = v;
-                                metric = metricsFor(v).first;
-                              });
-                            },
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: metric,
-                      decoration: const InputDecoration(
-                        labelText: 'ค่าที่ต้องการให้นักเรียนดู',
+                        ],
+                        onChanged: submitting
+                            ? null
+                            : (v) {
+                                if (v == null) return;
+                                setDialog(() {
+                                  deviceId = v;
+                                  metric = metricsFor(v).first;
+                                });
+                              },
                       ),
-                      items: [
-                        for (final m in metricsFor(deviceId))
-                          DropdownMenuItem(value: m, child: Text(m)),
-                      ],
-                      onChanged: submitting
-                          ? null
-                          : (v) => setDialog(() => metric = v ?? metric),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: labelCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'คำอธิบายชุดข้อมูล (ถ้ามี)',
-                      ),
-                    ),
-                    if (error != null) ...[
                       const SizedBox(height: 10),
-                      Text(
-                        error!,
-                        style: const TextStyle(
-                          color: Color(0xFFB91C1C),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12,
+                      DropdownButtonFormField<String>(
+                        value: metric,
+                        decoration: const InputDecoration(
+                          labelText: 'ค่าที่ต้องการให้นักเรียนดู',
+                        ),
+                        items: [
+                          for (final m in metricsFor(deviceId))
+                            DropdownMenuItem(value: m, child: Text(m)),
+                        ],
+                        onChanged: submitting
+                            ? null
+                            : (v) => setDialog(() => metric = v ?? metric),
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'ช่วงเวลาของข้อมูล',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                          color: TeacherPalette.ink,
                         ),
                       ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final p in _SensorWindowPreset.values)
+                            ChoiceChip(
+                              label: Text(p.label),
+                              selected: windowPreset == p,
+                              onSelected: submitting
+                                  ? null
+                                  : (_) => setDialog(() => applyPreset(p)),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _SensorWindowRow(
+                        label: 'เริ่ม',
+                        value: timeStart,
+                        enabled: !submitting,
+                        onTap: () async {
+                          final v = await pickDateTime(
+                            dialogContext,
+                            timeStart ??
+                                DateTime.now().subtract(
+                                  const Duration(days: 7),
+                                ),
+                          );
+                          if (v == null) return;
+                          setDialog(() {
+                            windowPreset = _SensorWindowPreset.custom;
+                            timeStart = v;
+                          });
+                        },
+                        onClear: () => setDialog(() {
+                          windowPreset = _SensorWindowPreset.custom;
+                          timeStart = null;
+                        }),
+                      ),
+                      _SensorWindowRow(
+                        label: 'สิ้นสุด',
+                        value: timeEnd,
+                        enabled: !submitting,
+                        onTap: () async {
+                          final v = await pickDateTime(
+                            dialogContext,
+                            timeEnd ?? DateTime.now(),
+                          );
+                          if (v == null) return;
+                          setDialog(() {
+                            windowPreset = _SensorWindowPreset.custom;
+                            timeEnd = v;
+                          });
+                        },
+                        onClear: () => setDialog(() {
+                          windowPreset = _SensorWindowPreset.custom;
+                          timeEnd = null;
+                        }),
+                      ),
+                      if (timeStart == null && timeEnd == null)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            'ไม่กำหนด = นักเรียนเห็นค่า 24 ชั่วโมงล่าสุด ณ ตอนเปิดดู',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: labelCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'คำอธิบายชุดข้อมูล (ถ้ามี)',
+                        ),
+                      ),
+                      if (error != null) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          error!,
+                          style: const TextStyle(
+                            color: Color(0xFFB91C1C),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
               actions: [
@@ -1425,8 +1559,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                       controller: _titleController,
                       decoration: InputDecoration(
                         labelText: 'ชื่อใบงาน / หัวข้อโจทย์ *',
-                        hintText:
-                            'เช่น ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5',
+                        hintText: 'เช่น ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
@@ -1440,8 +1573,7 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                       maxLines: 3,
                       decoration: InputDecoration(
                         labelText: 'คำสั่งงาน / รายละเอียดคำอธิบาย',
-                        hintText:
-                            'อธิบายขั้นตอนการทำโจทย์ การทดลอง หรือรูปแบบการส่งงาน',
+                        hintText: 'อธิบายขั้นตอนการทำโจทย์ การทดลอง หรือรูปแบบการส่งงาน',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
@@ -1806,4 +1938,70 @@ class _OwnControllersState extends State<_OwnControllers> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+enum _SensorWindowPreset {
+  last24h('24 ชม.ล่าสุด'),
+  last7d('7 วันล่าสุด'),
+  last30d('30 วันล่าสุด'),
+  custom('กำหนดเอง');
+
+  const _SensorWindowPreset(this.label);
+  final String label;
+}
+
+class _SensorWindowRow extends StatelessWidget {
+  const _SensorWindowRow({
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final String label;
+  final DateTime? value;
+  final bool enabled;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  static String _fmt(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)}/${d.year + 543} ${two(d.hour)}:${two(d.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 52,
+          child: Text(label, style: const TextStyle(fontSize: 12.5)),
+        ),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: enabled ? onTap : null,
+            icon: const Icon(Icons.schedule_rounded, size: 16),
+            label: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value == null ? 'ไม่กำหนด' : _fmt(value!),
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+          ),
+        ),
+        if (value != null)
+          IconButton(
+            tooltip: 'ล้าง',
+            onPressed: enabled ? onClear : null,
+            icon: const Icon(Icons.close_rounded, size: 16),
+          ),
+      ],
+    );
+  }
 }

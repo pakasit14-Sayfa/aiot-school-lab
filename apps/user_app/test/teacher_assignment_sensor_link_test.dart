@@ -211,4 +211,48 @@ void main() {
     // อ่านกลับจากหลังบ้านจริง ไม่ใช่เติมรายการในเครื่องเอง
     expect(find.textContaining('เซนเซอร์คุณภาพอากาศ · pm25'), findsOneWidget);
   });
+
+  testWidgets('ช่วงเวลา: chip "7 วันล่าสุด" ส่ง timeStart/timeEnd จริงไปที่ RPC', (
+    tester,
+  ) async {
+    DateTime? gotStart;
+    DateTime? gotEnd;
+    await pumpEditor(
+      tester,
+      listDevices: () async => const [airQualityDevice],
+      linkSensorDataset:
+          ({
+            required assignmentId,
+            required deviceId,
+            required metric,
+            timeStart,
+            timeEnd,
+            label,
+          }) async {
+            gotStart = timeStart;
+            gotEnd = timeEnd;
+          },
+      loadAssignmentDetail: (_) async => detailNoDatasets,
+    );
+
+    await tester.tap(find.text('ผูกข้อมูล'));
+    await tester.pumpAndSettle();
+
+    // ค่าเริ่มต้นคือ "ไม่กำหนด" ทั้งสองช่อง — นักเรียนได้ 24 ชม.ล่าสุด
+    expect(find.text('ไม่กำหนด'), findsNWidgets(2));
+
+    await tester.tap(find.text('7 วันล่าสุด'));
+    await tester.pumpAndSettle();
+    expect(find.text('ไม่กำหนด'), findsNothing);
+
+    final before = DateTime.now();
+    await tester.tap(find.widgetWithText(FilledButton, 'ผูกข้อมูล').last);
+    await tester.pumpAndSettle();
+
+    expect(gotStart, isNotNull);
+    expect(gotEnd, isNotNull);
+    final span = gotEnd!.difference(gotStart!);
+    expect(span.inHours, 7 * 24);
+    expect(gotEnd!.difference(before).inMinutes.abs() <= 1, isTrue);
+  });
 }
