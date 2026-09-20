@@ -3,6 +3,8 @@ import 'package:shared_core/shared_core.dart';
 import 'package:shared_ui/shared_ui.dart';
 
 import 'controllers/school_timetable_controller.dart';
+import 'controllers/school_admin_async_state.dart';
+
 import 'theme/school_admin_palette.dart';
 
 class SchoolTimetablePage extends StatefulWidget {

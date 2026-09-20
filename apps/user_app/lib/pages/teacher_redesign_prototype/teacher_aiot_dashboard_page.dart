@@ -744,12 +744,16 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    dev.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: TeacherPalette.ink,
+                  Flexible(
+                    child: Text(
+                      dev.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: TeacherPalette.ink,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1172,12 +1176,15 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '(${alert.deviceName} - ${alert.location})',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: TeacherPalette.muted,
+                        Expanded(
+                          child: Text(
+                            '(${alert.deviceName} - ${alert.location})',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: TeacherPalette.muted,
+                            ),
                           ),
                         ),
                       ],

@@ -449,9 +449,34 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                 fontSize: 18,
               ),
             ),
-            actions: widget.actions,
+            // ไม่ใส่ widget.actions ตรงนี้ — AppBar ไม่บีบ/wrap/scroll
+            // ปุ่ม actions ให้เอง ถ้ารวมกว้างเกินพื้นที่ (หน้ารายวิชามี
+            // ปุ่ม labeled 3-4 ปุ่ม) มันจะ RenderFlex overflow ขวาจอ
+            // ทันทีบนจอแคบ ย้ายไปเป็นแถบเลื่อนแนวนอนใต้ AppBar แทน
           ),
-          body: SafeArea(child: content),
+          body: SafeArea(
+            child: Column(
+              children: [
+                if (widget.actions != null && widget.actions!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          for (final action in widget.actions!) ...[
+                            action,
+                            const SizedBox(width: 8),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                Expanded(child: content),
+              ],
+            ),
+          ),
         );
       },
     );

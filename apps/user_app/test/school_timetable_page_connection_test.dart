@@ -9,7 +9,6 @@ void main() {
     tester,
   ) async {
     bool assigned = false;
-    bool cleared = false;
 
     final controller = SchoolTimetableController(
       loadTerms: () async => const [
@@ -61,7 +60,6 @@ void main() {
             required dayOfWeek,
             required periodNo,
           }) async {
-            cleared = true;
           },
     );
 
