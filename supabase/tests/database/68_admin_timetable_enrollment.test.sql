@@ -2,7 +2,7 @@
 BEGIN;
 
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(35);
 
 -- Setup: create test users and tokens
 insert into packages (id, name, license_type) values ('68100000-0000-0000-0000-000000000001', 'SP package', 'perpetual') on conflict do nothing;
@@ -167,6 +167,14 @@ select throws_ok(
   $$ select * from list_teacher_subjects('token_student') $$,
   'forbidden', 'นักเรียนเรียก list_teacher_subjects ไม่ได้'
 );
+
+
+-- 15. every RPC the admin timetable page calls must at least execute (42804 guard)
+select lives_ok($$ select * from list_school_classes('token_admin', '68300000-0000-0000-0000-000000000001') $$, 'list_school_classes รันได้ (เคย 42804 varchar/text)');
+select is((select count(*)::int from list_school_classes('token_admin', '68300000-0000-0000-0000-000000000001') where grade_level = 'ม.1'), 2, 'list_school_classes นับห้อง ม.1 ได้ 2 ห้อง (1 และ 2)');
+select lives_ok($$ select * from list_room_timetable('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1') $$, 'list_room_timetable รันได้');
+select lives_ok($$ select * from list_school_periods('token_admin') $$, 'list_school_periods รันได้');
+select throws_ok($$ select * from list_school_classes('token_student', '68300000-0000-0000-0000-000000000001') $$, 'forbidden', 'นักเรียนดูรายชื่อห้องทั้งโรงเรียนไม่ได้');
 
 SELECT * FROM finish();
 ROLLBACK;
