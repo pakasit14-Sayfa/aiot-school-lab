@@ -1687,6 +1687,44 @@ class _ManagementGrid extends StatelessWidget {
         color: Colors.redAccent,
         onTap: () => onOpenPage(19),
       ),
+      // Pages 20–24 existed only in the desktop sidebar (_menuItems); on a
+      // phone this grid is the only way in, so they were unreachable there.
+      // Found 2026-09-20 looking for "จัดตารางเรียน" on the iPhone.
+      _ManagementData(
+        title: 'สายการเรียน',
+        subtitle: 'ตั้งชื่อสายและกำหนดสายให้ห้องเรียน',
+        icon: Icons.alt_route_outlined,
+        color: SchoolAdminPalette.cyan,
+        onTap: () => onOpenPage(20),
+      ),
+      _ManagementData(
+        title: 'จัดตารางเรียน',
+        subtitle: 'ห้อง × วิชา × ครู × คาบ — นักเรียนในห้องเห็นวิชาอัตโนมัติ',
+        icon: Icons.calendar_month_outlined,
+        color: SchoolAdminPalette.primary,
+        onTap: () => onOpenPage(21),
+      ),
+      _ManagementData(
+        title: 'ตั้งเวลาปฏิบัติงาน',
+        subtitle: 'เวลาเข้า-ออกงานของครูและบุคลากร',
+        icon: Icons.access_time_outlined,
+        color: SchoolAdminPalette.blue,
+        onTap: () => onOpenPage(22),
+      ),
+      _ManagementData(
+        title: 'อนุมัติการลา',
+        subtitle: 'คำขอลาที่รอแอดมินอนุมัติ',
+        icon: Icons.fact_check_outlined,
+        color: SchoolAdminPalette.green,
+        onTap: () => onOpenPage(23),
+      ),
+      _ManagementData(
+        title: 'รายการรายงานที่ต้องส่ง',
+        subtitle: 'รายงานที่โรงเรียนต้องส่งตามกำหนด',
+        icon: Icons.assignment_turned_in_outlined,
+        color: SchoolAdminPalette.yellow,
+        onTap: () => onOpenPage(24),
+      ),
     ];
 
     return _SectionCard(
