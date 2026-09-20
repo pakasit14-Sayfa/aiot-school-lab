@@ -143,12 +143,12 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
     } else if (state is SchoolAdminError) {
       bodyWidget = Center(
         child: Text(
-          'ข้อผิดพลาด: ${(state as SchoolAdminError).message}',
+          'ข้อผิดพลาด: ${state.message}',
           style: const TextStyle(color: SchoolAdminPalette.red),
         ),
       );
     } else if (state is SchoolAdminEmpty) {
-      bodyWidget = Center(child: Text((state as SchoolAdminEmpty).label));
+      bodyWidget = Center(child: Text(state.label));
     } else {
       bodyWidget = _buildContent();
     }
