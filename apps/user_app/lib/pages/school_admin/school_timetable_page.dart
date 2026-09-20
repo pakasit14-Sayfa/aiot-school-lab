@@ -308,7 +308,10 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
 
   Widget _buildRoom() {
     final room = _controller.selectedRoom!;
-    final day = _controller.selectedDay;
+    final today = DateTime.now().weekday;
+    final subjects = <String>{
+      for (final s in _controller.schedules) s.subjectName,
+    }.toList()..sort();
     return Column(
       children: [
         Padding(
@@ -386,63 +389,267 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-          child: Row(
-            children: [
-              for (var i = 1; i <= 5; i++) ...[
-                Expanded(
-                  child: _DayChip(
-                    label: _dayShort[i - 1],
-                    selected: day == i,
-                    filled: _controller.schedules.any((s) => s.dayOfWeek == i),
-                    onTap: () => _controller.selectDay(i),
-                  ),
-                ),
-                if (i < 5) const SizedBox(width: 6),
-              ],
-            ],
-          ),
-        ),
         Expanded(
           child: _controller.roomLoading
               ? const Center(child: CircularProgressIndicator())
-              : GestureDetector(
-                  onHorizontalDragEnd: (d) {
-                    final v = d.primaryVelocity ?? 0;
-                    if (v < -200) _controller.selectDay(day + 1);
-                    if (v > 200) _controller.selectDay(day - 1);
-                  },
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 12, 32),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          'วัน${_dayLong[day - 1]}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: SchoolAdminPalette.textSecondary,
-                          ),
-                        ),
+                      // day header
+                      Row(
+                        children: [
+                          const SizedBox(width: _WeekGrid.timeWidth),
+                          for (var d = 1; d <= 5; d++)
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(1),
+                                child: Container(
+                                  height: 26,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: d == today
+                                        ? SchoolAdminPalette.primary
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _dayShort[d - 1],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: d == today
+                                          ? SchoolAdminPalette.onPrimary
+                                          : SchoolAdminPalette.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                       for (final p in _controller.periods)
-                        _PeriodRow(
+                        _WeekGrid.row(
                           period: p,
-                          slot: p.isBreak
-                              ? null
-                              : _controller.slotAt(day, p.periodNo),
-                          onTap: p.isBreak
-                              ? null
-                              : () => _openSlotSheet(p, day),
+                          today: today,
+                          slotAt: _controller.slotAt,
+                          onEmptyTap: (d) => _openSlotSheet(p, d),
+                          onBlockTap: (d, s) => _openBlockMenu(p, d, s),
                         ),
+                      if (subjects.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: _WeekGrid.timeWidth,
+                          ),
+                          child: Wrap(
+                            spacing: 10,
+                            runSpacing: 4,
+                            children: [
+                              for (final name in subjects)
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 150,
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        decoration: BoxDecoration(
+                                          color: SubjectColor.of(name).bar,
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: SchoolAdminPalette
+                                                .textSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
         ),
       ],
     );
+  }
+
+  /// Tapping a filled block: short menu instead of the full sheet.
+  Future<void> _openBlockMenu(
+    SchoolPeriod period,
+    int dayOfWeek,
+    ClassSchedule slot,
+  ) async {
+    final c = SubjectColor.of(slot.subjectName);
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: c.bg,
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(10),
+                  ),
+                  border: Border(left: BorderSide(color: c.bar, width: 3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      slot.subjectName,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: c.fg,
+                      ),
+                    ),
+                    Text(
+                      '${slot.teacherName ?? 'ยังไม่ระบุครู'} · วัน${_dayLong[dayOfWeek - 1]} คาบ ${period.periodNo} · ${period.startHm}–${period.endHm}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: c.fg.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('เปลี่ยนวิชา / ครู'),
+                onTap: () => Navigator.of(context).pop('edit'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('วางวิชานี้ในคาบอื่น…'),
+                onTap: () => Navigator.of(context).pop('place'),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: SchoolAdminPalette.red,
+                ),
+                title: const Text(
+                  'ลบออกจากคาบนี้',
+                  style: TextStyle(color: SchoolAdminPalette.red),
+                ),
+                onTap: () => Navigator.of(context).pop('delete'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+    switch (action) {
+      case 'edit':
+        await _openSlotSheet(period, dayOfWeek);
+      case 'delete':
+        try {
+          await _controller.clearSlotAt(
+            periodNo: period.periodNo,
+            dayOfWeek: dayOfWeek,
+          );
+        } catch (e) {
+          if (mounted) {
+            _snack(
+              thaiError(e, fallback: 'ลบคาบไม่สำเร็จ กรุณาลองใหม่'),
+              error: true,
+            );
+          }
+        }
+      case 'place':
+        await _placeSubjectElsewhere(slot);
+    }
+  }
+
+  /// "วางวิชานี้ในคาบอื่น": pick an empty lesson cell, then assign the same
+  /// subject + teacher there.
+  Future<void> _placeSubjectElsewhere(ClassSchedule slot) async {
+    final teacherId = slot.teacherId;
+    if (teacherId == null) {
+      _snack('คาบนี้ยังไม่มีครู เปลี่ยนวิชา/ครูก่อน', error: true);
+      return;
+    }
+    final empties = <(int, SchoolPeriod)>[
+      for (var d = 1; d <= 5; d++)
+        for (final p in _controller.lessonPeriods)
+          if (_controller.slotAt(d, p.periodNo) == null) (d, p),
+    ];
+    if (empties.isEmpty) {
+      _snack('ไม่มีคาบว่างเหลือในสัปดาห์นี้');
+      return;
+    }
+    final picked = await showModalBottomSheet<(int, SchoolPeriod)>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'วาง ${slot.subjectName} ในคาบ…',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            for (final e in empties)
+              ListTile(
+                dense: true,
+                title: Text(
+                  'วัน${_dayLong[e.$1 - 1]} · คาบ ${e.$2.periodNo} · ${e.$2.startHm}–${e.$2.endHm}',
+                ),
+                onTap: () => Navigator.of(context).pop(e),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    try {
+      await _controller.assignSlot(
+        periodNo: picked.$2.periodNo,
+        dayOfWeek: picked.$1,
+        subjectName: slot.subjectName,
+        teacherId: teacherId,
+      );
+    } catch (e) {
+      if (mounted) {
+        _snack(
+          thaiError(e, fallback: 'บันทึกคาบไม่สำเร็จ กรุณาลองใหม่'),
+          error: true,
+        );
+      }
+    }
   }
 
   // ── sheets ────────────────────────────────────────────────────────────
@@ -962,208 +1169,151 @@ class _RoomRow extends StatelessWidget {
   }
 }
 
-class _DayChip extends StatelessWidget {
-  const _DayChip({
-    required this.label,
-    required this.selected,
-    required this.filled,
-    required this.onTap,
-  });
-  final String label;
-  final bool selected;
-  final bool filled;
-  final VoidCallback onTap;
+/// The week grid: one row per period, time on the left, five day cells.
+class _WeekGrid {
+  static const double timeWidth = 38;
+  static const double lessonHeight = 58;
+  static const double breakHeight = 24;
 
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? SchoolAdminPalette.primary
-          : SchoolAdminPalette.surfaceSoft,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected
-                  ? SchoolAdminPalette.primary
-                  : SchoolAdminPalette.border,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: selected
-                      ? SchoolAdminPalette.onPrimary
-                      : SchoolAdminPalette.textPrimary,
-                ),
-              ),
-              if (filled && !selected) ...[
-                const SizedBox(width: 4),
-                Container(
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: SchoolAdminPalette.success,
-                  ),
-                ),
-              ],
-            ],
+  static Widget row({
+    required SchoolPeriod period,
+    required int today,
+    required ClassSchedule? Function(int day, int periodNo) slotAt,
+    required void Function(int day) onEmptyTap,
+    required void Function(int day, ClassSchedule slot) onBlockTap,
+  }) {
+    final time = SizedBox(
+      width: timeWidth,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 3),
+        child: Text(
+          period.startHm,
+          style: const TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w600,
+            color: SchoolAdminPalette.textMuted,
           ),
         ),
       ),
     );
-  }
-}
-
-class _PeriodRow extends StatelessWidget {
-  const _PeriodRow({required this.period, required this.slot, this.onTap});
-  final SchoolPeriod period;
-  final ClassSchedule? slot;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final time = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          period.startHm,
-          style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            color: SchoolAdminPalette.textSecondary,
-          ),
-        ),
-        Text(
-          period.endHm,
-          style: const TextStyle(
-            fontSize: 11,
-            color: SchoolAdminPalette.textMuted,
-          ),
-        ),
-      ],
-    );
-
-    Widget body;
     if (period.isBreak) {
-      body = Container(
-        height: 40,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: SchoolAdminPalette.surfaceSoft,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          period.label ?? 'พัก',
-          style: const TextStyle(
-            fontSize: 12.5,
-            color: SchoolAdminPalette.textSecondary,
-          ),
-        ),
-      );
-    } else if (slot == null) {
-      body = Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: SchoolAdminPalette.border, width: 1.2),
-        ),
-        child: const Row(
-          children: [
-            Icon(
-              Icons.add_rounded,
-              size: 18,
-              color: SchoolAdminPalette.textMuted,
-            ),
-            SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'ว่าง — แตะเพื่อใส่วิชา',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: SchoolAdminPalette.textMuted,
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          time,
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(1),
+              child: Container(
+                height: breakHeight,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: SchoolAdminPalette.surfaceSoft,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${period.label ?? 'พัก'} ${period.startHm}–${period.endHm}',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: SchoolAdminPalette.textMuted,
+                  ),
                 ),
               ),
             ),
-          ],
+          ),
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        time,
+        for (var d = 1; d <= 5; d++)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(1),
+              child: _cell(
+                key: ValueKey('slot-$d-${period.periodNo}'),
+                slot: slotAt(d, period.periodNo),
+                isToday: d == today,
+                onTap: () {
+                  final s = slotAt(d, period.periodNo);
+                  if (s == null) {
+                    onEmptyTap(d);
+                  } else {
+                    onBlockTap(d, s);
+                  }
+                },
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static Widget _cell({
+    required Key key,
+    required ClassSchedule? slot,
+    required bool isToday,
+    required VoidCallback onTap,
+  }) {
+    final Widget body;
+    if (slot == null) {
+      body = Container(
+        height: lessonHeight,
+        decoration: BoxDecoration(
+          color: isToday
+              ? SchoolAdminPalette.primarySoft.withValues(alpha: 0.35)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: SchoolAdminPalette.border),
         ),
       );
     } else {
-      final c = SubjectColor.of(slot!.subjectName);
+      final c = SubjectColor.of(slot.subjectName);
       body = Container(
-        constraints: const BoxConstraints(minHeight: 56),
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        height: lessonHeight,
+        padding: const EdgeInsets.fromLTRB(5, 4, 3, 3),
         decoration: BoxDecoration(
           color: c.bg,
           borderRadius: const BorderRadius.horizontal(
-            right: Radius.circular(10),
+            right: Radius.circular(6),
           ),
-          border: Border(left: BorderSide(color: c.bar, width: 3)),
+          border: Border(left: BorderSide(color: c.bar, width: 2.5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              slot!.subjectName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-                color: c.fg,
+            Expanded(
+              child: Text(
+                slot.subjectName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  height: 1.15,
+                  fontWeight: FontWeight.w800,
+                  color: c.fg,
+                ),
               ),
             ),
-            const SizedBox(height: 2),
             Text(
-              slot!.teacherName ?? 'ยังไม่ระบุครู',
+              slot.teacherName ?? '',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: c.fg.withValues(alpha: 0.8),
-              ),
+              style: TextStyle(fontSize: 9, color: c.fg.withValues(alpha: 0.8)),
             ),
           ],
         ),
       );
     }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(width: 46, child: time),
-          const SizedBox(width: 6),
-          Expanded(
-            child: onTap == null
-                ? body
-                : Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: onTap,
-                      borderRadius: BorderRadius.circular(10),
-                      child: body,
-                    ),
-                  ),
-          ),
-        ],
+    return Material(
+      key: key,
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: body,
       ),
     );
   }

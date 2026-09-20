@@ -116,13 +116,14 @@ void main() {
             required periodNo,
             required dayOfWeek,
           }) async {},
-      clearSlot: ({
-        required termId,
-        required gradeLevel,
-        required room,
-        required periodNo,
-        required dayOfWeek,
-      }) async {},
+      clearSlot:
+          ({
+            required termId,
+            required gradeLevel,
+            required room,
+            required periodNo,
+            required dayOfWeek,
+          }) async {},
       savePeriods: savePeriods ?? (_) async {},
       copyRoom:
           copyRoom ??
@@ -134,11 +135,8 @@ void main() {
             required toGradeLevel,
             required toRoom,
           }) async => 0,
-      clearRoom: ({
-        required termId,
-        required gradeLevel,
-        required room,
-      }) async => 0,
+      clearRoom:
+          ({required termId, required gradeLevel, required room}) async => 0,
     );
   }
 
@@ -215,13 +213,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ตารางเรียน ม.1/1'), findsOneWidget);
-      expect(find.text('พักกลางวัน'), findsOneWidget);
-      expect(find.text('ว่าง — แตะเพื่อใส่วิชา'), findsNWidgets(2));
+      // week grid: the break is one band across the week, lessons are 5 cells
+      expect(find.textContaining('พักกลางวัน'), findsOneWidget);
+      expect(find.byKey(const ValueKey('slot-1-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('slot-5-3')), findsOneWidget);
+      expect(find.byKey(const ValueKey('slot-1-2')), findsNothing);
 
-      // pick Wednesday, then the first empty lesson
-      await tester.tap(find.text('พ.'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ว่าง — แตะเพื่อใส่วิชา').first);
+      // Wednesday, period 1
+      await tester.tap(find.byKey(const ValueKey('slot-3-1')));
       await tester.pumpAndSettle();
       expect(find.textContaining('วันพุธ · คาบ 1'), findsOneWidget);
 
@@ -271,9 +270,7 @@ void main() {
     await pump(tester, c);
     await tester.tap(find.text('ม.1/1'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('จ.'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ว่าง — แตะเพื่อใส่วิชา').first);
+    await tester.tap(find.byKey(const ValueKey('slot-1-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ใส่วิชาแรกของห้องนี้'));
     await tester.pumpAndSettle();
@@ -309,9 +306,9 @@ void main() {
     await pump(tester, c);
     await tester.tap(find.text('ม.1/1'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('อ.'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('ว่าง — แตะเพื่อใส่วิชา').first);
+    // the Monday block renders with its subject; Tuesday period 1 is empty
+    expect(find.text('คณิต'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('slot-2-1')));
     await tester.pumpAndSettle();
     expect(find.text('วิชาที่ห้องนี้เรียนอยู่'), findsOneWidget);
     expect(find.textContaining('ครูสมปอง · 1 คาบ/สัปดาห์'), findsOneWidget);
