@@ -415,7 +415,7 @@ bash scripts/prod_apply_2026-09-20d.sh
 ```
 verify: `casts_to_text = true`
 
-### 4.13 (รอเจ้าของรัน) ตารางเรียน: อ่าน/ล้างช่องต้องจับคู่ห้องผ่าน `_class_room_key`
+### 4.13 ✅ รันแล้ว 2026-09-20 — ตารางเรียน: อ่าน/ล้างช่องต้องจับคู่ห้องผ่าน `_class_room_key`
 
 จัดคาบจริงบน prod สำเร็จ (จันทร์ คาบ 1 คณิตศาสตร์ ม.1/1 บันทึกลง `class_schedules` แล้ว) แต่กริดไม่แสดง
 เพราะ `list_room_timetable` เทียบ `c.room = p_room` ตรงตัว ('ม.1/1' ≠ '1') · migration `20260920050000`
@@ -424,5 +424,5 @@ verify: `casts_to_text = true`
 ```bash
 bash scripts/prod_apply_2026-09-20e.sh
 ```
-verify: `list_uses_key = true`, `clear_uses_key = true`
+ผล: ทั้งคู่ true · iPhone: กริดห้อง ม.1/1 แสดง จันทร์/คาบ 1 = คณิตศาสตร์ · ครู ทดสอบ ✅ — **D6 ครบวงจรบน prod**: แอดมินตั้งคาบ → จัดวิชาลงห้อง → นักเรียนในห้องเห็นวิชา
 
