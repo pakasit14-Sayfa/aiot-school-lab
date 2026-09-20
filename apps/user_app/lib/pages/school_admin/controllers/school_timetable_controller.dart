@@ -3,10 +3,14 @@ import 'package:shared_core/shared_core.dart';
 
 import 'school_admin_async_state.dart';
 
+/// D6 timetable, v2 (2026-09-21): school overview → room → day. Every seam
+/// is an RPC from 20260919000000/20260920030000/20260921000000; the page
+/// never reads a table directly.
 class SchoolTimetableController extends ChangeNotifier {
   final Future<List<Term>> Function() loadTerms;
-  final Future<List<SchoolRoom>> Function() loadRooms;
   final Future<List<SchoolPeriod>> Function() loadPeriods;
+  final Future<List<TimetableRoomOverview>> Function(String termId)
+  loadOverview;
   final Future<List<ClassSchedule>> Function(
     String termId,
     String gradeLevel,
@@ -15,6 +19,9 @@ class SchoolTimetableController extends ChangeNotifier {
   loadSchedules;
   final Future<List<TeacherSubject>> Function() loadTeacherSubjects;
   final Future<List<StaffDirectoryEntry>> Function() loadStaff;
+  final Future<List<TeacherWeekSlot>> Function(String termId, String teacherId)
+  loadTeacherWeek;
+  final Future<List<TeacherConflict>> Function(String termId) loadConflicts;
   final Future<void> Function({
     required String termId,
     required String gradeLevel,
@@ -34,17 +41,36 @@ class SchoolTimetableController extends ChangeNotifier {
   })
   clearSlot;
   final Future<void> Function(List<SchoolPeriod> periods) savePeriods;
+  final Future<int> Function({
+    required String fromTermId,
+    required String fromGradeLevel,
+    required String fromRoom,
+    required String toTermId,
+    required String toGradeLevel,
+    required String toRoom,
+  })
+  copyRoom;
+  final Future<int> Function({
+    required String termId,
+    required String gradeLevel,
+    required String room,
+  })
+  clearRoom;
 
   SchoolTimetableController({
     required this.loadTerms,
-    required this.loadRooms,
     required this.loadPeriods,
+    required this.loadOverview,
     required this.loadSchedules,
     required this.loadTeacherSubjects,
     required this.loadStaff,
+    required this.loadTeacherWeek,
+    required this.loadConflicts,
     required this.setSlot,
     required this.clearSlot,
     required this.savePeriods,
+    required this.copyRoom,
+    required this.clearRoom,
   });
 
   SchoolAdminAsyncState _state = const SchoolAdminLoading<void>();
@@ -53,72 +79,110 @@ class SchoolTimetableController extends ChangeNotifier {
   List<Term> _terms = [];
   List<Term> get terms => _terms;
 
-  List<SchoolRoom> _rooms = [];
-  List<SchoolRoom> get rooms => _rooms;
-
   List<SchoolPeriod> _periods = [];
   List<SchoolPeriod> get periods => _periods;
+  List<SchoolPeriod> get lessonPeriods =>
+      _periods.where((p) => !p.isBreak).toList();
 
-  List<ClassSchedule> _schedules = [];
-  List<ClassSchedule> get schedules => _schedules;
+  List<TimetableRoomOverview> _rooms = [];
+  List<TimetableRoomOverview> get rooms => _rooms;
+
+  List<TeacherConflict> _conflicts = [];
+  List<TeacherConflict> get conflicts => _conflicts;
 
   List<TeacherSubject> _teacherSubjects = [];
   List<TeacherSubject> get teacherSubjects => _teacherSubjects;
 
   List<StaffDirectoryEntry> _staff = [];
-  List<StaffDirectoryEntry> get staff => _staff;
+
+  /// Only accounts with the teacher role — the slot RPC rejects anyone else.
+  List<StaffDirectoryEntry> get teachers =>
+      _staff.where((s) => s.roles.contains('teacher')).toList();
 
   String? _selectedTermId;
   String? get selectedTermId => _selectedTermId;
 
-  SchoolRoom? _selectedRoom;
-  SchoolRoom? get selectedRoom => _selectedRoom;
+  TimetableRoomOverview? _selectedRoom;
+  TimetableRoomOverview? get selectedRoom => _selectedRoom;
+
+  List<ClassSchedule> _schedules = [];
+  List<ClassSchedule> get schedules => _schedules;
+  bool _roomLoading = false;
+  bool get roomLoading => _roomLoading;
+
+  int _selectedDay = _todayOrMonday();
+  int get selectedDay => _selectedDay;
+
+  final Map<String, List<TeacherWeekSlot>> _teacherWeekCache = {};
+
+  static int _todayOrMonday() {
+    final d = DateTime.now().weekday; // 1 = Mon … 7 = Sun
+    return d >= 1 && d <= 5 ? d : 1;
+  }
 
   Future<void> load() async {
     _state = const SchoolAdminLoading<void>();
     notifyListeners();
-
     try {
       final terms = await loadTerms();
-      final rooms = await loadRooms();
-      final periods = await loadPeriods();
-      final rawTeacherSubjects = await loadTeacherSubjects();
-      final staff = await loadStaff();
-
-      // The RPC returns teacher_name; fall back to the staff directory only
-      // for rows that arrive without one.
-      _teacherSubjects = rawTeacherSubjects.map((ts) {
-        if (ts.fullName.isNotEmpty) return ts;
-        final staffMember = staff
-            .where((s) => s.userId == ts.teacherId)
-            .firstOrNull;
-        return TeacherSubject(
-          teacherId: ts.teacherId,
-          subjectName: ts.subjectName,
-          fullName: staffMember?.fullName ?? 'ไม่ทราบชื่อ',
-        );
-      }).toList();
-
       _terms = terms;
-      _rooms = rooms;
-      _periods = periods;
-      _staff = staff;
-
       if (terms.isNotEmpty) {
-        // Default to the term running today, not whatever list_terms
-        // happens to return first.
         final today = DateTime.now();
-        _selectedTermId =
+        _selectedTermId ??=
             (terms.where((t) => t.containsDate(today)).firstOrNull ??
                     terms.first)
                 .termId;
       }
-      if (rooms.isNotEmpty) {
-        _selectedRoom = rooms.first;
-      }
+      _periods = await loadPeriods();
+      _teacherSubjects = await loadTeacherSubjects();
+      _staff = await loadStaff();
+      _teacherWeekCache.clear();
+      await _reloadOverview();
+      if (_selectedRoom != null) await _reloadRoom();
+      _state = const SchoolAdminData<void>(null);
+    } catch (e, st) {
+      debugPrint('SchoolTimetableController.load failed: $e\n$st');
+      _state = SchoolAdminError<void>(message: e.toString());
+    }
+    notifyListeners();
+  }
 
-      await _loadSchedulesForSelectedRoom();
+  Future<void> _reloadOverview() async {
+    final termId = _selectedTermId;
+    if (termId == null) {
+      _rooms = [];
+      _conflicts = [];
+      return;
+    }
+    _rooms = await loadOverview(termId);
+    _conflicts = await loadConflicts(termId);
+    // keep the open room's numbers fresh
+    if (_selectedRoom != null) {
+      _selectedRoom = _rooms
+          .where((r) => r.roomKey == _selectedRoom!.roomKey)
+          .firstOrNull;
+    }
+  }
 
+  Future<void> _reloadRoom() async {
+    final room = _selectedRoom;
+    final termId = _selectedTermId;
+    if (room == null || termId == null) {
+      _schedules = [];
+      return;
+    }
+    _schedules = await loadSchedules(termId, room.gradeLevel, room.room);
+  }
+
+  Future<void> selectTerm(String termId) async {
+    if (_selectedTermId == termId) return;
+    _selectedTermId = termId;
+    _teacherWeekCache.clear();
+    _state = const SchoolAdminLoading<void>();
+    notifyListeners();
+    try {
+      await _reloadOverview();
+      await _reloadRoom();
       _state = const SchoolAdminData<void>(null);
     } catch (e) {
       _state = SchoolAdminError<void>(message: e.toString());
@@ -126,96 +190,127 @@ class SchoolTimetableController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void selectTerm(String termId) {
-    if (_selectedTermId == termId) return;
-    _selectedTermId = termId;
-    _state = const SchoolAdminLoading<void>();
-    notifyListeners();
-
-    _loadSchedulesForSelectedRoom()
-        .then((_) {
-          _state = const SchoolAdminData<void>(null);
-          notifyListeners();
-        })
-        .catchError((e) {
-          _state = SchoolAdminError<void>(message: e.toString());
-          notifyListeners();
-        });
-  }
-
-  void selectRoom(SchoolRoom room) {
-    if (_selectedRoom?.gradeLevel == room.gradeLevel &&
-        _selectedRoom?.room == room.room)
-      return;
+  Future<void> openRoom(TimetableRoomOverview room) async {
     _selectedRoom = room;
-    _state = const SchoolAdminLoading<void>();
+    _roomLoading = true;
+    _schedules = [];
     notifyListeners();
-
-    _loadSchedulesForSelectedRoom()
-        .then((_) {
-          _state = const SchoolAdminData<void>(null);
-          notifyListeners();
-        })
-        .catchError((e) {
-          _state = SchoolAdminError<void>(message: e.toString());
-          notifyListeners();
-        });
+    try {
+      await _reloadRoom();
+    } catch (e) {
+      _state = SchoolAdminError<void>(message: e.toString());
+    }
+    _roomLoading = false;
+    notifyListeners();
   }
 
-  Future<void> _loadSchedulesForSelectedRoom() async {
-    if (_selectedTermId == null || _selectedRoom == null) {
-      _schedules = [];
-      return;
+  void closeRoom() {
+    _selectedRoom = null;
+    _schedules = [];
+    notifyListeners();
+  }
+
+  void selectDay(int day) {
+    if (day < 1 || day > 5 || day == _selectedDay) return;
+    _selectedDay = day;
+    notifyListeners();
+  }
+
+  ClassSchedule? slotAt(int dayOfWeek, int periodNo) => _schedules
+      .where((s) => s.dayOfWeek == dayOfWeek && s.periodNo == periodNo)
+      .firstOrNull;
+
+  /// Subjects this room already has this term, with the teacher on each,
+  /// most-used first — the quick-pick list in the slot sheet.
+  List<RoomSubject> get roomSubjects {
+    final byName = <String, RoomSubject>{};
+    for (final s in _schedules) {
+      final cur = byName[s.subjectName];
+      byName[s.subjectName] = RoomSubject(
+        subjectName: s.subjectName,
+        teacherId: s.teacherId ?? cur?.teacherId,
+        teacherName: s.teacherName ?? cur?.teacherName,
+        slotsPerWeek: (cur?.slotsPerWeek ?? 0) + 1,
+      );
     }
-    _schedules = await loadSchedules(
-      _selectedTermId!,
-      _selectedRoom!.gradeLevel,
-      _selectedRoom!.room,
+    final list = byName.values.toList()
+      ..sort((a, b) => b.slotsPerWeek.compareTo(a.slotsPerWeek));
+    return list;
+  }
+
+  /// Teachers recorded for a subject (teacher_subjects); empty means "no
+  /// one yet — offer everyone".
+  List<TeacherSubject> teachersFor(String subjectName) => _teacherSubjects
+      .where((t) => t.subjectName.trim() == subjectName.trim())
+      .toList();
+
+  /// Where else this teacher is at (day, period) this term — null when free.
+  /// Cached per teacher for the life of the term selection.
+  Future<TeacherWeekSlot?> teacherClash({
+    required String teacherId,
+    required int dayOfWeek,
+    required int periodNo,
+  }) async {
+    final termId = _selectedTermId;
+    final room = _selectedRoom;
+    if (termId == null || room == null) return null;
+    final week = _teacherWeekCache[teacherId] ??= await loadTeacherWeek(
+      termId,
+      teacherId,
     );
+    return week
+        .where(
+          (w) =>
+              w.dayOfWeek == dayOfWeek &&
+              w.periodNo == periodNo &&
+              w.roomKey != room.roomKey,
+        )
+        .firstOrNull;
   }
 
   Future<void> assignSlot({
     required int periodNo,
     required int dayOfWeek,
     required String subjectName,
-    required String? teacherId,
+    required String teacherId,
   }) async {
-    if (_selectedTermId == null || _selectedRoom == null) return;
-    try {
-      await setSlot(
-        termId: _selectedTermId!,
-        gradeLevel: _selectedRoom!.gradeLevel,
-        room: _selectedRoom!.room,
-        subjectName: subjectName,
-        teacherId: teacherId,
-        periodNo: periodNo,
-        dayOfWeek: dayOfWeek,
-      );
-      await _loadSchedulesForSelectedRoom();
-      notifyListeners();
-    } catch (e) {
-      throw Exception(e.toString());
-    }
+    final termId = _selectedTermId;
+    final room = _selectedRoom;
+    if (termId == null || room == null) return;
+    await setSlot(
+      termId: termId,
+      gradeLevel: room.gradeLevel,
+      room: room.room,
+      subjectName: subjectName,
+      teacherId: teacherId,
+      periodNo: periodNo,
+      dayOfWeek: dayOfWeek,
+    );
+    _teacherWeekCache.remove(teacherId);
+    await _reloadRoom();
+    await _reloadOverview();
+    notifyListeners();
   }
 
   Future<void> clearSlotAt({
     required int periodNo,
     required int dayOfWeek,
   }) async {
-    if (_selectedTermId == null || _selectedRoom == null) return;
-    try {
-      await clearSlot(
-        termId: _selectedTermId!,
-        gradeLevel: _selectedRoom!.gradeLevel,
-        room: _selectedRoom!.room,
-        periodNo: periodNo,
-        dayOfWeek: dayOfWeek,
-      );
-      await _loadSchedulesForSelectedRoom();
-      notifyListeners();
-    } catch (e) {
-      throw Exception(e.toString());
-    }
+    final termId = _selectedTermId;
+    final room = _selectedRoom;
+    if (termId == null || room == null) return;
+    final prev = slotAt(dayOfWeek, periodNo);
+    await clearSlot(
+      termId: termId,
+      gradeLevel: room.gradeLevel,
+      room: room.room,
+      periodNo: periodNo,
+      dayOfWeek: dayOfWeek,
+    );
+    if (prev?.teacherId != null) _teacherWeekCache.remove(prev!.teacherId);
+    await _reloadRoom();
+    await _reloadOverview();
+    notifyListeners();
   }
 
   /// Replaces the school's period table, then reloads it from the backend
@@ -223,7 +318,61 @@ class SchoolTimetableController extends ChangeNotifier {
   Future<void> replacePeriods(List<SchoolPeriod> periods) async {
     await savePeriods(periods);
     _periods = await loadPeriods();
-    await _loadSchedulesForSelectedRoom();
+    await _reloadOverview();
+    await _reloadRoom();
     notifyListeners();
   }
+
+  Future<int> copyIntoSelectedRoom({
+    required String fromTermId,
+    required String fromGradeLevel,
+    required String fromRoom,
+  }) async {
+    final termId = _selectedTermId;
+    final room = _selectedRoom;
+    if (termId == null || room == null) return 0;
+    final n = await copyRoom(
+      fromTermId: fromTermId,
+      fromGradeLevel: fromGradeLevel,
+      fromRoom: fromRoom,
+      toTermId: termId,
+      toGradeLevel: room.gradeLevel,
+      toRoom: room.room,
+    );
+    _teacherWeekCache.clear();
+    await _reloadRoom();
+    await _reloadOverview();
+    notifyListeners();
+    return n;
+  }
+
+  Future<int> clearSelectedRoom() async {
+    final termId = _selectedTermId;
+    final room = _selectedRoom;
+    if (termId == null || room == null) return 0;
+    final n = await clearRoom(
+      termId: termId,
+      gradeLevel: room.gradeLevel,
+      room: room.room,
+    );
+    _teacherWeekCache.clear();
+    await _reloadRoom();
+    await _reloadOverview();
+    notifyListeners();
+    return n;
+  }
+}
+
+/// A subject the open room already has this term.
+class RoomSubject {
+  const RoomSubject({
+    required this.subjectName,
+    required this.teacherId,
+    required this.teacherName,
+    required this.slotsPerWeek,
+  });
+  final String subjectName;
+  final String? teacherId;
+  final String? teacherName;
+  final int slotsPerWeek;
 }

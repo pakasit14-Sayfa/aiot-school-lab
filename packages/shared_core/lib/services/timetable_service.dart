@@ -155,4 +155,89 @@ class TimetableService {
       },
     );
   }
+
+  // ── 20260921000000 (timetable v2) ────────────────────────────────────
+
+  static Future<List<TimetableRoomOverview>> listTimetableOverview(
+    String termId,
+  ) async {
+    final res = await supabase.rpc(
+      'list_timetable_overview',
+      params: {'p_token': _token(), 'p_term_id': termId},
+    );
+    return (res as List)
+        .map((x) => TimetableRoomOverview.fromJson(x as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<List<TeacherWeekSlot>> listTeacherWeek(
+    String termId,
+    String teacherId,
+  ) async {
+    final res = await supabase.rpc(
+      'list_teacher_week',
+      params: {
+        'p_token': _token(),
+        'p_term_id': termId,
+        'p_teacher_id': teacherId,
+      },
+    );
+    return (res as List)
+        .map((x) => TeacherWeekSlot.fromJson(x as Map<String, dynamic>))
+        .toList();
+  }
+
+  static Future<List<TeacherConflict>> listTeacherConflicts(
+    String termId,
+  ) async {
+    final res = await supabase.rpc(
+      'list_teacher_conflicts',
+      params: {'p_token': _token(), 'p_term_id': termId},
+    );
+    return (res as List)
+        .map((x) => TeacherConflict.fromJson(x as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Copies a room's week onto another room (or the same room in another
+  /// term). Returns the number of slots written.
+  static Future<int> adminCopyRoomTimetable({
+    required String fromTermId,
+    required String fromGradeLevel,
+    required String fromRoom,
+    required String toTermId,
+    required String toGradeLevel,
+    required String toRoom,
+  }) async {
+    final res = await supabase.rpc(
+      'admin_copy_room_timetable',
+      params: {
+        'p_token': _token(),
+        'p_from_term_id': fromTermId,
+        'p_from_grade_level': fromGradeLevel,
+        'p_from_room': fromRoom,
+        'p_to_term_id': toTermId,
+        'p_to_grade_level': toGradeLevel,
+        'p_to_room': toRoom,
+      },
+    );
+    return (res as num).toInt();
+  }
+
+  static Future<int> adminClearRoomTimetable({
+    required String termId,
+    required String gradeLevel,
+    required String room,
+  }) async {
+    final res = await supabase.rpc(
+      'admin_clear_room_timetable',
+      params: {
+        'p_token': _token(),
+        'p_term_id': termId,
+        'p_grade_level': gradeLevel,
+        'p_room': room,
+      },
+    );
+    return (res as num).toInt();
+  }
 }

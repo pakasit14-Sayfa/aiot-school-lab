@@ -149,42 +149,106 @@ void main() {
   });
 
   testWidgets(
-    'school_timetable_page does not overflow vertically/horizontally on phones',
+    'school_timetable_page (overview + room day view) does not overflow on phones',
     (tester) async {
+      const periods = [
+        SchoolPeriod(periodNo: 1, startTime: '08:30:00', endTime: '09:20:00'),
+        SchoolPeriod(
+          periodNo: 2,
+          startTime: '09:20:00',
+          endTime: '10:10:00',
+          kind: 'break',
+          label: 'พักกลางวัน',
+        ),
+        SchoolPeriod(periodNo: 3, startTime: '10:10:00', endTime: '11:00:00'),
+      ];
       final controller = SchoolTimetableController(
         loadTerms: () async => const [
-          Term(termId: '1', termName: '1', academicYearName: '2569'),
+          Term(
+            termId: '1',
+            termName: 'ภาคเรียนที่ 1',
+            academicYearName: '2569',
+          ),
         ],
-        loadRooms: () async => const [
-          SchoolRoom(gradeLevel: 'ม.1', room: '1/1'),
+        loadPeriods: () async => periods,
+        loadOverview: (_) async => const [
+          TimetableRoomOverview(
+            gradeLevel: 'ม.1',
+            room: '1',
+            roomKey: 'ม.1/1',
+            studentCount: 32,
+            filledSlots: 4,
+            lessonSlots: 10,
+          ),
+          TimetableRoomOverview(
+            gradeLevel: 'ม.6',
+            room: '2',
+            roomKey: 'ม.6/2',
+            studentCount: 28,
+            filledSlots: 10,
+            lessonSlots: 10,
+          ),
         ],
-        loadPeriods: () async => const [
-          SchoolPeriod(periodNo: 1, startTime: '08:30:00', endTime: '09:20:00'),
+        loadSchedules: (a, b, c) async => const [
+          ClassSchedule(
+            courseId: 'c',
+            dayOfWeek: 1,
+            periodNo: 1,
+            startTime: '08:30:00',
+            endTime: '09:20:00',
+            subjectName: 'วิทยาศาสตร์และเทคโนโลยี (ชีววิทยา)',
+            teacherId: 't',
+            teacherName: 'ครูสมชาย ใจดีมากที่สุดในโลก',
+          ),
         ],
-        loadSchedules: (a, b, c) async => const [],
         loadTeacherSubjects: () async => const [],
         loadStaff: () async => const [],
-        setSlot:
-            ({
-              required termId,
-              required gradeLevel,
-              required room,
-              required dayOfWeek,
-              required periodNo,
-              required subjectName,
-              required teacherId,
-            }) async {},
-        clearSlot:
-            ({
-              required termId,
-              required gradeLevel,
-              required room,
-              required dayOfWeek,
-              required periodNo,
-            }) async {},
+        loadTeacherWeek: (_, _) async => const [],
+        loadConflicts: (_) async => const [
+          TeacherConflict(
+            teacherId: 't',
+            teacherName: 'ครูสมชาย',
+            dayOfWeek: 1,
+            periodNo: 1,
+            rooms: ['ม.1/1', 'ม.1/2'],
+          ),
+        ],
+        setSlot: ({
+          required termId,
+          required gradeLevel,
+          required room,
+          required subjectName,
+          required teacherId,
+          required periodNo,
+          required dayOfWeek,
+        }) async {},
+        clearSlot: ({
+          required termId,
+          required gradeLevel,
+          required room,
+          required periodNo,
+          required dayOfWeek,
+        }) async {},
         savePeriods: (_) async {},
+        copyRoom: ({
+          required fromTermId,
+          required fromGradeLevel,
+          required fromRoom,
+          required toTermId,
+          required toGradeLevel,
+          required toRoom,
+        }) async => 0,
+        clearRoom: ({
+          required termId,
+          required gradeLevel,
+          required room,
+        }) async => 0,
       );
       await _phone(tester, SchoolTimetablePage(controller: controller));
+      // overview rendered; open the room and render the day view too
+      await controller.openRoom(controller.rooms.first);
+      await tester.pumpAndSettle();
+      expect(find.text('ตารางเรียน ม.1/1'), findsOneWidget);
     },
   );
 }

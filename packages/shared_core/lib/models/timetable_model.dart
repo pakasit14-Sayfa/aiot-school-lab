@@ -4,12 +4,19 @@ class SchoolPeriod {
   final String endTime;
   final String? label;
 
+  /// 'lesson' or 'break' (20260921000000) — a break is the lunch band and
+  /// cannot take a subject.
+  final String kind;
+
   const SchoolPeriod({
     required this.periodNo,
     required this.startTime,
     required this.endTime,
     this.label,
+    this.kind = 'lesson',
   });
+
+  bool get isBreak => kind == 'break';
 
   factory SchoolPeriod.fromJson(Map<String, dynamic> json) {
     return SchoolPeriod(
@@ -17,6 +24,7 @@ class SchoolPeriod {
       startTime: json['start_time'] as String,
       endTime: json['end_time'] as String,
       label: json['label'] as String?,
+      kind: (json['kind'] as String?) ?? 'lesson',
     );
   }
 
@@ -25,6 +33,7 @@ class SchoolPeriod {
     'period_no': periodNo,
     'start_time': startTime,
     'end_time': endTime,
+    'kind': kind,
     if (label != null) 'label': label,
   };
 
@@ -152,4 +161,98 @@ class SchoolRoom {
 
   @override
   int get hashCode => gradeLevel.hashCode ^ room.hashCode;
+}
+
+/// One row of `list_timetable_overview`: a room of the academic year and
+/// how much of its week is filled.
+class TimetableRoomOverview {
+  final String gradeLevel;
+  final String room;
+  final String
+  roomKey; // 'ม.1/1' — what the UI shows and what the RPCs match on
+  final int studentCount;
+  final int filledSlots;
+  final int lessonSlots;
+
+  const TimetableRoomOverview({
+    required this.gradeLevel,
+    required this.room,
+    required this.roomKey,
+    required this.studentCount,
+    required this.filledSlots,
+    required this.lessonSlots,
+  });
+
+  factory TimetableRoomOverview.fromJson(Map<String, dynamic> json) =>
+      TimetableRoomOverview(
+        gradeLevel: json['grade_level'] as String,
+        room: json['room'] as String,
+        roomKey: json['room_key'] as String,
+        studentCount: (json['student_count'] as num).toInt(),
+        filledSlots: (json['filled_slots'] as num).toInt(),
+        lessonSlots: (json['lesson_slots'] as num).toInt(),
+      );
+
+  /// ม.1–ม.3 → lower secondary, ม.4–ม.6 → upper; anything else (ป., อ.)
+  /// falls into 'other' so a primary school still gets a section.
+  String get level {
+    final m = RegExp(r'^ม\.?\s*(\d)').firstMatch(gradeLevel);
+    if (m == null) return 'other';
+    final n = int.parse(m.group(1)!);
+    return n <= 3 ? 'lower' : 'upper';
+  }
+
+  double get progress => lessonSlots == 0 ? 0 : filledSlots / lessonSlots;
+}
+
+/// One slot of `list_teacher_week` — used to warn about clashes.
+class TeacherWeekSlot {
+  final int dayOfWeek;
+  final int periodNo;
+  final String gradeLevel;
+  final String roomKey;
+  final String subjectName;
+
+  const TeacherWeekSlot({
+    required this.dayOfWeek,
+    required this.periodNo,
+    required this.gradeLevel,
+    required this.roomKey,
+    required this.subjectName,
+  });
+
+  factory TeacherWeekSlot.fromJson(Map<String, dynamic> json) =>
+      TeacherWeekSlot(
+        dayOfWeek: json['day_of_week'] as int,
+        periodNo: json['period_no'] as int,
+        gradeLevel: json['grade_level'] as String,
+        roomKey: json['room'] as String,
+        subjectName: json['subject_name'] as String,
+      );
+}
+
+/// One row of `list_teacher_conflicts`.
+class TeacherConflict {
+  final String teacherId;
+  final String teacherName;
+  final int dayOfWeek;
+  final int periodNo;
+  final List<String> rooms;
+
+  const TeacherConflict({
+    required this.teacherId,
+    required this.teacherName,
+    required this.dayOfWeek,
+    required this.periodNo,
+    required this.rooms,
+  });
+
+  factory TeacherConflict.fromJson(Map<String, dynamic> json) =>
+      TeacherConflict(
+        teacherId: json['teacher_id'] as String,
+        teacherName: json['teacher_name'] as String,
+        dayOfWeek: json['day_of_week'] as int,
+        periodNo: json['period_no'] as int,
+        rooms: (json['rooms'] as List).cast<String>(),
+      );
 }

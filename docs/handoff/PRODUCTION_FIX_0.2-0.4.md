@@ -426,3 +426,16 @@ bash scripts/prod_apply_2026-09-20e.sh
 ```
 ผล: ทั้งคู่ true · iPhone: กริดห้อง ม.1/1 แสดง จันทร์/คาบ 1 = คณิตศาสตร์ · ครู ทดสอบ ✅ — **D6 ครบวงจรบน prod**: แอดมินตั้งคาบ → จัดวิชาลงห้อง → นักเรียนในห้องเห็นวิชา
 
+### 4.14 (รอเจ้าของรัน) ตารางเรียน v2 — ทั้งโรงเรียน → ม.ต้น/ม.ปลาย → ห้อง
+
+migration `20260921000000_timetable_v2.sql` · pgTAP `70_timetable_v2` 20/20 · ทั้งชุด PASS
+- `school_periods.kind` lesson/break (พักกลางวัน) · `set_school_periods` ตรวจทับซ้อน
+- `list_timetable_overview` (ห้องทั้งปี + จัดแล้วกี่คาบ) · `list_teacher_week` · `list_teacher_conflicts` (ครูชน)
+- `admin_copy_room_timetable` (จากห้องอื่น/เทอมอื่น) · `admin_clear_room_timetable`
+- `admin_set_room_timetable_slot` ปฏิเสธคาบพัก (`period_is_break`)
+
+```bash
+bash scripts/prod_apply_2026-09-21.sh
+```
+verify: `new_rpcs = 5`, `periods_have_kind = true`
+
