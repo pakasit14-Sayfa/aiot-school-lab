@@ -108,8 +108,11 @@ class SchoolRoom {
     );
   }
 
-  String get displayName => '$gradeLevel/$room';
-}
+  /// Mirrors `_class_room_key` in the DB: rooms arrive as either '1' (prod
+  /// student_profiles) or 'ม.1/1' (local seed / courses), and both must read
+  /// as 'ม.1/1' — never 'ม.1/ม.1/1'.
+  String get displayName =>
+      room.startsWith('$gradeLevel/') ? room : '$gradeLevel/$room';
 
   @override
   bool operator ==(Object other) =>
