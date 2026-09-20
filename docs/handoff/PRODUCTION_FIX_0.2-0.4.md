@@ -405,7 +405,7 @@ bash scripts/prod_apply_2026-09-20c.sh
 ```
 verify: `returns_teacher_name = true`, `slot_records_subject = true`
 
-### 4.12 (รอเจ้าของรัน) list_school_classes — cast varchar→text
+### 4.12 ✅ รันแล้ว 2026-09-20 — list_school_classes — cast varchar→text
 
 หน้าจัดตารางเรียนบน iPhone โหลดไม่ขึ้น: `list_school_classes` ประกาศคืน text แต่ select varchar
 ตรง ๆ → 42804 · pgTAP 68 เพิ่ม 5 เคส "RPC ที่หน้านี้เรียกต้องรันได้" (35/35)
@@ -414,4 +414,15 @@ verify: `returns_teacher_name = true`, `slot_records_subject = true`
 bash scripts/prod_apply_2026-09-20d.sh
 ```
 verify: `casts_to_text = true`
+
+### 4.13 (รอเจ้าของรัน) ตารางเรียน: อ่าน/ล้างช่องต้องจับคู่ห้องผ่าน `_class_room_key`
+
+จัดคาบจริงบน prod สำเร็จ (จันทร์ คาบ 1 คณิตศาสตร์ ม.1/1 บันทึกลง `class_schedules` แล้ว) แต่กริดไม่แสดง
+เพราะ `list_room_timetable` เทียบ `c.room = p_room` ตรงตัว ('ม.1/1' ≠ '1') · migration `20260920050000`
+แก้ทั้ง list และ clear · pgTAP 68 40/40
+
+```bash
+bash scripts/prod_apply_2026-09-20e.sh
+```
+verify: `list_uses_key = true`, `clear_uses_key = true`
 

@@ -575,13 +575,18 @@ class _SlotEditSheetState extends State<_SlotEditSheet> {
                       child: Text(t.fullName),
                     ),
                   ),
+                // The staff directory also holds admins and executives;
+                // admin_set_room_timetable_slot rejects anyone without the
+                // teacher role (teacher_not_found), so only offer teachers.
                 if (_showAllTeachers)
-                  ...widget.staff.map(
-                    (s) => DropdownMenuItem(
-                      value: s.userId,
-                      child: Text(s.fullName),
-                    ),
-                  ),
+                  ...widget.staff
+                      .where((s) => s.roles.contains('teacher'))
+                      .map(
+                        (s) => DropdownMenuItem(
+                          value: s.userId,
+                          child: Text(s.fullName),
+                        ),
+                      ),
               ],
               onChanged: (val) {
                 setState(() {

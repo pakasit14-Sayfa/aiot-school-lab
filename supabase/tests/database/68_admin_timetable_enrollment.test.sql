@@ -2,7 +2,7 @@
 BEGIN;
 
 create extension if not exists pgtap with schema extensions;
-select plan(35);
+select plan(40);
 
 -- Setup: create test users and tokens
 insert into packages (id, name, license_type) values ('68100000-0000-0000-0000-000000000001', 'SP package', 'perpetual') on conflict do nothing;
@@ -175,6 +175,30 @@ select is((select count(*)::int from list_school_classes('token_admin', '6830000
 select lives_ok($$ select * from list_room_timetable('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1') $$, 'list_room_timetable รันได้');
 select lives_ok($$ select * from list_school_periods('token_admin') $$, 'list_school_periods รันได้');
 select throws_ok($$ select * from list_school_classes('token_student', '68300000-0000-0000-0000-000000000001') $$, 'forbidden', 'นักเรียนดูรายชื่อห้องทั้งโรงเรียนไม่ได้');
+
+
+-- 16. (20260920050000) reads/clears match rooms through _class_room_key too
+-- Thai 101 was created with room 'ม.1/1' (test 13); a slot saved as (ม.1, '1') must land on it and read back as (ม.1, '1')
+select lives_ok(
+  $$ select admin_set_room_timetable_slot('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1', 3::smallint, 1::smallint, 'Thai 101', '68500000-0000-0000-0000-000000000003') $$,
+  'จัดคาบ Thai 101 ด้วยห้องแบบสั้น'
+);
+select is(
+  (select count(*)::int from list_room_timetable('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1') where subject_name = 'Thai 101' and day_of_week = 3),
+  1, 'list_room_timetable (ม.1, 1) เห็นคาบของคอร์สที่เก็บห้อง ม.1/1'
+);
+select is(
+  (select count(*)::int from list_room_timetable('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', 'ม.1/1') where subject_name = 'Thai 101' and day_of_week = 3),
+  1, 'list_room_timetable (ม.1, ม.1/1) เห็นคาบเดียวกัน'
+);
+select lives_ok(
+  $$ select admin_clear_room_timetable_slot('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1', 3::smallint, 1::smallint) $$,
+  'ล้างคาบด้วยห้องแบบสั้น'
+);
+select is(
+  (select count(*)::int from list_room_timetable('token_admin', '68400000-0000-0000-0000-000000000001', 'ม.1', '1') where day_of_week = 3),
+  0, 'คาบถูกล้างจริง'
+);
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -35,7 +35,7 @@ void main() {
           status: 'a',
           positionTitle: 'p',
           phone: '1',
-          roles: [],
+          roles: ['teacher'],
           administrativeDepartments: [],
           subjectGroups: [],
           headsDepartments: [],
