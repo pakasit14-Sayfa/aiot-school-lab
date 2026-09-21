@@ -451,29 +451,32 @@ class _TeacherLessonListPageState extends State<TeacherLessonListPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 📌 Breadcrumb
-        Row(
-          children: [
-            const Icon(
-              Icons.school_outlined,
-              size: 14,
-              color: TeacherPalette.muted,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'รายวิชาที่สอน > ${widget.courseCode} ${widget.courseName} > บทเรียน',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: TeacherPalette.muted,
-                ),
-                overflow: TextOverflow.ellipsis,
+        // 📌 Breadcrumb — desktop only; on a phone the course header
+        // already names the course and this read as clutter (and leaked the
+        // uuid course code).
+        if (MediaQuery.sizeOf(context).width >= 900)
+          Row(
+            children: [
+              const Icon(
+                Icons.school_outlined,
+                size: 14,
+                color: TeacherPalette.muted,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'รายวิชาที่สอน > ${widget.courseCode} ${widget.courseName} > บทเรียน',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: TeacherPalette.muted,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        if (MediaQuery.sizeOf(context).width >= 900) const SizedBox(height: 14),
 
         if (widget.isCourseClosed) ...[
           Container(
@@ -3292,7 +3295,10 @@ class _TeacherLessonAnalyticsPageState
               icon: Icons.error_outline_rounded,
               title: 'โหลดสถิติไม่สำเร็จ',
               body: 'ยังไม่ทราบความคืบหน้าของนักเรียน ลองใหม่อีกครั้ง',
-              action: TextButton(onPressed: _retry, child: const Text('ลองใหม่')),
+              action: TextButton(
+                onPressed: _retry,
+                child: const Text('ลองใหม่'),
+              ),
             );
           }
           final rows = snap.data ?? const [];
@@ -3300,13 +3306,15 @@ class _TeacherLessonAnalyticsPageState
             return _centered(
               icon: Icons.group_off_rounded,
               title: 'ยังไม่มีนักเรียนในวิชานี้',
-              body: 'เมื่อมีนักเรียนลงทะเบียน ความคืบหน้าของแต่ละคนจะแสดงที่นี่',
+              body:
+                  'เมื่อมีนักเรียนลงทะเบียน ความคืบหน้าของแต่ละคนจะแสดงที่นี่',
             );
           }
           final opened = rows.where((r) => r.opened).length;
           final completed = rows.where((r) => r.completed).length;
           final avg =
-              rows.fold<double>(0, (sum, r) => sum + r.progressPct) / rows.length;
+              rows.fold<double>(0, (sum, r) => sum + r.progressPct) /
+              rows.length;
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -3364,7 +3372,10 @@ class _TeacherLessonAnalyticsPageState
             Text(
               body,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: TeacherPalette.muted,
+              ),
             ),
             if (action != null) ...[const SizedBox(height: 8), action],
           ],
@@ -3457,7 +3468,10 @@ class _TeacherLessonAnalyticsPageState
               ),
               Text(
                 status,
-                style: const TextStyle(fontSize: 10.5, color: TeacherPalette.muted),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: TeacherPalette.muted,
+                ),
               ),
             ],
           ),
