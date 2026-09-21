@@ -44,6 +44,7 @@ Future<void> _pump(
   Future<void> Function(String)? unpublish,
   Future<void> Function(String)? unlink,
   List<AssignmentSensorDataset> datasets = const [],
+  List<RubricModel>? rubrics,
 }) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
@@ -57,9 +58,9 @@ Future<void> _pump(
         courseId: 'course-7',
         courseName: 'คณิตศาสตร์',
         existing: existing,
-        listMyRubrics: () async => [
-          RubricModel(id: 'r1', title: 'เกณฑ์ทดลอง', criteriaCount: 3),
-        ],
+        listMyRubrics: () async =>
+            rubrics ??
+            [RubricModel(id: 'r1', title: 'เกณฑ์ทดลอง', criteriaCount: 3)],
         createAssignment:
             create ??
             ({
@@ -260,6 +261,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(updated, 'a10');
     expect(published, 'a10');
+  });
+
+  testWidgets('ชีตเลือกเกณฑ์: เลือกแล้วค่าขึ้นที่แถว และส่ง rubricId จริงตอนบันทึก', (
+    tester,
+  ) async {
+    String? sentRubric;
+    await _pump(
+      tester,
+      existing: const AssignmentSummary(
+        id: 'a11',
+        type: 'worksheet',
+        title: 'เดิม',
+        dueAt: null,
+        status: 'published',
+      ),
+      rubrics: [
+        RubricModel(id: 'r9', title: 'เกณฑ์โครงงาน AIoT', criteriaCount: 6),
+      ],
+      update:
+          ({
+            required assignmentId,
+            title,
+            instructions,
+            dueAt,
+            rubricId,
+            isGroup,
+          }) async => sentRubric = rubricId,
+    );
+    await tester.tap(find.text('เกณฑ์การให้คะแนน'));
+    await tester.pumpAndSettle();
+    expect(find.text('ไม่ใช้เกณฑ์'), findsOneWidget); // หัวชีตของจริง
+    await tester.tap(find.text('เกณฑ์โครงงาน AIoT'));
+    await tester.pumpAndSettle();
+    // ค่าที่แถวต้องเปลี่ยนตามทันที ไม่ต้องรอบันทึก
+    expect(find.text('เกณฑ์โครงงาน AIoT'), findsOneWidget);
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+    expect(sentRubric, 'r9');
+  });
+
+  testWidgets('ชีตเลือกเกณฑ์: ครูที่ยังไม่มีเกณฑ์เห็นบล็อกว่าง + ปุ่มสร้าง', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      existing: const AssignmentSummary(
+        id: 'a12',
+        type: 'worksheet',
+        title: 'เดิม',
+        dueAt: null,
+        status: 'draft',
+      ),
+      rubrics: const [],
+    );
+    await tester.tap(find.text('เกณฑ์การให้คะแนน'));
+    await tester.pumpAndSettle();
+    expect(find.text('ยังไม่มีเกณฑ์การให้คะแนน'), findsOneWidget);
+    expect(find.text('สร้างเกณฑ์การให้คะแนน'), findsOneWidget);
   });
 
   testWidgets('dataset rows show Thai metric + device and ✕ unlinks', (

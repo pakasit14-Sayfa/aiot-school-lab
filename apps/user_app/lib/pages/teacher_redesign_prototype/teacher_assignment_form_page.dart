@@ -3,6 +3,7 @@ import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
+import 'teacher_rubric_page.dart' show TeacherRubricPage;
 
 /// สร้าง / แก้ไขใบงาน — iOS grouped form (design agreed 2026-09-21).
 ///
@@ -272,34 +273,34 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     });
   }
 
+  /// ชีตเลือกเกณฑ์ — เดิมเป็น ListTile เปล่า ๆ ไม่มีหัวชีต และตอนไม่มีเกณฑ์
+  /// เลยจะโชว์บรรทัด "ยังไม่มีเกณฑ์…" ปนเป็นตัวเลือกที่กดไม่ได้ พร้อมบอกให้
+  /// "ไปสร้างจากเมนูเกณฑ์การให้คะแนน" ซึ่งเป็นทางตันในชีต — ตอนนี้มีหัวชีต
+  /// จริง ที่ว่างเป็นบล็อกของตัวเอง และมีปุ่มเปิดหน้าเกณฑ์ไปสร้างได้เลย
+  /// กลับมาแล้วโหลดรายการใหม่ให้อัตโนมัติ
   Future<void> _pickRubric() async {
+    final subject = SubjectColor.of(widget.courseName);
     final chosen = await showModalBottomSheet<String?>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.block_rounded),
-              title: const Text('ไม่ใช้เกณฑ์การให้คะแนน'),
-              trailing: _rubricId == null ? const Icon(Icons.check) : null,
-              onTap: () => Navigator.pop(ctx, ''),
-            ),
-            for (final r in _rubrics)
-              ListTile(
-                leading: const Icon(Icons.rule_rounded),
-                title: Text(r.title),
-                subtitle: Text('${r.criteriaCount} เกณฑ์'),
-                trailing: _rubricId == r.id ? const Icon(Icons.check) : null,
-                onTap: () => Navigator.pop(ctx, r.id),
-              ),
-            if (_rubrics.isEmpty && !_rubricsLoading)
-              const ListTile(
-                title: Text('ยังไม่มีเกณฑ์การให้คะแนนของคุณ'),
-                subtitle: Text('สร้างได้จากเมนู เกณฑ์การให้คะแนน'),
-              ),
-          ],
-        ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _RubricPickerSheet(
+        rubrics: _rubrics,
+        selectedId: _rubricId,
+        accent: subject.fg,
+        onCreate: () async {
+          Navigator.pop(ctx);
+          await Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const TeacherRubricPage()),
+          );
+          if (!mounted) return;
+          setState(() => _rubricsLoading = true);
+          await _loadRubrics();
+        },
       ),
     );
     if (chosen == null) return;
@@ -1880,6 +1881,261 @@ class _DatasetRow extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─────────────────────────── rubric picker ───────────────────────────
+
+class _RubricPickerSheet extends StatelessWidget {
+  const _RubricPickerSheet({
+    required this.rubrics,
+    required this.selectedId,
+    required this.accent,
+    required this.onCreate,
+  });
+
+  final List<RubricModel> rubrics;
+  final String? selectedId;
+  final Color accent;
+  final VoidCallback onCreate;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(top: 10, bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFDCDBE4),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 2),
+          child: Text(
+            'เกณฑ์การให้คะแนน',
+            style: TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: TeacherPalette.ink,
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 14),
+          child: Text(
+            'ใช้ให้คะแนนใบงานนี้ — เปลี่ยนทีหลังได้',
+            style: TextStyle(fontSize: 13, color: TeacherPalette.muted),
+          ),
+        ),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            children: [
+              _RubricOption(
+                icon: Icons.block_rounded,
+                title: 'ไม่ใช้เกณฑ์',
+                subtitle: 'ให้คะแนนเป็นตัวเลขดิบ',
+                selected: selectedId == null,
+                accent: accent,
+                onTap: () => Navigator.pop(context, ''),
+              ),
+              for (final r in rubrics)
+                _RubricOption(
+                  icon: Icons.rule_rounded,
+                  title: r.title,
+                  subtitle: '${r.criteriaCount} เกณฑ์',
+                  selected: selectedId == r.id,
+                  accent: accent,
+                  onTap: () => Navigator.pop(context, r.id),
+                ),
+              // ที่ว่างเป็นบล็อกของตัวเอง ไม่ใช่แถวตัวเลือกที่กดไม่ได้
+              if (rubrics.isEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F7FB),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.rule_folder_outlined,
+                        size: 30,
+                        color: Color(0xFFB0AEBD),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'ยังไม่มีเกณฑ์การให้คะแนน',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: TeacherPalette.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'สร้างเกณฑ์ไว้หนึ่งชุด แล้วใช้ซ้ำกับใบงานอื่นได้ทั้งเทอม',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.45,
+                          color: TeacherPalette.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+          child: SizedBox(
+            height: 48,
+            child: rubrics.isEmpty
+                ? ElevatedButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.add_rounded, size: 20),
+                    label: const Text(
+                      'สร้างเกณฑ์การให้คะแนน',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  )
+                : OutlinedButton.icon(
+                    onPressed: onCreate,
+                    icon: const Icon(Icons.tune_rounded, size: 18),
+                    label: const Text(
+                      'จัดการเกณฑ์ทั้งหมด',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: accent,
+                      side: const BorderSide(color: Color(0xFFDDDCE4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _RubricOption extends StatelessWidget {
+  const _RubricOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Material(
+      color: selected
+          ? accent.withValues(alpha: 0.08)
+          : const Color(0xFFF7F7FB),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected ? accent : Colors.transparent,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? accent.withValues(alpha: 0.16)
+                      : const Color(0xFFEDECF5),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: selected ? accent : TeacherPalette.muted,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: selected ? accent : TeacherPalette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: TeacherPalette.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (selected) ...[
+                const SizedBox(width: 10),
+                Icon(Icons.check_circle_rounded, size: 22, color: accent),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 // ─────────────────────────── link sheet ───────────────────────────
