@@ -1491,3 +1491,38 @@ build release + install ลงเครื่องจริงแล้ว. **�
 - Validation in isolated worktree fix/assignment-save-confirmation: focused assignment tests 23 passed; shared_core 66 passed; shared_ui 16 passed / 1 existing ListTile assertion failed; user_app 910 passed / 8 existing screenshot path failures (hard-coded /Users/sayfa path). No added regression failures. Analyze: shared_core clean; shared_ui 4 infos; user_app 7 warnings + 181 infos, no errors. Production-config web release build passed; existing Wasm compatibility warnings remain.
 - Manual browser click-through remains unverified: cua browser inventory returned no connected browsers (Chrome unavailable). Widget tests use injected backend callbacks; they are not a live UI-to-production verification. No production data or schema was changed for this implementation.
 - Retry state lasts while the submit sheet is open. This change does not add server-side idempotency for an ambiguous initial-submit network timeout, recovery across app restarts, or an assignment deletion API.
+
+### 2026-09-21 — หน้าแก้ไขใบงานออกแบบใหม่ทั้งหน้า + เลิกใช้สวิตช์เผยแพร่ (`62e7d13`)
+
+เจ้าของขอ "ออกแบบหน้านี้ใหม่ให้ดูโก้" แล้วขยายเป็น "เลเยอร์ · ตำแหน่งปุ่ม · สี ·
+ขนาด · รูปทรง · การวางข้อความ" และ "ให้ทำงานแบบ Google Classroom" ทำมาให้เลือก
+5 แบบ (เรนเดอร์จริงจาก widget test ที่โหลด NotoSansThai + MaterialIcons เข้า
+FontLoader แล้ว `matchesGoldenFile` — วิธีนี้ดูหน้าจริงได้โดยไม่ต้อง build ลงเครื่อง)
+เจ้าของเลือก "เอาแบบให้น่าใช้งานด้วย" → รวมสามอย่างเป็นตัวเดียว ตัวเลือกที่เหลือลบทิ้ง
+
+- **เลเยอร์** พื้นสีอ่อนของวิชา → หัวสีเข้มไหลใต้แถบสถานะ (`extendBodyBehindAppBar`)
+  → แผ่นขาวมุมมน 26 เลื่อนทับหัว 26pt พร้อมเงา
+- **ปุ่ม** ปุ่มหลักลงแถบล่างเต็มความกว้าง (เดิมมุมบนขวา = จุดที่นิ้วโป้งไกลสุด)
+  ทรงเดียวกับหน้าสร้างใบงาน 4 ขั้น แถบบนเหลือ "ยกเลิก" + เมนู ⋯
+- **การเผยแพร่เป็นคำสั่ง ไม่ใช่สวิตช์** (วิธีของ Classroom) ร่าง → "มอบหมายให้นักเรียน"
+  · มอบหมายแล้ว → "บันทึก" · เมนู ⋯ = บันทึกร่าง / ยกเลิกการเผยแพร่ เบื้องหลังยังเป็น
+  `publish_assignment` / `unpublish_assignment` ตัวเดิม
+- **บั๊กที่ปิดไปด้วย** ชื่อแถวโดนตัดกลางคำ (`เกณฑ์การใ…`) เพราะแบ่งความกว้างตายตัว
+  1:2 · ปุ่ม 3 ตัวที่ `styleFrom(textStyle:)` ทับสไตล์ทั้งก้อนจน label หลุดฟอนต์แอป
+
+ฐานที่ต่อยอดคือ WIP ที่ยังไม่ commit ของอีกเซสชัน (สแนปช็อตไว้เป็น `a3a7801`)
+ทำในเวิร์กทรีแยกเพื่อไม่ให้ชนกัน แล้ว cherry-pick กลับเข้าเลนนี้
+
+เทส: connection test ของหน้านี้ 5/5 (เพิ่มเคส ร่าง→มอบหมาย, เคส unpublish เปลี่ยนไป
+กดผ่านเมนูเพราะไม่มีสวิตช์แล้ว) · ทั้งสวีท user_app **937 ผ่าน 0 ตก** · analyze 0 error
+
+### 2026-09-21 — merge main เข้าเลน d6-phase2 (`a7b03f6`)
+
+เลนนี้ตาม main ไม่ทัน 7 commit และสองเลนแก้ `teacher_grading_page.dart` คนละทาง:
+main (`3d6a39e`) เขียนหน้านี้ใหม่ทั้งหน้าเป็น 3 หน้าโทรศัพท์ ส่วนเลนนี้ (`e44ce7b`)
+ไล่แก้ perf บนโครงเดิมที่หายไปแล้ว — resolve โดยเอาโครงใหม่ของ main เป็นหลัก แต่คง
+เจตนา perf ไว้: `for` + `await` ทีละคอร์ส → `Future.wait` ครั้งเดียว (1+N รอบไป-กลับ → 2)
+
+**perf probe ที่ค้างใน working tree ถูก stash ไว้** (`stash@{0}` "perf probes
+(instrumentation only)") — เป็นเครื่องมือวัดชั่วคราว ไม่ใช่งานที่จะ commit
+`apps/user_app/lib/perf_probe.dart` ยังเป็นไฟล์ untracked ที่ไม่มีใคร import แล้ว
