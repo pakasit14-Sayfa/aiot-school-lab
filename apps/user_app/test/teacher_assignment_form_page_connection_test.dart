@@ -217,18 +217,50 @@ void main() {
       );
       expect(find.text('แก้ไขใบงาน'), findsOneWidget);
       expect(find.text('1 ต.ค. 2569 · 23:59 น.'), findsOneWidget); // Thai date
-      await _scrollToBottom(tester);
-      final sw = find.byType(Switch).last; // เผยแพร่ให้นักเรียน
-      expect(tester.widget<Switch>(sw).value, true);
-      await tester.tap(sw);
+      // การเผยแพร่ไม่ใช่สวิตช์ในฟอร์มอีกแล้ว — เป็นคำสั่ง: ปุ่มหลักที่แถบล่าง
+      // กับทางเลือกรองในเมนู ⋯ (วิธีเดียวกับ Google Classroom)
+      expect(find.text('บันทึก'), findsOneWidget); // ใบงานที่มอบหมายแล้ว
+      await tester.tap(find.byTooltip('ตัวเลือกเพิ่มเติม'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('บันทึก'));
+      await tester.tap(find.text('ยกเลิกการเผยแพร่'));
       await tester.pumpAndSettle();
       expect(updated, 'a9');
       expect(sentDue, due);
       expect(unpublished, 'a9');
     },
   );
+
+  testWidgets('edit: ใบงานร่าง กด "มอบหมายให้นักเรียน" แล้ว publish ถูกเรียก', (
+    tester,
+  ) async {
+    String? published;
+    String? updated;
+    await _pump(
+      tester,
+      existing: const AssignmentSummary(
+        id: 'a10',
+        type: 'worksheet',
+        title: 'ร่างอยู่',
+        dueAt: null,
+        status: 'draft',
+      ),
+      update:
+          ({
+            required assignmentId,
+            title,
+            instructions,
+            dueAt,
+            rubricId,
+            isGroup,
+          }) async => updated = assignmentId,
+      publish: (id) async => published = id,
+    );
+    expect(find.text('ยังไม่ได้มอบหมาย — นักเรียนยังไม่เห็น'), findsOneWidget);
+    await tester.tap(find.text('มอบหมายให้นักเรียน'));
+    await tester.pumpAndSettle();
+    expect(updated, 'a10');
+    expect(published, 'a10');
+  });
 
   testWidgets('dataset rows show Thai metric + device and ✕ unlinks', (
     tester,

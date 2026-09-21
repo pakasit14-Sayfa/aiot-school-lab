@@ -494,6 +494,22 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   // same underline-field / tinted-row widgets below so they still read as
   // one design language. (owner: 2026-09-21, "เอาที่ง่ายต่อการใช้งาน")
 
+  /// โหมดแก้ไขใช้หัวสีวิชา + แถบปุ่มล่าง ส่วนโหมดสร้างยังเป็น wizard 4 ขั้น
+  bool get _layered => _isEdit;
+
+  /// โหมด Classroom: ปุ่มหลักมุมขวาบนคือการกระทำ ไม่ใช่สวิตช์ในฟอร์ม
+  /// ร่าง → "มอบหมาย" (บันทึก+เผยแพร่) · เผยแพร่แล้ว → "บันทึก"
+  /// ส่วนอีกทางอยู่ในเมนู ⋮ (บันทึกร่าง / ยกเลิกการเผยแพร่)
+  Future<void> _assignNow() async {
+    setState(() => _published = true);
+    await _save();
+  }
+
+  Future<void> _saveAsDraft() async {
+    setState(() => _published = false);
+    await _save();
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = SubjectColor.of(widget.courseName);
@@ -517,7 +533,11 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: _layered
+            ? Color.lerp(color.bg, Colors.white, 0.55)
+            : Colors.white,
+        extendBodyBehindAppBar: _layered,
+        bottomNavigationBar: _layered ? _saveBar(color) : null,
         appBar: _isEdit ? _editAppBar() : _wizardAppBar(),
         body: _isEdit
             ? _editBody(color, rubricTitle)
@@ -532,12 +552,15 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     );
   }
 
+  /// แถบบนโปร่งวางทับหัวสีวิชา — เหลือแค่ทางออกซ้ายกับเมนูรองขวา
+  /// ปุ่มหลักอยู่แถบล่าง (นิ้วโป้งถึงกว่า และเห็นตลอดเวลาโดยไม่ต้องเลื่อน)
   PreferredSizeWidget _editAppBar() => AppBar(
-    backgroundColor: Colors.white,
-    surfaceTintColor: Colors.white,
+    backgroundColor: Colors.transparent,
+    surfaceTintColor: Colors.transparent,
     elevation: 0,
     leading: TextButton(
       onPressed: _saving ? null : _cancel,
+      style: TextButton.styleFrom(foregroundColor: Colors.white),
       child: const Text('ยกเลิก'),
     ),
     leadingWidth: 84,
@@ -547,70 +570,37 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       style: TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w700,
-        color: TeacherPalette.ink,
+        color: Colors.white,
       ),
     ),
     actions: [
-      Padding(
-        padding: const EdgeInsets.only(right: 12),
-        // Neither dropping Center() nor switching the shape to StadiumBorder
-        // fixed this (reproduced live both times, identical crash) — the
-        // real cause is that AppBar.actions hands ElevatedButton an
-        // *unbounded* max width, and ButtonStyleButton's internal
-        // _RenderInputPadding tries to build a tight BoxConstraints from
-        // that Infinity while measuring its minimum tap target size
-        // ("BoxConstraints forces an infinite width" from RenderPhysicalShape,
-        // every time). A fixed-size SizedBox gives it a finite width before
-        // that measurement ever runs.
-        child: SizedBox(
-          width: 96,
-          height: 38,
-          child: ElevatedButton(
-            onPressed: _saving ? null : _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: TeacherPalette.primary,
-              disabledBackgroundColor: TeacherPalette.primary.withValues(
-                alpha: 0.5,
-              ),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: EdgeInsets.zero,
-              shape: const StadiumBorder(),
-            ),
-            // styleFrom(textStyle:) *replaces* the button's inherited text
-            // style rather than merging into it, which drops the app's font
-            // family (the label then renders in the platform default while
-            // the rest of the page is in the app font). Style the label.
-            child: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    'บันทึก',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                  ),
-          ),
-        ),
+      PopupMenuButton<String>(
+        tooltip: 'ตัวเลือกเพิ่มเติม',
+        icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
+        onSelected: (v) {
+          if (v == 'draft' || v == 'unpublish') _saveAsDraft();
+        },
+        itemBuilder: (_) => [
+          if (_published)
+            const PopupMenuItem(
+              value: 'unpublish',
+              child: Text('ยกเลิกการเผยแพร่'),
+            )
+          else
+            const PopupMenuItem(value: 'draft', child: Text('บันทึกร่าง')),
+        ],
       ),
+      const SizedBox(width: 4),
     ],
   );
 
-  // The colour-coded dot + subject name that used to sit here said one
-  // thing (which subject) and nothing about the worksheet being edited.
-  // Replaced by a hero card in the subject's own colour that answers the
-  // three questions a teacher opens this page with — เผยแพร่แล้วหรือยัง ·
-  // ส่งเมื่อไหร่ (และเหลือกี่วัน) · เดี่ยวหรือกลุ่ม — and updates live as
-  // the fields below change. Everything under it stays the calm form it
-  // already was. (owner: 2026-09-21, "หัวการ์ดสีวิชา + เนื้อเรียบ")
+  /// สามชั้น: (1) พื้นหลังสีอ่อนของวิชา (2) หัวสีเข้มที่ไหลขึ้นไปใต้แถบ
+  /// สถานะ (3) แผ่นขาวมุมมน 26 เลื่อนขึ้นทับหัว 26pt พร้อมเงา — ฟอร์มอยู่บน
+  /// แผ่นที่สามแผ่นเดียว ไม่ใช่การ์ดย่อยลอยเป็นชิ้น ๆ
   Widget _editBody(SubjectColor subject, String rubricTitle) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
+    padding: EdgeInsets.zero,
     children: [
-      _AssignmentHeroCard(
+      _SubjectHeader(
         subject: subject,
         subjectName: widget.courseName,
         title: _title,
@@ -618,97 +608,191 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         dueAt: _dueAt,
         isGroup: _isGroup,
         datasetCount: _datasets.length,
+        topPadding: MediaQuery.paddingOf(context).top + kToolbarHeight,
       ),
-      _GroupLabel('ข้อมูล'),
-      _TextRow(
-        controller: _title,
-        hint: 'ชื่อใบงาน',
-        label: 'ชื่อใบงาน',
-        bold: true,
-      ),
-      _TextRow(
-        controller: _instructions,
-        hint: 'คำสั่ง / รายละเอียดงาน',
-        label: 'คำอธิบาย',
-        maxLines: 6,
-      ),
-      _GroupLabel('การส่งงาน'),
-      _NavRow(
-        icon: Icons.event_rounded,
-        label: 'กำหนดส่ง',
-        value: _dueAt == null ? 'ยังไม่กำหนด' : fmtThaiDateTime(_dueAt!),
-        onTap: _saving ? null : _pickDue,
-        chipBg: _chipIndigoBg,
-        chipFg: _chipIndigoFg,
-      ),
-      _SwitchRow(
-        icon: Icons.groups_rounded,
-        label: 'งานกลุ่ม',
-        value: _isGroup,
-        onChanged: _saving
-            ? null
-            : (v) => setState(() {
-                _isGroup = v;
-                _dirty = true;
-              }),
-        chipBg: _chipMintBg,
-        chipFg: _chipMintFg,
-      ),
-      _NavRow(
-        icon: Icons.rule_rounded,
-        label: 'เกณฑ์การให้คะแนน',
-        value: rubricTitle,
-        onTap: _saving || _rubricsLoading ? null : _pickRubric,
-        chipBg: _chipAmberBg,
-        chipFg: _chipAmberFg,
-      ),
-      // การเผยแพร่แยกเป็นหมวดของตัวเอง — อันอื่นแก้ทีหลังได้เสมอ แต่ปุ่มนี้
-      // มีผลจริงทันทีที่กดบันทึก (นักเรียนเห็นเลย) — สมควรแยกให้เด่นกว่า
-      _GroupLabel('การเผยแพร่'),
-      _SwitchRow(
-        icon: Icons.campaign_rounded,
-        label: 'เผยแพร่ให้นักเรียน',
-        value: _published,
-        onChanged: _saving
-            ? null
-            : (v) => setState(() {
-                _published = v;
-                _dirty = true;
-              }),
-        highlightWhenOn: true,
-      ),
-      Padding(
-        padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
-        child: Text(
-          _published
-              ? 'นักเรียนในห้องจะเห็นใบงานนี้ทันทีที่บันทึก'
-              : 'ฉบับร่าง — นักเรียนยังไม่เห็น',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: _published ? FontWeight.w700 : FontWeight.w400,
-            color: _published ? _chipGreenFg : TeacherPalette.muted,
+      Transform.translate(
+        offset: const Offset(0, -26),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x1A101828),
+                blurRadius: 20,
+                offset: Offset(0, -6),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: _bodyRows(rubricTitle),
           ),
         ),
       ),
-      _GroupLabel('ชุดข้อมูลเซนเซอร์'),
-      if (_datasetsLoading)
-        const _InfoRow('กำลังโหลด…')
-      else if (_datasets.isEmpty)
-        const _InfoRow('ยังไม่มีชุดข้อมูล'),
-      for (final d in _datasets)
-        _DatasetRow(
-          dataset: d,
-          deviceName: _devices[d.deviceId]?.name ?? 'อุปกรณ์',
-          onRemove: _saving ? null : () => _unlink(d),
-        ),
-      _NavRow(
-        icon: Icons.add_circle_outline_rounded,
-        label: 'เพิ่มชุดข้อมูล',
-        value: '',
-        accent: true,
-        onTap: _saving ? null : _addDataset,
-      ),
     ],
+  );
+
+  // เนื้อฟอร์ม — ค่าอยู่บรรทัดล่างของชื่อแถวเสมอ ค่ายาวแค่ไหนก็ไม่แย่งที่
+  // กับชื่อแถว (ปัญหาเดิมที่ทำให้ "เกณฑ์การให้คะแนน" โดนตัดกลางคำ) และเหลือ
+  // ที่พอเขียนผลของสวิตช์เป็นประโยคแทนคำเดียว
+  //
+  // ไม่มีหมวด "การเผยแพร่" ในฟอร์มแล้ว — การเผยแพร่เป็นผลของปุ่มที่กด ไม่ใช่
+  // ค่าที่ตั้งค้างไว้ (วิธีของ Google Classroom ที่ครูคุ้นอยู่แล้ว) ดูแถบล่าง
+
+  List<Widget> _bodyRows(String rubricTitle) => [
+    _SectionHead('ข้อมูล'),
+    _FilledField(
+      controller: _title,
+      label: 'ชื่อใบงาน',
+      hint: 'เช่น ใบงานทบทวนบทที่ 1',
+      bold: true,
+    ),
+    _FilledField(
+      controller: _instructions,
+      label: 'คำอธิบาย',
+      hint: 'คำสั่ง / รายละเอียดงาน',
+      maxLines: 5,
+    ),
+    _SectionHead('การส่งงาน'),
+    _StackRow(
+      icon: Icons.event_rounded,
+      chipBg: _chipIndigoBg,
+      chipFg: _chipIndigoFg,
+      label: 'กำหนดส่ง',
+      value: _dueAt == null ? 'ยังไม่กำหนด' : fmtThaiDateTime(_dueAt!),
+      onTap: _saving ? null : _pickDue,
+    ),
+    _StackRow(
+      icon: Icons.groups_rounded,
+      chipBg: _chipMintBg,
+      chipFg: _chipMintFg,
+      label: 'งานกลุ่ม',
+      value: _isGroup ? 'ส่ง 1 ชิ้นต่อกลุ่ม' : 'นักเรียนส่งงานรายคน',
+      switchValue: _isGroup,
+      onChanged: _saving ? null : _toggleGroup,
+    ),
+    _StackRow(
+      icon: Icons.rule_rounded,
+      chipBg: _chipAmberBg,
+      chipFg: _chipAmberFg,
+      label: 'เกณฑ์การให้คะแนน',
+      value: rubricTitle,
+      onTap: _saving || _rubricsLoading ? null : _pickRubric,
+    ),
+    _SectionHead('ชุดข้อมูลเซนเซอร์'),
+    if (_datasetsLoading)
+      const _InfoRow('กำลังโหลด…')
+    else if (_datasets.isEmpty)
+      const _InfoRow('ยังไม่มีชุดข้อมูล'),
+    for (final d in _datasets)
+      _DatasetRow(
+        dataset: d,
+        deviceName: _devices[d.deviceId]?.name ?? 'อุปกรณ์',
+        onRemove: _saving ? null : () => _unlink(d),
+      ),
+    _NavRow(
+      icon: Icons.add_circle_outline_rounded,
+      label: 'เพิ่มชุดข้อมูล',
+      value: '',
+      accent: true,
+      onTap: _saving ? null : _addDataset,
+    ),
+  ];
+
+  void _toggleGroup(bool v) => setState(() {
+    _isGroup = v;
+    _dirty = true;
+  });
+
+  /// แถบล่าง — ปุ่มหลักเต็มความกว้างในระยะที่นิ้วโป้งถึง พร้อมบรรทัดบอก
+  /// สถานะปัจจุบันเหนือปุ่ม อ่านได้ตรงจุดที่กำลังจะกด
+  ///
+  /// ยังเป็นร่าง → ปุ่มคือ "มอบหมายให้นักเรียน" (บันทึก + เผยแพร่)
+  /// มอบหมายแล้ว → ปุ่มคือ "บันทึก" (แก้ไขของที่นักเรียนเห็นอยู่)
+  /// อีกทางอยู่ในเมนู ⋯ มุมขวาบน (บันทึกร่าง / ยกเลิกการเผยแพร่)
+  Widget _saveBar(SubjectColor subject) => Container(
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Color(0x14101828),
+          blurRadius: 18,
+          offset: Offset(0, -6),
+        ),
+      ],
+    ),
+    child: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _published
+                      ? Icons.public_rounded
+                      : Icons.lock_outline_rounded,
+                  size: 15,
+                  color: _published ? _chipGreenFg : TeacherPalette.muted,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    _published
+                        ? 'นักเรียนในห้องเห็นใบงานนี้อยู่'
+                        : 'ยังไม่ได้มอบหมาย — นักเรียนยังไม่เห็น',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: _published ? _chipGreenFg : TeacherPalette.muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _saving ? null : (_published ? _save : _assignNow),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: subject.fg,
+                  disabledBackgroundColor: subject.fg.withValues(alpha: 0.5),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        _published ? 'บันทึก' : 'มอบหมายให้นักเรียน',
+                        style: const TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 
   // ── wizard (create mode) ──
@@ -966,6 +1050,189 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   }
 }
 
+// ─────────────────────────── body widgets (3 แบบ) ───────────────────────────
+
+class _SectionHead extends StatelessWidget {
+  const _SectionHead(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 17,
+        color: TeacherPalette.ink,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+}
+
+/// ช่องกรอกแบบกล่องพื้นเทา — ป้ายกำกับอยู่นอกกล่องด้านบน ตัวกล่องมุม 16
+/// เท่ากับแถวตั้งค่า ทำให้ "ข้อมูล" กับ "การส่งงาน" เป็นภาษาเดียวกัน
+class _FilledField extends StatelessWidget {
+  const _FilledField({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    this.maxLines = 1,
+    this.bold = false,
+  });
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final int maxLines;
+  final bool bold;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6, left: 4),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: TeacherPalette.muted,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F7FB),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            minLines: 1,
+            style: TextStyle(
+              fontSize: bold ? 17 : 15.5,
+              height: 1.4,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+              color: TeacherPalette.ink,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: Color(0xFFB9B8C6)),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// แถวการ์ดที่วางค่าไว้บรรทัดล่างของชื่อแถว — ค่ายาวแค่ไหนก็ไม่แย่งที่กับ
+/// ชื่อแถว (ปัญหาเดิมที่ทำให้ "เกณฑ์การให้คะแนน" โดนตัด) และมีที่พอจะเขียน
+/// ผลของสวิตช์เป็นประโยคแทนคำเดียว
+class _StackRow extends StatelessWidget {
+  const _StackRow({
+    required this.icon,
+    required this.chipBg,
+    required this.chipFg,
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.switchValue,
+    this.onChanged,
+  });
+  final IconData icon;
+  final Color chipBg;
+  final Color chipFg;
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final bool? switchValue;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 19, color: chipFg),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.3,
+                    color: TeacherPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (switchValue != null)
+            Switch.adaptive(
+              value: switchValue!,
+              onChanged: onChanged,
+              activeTrackColor: TeacherPalette.primary,
+            )
+          else
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: Color(0xFFC7C7CC),
+              ),
+            ),
+        ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: const Color(0xFFF7F7FB),
+        borderRadius: BorderRadius.circular(16),
+        child: onTap == null
+            ? body
+            : InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: onTap,
+                child: body,
+              ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────── hero card ───────────────────────────
 
 /// วันครบกำหนดเทียบกับวันนี้ — นับเป็น "วัน" ตามปฏิทิน ไม่ใช่ 24 ชม.
@@ -984,148 +1251,6 @@ String? dueCountdownLabel(DateTime? due, {DateTime? now}) {
   if (days > 1) return 'อีก $days วัน';
   if (days == -1) return 'เลยกำหนด 1 วัน';
   return 'เลยกำหนด ${-days} วัน';
-}
-
-/// หัวการ์ดสีประจำวิชาของหน้าแก้ไขใบงาน — ชื่อใบงานที่กำลังพิมพ์ สถานะ
-/// เผยแพร่/ร่าง กำหนดส่งพร้อมวันที่เหลือ เดี่ยว/กลุ่ม และจำนวนชุดข้อมูล
-/// ทุกค่าเป็นสถานะจริงของฟอร์มตอนนั้น ไม่ใช่ค่าที่แต่งไว้ — แก้ข้างล่าง
-/// แล้วการ์ดเปลี่ยนทันที
-class _AssignmentHeroCard extends StatelessWidget {
-  const _AssignmentHeroCard({
-    required this.subject,
-    required this.subjectName,
-    required this.title,
-    required this.published,
-    required this.dueAt,
-    required this.isGroup,
-    required this.datasetCount,
-  });
-
-  final SubjectColor subject;
-  final String subjectName;
-  final TextEditingController title;
-  final bool published;
-  final DateTime? dueAt;
-  final bool isGroup;
-  final int datasetCount;
-
-  @override
-  Widget build(BuildContext context) {
-    // ไล่เฉดจากสีเข้มของวิชาไปหาสีแท่งของวิชาแค่ 45% — พอให้เห็นว่าเป็นสี
-    // ของวิชานั้นจริง แต่ยังเข้มพอให้ตัวหนังสือขาวอ่านออกครบทั้ง 8 คู่สี
-    // (คู่สีส้ม/เหลืองจะสว่างเกินถ้าไล่ไปจนสุด)
-    final top = subject.fg;
-    final bottom = Color.lerp(subject.fg, subject.bar, 0.45)!;
-    final overdue =
-        dueAt != null && dueAt!.toLocal().isBefore(DateTime.now());
-    final countdown = dueCountdownLabel(dueAt);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [top, bottom],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: subject.fg.withValues(alpha: 0.28),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    subjectName,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _HeroStatusPill(published: published, onColor: subject.fg),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // ชื่อใบงานอัปเดตทุกตัวอักษรที่พิมพ์ในช่องข้างล่าง — ฟอร์มตั้ง
-          // _dirty แค่ครั้งแรกครั้งเดียว จึงต้องฟัง controller ตรงนี้เอง
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: title,
-            builder: (_, value, _) {
-              final t = value.text.trim();
-              return Text(
-                t.isEmpty ? 'ยังไม่ได้ตั้งชื่อใบงาน' : t,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 21,
-                  height: 1.35,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.2,
-                  color: t.isEmpty
-                      ? Colors.white.withValues(alpha: 0.6)
-                      : Colors.white,
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _HeroChip(
-                icon: Icons.event_rounded,
-                text: dueAt == null
-                    ? 'ยังไม่กำหนดส่ง'
-                    : 'ส่ง ${_fmtThaiShort(dueAt!)} น.',
-              ),
-              if (countdown != null)
-                _HeroChip(
-                  icon: overdue
-                      ? Icons.error_outline_rounded
-                      : Icons.schedule_rounded,
-                  text: countdown,
-                  solid: overdue,
-                  solidFg: const Color(0xFFB3261E),
-                ),
-              _HeroChip(
-                icon: isGroup ? Icons.groups_rounded : Icons.person_rounded,
-                text: isGroup ? 'งานกลุ่ม' : 'งานเดี่ยว',
-              ),
-              if (datasetCount > 0)
-                _HeroChip(
-                  icon: Icons.sensors_rounded,
-                  text: 'เซนเซอร์ $datasetCount ชุด',
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _HeroStatusPill extends StatelessWidget {
@@ -1168,19 +1293,15 @@ class _HeroStatusPill extends StatelessWidget {
 }
 
 class _HeroChip extends StatelessWidget {
-  const _HeroChip({
-    required this.icon,
-    required this.text,
-    this.solid = false,
-    this.solidFg,
-  });
+  const _HeroChip({required this.icon, required this.text, this.solid = false});
   final IconData icon;
   final String text;
+
+  /// ชิป "เลยกำหนด" กลับสี — พื้นขาวตัวแดง เพื่อให้เด้งออกจากชิปอื่นบนหัวสี
   final bool solid;
-  final Color? solidFg;
   @override
   Widget build(BuildContext context) {
-    final fg = solid ? (solidFg ?? const Color(0xFFB3261E)) : Colors.white;
+    final fg = solid ? const Color(0xFFB3261E) : Colors.white;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -1206,27 +1327,126 @@ class _HeroChip extends StatelessWidget {
   }
 }
 
-// ─────────────────────────── grouped-form widgets ───────────────────────────
+/// หัวสีประจำวิชาเต็มความกว้าง ไหลขึ้นไปใต้แถบสถานะ — ตอบสามคำถามแรกที่ครู
+/// เปิดหน้านี้มาถาม: มอบหมายแล้วหรือยัง · ส่งเมื่อไหร่ เหลือกี่วัน · เดี่ยว
+/// หรือกลุ่ม (และผูกเซนเซอร์ไว้กี่ชุด) ทุกค่าเป็น state จริงของฟอร์มตอนนั้น
+/// ชื่อใบงานอัปเดตทุกตัวอักษรที่พิมพ์ในช่องข้างล่าง
+class _SubjectHeader extends StatelessWidget {
+  const _SubjectHeader({
+    required this.subject,
+    required this.subjectName,
+    required this.title,
+    required this.published,
+    required this.dueAt,
+    required this.isGroup,
+    required this.datasetCount,
+    required this.topPadding,
+  });
 
-class _GroupLabel extends StatelessWidget {
-  const _GroupLabel(this.text);
-  final String text;
+  /// ระยะบน = safe area + ความสูงแถบบน เพราะหัวนี้วาดอยู่ใต้แถบบนที่โปร่ง
+  final double topPadding;
+
+  final SubjectColor subject;
+  final String subjectName;
+  final TextEditingController title;
+  final bool published;
+  final DateTime? dueAt;
+  final bool isGroup;
+  final int datasetCount;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    // Was a small muted all-purpose caption (13px); bumped to read as an
-    // actual section heading — the reference apps use a bold sentence-case
-    // title ("Goals"), not an uppercase micro-label, between groups.
-    padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 17,
-        color: TeacherPalette.ink,
-        fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final overdue = dueAt != null && dueAt!.toLocal().isBefore(DateTime.now());
+    final countdown = dueCountdownLabel(dueAt);
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(20, topPadding, 20, 46),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [subject.fg, Color.lerp(subject.fg, subject.bar, 0.45)!],
+        ),
       ),
-    ),
-  );
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  subjectName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _HeroStatusPill(published: published, onColor: subject.fg),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: title,
+            builder: (_, value, _) {
+              final t = value.text.trim();
+              return Text(
+                t.isEmpty ? 'ยังไม่ได้ตั้งชื่อใบงาน' : t,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 24,
+                  height: 1.3,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.3,
+                  color: t.isEmpty
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : Colors.white,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeroChip(
+                icon: Icons.event_rounded,
+                text: dueAt == null
+                    ? 'ยังไม่กำหนดส่ง'
+                    : 'ส่ง ${_fmtThaiShort(dueAt!)} น.',
+              ),
+              if (countdown != null)
+                _HeroChip(
+                  icon: overdue
+                      ? Icons.error_outline_rounded
+                      : Icons.schedule_rounded,
+                  text: countdown,
+                  solid: overdue,
+                ),
+              _HeroChip(
+                icon: isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                text: isGroup ? 'งานกลุ่ม' : 'งานเดี่ยว',
+              ),
+              if (datasetCount > 0)
+                _HeroChip(
+                  icon: Icons.sensors_rounded,
+                  text: 'เซนเซอร์ $datasetCount ชุด',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
+
+// ─────────────────────────── grouped-form widgets ───────────────────────────
 
 // Pastel icon-chip tints, one per row purpose — owner asked for a look
 // "between Apple and Android", pointing at reference apps that colour-code
@@ -1241,7 +1461,6 @@ const _chipAmberBg = Color(0xFFFDF1DE);
 const _chipAmberFg = Color(0xFFB4650F);
 const _chipPinkBg = Color(0xFFFCE8F3);
 const _chipPinkFg = Color(0xFFC23B87);
-const _chipGreenBg = Color(0xFFE1F6EC);
 const _chipGreenFg = Color(0xFF107A50);
 
 // Rows below are each self-contained (own tinted background / underline) —
@@ -1420,7 +1639,6 @@ class _SwitchRow extends StatelessWidget {
     required this.onChanged,
     this.chipBg,
     this.chipFg,
-    this.highlightWhenOn = false,
   });
   final IconData icon;
   final String label;
@@ -1428,23 +1646,14 @@ class _SwitchRow extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
   final Color? chipBg;
   final Color? chipFg;
-  // Publishing takes effect the moment this switch flips (students see the
-  // assignment immediately on save) — a plain small switch undersold that
-  // compared to every other row here, which are all safe to change and
-  // revisit later. Turning the whole row green while on gives it the
-  // visual weight the action actually has.
-  final bool highlightWhenOn;
   @override
   Widget build(BuildContext context) {
-    final live = highlightWhenOn && value;
-    final iconBg = live ? _chipGreenBg : (chipBg ?? const Color(0xFFEDECF5));
-    final iconFg = live ? _chipGreenFg : (chipFg ?? TeacherPalette.muted);
+    final iconBg = chipBg ?? const Color(0xFFEDECF5);
+    final iconFg = chipFg ?? TeacherPalette.muted;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: live
-            ? _chipGreenBg.withValues(alpha: 0.55)
-            : const Color(0xFFF7F7FB),
+        color: const Color(0xFFF7F7FB),
         borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.only(left: 14, right: 10, top: 8, bottom: 8),
@@ -1463,17 +1672,13 @@ class _SwitchRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: live ? FontWeight.w700 : FontWeight.w400,
-                color: live ? _chipGreenFg : TeacherPalette.ink,
-              ),
+              style: const TextStyle(fontSize: 16, color: TeacherPalette.ink),
             ),
           ),
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: live ? _chipGreenFg : TeacherPalette.primary,
+            activeTrackColor: TeacherPalette.primary,
           ),
         ],
       ),
