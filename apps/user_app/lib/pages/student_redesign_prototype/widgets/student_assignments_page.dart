@@ -657,7 +657,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   Future<void> _pickFiles() async {
     try {
       final pick = widget.pickFiles ??
-          () async => (await FilePicker.platform.pickFiles(withData: true))
+          () async => (await FilePicker.pickFiles(withData: true))
               ?.files;
       final files = await pick();
       if (files == null) return;

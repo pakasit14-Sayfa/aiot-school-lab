@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.my_first_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36 // flutter.compileSdkVersion is below 36, which flutter_plugin_android_lifecycle/file_picker now require
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
