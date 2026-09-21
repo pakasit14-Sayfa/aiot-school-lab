@@ -449,7 +449,7 @@ bash scripts/prod_apply_2026-09-21b.sh
 ```
 ผล: true · iPhone: แถวใบงานแสดง "ส่ง 8 ก.ย. 09:23 · ส่งแล้ว 0/3 · เซนเซอร์ 2" จากข้อมูลจริง
 
-### 4.16 ⏳ รอรัน — ปิดรับงาน + เอาชุดข้อมูลเซนเซอร์ออก (ฟลว์ตรวจงานแบบใหม่)
+### 4.16 ✅ รันแล้ว 2026-09-21 — ปิดรับงาน + เอาชุดข้อมูลเซนเซอร์ออก (ฟลว์ตรวจงานแบบใหม่)
 
 migration `20260921020000_assignment_dataset_unlink_and_close.sql` · pgTAP 11 +5 (24/24)
 เพิ่ม RPC 2 ตัว: `unpublish_assignment` (เผยแพร่ → ฉบับร่าง เฉพาะครูของวิชา) และ
@@ -458,4 +458,5 @@ migration `20260921020000_assignment_dataset_unlink_and_close.sql` · pgTAP 11 +
 ```bash
 bash scripts/prod_apply_2026-09-21c.sh
 ```
+ผล: 2 แถว (unlink_assignment_sensor_dataset, unpublish_assignment) · รอบแรก login role timeout (ชั่วคราว) รันซ้ำผ่าน
 
