@@ -520,7 +520,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         backgroundColor: Colors.white,
         appBar: _isEdit ? _editAppBar() : _wizardAppBar(),
         body: _isEdit
-            ? _editBody(color.fg, rubricTitle)
+            ? _editBody(color, rubricTitle)
             : Column(
                 children: [
                   _wizardProgress(),
@@ -576,11 +576,11 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
               elevation: 0,
               padding: EdgeInsets.zero,
               shape: const StadiumBorder(),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
             ),
+            // styleFrom(textStyle:) *replaces* the button's inherited text
+            // style rather than merging into it, which drops the app's font
+            // family (the label then renders in the platform default while
+            // the rest of the page is in the app font). Style the label.
             child: _saving
                 ? const SizedBox(
                     width: 16,
@@ -590,39 +590,34 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
                       color: Colors.white,
                     ),
                   )
-                : const Text('บันทึก'),
+                : const Text(
+                    'บันทึก',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
           ),
         ),
       ),
     ],
   );
 
-  Widget _editBody(Color subjectDot, String rubricTitle) => ListView(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+  // The colour-coded dot + subject name that used to sit here said one
+  // thing (which subject) and nothing about the worksheet being edited.
+  // Replaced by a hero card in the subject's own colour that answers the
+  // three questions a teacher opens this page with — เผยแพร่แล้วหรือยัง ·
+  // ส่งเมื่อไหร่ (และเหลือกี่วัน) · เดี่ยวหรือกลุ่ม — and updates live as
+  // the fields below change. Everything under it stays the calm form it
+  // already was. (owner: 2026-09-21, "หัวการ์ดสีวิชา + เนื้อเรียบ")
+  Widget _editBody(SubjectColor subject, String rubricTitle) => ListView(
+    padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
     children: [
-      Padding(
-        padding: const EdgeInsets.only(left: 4, bottom: 16),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: subjectDot,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              widget.courseName,
-              style: const TextStyle(
-                fontSize: 13,
-                color: TeacherPalette.muted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+      _AssignmentHeroCard(
+        subject: subject,
+        subjectName: widget.courseName,
+        title: _title,
+        published: _published,
+        dueAt: _dueAt,
+        isGroup: _isGroup,
+        datasetCount: _datasets.length,
       ),
       _GroupLabel('ข้อมูล'),
       _TextRow(
@@ -971,6 +966,246 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   }
 }
 
+// ─────────────────────────── hero card ───────────────────────────
+
+/// วันครบกำหนดเทียบกับวันนี้ — นับเป็น "วัน" ตามปฏิทิน ไม่ใช่ 24 ชม.
+/// (งานที่ส่ง 23:59 คืนนี้ต้องอ่านว่า "วันนี้" ไม่ใช่ "อีก 0 วัน")
+String? dueCountdownLabel(DateTime? due, {DateTime? now}) {
+  if (due == null) return null;
+  final n = (now ?? DateTime.now()).toLocal();
+  final d = due.toLocal();
+  final days = DateTime(
+    d.year,
+    d.month,
+    d.day,
+  ).difference(DateTime(n.year, n.month, n.day)).inDays;
+  if (days == 0) return 'ครบกำหนดวันนี้';
+  if (days == 1) return 'อีก 1 วัน';
+  if (days > 1) return 'อีก $days วัน';
+  if (days == -1) return 'เลยกำหนด 1 วัน';
+  return 'เลยกำหนด ${-days} วัน';
+}
+
+/// หัวการ์ดสีประจำวิชาของหน้าแก้ไขใบงาน — ชื่อใบงานที่กำลังพิมพ์ สถานะ
+/// เผยแพร่/ร่าง กำหนดส่งพร้อมวันที่เหลือ เดี่ยว/กลุ่ม และจำนวนชุดข้อมูล
+/// ทุกค่าเป็นสถานะจริงของฟอร์มตอนนั้น ไม่ใช่ค่าที่แต่งไว้ — แก้ข้างล่าง
+/// แล้วการ์ดเปลี่ยนทันที
+class _AssignmentHeroCard extends StatelessWidget {
+  const _AssignmentHeroCard({
+    required this.subject,
+    required this.subjectName,
+    required this.title,
+    required this.published,
+    required this.dueAt,
+    required this.isGroup,
+    required this.datasetCount,
+  });
+
+  final SubjectColor subject;
+  final String subjectName;
+  final TextEditingController title;
+  final bool published;
+  final DateTime? dueAt;
+  final bool isGroup;
+  final int datasetCount;
+
+  @override
+  Widget build(BuildContext context) {
+    // ไล่เฉดจากสีเข้มของวิชาไปหาสีแท่งของวิชาแค่ 45% — พอให้เห็นว่าเป็นสี
+    // ของวิชานั้นจริง แต่ยังเข้มพอให้ตัวหนังสือขาวอ่านออกครบทั้ง 8 คู่สี
+    // (คู่สีส้ม/เหลืองจะสว่างเกินถ้าไล่ไปจนสุด)
+    final top = subject.fg;
+    final bottom = Color.lerp(subject.fg, subject.bar, 0.45)!;
+    final overdue =
+        dueAt != null && dueAt!.toLocal().isBefore(DateTime.now());
+    final countdown = dueCountdownLabel(dueAt);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [top, bottom],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: subject.fg.withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    subjectName,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _HeroStatusPill(published: published, onColor: subject.fg),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // ชื่อใบงานอัปเดตทุกตัวอักษรที่พิมพ์ในช่องข้างล่าง — ฟอร์มตั้ง
+          // _dirty แค่ครั้งแรกครั้งเดียว จึงต้องฟัง controller ตรงนี้เอง
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: title,
+            builder: (_, value, _) {
+              final t = value.text.trim();
+              return Text(
+                t.isEmpty ? 'ยังไม่ได้ตั้งชื่อใบงาน' : t,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 21,
+                  height: 1.35,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.2,
+                  color: t.isEmpty
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : Colors.white,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _HeroChip(
+                icon: Icons.event_rounded,
+                text: dueAt == null
+                    ? 'ยังไม่กำหนดส่ง'
+                    : 'ส่ง ${_fmtThaiShort(dueAt!)} น.',
+              ),
+              if (countdown != null)
+                _HeroChip(
+                  icon: overdue
+                      ? Icons.error_outline_rounded
+                      : Icons.schedule_rounded,
+                  text: countdown,
+                  solid: overdue,
+                  solidFg: const Color(0xFFB3261E),
+                ),
+              _HeroChip(
+                icon: isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                text: isGroup ? 'งานกลุ่ม' : 'งานเดี่ยว',
+              ),
+              if (datasetCount > 0)
+                _HeroChip(
+                  icon: Icons.sensors_rounded,
+                  text: 'เซนเซอร์ $datasetCount ชุด',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStatusPill extends StatelessWidget {
+  const _HeroStatusPill({required this.published, required this.onColor});
+  final bool published;
+  final Color onColor;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: published ? Colors.white : Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(999),
+      border: published
+          ? null
+          : Border.all(color: Colors.white.withValues(alpha: 0.45)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: published ? const Color(0xFF107A50) : Colors.white,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          published ? 'เผยแพร่แล้ว' : 'ฉบับร่าง',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: published ? onColor : Colors.white,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({
+    required this.icon,
+    required this.text,
+    this.solid = false,
+    this.solidFg,
+  });
+  final IconData icon;
+  final String text;
+  final bool solid;
+  final Color? solidFg;
+  @override
+  Widget build(BuildContext context) {
+    final fg = solid ? (solidFg ?? const Color(0xFFB3261E)) : Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: solid ? Colors.white : Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: solid ? FontWeight.w800 : FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─────────────────────────── grouped-form widgets ───────────────────────────
 
 class _GroupLabel extends StatelessWidget {
@@ -1125,31 +1360,39 @@ class _NavRow extends StatelessWidget {
                   child: Icon(icon, size: 17, color: iconFg),
                 ),
                 const SizedBox(width: 12),
+                // ทั้งสองฝั่งเคยเป็น Flexible คู่กัน (ชื่อแถว 1 : ค่า 2) ซึ่ง
+                // แบ่งพื้นที่ตามสัดส่วนตายตัว ไม่สนว่าอีกฝั่งใช้จริงแค่ไหน —
+                // "เกณฑ์การให้คะแนน" จึงโดนตัดเป็น "เกณฑ์การใ…" ทั้งที่ค่า
+                // คือ "ไม่ใช้" สั้นนิดเดียว ตอนนี้ชื่อแถวกินตามความกว้างจริง
+                // (ไม่เกิน 62% กันแถวชื่อยาวผิดปกติ) แล้วค่าได้ที่เหลือทั้งหมด
                 Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          label,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 16, color: fg),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Flexible(
-                        flex: 2,
-                        child: Text(
-                          value,
-                          textAlign: TextAlign.right,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: TeacherPalette.muted,
+                  child: LayoutBuilder(
+                    builder: (_, c) => Row(
+                      children: [
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: c.maxWidth * 0.62,
+                          ),
+                          child: Text(
+                            label,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 16, color: fg),
                           ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            value,
+                            textAlign: TextAlign.right,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: TeacherPalette.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 if (!accent) ...[

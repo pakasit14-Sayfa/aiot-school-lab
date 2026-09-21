@@ -3,6 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_form_page.dart';
 import 'package:shared_core/shared_core.dart';
 
+/// หน้าแก้ไขสูงกว่าจอ 844pt ตั้งแต่มีหัวการ์ดสีวิชา — ListView สร้างเฉพาะ
+/// แถวที่อยู่ในกรอบ ทำให้ find หาแถวล่าง ๆ ไม่เจอถ้ายังไม่เลื่อน
+/// (ผู้ใช้จริงก็ต้องเลื่อนเหมือนกัน) — เลื่อนสุดก่อนค่อยตรวจแถวท้ายหน้า
+Future<void> _scrollToBottom(WidgetTester tester) async {
+  final pos = tester
+      .state<ScrollableState>(find.byType(Scrollable).first)
+      .position;
+  pos.jumpTo(pos.maxScrollExtent);
+  await tester.pumpAndSettle();
+}
+
 /// ฟอร์มใบงาน (2026-09-21): create sends the course it was opened from
 /// (never courses.first), edit sends the real due DateTime, the status
 /// switch maps to publish / unpublish, dataset ✕ reaches
@@ -206,6 +217,7 @@ void main() {
       );
       expect(find.text('แก้ไขใบงาน'), findsOneWidget);
       expect(find.text('1 ต.ค. 2569 · 23:59 น.'), findsOneWidget); // Thai date
+      await _scrollToBottom(tester);
       final sw = find.byType(Switch).last; // เผยแพร่ให้นักเรียน
       expect(tester.widget<Switch>(sw).value, true);
       await tester.tap(sw);
@@ -243,25 +255,18 @@ void main() {
       ],
       unlink: (id) async => unlinked = id,
     );
-    expect(find.text('อุณหภูมิ'), findsOneWidget);
-    expect(find.textContaining('เซนเซอร์ห้อง 1'), findsOneWidget);
     // Every row grew taller in the 2026-09-21 redesign (field labels, more
     // padding between standalone tinted rows instead of a dense card list),
-    // so this row is genuinely below the fold in the fixed 844pt test
-    // viewport now — a real user just scrolls, same as the live app.
+    // and the hero card added another ~160pt on top, so the dataset row is
+    // genuinely below the fold in the fixed 844pt test viewport now — a
+    // real user just scrolls, same as the live app. ListView never builds
+    // it until then, which is why the scroll has to come before the finds.
     // ensureVisible()/dragUntilVisible() both left the derived tap offset
     // unchanged, so jump the Scrollable directly rather than fight gesture
     // routing over the rows in between.
-    tester
-        .state<ScrollableState>(find.byType(Scrollable).first)
-        .position
-        .jumpTo(
-          tester
-              .state<ScrollableState>(find.byType(Scrollable).first)
-              .position
-              .maxScrollExtent,
-        );
-    await tester.pumpAndSettle();
+    await _scrollToBottom(tester);
+    expect(find.text('อุณหภูมิ'), findsOneWidget);
+    expect(find.textContaining('เซนเซอร์ห้อง 1'), findsOneWidget);
     await tester.tap(find.byTooltip('เอาออก'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('เอาออก').last);
