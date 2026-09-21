@@ -16,6 +16,7 @@ import 'teacher_grading_page.dart';
 import 'teacher_incident_inbox_page.dart';
 import 'teacher_lesson_editor_page.dart';
 import 'teacher_pbl_activity_editor_page.dart';
+import '../school_admin/school_timetable_page.dart' show SubjectColor;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 import 'teacher_students_page.dart';
@@ -545,7 +546,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError =
+                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -1075,9 +1077,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   children:
                       [
                         'ทั้งหมด',
-                        ...({for (final c in teacherCourses) ...c.rooms}
-                            .toList()
-                          ..sort()),
+                        ...({
+                          for (final c in teacherCourses) ...c.rooms,
+                        }.toList()..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -2252,7 +2254,11 @@ class TeacherCourseDetailPage extends StatefulWidget {
     this.loadCourseStudents,
     this.loadCourseGrades,
     this.downloadBytesOverride,
+    this.loadSchedules,
   });
+
+  /// Test seam for the header's "คาบถัดไป" chip (list_teacher_schedules).
+  final Future<List<ClassScheduleSlot>> Function()? loadSchedules;
 
   /// Gradebook-tab seams (list_course_students / list_course_grades and the
   /// browser download) so the tab's load, failure and CSV export can be
@@ -2282,11 +2288,65 @@ class TeacherCourseDetailPage extends StatefulWidget {
 class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
   late String _activeTab = widget.initialTab ?? 'บทเรียน';
   int? _dynamicStudentCount;
+  List<ClassScheduleSlot> _slots = const [];
+
+  static const _tabs = [
+    'บทเรียน',
+    'ใบงาน',
+    'แบบทดสอบ',
+    'กลุ่ม',
+    'คะแนน',
+    'นักเรียน',
+  ];
 
   @override
   void initState() {
     super.initState();
     _refreshStudentCount();
+    _loadSlots();
+  }
+
+  /// This course's periods from the admin's timetable (read-only for the
+  /// teacher since D6) — feeds the "คาบถัดไป" chip in the header.
+  Future<void> _loadSlots() async {
+    final courseId = widget.course?.id;
+    if (courseId == null) return;
+    try {
+      final load =
+          widget.loadSchedules ??
+          () => CalendarService.listTeacherSchedules(courseId: courseId);
+      final list = await load();
+      if (mounted) setState(() => _slots = list);
+    } catch (e) {
+      debugPrint('TeacherCourseDetail: โหลดตารางไม่สำเร็จ — $e');
+    }
+  }
+
+  /// Next slot of this course from now (Mon-based), or null.
+  ClassScheduleSlot? get _nextSlot {
+    if (_slots.isEmpty) return null;
+    final now = DateTime.now();
+    final today = now.weekday - 1; // 0 = Mon
+    final nowMin = now.hour * 60 + now.minute;
+    int mins(String hms) {
+      final p = hms.split(':');
+      return (int.tryParse(p[0]) ?? 0) * 60 +
+          (int.tryParse(p.length > 1 ? p[1] : '0') ?? 0);
+    }
+
+    ClassScheduleSlot? best;
+    var bestKey = 1 << 30;
+    for (final s in _slots) {
+      var dayDelta = (s.dayOfWeek - today) % 7;
+      if (dayDelta < 0) dayDelta += 7;
+      if (dayDelta == 0 && mins(s.endTime) <= nowMin) dayDelta = 7;
+      final key = dayDelta * 1440 + mins(s.startTime);
+      if (key < bestKey) {
+        bestKey = key;
+        best = s;
+      }
+    }
+    return best;
   }
 
   Future<void> _refreshStudentCount() async {
@@ -2329,6 +2389,12 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
           ),
         ),
       );
+    }
+
+    // Phone: own scroll view with a collapsing, subject-coloured header
+    // (design B, owner-picked 2026-09-21). Desktop keeps the shell + sidebar.
+    if (MediaQuery.sizeOf(context).width < 900) {
+      return _buildPhone(context, c);
     }
 
     return TeacherMockPageShell(
@@ -2551,66 +2617,247 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
             const SizedBox(height: 18),
 
             // Tab Content Display
-            if (_activeTab == 'บทเรียน')
-              TeacherLessonListPage(
-                courseId: c.id,
-                courseCode: c.code,
-                courseName: c.name,
-                isCourseClosed: c.isClosed,
-                hasAccess: c.hasAccess,
-              )
-            else if (_activeTab == 'นักเรียน')
-              TeacherStudentRosterTab(course: c)
-            else if (_activeTab == 'ใบงาน')
-              _CourseAssignmentListTabWidget(course: c)
-            else if (_activeTab == 'คะแนน')
-              _CourseGradebookTabWidget(
-                course: c,
-                loadCourseStudents: widget.loadCourseStudents,
-                loadCourseGrades: widget.loadCourseGrades,
-                downloadBytesOverride: widget.downloadBytesOverride,
-              )
-            else if (_activeTab == 'กลุ่ม')
-              _StudentGroupManagementWidget(course: c)
-            else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: TeacherPalette.border),
+            _tabBody(c),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _tabBody(TeacherCourseModel c) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_activeTab == 'บทเรียน')
+          TeacherLessonListPage(
+            courseId: c.id,
+            courseCode: c.code,
+            courseName: c.name,
+            isCourseClosed: c.isClosed,
+            hasAccess: c.hasAccess,
+          )
+        else if (_activeTab == 'นักเรียน')
+          TeacherStudentRosterTab(course: c)
+        else if (_activeTab == 'ใบงาน')
+          _CourseAssignmentListTabWidget(course: c)
+        else if (_activeTab == 'คะแนน')
+          _CourseGradebookTabWidget(
+            course: c,
+            loadCourseStudents: widget.loadCourseStudents,
+            loadCourseGrades: widget.loadCourseGrades,
+            downloadBytesOverride: widget.downloadBytesOverride,
+          )
+        else if (_activeTab == 'กลุ่ม')
+          _StudentGroupManagementWidget(course: c)
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.widgets_outlined,
+                  size: 48,
+                  color: TeacherPalette.muted.withValues(alpha: 0.4),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.widgets_outlined,
-                      size: 48,
-                      color: TeacherPalette.muted.withValues(alpha: 0.4),
+                const SizedBox(height: 12),
+                Text(
+                  'หน้า $_activeTab วิชา ${c.code}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ข้อมูลและเครื่องมือสำหรับแถบ $_activeTab พร้อมใช้งาน',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: TeacherPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ── phone layout (design B) ─────────────────────────────────────────
+
+  Widget _buildPhone(BuildContext context, TeacherCourseModel c) {
+    final color = SubjectColor.of(c.name);
+    final next = _nextSlot;
+    final students = _dynamicStudentCount ?? c.studentCount;
+    final subtitle = [
+      if (c.rooms.isNotEmpty) c.rooms.join(', '),
+      '$students คน',
+    ].join(' · ');
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 148,
+            backgroundColor: color.bar,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              tooltip: 'ย้อนกลับ',
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            actions: [
+              PopupMenuButton<String>(
+                tooltip: 'ตัวเลือก',
+                icon: const Icon(Icons.more_horiz_rounded),
+                onSelected: (v) {
+                  if (v == 'groups') _openGroupManagementModal(context, c);
+                  if (v == 'close') _handleCloseCourse(context, c);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'groups',
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(Icons.groups_rounded),
+                      title: Text('จัดการกลุ่มนักเรียน'),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'หน้า $_activeTab วิชา ${c.code}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                  ),
+                  PopupMenuItem(
+                    value: 'close',
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(
+                        Icons.lock_reset_rounded,
+                        color: Color(0xFFDC2626),
+                      ),
+                      title: Text(
+                        'ปิดรายวิชา',
+                        style: TextStyle(color: Color(0xFFDC2626)),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'ข้อมูลและเครื่องมือสำหรับแถบ $_activeTab พร้อมใช้งาน',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: TeacherPalette.muted,
+                  ),
+                ],
+              ),
+            ],
+            title: _CollapsedTitle(text: c.name.isNotEmpty ? c.name : c.code),
+            flexibleSpace: FlexibleSpaceBar(
+              collapseMode: CollapseMode.pin,
+              background: Stack(
+                children: [
+                  Positioned(
+                    right: 14,
+                    bottom: 46,
+                    child: Icon(
+                      Icons.menu_book_rounded,
+                      size: 64,
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    right: 72,
+                    bottom: 50,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          c.name.isNotEmpty ? c.name : c.code,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(40),
+              child: Container(
+                color: color.bar,
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  children: [
+                    for (final t in _tabs)
+                      _PhoneTab(
+                        label: t,
+                        active: _activeTab == t,
+                        onTap: () => setState(() => _activeTab = t),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                Row(
+                  children: [
+                    Expanded(
+                      child: _PhoneStat(
+                        label: 'งานรอตรวจ',
+                        value: '${c.pendingGradingCount}',
+                        color: color,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TeacherGradingPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _PhoneStat(
+                        label: 'คาบถัดไป',
+                        value: next == null
+                            ? 'ยังไม่จัดตาราง'
+                            : '${next.dayLabel} ${next.startTime.substring(0, 5)}',
+                        color: color,
                       ),
                     ),
                   ],
                 ),
-              ),
-          ],
-        );
-      },
+                const SizedBox(height: 14),
+                _tabBody(c),
+              ]),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -5341,6 +5588,119 @@ class _SectionHeader extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// App-bar title that fades in only once the big header has collapsed.
+class _CollapsedTitle extends StatelessWidget {
+  const _CollapsedTitle({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context
+        .dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+    final collapsed =
+        settings != null && settings.currentExtent <= settings.minExtent + 8;
+    return AnimatedOpacity(
+      opacity: collapsed ? 1 : 0,
+      duration: const Duration(milliseconds: 150),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class _PhoneTab extends StatelessWidget {
+  const _PhoneTab({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: active ? Colors.white : Colors.transparent,
+              width: 2.5,
+            ),
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: active ? 1 : 0.72),
+            fontSize: 13,
+            fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhoneStat extends StatelessWidget {
+  const _PhoneStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.onTap,
+  });
+  final String label;
+  final String value;
+  final SubjectColor color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: color.bg,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color.fg.withValues(alpha: 0.8),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: color.fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
