@@ -114,11 +114,9 @@ void main() {
   testWidgets(
     'create sends the opening course, type worksheet, no ประเภทงาน field',
     (tester) async {
-      // Create mode became a 4-step wizard 2026-09-21 (owner: "เอาที่ง่ายต่อ
-      // การใช้งาน" — a guided walk fits first-time creation better than one
-      // long form). There's no longer a single "บันทึก" reachable right
-      // after typing the title, or a static "ใบงานใหม่" page title — walk
-      // all 4 steps like a real user would.
+      // wizard 4 ขั้นถูกถอยออก 2026-09-21 ตามที่เจ้าของสั่ง — โหมดสร้างเป็น
+      // หน้าเดียวเหมือนโหมดแก้ไข ปุ่มหลักที่แถบล่างคือ "มอบหมายให้นักเรียน"
+      // (สร้าง + เผยแพร่) ส่วน "บันทึกร่าง" อยู่ในเมนู ⋯
       String? sentCourse;
       String? sentType;
       bool? group;
@@ -141,17 +139,11 @@ void main() {
             },
       );
       expect(find.text('ประเภทงาน'), findsNothing);
-      await tester.enterText(
-        find.widgetWithText(TextField, 'ชื่อใบงาน'),
-        'งานใหม่',
-      );
-      await tester.tap(find.text('ถัดไป — การส่งงาน'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ถัดไป — การเผยแพร่'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('ถัดไป — ชุดข้อมูลเซนเซอร์'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('บันทึกใบงาน'));
+      // ป้าย "ชื่อใบงาน" อยู่นอกช่องกรอกแล้ว (ป้ายบน กล่องล่าง) หา TextField
+      // ตัวแรกของหน้าแทน — ตัวแรกคือช่องชื่อใบงานเสมอ
+      await tester.enterText(find.byType(TextField).first, 'งานใหม่');
+      expect(find.text('ใบงานใหม่'), findsOneWidget); // ชื่อหน้าโหมดสร้าง
+      await tester.tap(find.text('มอบหมายให้นักเรียน'));
       await tester.pumpAndSettle();
       expect(sentCourse, 'course-7');
       expect(sentType, 'worksheet');
@@ -160,9 +152,7 @@ void main() {
   );
 
   testWidgets('empty title is refused before any RPC', (tester) async {
-    // Same wizard change as above — the "ถัดไป" button on step 1 is what
-    // validates the title now, not a "บันทึก" button (that only exists on
-    // step 4).
+    // ชื่อว่างต้องถูกปัดตกที่ปุ่มหลัก ก่อนยิง RPC ใด ๆ
     var called = false;
     await _pump(
       tester,
@@ -180,7 +170,7 @@ void main() {
             return 'x';
           },
     );
-    await tester.tap(find.text('ถัดไป — การส่งงาน'));
+    await tester.tap(find.text('มอบหมายให้นักเรียน'));
     await tester.pumpAndSettle();
     expect(called, false);
     expect(find.text('กรุณากรอกชื่อใบงาน'), findsOneWidget);
