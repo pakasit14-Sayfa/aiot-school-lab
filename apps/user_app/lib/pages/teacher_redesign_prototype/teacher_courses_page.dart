@@ -812,8 +812,12 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                 ],
               ),
               const SizedBox(height: 12),
+              // Rearranged 2026-09-21 on the owner's request ("แค่จัดเรียง
+              // เอาแบบเดิม"): same purple band, but title without the emoji,
+              // a one-line summary, the two actions side by side, and the
+              // timetable note as a quiet footer line instead of a pill.
               const Text(
-                'จัดการรายวิชาที่สอน 📖',
+                'จัดการรายวิชาที่สอน',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -821,120 +825,62 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
-                'ดูแลแผนการสอน สื่อการเรียนรู้ ตรวจงาน และติดตามพัฒนาการนักเรียนรวม $totalStudents คน จาก $totalCourses รายวิชา',
+                'นักเรียน $totalStudents คน · $totalCourses รายวิชา · แผนการสอน สื่อ ตรวจงาน และติดตามพัฒนาการ',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.88),
                   fontSize: 13,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
+              const SizedBox(height: 14),
+              Row(
                 children: [
-                  // D6: no "add course" here — the school admin's timetable
-                  // creates courses and fills them with the room's students.
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.calendar_month_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            'รายวิชาและนักเรียนมาจากตารางเรียนที่แอดมินจัด',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                  Expanded(
+                    child: _HeroAction(
+                      icon: Icons.fact_check_rounded,
+                      label: 'ศูนย์ตรวจงาน',
+                      onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const TeacherGradingPage(),
                         ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.fact_check_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'ไปยังศูนย์ตรวจงาน',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        width: 1.2,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _HeroAction(
+                      icon: Icons.emergency_rounded,
+                      label: 'รับแจ้งเหตุฉุกเฉิน',
+                      onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const TeacherIncidentInboxPage(),
                         ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.emergency_rounded,
-                      size: 18,
-                      color: Colors.white,
+                      ),
                     ),
-                    label: const Text(
-                      'รับแจ้งเหตุฉุกเฉิน',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // D6: no "add course" here — the school admin's timetable
+              // creates courses and fills them with the room's students.
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.75),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'รายวิชาและนักเรียนมาจากตารางเรียนที่แอดมินจัด',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        width: 1.2,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12,
                       ),
                     ),
                   ),
@@ -5805,6 +5751,51 @@ class _PhoneStat extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One of the two white-outline actions in the courses hero band.
+class _HeroAction extends StatelessWidget {
+  const _HeroAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: Colors.white),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
