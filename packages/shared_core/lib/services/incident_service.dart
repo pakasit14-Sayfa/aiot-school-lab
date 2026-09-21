@@ -16,11 +16,19 @@ class IncidentService {
     return MyStudentRoom.fromRow(rows.first as Map<String, dynamic>);
   }
 
+  /// A refresh tick every 15 s. Pages listen and re-run their RPC load.
+  ///
+  /// This used to be `supabase.from('incident_reports').stream(...)`. RLS is
+  /// deny-all with zero policies, and Supabase Realtime honours RLS, so
+  /// that stream never emitted a row on any environment — every "live"
+  /// subscriber (student safety, teacher inbox, director emergency page)
+  /// silently never refreshed. Found 2026-09-18. The payload is empty on
+  /// purpose: no caller ever read it, they all call their own loader.
   static Stream<List<Map<String, dynamic>>> streamIncidentReports() {
-    return supabase
-        .from('incident_reports')
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false);
+    return Stream<List<Map<String, dynamic>>>.periodic(
+      const Duration(seconds: 15),
+      (_) => const <Map<String, dynamic>>[],
+    );
   }
 
   static Future<String> createIncidentReport({

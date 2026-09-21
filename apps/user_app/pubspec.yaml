@@ -54,7 +54,7 @@ dependencies:
   excel: ^4.0.6
   url_launcher: ^6.3.0
   model_viewer_plus: ^1.9.3
-  mobile_scanner: ^6.0.2
+  mobile_scanner: ^7.4.2
   qr_flutter: ^4.1.0
   collection: ^1.19.1
   image_picker: ^1.1.2

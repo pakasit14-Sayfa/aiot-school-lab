@@ -32,12 +32,17 @@ class _RosterEntry {
     required this.studentName,
     required this.submissionId,
     this.attachments = const [],
+    this.groupName,
   });
 
   final String studentId;
   final String studentName;
   final String submissionId;
   final List<SubmissionAttachment> attachments;
+
+  /// PBL-10: set for a group submission — the row stands for the whole
+  /// group; studentName is the member who submitted first.
+  final String? groupName;
   String? gradeId;
   num? score;
   num? maxScore;
@@ -114,7 +119,8 @@ class _TeacherSubmissionRosterPageState
   String? _loadError;
   List<_RosterEntry> _roster = [];
 
-  List<dynamic> _rubricSummaries = []; // shared_core RubricModel, unnamed on purpose (hidden import)
+  List<dynamic> _rubricSummaries =
+      []; // shared_core RubricModel, unnamed on purpose (hidden import)
   RubricModel? _selectedRubric;
   bool _loadingRubric = false;
 
@@ -157,6 +163,7 @@ class _TeacherSubmissionRosterPageState
           studentName: '${s.studentFirstName} ${s.studentLastName}',
           submissionId: s.submissionId,
           attachments: s.latestAttachments,
+          groupName: s.groupName,
         );
       }).toList();
 
@@ -227,7 +234,8 @@ class _TeacherSubmissionRosterPageState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ScoringSheet(rubric: rubric, studentName: entry.studentName),
+      builder: (_) =>
+          _ScoringSheet(rubric: rubric, studentName: entry.studentName),
     );
     if (result == null || !mounted) return;
 
@@ -322,15 +330,18 @@ class _TeacherSubmissionRosterPageState
               ),
               const SizedBox(height: 12),
               for (final a in entry.attachments)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.attach_file_rounded),
-                  title: Text(a.fileName ?? 'ไฟล์แนบ'),
-                  trailing: const Icon(Icons.download_rounded),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _openAttachment(a);
-                  },
+                Material(
+                  type: MaterialType.transparency,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.attach_file_rounded),
+                    title: Text(a.fileName ?? 'ไฟล์แนบ'),
+                    trailing: const Icon(Icons.download_rounded),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _openAttachment(a);
+                    },
+                  ),
                 ),
             ],
           ),
@@ -461,7 +472,10 @@ class _RubricPicker extends StatelessWidget {
             child: rubrics.isEmpty
                 ? const Text(
                     'ยังไม่มีเกณฑ์การประเมิน (Rubric) ในระบบ — สร้างที่หน้า Rubric ก่อน',
-                    style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: TeacherPalette.muted,
+                    ),
                   )
                 : DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
@@ -555,6 +569,17 @@ class _RosterRow extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (entry.groupName != null)
+                  Text(
+                    'งานกลุ่ม · ${entry.groupName} (ส่งโดย ${entry.studentName})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TeacherPalette.primary,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 if (entry.isGraded && entry.confirmed)
                   const Text(
                     'ยืนยันคะแนนแล้ว',
@@ -590,7 +615,10 @@ class _RosterRow extends StatelessWidget {
               onPressed: canScore ? onScore : null,
               style: OutlinedButton.styleFrom(
                 minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
               ),
               child: const Text('แก้ไข', style: TextStyle(fontSize: 12)),
             ),
@@ -601,7 +629,10 @@ class _RosterRow extends StatelessWidget {
                 backgroundColor: TeacherPalette.primary,
                 foregroundColor: Colors.white,
                 minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -617,7 +648,10 @@ class _RosterRow extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: TeacherPalette.primary,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 minimumSize: Size.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -827,23 +861,29 @@ class _CriterionScorer extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         for (final level in criterion.levels)
-          RadioListTile<RubricLevel>(
-            value: level,
-            groupValue: selected,
-            onChanged: (v) {
-              if (v != null) onSelect(v);
-            },
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              level.name,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-            subtitle: Text(
-              level.description,
-              style: const TextStyle(
-                fontSize: 11.5,
-                color: TeacherPalette.muted,
+          Material(
+            type: MaterialType.transparency,
+            child: RadioListTile<RubricLevel>(
+              value: level,
+              groupValue: selected,
+              onChanged: (v) {
+                if (v != null) onSelect(v);
+              },
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                level.name,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              subtitle: Text(
+                level.description,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  color: TeacherPalette.muted,
+                ),
               ),
             ),
           ),

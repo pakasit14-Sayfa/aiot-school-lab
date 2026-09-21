@@ -169,7 +169,9 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      device != null ? 'พบอุปกรณ์ในระบบ' : 'ไม่พบอุปกรณ์นี้ในระบบ',
+                      device != null
+                          ? 'พบอุปกรณ์ในระบบ'
+                          : 'ไม่พบอุปกรณ์นี้ในระบบ',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w900,
@@ -358,9 +360,7 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppPalette.softBeige,
-                              ),
+                              border: Border.all(color: AppPalette.softBeige),
                             ),
                             child: Row(
                               children: [
@@ -457,12 +457,7 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
                   ],
                 ),
               ),
-        body: TabBarView(
-          children: [
-            _buildScanTab(),
-            _buildMyQrTab(),
-          ],
-        ),
+        body: TabBarView(children: [_buildScanTab(), _buildMyQrTab()]),
       ),
     );
   }
@@ -472,7 +467,12 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
       builder: (context, constraints) {
         final mobile = constraints.maxWidth < 700;
         return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(mobile ? 14 : 22, 16, mobile ? 14 : 22, 32),
+          padding: EdgeInsets.fromLTRB(
+            mobile ? 14 : 22,
+            16,
+            mobile ? 14 : 22,
+            32,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
@@ -617,7 +617,7 @@ class _SuperAdminScanPageState extends State<SuperAdminScanPage> {
                 MobileScanner(
                   controller: _scannerController,
                   onDetect: _handleDetect,
-                  errorBuilder: (context, error, child) {
+                  errorBuilder: (context, error) {
                     return Container(
                       color: const Color(0xFF0E171D),
                       padding: const EdgeInsets.all(24),

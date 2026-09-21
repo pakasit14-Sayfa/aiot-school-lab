@@ -152,7 +152,43 @@ groups, utility/sensor costs, parent binding, invitations, password reset,
 realtime, user admin). Each wraps its own RPCs; pages call the service, never
 `supabase.rpc(...)` directly.
 
+## Realtime is not used — pages poll
+
+`RLS is deny-all with zero policies` (hard rule 2) also means Supabase Realtime
+delivers nothing: `supabase.from('incident_reports').stream(...)` and the
+`emergency_events` twin had been the "live refresh" trigger for the student
+safety page, the teacher incident inbox and the director emergency page since
+they were built, and never emitted once. Found 2026-09-18 on the phone review.
+Both service methods now return a 15-second tick and the pages re-run their
+own RPC loader on it. Do not add `.stream()` / `channel().onPostgresChanges`
+on a table expecting data — poll an RPC instead (the sensor card does the same).
+
 ## Running it locally
+
+### Building for real phones (iOS / Android) — since 2026-09-17
+
+```bash
+./scripts/build_app.sh apk   # Android .apk to hand to testers (no store account needed)
+./scripts/build_app.sh ios   # iOS .ipa for TestFlight (needs Apple Developer signing)
+./scripts/build_app.sh sim   # iOS Simulator build + install + launch
+```
+
+**Machine split (owner, 2026-09-17): this Mac builds iOS only. Android builds are done on
+the owner's Windows machine — do not set up or run `build apk` here.**
+
+Always goes through `env.prod.json` (production Supabase). A release build made
+without `--dart-define-from-file` **refuses to start** (`SupabaseConfig.assertConfigured`)
+rather than silently pointing the phone at `127.0.0.1`. App identity is
+`com.diliontech.aiotschoollab` (locked — never change after a store release);
+display name and icon are placeholders and can change any time.
+
+Known machine-level blockers on 2026-09-17 (not code): Flutter 3.32.4 with Xcode 26.6
+excludes `arm64` for the simulator, so `flutter run` on an Apple-silicon simulator
+fails with "Unable to find a destination" — `flutter upgrade` is the fix. An iOS build
+needs ~6 GB of scratch disk; the Mac had 121 MB free mid-build and Docker crashed
+(recovered per `local_dev_environment_recovery` memory notes). Android needs a JDK —
+none is installed (`java` missing), so `build apk` has not been exercised yet.
+
 
 ```bash
 cd ~/my_first_app
@@ -785,9 +821,14 @@ see `docs/handoff/WORK_LOG.md`.)*
   randomly bounces the whole app back to the unauthenticated "มีรหัสเชิญ?"
   screen, as if the router momentarily read a null/stale auth state.
   Roughly 50% of attempts hit it in Playwright testing; a plain page reload
-  after a successful login does **not** restore the session (confirmed no
-  client-side session persistence — full login+OTP is required again),
-  ruling out a token-expiry explanation (real session TTL is 7 days). Not
+  after a successful login did **not** restore the session — **root cause
+  found 2026-09-18 on the first iPhone run: `await AuthService.initialize()`
+  had been deleted from `main.dart` in `ea191dd` (2026-08-03), so the token
+  saved in secure storage was never read back on launch. Restored in
+  `main.dart`; a cold start now validates the stored token via
+  `auth_validate_session` before the first frame.** The 50% bounce-to-login
+  on navigation may be a separate race (not re-tested); the reload symptom
+  was this. Not
   reproducible on a fixed schedule or fixed action — looks like a real
   client-side race in the app's own auth-state stream, not something
   introduced this session (surfaced while building `teacher_attendance_page.dart`

@@ -67,6 +67,10 @@ Future<void> _pump(
   createAcademicYear,
   Future<String> Function({required String academicYearId, required String name, DateTime? startDate, DateTime? endDate})?
   createTerm,
+  Future<List<CalendarEventItem>> Function()? loadSchoolEvents,
+  Future<String> Function({required String title, required DateTime startDate, DateTime? endDate, String? location, String? description, String eventType})?
+  createSchoolEvent,
+  Future<void> Function(String eventId)? deleteSchoolEvent,
 }) async {
   tester.view.physicalSize = const Size(1500, 3200);
   tester.view.devicePixelRatio = 1;
@@ -85,6 +89,9 @@ Future<void> _pump(
         loadTerms: loadTerms ?? () async => const <TermOption>[],
         createAcademicYear: createAcademicYear,
         createTerm: createTerm,
+        loadSchoolEvents: loadSchoolEvents ?? () async => const <CalendarEventItem>[],
+        createSchoolEvent: createSchoolEvent,
+        deleteSchoolEvent: deleteSchoolEvent,
       ),
     ),
   );
@@ -302,5 +309,75 @@ void main() {
 
     expect(calls, 0);
     expect(find.textContaining('รูปแบบวันที่ต้องเป็น'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 2026-09-17: school events can finally be created/deleted from the app.
+  // -------------------------------------------------------------------------
+
+  CalendarEventItem ev(String id, String title) => CalendarEventItem(
+    eventId: id,
+    title: title,
+    startDate: DateTime(2026, 9, 20),
+    eventType: 'activity',
+  );
+
+  testWidgets('school events list from list_calendar_events with an honest empty state', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('กิจกรรมและวันสำคัญ'), findsOneWidget);
+    expect(find.text('ยังไม่มีกิจกรรมในปฏิทินโรงเรียน'), findsOneWidget);
+  });
+
+  testWidgets('adding an event calls create_school_event and shows it only after read-back', (
+    tester,
+  ) async {
+    final events = <CalendarEventItem>[];
+    String? sentTitle;
+    await _pump(
+      tester,
+      loadSchoolEvents: () async => List.of(events),
+      createSchoolEvent: ({required title, required startDate, endDate, location, description, eventType = 'activity'}) async {
+        sentTitle = title;
+        expect(startDate, DateTime(2026, 9, 20));
+        events.add(ev('ev-1', title));
+        return 'ev-1';
+      },
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('เพิ่มกิจกรรม / วันสำคัญ'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'ชื่อกิจกรรม'), 'กีฬาสี');
+    await tester.enterText(
+      find.widgetWithText(TextField, 'วันเริ่ม (ปี-เดือน-วัน เช่น 2026-09-20)'),
+      '2026-09-20',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(sentTitle, 'กีฬาสี');
+    expect(find.textContaining('กีฬาสี'), findsWidgets);
+    expect(find.textContaining('เพิ่ม "กีฬาสี" ในปฏิทินโรงเรียนแล้ว'), findsOneWidget);
+  });
+
+  testWidgets('deleting an event is confirmed by read-back; a lingering row is reported as failure', (
+    tester,
+  ) async {
+    var deleted = false;
+    await _pump(
+      tester,
+      loadSchoolEvents: () async => [ev('ev-1', 'กีฬาสี')], // never disappears
+      deleteSchoolEvent: (id) async => deleted = true,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
+    await tester.pumpAndSettle();
+    expect(deleted, isTrue);
+    expect(find.text('ลบไม่สำเร็จ กิจกรรมยังอยู่ในปฏิทิน'), findsOneWidget);
+    expect(find.textContaining('กีฬาสี'), findsWidgets);
   });
 }

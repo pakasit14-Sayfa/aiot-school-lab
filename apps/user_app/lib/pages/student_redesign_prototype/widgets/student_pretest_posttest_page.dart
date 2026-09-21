@@ -80,9 +80,7 @@ class _StudentPretestPosttestPageState
       final loadAttempt =
           widget.loadLatestAttempt ?? QuizService.getMyLatestQuizAttempt;
 
-      final courses = (await loadCourses())
-          .where((c) => c.isActive)
-          .toList();
+      final courses = (await loadCourses()).where((c) => c.isActive).toList();
       final quizLists = await Future.wait(
         courses.map((c) => loadQuizzes(c.id)),
       );
@@ -516,9 +514,9 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ส่งไม่สำเร็จ กรุณาลองใหม่')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ส่งไม่สำเร็จ กรุณาลองใหม่')),
+      );
     }
   }
 
@@ -653,7 +651,9 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
                       color: SchoolPalette.navy,
                     ),
                     label: Text(
-                      attachment.type == 'video' ? 'ดูวิดีโอแนบ' : 'ดูรูปภาพแนบ',
+                      attachment.type == 'video'
+                          ? 'ดูวิดีโอแนบ'
+                          : 'ดูรูปภาพแนบ',
                     ),
                     backgroundColor: Colors.white,
                     side: const BorderSide(color: SchoolPalette.glassBorder),
@@ -682,15 +682,18 @@ class _QuizTakingPageState extends State<_QuizTakingPage> {
             )
           else
             for (final choice in question.choices)
-              RadioListTile<String>(
-                value: choice.id,
-                groupValue: _selectedChoice[question.id],
-                onChanged: (value) {
-                  setState(() => _selectedChoice[question.id] = value!);
-                },
-                title: Text(choice.text),
-                contentPadding: EdgeInsets.zero,
-                dense: true,
+              Material(
+                type: MaterialType.transparency,
+                child: RadioListTile<String>(
+                  value: choice.id,
+                  groupValue: _selectedChoice[question.id],
+                  onChanged: (value) {
+                    setState(() => _selectedChoice[question.id] = value!);
+                  },
+                  title: Text(choice.text),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
               ),
         ],
       ),

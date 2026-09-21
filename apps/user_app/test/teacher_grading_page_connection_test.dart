@@ -44,6 +44,7 @@ Future<void> _pump(
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool isGroup,
   })?
   createAssignment,
   Future<void> Function(String assignmentId)? publishAssignment,
@@ -98,6 +99,7 @@ void main() {
               instructions,
               dueAt,
               rubricId,
+              isGroup = false,
             }) async {
               sentCourseId = courseId;
               sentTitle = title;

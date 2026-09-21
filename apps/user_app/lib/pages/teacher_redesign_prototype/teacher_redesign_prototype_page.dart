@@ -1547,183 +1547,233 @@ class _TeacherHeroState extends State<_TeacherHero> {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      // Clip.none บน Stack ด้านในทำให้มาสคอตโผล่พ้นขอบบนได้ — ต้องมี
-      // ClipRect ชั้นนอกสุดกันไม่ให้ส่วนที่โผล่ไปทับการ์ดอื่นด้านบนตอน
-      // สกรอลอยู่ในหน้าที่มี ListView ครอบ
-      clipBehavior: Clip.none,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [TeacherPalette.primary, TeacherPalette.skyDeep],
-              ),
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33235284),
-                  blurRadius: 26,
-                  offset: Offset(0, 14),
-                ),
-              ],
+    // ออกแบบใหม่ 2026-09-18 ให้โครงเดียวกับ hero ของนักเรียน
+    // (student_variant_school_home.dart _buildHeroHeader): มาสคอตตัวเดียว
+    // วาง Positioned ในกรอบการ์ด (ไม่ลอยพ้นขอบให้ต้องกัน ClipRect ชั้นนอก
+    // + เผื่อเท้าทับการ์ดถัดไปแบบเดิม) ข้อความเว้นที่ด้วย SizedBox ใน Row
+    // เดียว ไม่ต้องสลับ Column/Row ตาม isCompact แบบเดิม — ตัดปัญหามาสคอต
+    // ซ้อนสองตัวที่เคยเกิดเพราะมี Positioned สองจุดคุมด้วยเงื่อนไขคนละที่
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 480;
+        final mascotSize = isCompact ? 148.0 : 208.0;
+        final mascotReserve = isCompact ? 116.0 : 168.0;
+
+        return Container(
+          clipBehavior: Clip.antiAlias,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [TeacherPalette.primary, TeacherPalette.skyDeep],
             ),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 480;
-                final illustrationWidth = isNarrow ? 96.0 : 148.0;
-                // เว้นที่ว่างขวาให้มาสคอตลอยอยู่ (ตัวจริงวาง Positioned
-                // ทับด้านนอก ไม่ใช่ inline ในเนื้อหา) กันข้อความ/ปุ่มชน
-                final illustrationSpacer = isNarrow
-                    ? const SizedBox.shrink()
-                    : SizedBox(width: illustrationWidth - 20);
-
-                final textBlock = Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'แจ้งเตือน',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12.5,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _bannerText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        FilledButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const TeacherGradingPage(),
-                            ),
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: TeacherPalette.primary,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                          child: const Text('ตรวจงานเลย'),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const TeacherGradesPage(),
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white70),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 12,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                            ),
-                          ),
-                          child: const Text('ดูรายงาน'),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-
-                if (isNarrow) {
-                  return Column(
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33235284),
+                blurRadius: 26,
+                offset: Offset(0, 14),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: CustomPaint(painter: _TeacherHeroPatternPainter()),
+              ),
+              Positioned(
+                right: isCompact ? 2 : 8,
+                top: isCompact ? 2 : 4,
+                child: _TeacherHeroMascot(size: mascotSize),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        height: illustrationWidth,
-                        child: Align(
-                          alignment: Alignment.topRight,
-                          child: Image.asset(
-                            'assets/images/teacher_mascot_lion.png',
-                            height: illustrationWidth,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                              Icons.co_present_rounded,
-                              size: illustrationWidth * 0.5,
-                              color: Colors.white,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const _TeacherHeroChip(label: 'แจ้งเตือน'),
+                            const SizedBox(height: 8),
+                            Text(
+                              _bannerText,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isCompact ? 18 : 22,
+                                fontWeight: FontWeight.w900,
+                                height: 1.25,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      textBlock,
+                      SizedBox(width: mascotReserve),
                     ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(child: textBlock),
-                    const SizedBox(width: 12),
-                    illustrationSpacer,
-                  ],
-                );
-              },
-            ),
-          ),
-          // มาสคอตลอยพ้นขอบบนของการ์ด (ไม่ครอบด้วยกล่องพื้นขาวเหมือนเดิม)
-          // ตามภาพ reference ที่ทีมส่งมา — เฉพาะจอกว้าง (Row layout) เท่านั้น
-          // เพราะจอแคบพื้นที่ไม่พอให้ลอยแบบนี้ ใช้เวอร์ชัน inline แทน (ด้านบน)
-          // ยึดจากขอบล่าง (bottom) แทน top เดิม — เดิมยึด top:-26 แล้ว
-          // กำหนดความสูงตายตัว ทำให้ปลายเท้าเลยขอบล่างของการ์ดไปทับกับ
-          // การ์ดถัดไปใน ListView (การ์ดถัดไปวาดทีหลังเลยบังเท้า) ยึด
-          // bottom ให้เท้าล็อกอยู่ในขอบการ์ดเสมอ ส่วนหัวยังโผล่พ้นขอบบน
-          // ได้ตามเดิมเพราะภาพสูงกว่าการ์ด
-          Positioned(
-            right: 18,
-            bottom: 6,
-            child: IgnorePointer(
-              child: Image.asset(
-                'assets/images/teacher_mascot_lion.png',
-                height: 172,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 18),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      FilledButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TeacherGradingPage(),
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: TeacherPalette.primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        child: const Text('ตรวจงานเลย'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TeacherGradesPage(),
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.white70),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        child: const Text('ดูรายงาน'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
+            ],
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _TeacherHeroChip extends StatelessWidget {
+  const _TeacherHeroChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+        ),
       ),
     );
   }
+}
+
+class _TeacherHeroMascot extends StatelessWidget {
+  const _TeacherHeroMascot({required this.size});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+        ),
+      ),
+      child: Image.asset(
+        'assets/images/teacher_mascot_lion.png',
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => Icon(
+          Icons.co_present_rounded,
+          size: size * 0.5,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+// สไตล์เดียวกับ _SchoolHeroPatternPainter ของหน้านักเรียน (เส้นทแยง +
+// วงแสงเบลอ 2 จุด) แค่เปลี่ยนสี glow เป็นโทนม่วงอ่อนของครูแทนเหลือง
+class _TeacherHeroPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1.3;
+
+    for (var x = -size.height; x < size.width; x += 92) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x + size.height * 0.58, size.height),
+        linePaint,
+      );
+    }
+
+    final glowPaint = Paint()
+      ..color = TeacherPalette.skyBright.withValues(alpha: 0.14)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      Offset(size.width * 0.82, size.height * 0.18),
+      44,
+      glowPaint,
+    );
+    canvas.drawCircle(
+      Offset(size.width * 0.18, size.height * 0.86),
+      56,
+      glowPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _TeacherMobileHeader extends StatelessWidget {
@@ -4111,12 +4161,18 @@ class _UtilityGradientAreaChartPainter extends CustomPainter {
     final minVal = values.reduce(math.min) * 0.7;
     final count = values.length;
     final band = bottomFraction - topFraction;
+    // A flat series (all zeros before the first load, or a school with no
+    // readings yet) makes maxVal == minVal and the division below NaN, which
+    // asserts inside canvas.drawLine and blanks the whole teacher home on
+    // every cold start. Pin such a series to the bottom of its band instead.
+    final range = maxVal - minVal;
+    final stepX = count > 1 ? w / (count - 1) : 0.0;
     return [
       for (var i = 0; i < count; i++)
         Offset(
-          (w / (count - 1)) * i,
+          stepX * i,
           h * bottomFraction -
-              (h * band) * ((values[i] - minVal) / (maxVal - minVal)),
+              (range > 0 ? (h * band) * ((values[i] - minVal) / range) : 0.0),
         ),
     ];
   }

@@ -44,6 +44,9 @@ class SchoolSettingsPage extends StatefulWidget {
     this.loadTerms,
     this.createAcademicYear,
     this.createTerm,
+    this.loadSchoolEvents,
+    this.createSchoolEvent,
+    this.deleteSchoolEvent,
   });
 
   /// Seam สำหรับเทสต์ (แบบเดียวกับ `school_resources_page`) — production
@@ -75,6 +78,21 @@ class SchoolSettingsPage extends StatefulWidget {
     DateTime? endDate,
   })?
   createTerm;
+
+  /// กิจกรรมและวันสำคัญของโรงเรียน — list_calendar_events / create_school_event /
+  /// delete_school_event (20260917020000). ก่อน 2026-09-17 ทุกบทบาทอ่านปฏิทินได้
+  /// แต่ไม่มีหน้าไหนสร้างกิจกรรมได้เลย (ตารางมีแต่จาก seed)
+  final Future<List<CalendarEventItem>> Function()? loadSchoolEvents;
+  final Future<String> Function({
+    required String title,
+    required DateTime startDate,
+    DateTime? endDate,
+    String? location,
+    String? description,
+    String eventType,
+  })?
+  createSchoolEvent;
+  final Future<void> Function(String eventId)? deleteSchoolEvent;
 
   @override
   State<SchoolSettingsPage> createState() => _SchoolSettingsPageState();
@@ -118,6 +136,7 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
     _loadRates();
     _loadLogs();
     _loadAcademicCalendar();
+    _loadSchoolEvents();
   }
 
   @override
@@ -290,6 +309,8 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
                   _buildUtilityRates(),
                   const SizedBox(height: 14),
                   _buildAcademicCalendar(),
+                  const SizedBox(height: 14),
+                  _buildSchoolEvents(),
                   const SizedBox(height: 14),
                   _buildLogs(),
                 ],
@@ -1024,6 +1045,249 @@ class _SchoolSettingsPageState extends State<SchoolSettingsPage> {
     return _SettingsSectionCard(
       title: 'ปีการศึกษาและภาคเรียน',
       subtitle: 'รายวิชาทุกวิชาต้องผูกกับภาคเรียน — สร้างที่นี่ก่อนเปิดรายวิชา',
+      child: body,
+    );
+  }
+
+  // ── กิจกรรมและวันสำคัญ ──
+  List<CalendarEventItem> _events = const [];
+  bool _eventsLoading = true;
+  bool _eventsFailed = false;
+  final Set<String> _deletingEventIds = <String>{};
+
+  static const Map<String, String> _eventTypeLabels = {
+    'activity': 'กิจกรรม',
+    'exam': 'สอบ',
+    'holiday': 'วันหยุดโรงเรียน',
+    'public_holiday': 'วันหยุดราชการ',
+    'study': 'วันเรียน/ชดเชย',
+  };
+
+  Future<void> _loadSchoolEvents() async {
+    if (mounted) {
+      setState(() {
+        _eventsLoading = true;
+        _eventsFailed = false;
+      });
+    }
+    try {
+      final rows =
+          await (widget.loadSchoolEvents ??
+              CalendarService.listSchoolCalendarEvents)();
+      if (!mounted) return;
+      final sorted = [...rows]..sort((a, b) => a.startDate.compareTo(b.startDate));
+      setState(() {
+        _events = sorted;
+        _eventsLoading = false;
+      });
+    } catch (e) {
+      debugPrint('SchoolSettingsPage: โหลดกิจกรรมไม่สำเร็จ — $e');
+      if (!mounted) return;
+      setState(() {
+        _eventsLoading = false;
+        _eventsFailed = true;
+      });
+    }
+  }
+
+  Future<void> _openCreateEvent() async {
+    final titleCtrl = TextEditingController();
+    final startCtrl = TextEditingController();
+    final endCtrl = TextEditingController();
+    final locationCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    var type = 'activity';
+    await _openCalendarForm(
+      title: 'เพิ่มกิจกรรม / วันสำคัญ',
+      controllers: [titleCtrl, startCtrl, endCtrl, locationCtrl, descCtrl],
+      fields: [
+        TextField(
+          controller: titleCtrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'ชื่อกิจกรรม'),
+        ),
+        StatefulBuilder(
+          builder: (context, setField) => DropdownButtonFormField<String>(
+            value: type,
+            decoration: const InputDecoration(labelText: 'ประเภท'),
+            items: [
+              for (final e in _eventTypeLabels.entries)
+                DropdownMenuItem(value: e.key, child: Text(e.value)),
+            ],
+            onChanged: (v) => setField(() => type = v ?? 'activity'),
+          ),
+        ),
+        TextField(
+          controller: startCtrl,
+          decoration: const InputDecoration(
+            labelText: 'วันเริ่ม (ปี-เดือน-วัน เช่น 2026-09-20)',
+          ),
+        ),
+        TextField(
+          controller: endCtrl,
+          decoration: const InputDecoration(
+            labelText: 'วันสิ้นสุด (ถ้าเป็นวันเดียวเว้นว่าง)',
+          ),
+        ),
+        TextField(
+          controller: locationCtrl,
+          decoration: const InputDecoration(labelText: 'สถานที่ (ถ้ามี)'),
+        ),
+        TextField(
+          controller: descCtrl,
+          decoration: const InputDecoration(labelText: 'รายละเอียด (ถ้ามี)'),
+        ),
+      ],
+      onSubmit: () async {
+        final title = titleCtrl.text.trim();
+        if (title.isEmpty) throw const FormatException('กรอกชื่อกิจกรรม');
+        final start = _parseDate(startCtrl.text);
+        if (start == null) throw const FormatException('กรอกวันเริ่มเป็น ปี-เดือน-วัน');
+        final end = _parseDate(endCtrl.text);
+        if (end != null && end.isBefore(start)) {
+          throw const FormatException('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม');
+        }
+        final id = await (widget.createSchoolEvent ??
+            CalendarService.createSchoolEvent)(
+          title: title,
+          startDate: start,
+          endDate: end,
+          location: locationCtrl.text,
+          description: descCtrl.text,
+          eventType: type,
+        );
+        // Write, then read back: the event must be in the list the calendar
+        // pages use before this page says it exists.
+        final fresh = await (widget.loadSchoolEvents ??
+            CalendarService.listSchoolCalendarEvents)();
+        if (!fresh.any((e) => e.eventId == id)) {
+          throw StateError('backend_event_not_confirmed');
+        }
+        await _loadSchoolEvents();
+        return 'เพิ่ม "$title" ในปฏิทินโรงเรียนแล้ว';
+      },
+    );
+  }
+
+  Future<bool> _confirm({required String title, required String message}) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ลบ'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  Future<void> _deleteEvent(CalendarEventItem e) async {
+    final ok = await _confirm(
+      title: 'ลบกิจกรรม',
+      message: 'ลบ "${e.title}" ออกจากปฏิทินของทุกบทบาท?',
+    );
+    if (!ok || !mounted) return;
+    setState(() => _deletingEventIds.add(e.eventId));
+    try {
+      await (widget.deleteSchoolEvent ?? CalendarService.deleteSchoolEvent)(
+        e.eventId,
+      );
+      final fresh = await (widget.loadSchoolEvents ??
+          CalendarService.listSchoolCalendarEvents)();
+      if (fresh.any((x) => x.eventId == e.eventId)) {
+        throw StateError('backend_event_still_present');
+      }
+      if (!mounted) return;
+      setState(() {
+        _events = [...fresh]..sort((a, b) => a.startDate.compareTo(b.startDate));
+      });
+      _showMessage('ลบ "${e.title}" แล้ว (ยืนยันกับระบบเรียบร้อย)');
+    } catch (err) {
+      debugPrint('SchoolSettingsPage: ลบกิจกรรมล้ม — $err');
+      if (!mounted) return;
+      _showMessage('ลบไม่สำเร็จ กิจกรรมยังอยู่ในปฏิทิน');
+    } finally {
+      if (mounted) setState(() => _deletingEventIds.remove(e.eventId));
+    }
+  }
+
+  static String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year + 543}';
+
+  Widget _buildSchoolEvents() {
+    Widget body;
+    if (_eventsLoading) {
+      body = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_eventsFailed) {
+      body = Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'โหลดกิจกรรมไม่สำเร็จ',
+              style: TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(onPressed: _loadSchoolEvents, child: const Text('ลองใหม่')),
+        ],
+      );
+    } else {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_events.isEmpty)
+            const Text(
+              'ยังไม่มีกิจกรรมในปฏิทินโรงเรียน',
+              style: TextStyle(fontSize: 12.5, color: SchoolAdminPalette.textSecondary),
+            )
+          else
+            for (final e in _events)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${_fmtDate(e.startDate)}'
+                        '${e.endDate != null && e.endDate != e.startDate ? ' – ${_fmtDate(e.endDate!)}' : ''}'
+                        '  ${e.title}'
+                        '  · ${_eventTypeLabels[e.eventType] ?? e.eventType}',
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'ลบกิจกรรม',
+                      onPressed: _deletingEventIds.contains(e.eventId)
+                          ? null
+                          : () => _deleteEvent(e),
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                    ),
+                  ],
+                ),
+              ),
+          const SizedBox(height: 6),
+          FilledButton.icon(
+            onPressed: _openCreateEvent,
+            icon: const Icon(Icons.event_rounded, size: 16),
+            label: const Text('เพิ่มกิจกรรม / วันสำคัญ'),
+          ),
+        ],
+      );
+    }
+    return _SettingsSectionCard(
+      title: 'กิจกรรมและวันสำคัญ',
+      subtitle: 'แสดงในปฏิทินของครู นักเรียน ผู้ปกครอง และผู้บริหาร',
       child: body,
     );
   }

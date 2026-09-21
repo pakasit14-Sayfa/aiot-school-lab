@@ -453,16 +453,18 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
                         ),
                       )
                     else
-                      ..._history.take(10).map(
-                        (e) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _ScanHistoryRow(
-                            code: e.code,
-                            time:
-                                '${e.time.hour.toString().padLeft(2, '0')}:${e.time.minute.toString().padLeft(2, '0')} น.',
+                      ..._history
+                          .take(10)
+                          .map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _ScanHistoryRow(
+                                code: e.code,
+                                time:
+                                    '${e.time.hour.toString().padLeft(2, '0')}:${e.time.minute.toString().padLeft(2, '0')} น.',
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -604,11 +606,7 @@ class _SchoolScanPageState extends State<SchoolScanPage> {
                   controller: _scannerController,
                   onDetect: _handleDetect,
                   errorBuilder:
-                      (
-                        BuildContext context,
-                        MobileScannerException error,
-                        Widget? child,
-                      ) {
+                      (BuildContext context, MobileScannerException error) {
                         return _CameraUnavailable(
                           onRetry: () {
                             setState(() {

@@ -52,9 +52,14 @@ Future<void> _pump(
   Future<void> Function(String taskId)? deleteTask,
   Future<void> Function({required String taskId, required bool done})?
   toggleTask,
+  bool phone = false,
 }) async {
-  tester.view.physicalSize = const Size(1200, 2400);
-  tester.view.devicePixelRatio = 1;
+  // Phone size renders the mobile agenda (and its "+ เพิ่ม" button);
+  // the default 1200px pumps the desktop week panel.
+  tester.view.physicalSize = phone
+      ? const Size(390 * 3, 844 * 3)
+      : const Size(1200, 2400);
+  tester.view.devicePixelRatio = phone ? 3 : 1;
   addTearDown(() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
@@ -183,5 +188,58 @@ void main() {
     // offered; this just confirms no accidental delete call happens from
     // rendering alone.
     expect(deleteCalls, 0);
+  });
+
+  testWidgets('add sheet: disabled until titled, then creates at the chosen day 16:00', (
+    tester,
+  ) async {
+    String? gotTitle;
+    DateTime? gotDueAt;
+    await _pump(
+      tester,
+      phone: true,
+      createTask: ({required String title, required DateTime dueAt}) async {
+        gotTitle = title;
+        gotDueAt = dueAt;
+      },
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'เพิ่ม').first);
+    await tester.pumpAndSettle();
+    expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
+
+    // Nothing typed → the primary button is disabled, tapping does nothing.
+    final save = find.text('เพิ่มลงปฏิทิน');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(gotTitle, isNull);
+    expect(find.text('กิจกรรมส่วนตัว'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'อ่านหนังสือสอบวิทย์');
+    await tester.pumpAndSettle();
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+
+    final today = DateTime.now();
+    expect(gotTitle, 'อ่านหนังสือสอบวิทย์');
+    expect(gotDueAt, DateTime(today.year, today.month, today.day, 16, 0));
+    expect(find.text('กิจกรรมส่วนตัว'), findsNothing);
+  });
+
+  testWidgets('add sheet: ยกเลิก closes without creating anything', (tester) async {
+    var created = false;
+    await _pump(
+      tester,
+      phone: true,
+      createTask: ({required String title, required DateTime dueAt}) async {
+        created = true;
+      },
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'เพิ่ม').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'x');
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+    expect(created, isFalse);
+    expect(find.text('กิจกรรมส่วนตัว'), findsNothing);
   });
 }

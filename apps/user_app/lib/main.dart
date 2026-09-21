@@ -32,6 +32,12 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseConfig.initialize();
+  // Restore the saved session before the first frame. This call was
+  // dropped by accident in ea191dd (2026-08-03, a mascot commit) and from
+  // then on every cold start landed on the login page even though the
+  // token had been written to secure storage — invisible on the web, where
+  // the tab stays open, but a login + OTP on every launch of the phone app.
+  await AuthService.initialize();
   // false = เข้า login/auth จริงตามปกติ (RoleRouter ตัดสินหน้าแรกจาก role
   // จริงใน Supabase) — เปลี่ยนกลับเป็น true ชั่วคราวได้เวลาต้องการรีวิว
   // หน้า prototype โดยไม่ผ่าน login จริง (ดู teacher_redesign_prototype/

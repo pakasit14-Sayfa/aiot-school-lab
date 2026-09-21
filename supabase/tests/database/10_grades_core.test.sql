@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -18,6 +19,7 @@ values ('49400000-0000-0000-0000-000000000001', '49300000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('10900000-0000-0000-0000-000000000000', '49200000-0000-0000-0000-000000000001', 'admin10@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '10900000-0000-0000-0000-000000000000'),
   ('49500000-0000-0000-0000-000000000001', '49200000-0000-0000-0000-000000000001',
    'grd-teacher-a@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'A',
    '49500000-0000-0000-0000-000000000001'),
@@ -32,12 +34,14 @@ insert into users (
    '49500000-0000-0000-0000-000000000001');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('10900000-0000-0000-0000-000000000000', 'school_admin', '49200000-0000-0000-0000-000000000001', '10900000-0000-0000-0000-000000000000'),
   ('49500000-0000-0000-0000-000000000001', 'teacher', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001'),
   ('49500000-0000-0000-0000-000000000002', 'student', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001'),
   ('49500000-0000-0000-0000-000000000003', 'student', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001'),
   ('49500000-0000-0000-0000-000000000004', 'school_admin', '49200000-0000-0000-0000-000000000001', '49500000-0000-0000-0000-000000000001');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('10900000-0000-0000-0000-000000000000', 'school_admin', '49200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-10', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('49500000-0000-0000-0000-000000000001', 'teacher', '49200000-0000-0000-0000-000000000001',
    encode(digest('grd-teacher-a-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('49500000-0000-0000-0000-000000000002', 'student', '49200000-0000-0000-0000-000000000001',
@@ -76,13 +80,12 @@ insert into parent_links (
 );
 
 create temporary table created_course as
-select * from create_course(
-  'grd-teacher-a-token', '49400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-10', '49400000-0000-0000-0000-000000000001',
   'Grades Test Course'
-);
+, 'M.1', '1', null, '49500000-0000-0000-0000-000000000001');
 
-select enroll_student('grd-teacher-a-token', (select course_id from created_course), '49500000-0000-0000-0000-000000000002');
-select enroll_student('grd-teacher-a-token', (select course_id from created_course), '49500000-0000-0000-0000-000000000003');
+select enroll_student('admin-token-patched-10', (select course_id from created_course), '49500000-0000-0000-0000-000000000002');
+select enroll_student('admin-token-patched-10', (select course_id from created_course), '49500000-0000-0000-0000-000000000003');
 
 -- 1. teacher grades a normal student (no CoI)
 create temporary table grade_a1 as

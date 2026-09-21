@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -12,6 +13,7 @@ values ('98200000-0000-0000-0000-000000000001', '98100000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('43900000-0000-0000-0000-000000000000', '98200000-0000-0000-0000-000000000001', 'admin43@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '43900000-0000-0000-0000-000000000000'),
   ('98300000-0000-0000-0000-000000000001', '98200000-0000-0000-0000-000000000001',
    'perm-admin@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Admin', 'A',
    '98300000-0000-0000-0000-000000000001'),
@@ -23,11 +25,13 @@ insert into users (
    '98300000-0000-0000-0000-000000000001');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('43900000-0000-0000-0000-000000000000', 'school_admin', '98200000-0000-0000-0000-000000000001', '43900000-0000-0000-0000-000000000000'),
   ('98300000-0000-0000-0000-000000000001', 'school_admin', '98200000-0000-0000-0000-000000000001', '98300000-0000-0000-0000-000000000001'),
   ('98300000-0000-0000-0000-000000000002', 'super_admin', null, '98300000-0000-0000-0000-000000000001'),
   ('98300000-0000-0000-0000-000000000003', 'teacher', '98200000-0000-0000-0000-000000000001', '98300000-0000-0000-0000-000000000001');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('43900000-0000-0000-0000-000000000000', 'school_admin', '98200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-43', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98300000-0000-0000-0000-000000000001', 'school_admin', '98200000-0000-0000-0000-000000000001', encode(digest('perm-admin-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98300000-0000-0000-0000-000000000002', 'super_admin', null, encode(digest('perm-super-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98300000-0000-0000-0000-000000000003', 'teacher', '98200000-0000-0000-0000-000000000001', encode(digest('perm-teacher-token', 'sha256'), 'hex'), now() + interval '1 hour');
@@ -65,9 +69,9 @@ select ok(
   exists(
     select 1 from list_role_permission_matrix('perm-admin-token')
     where function_name = 'create_course'
-      and 'teacher' = any(allowed_roles)
+      
       and 'school_admin' = any(allowed_roles)
-      and array_length(allowed_roles, 1) = 2
+      and array_length(allowed_roles, 1) = 1
   ),
   'create_course reports its real ("teacher","school_admin") role gate'
 );

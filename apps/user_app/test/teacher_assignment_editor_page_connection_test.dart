@@ -80,6 +80,7 @@ Future<void> _pump(
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool? isGroup,
   })?
   updateAssignment,
   Future<void> Function(String assignmentId)? publishAssignment,
@@ -122,6 +123,7 @@ void main() {
     (tester) async {
       String? updatedId;
       String? updatedRubricId;
+      bool? updatedIsGroup;
       var loadCoursesCalledDuringEdit = false;
       var publishCalls = 0;
 
@@ -143,9 +145,11 @@ void main() {
               instructions,
               dueAt,
               rubricId,
+              isGroup,
             }) async {
           updatedId = assignmentId;
           updatedRubricId = rubricId;
+          updatedIsGroup = isGroup;
         },
         publishAssignment: (assignmentId) async {
           publishCalls++;
@@ -166,11 +170,16 @@ void main() {
       await tester.tap(find.text('เกณฑ์วิทย์').last);
       await tester.pumpAndSettle();
 
+      // PBL-10: flip "งานกลุ่ม" — until 2026-09-18 this toggle never
+      // reached the backend.
+      await tester.tap(find.byType(Switch).first);
+      await tester.pump();
       await tester.tap(find.text('เผยแพร่ใบงาน'));
       await tester.pumpAndSettle();
 
       expect(updatedId, 'asg-1');
       expect(updatedRubricId, 'r-1');
+      expect(updatedIsGroup, isTrue);
       expect(publishCalls, 1);
       expect(
         loadCoursesCalledDuringEdit,

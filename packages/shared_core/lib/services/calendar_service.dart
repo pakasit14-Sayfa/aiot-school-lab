@@ -34,6 +34,49 @@ class CalendarService {
         .toList();
   }
 
+  /// school_admin/super_admin: add a school-wide calendar event
+  /// (`create_school_event`). Until 2026-09-17 this RPC had no caller — every
+  /// role's calendar read school_events but nothing could add to it.
+  /// `eventType` ∈ holiday · public_holiday · exam · activity · study.
+  static Future<String> createSchoolEvent({
+    required String title,
+    required DateTime startDate,
+    DateTime? endDate,
+    String? location,
+    String? description,
+    String eventType = 'activity',
+  }) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw StateError('invalid_session');
+    String d(DateTime x) =>
+        '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    final id = await supabase.rpc(
+      'create_school_event',
+      params: {
+        'p_token': token,
+        'p_title': title.trim(),
+        'p_start_date': d(startDate),
+        'p_end_date': endDate == null ? null : d(endDate),
+        'p_location': location?.trim().isEmpty ?? true ? null : location!.trim(),
+        'p_description':
+            description?.trim().isEmpty ?? true ? null : description!.trim(),
+        'p_event_type': eventType,
+      },
+    );
+    return id as String;
+  }
+
+  /// school_admin/super_admin: remove an event (`delete_school_event`,
+  /// 20260917020000).
+  static Future<void> deleteSchoolEvent(String eventId) async {
+    final token = AuthService.sessionToken;
+    if (token == null) throw StateError('invalid_session');
+    await supabase.rpc(
+      'delete_school_event',
+      params: {'p_token': token, 'p_event_id': eventId},
+    );
+  }
+
   static Future<List<ClassScheduleSlot>> listMySchedule() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];

@@ -17,6 +17,9 @@ class AssignmentService {
     // ไม่เคยมีใครส่งค่านี้จาก Dart เลย — teacher_assignment_editor_page.dart
     // เคยให้ครูเลือก rubric ในฟอร์มแล้วทิ้งค่านั้นไปเงียบๆ ตอนบันทึก
     String? rubricId,
+    // PBL-10: until 2026-09-18 the RPC hardcoded is_group = false and the
+    // editor's "งานกลุ่ม" toggle was silently discarded.
+    bool isGroup = false,
   }) async {
     final rows =
         await supabase.rpc(
@@ -29,6 +32,7 @@ class AssignmentService {
                 'p_instructions': instructions,
                 'p_due_at': dueAt?.toUtc().toIso8601String(),
                 'p_rubric_id': rubricId,
+                'p_is_group': isGroup,
               },
             )
             as List;
@@ -42,6 +46,7 @@ class AssignmentService {
     String? instructions,
     DateTime? dueAt,
     String? rubricId,
+    bool? isGroup,
   }) async {
     await supabase.rpc(
       'update_assignment',
@@ -52,6 +57,7 @@ class AssignmentService {
         'p_instructions': instructions,
         'p_due_at': dueAt?.toUtc().toIso8601String(),
         'p_rubric_id': rubricId,
+        'p_is_group': isGroup,
       },
     );
   }

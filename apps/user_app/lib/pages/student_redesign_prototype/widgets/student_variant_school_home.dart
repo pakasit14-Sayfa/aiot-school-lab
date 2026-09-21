@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../../../utils/greeting.dart';
+export '../../../utils/greeting.dart' show greetingForHour;
+
 import '../../notifications_page.dart';
+import 'student_empty_state.dart';
 import 'student_redesign_palette.dart';
 import 'aiot_weather_sensors_card.dart';
 import 'school_encouragement_card.dart';
@@ -8,7 +12,6 @@ import 'school_utility_trend_card.dart';
 import 'academy_quick_actions.dart';
 import 'academy_continue_learning_card.dart';
 import 'academy_tasks_due_card.dart';
-import 'learning_progress_card.dart';
 
 class StudentVariantSchoolHome extends StatefulWidget {
   const StudentVariantSchoolHome({
@@ -23,7 +26,11 @@ class StudentVariantSchoolHome extends StatefulWidget {
     this.sensorStreamOverride,
     this.rawReadingsStreamOverride,
     this.utilityCardBuilder,
+    this.now,
   });
+
+  /// Clock for the greeting; tests pin it, production leaves it null.
+  final DateTime Function()? now;
 
   /// Lets the G-Score summary card open the full "คะแนน" page — the score
   /// snapshot lives on the home page since it updates daily, while the full
@@ -215,7 +222,8 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
           builder: (context, constraints) {
             final screenWidth = constraints.maxWidth;
             final isDesktop = screenWidth >= 1024;
-            final horizontalPadding = screenWidth < 520 ? 12.0 : 16.0;
+            // 16pt on every width — Apple's standard layout margin.
+            const horizontalPadding = 16.0;
             final sectionGap = screenWidth < 520 ? 14.0 : 18.0;
             final afterSummaryGap = screenWidth < 520 ? 8.0 : 10.0;
 
@@ -309,139 +317,110 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
   }
 
   Widget _buildHeroHeader(BuildContext context) {
+    // Redesigned 2026-09-18 after the first look on a phone: the old Stack
+    // let the mascot overlap the subtitle and pinned a white card by pixel
+    // offsets, so on 390pt the text wrapped under the lion. Now it is a
+    // plain Column — text and mascot share a Row (no overlap possible) and
+    // the progress strip sits inside the gradient instead of floating over
+    // it. Same three gradient tones as SchoolPalette.primaryGradient.
+    final name = currentUserModel?.name ?? 'นักเรียน';
+    final greeting = greetingForHour(
+      (widget.now?.call() ?? DateTime.now()).hour,
+    );
+    final progress = _totalAssignments == 0
+        ? 0.0
+        : _submittedCount / _totalAssignments;
+
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final isCompact = width < 430;
-        final mascotSize = isCompact ? 176.0 : 220.0;
-        final textRight = isCompact ? 132.0 : 210.0;
-        final titleSize = isCompact ? 31.0 : 38.0;
+        final isCompact = constraints.maxWidth < 430;
+        // Mascot is bigger than the text block and anchored to the card's
+        // top-right, so it can dip into the empty right end of the progress
+        // strip without adding height; the text reserves its width.
+        final mascotSize = isCompact ? 150.0 : 196.0;
+        final mascotReserve = isCompact ? 118.0 : 160.0;
+        final titleSize = isCompact ? 26.0 : 34.0;
 
-        return SizedBox(
-          height: isCompact ? 262 : 286,
+        return Container(
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: SchoolPalette.primaryGradient,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x26165042),
+                blurRadius: 22,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
           child: Stack(
-            clipBehavior: Clip.none,
             children: [
               Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(32),
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF0F3E33),
-                        Color(0xFF165042),
-                        Color(0xFF2A6B58),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x26165042),
-                        blurRadius: 22,
-                        offset: Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(32),
-                  child: CustomPaint(painter: _SchoolHeroPatternPainter()),
-                ),
+                child: CustomPaint(painter: _SchoolHeroPatternPainter()),
               ),
               Positioned(
-                right: isCompact ? -8 : 18,
-                top: isCompact ? 14 : 2,
-                child: SizedBox(
-                  width: mascotSize,
-                  height: mascotSize,
-                  child: Image.asset(
-                    'assets/images/mascot_lion_anim.png',
-                    width: mascotSize,
-                    height: mascotSize,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Image.asset(
-                        'assets/images/mascot_lion_anim.gif',
-                        width: mascotSize,
-                        height: mascotSize,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Image.asset(
-                            'assets/images/mascot_lion_clean.png',
-                            width: mascotSize,
-                            height: mascotSize,
-                            fit: BoxFit.contain,
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
+                right: isCompact ? 4 : 12,
+                top: isCompact ? 6 : 8,
+                child: _HeroMascot(size: mascotSize),
               ),
-
-              Positioned(
-                left: 24,
-                right: textRight,
-                top: isCompact ? 34 : 38,
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isCompact ? 18 : 26,
+                  isCompact ? 14 : 20,
+                  isCompact ? 14 : 22,
+                  isCompact ? 14 : 18,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'สวัสดีตอนเช้า,',
-                      style: TextStyle(
-                        color: SchoolPalette.cream,
-                        fontSize: isCompact ? 19 : 23,
-                        fontWeight: FontWeight.w900,
-                        height: 1.05,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _HeroChip(label: '$greeting 👋'),
+                              const SizedBox(height: 8),
+                              Text(
+                                '$name!',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: titleSize,
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.05,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                'มาต่อบทเรียน AIoT และงานทดลองวันนี้กัน',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                  fontSize: isCompact ? 13.5 : 16,
+                                  height: 1.25,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: mascotReserve),
+                      ],
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '${currentUserModel?.name ?? 'นักเรียน'}!',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: titleSize,
-                        fontWeight: FontWeight.w900,
-                        height: 1.0,
-                        letterSpacing: -0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'มาต่อบทเรียน AIoT และงานทดลองวันนี้กัน',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        fontSize: isCompact ? 15 : 17,
-                        height: 1.22,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    SizedBox(height: isCompact ? 10 : 16),
+                    _HeroProgressStrip(
+                      progress: progress,
+                      lessonCount: _lessonCount,
+                      submittedCount: _submittedCount,
+                      totalAssignments: _totalAssignments,
                     ),
                   ],
-                ),
-              ),
-              Positioned(
-                left: 24,
-                bottom: 26,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: isCompact ? 304 : 360,
-                    minWidth: isCompact ? 288 : 328,
-                  ),
-                  child: LearningProgressCard(
-                    progress: _totalAssignments == 0
-                        ? 0
-                        : _submittedCount / _totalAssignments,
-                    lessonCount: _lessonCount,
-                    submittedCount: _submittedCount,
-                    totalAssignments: _totalAssignments,
-                  ),
                 ),
               ),
             ],
@@ -541,13 +520,12 @@ class _StudentVariantSchoolHomeState extends State<StudentVariantSchoolHome> {
             ),
             SizedBox(height: columnGap),
             widget.utilityCardBuilder?.call(utilityFullWidthHeight) ??
-                  SchoolUtilityTrendCard(height: utilityFullWidthHeight),
+                SchoolUtilityTrendCard(height: utilityFullWidthHeight),
           ],
         );
       },
     );
   }
-
 }
 
 /// The "ข่าวสารประกาศโรงเรียน" section: header "ดูทั้งหมด" button and the
@@ -628,12 +606,10 @@ class SchoolAnnouncementsCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         if (notification == null)
-          const SoftCard(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'ยังไม่มีประกาศ',
-              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
-            ),
+          const StudentEmptyState(
+            icon: Icons.campaign_rounded,
+            title: 'ยังไม่มีประกาศ',
+            hint: 'ข่าวสารจากโรงเรียนจะแสดงที่นี่',
           )
         else
           InkWell(
@@ -951,4 +927,199 @@ class _SchoolHeroPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: SchoolPalette.cream,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroMascot extends StatelessWidget {
+  const _HeroMascot({required this.size});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget img(String asset, {Widget Function(BuildContext)? fallback}) =>
+        Image.asset(
+          asset,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          errorBuilder: fallback == null
+              ? null
+              : (context, error, stackTrace) => fallback(context),
+        );
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            Colors.white.withValues(alpha: 0.16),
+            Colors.white.withValues(alpha: 0.0),
+          ],
+        ),
+      ),
+      child: img(
+        'assets/images/mascot_lion_anim.png',
+        fallback: (_) => img(
+          'assets/images/mascot_lion_anim.gif',
+          fallback: (_) => img('assets/images/mascot_lion_clean.png'),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroProgressStrip extends StatelessWidget {
+  const _HeroProgressStrip({
+    required this.progress,
+    required this.lessonCount,
+    required this.submittedCount,
+    required this.totalAssignments,
+  });
+
+  /// 0.0–1.0, submitted/total assignments across all courses.
+  final double progress;
+  final int lessonCount;
+  final int submittedCount;
+  final int totalAssignments;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (progress * 100).round();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 14,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: progress),
+                  duration: const Duration(milliseconds: 1200),
+                  curve: Curves.easeOutCubic,
+                  builder: (_, value, _) => CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: 4,
+                    strokeCap: StrokeCap.round,
+                    backgroundColor: SchoolPalette.softGreenBg,
+                    color: SchoolPalette.green,
+                  ),
+                ),
+                Text(
+                  '$percent%',
+                  style: const TextStyle(
+                    color: SchoolPalette.ink,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ความคืบหน้าการเรียน',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: SchoolPalette.ink,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    _HeroStat(
+                      icon: Icons.menu_book_rounded,
+                      label: '$lessonCount บทเรียน',
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: _HeroStat(
+                        icon: Icons.task_alt_rounded,
+                        label: 'ส่งแล้ว $submittedCount/$totalAssignments',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: SchoolPalette.green),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: SchoolPalette.deepGreen,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

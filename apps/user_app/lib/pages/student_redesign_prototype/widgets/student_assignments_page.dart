@@ -4,7 +4,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../utils/sensor_csv.dart';
 import 'student_redesign_palette.dart';
+import 'student_sensor_dataset_page.dart';
 
 class _AssignmentWithCourse {
   const _AssignmentWithCourse({
@@ -29,6 +31,8 @@ class StudentAssignmentsPage extends StatefulWidget {
     this.getAssignmentDetail,
     this.getAttachmentDownloadUrl,
     this.pickFiles,
+    this.loadMyCharts,
+    this.getSensorHistory,
     this.submitAssignment,
     this.uploadAttachment,
   });
@@ -46,6 +50,16 @@ class StudentAssignmentsPage extends StatefulWidget {
   getAssignmentDetail;
   final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
   final Future<List<PlatformFile>?> Function()? pickFiles;
+
+  /// PBL-8 seams: the student's saved charts and the readings behind them.
+  final Future<List<SavedChart>> Function()? loadMyCharts;
+  final Future<List<SensorDataPoint>> Function({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  })?
+  getSensorHistory;
   final Future<({int version, String submissionVersionId})> Function({
     required String assignmentId,
     required String content,
@@ -95,12 +109,11 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
       final loadCourses = widget.loadCourses ?? CourseService.listMyCourses;
       final loadAssignments =
           widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
-      final loadVersions = widget.loadSubmissionVersions ??
+      final loadVersions =
+          widget.loadSubmissionVersions ??
           AssignmentService.listMySubmissionVersions;
 
-      final courses = (await loadCourses())
-          .where((c) => c.isActive)
-          .toList();
+      final courses = (await loadCourses()).where((c) => c.isActive).toList();
       final assignmentLists = await Future.wait(
         courses.map((c) => loadAssignments(c.id)),
       );
@@ -467,6 +480,8 @@ class _StudentAssignmentsPageState extends State<StudentAssignmentsPage> {
             loadPreviousVersions: widget.loadSubmissionVersions,
             getAttachmentDownloadUrl: widget.getAttachmentDownloadUrl,
             pickFiles: widget.pickFiles,
+            loadMyCharts: widget.loadMyCharts,
+            getSensorHistory: widget.getSensorHistory,
             submitAssignment: widget.submitAssignment,
             uploadAttachment: widget.uploadAttachment,
           ),
@@ -548,6 +563,8 @@ class _AssignmentSubmitSheet extends StatefulWidget {
     this.loadPreviousVersions,
     this.getAttachmentDownloadUrl,
     this.pickFiles,
+    this.loadMyCharts,
+    this.getSensorHistory,
     this.submitAssignment,
     this.uploadAttachment,
   });
@@ -565,6 +582,16 @@ class _AssignmentSubmitSheet extends StatefulWidget {
   loadPreviousVersions;
   final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
   final Future<List<PlatformFile>?> Function()? pickFiles;
+
+  /// PBL-8 seams: the student's saved charts and the readings behind them.
+  final Future<List<SavedChart>> Function()? loadMyCharts;
+  final Future<List<SensorDataPoint>> Function({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  })?
+  getSensorHistory;
   final Future<({int version, String submissionVersionId})> Function({
     required String assignmentId,
     required String content,
@@ -588,6 +615,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   String? _detailError;
   AssignmentDetail? _detail;
   final List<PlatformFile> _pickedFiles = [];
+  bool _attachingEvidence = false;
   List<SubmissionAttachment> _previousAttachments = const [];
 
   bool get _isEdit => widget.item.submitted;
@@ -617,7 +645,8 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   Future<void> _loadPreviousSubmission() async {
     setState(() => _loadingPrevious = true);
     try {
-      final loadVersions = widget.loadPreviousVersions ??
+      final loadVersions =
+          widget.loadPreviousVersions ??
           AssignmentService.listMySubmissionVersions;
       final versions = await loadVersions(widget.item.assignment.id);
       if (!mounted) return;
@@ -637,7 +666,8 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
 
   Future<void> _openPreviousAttachment(SubmissionAttachment attachment) async {
     try {
-      final getUrl = widget.getAttachmentDownloadUrl ??
+      final getUrl =
+          widget.getAttachmentDownloadUrl ??
           AssignmentService.getSubmissionAttachmentDownloadUrl;
       final url = await getUrl(attachment.id);
       final uri = Uri.parse(url);
@@ -656,9 +686,9 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
 
   Future<void> _pickFiles() async {
     try {
-      final pick = widget.pickFiles ??
-          () async => (await FilePicker.pickFiles(withData: true))
-              ?.files;
+      final pick =
+          widget.pickFiles ??
+          () async => (await FilePicker.pickFiles(withData: true))?.files;
       final files = await pick();
       if (files == null) return;
       setState(() => _pickedFiles.addAll(files));
@@ -670,14 +700,100 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
     }
   }
 
+  /// PBL-8: attach real sensor data as evidence. The student picks one of
+  /// their saved charts or a dataset the teacher pinned; the readings for
+  /// that window are fetched through sensor_history and written to a CSV
+  /// that rides the ordinary attachment upload.
+  Future<void> _attachSensorEvidence() async {
+    final loadCharts = widget.loadMyCharts ?? ChartService.listMyCharts;
+    List<SavedChart> charts = const [];
+    try {
+      charts = await loadCharts();
+    } catch (_) {
+      // Saved charts are optional here; pinned datasets still work.
+    }
+    final pinned = _detail?.sensorDatasets ?? const <AssignmentSensorDataset>[];
+    if (!mounted) return;
+    if (charts.isEmpty && pinned.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'ยังไม่มีข้อมูลเซนเซอร์ให้แนบ — สร้างกราฟใน AIoT Dashboard หรือรอครูผูกชุดข้อมูลกับใบงาน',
+          ),
+        ),
+      );
+      return;
+    }
+    final choice = await showModalBottomSheet<_EvidenceChoice>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _EvidencePicker(charts: charts, pinned: pinned),
+    );
+    if (choice == null || !mounted) return;
+
+    final history = widget.getSensorHistory ?? AiotLabService.getSensorHistory;
+    final info = sensorMetricInfo(choice.metric);
+    final from =
+        choice.from ??
+        DateTime.now().toUtc().subtract(const Duration(hours: 24));
+    final to = choice.to ?? DateTime.now().toUtc();
+    setState(() => _attachingEvidence = true);
+    try {
+      final points = await history(
+        deviceId: choice.deviceId,
+        metric: choice.metric,
+        from: from,
+        to: to,
+      );
+      if (!mounted) return;
+      if (points.isEmpty) {
+        setState(() => _attachingEvidence = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('ช่วงนี้ไม่มีข้อมูลเซนเซอร์ ไม่มีอะไรให้แนบ'),
+          ),
+        );
+        return;
+      }
+      final bytes = buildSensorCsv(
+        deviceName: choice.deviceName,
+        metricName: info.name,
+        unit: info.unit,
+        from: from,
+        to: to,
+        points: points,
+        note: choice.note,
+      );
+      setState(() {
+        _pickedFiles.add(
+          PlatformFile(
+            name: sensorCsvFileName(metricName: info.name, from: from),
+            size: bytes.length,
+            bytes: bytes,
+          ),
+        );
+        _attachingEvidence = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _attachingEvidence = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ดึงข้อมูลเซนเซอร์ไม่สำเร็จ')),
+      );
+    }
+  }
+
   Future<void> _submit() async {
     if (_controller.text.trim().isEmpty) return;
     setState(() => _submitting = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final submit = widget.submitAssignment ?? AssignmentService.submitAssignment;
+      final submit =
+          widget.submitAssignment ?? AssignmentService.submitAssignment;
       final upload =
-          widget.uploadAttachment ?? AssignmentService.uploadSubmissionAttachment;
+          widget.uploadAttachment ??
+          AssignmentService.uploadSubmissionAttachment;
       final result = await submit(
         assignmentId: widget.item.assignment.id,
         content: _controller.text.trim(),
@@ -702,10 +818,19 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      messenger.showSnackBar(const SnackBar(content: Text('ส่งงานไม่สำเร็จ กรุณาลองใหม่')));
+      final notInGroup = e.toString().contains('not_in_group');
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            notInGroup
+                ? 'ยังไม่ได้อยู่ในกลุ่มของวิชานี้ — ขอให้ครูจัดกลุ่มก่อนจึงจะส่งงานกลุ่มได้'
+                : 'ส่งงานไม่สำเร็จ กรุณาลองใหม่',
+          ),
+        ),
+      );
     }
   }
 
@@ -791,6 +916,40 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
           const SizedBox(height: 10),
           Container(height: 1, color: SchoolPalette.glassBorder),
           const SizedBox(height: 14),
+          // PBL-10: a group assignment is handed in once per group — every
+          // member sees and can add to the same submission.
+          if (widget.item.assignment.isGroup) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: SchoolPalette.softGreenBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: SchoolPalette.glassBorder),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.groups_rounded,
+                    size: 18,
+                    color: SchoolPalette.green,
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'งานกลุ่ม — ส่งในนามกลุ่มของคุณ สมาชิกทุกคนเห็นและแก้ไขฉบับเดียวกัน',
+                      style: TextStyle(
+                        color: SchoolPalette.deepGreen,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (_detailError != null)
             Text(
               _detailError!,
@@ -806,13 +965,40 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
                 height: 1.4,
               ),
             ),
+          // PBL-6: datasets the teacher pinned to this assignment. The
+          // backend has returned them in get_assignment since 2026-07-31;
+          // the redesigned student UI never showed them until 2026-09-18.
+          if (_detail != null && _detail!.sensorDatasets.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text(
+              'ชุดข้อมูลเซนเซอร์ที่ครูกำหนด',
+              style: TextStyle(
+                color: SchoolPalette.ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            for (final ds in _detail!.sensorDatasets)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _DatasetTile(
+                  dataset: ds,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => StudentSensorDatasetPage(
+                        dataset: ds,
+                        assignmentTitle: widget.item.assignment.title,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
           if (_isEdit) ...[
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFFFFBEB),
                 borderRadius: BorderRadius.circular(10),
@@ -885,14 +1071,33 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
             ),
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _submitting ? null : _pickFiles,
-            icon: const Icon(Icons.attach_file_rounded, size: 16),
-            label: const Text('แนบไฟล์'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: SchoolPalette.deepGreen,
-              side: const BorderSide(color: Color(0xFFCBD5E1)),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _submitting ? null : _pickFiles,
+                icon: const Icon(Icons.attach_file_rounded, size: 16),
+                label: const Text('แนบไฟล์'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SchoolPalette.deepGreen,
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: (_submitting || _attachingEvidence)
+                    ? null
+                    : _attachSensorEvidence,
+                icon: const Icon(Icons.show_chart_rounded, size: 16),
+                label: Text(
+                  _attachingEvidence ? 'กำลังดึงข้อมูล…' : 'แนบข้อมูลเซนเซอร์',
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: SchoolPalette.deepGreen,
+                  side: const BorderSide(color: SchoolPalette.green),
+                ),
+              ),
+            ],
           ),
           if (_pickedFiles.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -972,6 +1177,8 @@ class AssignmentCard extends StatelessWidget {
     this.loadPreviousVersions,
     this.getAttachmentDownloadUrl,
     this.pickFiles,
+    this.loadMyCharts,
+    this.getSensorHistory,
     this.submitAssignment,
     this.uploadAttachment,
   });
@@ -987,6 +1194,16 @@ class AssignmentCard extends StatelessWidget {
   loadPreviousVersions;
   final Future<String> Function(String attachmentId)? getAttachmentDownloadUrl;
   final Future<List<PlatformFile>?> Function()? pickFiles;
+
+  /// PBL-8 seams: the student's saved charts and the readings behind them.
+  final Future<List<SavedChart>> Function()? loadMyCharts;
+  final Future<List<SensorDataPoint>> Function({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  })?
+  getSensorHistory;
   final Future<({int version, String submissionVersionId})> Function({
     required String assignmentId,
     required String content,
@@ -1058,6 +1275,8 @@ class AssignmentCard extends StatelessWidget {
         loadPreviousVersions: loadPreviousVersions,
         getAttachmentDownloadUrl: getAttachmentDownloadUrl,
         pickFiles: pickFiles,
+        loadMyCharts: loadMyCharts,
+        getSensorHistory: getSensorHistory,
         submitAssignment: submitAssignment,
         uploadAttachment: uploadAttachment,
       ),
@@ -1233,6 +1452,307 @@ class AssignmentCard extends StatelessWidget {
           SizedBox(width: 4),
           Icon(Icons.arrow_forward_rounded, size: 14, color: Colors.white),
         ],
+      ),
+    );
+  }
+}
+
+/// One pinned dataset in the submit sheet: label (or metric name), the
+/// window the teacher chose, and a chevron into the viewer page.
+class _DatasetTile extends StatelessWidget {
+  const _DatasetTile({required this.dataset, required this.onTap});
+  final AssignmentSensorDataset dataset;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final info = sensorMetricInfo(dataset.metric);
+    final title = (dataset.label ?? '').trim().isNotEmpty
+        ? dataset.label!
+        : info.name;
+    final window = dataset.timeStart == null
+        ? '24 ชั่วโมงล่าสุด'
+        : '${_d(dataset.timeStart!)} – ${dataset.timeEnd == null ? 'ตอนนี้' : _d(dataset.timeEnd!)}';
+    return Material(
+      color: SchoolPalette.softGreenBg,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.show_chart_rounded,
+                  size: 18,
+                  color: SchoolPalette.green,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SchoolPalette.ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      '${info.name} · $window',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: SchoolPalette.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: SchoolPalette.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _d(DateTime d) {
+    final l = d.toLocal();
+    return '${l.day}/${l.month} ${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// What the student chose to attach: a window on one device/metric.
+class _EvidenceChoice {
+  const _EvidenceChoice({
+    required this.deviceId,
+    required this.deviceName,
+    required this.metric,
+    required this.from,
+    required this.to,
+    this.note,
+  });
+  final String deviceId;
+  final String deviceName;
+  final String metric;
+  final DateTime? from;
+  final DateTime? to;
+  final String? note;
+}
+
+/// Bottom sheet listing the student's saved charts and the assignment's
+/// pinned datasets. Nothing here is invented: both lists come from RPCs.
+class _EvidencePicker extends StatelessWidget {
+  const _EvidencePicker({required this.charts, required this.pinned});
+  final List<SavedChart> charts;
+  final List<AssignmentSensorDataset> pinned;
+
+  static String _d(DateTime? d) {
+    if (d == null) return 'ตอนนี้';
+    final l = d.toLocal();
+    return '${l.day}/${l.month} ${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: SchoolPalette.glassBorder,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'แนบข้อมูลเซนเซอร์เป็นหลักฐาน',
+                style: TextStyle(
+                  color: SchoolPalette.ink,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'ระบบจะดึงค่าจริงในช่วงที่เลือกทำเป็นไฟล์ CSV แนบไปกับงาน',
+                style: TextStyle(
+                  color: SchoolPalette.muted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    if (charts.isNotEmpty) ...[
+                      _section('กราฟของฉัน'),
+                      for (final c in charts)
+                        _row(
+                          context,
+                          icon: Icons.show_chart_rounded,
+                          title: (c.annotation ?? '').trim().isNotEmpty
+                              ? c.annotation!
+                              : sensorMetricInfo(c.metric).name,
+                          subtitle:
+                              '${sensorMetricInfo(c.metric).name} · ${c.deviceName} · ${_d(c.timeStart)} – ${_d(c.timeEnd)}',
+                          choice: _EvidenceChoice(
+                            deviceId: c.deviceId,
+                            deviceName: c.deviceName,
+                            metric: c.metric,
+                            from: c.timeStart,
+                            to: c.timeEnd,
+                            note: c.annotation,
+                          ),
+                        ),
+                    ],
+                    if (pinned.isNotEmpty) ...[
+                      _section('ชุดข้อมูลที่ครูกำหนด'),
+                      for (final d in pinned)
+                        _row(
+                          context,
+                          icon: Icons.assignment_outlined,
+                          title: (d.label ?? '').trim().isNotEmpty
+                              ? d.label!
+                              : sensorMetricInfo(d.metric).name,
+                          subtitle:
+                              '${sensorMetricInfo(d.metric).name} · ${_d(d.timeStart)} – ${_d(d.timeEnd)}',
+                          choice: _EvidenceChoice(
+                            deviceId: d.deviceId,
+                            deviceName: 'อุปกรณ์ที่ครูกำหนด',
+                            metric: d.metric,
+                            from: d.timeStart,
+                            to: d.timeEnd,
+                            note: d.label,
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _section(String t) => Padding(
+    padding: const EdgeInsets.fromLTRB(2, 6, 2, 6),
+    child: Text(
+      t,
+      style: const TextStyle(
+        color: SchoolPalette.muted,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+  );
+
+  Widget _row(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required _EvidenceChoice choice,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: SchoolPalette.softGreenBg,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => Navigator.pop(context, choice),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: SchoolPalette.green),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: SchoolPalette.muted,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

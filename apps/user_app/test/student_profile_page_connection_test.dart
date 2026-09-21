@@ -39,9 +39,11 @@ Future<void> _pump(
   loadSubmissionVersions,
   Future<void> Function()? signOut,
   Future<void> Function({required String currentPassword, required String newPassword})? changePassword,
+  Future<void> Function({required String uid, required String name})? updateName,
+  bool phone = false,
 }) async {
-  tester.view.physicalSize = const Size(1000, 1800);
-  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = phone ? const Size(390 * 3, 844 * 3) : const Size(1000, 1800);
+  tester.view.devicePixelRatio = phone ? 3 : 1;
   addTearDown(() {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
@@ -55,6 +57,7 @@ Future<void> _pump(
         loadSubmissionVersions: loadSubmissionVersions ?? (_) async => const [],
         signOut: signOut,
         changePassword: changePassword,
+        updateName: updateName,
       ),
     ),
   );
@@ -148,5 +151,67 @@ void main() {
     await tester.pumpAndSettle();
     expect(sentNew, 'NewPass9!');
     expect(find.textContaining('เปลี่ยนรหัสผ่านแล้ว'), findsOneWidget);
+  });
+
+  // ── rename (added 2026-09-18) ──────────────────────────────────────
+  testWidgets('the hero pencil saves a new name through the injected updater', (
+    tester,
+  ) async {
+    final previous = currentUserModel;
+    currentUserModel = const UserModel(
+      uid: 'u-1',
+      name: 'ครู ทดสอบ',
+      email: 'x@example.com',
+      role: UserRole.student,
+    );
+    addTearDown(() => currentUserModel = previous);
+    String? gotUid;
+    String? gotName;
+    await _pump(
+      tester,
+      phone: true,
+      updateName: ({required String uid, required String name}) async {
+        gotUid = uid;
+        gotName = name;
+      },
+    );
+    await tester.tap(find.byIcon(Icons.edit_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('แก้ไขชื่อที่แสดง'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).last, '  สมชาย ใจดี  ');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+    expect(gotUid, 'u-1');
+    expect(gotName, 'สมชาย ใจดี');
+    expect(find.text('บันทึกชื่อแล้ว'), findsOneWidget);
+  });
+
+  testWidgets('an unchanged or empty name is not sent', (tester) async {
+    final previous = currentUserModel;
+    currentUserModel = const UserModel(
+      uid: 'u-1',
+      name: 'ครู ทดสอบ',
+      email: 'x@example.com',
+      role: UserRole.student,
+    );
+    addTearDown(() => currentUserModel = previous);
+    var calls = 0;
+    await _pump(
+      tester,
+      phone: true,
+      updateName: ({required String uid, required String name}) async {
+        calls++;
+      },
+    );
+    await tester.tap(find.byIcon(Icons.edit_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('บันทึก')); // unchanged
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.edit_rounded));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '   ');
+    await tester.tap(find.text('บันทึก')); // empty
+    await tester.pumpAndSettle();
+    expect(calls, 0);
   });
 }

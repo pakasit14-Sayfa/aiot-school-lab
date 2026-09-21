@@ -1,7 +1,8 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 insert into packages (id, name, license_type)
 values ('98100000-0000-0000-0000-000000000001', 'Calendar test package', 'perpetual');
@@ -18,6 +19,7 @@ values ('98400000-0000-0000-0000-000000000001', '98300000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('18900000-0000-0000-0000-000000000000', '98200000-0000-0000-0000-000000000001', 'admin18@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '18900000-0000-0000-0000-000000000000'),
   ('98500000-0000-0000-0000-000000000001', '98200000-0000-0000-0000-000000000001',
    'cal-teacher-a@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'A',
    '98500000-0000-0000-0000-000000000001'),
@@ -28,12 +30,18 @@ insert into users (
    'cal-student-a2@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Student', 'Two',
    '98500000-0000-0000-0000-000000000001');
 
+
+insert into school_periods (school_id, period_no, start_time, end_time, label)
+values ('98200000-0000-0000-0000-000000000001', 1, '09:00', '10:00', '1');
+
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('18900000-0000-0000-0000-000000000000', 'school_admin', '98200000-0000-0000-0000-000000000001', '18900000-0000-0000-0000-000000000000'),
   ('98500000-0000-0000-0000-000000000001', 'teacher', '98200000-0000-0000-0000-000000000001', '98500000-0000-0000-0000-000000000001'),
   ('98500000-0000-0000-0000-000000000002', 'student', '98200000-0000-0000-0000-000000000001', '98500000-0000-0000-0000-000000000001'),
   ('98500000-0000-0000-0000-000000000003', 'student', '98200000-0000-0000-0000-000000000001', '98500000-0000-0000-0000-000000000001');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('18900000-0000-0000-0000-000000000000', 'school_admin', '98200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-18', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98500000-0000-0000-0000-000000000001', 'teacher', '98200000-0000-0000-0000-000000000001',
    encode(digest('cal-teacher-a-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('98500000-0000-0000-0000-000000000002', 'student', '98200000-0000-0000-0000-000000000001',
@@ -42,35 +50,53 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
    encode(digest('cal-student-a2-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
 create temporary table created_course as
-select * from create_course(
-  'cal-teacher-a-token', '98400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-18', '98400000-0000-0000-0000-000000000001',
   'Calendar Science', 'M.3', 'Room 501', 'วิชาทดสอบตารางเรียน'
-);
+, '98500000-0000-0000-0000-000000000001');
 
-select enroll_student(
-  'cal-teacher-a-token',
-  (select course_id from created_course),
+select enroll_student('admin-token-patched-18', (select course_id from created_course),
   '98500000-0000-0000-0000-000000000002'
 );
 
--- 1. teacher sets a class schedule slot
+-- 1. the school admin sets a class schedule slot by period number
+-- (D6, 20260919000000: the timetable belongs to the admin)
 select is(
   (select count(*)::integer from set_class_schedule(
-    'cal-teacher-a-token', (select course_id from created_course),
-    1::smallint, '09:00'::time, '10:00'::time, 'Room 501'
+    'admin-token-patched-18', (select course_id from created_course),
+    1::smallint, null, null, 'Room 501', 'regular', 1::smallint
   ) where schedule_id is not null),
   1,
-  'teacher can set a class schedule slot'
+  'school admin can set a class schedule slot by period'
 );
 
--- 2. end_time before start_time is rejected
+-- 2. end_time before start_time is rejected (explicit times, no period)
 select throws_ok(
   $$select set_class_schedule(
-    'cal-teacher-a-token', (select course_id from created_course),
+    'admin-token-patched-18', (select course_id from created_course),
     2::smallint, '10:00'::time, '09:00'::time, 'Room 501'
   )$$,
   'P0001', 'end_time_must_be_after_start_time',
   'end_time before start_time is rejected'
+);
+
+-- 2b. unknown period_no is rejected
+select throws_ok(
+  $$select set_class_schedule(
+    'admin-token-patched-18', (select course_id from created_course),
+    2::smallint, null, null, 'Room 501', 'regular', 99::smallint
+  )$$,
+  'P0001', 'period_not_found',
+  'invalid period_no is rejected'
+);
+
+-- 2c. a teacher can no longer set the timetable
+select throws_ok(
+  $$select set_class_schedule(
+    'cal-teacher-a-token', (select course_id from created_course),
+    3::smallint, null, null, 'Room 501', 'regular', 1::smallint
+  )$$,
+  'P0001', 'forbidden',
+  'teachers cannot set class schedules (admin-owned timetable)'
 );
 
 -- 3. enrolled student sees the schedule

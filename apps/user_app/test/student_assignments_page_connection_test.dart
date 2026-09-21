@@ -53,6 +53,14 @@ Future<void> _pump(
     required String content,
   })?
   submitAssignment,
+  Future<List<SavedChart>> Function()? loadMyCharts,
+  Future<List<SensorDataPoint>> Function({
+    required String deviceId,
+    required String metric,
+    required DateTime from,
+    DateTime? to,
+  })?
+  getSensorHistory,
   Future<String> Function({
     required String submissionVersionId,
     required String fileName,
@@ -77,6 +85,8 @@ Future<void> _pump(
         getAttachmentDownloadUrl: getAttachmentDownloadUrl,
         pickFiles: pickFiles,
         submitAssignment: submitAssignment,
+        loadMyCharts: loadMyCharts,
+        getSensorHistory: getSensorHistory,
         uploadAttachment: uploadAttachment,
       ),
     ),
@@ -185,5 +195,161 @@ void main() {
 
     expect(find.textContaining('ส่งงานไม่สำเร็จ'), findsOneWidget);
     expect(find.textContaining('backend detail'), findsNothing);
+  });
+
+  // ── PBL-6 (2026-09-18) ────────────────────────────────────────────────
+  testWidgets('a dataset the teacher pinned is listed in the sheet and opens the viewer', (
+    tester,
+  ) async {
+    final pinned = AssignmentDetail(
+      id: 'asg-1',
+      courseId: 'course-1',
+      type: 'homework',
+      title: 'แบบฝึกหัดบทที่ 3',
+      instructions: 'วิเคราะห์ฝุ่นในห้อง',
+      dueAt: null,
+      status: 'published',
+      sensorDatasets: [
+        AssignmentSensorDataset(
+          id: 'ds-1',
+          deviceId: 'dev-1',
+          metric: 'pm25',
+          timeStart: DateTime.utc(2026, 9, 10, 1),
+          timeEnd: DateTime.utc(2026, 9, 10, 9),
+          label: 'ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า',
+        ),
+      ],
+    );
+    await _pump(tester, getAssignmentDetail: (_) async => pinned);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsOneWidget);
+    expect(find.text('ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า'), findsOneWidget);
+  });
+
+  testWidgets('no pinned dataset → no dataset section, nothing invented', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsNothing);
+  });
+
+  // ── PBL-10 (2026-09-18) ───────────────────────────────────────────────
+  testWidgets('a group assignment says so in the sheet; not_in_group is explained', (
+    tester,
+  ) async {
+    const group = AssignmentSummary(
+      id: 'asg-g',
+      type: 'project',
+      title: 'โครงงานกลุ่ม',
+      dueAt: null,
+      status: 'published',
+      isGroup: true,
+    );
+    await _pump(
+      tester,
+      loadAssignmentsForCourse: (_) async => const [group],
+      submitAssignment: ({required assignmentId, required content}) async {
+        throw Exception('not_in_group');
+      },
+    );
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('งานกลุ่ม — ส่งในนามกลุ่มของคุณ'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'ส่งกลุ่ม');
+    await tester.tap(find.text('ยืนยันการส่งงาน'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ยังไม่ได้อยู่ในกลุ่มของวิชานี้'), findsOneWidget);
+  });
+  // ── PBL-8 (2026-09-18) ────────────────────────────────────────────────
+  testWidgets(
+    'attach sensor evidence: pick a saved chart → CSV of the real readings is uploaded',
+    (tester) async {
+      final uploads = <Map<String, Object?>>[];
+      await _pump(
+        tester,
+        loadMyCharts: () async => [
+          SavedChart(
+            id: 'ch-1',
+            courseId: 'course-1',
+            chartType: 'line',
+            deviceId: 'dev-1',
+            deviceName: 'ฝุ่นหน้าห้อง',
+            location: null,
+            metric: 'pm25',
+            timeStart: DateTime.utc(2026, 9, 10, 1),
+            timeEnd: DateTime.utc(2026, 9, 10, 3),
+            annotation: 'ช่วงเช้าฝุ่นสูง',
+            createdAt: DateTime.utc(2026, 9, 18),
+          ),
+        ],
+        getSensorHistory:
+            ({
+              required String deviceId,
+              required String metric,
+              required DateTime from,
+              DateTime? to,
+            }) async {
+              expect(deviceId, 'dev-1');
+              expect(metric, 'pm25');
+              expect(from, DateTime.utc(2026, 9, 10, 1));
+              expect(to, DateTime.utc(2026, 9, 10, 3));
+              return [
+                SensorDataPoint(ts: DateTime.utc(2026, 9, 10, 1), value: 20),
+                SensorDataPoint(ts: DateTime.utc(2026, 9, 10, 2), value: 40),
+              ];
+            },
+        submitAssignment: ({required assignmentId, required content}) async =>
+            (version: 1, submissionVersionId: 'sv-1'),
+        uploadAttachment:
+            ({
+              required submissionVersionId,
+              required fileName,
+              required bytes,
+            }) async {
+              uploads.add({
+                'sv': submissionVersionId,
+                'name': fileName,
+                'bytes': bytes,
+              });
+              return 'att-1';
+            },
+      );
+      await tester.tap(find.byType(AssignmentCard));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แนบข้อมูลเซนเซอร์'));
+      await tester.pumpAndSettle();
+      expect(find.text('แนบข้อมูลเซนเซอร์เป็นหลักฐาน'), findsOneWidget);
+      await tester.tap(find.text('ช่วงเช้าฝุ่นสูง'));
+      await tester.pumpAndSettle();
+      // The CSV now sits in the attachment chips.
+      expect(find.textContaining('เซนเซอร์-ฝุ่น-PM2.5-'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField).first, 'ส่งพร้อมหลักฐาน');
+      await tester.tap(find.text('ยืนยันการส่งงาน'));
+      await tester.pumpAndSettle();
+      expect(uploads, hasLength(1));
+      expect(uploads.single['sv'], 'sv-1');
+      expect(uploads.single['name'], startsWith('เซนเซอร์-'));
+      final csv = String.fromCharCodes(
+        (uploads.single['bytes'] as List<int>).sublist(3),
+      );
+      expect(csv, contains('40.0'));
+      expect(csv, contains('20.0'));
+    },
+  );
+
+  testWidgets('no charts and no pinned dataset → explained, nothing attached', (
+    tester,
+  ) async {
+    await _pump(tester, loadMyCharts: () async => const []);
+    await tester.tap(find.byType(AssignmentCard));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('แนบข้อมูลเซนเซอร์'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ยังไม่มีข้อมูลเซนเซอร์ให้แนบ'), findsOneWidget);
+    expect(find.byType(Chip), findsNothing);
   });
 }

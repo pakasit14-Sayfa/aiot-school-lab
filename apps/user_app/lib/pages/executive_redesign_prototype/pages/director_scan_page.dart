@@ -252,7 +252,7 @@ class _DeviceCameraDialogState extends State<_DeviceCameraDialog> {
       child: MobileScanner(
         controller: scanner,
         onDetect: detect,
-        errorBuilder: (_, _, _) => const Center(
+        errorBuilder: (_, _) => const Center(
           child: Text(
             'ไม่สามารถเปิดกล้องได้ กรุณาตรวจสิทธิ์กล้องหรือใช้การกรอกรหัส',
           ),

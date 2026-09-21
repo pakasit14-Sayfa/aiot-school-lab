@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -19,6 +20,7 @@ values ('48400000-0000-0000-0000-000000000001', '48300000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('08900000-0000-0000-0000-000000000000', '48200000-0000-0000-0000-000000000001', 'admin08@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '08900000-0000-0000-0000-000000000000'),
   ('48500000-0000-0000-0000-000000000001', '48200000-0000-0000-0000-000000000001',
    'cls-teacher-a@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'A',
    '48500000-0000-0000-0000-000000000001'),
@@ -33,12 +35,14 @@ insert into users (
    '48500000-0000-0000-0000-000000000004');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('08900000-0000-0000-0000-000000000000', 'school_admin', '48200000-0000-0000-0000-000000000001', '08900000-0000-0000-0000-000000000000'),
   ('48500000-0000-0000-0000-000000000001', 'teacher', '48200000-0000-0000-0000-000000000001', '48500000-0000-0000-0000-000000000001'),
   ('48500000-0000-0000-0000-000000000002', 'student', '48200000-0000-0000-0000-000000000001', '48500000-0000-0000-0000-000000000001'),
   ('48500000-0000-0000-0000-000000000003', 'student', '48200000-0000-0000-0000-000000000001', '48500000-0000-0000-0000-000000000001'),
   ('48500000-0000-0000-0000-000000000004', 'teacher', '48200000-0000-0000-0000-000000000002', '48500000-0000-0000-0000-000000000004');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('08900000-0000-0000-0000-000000000000', 'school_admin', '48200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-08', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('48500000-0000-0000-0000-000000000001', 'teacher', '48200000-0000-0000-0000-000000000001',
    encode(digest('cls-teacher-a-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('48500000-0000-0000-0000-000000000002', 'student', '48200000-0000-0000-0000-000000000001',
@@ -52,12 +56,12 @@ insert into devices (id, school_id, type, name, registered_by)
 values ('48600000-0000-0000-0000-000000000001', '48200000-0000-0000-0000-000000000001',
         'pm25_sensor', 'Classroom PM2.5', '48500000-0000-0000-0000-000000000001');
 
--- 1. teacher creates a course
+-- 1. the school admin creates a course and assigns teacher A as owner
+-- (D6, 20260919000000: teachers no longer create courses themselves)
 create temporary table created_course as
-select * from create_course(
-  'cls-teacher-a-token', '48400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-08', '48400000-0000-0000-0000-000000000001',
   'Environmental Science', 'M.3', 'Room 301', 'ห้องเรียนวิทยาศาสตร์สิ่งแวดล้อม'
-);
+, '48500000-0000-0000-0000-000000000001');
 
 select is(
   (select count(*)::integer from created_course where course_id is not null),
@@ -81,9 +85,7 @@ select is(
 );
 
 -- 4. enroll student A1
-select enroll_student(
-  'cls-teacher-a-token',
-  (select course_id from created_course),
+select enroll_student('admin-token-patched-08', (select course_id from created_course),
   '48500000-0000-0000-0000-000000000002'
 );
 
@@ -192,11 +194,9 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select * from create_course(
-    'cls-student-a1-token',
-    '48400000-0000-0000-0000-000000000001',
+  $$select * from create_course('cls-student-a1-token', '48400000-0000-0000-0000-000000000001',
     'Should not work'
-  )$$,
+  , 'M.1', '1', null, '48500000-0000-0000-0000-000000000002')$$,
   'P0001', 'forbidden',
   'a student cannot create a course'
 );

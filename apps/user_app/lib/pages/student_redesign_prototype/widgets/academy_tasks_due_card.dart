@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'student_empty_state.dart';
 import 'student_redesign_palette.dart';
 import 'student_assignments_page.dart';
 
@@ -97,12 +98,10 @@ class AcademyTasksDueCard extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         if (tasks.isEmpty)
-          const SoftCard(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'ไม่มีงานใกล้ครบกำหนดตอนนี้',
-              style: TextStyle(color: SchoolPalette.muted, fontSize: 12.5),
-            ),
+          const StudentEmptyState(
+            icon: Icons.task_alt_rounded,
+            title: 'ไม่มีงานใกล้ครบกำหนด',
+            hint: 'งานที่ครูสั่งจะขึ้นที่นี่พร้อมวันส่ง',
           )
         else
           for (var i = 0; i < tasks.length; i++) ...[

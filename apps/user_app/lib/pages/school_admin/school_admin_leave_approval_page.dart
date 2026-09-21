@@ -53,10 +53,13 @@ class _SchoolAdminLeaveApprovalPageState
       });
     }
     try {
-      final load = widget.loadRequests ??
-          ({status}) => StaffAttendanceService.listLeaveRequests(status: status);
-      final requests =
-          await load(status: _statusFilter == 'all' ? null : _statusFilter);
+      final load =
+          widget.loadRequests ??
+          ({status}) =>
+              StaffAttendanceService.listLeaveRequests(status: status);
+      final requests = await load(
+        status: _statusFilter == 'all' ? null : _statusFilter,
+      );
       if (!mounted) return;
       setState(() {
         _requests = requests;
@@ -96,12 +99,15 @@ class _SchoolAdminLeaveApprovalPageState
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _LeaveDetailSheet(
         request: request,
-        loadAttachments: widget.loadAttachments ??
+        loadAttachments:
+            widget.loadAttachments ??
             (id) => StaffLeaveAttachmentService.list(id),
-        getDownloadUrl: widget.getDownloadUrl ??
+        getDownloadUrl:
+            widget.getDownloadUrl ??
             (id) => StaffLeaveAttachmentService.getDownloadUrl(id),
         onDecide: (approve, note) async {
-          final review = widget.reviewRequest ??
+          final review =
+              widget.reviewRequest ??
               ({required requestId, required approve, note}) =>
                   StaffAttendanceService.reviewLeaveRequest(
                     requestId: requestId,
@@ -202,7 +208,11 @@ class _SchoolAdminLeaveApprovalPageState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline_rounded, size: 40, color: SchoolAdminPalette.red),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 40,
+              color: SchoolAdminPalette.red,
+            ),
             const SizedBox(height: 8),
             Text(_loadError!, style: TextStyle(color: SchoolAdminPalette.red)),
             const SizedBox(height: 12),
@@ -259,12 +269,18 @@ class _SchoolAdminLeaveApprovalPageState
                   const SizedBox(height: 3),
                   Text(
                     '${r.leaveTypeLabel} • ${r.dayCount} วัน',
-                    style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: SchoolAdminPalette.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     '${_fmtDate(r.startDate)} - ${_fmtDate(r.endDate)}',
-                    style: TextStyle(fontSize: 11.5, color: SchoolAdminPalette.textMuted),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: SchoolAdminPalette.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -292,7 +308,11 @@ class _SchoolAdminLeaveApprovalPageState
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: color),
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
       ),
     );
   }
@@ -387,7 +407,9 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
     final r = widget.request;
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Container(
           margin: const EdgeInsets.all(12),
           padding: const EdgeInsets.all(20),
@@ -402,7 +424,10 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
               children: [
                 Text(
                   r.fullName,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -457,17 +482,29 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
                 else if (_attachments.isEmpty)
                   Text(
                     'ไม่มีไฟล์แนบ',
-                    style: TextStyle(color: SchoolAdminPalette.textMuted, fontSize: 12.5),
+                    style: TextStyle(
+                      color: SchoolAdminPalette.textMuted,
+                      fontSize: 12.5,
+                    ),
                   )
                 else
                   for (final a in _attachments)
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      leading: const Icon(Icons.description_rounded),
-                      title: Text(a.fileName, style: const TextStyle(fontSize: 13)),
-                      trailing: const Icon(Icons.open_in_new_rounded, size: 18),
-                      onTap: () => _openAttachment(a),
+                    Material(
+                      type: MaterialType.transparency,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        leading: const Icon(Icons.description_rounded),
+                        title: Text(
+                          a.fileName,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        trailing: const Icon(
+                          Icons.open_in_new_rounded,
+                          size: 18,
+                        ),
+                        onTap: () => _openAttachment(a),
+                      ),
                     ),
                 if (r.isPending) ...[
                   const SizedBox(height: 12),
@@ -483,7 +520,9 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: _isSubmitting ? null : () => _decide(false),
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => _decide(false),
                           style: OutlinedButton.styleFrom(
                             minimumSize: Size.zero,
                             foregroundColor: SchoolAdminPalette.red,
@@ -519,7 +558,10 @@ class _LeaveDetailSheetState extends State<_LeaveDetailSheet> {
                     Text(
                       'ตัดสินใจโดย ${r.reviewerName}'
                       '${r.reviewNote != null ? ' • ${r.reviewNote}' : ''}',
-                      style: TextStyle(fontSize: 12, color: SchoolAdminPalette.textSecondary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: SchoolAdminPalette.textSecondary,
+                      ),
                     ),
                 ],
               ],

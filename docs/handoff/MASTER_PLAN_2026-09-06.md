@@ -267,6 +267,7 @@ Page (บาง)  →  Controller (ถือ state + busy key)  →  Service (sh
 | ~~D2~~ | ~~`director_meetings` เอายังไง~~ | ~~3.7~~ | ✅ **ปิดแล้ว** — ต่อผ่าน `MeetingService` จริง ไม่ต้องสร้างตารางใหม่ |
 | D3 | Super Admin ใช้เกณฑ์ไหน | Phase 4 ทั้งหมด | เติม state อย่างเดียว (6–8) / refactor เป็น controller เหมือน School Admin (12–15) |
 | D4 | เก็บ `teacher_storybook`(8,227) + `design_system`(849) ไหม | 0.6 | เก็บไว้เป็น dev tool / ลบ |
+| ~~D6~~ | ~~ใครจัดนักเรียนเข้าวิชา~~ ✅ **ทำแล้ว 2026-09-20** — เฟส 1 DB (`5beea08`,`bbb9a01`) · เฟส 2 หน้าจัดตารางแอดมิน (`230a65f`,`55d6a3e`,`71d54cd`) · prod 4.8–4.13 · นักเรียน ม.1/1 เห็นวิชาเอง, แอดมินจัดคาบบน iPhone ได้จริง · เฟส 3 ฝั่งครู read-only (2026-09-21) · v2 ปฏิทินสัปดาห์ (`231b562`,`b726c8a`) · เหลือ nice-to-have: ช่องวิชาที่สอนในหน้าครูของแอดมิน, PDF, Excel | — | — |
 | D5 | โควต้า GitLab CI หมด (`ci_quota_exceeded`) — **ไม่ใช่ปัญหาโค้ด** | CI ทั้งหมด | ต่อโควต้า / ติดตั้ง self-hosted runner / ใช้ GitHub Actions อย่างเดียว |
 
 ---

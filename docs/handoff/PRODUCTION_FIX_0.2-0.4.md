@@ -279,6 +279,52 @@ bash scripts/prod_apply_2026-09-17.sh
 
 หลังรัน: หน้านักเรียน School Admin → กดรายชื่อ → "กำหนดระดับชั้น / ห้อง" แล้วค่อยไปมอบหมายครูประจำชั้น (ทาง ก)
 
+### ขั้น 4.5 — `delete_school_event` (2026-09-17) — 1 ไฟล์
+
+`20260917020000_delete_school_event.sql` — คู่กับ `create_school_event` ที่มีอยู่แล้วแต่ไม่เคยมีหน้าเรียก
+(ปฏิทินทุกบทบาทอ่าน school_events ได้ แต่สร้างจากแอปไม่ได้เลย) ตอนนี้หน้าตั้งค่า School Admin
+สร้าง/ลบกิจกรรมได้ · ครูยื่นคำขอเข้าพบ/ไปราชการได้ (RPC มีอยู่แล้ว ไม่ต้อง migrate) ไม่แตะข้อมูลเดิม
+
+```bash
+bash scripts/prod_apply_2026-09-17b.sh
+```
+
+**✅ รันบน prod แล้ว 2026-09-17** (เจ้าของรันเอง) — verify `delete_school_event_expect_1 = 1`,
+`migration list --linked` แสดง `20260917020000` ทั้ง local/remote
+
+### ขั้น 4.6 — งานกลุ่ม PBL-10 (2026-09-18) — 1 ไฟล์
+
+`20260918010000_group_submissions.sql` — `create_assignment`/`update_assignment` รับ `p_is_group`
+(เดิม hardcode `false` → สวิตช์ "งานกลุ่ม" ของครูถูกทิ้งเงียบ ๆ มาตลอด) · `submit_assignment` งานกลุ่ม
+= กลุ่มของผู้ส่งเป็นเจ้าของแถวเดียว สมาชิกส่งซ้ำเป็นเวอร์ชันถัดไป G-Score ส่งตรงเวลาให้ทุกคน ·
+`list_my_submission_versions` สมาชิกเห็นเวอร์ชันร่วม · `list_submissions` เพิ่ม `group_id`/`group_name`
+(คอลัมน์เพิ่ม ไม่ลบ) · pgTAP `65_group_submissions` 13/13 บน local · **ไม่แตะข้อมูลเดิม** งานเดี่ยวทำงานเหมือนเดิม
+
+```bash
+bash scripts/prod_apply_2026-09-18.sh
+```
+
+หลังรัน: ครูสร้างใบงานติ๊ก "งานกลุ่ม" → นักเรียนในกลุ่มเห็นป้าย "งานกลุ่ม" ในแผ่นส่งงาน ·
+นักเรียนที่ยังไม่มีกลุ่มจะได้ข้อความบอกให้ครูจัดกลุ่มก่อน
+
+**✅ รันบน prod แล้ว 2026-09-18** (เจ้าของรันเอง) — verify `has_is_group = true` ทั้ง 2 ฟังก์ชัน,
+`list_submissions_has_group_name = true`
+
+### ขั้น 4.7 — กราฟของนักเรียน PBL-7 (2026-09-18) — 1 ไฟล์
+
+`20260918020000_charts_rpc.sql` — ตาราง `charts` มีมาตั้งแต่แรกแต่ไม่มี RPC เลย → เพิ่ม
+`list_my_sensor_datasets` (ชุดข้อมูลที่ผู้ใช้อ่านได้ พร้อมชื่ออุปกรณ์) · `create_chart` (ตรวจขอบเขตเดียวกับ
+`sensor_history`: นักเรียนสร้างได้เฉพาะช่วงที่ครูผูกไว้ในใบงาน/บทเรียน) · `list_my_charts` · `delete_chart` ·
+helper `student_sensor_window_allowed` (ไม่ grant ให้ client) · pgTAP `66_charts_rpc` 13/13 · ไม่แตะข้อมูลเดิม
+
+```bash
+bash scripts/prod_apply_2026-09-18b.sh
+```
+
+หลังรัน: นักเรียน → AIoT Dashboard → "กราฟของฉัน" → สร้างกราฟ (เห็นเฉพาะชุดข้อมูลที่ครูผูก)
+
+**✅ รันบน prod แล้ว 2026-09-18** (เจ้าของรันเอง) — verify `charts_rpc_expect_4 = 4`
+
 ---
 
 ## ขั้นที่ 5 — ทดสอบว่าระบบยังใช้งานได้จริงหลังแก้
@@ -312,3 +358,84 @@ grant execute on function redeem_parent_binding_code(text,text,text,text,text,te
 
 ส่งผลลัพธ์ของขั้นที่ 2, 3, 3.5, 5 กลับมา แล้ว Claude จะติ๊ก ticket 0.2–0.4
 ใน `MASTER_PLAN_2026-09-06.md` ให้ — **จะไม่ติ๊กจนกว่าจะเห็นผลลัพธ์จริง**
+
+### 4.8 ✅ รันแล้ว 2026-09-20 — แต่เป็นเวอร์ชันก่อนตรวจ (ต้องรัน 4.9 ซ่อม)
+
+เจ้าของรัน `scripts/prod_apply_2026-09-19.sh` เวอร์ชันแรกของ agy ซึ่งใช้ `npx supabase db push`
+→ prod ได้ `20260919000000` ฉบับ `9bd32dc` (ก่อน review fix `5beea08`): ตัว sync จับคู่ห้องแบบ
+ตรงตัว (`auto_enrolled = 0`), `set_class_schedule` มี 2 overload, `create_course` ไม่เช็ค
+โรงเรียนของ term, ครูยังตั้งตารางได้ · สคริปต์ 09-19 ถูกแทนด้วย stub ที่ exit 1 กันรันซ้ำ
+
+### 4.9 (รอเจ้าของรัน) ซ่อม D6 เฟส 1 บน prod ให้ตรงกับฉบับที่ตรวจแล้ว
+
+migration `20260920000000_d6_phase1_prod_repair.sql` — ทุกคำสั่ง idempotent (CREATE OR REPLACE /
+DROP IF EXISTS / guarded) · ทดสอบ local ด้วยการจำลอง "ก่อน D6 → ฉบับ 9bd32dc → ซ่อม" ใน
+transaction เดียวแล้ว overload เหลือ 1, `_class_room_key` มา, `create_course` เช็คโรงเรียน ·
+ทั้งชุด 65 ไฟล์ PASS หลังเพิ่ม migration นี้
+
+```bash
+bash scripts/prod_apply_2026-09-20.sh
+```
+
+verify ในสคริปต์: `set_class_schedule_overloads = 1` · `room_key_fn = 1` ·
+`create_course_checks_school = true` · **`auto_enrolled = 3`** (นักเรียน ม.1/1 ทั้ง 3 คน
+เข้าคอร์สคณิตศาสตร์ ม.1/1) — ถ้าไม่ตรง หยุดแล้วบอก
+
+### 4.10 ✅ รันแล้ว 2026-09-20 — sensor_history ย่อข้อมูลตามช่วง — เลิกโดนตัดที่ 1,000 แถว
+
+migration `20260920020000_sensor_history_downsample.sql` · pgTAP `69_sensor_history_downsample` 8/8 ·
+เพิ่ม `p_max_points integer default 1000` — RPC จัด bucket เฉลี่ยตามช่วงของข้อมูลที่มีจริง
+ผู้เรียกเดิมไม่ต้องแก้
+
+```bash
+bash scripts/prod_apply_2026-09-20b.sh
+```
+
+ผล: `has_max_points = true`, `overloads = 1`, raw 30 วัน = 20,812 แถว → แอปนักเรียนเห็น 135 จุด ครบ 29/8 09:46 – 2/9 14:06 (ต่ำสุด 23.6 / เฉลี่ย 28.4 / สูงสุด 32.8 °C) แกน X มีวันที่ · เดิมคาดว่า: เปิดแอปนักเรียน → ชุดข้อมูลอุณหภูมิ 21/8–20/9
+ต้องเห็นทั้งชุด 29 ส.ค. (ไม่ใช่แค่ 09:48–10:37) และแกน X มีวันที่
+
+### 4.11 ✅ รันแล้ว 2026-09-20 — D6 เฟส 2 — RPC ที่หน้าจัดตารางแอดมินต้องใช้
+
+migration `20260920030000_timetable_phase2_rpc_fixes.sql` · pgTAP 68 30/30 (+4) · ทั้งชุด 66 ไฟล์ 1,078 เคส PASS
+- `list_teacher_subjects(p_token, null)` โดยแอดมิน = ครูทุกคนในโรงเรียน + `teacher_name` (เดิม forbidden → หน้าจัดตารางเปิดไม่ขึ้น)
+- `admin_set_room_timetable_slot` บังคับครู (`teacher_required`) และจำคู่ครู↔วิชาลง `teacher_subjects` ให้เอง
+
+```bash
+bash scripts/prod_apply_2026-09-20c.sh
+```
+verify: `returns_teacher_name = true`, `slot_records_subject = true`
+
+### 4.12 ✅ รันแล้ว 2026-09-20 — list_school_classes — cast varchar→text
+
+หน้าจัดตารางเรียนบน iPhone โหลดไม่ขึ้น: `list_school_classes` ประกาศคืน text แต่ select varchar
+ตรง ๆ → 42804 · pgTAP 68 เพิ่ม 5 เคส "RPC ที่หน้านี้เรียกต้องรันได้" (35/35)
+
+```bash
+bash scripts/prod_apply_2026-09-20d.sh
+```
+verify: `casts_to_text = true`
+
+### 4.13 ✅ รันแล้ว 2026-09-20 — ตารางเรียน: อ่าน/ล้างช่องต้องจับคู่ห้องผ่าน `_class_room_key`
+
+จัดคาบจริงบน prod สำเร็จ (จันทร์ คาบ 1 คณิตศาสตร์ ม.1/1 บันทึกลง `class_schedules` แล้ว) แต่กริดไม่แสดง
+เพราะ `list_room_timetable` เทียบ `c.room = p_room` ตรงตัว ('ม.1/1' ≠ '1') · migration `20260920050000`
+แก้ทั้ง list และ clear · pgTAP 68 40/40
+
+```bash
+bash scripts/prod_apply_2026-09-20e.sh
+```
+ผล: ทั้งคู่ true · iPhone: กริดห้อง ม.1/1 แสดง จันทร์/คาบ 1 = คณิตศาสตร์ · ครู ทดสอบ ✅ — **D6 ครบวงจรบน prod**: แอดมินตั้งคาบ → จัดวิชาลงห้อง → นักเรียนในห้องเห็นวิชา
+
+### 4.14 ✅ รันแล้ว 2026-09-20 22:37 — ตารางเรียน v2 — ทั้งโรงเรียน → ม.ต้น/ม.ปลาย → ห้อง
+
+migration `20260921000000_timetable_v2.sql` · pgTAP `70_timetable_v2` 20/20 · ทั้งชุด PASS
+- `school_periods.kind` lesson/break (พักกลางวัน) · `set_school_periods` ตรวจทับซ้อน
+- `list_timetable_overview` (ห้องทั้งปี + จัดแล้วกี่คาบ) · `list_teacher_week` · `list_teacher_conflicts` (ครูชน)
+- `admin_copy_room_timetable` (จากห้องอื่น/เทอมอื่น) · `admin_clear_room_timetable`
+- `admin_set_room_timetable_slot` ปฏิเสธคาบพัก (`period_is_break`)
+
+```bash
+bash scripts/prod_apply_2026-09-21.sh
+```
+ผล: 5 / true · iPhone: ภาพรวมเห็น ม.1/1 1/40 → หน้าห้อง จันทร์ คาบ 1 คณิต → แตะคาบ 2 เลือกจาก "วิชาที่ห้องนี้เรียนอยู่" แตะเดียว บันทึก → 2/40 ✅
+

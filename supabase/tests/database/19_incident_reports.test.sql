@@ -1,3 +1,4 @@
+-- admin_token_patched
 begin;
 
 create extension if not exists pgtap with schema extensions;
@@ -19,6 +20,7 @@ values ('99400000-0000-0000-0000-000000000001', '99300000-0000-0000-0000-0000000
 insert into users (
   id, school_id, email, password_hash, first_name, last_name, created_by
 ) values
+  ('19900000-0000-0000-0000-000000000000', '99200000-0000-0000-0000-000000000001', 'admin19@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '19900000-0000-0000-0000-000000000000'),
   ('99500000-0000-0000-0000-000000000001', '99200000-0000-0000-0000-000000000001',
    'inc-teacher-scope@pdpa.test', crypt('irrelevant', gen_salt('bf')), 'Teacher', 'InScope',
    '99500000-0000-0000-0000-000000000001'),
@@ -36,6 +38,7 @@ insert into users (
    '99500000-0000-0000-0000-000000000005');
 
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('19900000-0000-0000-0000-000000000000', 'school_admin', '99200000-0000-0000-0000-000000000001', '19900000-0000-0000-0000-000000000000'),
   ('99500000-0000-0000-0000-000000000001', 'teacher', '99200000-0000-0000-0000-000000000001', '99500000-0000-0000-0000-000000000001'),
   ('99500000-0000-0000-0000-000000000002', 'teacher', '99200000-0000-0000-0000-000000000001', '99500000-0000-0000-0000-000000000001'),
   ('99500000-0000-0000-0000-000000000003', 'student', '99200000-0000-0000-0000-000000000001', '99500000-0000-0000-0000-000000000001'),
@@ -43,6 +46,7 @@ insert into user_roles (user_id, role, school_id, granted_by) values
   ('99500000-0000-0000-0000-000000000005', 'teacher', '99200000-0000-0000-0000-000000000002', '99500000-0000-0000-0000-000000000005');
 
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('19900000-0000-0000-0000-000000000000', 'school_admin', '99200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-19', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('99500000-0000-0000-0000-000000000001', 'teacher', '99200000-0000-0000-0000-000000000001',
    encode(digest('inc-teacher-scope-token', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('99500000-0000-0000-0000-000000000002', 'teacher', '99200000-0000-0000-0000-000000000001',
@@ -55,14 +59,11 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
    encode(digest('inc-teacher-otherschool-token', 'sha256'), 'hex'), now() + interval '1 hour');
 
 create temporary table created_course as
-select * from create_course(
-  'inc-teacher-scope-token', '99400000-0000-0000-0000-000000000001',
+select * from create_course('admin-token-patched-19', '99400000-0000-0000-0000-000000000001',
   'Incident Science', 'M.5', 'Room 502', 'วิชาทดสอบแจ้งเหตุ'
-);
+, '99500000-0000-0000-0000-000000000001');
 
-select enroll_student(
-  'inc-teacher-scope-token',
-  (select course_id from created_course),
+select enroll_student('admin-token-patched-19', (select course_id from created_course),
   '99500000-0000-0000-0000-000000000003'
 );
 

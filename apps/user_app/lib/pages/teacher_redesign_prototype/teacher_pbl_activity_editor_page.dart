@@ -508,20 +508,23 @@ class _TeacherPblActivityEditorPageState
             )
           else
             for (final device in _devices)
-              CheckboxListTile(
-                value: _selectedDevices.contains(device.deviceId),
-                onChanged: (v) => setState(() {
-                  if (v == true) {
-                    _selectedDevices.add(device.deviceId);
-                  } else {
-                    _selectedDevices.remove(device.deviceId);
-                  }
-                }),
-                title: Text(
-                  '${device.name} (${device.location})',
-                  style: const TextStyle(fontSize: 13),
+              Material(
+                type: MaterialType.transparency,
+                child: CheckboxListTile(
+                  value: _selectedDevices.contains(device.deviceId),
+                  onChanged: (v) => setState(() {
+                    if (v == true) {
+                      _selectedDevices.add(device.deviceId);
+                    } else {
+                      _selectedDevices.remove(device.deviceId);
+                    }
+                  }),
+                  title: Text(
+                    '${device.name} (${device.location})',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  contentPadding: EdgeInsets.zero,
                 ),
-                contentPadding: EdgeInsets.zero,
               ),
           _buildNavRow(canNext: _canGoNextFromStep2),
         ],
@@ -551,19 +554,22 @@ class _TeacherPblActivityEditorPageState
             )
           else
             for (final r in _rubricSummaries)
-              RadioListTile<String>(
-                value: r.id as String,
-                groupValue: _selectedRubric?.id,
-                onChanged: _loadingRubricDetail
-                    ? null
-                    : (v) {
-                        if (v != null) _pickRubric(v);
-                      },
-                title: Text(
-                  r.title as String,
-                  style: const TextStyle(fontSize: 13),
+              Material(
+                type: MaterialType.transparency,
+                child: RadioListTile<String>(
+                  value: r.id as String,
+                  groupValue: _selectedRubric?.id,
+                  onChanged: _loadingRubricDetail
+                      ? null
+                      : (v) {
+                          if (v != null) _pickRubric(v);
+                        },
+                  title: Text(
+                    r.title as String,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  contentPadding: EdgeInsets.zero,
                 ),
-                contentPadding: EdgeInsets.zero,
               ),
           if (_loadingRubricDetail)
             const Padding(

@@ -4,7 +4,6 @@ export 'school_encouragement_card.dart';
 export 'academy_quick_actions.dart';
 export 'academy_continue_learning_card.dart';
 export 'academy_tasks_due_card.dart';
-export 'learning_progress_card.dart';
 export 'student_variant_school_home.dart';
 export 'student_assignments_page.dart';
 export 'student_lessons_page.dart';

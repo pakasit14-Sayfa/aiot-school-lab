@@ -1,3 +1,4 @@
+-- admin_token_patched
 -- list_lesson_progress (20260916010000) — ครูอ่านความคืบหน้าบทเรียนรายคน
 begin;
 
@@ -15,18 +16,21 @@ insert into terms (id, academic_year_id, name)
 values ('61400000-0000-0000-0000-000000000001', '61300000-0000-0000-0000-000000000001', 'Term 1/2026');
 
 insert into users (id, school_id, email, password_hash, first_name, last_name, created_by) values
+  ('61900000-0000-0000-0000-000000000000', '61200000-0000-0000-0000-000000000001', 'admin61@pdpa.test', crypt('x', gen_salt('bf')), 'Admin', 'Patch', '61900000-0000-0000-0000-000000000000'),
   ('61500000-0000-0000-0000-000000000001', '61200000-0000-0000-0000-000000000001', 'lp-teacher@pdpa.test', crypt('x', gen_salt('bf')), 'Teacher', 'A', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000002', '61200000-0000-0000-0000-000000000001', 'lp-s1@pdpa.test', crypt('x', gen_salt('bf')), 'Anan', 'One', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000003', '61200000-0000-0000-0000-000000000001', 'lp-s2@pdpa.test', crypt('x', gen_salt('bf')), 'Boon', 'Two', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000004', '61200000-0000-0000-0000-000000000001', 'lp-other-teacher@pdpa.test', crypt('x', gen_salt('bf')), 'Other', 'T', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000005', '61200000-0000-0000-0000-000000000002', 'lp-teacher-b@pdpa.test', crypt('x', gen_salt('bf')), 'Teacher', 'B', '61500000-0000-0000-0000-000000000005');
 insert into user_roles (user_id, role, school_id, granted_by) values
+  ('61900000-0000-0000-0000-000000000000', 'school_admin', '61200000-0000-0000-0000-000000000001', '61900000-0000-0000-0000-000000000000'),
   ('61500000-0000-0000-0000-000000000001', 'teacher', '61200000-0000-0000-0000-000000000001', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000002', 'student', '61200000-0000-0000-0000-000000000001', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000003', 'student', '61200000-0000-0000-0000-000000000001', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000004', 'teacher', '61200000-0000-0000-0000-000000000001', '61500000-0000-0000-0000-000000000001'),
   ('61500000-0000-0000-0000-000000000005', 'teacher', '61200000-0000-0000-0000-000000000002', '61500000-0000-0000-0000-000000000005');
 insert into sessions (user_id, active_role, active_school_id, token_hash, expires_at) values
+  ('61900000-0000-0000-0000-000000000000', 'school_admin', '61200000-0000-0000-0000-000000000001', encode(digest('admin-token-patched-61', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('61500000-0000-0000-0000-000000000001', 'teacher', '61200000-0000-0000-0000-000000000001', encode(digest('lp-teacher', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('61500000-0000-0000-0000-000000000002', 'student', '61200000-0000-0000-0000-000000000001', encode(digest('lp-s1', 'sha256'), 'hex'), now() + interval '1 hour'),
   ('61500000-0000-0000-0000-000000000003', 'student', '61200000-0000-0000-0000-000000000001', encode(digest('lp-s2', 'sha256'), 'hex'), now() + interval '1 hour'),
@@ -34,9 +38,9 @@ insert into sessions (user_id, active_role, active_school_id, token_hash, expire
   ('61500000-0000-0000-0000-000000000005', 'teacher', '61200000-0000-0000-0000-000000000002', encode(digest('lp-teacher-b', 'sha256'), 'hex'), now() + interval '1 hour');
 
 create temporary table c as
-select * from create_course('lp-teacher', '61400000-0000-0000-0000-000000000001', 'Science', 'M.3', 'R1', null);
-select enroll_student('lp-teacher', (select course_id from c), '61500000-0000-0000-0000-000000000002');
-select enroll_student('lp-teacher', (select course_id from c), '61500000-0000-0000-0000-000000000003');
+select * from create_course('admin-token-patched-61', '61400000-0000-0000-0000-000000000001', 'Science', 'M.3', 'R1', null, '61500000-0000-0000-0000-000000000001');
+select enroll_student('admin-token-patched-61', (select course_id from c), '61500000-0000-0000-0000-000000000002');
+select enroll_student('admin-token-patched-61', (select course_id from c), '61500000-0000-0000-0000-000000000003');
 create temporary table l as
 select * from create_lesson('lp-teacher', (select course_id from c), 'Lesson 1', '{}'::jsonb);
 select publish_lesson('lp-teacher', (select lesson_id from l));
