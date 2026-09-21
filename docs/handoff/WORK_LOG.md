@@ -1378,3 +1378,64 @@ pgTAP 57 8/8 · สเปกเฟิร์มแวร์ FIRMWARE_COMMAND_LOOP
 ผ่าน → `Runner.app` 106.4MB. ยังไม่ได้ทำ: ไอคอนแอปยังเป็นโลโก้ Flutter ตัว default
 (md5 ตรงกับ template เป๊ะ) และ `DEVELOPMENT_TEAM` ยังว่าง — ต้องใส่ Apple ID ใน Xcode
 เองก่อนลงเครื่องจริง.
+
+### 2026-09-21 — แอปขึ้นไอโฟนเครื่องจริงครั้งแรก (iPhone 16 Pro Max / iOS 27) ต่อ prod
+เดิมรันได้แค่ simulator (ตั้งแต่ 2026-09-17). ตอนนี้ลง**เครื่องจริง**ได้แล้ว
+รันอิสระไม่ต้องต่อสาย. `DEVELOPMENT_TEAM = X6KG8UP5VF` (Personal Team ฟรีของ
+`www.pakasit14@gmail.com`) เขียนลง `project.pbxproj` ทั้ง 6 build configurations.
+
+**คำสั่งที่ใช้ได้จริง — อย่าใช้ `flutter run` ลงเครื่องนี้** (ขั้น attach debugger
+ผ่าน Xcode automation ล้มเหลว `Error launching application`). ใช้ build แล้ว
+install ด้วย `devicectl` ตรง ๆ แทน:
+```
+cd apps/user_app
+flutter build ios --release --dart-define-from-file=../../env.prod.json
+xcrun devicectl device install app --device 00008140-00022DA2146A801C build/ios/iphoneos/Runner.app
+xcrun devicectl device process launch --device 00008140-00022DA2146A801C com.diliontech.aiotschoollab
+```
+
+**กับดักที่เสียเวลาที่สุด 2 อย่าง (จดไว้เพราะ build ไม่ฟ้อง error ทั้งคู่):**
+
+1. **framework 4 ตัวไม่ถูกเซ็น แต่ `Xcode build done` + `✓ Built Runner.app` ปกติ.**
+   ระหว่าง build มีหน้าต่าง keychain "codesign ต้องการเข้าถึงกุญแจ" ค้างรออนุญาต
+   4 อัน → `codesign` เข้าไม่ถึง private key แล้ว**ข้ามการเซ็นไปเงียบ ๆ**
+   (`DKImagePickerController`, `image_picker_ios`, `mobile_scanner`,
+   `webview_flutter_wkwebview` — จำนวนตรงกับหน้าต่างที่ค้างพอดี). ไปโผล่เป็น
+   `Failed to verify code signature ... 0xe800801c (No code signature found)`
+   ตอน install. แก้โดยกด **"อนุญาตเสมอ"** (ไม่ใช่ "อนุญาต") แล้ว build ใหม่.
+   ตรวจก่อน install เสมอ:
+   `cd build/ios/iphoneos/Runner.app/Frameworks && for f in *; do codesign -v "$f" || echo "unsigned: $f"; done`
+2. **debug build เปิดเองจากหน้า home screen ไม่ได้บน iOS 14+** — ขึ้นจอขาว
+   "In iOS 14+, debug mode Flutter apps can only be launched from Flutter tooling".
+   ไม่ใช่บั๊ก. ถ้าต้องการให้ผู้ใช้กดเปิดเองต้อง build `--release` (หรือ `--profile`).
+
+**ลำดับด่านทั้งหมดที่ต้องผ่าน** (เผื่อเครื่องใหม่): pair (Trust ที่ไอโฟน) →
+Developer Mode ในเครื่อง + restart → Apple ID ใน Xcode (Settings → Accounts) →
+Team ใน pbxproj → keychain "อนุญาตเสมอ" → install → **Trust profile ที่ไอโฟน**
+(Settings → General → VPN & Device Management → Apple Development: ...) → launch.
+**กับดักการตรวจสอบ:** `IDEProvisioningTeamByIdentifier` ใน Xcode prefs มี teamID
+ค้างอยู่ได้แม้ไม่มีบัญชีล็อกอิน — ตอนแรกอ่านคีย์นี้แล้วสรุปว่าใส่ Apple ID แล้ว
+ซึ่งผิด. ตัวที่เชื่อได้คือ `DVTDeveloperAccountManagerAppleIDLists` (ต้องไม่ว่าง)
+คู่กับ `security find-identity -v -p codesigning` (ต้อง ≥ 1 identity).
+
+**ข้อจำกัด Apple ID ฟรี:** แอป**หมดอายุ 7 วัน** (รอบนี้ ~2026-09-28) เปิดไม่ขึ้น
+ต้องต่อสาย build+install ใหม่ · ลงได้เฉพาะเครื่องที่ต่อสายเอง ส่งให้ครู/นักเรียน
+ลองไม่ได้ (ต้อง Apple Developer Program $99/ปี + TestFlight) · ไอคอนยังเป็นโลโก้
+Flutter ตัว default (md5 ตรงกับ template) — ยังไม่ทำตามที่เจ้าของงานสั่ง.
+
+**ยังไม่ได้ทดสอบ (simulator ทำไม่ได้ ต้องลองบนเครื่องนี้):** สแกน QR ด้วยกล้องจริง
+(`mobile_scanner`), ถ่ายรูป/เลือกรูปแนบรายงานเหตุการณ์ (`image_picker`),
+ปุ่มส่งออก CSV/Excel บน iOS.
+
+**ดิสก์เต็มลามอีกรอบระหว่างทำงานนี้** — เหลือ 104 MB, `docker` ทุกคำสั่งแขวน
+(อาการเดียวกับ 2026-09-09: `Docker.app` ตายแต่ `com.docker.backend` ค้างเป็นซอมบี้).
+กู้ด้วย `pkill -9 -f com.docker.backend` แล้ว `open -a Docker`. คืนพื้นที่เป็น 14 GB
+โดยลบ DerivedData (5.6 GB), simulator ที่ไม่ใช้ 2 เครื่อง, และ Supabase image
+**เฉพาะเวอร์ชันที่มีตัวใหม่กว่าแล้ว** 4 ตัว (postgres 17.6.1.141, storage-api
+v1.72.1/v1.71.0, postgrest v14.5) = 5.06 GB. **หมายเหตุสำคัญ:** สูตรเดิมใน
+memory ใช้ `docker ps` ซึ่งเห็นแค่ container ที่รันอยู่ — หลัง Docker crash
+container หายไปหลายตัว ทำให้ `edge-runtime`/`studio`/`realtime` หลุดเข้ามาใน
+รายการ "ลบได้" ทั้งที่เป็นเวอร์ชันปัจจุบัน (ถ้าลบ `edge-runtime` = ล็อกอิน local
+ไม่ได้ทั้งระบบ). ต้องกรองด้วยการเทียบเวอร์ชันเอง ไม่ใช่เชื่อ `docker ps`.
+`iOS DeviceSupport` โตเป็น 12 GB หลังเสียบ iOS 27 — ลบไม่ได้ผล เพราะโหลดกลับทันที
+ที่เสียบเครื่องรอบหน้า.
