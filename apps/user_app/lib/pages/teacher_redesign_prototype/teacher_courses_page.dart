@@ -10,7 +10,9 @@ import 'package:shared_core/shared_core.dart';
 
 import '../../utils/web_download.dart';
 
+import 'teacher_assignment_detail_page.dart';
 import 'teacher_assignment_editor_page.dart';
+import 'teacher_assignment_form_page.dart';
 import 'teacher_exam_builder_page.dart';
 import 'teacher_grading_page.dart';
 import 'teacher_incident_inbox_page.dart';
@@ -546,7 +548,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError =
+                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -1076,9 +1079,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   children:
                       [
                         'ทั้งหมด',
-                        ...({for (final c in teacherCourses) ...c.rooms}
-                            .toList()
-                          ..sort()),
+                        ...({
+                          for (final c in teacherCourses) ...c.rooms,
+                        }.toList()..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -5229,101 +5232,20 @@ class _CourseAssignmentListTabWidgetState
     }
   }
 
-  AssignmentModel _toModel(AssignmentSummary a) => AssignmentModel(
-    id: a.id,
-    courseId: widget.course.id ?? '',
-    title: a.title,
-    instructions: a.instructions ?? '',
-    type: 'ใบงานทดลอง',
-    courseName: widget.course.name,
-    dueDate: a.dueAt != null
-        ? a.dueAt!.toLocal().toString().substring(0, 16)
-        : 'ไม่มีกำหนดส่ง',
-    status: a.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
-    isGroupWork: a.isGroup,
-    rubricId: a.rubricId,
-    rubricTitle: a.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
-    attachedSensorMetrics: const [],
-    submittedCount: a.submittedCount,
-    totalStudents: a.totalStudents,
-    updatedAt: a.createdAt != null
-        ? 'สร้างเมื่อ ${a.createdAt!.toLocal().toString().substring(0, 10)}'
-        : 'ยังไม่มีข้อมูล',
-  );
-
-  /// Tapping a row: short action sheet instead of two buttons per card.
+  /// Tapping a row opens the assignment's own page (roster, counts,
+  /// grade / edit / extend / close) — design agreed 2026-09-21.
   Future<void> _openRow(AssignmentSummary a) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Row(
-                children: [
-                  _StatusDot(published: a.isPublished),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      a.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: TeacherPalette.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _metaLine(a),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: TeacherPalette.muted,
-                  ),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.rate_review_outlined),
-              title: const Text('ตรวจงานและให้คะแนน'),
-              subtitle: a.pendingGradeCount > 0
-                  ? Text('รอตรวจ ${a.pendingGradeCount}')
-                  : null,
-              onTap: () => Navigator.of(context).pop('grade'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('แก้ไขใบงาน / ผูกชุดข้อมูล'),
-              onTap: () => Navigator.of(context).pop('edit'),
-            ),
-            const SizedBox(height: 8),
-          ],
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeacherAssignmentDetailPage(
+          assignment: a,
+          courseId: widget.course.id ?? '',
+          courseName: widget.course.name,
         ),
       ),
     );
-    if (!mounted || action == null) return;
-    if (action == 'edit') {
-      openAssignmentFormModal(
-        context,
-        assignment: _toModel(a),
-        onSave: (_) => _loadAssignments(),
-      );
-    } else if (action == 'grade') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TeacherGradingPage()),
-      );
-    }
+    if (mounted) _loadAssignments();
   }
 
   String _metaLine(AssignmentSummary a) {
@@ -5365,7 +5287,19 @@ class _CourseAssignmentListTabWidgetState
     );
     if (!mounted || action == null) return;
     if (action == 'assignment') {
-      openAssignmentFormModal(context, onSave: (_) => _loadAssignments());
+      // Pass the course explicitly — the old modal fell back to
+      // courses.first, which created the worksheet under the wrong subject
+      // for any teacher with more than one course.
+      final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherAssignmentFormPage(
+            courseId: courseId ?? '',
+            courseName: widget.course.name,
+          ),
+        ),
+      );
+      if (saved == true && mounted) _loadAssignments();
     } else if (action == 'pbl' && courseId != null) {
       Navigator.push(
         context,
@@ -5436,7 +5370,8 @@ class _CourseAssignmentListTabWidgetState
           _EmptyInvite(
             icon: Icons.assignment_outlined,
             title: 'ยังไม่มีใบงานในวิชานี้',
-            body: 'สร้างใบงานแรกให้นักเรียนส่งงาน หรือกิจกรรม PBL ที่ผูกข้อมูลเซนเซอร์',
+            body:
+                'สร้างใบงานแรกให้นักเรียนส่งงาน หรือกิจกรรม PBL ที่ผูกข้อมูลเซนเซอร์',
             action: 'สร้างใบงาน',
             onAction: _openCreateSheet,
           )
