@@ -102,6 +102,11 @@ void main() {
   testWidgets(
     'create sends the opening course, type worksheet, no ประเภทงาน field',
     (tester) async {
+      // Create mode became a 4-step wizard 2026-09-21 (owner: "เอาที่ง่ายต่อ
+      // การใช้งาน" — a guided walk fits first-time creation better than one
+      // long form). There's no longer a single "บันทึก" reachable right
+      // after typing the title, or a static "ใบงานใหม่" page title — walk
+      // all 4 steps like a real user would.
       String? sentCourse;
       String? sentType;
       bool? group;
@@ -124,12 +129,17 @@ void main() {
             },
       );
       expect(find.text('ประเภทงาน'), findsNothing);
-      expect(find.text('ใบงานใหม่'), findsOneWidget);
       await tester.enterText(
         find.widgetWithText(TextField, 'ชื่อใบงาน'),
         'งานใหม่',
       );
-      await tester.tap(find.text('บันทึก'));
+      await tester.tap(find.text('ถัดไป — การส่งงาน'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ถัดไป — การเผยแพร่'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ถัดไป — ชุดข้อมูลเซนเซอร์'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('บันทึกใบงาน'));
       await tester.pumpAndSettle();
       expect(sentCourse, 'course-7');
       expect(sentType, 'worksheet');
@@ -138,6 +148,9 @@ void main() {
   );
 
   testWidgets('empty title is refused before any RPC', (tester) async {
+    // Same wizard change as above — the "ถัดไป" button on step 1 is what
+    // validates the title now, not a "บันทึก" button (that only exists on
+    // step 4).
     var called = false;
     await _pump(
       tester,
@@ -155,7 +168,7 @@ void main() {
             return 'x';
           },
     );
-    await tester.tap(find.text('บันทึก'));
+    await tester.tap(find.text('ถัดไป — การส่งงาน'));
     await tester.pumpAndSettle();
     expect(called, false);
     expect(find.text('กรุณากรอกชื่อใบงาน'), findsOneWidget);
@@ -232,6 +245,23 @@ void main() {
     );
     expect(find.text('อุณหภูมิ'), findsOneWidget);
     expect(find.textContaining('เซนเซอร์ห้อง 1'), findsOneWidget);
+    // Every row grew taller in the 2026-09-21 redesign (field labels, more
+    // padding between standalone tinted rows instead of a dense card list),
+    // so this row is genuinely below the fold in the fixed 844pt test
+    // viewport now — a real user just scrolls, same as the live app.
+    // ensureVisible()/dragUntilVisible() both left the derived tap offset
+    // unchanged, so jump the Scrollable directly rather than fight gesture
+    // routing over the rows in between.
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(
+          tester
+              .state<ScrollableState>(find.byType(Scrollable).first)
+              .position
+              .maxScrollExtent,
+        );
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('เอาออก'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('เอาออก').last);
