@@ -98,7 +98,15 @@ void main() {
         TeacherCourseDetailPage(
           course: _course,
           initialTab: tab,
-          loadCourseStudents: (_) async => const [],
+          loadCourseStudents: (_) async => [
+            CourseStudent(
+              studentId: 's1',
+              firstName: 'Dashboard',
+              lastName: 'Viewer',
+              email: 'dashboard-viewer@aiot-school-lab.local',
+              enrolledAt: DateTime(2026, 9, 1),
+            ),
+          ],
           loadCourseGrades: (_) async => const [],
         ),
       );

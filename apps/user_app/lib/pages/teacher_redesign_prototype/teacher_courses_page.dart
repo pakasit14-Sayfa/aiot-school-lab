@@ -4362,12 +4362,16 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                st['name'] as String,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: TeacherPalette.ink,
+                              Flexible(
+                                child: Text(
+                                  st['name'] as String,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: TeacherPalette.ink,
+                                  ),
                                 ),
                               ),
                               // ป้ายห้องมาจากห้องของรายวิชา — วิชาที่ยังไม่ระบุ
@@ -4398,6 +4402,8 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                           const SizedBox(height: 4),
                           Text(
                             st['email'] as String,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 12.5,
                               color: TeacherPalette.muted,
@@ -4406,25 +4412,10 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFA7F3D0)),
-                      ),
-                      child: const Text(
-                        '🟢 เรียนปกติ (Active)',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                    ),
+                    // The '🟢 เรียนปกติ (Active)' pill that sat here was a
+                    // constant on every row (list_course_students has no
+                    // status) and pushed long names/emails off a phone
+                    // screen by 28–60 px — removed 2026-09-21.
                   ],
                 ),
               );
