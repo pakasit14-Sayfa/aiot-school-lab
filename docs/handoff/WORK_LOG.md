@@ -1364,3 +1364,17 @@ test/director_learning_page_test.dart test/teacher_class_schedule_page_test.dart
 ผ่าน ack_device_command → หลังไฟดับแอปยังโชว์ "ยืนยันว่าเปิดอยู่" ค้าง)
 pgTAP 57 8/8 · สเปกเฟิร์มแวร์ FIRMWARE_COMMAND_LOOP.md อัปเดต · ส่งพรอมต์ให้ AI ฝั่ง
 เฟิร์มแวร์ 5 ข้อ (ack / report on boot / firmware+ip ใน heartbeat / watchdog / ต่อเซนเซอร์ครบ 10)
+
+### 2026-09-21 — guard ของ SupabaseConfig ครอบถึง debug บนมือถือ · ยืนยัน build ios --release ผ่าน
+เตรียมลงไอโฟนเครื่องจริงครั้งแรก. เดิม `assertConfigured` โยน error เฉพาะ
+`kReleaseMode` — แปลว่า `flutter run` แบบ debug ลงมือถือโดยลืม
+`--dart-define-from-file` จะ fallback ไป `http://127.0.0.1:54321` เงียบ ๆ ซึ่งบน
+เครื่องจริงคือตัวมือถือเอง ทุก request ล้มโดยไม่มีอะไรบอกสาเหตุ (อาการที่เห็นคือ
+"ล็อกอินไม่ได้"). ตอนนี้ iOS/Android บังคับต้องมี dart-define ทุกโหมด
+(`missingMobileEnvMessage`) ส่วน desktop/web ยัง fallback ไป local Docker ได้เหมือนเดิม
+— `isWeb` มาก่อน platform เพราะเว็บเปิดบนมือถือ `defaultTargetPlatform` คืน iOS.
+เทส `supabase_config_test.dart` 6 เทสผ่าน (เดิม 2), สวีททั้งหมด 912 ผ่าน.
+`flutter build ios --release --no-codesign --dart-define-from-file=env.prod.json`
+ผ่าน → `Runner.app` 106.4MB. ยังไม่ได้ทำ: ไอคอนแอปยังเป็นโลโก้ Flutter ตัว default
+(md5 ตรงกับ template เป๊ะ) และ `DEVELOPMENT_TEAM` ยังว่าง — ต้องใส่ Apple ID ใน Xcode
+เองก่อนลงเครื่องจริง.

@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kReleaseMode;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb, kReleaseMode;
 import 'package:supabase_flutter/supabase_flutter.dart';
 export 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -6,9 +7,17 @@ export 'package:supabase_flutter/supabase_flutter.dart';
 ///   flutter run --dart-define-from-file=env.json        (local Docker)
 ///   flutter build apk --dart-define-from-file=env.prod.json   (production)
 ///
-/// If not supplied, it defaults to local Supabase Docker development — except
-/// in a release build, where that default would ship an app that silently
-/// points at 127.0.0.1 on the user's phone. There it throws instead.
+/// If not supplied, it defaults to local Supabase Docker development. That
+/// default is only ever reachable from the dev machine itself — a desktop or
+/// Chrome build. Two cases would otherwise ship/run an app silently pointing
+/// at a 127.0.0.1 that is the *phone*, so both throw instead:
+///   - any release build (this would have gone to the store, 2026-09-17), and
+///   - any build for a phone at all, debug included: an iOS simulator can
+///     still reach the Mac's localhost, but a real handset never can, and a
+///     debug run on a handset with no dart-defines looks exactly like "login
+///     is broken" with nothing in the logs to say why.
+/// So on iOS/Android the dart-define file is mandatory in every mode — which
+/// is what the documented run commands pass anyway.
 class SupabaseConfig {
   static const String _defaultUrl = 'http://127.0.0.1:54321';
   static const String _defaultKey =
@@ -26,8 +35,26 @@ class SupabaseConfig {
       'Release build has no SUPABASE_URL — build with '
       '--dart-define-from-file=env.prod.json';
 
-  static void assertConfigured({bool release = kReleaseMode}) {
-    if (release && _envUrl.isEmpty) throw StateError(missingProdEnvMessage);
+  /// Message of the error thrown when a phone build — debug included — was
+  /// made without any dart-define file. The localhost default would resolve
+  /// to the handset itself and every request would fail with no clue why.
+  static const String missingMobileEnvMessage =
+      'Mobile build has no SUPABASE_URL — the localhost default points at the '
+      'phone itself. Build with --dart-define-from-file=env.prod.json '
+      '(production) or =env.json (local Docker, simulator only)';
+
+  static void assertConfigured({
+    bool release = kReleaseMode,
+    bool isWeb = kIsWeb,
+    TargetPlatform? platform,
+  }) {
+    if (_envUrl.isNotEmpty) return;
+    if (release) throw StateError(missingProdEnvMessage);
+    if (isWeb) return;
+    final target = platform ?? defaultTargetPlatform;
+    if (target == TargetPlatform.iOS || target == TargetPlatform.android) {
+      throw StateError(missingMobileEnvMessage);
+    }
   }
 
   static Future<void> initialize() async {
