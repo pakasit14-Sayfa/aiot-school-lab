@@ -1,5 +1,47 @@
 # Work Log
 
+## 🔴 Android round 1 (Windows lane) — บล็อกอยู่ 2026-09-21
+
+ทำตาม `BRIEF_ANDROID_ROUND1_WINDOWS.md` บน branch `agent/android-round1`
+(แตกจาก `main` หลังติดตั้ง Flutter 3.47.4 ให้ตรง Mac แล้ว) — ยังไป
+ไม่ถึง §4 (ไล่ตรวจหน้าจอ) เพราะ **`flutter build apk --debug` ล้มตั้งแต่ก่อน
+เปิดแอป**:
+
+```
+Execution failed for task ':file_picker:checkDebugAarMetadata'.
+Dependency ':flutter_plugin_android_lifecycle' requires ... compile against
+version 36 or later. :file_picker is currently compiled against android-34.
+```
+
+**สาเหตุจริง**: `flutter_plugin_android_lifecycle` resolve ไปที่ `2.0.35`
+(ดึงผ่าน `image_picker_android` ที่มากับ commit ที่ merge เข้ามาจากฝั่ง Mac)
+ซึ่งเวอร์ชันนี้บังคับให้ทุกไลบรารีที่พึ่งพามันต้อง compile ที่ compileSdk
+36+ — **`file_picker: ^8.1.6` (เวอร์ชันที่ Mac ใช้อยู่ตอนนี้) มี AAR ที่
+compile ไว้ตายตัวที่ 34** เลยตกเกณฑ์เสมอ ไม่ว่า `android/app/build.gradle.kts`
+ของแอปเราจะตั้ง `compileSdk` เป็นเท่าไหร่ก็ตาม (ลองแล้วเป็น 36 — ไม่ช่วย
+เพราะปัญหาอยู่ที่ AAR ของตัวปลั๊กอินเอง ไม่ใช่ของแอป)
+
+**ทางแก้เดียวที่เจอ**: อัปเกรด `file_picker` เป็น `^11.0.3` (คอมไพล์มาที่ 36
+อยู่แล้ว, แก้ API `FilePicker.platform.pickFiles` → `FilePicker.pickFiles`
+ใน 8 จุด) — เคยทำไปแล้วรอบหนึ่งในเซสชันนี้ก่อนอ่านใบสั่งงาน แล้ว revert
+กลับตาม §5 ("ห้ามแก้ pubspec.yaml/เวอร์ชันแพ็กเกจโดยไม่บอกฝั่ง Mac")
+
+**บล็อกอะไร**: ทำ §4 ทั้งหมดของ Android round 1 ต่อไม่ได้จนกว่าจะมี
+`file_picker` เวอร์ชันที่คอมไพล์ที่ 36+ — เพราะเป็น dependency เดียวกับที่
+Mac ใช้ (`pubspec.yaml` ตัวเดียว ไม่แยกไฟล์ Android/iOS) การอัปเกรดจึงกระทบ
+ทั้งสองฝั่ง ต้องให้ฝั่ง Mac ยืนยันก่อนว่า `file_picker 11.x` จะไม่ชนอะไรบน
+iOS build แล้วค่อยอัปเกรดพร้อมกันทั้งคู่
+
+**ตัวเลือก**: (1) ฝั่ง Mac ลองอัปเกรด `file_picker` เป็น 11.x บนเครื่อง Mac
+ก่อนแล้วยืนยันว่า iOS build ผ่าน จากนั้น Windows ค่อยทำตาม (2) ลอง
+`dependency_overrides` ปัก `flutter_plugin_android_lifecycle` ไว้ที่เวอร์ชัน
+เก่ากว่าที่ยังคอมไพล์ที่ 34 ได้ (ยังไม่ได้ลอง ไม่รู้ว่ามี breaking change กับ
+`image_picker_android`/ปลั๊กอินอื่นไหม) — เจ้าของโปรเจกต์เป็นคนเคาะ
+
+Branch `agent/android-round1` มี commit เดียวคือ `android/app/build.gradle.kts`
+ตั้ง `compileSdk = 36` ค้างไว้ (Android-only, ไม่กระทบ iOS/pubspec) — คงไว้
+เผื่อใช้ต่อเมื่อ `file_picker` อัปเกรดจริง แต่ยังไม่พอจะ build ผ่านลำพัง
+
 ## Latest audit — 2026-09-09
 
 See [Executive connection audit](EXECUTIVE_CONNECTION_AUDIT_2026-09-09.md).

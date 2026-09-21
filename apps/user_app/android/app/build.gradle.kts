@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.diliontech.aiotschoollab"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36 // flutter.compileSdkVersion (35) is below what flutter_plugin_android_lifecycle now requires (36); Android-only build setting, no pubspec/iOS impact
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
