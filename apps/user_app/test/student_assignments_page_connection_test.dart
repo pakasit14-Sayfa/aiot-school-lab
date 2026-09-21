@@ -95,29 +95,119 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('an unsubmitted assignment shows ยังไม่ส่ง, not a fabricated status', (
-    tester,
-  ) async {
-    await _pump(tester);
-    expect(find.text('ยังไม่ส่ง'), findsWidgets);
-  });
+  testWidgets(
+    'upload retry keeps the submitted version and skips confirmed files',
+    (tester) async {
+      var submits = 0;
+      var secondAttempts = 0;
+      final uploads = <String>[];
+      final attachments = <SubmissionAttachment>[];
+      await _pump(
+        tester,
+        loadSubmissionVersions: (_) async => submits == 0
+            ? []
+            : [
+                SubmissionVersion(
+                  version: 1,
+                  content: 'ส่งพร้อมไฟล์',
+                  submittedAt: DateTime(2026, 9, 21),
+                  submissionVersionId: 'sv-retry',
+                  attachments: List.of(attachments),
+                ),
+              ],
+        pickFiles: () async => [
+          PlatformFile(
+            name: 'one.txt',
+            size: 1,
+            bytes: Uint8List.fromList([1]),
+          ),
+          PlatformFile(
+            name: 'two.txt',
+            size: 1,
+            bytes: Uint8List.fromList([2]),
+          ),
+        ],
+        submitAssignment: ({required assignmentId, required content}) async {
+          submits++;
+          return (version: 1, submissionVersionId: 'sv-retry');
+        },
+        uploadAttachment:
+            ({
+              required submissionVersionId,
+              required fileName,
+              required bytes,
+            }) async {
+              expect(submissionVersionId, 'sv-retry');
+              uploads.add(fileName);
+              if (fileName == 'two.txt' && secondAttempts++ == 0) {
+                throw StateError('network');
+              }
+              attachments.add(
+                SubmissionAttachment(id: fileName, fileName: fileName),
+              );
+              return fileName;
+            },
+      );
+      await tester.tap(find.byType(AssignmentCard));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'ส่งพร้อมไฟล์');
+      await tester.tap(find.text('แนบไฟล์'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ยืนยันการส่งงาน'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('ส่งข้อความแล้ว'), findsOneWidget);
+      expect(find.text('ส่งงานเรียบร้อยแล้ว'), findsNothing);
+      await tester.tap(find.text('ลองอัปโหลดไฟล์ที่เหลืออีกครั้ง'));
+      await tester.pumpAndSettle();
+      expect(submits, 1);
+      expect(uploads, ['one.txt', 'two.txt', 'two.txt']);
+      expect(find.text('ส่งงานเรียบร้อยแล้ว'), findsOneWidget);
+    },
+  );
 
-  testWidgets('an already-submitted assignment shows ส่งแล้ว, not the submit CTA', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      loadSubmissionVersions: (_) async => [
-        SubmissionVersion(
-          version: 1,
-          content: 'ทำเสร็จแล้วครับ',
-          submittedAt: DateTime(2026, 9, 1),
-          submissionVersionId: 'sv-1',
-        ),
-      ],
-    );
-    expect(find.text('ส่งแล้ว'), findsWidgets);
-  });
+  testWidgets(
+    'submission missing from canonical readback never reports success',
+    (tester) async {
+      await _pump(
+        tester,
+        submitAssignment: ({required assignmentId, required content}) async =>
+            (version: 1, submissionVersionId: 'missing'),
+      );
+      await tester.tap(find.byType(AssignmentCard));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'คำตอบ');
+      await tester.tap(find.text('ยืนยันการส่งงาน'));
+      await tester.pumpAndSettle();
+      expect(find.text('ส่งงานเรียบร้อยแล้ว'), findsNothing);
+      expect(find.textContaining('ยังยืนยัน'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an unsubmitted assignment shows ยังไม่ส่ง, not a fabricated status',
+    (tester) async {
+      await _pump(tester);
+      expect(find.text('ยังไม่ส่ง'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'an already-submitted assignment shows ส่งแล้ว, not the submit CTA',
+    (tester) async {
+      await _pump(
+        tester,
+        loadSubmissionVersions: (_) async => [
+          SubmissionVersion(
+            version: 1,
+            content: 'ทำเสร็จแล้วครับ',
+            submittedAt: DateTime(2026, 9, 1),
+            submissionVersionId: 'sv-1',
+          ),
+        ],
+      );
+      expect(find.text('ส่งแล้ว'), findsWidgets);
+    },
+  );
 
   testWidgets(
     'submitting calls the real RPC with the typed content, and uploads picked files with real bytes',
@@ -128,6 +218,24 @@ void main() {
 
       await _pump(
         tester,
+        loadSubmissionVersions: (_) async => submittedContent == null
+            ? []
+            : [
+                SubmissionVersion(
+                  version: 1,
+                  content: submittedContent,
+                  submittedAt: DateTime(2026, 9, 21),
+                  submissionVersionId: 'sv-99',
+                  attachments: uploaded.isEmpty
+                      ? []
+                      : [
+                          const SubmissionAttachment(
+                            id: 'att-1',
+                            fileName: 'proof.png',
+                          ),
+                        ],
+                ),
+              ],
         pickFiles: () async => [
           PlatformFile(
             name: 'proof.png',
@@ -141,14 +249,18 @@ void main() {
           return (version: 1, submissionVersionId: 'sv-99');
         },
         uploadAttachment:
-            ({required submissionVersionId, required fileName, required bytes}) async {
-          uploaded.add({
-            'submissionVersionId': submissionVersionId,
-            'fileName': fileName,
-            'bytes': bytes,
-          });
-          return 'att-1';
-        },
+            ({
+              required submissionVersionId,
+              required fileName,
+              required bytes,
+            }) async {
+              uploaded.add({
+                'submissionVersionId': submissionVersionId,
+                'fileName': fileName,
+                'bytes': bytes,
+              });
+              return 'att-1';
+            },
       );
 
       await tester.tap(find.byType(AssignmentCard));
@@ -169,63 +281,65 @@ void main() {
 
       expect(submittedAssignmentId, 'asg-1');
       expect(submittedContent, 'ส่งงานจริงครับ');
-      if (uploaded.isNotEmpty) {
-        expect(uploaded.first['submissionVersionId'], 'sv-99');
-        expect(uploaded.first['fileName'], 'proof.png');
-        expect(uploaded.first['bytes'], Uint8List.fromList([1, 2, 3]));
-      }
+      expect(uploaded, hasLength(1));
+      expect(uploaded.first['submissionVersionId'], 'sv-99');
+      expect(uploaded.first['fileName'], 'proof.png');
+      expect(uploaded.first['bytes'], Uint8List.fromList([1, 2, 3]));
+      expect(find.text('ส่งงานเรียบร้อยแล้ว'), findsOneWidget);
     },
   );
 
-  testWidgets('a failed submit shows an honest message, no leaked exception text', (
-    tester,
-  ) async {
-    await _pump(
-      tester,
-      submitAssignment: ({required assignmentId, required content}) async =>
-          throw StateError('backend detail that must stay internal'),
-    );
+  testWidgets(
+    'a failed submit shows an honest message, no leaked exception text',
+    (tester) async {
+      await _pump(
+        tester,
+        submitAssignment: ({required assignmentId, required content}) async =>
+            throw StateError('backend detail that must stay internal'),
+      );
 
-    await tester.tap(find.byType(AssignmentCard));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).first, 'x');
-    await tester.pump();
-    await tester.tap(find.text('ยืนยันการส่งงาน'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byType(AssignmentCard));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'x');
+      await tester.pump();
+      await tester.tap(find.text('ยืนยันการส่งงาน'));
+      await tester.pumpAndSettle();
 
-    expect(find.textContaining('ส่งงานไม่สำเร็จ'), findsOneWidget);
-    expect(find.textContaining('backend detail'), findsNothing);
-  });
+      expect(find.textContaining('ส่งงานไม่สำเร็จ'), findsOneWidget);
+      expect(find.textContaining('backend detail'), findsNothing);
+    },
+  );
 
   // ── PBL-6 (2026-09-18) ────────────────────────────────────────────────
-  testWidgets('a dataset the teacher pinned is listed in the sheet and opens the viewer', (
-    tester,
-  ) async {
-    final pinned = AssignmentDetail(
-      id: 'asg-1',
-      courseId: 'course-1',
-      type: 'homework',
-      title: 'แบบฝึกหัดบทที่ 3',
-      instructions: 'วิเคราะห์ฝุ่นในห้อง',
-      dueAt: null,
-      status: 'published',
-      sensorDatasets: [
-        AssignmentSensorDataset(
-          id: 'ds-1',
-          deviceId: 'dev-1',
-          metric: 'pm25',
-          timeStart: DateTime.utc(2026, 9, 10, 1),
-          timeEnd: DateTime.utc(2026, 9, 10, 9),
-          label: 'ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า',
-        ),
-      ],
-    );
-    await _pump(tester, getAssignmentDetail: (_) async => pinned);
-    await tester.tap(find.byType(AssignmentCard));
-    await tester.pumpAndSettle();
-    expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsOneWidget);
-    expect(find.text('ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า'), findsOneWidget);
-  });
+  testWidgets(
+    'a dataset the teacher pinned is listed in the sheet and opens the viewer',
+    (tester) async {
+      final pinned = AssignmentDetail(
+        id: 'asg-1',
+        courseId: 'course-1',
+        type: 'homework',
+        title: 'แบบฝึกหัดบทที่ 3',
+        instructions: 'วิเคราะห์ฝุ่นในห้อง',
+        dueAt: null,
+        status: 'published',
+        sensorDatasets: [
+          AssignmentSensorDataset(
+            id: 'ds-1',
+            deviceId: 'dev-1',
+            metric: 'pm25',
+            timeStart: DateTime.utc(2026, 9, 10, 1),
+            timeEnd: DateTime.utc(2026, 9, 10, 9),
+            label: 'ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า',
+          ),
+        ],
+      );
+      await _pump(tester, getAssignmentDetail: (_) async => pinned);
+      await tester.tap(find.byType(AssignmentCard));
+      await tester.pumpAndSettle();
+      expect(find.text('ชุดข้อมูลเซนเซอร์ที่ครูกำหนด'), findsOneWidget);
+      expect(find.text('ฝุ่นหน้าห้อง ม.1/1 ตอนเช้า'), findsOneWidget);
+    },
+  );
 
   testWidgets('no pinned dataset → no dataset section, nothing invented', (
     tester,
@@ -237,39 +351,60 @@ void main() {
   });
 
   // ── PBL-10 (2026-09-18) ───────────────────────────────────────────────
-  testWidgets('a group assignment says so in the sheet; not_in_group is explained', (
-    tester,
-  ) async {
-    const group = AssignmentSummary(
-      id: 'asg-g',
-      type: 'project',
-      title: 'โครงงานกลุ่ม',
-      dueAt: null,
-      status: 'published',
-      isGroup: true,
-    );
-    await _pump(
-      tester,
-      loadAssignmentsForCourse: (_) async => const [group],
-      submitAssignment: ({required assignmentId, required content}) async {
-        throw Exception('not_in_group');
-      },
-    );
-    await tester.tap(find.byType(AssignmentCard));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('งานกลุ่ม — ส่งในนามกลุ่มของคุณ'), findsOneWidget);
-    await tester.enterText(find.byType(TextField).first, 'ส่งกลุ่ม');
-    await tester.tap(find.text('ยืนยันการส่งงาน'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('ยังไม่ได้อยู่ในกลุ่มของวิชานี้'), findsOneWidget);
-  });
+  testWidgets(
+    'a group assignment says so in the sheet; not_in_group is explained',
+    (tester) async {
+      const group = AssignmentSummary(
+        id: 'asg-g',
+        type: 'project',
+        title: 'โครงงานกลุ่ม',
+        dueAt: null,
+        status: 'published',
+        isGroup: true,
+      );
+      await _pump(
+        tester,
+        loadAssignmentsForCourse: (_) async => const [group],
+        submitAssignment: ({required assignmentId, required content}) async {
+          throw Exception('not_in_group');
+        },
+      );
+      await tester.tap(find.byType(AssignmentCard));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('งานกลุ่ม — ส่งในนามกลุ่มของคุณ'),
+        findsOneWidget,
+      );
+      await tester.enterText(find.byType(TextField).first, 'ส่งกลุ่ม');
+      await tester.tap(find.text('ยืนยันการส่งงาน'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('ยังไม่ได้อยู่ในกลุ่มของวิชานี้'),
+        findsOneWidget,
+      );
+    },
+  );
   // ── PBL-8 (2026-09-18) ────────────────────────────────────────────────
   testWidgets(
     'attach sensor evidence: pick a saved chart → CSV of the real readings is uploaded',
     (tester) async {
       final uploads = <Map<String, Object?>>[];
+      var submitted = false;
       await _pump(
         tester,
+        loadSubmissionVersions: (_) async => !submitted
+            ? []
+            : [
+                SubmissionVersion(
+                  version: 1,
+                  content: 'ส่งพร้อมหลักฐาน',
+                  submittedAt: DateTime(2026, 9, 21),
+                  submissionVersionId: 'sv-1',
+                  attachments: uploads.isEmpty
+                      ? []
+                      : [const SubmissionAttachment(id: 'att-1')],
+                ),
+              ],
         loadMyCharts: () async => [
           SavedChart(
             id: 'ch-1',
@@ -301,8 +436,10 @@ void main() {
                 SensorDataPoint(ts: DateTime.utc(2026, 9, 10, 2), value: 40),
               ];
             },
-        submitAssignment: ({required assignmentId, required content}) async =>
-            (version: 1, submissionVersionId: 'sv-1'),
+        submitAssignment: ({required assignmentId, required content}) async {
+          submitted = true;
+          return (version: 1, submissionVersionId: 'sv-1');
+        },
         uploadAttachment:
             ({
               required submissionVersionId,

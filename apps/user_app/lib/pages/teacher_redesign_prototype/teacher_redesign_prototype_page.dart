@@ -1,3 +1,4 @@
+import 'package:my_first_app/widgets/visible_sensor_stream_builder.dart';
 // PROTOTYPE ONLY: Teacher redesigned workspace.
 // Three variants of the teacher dashboard, switchable in-app on
 // /prototype/teacher-redesign?variant=A, B, or C.
@@ -4514,14 +4515,14 @@ class _AiotWeatherSensorsCardState extends State<_AiotWeatherSensorsCard> {
     // บั๊กเดียวกับที่เจอในหน้านักเรียน/ผู้บริหาร (ค่าค้าง เวลานับถอยหลัง
     // เดินต่อจนดูเหมือนเซนเซอร์หลุดทั้งที่จริงยังส่งข้อมูลอยู่) เปลี่ยนเป็น
     // poll ต่อเนื่องเหมือนหน้าอื่นแทน
-    return StreamBuilder<List<Map<String, dynamic>>>(
+    return VisibleSensorStreamBuilder<List<Map<String, dynamic>>>(
       stream: _rawStream,
       builder: (context, rawSnapshot) {
         final rawRows = rawSnapshot.data ?? const <Map<String, dynamic>>[];
         final aqi = _latestValueOf(rawRows, 'aqi');
         final gas = _latestValueOf(rawRows, 'gas_mq2_percent');
 
-        return StreamBuilder<SensorModel?>(
+        return VisibleSensorStreamBuilder<SensorModel?>(
           stream: _sensorStream,
           builder: (context, snapshot) {
             final sensor = snapshot.data;

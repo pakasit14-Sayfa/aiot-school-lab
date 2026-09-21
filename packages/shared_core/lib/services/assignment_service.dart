@@ -72,6 +72,26 @@ class AssignmentService {
     );
   }
 
+  /// 20260921020000 — takes a published assignment back to draft
+  /// ("ปิดรับงาน"); submissions already made are kept.
+  static Future<void> unpublishAssignment(String assignmentId) async {
+    await supabase.rpc(
+      'unpublish_assignment',
+      params: {
+        'p_token': AuthService.sessionToken,
+        'p_assignment_id': assignmentId,
+      },
+    );
+  }
+
+  /// 20260921020000 — removes one pinned sensor dataset.
+  static Future<void> unlinkSensorDataset(String datasetId) async {
+    await supabase.rpc(
+      'unlink_assignment_sensor_dataset',
+      params: {'p_token': AuthService.sessionToken, 'p_dataset_id': datasetId},
+    );
+  }
+
   static Future<void> linkSensorDataset({
     required String assignmentId,
     required String deviceId,

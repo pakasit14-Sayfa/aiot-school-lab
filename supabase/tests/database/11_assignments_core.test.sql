@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(24);
 
 insert into packages (id, name, license_type)
 values ('49100000-0000-0000-0000-000000000001', 'Assignments test package', 'perpetual');
@@ -244,6 +244,26 @@ select is(
 select cmp_ok(
   (select pending_grade_count from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
   '<=', 1, 'pending_grade_count never exceeds submitted students');
+
+-- 20260921020000 — unlink a pinned dataset; unpublish back to draft
+select is(
+  (select dataset_count from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
+  1, 'one dataset pinned before unlink');
+select unlink_assignment_sensor_dataset('asg-teacher-a-token',
+  (select id from assignment_sensor_datasets where assignment_id = (select assignment_id from created_assignment) limit 1));
+select is(
+  (select dataset_count from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
+  0, 'dataset unlinked');
+select throws_ok(
+  $$ select unpublish_assignment('asg-teacher-b-token', (select assignment_id from created_assignment)) $$,
+  'forbidden', 'another school''s teacher cannot unpublish');
+select unpublish_assignment('asg-teacher-a-token', (select assignment_id from created_assignment));
+select is(
+  (select count(*)::integer from list_assignments('asg-student-a1-token', (select course_id from created_course))),
+  0, 'after unpublish the student no longer sees it');
+select is(
+  (select count(*)::integer from list_my_submission_versions('asg-student-a1-token', (select assignment_id from created_assignment))),
+  2, 'existing submissions survive unpublish');
 
 select * from finish();
 rollback;

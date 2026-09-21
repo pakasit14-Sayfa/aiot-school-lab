@@ -7,6 +7,7 @@ import '../models/lesson_model.dart' show DeviceOption;
 import '../models/sensor_model.dart';
 import 'auth_service.dart';
 import 'supabase_config.dart';
+import 'sensor_polling_stream.dart';
 
 /// Real sensor data via the sensor_latest RPC (see
 /// supabase/migrations/20260720010000_sensor_ingest_rpc.sql), polled every
@@ -18,37 +19,40 @@ import 'supabase_config.dart';
 /// data on all dashboards.
 class RealtimeService {
   static const _pollInterval = Duration(seconds: 5);
+  static final _readings = SensorPollingStream<List<Map<String, dynamic>>>(
+    _fetchLatest,
+    interval: _pollInterval,
+  );
+  static final _requests = <String, Future<List<Map<String, dynamic>>>>{};
 
   static Future<List<Map<String, dynamic>>> _fetchLatest() async {
     final token = AuthService.sessionToken;
     if (token == null) return const [];
+    final pending = _requests[token];
+    if (pending != null) return pending;
+    final request = _requestLatest(token);
+    _requests[token] = request;
+    try {
+      return await request;
+    } finally {
+      if (identical(_requests[token], request)) _requests.remove(token);
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> _requestLatest(String token) async {
     final rows = await supabase.rpc(
       'sensor_latest',
       params: {'p_token': token},
     );
+    // A response from the old role/school must never reach the new session.
+    if (AuthService.sessionToken != token) return const [];
     return (rows as List).cast<Map<String, dynamic>>();
   }
 
-  /// Broadcast so a single stream can back more than one live [StreamBuilder]
-  /// — e.g. a [LayoutBuilder] whose `builder` runs more than once per layout
-  /// pass (documented Flutter behavior) can otherwise attach two listeners
-  /// to what would be a single-subscription stream and crash with "Stream
-  /// has already been listened to".
-  static Stream<T> _poll<T>(Future<T> Function() fetch) {
-    Stream<T> generate() async* {
-      while (true) {
-        try {
-          yield await fetch();
-        } catch (_) {
-          // Network/server hiccup: keep the last emitted snapshot on screen
-          // (StreamBuilder retains it) and retry on the next tick.
-        }
-        await Future.delayed(_pollInterval);
-      }
-    }
-
-    return generate().asBroadcastStream();
-  }
+  /// One-shot consumers share any current request, without caching a session's
+  /// data after completion or starting a persistent polling timer.
+  static Future<List<Map<String, dynamic>>> getLatestReadings() =>
+      _fetchLatest();
 
   /// Latest values for one room, aggregated across the devices whose
   /// location mentions [room] (falling back to the whole school).
@@ -150,7 +154,7 @@ class RealtimeService {
     required String floor,
     required String room,
   }) {
-    return _poll(() async => modelForRoom(await _fetchLatest(), room));
+    return _readings.stream.map((rows) => modelForRoom(rows, room));
   }
 
   /// Raw sensor_latest rows, polled the same way as [sensorStream] — for
@@ -163,7 +167,7 @@ class RealtimeService {
   /// counting up ("1 วันที่แล้ว" and climbing) as if the whole app were
   /// broken, when only these two metrics were never being refetched.
   static Stream<List<Map<String, dynamic>>> rawReadingsStream() {
-    return _poll(_fetchLatest);
+    return _readings.stream;
   }
 
   static Future<SensorModel?> getSensorOnce({
@@ -179,7 +183,7 @@ class RealtimeService {
     required String schoolId,
     required String building,
   }) {
-    return _poll(() async => modelsByDevice(await _fetchLatest(), building));
+    return _readings.stream.map((rows) => modelsByDevice(rows, building));
   }
 
   /// Switch control has no backend yet (no relay devices registered) —

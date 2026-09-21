@@ -10,7 +10,9 @@ import 'package:shared_core/shared_core.dart';
 
 import '../../utils/web_download.dart';
 
+import 'teacher_assignment_detail_page.dart';
 import 'teacher_assignment_editor_page.dart';
+import 'teacher_assignment_form_page.dart';
 import 'teacher_exam_builder_page.dart';
 import 'teacher_grading_page.dart';
 import 'teacher_incident_inbox_page.dart';
@@ -556,7 +558,8 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError =
+                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -819,8 +822,12 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                 ],
               ),
               const SizedBox(height: 12),
+              // Rearranged 2026-09-21 on the owner's request ("แค่จัดเรียง
+              // เอาแบบเดิม"): same purple band, but title without the emoji,
+              // a one-line summary, the two actions side by side, and the
+              // timetable note as a quiet footer line instead of a pill.
               const Text(
-                'จัดการรายวิชาที่สอน 📖',
+                'จัดการรายวิชาที่สอน',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 22,
@@ -828,120 +835,62 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
-                'ดูแลแผนการสอน สื่อการเรียนรู้ ตรวจงาน และติดตามพัฒนาการนักเรียนรวม $totalStudents คน จาก $totalCourses รายวิชา',
+                'นักเรียน $totalStudents คน · $totalCourses รายวิชา · แผนการสอน สื่อ ตรวจงาน และติดตามพัฒนาการ',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.88),
                   fontSize: 13,
                   height: 1.4,
                 ),
               ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
+              const SizedBox(height: 14),
+              Row(
                 children: [
-                  // D6: no "add course" here — the school admin's timetable
-                  // creates courses and fills them with the room's students.
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.calendar_month_rounded,
-                          size: 16,
-                          color: Colors.white,
-                        ),
-                        SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            'รายวิชาและนักเรียนมาจากตารางเรียนที่แอดมินจัด',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                  Expanded(
+                    child: _HeroAction(
+                      icon: Icons.fact_check_rounded,
+                      label: 'ศูนย์ตรวจงาน',
+                      onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const TeacherGradingPage(),
                         ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.fact_check_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'ไปยังศูนย์ตรวจงาน',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        width: 1.2,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _HeroAction(
+                      icon: Icons.emergency_rounded,
+                      label: 'รับแจ้งเหตุฉุกเฉิน',
+                      onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const TeacherIncidentInboxPage(),
                         ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.emergency_rounded,
-                      size: 18,
-                      color: Colors.white,
+                      ),
                     ),
-                    label: const Text(
-                      'รับแจ้งเหตุฉุกเฉิน',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // D6: no "add course" here — the school admin's timetable
+              // creates courses and fills them with the room's students.
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    size: 14,
+                    color: Colors.white.withValues(alpha: 0.75),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'รายวิชาและนักเรียนมาจากตารางเรียนที่แอดมินจัด',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.4),
-                        width: 1.2,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 11,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 12,
                       ),
                     ),
                   ),
@@ -1086,9 +1035,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   children:
                       [
                         'ทั้งหมด',
-                        ...({for (final c in teacherCourses) ...c.rooms}
-                            .toList()
-                          ..sort()),
+                        ...({
+                          for (final c in teacherCourses) ...c.rooms,
+                        }.toList()..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -5421,101 +5370,20 @@ class _CourseAssignmentListTabWidgetState
     }
   }
 
-  AssignmentModel _toModel(AssignmentSummary a) => AssignmentModel(
-    id: a.id,
-    courseId: widget.course.id ?? '',
-    title: a.title,
-    instructions: a.instructions ?? '',
-    type: 'ใบงานทดลอง',
-    courseName: widget.course.name,
-    dueDate: a.dueAt != null
-        ? a.dueAt!.toLocal().toString().substring(0, 16)
-        : 'ไม่มีกำหนดส่ง',
-    status: a.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
-    isGroupWork: a.isGroup,
-    rubricId: a.rubricId,
-    rubricTitle: a.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
-    attachedSensorMetrics: const [],
-    submittedCount: a.submittedCount,
-    totalStudents: a.totalStudents,
-    updatedAt: a.createdAt != null
-        ? 'สร้างเมื่อ ${a.createdAt!.toLocal().toString().substring(0, 10)}'
-        : 'ยังไม่มีข้อมูล',
-  );
-
-  /// Tapping a row: short action sheet instead of two buttons per card.
+  /// Tapping a row opens the assignment's own page (roster, counts,
+  /// grade / edit / extend / close) — design agreed 2026-09-21.
   Future<void> _openRow(AssignmentSummary a) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Row(
-                children: [
-                  _StatusDot(published: a.isPublished),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      a.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: TeacherPalette.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _metaLine(a),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: TeacherPalette.muted,
-                  ),
-                ),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.rate_review_outlined),
-              title: const Text('ตรวจงานและให้คะแนน'),
-              subtitle: a.pendingGradeCount > 0
-                  ? Text('รอตรวจ ${a.pendingGradeCount}')
-                  : null,
-              onTap: () => Navigator.of(context).pop('grade'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('แก้ไขใบงาน / ผูกชุดข้อมูล'),
-              onTap: () => Navigator.of(context).pop('edit'),
-            ),
-            const SizedBox(height: 8),
-          ],
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeacherAssignmentDetailPage(
+          assignment: a,
+          courseId: widget.course.id ?? '',
+          courseName: widget.course.name,
         ),
       ),
     );
-    if (!mounted || action == null) return;
-    if (action == 'edit') {
-      openAssignmentFormModal(
-        context,
-        assignment: _toModel(a),
-        onSave: (_) => _loadAssignments(),
-      );
-    } else if (action == 'grade') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const TeacherGradingPage()),
-      );
-    }
+    if (mounted) _loadAssignments();
   }
 
   String _metaLine(AssignmentSummary a) {
@@ -5557,7 +5425,19 @@ class _CourseAssignmentListTabWidgetState
     );
     if (!mounted || action == null) return;
     if (action == 'assignment') {
-      openAssignmentFormModal(context, onSave: (_) => _loadAssignments());
+      // Pass the course explicitly — the old modal fell back to
+      // courses.first, which created the worksheet under the wrong subject
+      // for any teacher with more than one course.
+      final saved = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherAssignmentFormPage(
+            courseId: courseId ?? '',
+            courseName: widget.course.name,
+          ),
+        ),
+      );
+      if (saved == true && mounted) _loadAssignments();
     } else if (action == 'pbl' && courseId != null) {
       Navigator.push(
         context,
@@ -5628,7 +5508,8 @@ class _CourseAssignmentListTabWidgetState
           _EmptyInvite(
             icon: Icons.assignment_outlined,
             title: 'ยังไม่มีใบงานในวิชานี้',
-            body: 'สร้างใบงานแรกให้นักเรียนส่งงาน หรือกิจกรรม PBL ที่ผูกข้อมูลเซนเซอร์',
+            body:
+                'สร้างใบงานแรกให้นักเรียนส่งงาน หรือกิจกรรม PBL ที่ผูกข้อมูลเซนเซอร์',
             action: 'สร้างใบงาน',
             onAction: _openCreateSheet,
           )
@@ -6062,6 +5943,51 @@ class _PhoneStat extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// One of the two white-outline actions in the courses hero band.
+class _HeroAction extends StatelessWidget {
+  const _HeroAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: Colors.white),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

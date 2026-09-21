@@ -66,6 +66,24 @@ class AssignmentSummary {
     this.datasetCount = 0,
   });
 
+  AssignmentSummary copyWith({String? status, DateTime? dueAt}) =>
+      AssignmentSummary(
+        id: id,
+        type: type,
+        title: title,
+        instructions: instructions,
+        isGroup: isGroup,
+        dueAt: dueAt ?? this.dueAt,
+        status: status ?? this.status,
+        rubricId: rubricId,
+        rubricTitle: rubricTitle,
+        createdAt: createdAt,
+        submittedCount: submittedCount,
+        pendingGradeCount: pendingGradeCount,
+        totalStudents: totalStudents,
+        datasetCount: datasetCount,
+      );
+
   factory AssignmentSummary.fromRow(Map<String, dynamic> row) =>
       AssignmentSummary(
         id: row['assignment_id'] as String,

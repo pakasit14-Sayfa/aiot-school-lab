@@ -3,7 +3,10 @@
 // RenderFlex overflow. Started life as a probe that found 7 sites.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_detail_page.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_form_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_courses_page.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_grading_page.dart';
 import 'package:shared_core/shared_core.dart';
 
 const _sizes = [Size(360, 640), Size(375, 667), Size(390, 844), Size(402, 874)];
@@ -112,4 +115,120 @@ void main() {
       );
     });
   }
+
+  // Grading-flow redesign (2026-09-21): list → assignment page → form.
+  final asg = AssignmentSummary(
+    id: 'a1',
+    type: 'worksheet',
+    title: 'ใบงานเรื่องเศษส่วนและทศนิยม บทที่ 3 (งานยาวเพื่อทดสอบการตัดบรรทัด)',
+    instructions: 'ทำข้อ 1-10',
+    dueAt: DateTime(2026, 10, 1, 23, 59),
+    status: 'published',
+    rubricTitle: 'เกณฑ์การให้คะแนนชิ้นงานทดลองวิทยาศาสตร์',
+    submittedCount: 2,
+    pendingGradeCount: 1,
+    totalStudents: 3,
+    datasetCount: 1,
+  );
+  final students = [
+    for (final n in ['หนึ่ง', 'สอง', 'สาม'])
+      CourseStudent(
+        studentId: 's$n',
+        firstName: 'นักเรียนชื่อยาวมาก$n',
+        lastName: 'นามสกุลยาวมากเช่นกัน',
+        email: '$n@aiot-school-lab.local',
+        enrolledAt: DateTime(2026, 9, 1),
+      ),
+  ];
+  final detail = AssignmentDetail(
+    id: 'a1',
+    courseId: 'c1',
+    type: 'worksheet',
+    title: asg.title,
+    instructions: asg.instructions,
+    dueAt: asg.dueAt,
+    status: 'published',
+    sensorDatasets: [
+      AssignmentSensorDataset(
+        id: 'ds1',
+        deviceId: 'dev1',
+        metric: 'temperature',
+        timeStart: DateTime(2026, 9, 1, 8),
+        timeEnd: DateTime(2026, 9, 5, 16),
+        label: 'อุณหภูมิห้องเรียนตลอดสัปดาห์แรกของเดือน',
+      ),
+    ],
+  );
+  const course = CourseSummary(
+    id: 'c1',
+    subjectName: 'คณิตศาสตร์',
+    gradeLevel: 'ม.1',
+    room: 'ม.1/1',
+    status: 'published',
+    termId: 't',
+  );
+
+  testWidgets('grading list has no overflow at phone widths', (tester) async {
+    await _probe(
+      tester,
+      'grading',
+      TeacherGradingPage(
+        listMyCourses: () async => const [course],
+        listAssignments: (_) async => [
+          asg,
+          asg.copyWith(status: 'draft'),
+          asg.copyWith(dueAt: DateTime(2026, 8, 1)),
+        ],
+        publishAssignment: (_) async {},
+      ),
+    );
+  });
+
+  testWidgets('assignment page has no overflow at phone widths', (
+    tester,
+  ) async {
+    await _probe(
+      tester,
+      'assignment',
+      TeacherAssignmentDetailPage(
+        assignment: asg,
+        courseId: 'c1',
+        courseName: 'คณิตศาสตร์',
+        loadStudents: (_) async => students,
+        loadSubmissions: (_) async => const [],
+        loadDetail: (_) async => detail,
+      ),
+    );
+  });
+
+  testWidgets('assignment form has no overflow at phone widths', (
+    tester,
+  ) async {
+    await _probe(
+      tester,
+      'form',
+      TeacherAssignmentFormPage(
+        courseId: 'c1',
+        courseName: 'คณิตศาสตร์',
+        existing: asg,
+        listMyRubrics: () async => [
+          RubricModel(
+            id: 'r1',
+            title: 'เกณฑ์การให้คะแนนชิ้นงานทดลองวิทยาศาสตร์',
+            criteriaCount: 4,
+          ),
+        ],
+        loadAssignmentDetail: (_) async => detail,
+        listDevices: () async => const [
+          DeviceOption(
+            id: 'dev1',
+            name: 'เซนเซอร์คุณภาพอากาศห้อง ม.1/1',
+            type: 'air_quality_sensor',
+            location: 'อาคาร 2 ชั้น 3',
+            status: 'online',
+          ),
+        ],
+      ),
+    );
+  });
 }
