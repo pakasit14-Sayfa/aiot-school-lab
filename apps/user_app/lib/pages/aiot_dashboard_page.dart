@@ -1,3 +1,4 @@
+import 'package:my_first_app/widgets/visible_sensor_stream_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../widgets/sensor_card.dart';
@@ -65,14 +66,14 @@ class _AiotDashboardPageState extends State<AiotDashboardPage> {
       appBar: AppBar(title: const Text('AIoT Dashboard')),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: StreamBuilder<List<Map<String, dynamic>>>(
+        child: VisibleSensorStreamBuilder<List<Map<String, dynamic>>>(
           stream: _rawStream,
           builder: (context, rawSnapshot) {
             final rawRows = rawSnapshot.data ?? const <Map<String, dynamic>>[];
             final aqiReading = _latestValueOf(rawRows, 'aqi');
             final gasReading = _latestValueOf(rawRows, 'gas_mq2_percent');
 
-            return StreamBuilder<SensorModel?>(
+            return VisibleSensorStreamBuilder<SensorModel?>(
               stream: _sensorStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {

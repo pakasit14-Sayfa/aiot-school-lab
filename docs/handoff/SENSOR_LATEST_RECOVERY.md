@@ -33,10 +33,41 @@ Five authenticated student `sensor_latest` HTTP requests afterwards returned
 10 rows each in 150–182 ms including network time; login/session validation and
 sign-out also succeeded. This does not establish long-term system stability.
 
+## Client polling cleanup
+
+Previously each raw/model stream started its own infinite async generator;
+`asBroadcastStream()` left the source running after the last listener departed.
+The replacement shares one broadcast poller, waits for each fetch to finish,
+and cancels its timer after the last listener or on app backgrounding. Pending
+responses from a previous listener generation or auth token are discarded.
+One-shot AIoT reads share an in-flight request for the same session token.
+
+Sensor stream builders detach on covered routes and disabled TickerMode scopes.
+Both student navigation IndexedStacks now disable TickerMode for hidden tabs.
+Single-subscription injected streams use a paused/resumed adapter and are
+cancelled on disposal; production broadcast streams detach completely.
+
+The client change must be included in a newly built/reloaded app to take effect;
+old running clients still use their original polling implementation. This change
+does not interrupt an HTTP request already executing when the app is hidden.
+
+Validation on the isolated branch based on `bfce8da`:
+
+- shared_core: 70 passed (baseline 66), analyzer clean.
+- shared_ui: 16 passed / 1 failed, same existing ListTile assertion as baseline;
+  analyzer retains its 4 existing infos.
+- user_app: 921 passed / 8 failed (baseline 919 / 8). The same eight screenshot
+  tests depend on a missing macOS absolute output directory on Windows. Analyzer
+  has 188 existing warnings/infos and zero errors.
+- Four new polling tests and two visibility widget tests pass; existing executive
+  dialog/re-entry tests also pass after adapting one-shot injected streams.
+- Release web build passed. Browser interaction could not be verified.
+- A later authenticated sensor API check still returned 10 rows in 166 ms.
+
 ## Remaining scope
 
-Client polling cleanup is a separate change. Browser click verification is
-unavailable in this Codex session (no connected browser). School creation is
+Browser click verification is unavailable in this Codex session (no connected
+browser). Sustained monitoring is still needed. School creation is
 pending normal Super Admin MFA: the test admin login returns `mfa_required` and
 does not expose a development OTP. Never obtain OTPs or sessions from database
 tables to bypass that boundary.

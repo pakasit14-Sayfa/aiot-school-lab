@@ -1,3 +1,4 @@
+import 'package:my_first_app/widgets/visible_sensor_stream_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
@@ -170,7 +171,7 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
             // went offline days ago even when fresh rows were arriving the
             // whole time. Poll them the same way as the sensor StreamBuilder
             // below instead of a one-shot fetch.
-            StreamBuilder<List<Map<String, dynamic>>>(
+            VisibleSensorStreamBuilder<List<Map<String, dynamic>>>(
               stream: _rawStream,
               builder: (context, rawSnapshot) {
                 final rawRows =
@@ -178,7 +179,7 @@ class _AiotWeatherSensorsCardState extends State<AiotWeatherSensorsCard> {
                 final aqi = _latestValueOf(rawRows, 'aqi');
                 final gas = _latestValueOf(rawRows, 'gas_mq2_percent');
 
-                return StreamBuilder<SensorModel?>(
+                return VisibleSensorStreamBuilder<SensorModel?>(
                   stream: _sensorStream,
                   builder: (context, snapshot) {
                     final sensor = snapshot.data;

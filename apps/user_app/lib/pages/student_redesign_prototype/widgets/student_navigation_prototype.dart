@@ -198,7 +198,16 @@ class _StudentNavigationPrototypeState
                     decoration: const BoxDecoration(
                       color: Color(0xFFF1F5F9), // Soft Apple Light Slate Grey
                     ),
-                    child: IndexedStack(index: _currentIndex, children: _pages),
+                    child: IndexedStack(
+                      index: _currentIndex,
+                      children: [
+                        for (var i = 0; i < _pages.length; i++)
+                          TickerMode(
+                            enabled: i == _currentIndex,
+                            child: _pages[i],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -408,7 +417,16 @@ class _StudentNavigationPrototypeState
                 children: [
                   _buildDesktopTopBar(context),
                   Expanded(
-                    child: IndexedStack(index: _currentIndex, children: _pages),
+                    child: IndexedStack(
+                      index: _currentIndex,
+                      children: [
+                        for (var i = 0; i < _pages.length; i++)
+                          TickerMode(
+                            enabled: i == _currentIndex,
+                            child: _pages[i],
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -1,3 +1,4 @@
+import 'package:my_first_app/widgets/visible_sensor_stream_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import '../theme/app_palette.dart';
@@ -140,14 +141,14 @@ class _DirectorOverviewSensorsState extends State<DirectorOverviewSensors> {
     // it look like the sensor went offline days ago even when fresh rows
     // were arriving the whole time. Poll them the same way as the
     // pm25/temp/humidity/lux StreamBuilder below instead of a one-shot.
-    return StreamBuilder<List<Map<String, dynamic>>>(
+    return VisibleSensorStreamBuilder<List<Map<String, dynamic>>>(
       stream: _rawStream,
       builder: (context, rawSnapshot) {
         final rawRows = rawSnapshot.data ?? const <Map<String, dynamic>>[];
         final aqiReading = _latestValueOf(rawRows, 'aqi');
         final gasReading = _latestValueOf(rawRows, 'gas_mq2_percent');
 
-        return StreamBuilder<SensorModel?>(
+        return VisibleSensorStreamBuilder<SensorModel?>(
           stream: _sensorStream,
           builder: (context, snapshot) {
             final sensor = snapshot.data;
