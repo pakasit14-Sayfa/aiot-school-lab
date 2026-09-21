@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../../utils/sensor_csv.dart';
 import 'student_redesign_palette.dart';
 import 'student_sensor_dataset_page.dart';
@@ -678,9 +679,8 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
     }
   }
 
@@ -695,9 +695,8 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       setState(() => _pickedFiles.addAll(files));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ')));
     }
   }
 
@@ -1253,12 +1252,14 @@ class AssignmentCard extends StatelessWidget {
 
   String get _dueDateLabel {
     if (item.submitted) {
-      final at = item.submittedAt;
+      final at = item.submittedAt?.toLocal();
       return at == null
           ? 'ส่งแล้ว'
           : 'ส่งแล้ว ${at.day}/${at.month}/${at.year}';
     }
-    final dueAt = item.assignment.dueAt;
+    // due_at arrives as UTC; without toLocal() a 09:24 Bangkok deadline
+    // read "02:24 น." (seen on the iPhone 2026-09-20).
+    final dueAt = item.assignment.dueAt?.toLocal();
     if (dueAt == null) return 'ไม่มีกำหนดส่ง';
     return 'กำหนดส่ง ${dueAt.day}/${dueAt.month}/${dueAt.year} '
         '${dueAt.hour.toString().padLeft(2, '0')}:${dueAt.minute.toString().padLeft(2, '0')} น.';

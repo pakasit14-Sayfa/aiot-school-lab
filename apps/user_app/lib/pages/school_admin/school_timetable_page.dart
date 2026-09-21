@@ -206,7 +206,7 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
                   Text(
                     term == null
                         ? 'ตารางเรียน'
-                        : 'ตารางเรียน ${term.termName} (${term.academicYearName})',
+                        : 'ตารางเรียน ${term.displayLabel}',
                     style: const TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
@@ -670,7 +670,7 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
             ),
             for (final t in _controller.terms)
               ListTile(
-                title: Text('${t.termName} (${t.academicYearName})'),
+                title: Text(t.displayLabel),
                 trailing: t.termId == _controller.selectedTermId
                     ? const Icon(Icons.check_rounded)
                     : null,
@@ -817,7 +817,7 @@ class _SchoolTimetablePageState extends State<SchoolTimetablePage> {
                 (t) => t.termId != _controller.selectedTermId,
               ))
                 ListTile(
-                  title: Text('${t.termName} (${t.academicYearName})'),
+                  title: Text(t.displayLabel),
                   onTap: () => Navigator.of(context).pop(t.termId),
                 ),
             ],
@@ -1553,9 +1553,9 @@ class _SlotSheetState extends State<_SlotSheet> {
                     if (widget.existing != null) ...[
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pop(const _SlotResult.clear()),
+                          onPressed: () =>
+                              Navigator.of(context)
+                                  .pop(const _SlotResult.clear()),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: SchoolAdminPalette.red,
                           ),
@@ -1567,9 +1567,8 @@ class _SlotSheetState extends State<_SlotSheet> {
                     Expanded(
                       child: FilledButton(
                         onPressed: canSave
-                            ? () => Navigator.of(
-                                context,
-                              ).pop(_SlotResult.save(subject, _teacherId!))
+                            ? () => Navigator.of(context)
+                                  .pop(_SlotResult.save(subject, _teacherId!))
                             : null,
                         child: const Text('บันทึก'),
                       ),

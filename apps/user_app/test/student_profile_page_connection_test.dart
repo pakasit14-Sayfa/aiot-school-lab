@@ -120,6 +120,12 @@ void main() {
     );
 
     await tester.tap(find.text('ออกจากระบบ'));
+    await tester.pumpAndSettle();
+    // confirm dialog (added 2026-09-21 — same as the teacher lane); the
+    // sign-out RPC must not fire before ยืนยัน
+    expect(find.text('ยืนยันออกจากระบบ'), findsOneWidget);
+    expect(signOutCalls, 0);
+    await tester.tap(find.widgetWithText(FilledButton, 'ออกจากระบบ'));
     // Not pumpAndSettle: LoginPage may render an indeterminate animation
     // that never settles. A few bounded pumps are enough to prove the
     // real signOut callback fired and navigation was triggered.
