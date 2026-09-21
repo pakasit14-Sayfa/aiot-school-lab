@@ -599,13 +599,17 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       controller: _title,
       label: 'ชื่อใบงาน',
       hint: 'เช่น ใบงานทบทวนบทที่ 1',
+      accent: SubjectColor.of(widget.courseName).fg,
       bold: true,
+      textInputAction: TextInputAction.next,
     ),
     _FilledField(
       controller: _instructions,
       label: 'คำอธิบาย',
-      hint: 'คำสั่ง / รายละเอียดงาน',
-      maxLines: 5,
+      hint: 'อธิบายว่าต้องทำอะไร ส่งอย่างไร',
+      accent: SubjectColor.of(widget.courseName).fg,
+      minLines: 3,
+      maxLines: 8,
     ),
     _SectionHead('การส่งงาน'),
     _StackRow(
@@ -775,67 +779,120 @@ class _SectionHead extends StatelessWidget {
   );
 }
 
-/// ช่องกรอกแบบกล่องพื้นเทา — ป้ายกำกับอยู่นอกกล่องด้านบน ตัวกล่องมุม 16
-/// เท่ากับแถวตั้งค่า ทำให้ "ข้อมูล" กับ "การส่งงาน" เป็นภาษาเดียวกัน
-class _FilledField extends StatelessWidget {
+/// ช่องกรอก — พื้นขาวมีเส้นขอบ ต่างจากแถวตั้งค่าที่เป็นพื้นเทาทึบ
+/// ตั้งใจให้ต่าง: กล่องขาวมีขอบ = พิมพ์ได้ · แถวเทา = แตะแล้วเปิดตัวเลือก
+/// ตอนโฟกัส ขอบกับป้ายกำกับเปลี่ยนเป็นสีประจำวิชา พร้อมเงาจาง ๆ รอบกล่อง
+/// (iOS จะวาด focus ring ของระบบทับอีกชั้นเฉพาะตอนต่อคีย์บอร์ดฮาร์ดแวร์)
+class _FilledField extends StatefulWidget {
   const _FilledField({
     required this.controller,
     required this.label,
     required this.hint,
+    required this.accent,
+    this.minLines = 1,
     this.maxLines = 1,
     this.bold = false,
+    this.textInputAction,
   });
   final TextEditingController controller;
   final String label;
   final String hint;
+  final Color accent;
+  final int minLines;
   final int maxLines;
   final bool bold;
+  final TextInputAction? textInputAction;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6, left: 4),
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: TeacherPalette.muted,
-              letterSpacing: 0.2,
+  State<_FilledField> createState() => _FilledFieldState();
+}
+
+class _FilledFieldState extends State<_FilledField> {
+  final _node = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _node.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final on = _node.hasFocus;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text(
+              widget.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+                color: on ? widget.accent : TeacherPalette.muted,
+              ),
             ),
           ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F7FB),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: TextField(
-            controller: controller,
-            maxLines: maxLines,
-            minLines: 1,
-            style: TextStyle(
-              fontSize: bold ? 17 : 15.5,
-              height: 1.4,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-              color: TeacherPalette.ink,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: on ? widget.accent : const Color(0xFFE3E1EB),
+                width: on ? 1.6 : 1.2,
+              ),
+              boxShadow: on
+                  ? [
+                      BoxShadow(
+                        color: widget.accent.withValues(alpha: 0.12),
+                        blurRadius: 0,
+                        spreadRadius: 3,
+                      ),
+                    ]
+                  : null,
             ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(color: Color(0xFFB9B8C6)),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: TextField(
+              controller: widget.controller,
+              focusNode: _node,
+              minLines: widget.minLines,
+              maxLines: widget.maxLines,
+              textInputAction: widget.textInputAction,
+              cursorColor: widget.accent,
+              cursorRadius: const Radius.circular(2),
+              style: TextStyle(
+                fontSize: widget.bold ? 17 : 15.5,
+                height: 1.5,
+                fontWeight: widget.bold ? FontWeight.w700 : FontWeight.w500,
+                color: TeacherPalette.ink,
+              ),
+              decoration: InputDecoration(
+                hintText: widget.hint,
+                hintStyle: const TextStyle(
+                  color: Color(0xFFB9B8C6),
+                  fontWeight: FontWeight.w400,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// แถวการ์ดที่วางค่าไว้บรรทัดล่างของชื่อแถว — ค่ายาวแค่ไหนก็ไม่แย่งที่กับ

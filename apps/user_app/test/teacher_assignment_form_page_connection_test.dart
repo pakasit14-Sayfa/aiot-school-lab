@@ -279,6 +279,10 @@ void main() {
             isGroup,
           }) async => sentRubric = rubricId,
     );
+    // ช่องกรอกสูงขึ้นหลังออกแบบใหม่ (คำอธิบายเป็นกล่อง 3 บรรทัด) แถวเกณฑ์จึง
+    // อยู่ต่ำกว่าขอบจอทดสอบ — เลื่อนก่อนเหมือนผู้ใช้จริง
+    await tester.ensureVisible(find.text('เกณฑ์การให้คะแนน'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('เกณฑ์การให้คะแนน'));
     await tester.pumpAndSettle();
     expect(find.text('ไม่ใช้เกณฑ์'), findsOneWidget); // หัวชีตของจริง
@@ -305,6 +309,10 @@ void main() {
       ),
       rubrics: const [],
     );
+    // ช่องกรอกสูงขึ้นหลังออกแบบใหม่ (คำอธิบายเป็นกล่อง 3 บรรทัด) แถวเกณฑ์จึง
+    // อยู่ต่ำกว่าขอบจอทดสอบ — เลื่อนก่อนเหมือนผู้ใช้จริง
+    await tester.ensureVisible(find.text('เกณฑ์การให้คะแนน'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('เกณฑ์การให้คะแนน'));
     await tester.pumpAndSettle();
     expect(find.text('ยังไม่มีเกณฑ์การให้คะแนน'), findsOneWidget);
