@@ -1918,243 +1918,36 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
       );
     }
 
-    final saveColor = _saveFailed
-        ? Colors.red
-        : (_isAutoSaving ? Colors.amber.shade800 : const Color(0xFF059669));
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
+      // แถบบนเดิมยัดทุกอย่างไว้บรรทัดเดียว: ปุ่มย้อนกลับ · ไอคอนหนังสือ ·
+      // ช่องชื่อบทเรียน · บรรทัดรอง · ป้ายสถานะบันทึก · ปุ่มดูตัวอย่าง ·
+      // ปุ่มเผยแพร่ — เกินความกว้างจอมือถือจน Flutter ขึ้น "OVERFLOWED BY"
+      // ตอนนี้แถบบนเหลือทางออกกับชื่อหน้า · ชื่อบทเรียนลงไปเป็นช่องกรอกจริง
+      // ในหน้า · ปุ่มสองตัวลงแถบล่างในระยะที่นิ้วโป้งถึง
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0.5,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
         scrolledUnderElevation: 1,
         shadowColor: Colors.black.withValues(alpha: 0.1),
-        titleSpacing: 0,
-        leadingWidth: 56,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 12),
-          child: Center(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.arrow_back_rounded,
-                    size: 18,
-                    color: TeacherPalette.ink,
-                  ),
-                ),
-              ),
-            ),
+        centerTitle: true,
+        leading: IconButton(
+          tooltip: 'ย้อนกลับ',
+          icon: const Icon(Icons.arrow_back_rounded, size: 22),
+          color: TeacherPalette.ink,
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'แก้ไขบทเรียน',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: TeacherPalette.ink,
           ),
         ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: TeacherPalette.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.menu_book_rounded,
-                size: 18,
-                color: TeacherPalette.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _titleController,
-                    readOnly: widget.isCourseClosed,
-                    onChanged: (_) => _triggerAutoSave(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 16,
-                      color: TeacherPalette.ink,
-                    ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      hintText: 'ชื่อบทเรียน *',
-                      hintStyle: TextStyle(
-                        color: TeacherPalette.muted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'เครื่องมือแก้ไขเนื้อหาบทเรียน (Lesson Studio)',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: TeacherPalette.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: _saveFailed ? _triggerAutoSave : null,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: saveColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: saveColor.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _saveFailed
-                          ? Icons.error_outline_rounded
-                          : (_isAutoSaving
-                                ? Icons.sync_rounded
-                                : Icons.check_circle_rounded),
-                      size: 14,
-                      color: saveColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _saveFailed
-                          ? '$_saveStatusText · ลองใหม่'
-                          : _saveStatusText,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w800,
-                        color: saveColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-          ],
-        ),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            child: OutlinedButton.icon(
-              icon: const Icon(
-                Icons.visibility_outlined,
-                size: 16,
-                color: Color(0xFF2563EB),
-              ),
-              label: const Text(
-                'ดูตัวอย่าง',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF2563EB),
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 38),
-                side: const BorderSide(color: Color(0xFF93C5FD)),
-                backgroundColor: const Color(0xFFEFF6FF),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 0,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        TeacherLessonPreviewPage(lesson: widget.lesson),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.publish_rounded, size: 16),
-              label: Text(
-                widget.lesson.status == LessonStatus.published
-                    ? 'อัปเดตบทเรียน'
-                    : 'เผยแพร่',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(0, 38),
-                backgroundColor: TeacherPalette.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 0,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                elevation: 0,
-              ),
-              onPressed: widget.isCourseClosed
-                  ? null
-                  : () {
-                      showDialog<void>(
-                        context: context,
-                        builder: (_) => TeacherPublishChecklistDialog(
-                          lesson: widget.lesson,
-                          onConfirmedPublish: () async {
-                            try {
-                              await LessonService.publishLesson(
-                                widget.lesson.id,
-                              );
-                              if (!mounted) return;
-                              setState(() {
-                                widget.lesson.status = LessonStatus.published;
-                              });
-                            } catch (_) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('เผยแพร่ไม่สำเร็จ'),
-                                  backgroundColor: Color(0xFFEF4444),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      );
-                    },
-            ),
-          ),
-        ],
       ),
+      bottomNavigationBar: _lessonActionBar(),
       body: Column(
         children: [
           if (widget.isCourseClosed)
@@ -2309,6 +2102,169 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     );
   }
 
+  Color get _saveColor => _saveFailed
+      ? const Color(0xFFB3261E)
+      : (_isAutoSaving ? const Color(0xFFB4650F) : const Color(0xFF107A50));
+
+  bool get _isPublished => widget.lesson.status == LessonStatus.published;
+
+  void _openPublishChecklist() {
+    showDialog<void>(
+      context: context,
+      builder: (_) => TeacherPublishChecklistDialog(
+        lesson: widget.lesson,
+        onConfirmedPublish: () async {
+          try {
+            await LessonService.publishLesson(widget.lesson.id);
+            if (!mounted) return;
+            setState(() {
+              widget.lesson.status = LessonStatus.published;
+            });
+          } catch (_) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('เผยแพร่ไม่สำเร็จ'),
+                backgroundColor: Color(0xFFEF4444),
+              ),
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  /// แถบล่าง — ดูตัวอย่าง (รอง) คู่กับเผยแพร่/อัปเดต (หลัก) แบบเดียวกับหน้า
+  /// ใบงาน เหนือปุ่มคือสถานะบันทึกอัตโนมัติ ซึ่งเดิมเป็นชิปเล็ก ๆ เบียดอยู่
+  /// บนแถบบนจนแทบไม่มีใครเห็น
+  Widget _lessonActionBar() => Container(
+    decoration: const BoxDecoration(
+      color: Colors.white,
+      boxShadow: [
+        BoxShadow(
+          color: Color(0x14101828),
+          blurRadius: 18,
+          offset: Offset(0, -6),
+        ),
+      ],
+    ),
+    child: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: _saveFailed ? _triggerAutoSave : null,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _saveFailed
+                          ? Icons.error_outline_rounded
+                          : (_isAutoSaving
+                                ? Icons.sync_rounded
+                                : Icons.cloud_done_rounded),
+                      size: 15,
+                      color: _saveColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _saveFailed
+                            ? '$_saveStatusText · แตะเพื่อลองใหม่'
+                            : _saveStatusText,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: _saveColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                SizedBox(
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              TeacherLessonPreviewPage(lesson: widget.lesson),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.visibility_outlined, size: 18),
+                    label: const Text(
+                      'ดูตัวอย่าง',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: TeacherPalette.ink,
+                      side: const BorderSide(color: Color(0xFFDDDCE4)),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SizedBox(
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: widget.isCourseClosed
+                          ? null
+                          : _openPublishChecklist,
+                      icon: Icon(
+                        _isPublished
+                            ? Icons.published_with_changes_rounded
+                            : Icons.publish_rounded,
+                        size: 19,
+                      ),
+                      label: Text(
+                        _isPublished ? 'อัปเดตบทเรียน' : 'เผยแพร่บทเรียน',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TeacherPalette.primary,
+                        disabledBackgroundColor: const Color(0xFFE7E5EE),
+                        disabledForegroundColor: const Color(0xFF9E9AA9),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
   /// Middle Block Editor Panel
   Widget _buildMiddleEditorPanel() {
     return Container(
@@ -2318,6 +2274,49 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ชื่อบทเรียนเคยเป็นช่องกรอกเล็ก ๆ เบียดอยู่ในแถบบนระหว่างไอคอน
+            // กับปุ่มสองปุ่ม กว้างจริงไม่ถึงครึ่งจอและไม่มีป้ายบอกว่าเป็นอะไร
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6, left: 2),
+              child: Text(
+                'ชื่อบทเรียน',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                  color: TeacherPalette.muted,
+                ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE3E1EB), width: 1.2),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: TextField(
+                controller: _titleController,
+                readOnly: widget.isCourseClosed,
+                onChanged: (_) => _triggerAutoSave(),
+                maxLines: 2,
+                minLines: 1,
+                style: const TextStyle(
+                  fontSize: 18,
+                  height: 1.4,
+                  fontWeight: FontWeight.w800,
+                  color: TeacherPalette.ink,
+                ),
+                decoration: const InputDecoration.collapsed(
+                  hintText: 'ตั้งชื่อบทเรียน',
+                  hintStyle: TextStyle(
+                    color: Color(0xFFB9B8C6),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
             if (widget.lesson.status == LessonStatus.published)
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
@@ -2399,13 +2398,18 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                       Icon(
                         Icons.add_circle_outline_rounded,
                         color: TeacherPalette.primary,
+                        size: 20,
                       ),
                       SizedBox(width: 8),
-                      Text(
-                        'เพิ่ม Block เนื้อหาใหม่',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: TeacherPalette.primary,
+                      Flexible(
+                        child: Text(
+                          'เพิ่มบล็อกเนื้อหา',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: TeacherPalette.primary,
+                          ),
                         ),
                       ),
                     ],
@@ -2439,36 +2443,43 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                 color: TeacherPalette.primary,
               ),
               const SizedBox(width: 8),
-              Text(
-                _getBlockLabel(block.type),
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w900,
-                  color: TeacherPalette.muted,
+              // ชื่อประเภทบล็อกยาวไม่เท่ากัน ('กราฟ AIoT Sensor Chart' ยาว
+              // ที่สุด) ถ้าไม่ให้หดได้ มันจะดันปุ่มสามตัวตกขอบที่จอ 360
+              Expanded(
+                child: Text(
+                  _getBlockLabel(block.type),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: TeacherPalette.muted,
+                  ),
                 ),
               ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.arrow_upward_rounded, size: 16),
-                onPressed: widget.isCourseClosed
+              const SizedBox(width: 4),
+              // IconButton ปกติกินพื้นที่ 48pt ต่อปุ่ม สามปุ่มคือ 144pt —
+              // เกือบครึ่งความกว้างจอมือถือ ทั้งที่เป็นปุ่มรองของการ์ด
+              // บีบเหลือ 34pt และให้ปุ่มลบเป็นแดงเข้มแทนแดงสด
+              _BlockAction(
+                icon: Icons.arrow_upward_rounded,
+                tooltip: 'เลื่อนขึ้น',
+                onTap: widget.isCourseClosed || index == 0
                     ? null
                     : () => _moveBlock(index, -1),
               ),
-              IconButton(
-                icon: const Icon(Icons.arrow_downward_rounded, size: 16),
-                onPressed: widget.isCourseClosed
+              _BlockAction(
+                icon: Icons.arrow_downward_rounded,
+                tooltip: 'เลื่อนลง',
+                onTap: widget.isCourseClosed || index == _blocks.length - 1
                     ? null
                     : () => _moveBlock(index, 1),
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  size: 16,
-                  color: Colors.red,
-                ),
-                onPressed: widget.isCourseClosed
-                    ? null
-                    : () => _deleteBlock(index),
+              _BlockAction(
+                icon: Icons.delete_outline_rounded,
+                tooltip: 'ลบบล็อกนี้',
+                color: const Color(0xFFB3261E),
+                onTap: widget.isCourseClosed ? null : () => _deleteBlock(index),
               ),
             ],
           ),
@@ -2492,11 +2503,15 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        block.sensorDeviceId,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1E40AF),
+                      Expanded(
+                        child: Text(
+                          block.sensorDeviceId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E40AF),
+                          ),
                         ),
                       ),
                     ],
@@ -3117,6 +3132,43 @@ class TeacherLessonPreviewPage extends StatelessWidget {
 // ==========================================
 // 8. PUBLISH CHECKLIST DIALOG (SPEC 8)
 // ==========================================
+
+/// ปุ่มรองในหัวการ์ดบล็อก — ขนาดแตะ 34pt พอดีนิ้วแต่ไม่กินครึ่งแถว
+class _BlockAction extends StatelessWidget {
+  const _BlockAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.color,
+  });
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(
+            icon,
+            size: 17,
+            color: enabled
+                ? (color ?? TeacherPalette.muted)
+                : const Color(0xFFCFCDD8),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class TeacherPublishChecklistDialog extends StatelessWidget {
   const TeacherPublishChecklistDialog({

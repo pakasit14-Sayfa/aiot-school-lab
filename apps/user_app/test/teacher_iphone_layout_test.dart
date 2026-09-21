@@ -7,6 +7,7 @@ import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_assignment_form_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_courses_page.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_grading_page.dart';
+import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_lesson_editor_page.dart';
 import 'package:shared_core/shared_core.dart';
 
 const _sizes = [Size(360, 640), Size(375, 667), Size(390, 844), Size(402, 874)];
@@ -228,6 +229,50 @@ void main() {
             status: 'online',
           ),
         ],
+      ),
+    );
+  });
+
+  // หน้านี้เคย overflow จริงที่แถบบน (เห็น "OVERFLOWED BY" บนเครื่อง
+  // 2026-09-21): แถบบนใส่ปุ่มย้อนกลับ ไอคอน ช่องชื่อบทเรียน ป้ายสถานะบันทึก
+  // และปุ่มอีกสองปุ่มไว้บรรทัดเดียว — กันไม่ให้กลับมาอีก
+  testWidgets('lesson editor has no overflow at phone widths', (tester) async {
+    await _probe(
+      tester,
+      'lesson editor',
+      TeacherLessonEditorPage(
+        lesson: LessonModel(
+          id: '',
+          courseCode: 'MATH101',
+          courseName: 'คณิตศาสตร์',
+          title: 'รายวิชาทดสอบ',
+          status: LessonStatus.published,
+          lastEdited: 'เมื่อสักครู่',
+          materialsCount: 0,
+          sensorChartsCount: 1,
+          blocks: [
+            ContentBlockModel(
+              id: 'b1',
+              type: ContentBlockType.heading,
+              text: 'รายวิชาทดสอบ',
+            ),
+            ContentBlockModel(
+              id: 'b2',
+              type: ContentBlockType.text,
+              text: 'เรียงความ ทดสอบ',
+            ),
+            ContentBlockModel(
+              id: 'b3',
+              type: ContentBlockType.sensorChart,
+              sensorDeviceId: 'เซนเซอร์ห้อง ม.1/1',
+              sensorMetric: 'temperature',
+              timeRange: '24 ชม.',
+            ),
+          ],
+          materials: const [],
+          sensorLinks: const [],
+        ),
+        listDevices: () async => const <DeviceOption>[],
       ),
     );
   });
