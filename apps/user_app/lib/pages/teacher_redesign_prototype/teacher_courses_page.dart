@@ -545,8 +545,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError =
-                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -685,29 +684,26 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
 
             // 📚 4. COURSES LIST HEADER & ITEMS
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.menu_book_rounded,
-                      color: TeacherPalette.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'รายวิชาของคุณ (${filteredCourses.length})',
-                      style: const TextStyle(
-                        color: TeacherPalette.ink,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                  ],
+                const Icon(
+                  Icons.menu_book_rounded,
+                  color: TeacherPalette.primary,
+                  size: 20,
                 ),
-                // "จัดเรียง" used to be here as a button that only raised
-                // the "UI Prototype" snackbar — removed.
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'รายวิชาของคุณ (${filteredCourses.length})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TeacherPalette.ink,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -1003,14 +999,28 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
           );
         }
 
-        return GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.5,
-          children: cards,
+        // Fixed aspect 1.5 clipped the third line on every phone width
+        // (12–54 px). Height is now driven by content instead.
+        return Column(
+          children: [
+            for (var i = 0; i < cards.length; i += 2) ...[
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: cards[i]),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: i + 1 < cards.length
+                          ? cards[i + 1]
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+              if (i + 2 < cards.length) const SizedBox(height: 10),
+            ],
+          ],
         );
       },
     );
@@ -1065,9 +1075,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   children:
                       [
                         'ทั้งหมด',
-                        ...({
-                          for (final c in teacherCourses) ...c.rooms,
-                        }.toList()..sort()),
+                        ...({for (final c in teacherCourses) ...c.rooms}
+                            .toList()
+                          ..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -2053,12 +2063,12 @@ class _TeacherCourseCard extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: course.rooms.map((r) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: Container(
+                      Expanded(
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: course.rooms.map((r) {
+                            return Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 2,
@@ -2075,11 +2085,11 @@ class _TeacherCourseCard extends StatelessWidget {
                                   color: TeacherPalette.ink,
                                 ),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }).toList(),
+                        ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 8),
                       const Icon(
                         Icons.person_outline_rounded,
                         size: 15,
@@ -3413,18 +3423,17 @@ class __StudentGroupManagementWidgetState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Row(
-                children: [
-                  Icon(
-                    Icons.groups_rounded,
-                    color: TeacherPalette.primary,
-                    size: 26,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
+          _SectionHeader(
+            title: const Row(
+              children: [
+                Icon(
+                  Icons.groups_rounded,
+                  color: TeacherPalette.primary,
+                  size: 26,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
                     'จัดการกลุ่มนักเรียนสำหรับทำกิจกรรม',
                     style: TextStyle(
                       fontSize: 18,
@@ -3432,8 +3441,10 @@ class __StudentGroupManagementWidgetState
                       color: TeacherPalette.ink,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            actions: [
               ElevatedButton.icon(
                 onPressed: _addGroup,
                 icon: const Icon(Icons.add_rounded, size: 18),
@@ -4190,17 +4201,16 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'รายชื่อนักเรียนในวิชา (${_students.length} คน)',
-              style: const TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w900,
-                color: TeacherPalette.ink,
-              ),
+        _SectionHeader(
+          title: Text(
+            'รายชื่อนักเรียนในวิชา (${_students.length} คน)',
+            style: const TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+              color: TeacherPalette.ink,
             ),
+          ),
+          actions: [
             // D6: enroll_student is admin-only since 20260919000000; the room's
             // students arrive through the timetable.
             const Tooltip(
@@ -4352,12 +4362,16 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                st['name'] as String,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: TeacherPalette.ink,
+                              Flexible(
+                                child: Text(
+                                  st['name'] as String,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: TeacherPalette.ink,
+                                  ),
                                 ),
                               ),
                               // ป้ายห้องมาจากห้องของรายวิชา — วิชาที่ยังไม่ระบุ
@@ -4388,6 +4402,8 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                           const SizedBox(height: 4),
                           Text(
                             st['email'] as String,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 12.5,
                               color: TeacherPalette.muted,
@@ -4396,25 +4412,10 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFECFDF5),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: const Color(0xFFA7F3D0)),
-                      ),
-                      child: const Text(
-                        '🟢 เรียนปกติ (Active)',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                    ),
+                    // The '🟢 เรียนปกติ (Active)' pill that sat here was a
+                    // constant on every row (list_course_students has no
+                    // status) and pushed long names/emails off a phone
+                    // screen by 28–60 px — removed 2026-09-21.
                   ],
                 ),
               );
@@ -4594,11 +4595,13 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
             final isDesktop = constraints.maxWidth > 700;
             return GridView.count(
               crossAxisCount: isDesktop ? 3 : 1,
+              // 3.0 on a phone gave ~120pt for a 3-line card and clipped
+              // 5–45 px; 2.2 leaves room for the subtitle.
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: isDesktop ? 2.4 : 3.0,
+              childAspectRatio: isDesktop ? 2.4 : 2.0,
               children: [
                 _buildSummaryCard(
                   title: 'คะแนนเฉลี่ยรวมรายวิชา',
@@ -4631,17 +4634,16 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
           },
         ),
         const SizedBox(height: 20),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'สมุดบันทึกคะแนน (Gradebook Overview)',
-              style: TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w900,
-                color: TeacherPalette.ink,
-              ),
+        _SectionHeader(
+          title: const Text(
+            'สมุดบันทึกคะแนน (Gradebook Overview)',
+            style: TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+              color: TeacherPalette.ink,
             ),
+          ),
+          actions: [
             // Client-side CSV of the loaded gradebook; used to be a disabled
             // "ส่งออกคะแนน (ยังไม่เปิดใช้งาน)" button.
             OutlinedButton.icon(
@@ -4973,81 +4975,75 @@ class _CourseAssignmentListTabWidgetState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'รายการใบงาน/ภารกิจ (${_assignments.length} งาน)',
-              style: const TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w900,
-                color: TeacherPalette.ink,
+        _SectionHeader(
+          title: Text(
+            'รายการใบงาน/ภารกิจ (${_assignments.length} งาน)',
+            style: const TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w900,
+              color: TeacherPalette.ink,
+            ),
+          ),
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () {
+                final courseId = widget.course.id;
+                if (courseId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'วิชานี้สร้างในเครื่องเท่านั้น ยังไม่บันทึกลง'
+                        'เซิร์ฟเวอร์ จึงยังสร้างกิจกรรม PBL ไม่ได้',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        TeacherPblActivityEditorPage(courseId: courseId),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.science_rounded, size: 16),
+              label: const Text('สร้างกิจกรรม PBL'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: TeacherPalette.primary,
+                side: const BorderSide(color: TeacherPalette.primary),
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: () {
-                    final courseId = widget.course.id;
-                    if (courseId == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'วิชานี้สร้างในเครื่องเท่านั้น ยังไม่บันทึกลง'
-                            'เซิร์ฟเวอร์ จึงยังสร้างกิจกรรม PBL ไม่ได้',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            TeacherPblActivityEditorPage(courseId: courseId),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.science_rounded, size: 16),
-                  label: const Text('สร้างกิจกรรม PBL'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: TeacherPalette.primary,
-                    side: const BorderSide(color: TeacherPalette.primary),
-                    minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+            ElevatedButton.icon(
+              onPressed: () {
+                openAssignmentFormModal(
+                  context,
+                  onSave: (_) => _loadAssignments(),
+                );
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('สร้างใบงานใหม่'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: TeacherPalette.primary,
+                foregroundColor: Colors.white,
+                minimumSize: Size.zero,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 9,
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    openAssignmentFormModal(
-                      context,
-                      onSave: (_) => _loadAssignments(),
-                    );
-                  },
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('สร้างใบงานใหม่'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: TeacherPalette.primary,
-                    foregroundColor: Colors.white,
-                    minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              ],
+                elevation: 0,
+              ),
             ),
           ],
         ),
@@ -5196,44 +5192,24 @@ class _CourseAssignmentListTabWidgetState
                           color: TeacherPalette.muted,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'กำหนดส่ง: ${a.dueAt ?? "ไม่กำหนดวันสิ้นสุด"}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: TeacherPalette.muted,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: TeacherPalette.primary.withValues(
-                              alpha: 0.08,
+                        Expanded(
+                          child: Text(
+                            // due_at is UTC; the raw toString() showed
+                            // '2026-09-01 02:24:39.686439Z' on the phone
+                            a.dueAt == null
+                                ? 'กำหนดส่ง: ไม่กำหนดวันสิ้นสุด'
+                                : 'กำหนดส่ง: ${_fmtDue(a.dueAt!.toLocal())}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: TeacherPalette.muted,
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.sensors_rounded,
-                                size: 12,
-                                color: TeacherPalette.primary,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'ผูกเซนเซอร์ AIoT',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: TeacherPalette.primary,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
+                        // The "ผูกเซนเซอร์ AIoT" chip that sat here was shown
+                        // on every assignment unconditionally (no dataset
+                        // info on AssignmentSummary) — removed 2026-09-21.
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -5323,6 +5299,48 @@ class _CourseAssignmentListTabWidgetState
             },
           ),
       ],
+    );
+  }
+}
+
+/// Section header used across the course pages: a title on the left and
+/// action buttons on the right on wide layouts; on a phone (< 480pt) the
+/// actions drop under the title so nothing overflows.
+String _fmtDue(DateTime d) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.day}/${d.month}/${d.year + 543} ${two(d.hour)}:${two(d.minute)} น.';
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.actions = const []});
+  final Widget title;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final narrow = c.maxWidth < 480;
+        if (narrow || actions.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              title,
+              if (actions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: actions),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: title),
+            const SizedBox(width: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: actions),
+          ],
+        );
+      },
     );
   }
 }

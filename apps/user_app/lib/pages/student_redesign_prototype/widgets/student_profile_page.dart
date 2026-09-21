@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+
 import '../../../widgets/change_password_dialog.dart';
 import '../../login_page.dart';
 import 'student_redesign_palette.dart';
@@ -74,7 +75,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       final loadGrades = widget.loadGrades ?? GradeService.listMyGrades;
       final loadAssignments =
           widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
-      final loadVersions = widget.loadSubmissionVersions ??
+      final loadVersions =
+          widget.loadSubmissionVersions ??
           AssignmentService.listMySubmissionVersions;
 
       final results = await Future.wait([loadCourses(), loadGrades()]);
@@ -127,7 +129,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
     if (!changed || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ'),
+        content: Text(
+          'เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ',
+        ),
       ),
     );
   }
@@ -160,9 +164,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             child: const Text('ยกเลิก'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: SchoolPalette.green,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: SchoolPalette.green),
             onPressed: () => Navigator.of(dialogContext).pop(controller.text),
             child: const Text('บันทึก'),
           ),
@@ -178,9 +180,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       await save(uid: user.uid, name: trimmed);
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('บันทึกชื่อแล้ว')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('บันทึกชื่อแล้ว')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,6 +191,29 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   }
 
   Future<void> _signOut() async {
+    // Teacher/admin lanes confirm before signing out; the student lane
+    // dropped straight to the login page (2026-09-20 iPhone test).
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ยืนยันออกจากระบบ'),
+        content: const Text('คุณต้องการออกจากระบบบนอุปกรณ์นี้ใช่หรือไม่?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: SchoolPalette.danger,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('ออกจากระบบ'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
     final doSignOut = widget.signOut ?? AuthService.signOut;
     await doSignOut();
     if (!mounted) return;
@@ -569,7 +593,9 @@ class _ProfileHero extends StatelessWidget {
     final user = currentUserModel;
     final name = user?.name ?? 'นักเรียน';
     final initial = name.trim().isEmpty ? 'น' : name.trim().characters.first;
-    final roomLabel = (user?.room ?? '').isNotEmpty ? 'ห้อง ${user!.room}' : null;
+    final roomLabel = (user?.room ?? '').isNotEmpty
+        ? 'ห้อง ${user!.room}'
+        : null;
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
       decoration: BoxDecoration(
@@ -882,6 +908,7 @@ class _MenuTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final bool danger;
+
   /// Required — a tile with nothing behind it is not rendered any more.
   final VoidCallback onTap;
 

@@ -125,6 +125,12 @@ class Term {
     );
   }
 
+  /// 'ภาคเรียนที่ 1/2569' already carries the year — appending
+  /// '(2569)' again read as 'ภาคเรียนที่ 1/2569 (2569)' on the admin page.
+  String get displayLabel => termName.contains(academicYearName)
+      ? termName
+      : '$termName ($academicYearName)';
+
   bool containsDate(DateTime d) =>
       startDate != null &&
       endDate != null &&
