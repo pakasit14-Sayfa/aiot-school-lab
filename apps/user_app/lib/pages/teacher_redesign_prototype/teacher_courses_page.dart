@@ -545,8 +545,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError =
-                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -1076,9 +1075,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   children:
                       [
                         'ทั้งหมด',
-                        ...({
-                          for (final c in teacherCourses) ...c.rooms,
-                        }.toList()..sort()),
+                        ...({for (final c in teacherCourses) ...c.rooms}
+                            .toList()
+                          ..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -5202,44 +5201,24 @@ class _CourseAssignmentListTabWidgetState
                           color: TeacherPalette.muted,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'กำหนดส่ง: ${a.dueAt ?? "ไม่กำหนดวันสิ้นสุด"}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: TeacherPalette.muted,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: TeacherPalette.primary.withValues(
-                              alpha: 0.08,
+                        Expanded(
+                          child: Text(
+                            // due_at is UTC; the raw toString() showed
+                            // '2026-09-01 02:24:39.686439Z' on the phone
+                            a.dueAt == null
+                                ? 'กำหนดส่ง: ไม่กำหนดวันสิ้นสุด'
+                                : 'กำหนดส่ง: ${_fmtDue(a.dueAt!.toLocal())}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: TeacherPalette.muted,
                             ),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.sensors_rounded,
-                                size: 12,
-                                color: TeacherPalette.primary,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'ผูกเซนเซอร์ AIoT',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: TeacherPalette.primary,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
+                        // The "ผูกเซนเซอร์ AIoT" chip that sat here was shown
+                        // on every assignment unconditionally (no dataset
+                        // info on AssignmentSummary) — removed 2026-09-21.
                       ],
                     ),
                     const SizedBox(height: 14),
@@ -5336,6 +5315,11 @@ class _CourseAssignmentListTabWidgetState
 /// Section header used across the course pages: a title on the left and
 /// action buttons on the right on wide layouts; on a phone (< 480pt) the
 /// actions drop under the title so nothing overflows.
+String _fmtDue(DateTime d) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.day}/${d.month}/${d.year + 543} ${two(d.hour)}:${two(d.minute)} น.';
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, this.actions = const []});
   final Widget title;
