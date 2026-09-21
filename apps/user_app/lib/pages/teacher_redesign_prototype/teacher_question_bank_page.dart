@@ -99,21 +99,39 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
       final listQuestions =
           widget.listQuizQuestions ?? QuizService.listQuizQuestions;
       final courses = await loadCourses();
+      // Quizzes per course, then questions per quiz — both were awaited inside
+      // their loop, so a teacher with 6 courses × 3 quizzes waited out 25
+      // sequential round trips. Each level is independent; fetch it as one
+      // batch. listQuizzes stays uncaught so a real failure still falls
+      // through to the outer catch, as before.
+      final quizzesPerCourse = await Future.wait(
+        courses.map((course) => listQuizzes(course.id)),
+      );
+      final allQuizzes = [for (final quizzes in quizzesPerCourse) ...quizzes];
+      final questionsByQuiz = <String, List<QuizQuestionSummary>>{};
+      await Future.wait(
+        allQuizzes.map((q) async {
+          try {
+            questionsByQuiz[q.id] = await listQuestions(q.id);
+          } catch (e) {
+            // เดิม catch นี้อยู่ในลูป — ชุดที่ดึงคำถามไม่ได้ยังต้องโชว์ได้ (0 ข้อ)
+            debugPrint('Error loading questions for quiz ${q.id}: $e');
+          }
+        }),
+      );
       final loadedSets = <BankQuestionSet>[];
 
-      for (final course in courses) {
-        final quizzes = await listQuizzes(course.id);
-        for (final q in quizzes) {
+      for (var ci = 0; ci < courses.length; ci++) {
+        final course = courses[ci];
+        for (final q in quizzesPerCourse[ci]) {
           final kindLabel = q.type == 'pre_test'
               ? 'ก่อนเรียน'
               : (q.type == 'post_test' ? 'หลังเรียน' : 'เก็บคะแนน');
 
           // เดิมไม่มี RPC ให้ดึงคำถามในชุดข้อสอบเลย ทุกชุดจึงโชว์ "0 ข้อ"
           // ตายตัวเสมอ ไม่ว่าจะมีคำถามจริงกี่ข้อ (list_quiz_questions ใหม่)
-          List<BankQuestion> questions = const [];
-          try {
-            final real = await listQuestions(q.id);
-            questions = real.map((question) {
+          final real = questionsByQuiz[q.id] ?? const <QuizQuestionSummary>[];
+          final questions = real.map((question) {
               final correctIdx = question.choices.indexWhere(
                 (c) => c.isCorrect,
               );
@@ -127,10 +145,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
                 correctIndex: correctIdx >= 0 ? correctIdx : 0,
                 score: question.points.round(),
               );
-            }).toList();
-          } catch (e) {
-            debugPrint('Error loading questions for quiz ${q.id}: $e');
-          }
+          }).toList();
 
           loadedSets.add(
             BankQuestionSet(

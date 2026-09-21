@@ -69,14 +69,22 @@ class _StudentSearchPopupState extends State<StudentSearchPopup> {
         widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments;
     try {
       final courses = await loadCourses();
-      final hits = <_AssignmentHit>[];
-      for (final c in courses) {
-        try {
-          for (final a in await loadAssignments(c.id)) {
-            hits.add(_AssignmentHit(assignment: a, course: c));
+      // One RPC per course, awaited in the loop — the search box stayed empty
+      // for N sequential round trips. They are independent.
+      final assignmentsPerCourse = await Future.wait(
+        courses.map((c) async {
+          try {
+            return await loadAssignments(c.id);
+          } catch (_) {
+            // A course whose assignments fail to list still shows up itself.
+            return const <AssignmentSummary>[];
           }
-        } catch (_) {
-          // A course whose assignments fail to list still shows up itself.
+        }),
+      );
+      final hits = <_AssignmentHit>[];
+      for (var i = 0; i < courses.length; i++) {
+        for (final a in assignmentsPerCourse[i]) {
+          hits.add(_AssignmentHit(assignment: a, course: courses[i]));
         }
       }
       if (!mounted) return;

@@ -1,5 +1,6 @@
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:shared_ui/shared_ui.dart';
 import 'pages/login_page.dart';
@@ -31,6 +32,13 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Every weight this app asks for is bundled under
+  // assets/google_fonts/, so google_fonts must never reach
+  // fonts.gstatic.com. Left on, it fetched NotoSansThai and
+  // PlusJakartaSans over the network on first launch — one request per
+  // weight, with text unstyled until they landed. Barely visible on the
+  // web (the browser had them cached); very visible on a phone.
+  GoogleFonts.config.allowRuntimeFetching = false;
   await SupabaseConfig.initialize();
   // Restore the saved session before the first frame. This call was
   // dropped by accident in ea191dd (2026-08-03, a mascot commit) and from

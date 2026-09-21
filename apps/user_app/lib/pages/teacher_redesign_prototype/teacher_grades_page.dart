@@ -92,14 +92,21 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       final loadGrades =
           widget.loadCourseGrades ?? GradeService.listCourseGrades;
       final courses = await loadCourses();
+      // One RPC per course, none of them dependent on another. Awaited in the
+      // loop this was N+1 sequential round trips before the page could paint.
+      final gradesPerCourse = await Future.wait(
+        courses.map((c) async {
+          try {
+            return await loadGrades(c.id);
+          } catch (_) {
+            return const <GradeRecord>[];
+          }
+        }),
+      );
       final summaries = <_CourseGradeSummary>[];
-      for (final c in courses) {
-        List<GradeRecord> records;
-        try {
-          records = await loadGrades(c.id);
-        } catch (_) {
-          records = const [];
-        }
+      for (var i = 0; i < courses.length; i++) {
+        final c = courses[i];
+        final records = gradesPerCourse[i];
         summaries.add(
           _CourseGradeSummary(
             courseId: c.id,

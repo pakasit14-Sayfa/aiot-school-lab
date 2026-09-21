@@ -155,24 +155,46 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
       final loadSubmissions =
           widget.listSubmissions ?? AssignmentService.listSubmissions;
       final courses = await loadCourses();
-      final items = <_GradingItemMock>[];
-      for (final c in courses) {
-        List<AssignmentSummary> assignments;
-        try {
-          assignments = await loadAssignments(c.id);
-        } catch (_) {
-          assignments = const [];
-        }
-        for (final a in assignments) {
-          var submitted = 0;
-          var total = 0;
+      // Two nested levels of one-RPC-per-row — assignments per course, then a
+      // submission roster per assignment — each awaited inside its loop. That
+      // is 1 + N + N*M sequential round trips before anything renders, the
+      // worst case in the app. Neither level depends on its siblings, so each
+      // goes out as one parallel batch instead. A failed roster still reads as
+      // 0/0, exactly as the per-item catch did.
+      final assignmentsPerCourse = await Future.wait(
+        courses.map((c) async {
           try {
-            final roster = await loadSubmissions(a.id);
-            total = roster.length;
-            submitted = roster.where((r) => r.status != 'not_submitted').length;
+            return await loadAssignments(c.id);
+          } catch (_) {
+            return const <AssignmentSummary>[];
+          }
+        }),
+      );
+      final allAssignments = [
+        for (final assignments in assignmentsPerCourse) ...assignments,
+      ];
+      final rosters = await Future.wait(
+        allAssignments.map((a) async {
+          try {
+            return await loadSubmissions(a.id);
           } catch (_) {
             // roster ดึงไม่ได้ (เช่น ยังไม่เผยแพร่) — ถือว่า 0/0 ไปก่อน
+            return const <SubmissionRoster>[];
           }
+        }),
+      );
+      final rosterByAssignment = <String, List<SubmissionRoster>>{
+        for (var i = 0; i < allAssignments.length; i++)
+          allAssignments[i].id: rosters[i],
+      };
+      final items = <_GradingItemMock>[];
+      for (var ci = 0; ci < courses.length; ci++) {
+        final c = courses[ci];
+        for (final a in assignmentsPerCourse[ci]) {
+          final roster = rosterByAssignment[a.id] ?? const <SubmissionRoster>[];
+          final total = roster.length;
+          final submitted =
+              roster.where((r) => r.status != 'not_submitted').length;
           final isPublished = a.status == 'published';
           final now = DateTime.now();
           _GradingBucket bucket;

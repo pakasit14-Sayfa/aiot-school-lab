@@ -120,11 +120,24 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
       final listRubrics = widget.listMyRubrics ?? RubricService.listMyRubrics;
       final getRubricDetail = widget.getRubric ?? RubricService.getRubric;
       final backendRubrics = await listRubrics();
+      // One detail RPC per rubric, awaited in the loop — N sequential round
+      // trips. They do not depend on each other.
+      final details = await Future.wait(
+        backendRubrics.map((r) async {
+          try {
+            return await getRubricDetail(r.id);
+          } catch (_) {
+            return null;
+          }
+        }),
+      );
       final loadedList = <RubricModel>[];
-      for (final r in backendRubrics) {
+      for (var ri = 0; ri < backendRubrics.length; ri++) {
+        final r = backendRubrics[ri];
         RubricModel? detail;
-        try {
-          final d = await getRubricDetail(r.id);
+        final fetched = details[ri];
+        if (fetched != null) {
+          final d = fetched;
           detail = RubricModel(
             id: d.id,
             title: d.title,
@@ -151,7 +164,8 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
                 )
                 .toList(),
           );
-        } catch (_) {
+        } else {
+          // ดึงรายละเอียดไม่สำเร็จ — ยังต้องแสดงรูบริกนั้นได้ แค่ไม่มีเกณฑ์ย่อย
           detail = RubricModel(
             id: r.id,
             title: r.title,

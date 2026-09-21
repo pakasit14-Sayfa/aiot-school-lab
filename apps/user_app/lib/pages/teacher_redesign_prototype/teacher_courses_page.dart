@@ -323,15 +323,25 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
       final loadStudents =
           widget.loadCourseStudents ?? CourseService.listCourseStudents;
       final courses = await loadCourses();
+      // One RPC per course, and they do not depend on each other. Awaited
+      // inside the loop this was N+1 sequential round trips — a teacher with
+      // 8 courses waited out 9 of them before the list appeared, ~1.3s of
+      // pure latency on a phone. Fire them together instead; the per-course
+      // catch still turns a single failure into a 0 rather than losing the
+      // whole list.
+      final studentCounts = await Future.wait(
+        courses.map((c) async {
+          try {
+            return (await loadStudents(c.id)).length;
+          } catch (_) {
+            return 0;
+          }
+        }),
+      );
       final mapped = <TeacherCourseModel>[];
       for (var i = 0; i < courses.length; i++) {
         final c = courses[i];
-        var studentCount = 0;
-        try {
-          studentCount = (await loadStudents(c.id)).length;
-        } catch (_) {
-          studentCount = 0;
-        }
+        final studentCount = studentCounts[i];
         mapped.add(
           TeacherCourseModel(
             id: c.id,
