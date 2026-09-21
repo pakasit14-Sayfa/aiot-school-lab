@@ -2637,7 +2637,13 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
             hasAccess: c.hasAccess,
           )
         else if (_activeTab == 'นักเรียน')
-          TeacherStudentRosterTab(course: c)
+          TeacherStudentRosterTab(
+            course: c,
+            // The seam existed on this page but stopped here, so the roster
+            // tab always went to the live RPC — under test it could only ever
+            // render its failure state.
+            loadStudents: widget.loadCourseStudents,
+          )
         else if (_activeTab == 'ใบงาน')
           _CourseAssignmentListTabWidget(course: c)
         else if (_activeTab == 'คะแนน')
@@ -4444,53 +4450,51 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
       return name.contains(q) || email.contains(q);
     }).toList();
 
+    // D6: the roster comes from the room's timetable, so every row carried the
+    // same 'ห้อง ม.1/1' pill — a constant repeated N times, the same shape as
+    // the 'เรียนปกติ (Active)' pill dropped on 2026-09-21. It is stated once,
+    // here, instead.
+    final rooms = widget.course.rooms.join(', ');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionHeader(
-          title: Text(
-            'รายชื่อนักเรียนในวิชา (${_students.length} คน)',
-            style: const TextStyle(
-              fontSize: 16.5,
-              fontWeight: FontWeight.w900,
-              color: TeacherPalette.ink,
-            ),
-          ),
-          actions: [
-            // D6: enroll_student is admin-only since 20260919000000; the room's
-            // students arrive through the timetable.
-            const Tooltip(
-              message: 'รายชื่อมาจากห้องเรียนที่แอดมินจัดในตารางเรียน',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.calendar_month_rounded,
-                    size: 14,
-                    color: TeacherPalette.muted,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'จากตารางเรียน',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: TeacherPalette.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'นักเรียน ${_students.length} คน',
+                style: const TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w900,
+                  color: TeacherPalette.ink,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                rooms.isEmpty
+                    ? 'วิชานี้ยังไม่ได้ผูกห้องเรียนในตารางเรียน'
+                    : 'ห้อง $rooms · รายชื่อมาจากตารางเรียนที่แอดมินจัด',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: TeacherPalette.muted,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
-        TeacherSearchInput(
-          hintText: 'พิมพ์ค้นหาชื่อ หรือ รหัสนักเรียน...',
-          value: _searchQuery,
-          onChanged: (val) => setState(() => _searchQuery = val),
-          onClear: () => setState(() => _searchQuery = ''),
-        ),
-        const SizedBox(height: 16),
+        if (!_isLoading && !_loadFailed && _students.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          TeacherSearchInput(
+            hintText: 'ค้นหาชื่อ หรือ อีเมลนักเรียน...',
+            value: _searchQuery,
+            onChanged: (val) => setState(() => _searchQuery = val),
+            onClear: () => setState(() => _searchQuery = ''),
+          ),
+        ],
+        const SizedBox(height: 12),
         if (_isLoading)
           const Center(
             child: Padding(
@@ -4501,17 +4505,17 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
         else if (_loadFailed)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: TeacherPalette.border),
             ),
             child: Column(
               children: [
                 const Icon(
                   Icons.cloud_off_rounded,
-                  size: 40,
+                  size: 36,
                   color: TeacherPalette.red,
                 ),
                 const SizedBox(height: 10),
@@ -4531,25 +4535,25 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
               ],
             ),
           )
-        else if (filtered.isEmpty)
+        else if (_students.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: TeacherPalette.border),
             ),
             child: const Column(
               children: [
                 Icon(
                   Icons.person_off_rounded,
-                  size: 40,
+                  size: 36,
                   color: TeacherPalette.muted,
                 ),
                 SizedBox(height: 10),
                 Text(
-                  'ยังไม่มีนักเรียนลงทะเบียนในรายวิชานี้',
+                  'ยังไม่มีนักเรียนในรายวิชานี้',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -4559,114 +4563,215 @@ class _TeacherStudentRosterTabState extends State<TeacherStudentRosterTab> {
                 SizedBox(height: 4),
                 Text(
                   'นักเรียนจะเข้าวิชาเองเมื่อแอดมินจัดวิชานี้ลงตารางเรียนของห้อง',
+                  textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
                 ),
               ],
             ),
           )
+        else if (filtered.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                'ไม่พบนักเรียนที่ตรงกับ "$_searchQuery"',
+                style: const TextStyle(color: TeacherPalette.muted),
+              ),
+            ),
+          )
         else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: filtered.length,
-            itemBuilder: (ctx, idx) {
-              final st = filtered[idx];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: TeacherPalette.border),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < filtered.length; i++) ...[
+                  _PersonRow(
+                    name: filtered[i]['name'] as String,
+                    subtitle: filtered[i]['email'] as String? ?? '',
+                  ),
+                  if (i < filtered.length - 1)
+                    const Divider(
+                      height: 1,
+                      indent: 56,
+                      color: Color(0xFFF1F5F9),
                     ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: TeacherPalette.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person_rounded,
-                        color: TeacherPalette.primary,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  st['name'] as String,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w900,
-                                    color: TeacherPalette.ink,
-                                  ),
-                                ),
-                              ),
-                              // ป้ายห้องมาจากห้องของรายวิชา — วิชาที่ยังไม่ระบุ
-                              // ห้องไม่แสดงป้าย (อีเมลอยู่บรรทัดถัดไปอยู่แล้ว)
-                              if (st['room'] != null) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'ห้อง ${st['room']}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF475569),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            st['email'] as String,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: TeacherPalette.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // The '🟢 เรียนปกติ (Active)' pill that sat here was a
-                    // constant on every row (list_course_students has no
-                    // status) and pushed long names/emails off a phone
-                    // screen by 28–60 px — removed 2026-09-21.
-                  ],
-                ),
-              );
-            },
+                ],
+              ],
+            ),
           ),
+      ],
+    );
+  }
+}
+
+/// One person in a grouped list — avatar initial, name, one quiet meta line,
+/// and an optional trailing widget. Shared by the roster and gradebook tabs so
+/// both read as the same list rather than a card wall and a wide table.
+class _PersonRow extends StatelessWidget {
+  const _PersonRow({
+    required this.name,
+    required this.subtitle,
+    this.trailing,
+  });
+
+  final String name;
+  final String subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = name.trim();
+    final initial = trimmed.isEmpty ? '?' : trimmed.substring(0, 1);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: TeacherPalette.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              initial,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: TeacherPalette.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  trimmed.isEmpty ? 'ไม่ทราบชื่อ' : trimmed,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact phone stat: one label, one number, tinted ground. The desktop
+/// equivalent is `_buildSummaryCard`, which also carries an explanatory line.
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.bg,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final Color bg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.9)),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Trailing score on a phone gradebook row.
+class _ScorePill extends StatelessWidget {
+  const _ScorePill({required this.st});
+
+  final Map<String, dynamic> st;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = st['entryCount'] as int;
+    if (entries == 0) {
+      return const Text(
+        'ยังไม่มีคะแนน',
+        style: TextStyle(fontSize: 12, color: TeacherPalette.muted),
+      );
+    }
+    final allConfirmed = (st['confirmedCount'] as int) == entries;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${st['totalScore']}/${st['totalMax']}',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            color: TeacherPalette.primary,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Icon(
+          allConfirmed
+              ? Icons.check_circle_rounded
+              : Icons.hourglass_bottom_rounded,
+          size: 15,
+          color: allConfirmed
+              ? const Color(0xFF059669)
+              : const Color(0xFFCA8A04),
+        ),
       ],
     );
   }
@@ -4739,9 +4844,11 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
             .length;
         return {
           'name': st.fullName,
-          'code': st.studentId.length >= 8
-              ? st.studentId.substring(0, 8)
-              : st.studentId,
+          // list_course_students returns no student code; this used to show
+          // the first 8 characters of the uuid under a 'รหัสนักเรียน' heading,
+          // which reads as a real school code and is not one. Same fix the
+          // roster tab already took.
+          'email': st.email,
           'entryCount': entries.length,
           'totalScore': totalScore,
           'totalMax': totalMax,
@@ -4784,11 +4891,11 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
       return;
     }
     final rows = <List<String>>[
-      ['ชื่อ', 'รหัส', 'จำนวนรายการ', 'คะแนนรวม', 'คะแนนเต็ม', 'ยืนยันแล้ว'],
+      ['ชื่อ', 'อีเมล', 'จำนวนรายการ', 'คะแนนรวม', 'คะแนนเต็ม', 'ยืนยันแล้ว'],
       for (final st in _students)
         [
           '${st['name']}',
-          '${st['code']}',
+          '${st['email']}',
           '${st['entryCount']}',
           '${st['totalScore']}',
           '${st['totalMax']}',
@@ -4839,15 +4946,48 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
         LayoutBuilder(
           builder: (context, constraints) {
             final isDesktop = constraints.maxWidth > 700;
+            // A phone used to get three stacked cards ~180pt tall before any
+            // gradebook row was visible. One compact row says the same three
+            // numbers in ~64pt; the explanatory subtitles stay on desktop.
+            if (!isDesktop) {
+              return Row(
+                children: [
+                  Expanded(
+                    child: _MiniStat(
+                      label: 'เฉลี่ยรวม',
+                      value: avgLabel,
+                      color: const Color(0xFF059669),
+                      bg: const Color(0xFFECFDF5),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _MiniStat(
+                      label: 'รายการคะแนน',
+                      value: '$entryCount',
+                      color: TeacherPalette.primary,
+                      bg: TeacherPalette.primary.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _MiniStat(
+                      label: 'มีคะแนนแล้ว',
+                      value: '$studentsWithGrades/${_students.length}',
+                      color: const Color(0xFF2563EB),
+                      bg: const Color(0xFFEFF6FF),
+                    ),
+                  ),
+                ],
+              );
+            }
             return GridView.count(
-              crossAxisCount: isDesktop ? 3 : 1,
-              // 3.0 on a phone gave ~120pt for a 3-line card and clipped
-              // 5–45 px; 2.2 leaves room for the subtitle.
+              crossAxisCount: 3,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: isDesktop ? 2.4 : 2.0,
+              childAspectRatio: 2.4,
               children: [
                 _buildSummaryCard(
                   title: 'คะแนนเฉลี่ยรวมรายวิชา',
@@ -4882,7 +5022,7 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
         const SizedBox(height: 20),
         _SectionHeader(
           title: const Text(
-            'สมุดบันทึกคะแนน (Gradebook Overview)',
+            'สมุดบันทึกคะแนน',
             style: TextStyle(
               fontSize: 16.5,
               fontWeight: FontWeight.w900,
@@ -4969,141 +5109,183 @@ class _CourseGradebookTabWidgetState extends State<_CourseGradebookTabWidget> {
             ),
           )
         else
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(
-                  const Color(0xFFF8FAFC),
-                ),
-                headingTextStyle: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  color: TeacherPalette.ink,
-                ),
-                dataTextStyle: const TextStyle(
-                  fontSize: 13,
-                  color: TeacherPalette.ink,
-                ),
-                columns: const [
-                  DataColumn(label: Text('ชื่อ-นามสกุล นักเรียน')),
-                  DataColumn(label: Text('รหัสนักเรียน')),
-                  DataColumn(label: Text('คะแนนรวมที่บันทึกแล้ว')),
-                  DataColumn(label: Text('จำนวนรายการคะแนน')),
-                  DataColumn(label: Text('สถานะ')),
-                ],
-                rows: _students.map((st) {
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: TeacherPalette.primary.withValues(
-                                  alpha: 0.1,
-                                ),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.person_rounded,
-                                size: 18,
-                                color: TeacherPalette.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              st['name'] as String,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // The five-column DataTable needs ~720pt; on a phone it became a
+              // sideways-scrolling table where the score sat off-screen. The
+              // same rows read as a grouped list instead, score on the right.
+              if (constraints.maxWidth <= 700) {
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: TeacherPalette.border),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < _students.length; i++) ...[
+                        _PersonRow(
+                          name: _students[i]['name'] as String,
+                          subtitle: _gradeMeta(_students[i]),
+                          trailing: _ScorePill(st: _students[i]),
                         ),
-                      ),
-                      DataCell(Text(st['code'] as String)),
-                      DataCell(
-                        (st['entryCount'] as int) == 0
-                            ? const Text(
-                                'ยังไม่มีคะแนน',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: TeacherPalette.muted,
-                                ),
-                              )
-                            : Text(
-                                '${st['totalScore']}/${st['totalMax']}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  color: TeacherPalette.primary,
-                                ),
-                              ),
-                      ),
-                      DataCell(Text('${st['entryCount']} รายการ')),
-                      DataCell(
-                        (st['entryCount'] as int) == 0
-                            ? const Text(
-                                'ยังไม่มีคะแนน',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: TeacherPalette.muted,
-                                  fontSize: 12,
-                                ),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    (st['confirmedCount'] as int) ==
-                                            st['entryCount']
-                                        ? Icons.check_circle_rounded
-                                        : Icons.hourglass_bottom_rounded,
-                                    size: 16,
-                                    color:
-                                        (st['confirmedCount'] as int) ==
-                                            st['entryCount']
-                                        ? const Color(0xFF059669)
-                                        : const Color(0xFFCA8A04),
+                        if (i < _students.length - 1)
+                          const Divider(
+                            height: 1,
+                            indent: 56,
+                            color: Color(0xFFF1F5F9),
+                          ),
+                      ],
+                    ],
+                  ),
+                );
+              }
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      const Color(0xFFF8FAFC),
+                    ),
+                    headingTextStyle: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      color: TeacherPalette.ink,
+                    ),
+                    dataTextStyle: const TextStyle(
+                      fontSize: 13,
+                      color: TeacherPalette.ink,
+                    ),
+                    columns: const [
+                      DataColumn(label: Text('ชื่อ-นามสกุล นักเรียน')),
+                      DataColumn(label: Text('อีเมล')),
+                      DataColumn(label: Text('คะแนนรวมที่บันทึกแล้ว')),
+                      DataColumn(label: Text('จำนวนรายการคะแนน')),
+                      DataColumn(label: Text('สถานะ')),
+                    ],
+                    rows: _students.map((st) {
+                      final confirmed = st['confirmedCount'] as int;
+                      final entries = st['entryCount'] as int;
+                      final allConfirmed = confirmed == entries;
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: TeacherPalette.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    shape: BoxShape.circle,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'ยืนยันแล้ว ${st['confirmedCount']}/${st['entryCount']} รายการ',
+                                  child: const Icon(
+                                    Icons.person_rounded,
+                                    size: 18,
+                                    color: TeacherPalette.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  st['name'] as String,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          DataCell(Text(st['email'] as String? ?? '')),
+                          DataCell(
+                            entries == 0
+                                ? const Text(
+                                    'ยังไม่มีคะแนน',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      color:
-                                          (st['confirmedCount'] as int) ==
-                                              st['entryCount']
-                                          ? const Color(0xFF059669)
-                                          : const Color(0xFFCA8A04),
-                                      fontSize: 12,
+                                      color: TeacherPalette.muted,
+                                    ),
+                                  )
+                                : Text(
+                                    '${st['totalScore']}/${st['totalMax']}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      color: TeacherPalette.primary,
                                     ),
                                   ),
-                                ],
-                              ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
+                          ),
+                          DataCell(Text('$entries รายการ')),
+                          DataCell(
+                            entries == 0
+                                ? const Text(
+                                    'ยังไม่มีคะแนน',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: TeacherPalette.muted,
+                                      fontSize: 12,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        allConfirmed
+                                            ? Icons.check_circle_rounded
+                                            : Icons.hourglass_bottom_rounded,
+                                        size: 16,
+                                        color: allConfirmed
+                                            ? const Color(0xFF059669)
+                                            : const Color(0xFFCA8A04),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'ยืนยันแล้ว $confirmed/$entries รายการ',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: allConfirmed
+                                              ? const Color(0xFF059669)
+                                              : const Color(0xFFCA8A04),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              );
+            },
           ),
       ],
     );
+  }
+
+  /// Quiet second line of a phone gradebook row: how many entries and how
+  /// many of them the teacher has already confirmed.
+  String _gradeMeta(Map<String, dynamic> st) {
+    final entries = st['entryCount'] as int;
+    if (entries == 0) return 'ยังไม่มีรายการคะแนน';
+    final confirmed = st['confirmedCount'] as int;
+    return confirmed == entries
+        ? '$entries รายการ · ยืนยันครบแล้ว'
+        : '$entries รายการ · ยืนยันแล้ว $confirmed';
   }
 
   Widget _buildSummaryCard({

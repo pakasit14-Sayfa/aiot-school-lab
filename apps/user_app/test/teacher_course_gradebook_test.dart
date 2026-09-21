@@ -7,6 +7,7 @@ import 'package:shared_core/shared_core.dart';
 
 void main() {
   _csvTests();
+  _phoneTests();
   testWidgets(
     'Gradebook tab never shows the old identical-fake-score row',
     (tester) async {
@@ -174,5 +175,49 @@ void _csvTests() {
     expect(calls, 2);
     expect(find.textContaining('โหลดสมุดคะแนนไม่สำเร็จ'), findsNothing);
     expect(find.text('อนันต์ ทดสอบ'), findsWidgets);
+  });
+}
+
+/// 2026-09-21: บนมือถือแท็บคะแนนเคยเป็น `DataTable` 5 คอลัมน์กว้างราว 720pt
+/// ต้องเลื่อนแนวนอนกว่าจะเห็นคะแนน และคอลัมน์ "รหัสนักเรียน" คือ 8 ตัวแรกของ
+/// uuid ไม่ใช่รหัสโรงเรียนจริง (บั๊กเดียวกับที่แท็บรายชื่อแก้ไปก่อนแล้ว)
+void _phoneTests() {
+  testWidgets('on a phone the gradebook is a list, not a sideways table', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TeacherCourseDetailPage(
+          course: _course,
+          initialTab: 'คะแนน',
+          loadCourseStudents: (_) async => [_student],
+          loadCourseGrades: (_) async => [_grade],
+        ),
+      ),
+    );
+    await tester.pump();
+    tester.takeException();
+    await tester.pump(const Duration(milliseconds: 300));
+    tester.takeException();
+
+    expect(find.byType(DataTable), findsNothing);
+    expect(find.text('อนันต์ ทดสอบ'), findsOneWidget);
+    expect(find.text('18/20'), findsOneWidget);
+    expect(find.textContaining('stu-0000'), findsNothing);
+  });
+
+  testWidgets('the gradebook never labels a uuid prefix as a student code', (
+    tester,
+  ) async {
+    await _pumpGradebook(tester);
+
+    expect(find.text('รหัสนักเรียน'), findsNothing);
+    expect(find.textContaining('stu-0000'), findsNothing);
+    expect(find.text('s@x'), findsOneWidget);
   });
 }
