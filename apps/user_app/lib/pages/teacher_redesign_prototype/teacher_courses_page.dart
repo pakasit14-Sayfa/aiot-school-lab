@@ -546,8 +546,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   );
                   if (isDuplicate) {
                     setModalState(
-                      () => nameError =
-                          'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
+                      () => nameError = 'ชื่อนี้ซ้ำกับรายวิชาที่มีอยู่ — ตั้งชื่อใหม่ก่อนบันทึก',
                     );
                     return;
                   }
@@ -1077,9 +1076,9 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
                   children:
                       [
                         'ทั้งหมด',
-                        ...({
-                          for (final c in teacherCourses) ...c.rooms,
-                        }.toList()..sort()),
+                        ...({for (final c in teacherCourses) ...c.rooms}
+                            .toList()
+                          ..sort()),
                       ].map((room) {
                         final isActive = _selectedRoom == room;
                         return Padding(
@@ -5217,84 +5216,215 @@ class _CourseAssignmentListTabWidgetState
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(
-          title: Text(
-            'รายการใบงาน/ภารกิจ (${_assignments.length} งาน)',
-            style: const TextStyle(
-              fontSize: 16.5,
-              fontWeight: FontWeight.w900,
-              color: TeacherPalette.ink,
-            ),
-          ),
-          actions: [
-            OutlinedButton.icon(
-              onPressed: () {
-                final courseId = widget.course.id;
-                if (courseId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'วิชานี้สร้างในเครื่องเท่านั้น ยังไม่บันทึกลง'
-                        'เซิร์ฟเวอร์ จึงยังสร้างกิจกรรม PBL ไม่ได้',
+  String _filter = 'all';
+
+  List<AssignmentSummary> get _visible {
+    switch (_filter) {
+      case 'pending':
+        return _assignments.where((a) => a.pendingGradeCount > 0).toList();
+      case 'draft':
+        return _assignments.where((a) => !a.isPublished).toList();
+      default:
+        return _assignments;
+    }
+  }
+
+  AssignmentModel _toModel(AssignmentSummary a) => AssignmentModel(
+    id: a.id,
+    courseId: widget.course.id ?? '',
+    title: a.title,
+    instructions: a.instructions ?? '',
+    type: 'ใบงานทดลอง',
+    courseName: widget.course.name,
+    dueDate: a.dueAt != null
+        ? a.dueAt!.toLocal().toString().substring(0, 16)
+        : 'ไม่มีกำหนดส่ง',
+    status: a.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
+    isGroupWork: a.isGroup,
+    rubricId: a.rubricId,
+    rubricTitle: a.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
+    attachedSensorMetrics: const [],
+    submittedCount: a.submittedCount,
+    totalStudents: a.totalStudents,
+    updatedAt: a.createdAt != null
+        ? 'สร้างเมื่อ ${a.createdAt!.toLocal().toString().substring(0, 10)}'
+        : 'ยังไม่มีข้อมูล',
+  );
+
+  /// Tapping a row: short action sheet instead of two buttons per card.
+  Future<void> _openRow(AssignmentSummary a) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Row(
+                children: [
+                  _StatusDot(published: a.isPublished),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      a.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: TeacherPalette.ink,
                       ),
                     ),
-                  );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        TeacherPblActivityEditorPage(courseId: courseId),
                   ),
-                );
-              },
-              icon: const Icon(Icons.science_rounded, size: 16),
-              label: const Text('สร้างกิจกรรม PBL'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: TeacherPalette.primary,
-                side: const BorderSide(color: TeacherPalette.primary),
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _metaLine(a),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: TeacherPalette.muted,
+                  ),
                 ),
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: () {
-                openAssignmentFormModal(
-                  context,
-                  onSave: (_) => _loadAssignments(),
-                );
-              },
+            ListTile(
+              leading: const Icon(Icons.rate_review_outlined),
+              title: const Text('ตรวจงานและให้คะแนน'),
+              subtitle: a.pendingGradeCount > 0
+                  ? Text('รอตรวจ ${a.pendingGradeCount}')
+                  : null,
+              onTap: () => Navigator.of(context).pop('grade'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('แก้ไขใบงาน / ผูกชุดข้อมูล'),
+              onTap: () => Navigator.of(context).pop('edit'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'edit') {
+      openAssignmentFormModal(
+        context,
+        assignment: _toModel(a),
+        onSave: (_) => _loadAssignments(),
+      );
+    } else if (action == 'grade') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TeacherGradingPage()),
+      );
+    }
+  }
+
+  String _metaLine(AssignmentSummary a) {
+    final parts = <String>[
+      if (a.dueAt != null) 'ส่ง ${_fmtDueShort(a.dueAt!.toLocal())}',
+      if (a.totalStudents > 0) 'ส่งแล้ว ${a.submittedCount}/${a.totalStudents}',
+      if (a.datasetCount > 0) 'เซนเซอร์ ${a.datasetCount}',
+      if (a.isGroup) 'งานกลุ่ม',
+    ];
+    return parts.isEmpty ? 'ไม่มีกำหนดส่ง' : parts.join(' · ');
+  }
+
+  Future<void> _openCreateSheet() async {
+    final courseId = widget.course.id;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.assignment_add),
+              title: const Text('สร้างใบงานใหม่'),
+              onTap: () => Navigator.of(context).pop('assignment'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.science_rounded),
+              title: const Text('สร้างกิจกรรม PBL'),
+              subtitle: courseId == null
+                  ? const Text('ต้องบันทึกวิชาบนเซิร์ฟเวอร์ก่อน')
+                  : null,
+              enabled: courseId != null,
+              onTap: () => Navigator.of(context).pop('pbl'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'assignment') {
+      openAssignmentFormModal(context, onSave: (_) => _loadAssignments());
+    } else if (action == 'pbl' && courseId != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeacherPblActivityEditorPage(courseId: courseId),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = _assignments.fold<int>(
+      0,
+      (n, a) => n + a.pendingGradeCount,
+    );
+    final drafts = _assignments.where((a) => !a.isPublished).length;
+    final rows = _visible;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // filter chips + create — one row, wraps on narrow phones
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _FilterPill(
+              label: 'ทั้งหมด ${_assignments.length}',
+              active: _filter == 'all',
+              onTap: () => setState(() => _filter = 'all'),
+            ),
+            _FilterPill(
+              label: 'รอตรวจ $pending',
+              active: _filter == 'pending',
+              onTap: () => setState(() => _filter = 'pending'),
+            ),
+            _FilterPill(
+              label: 'ฉบับร่าง $drafts',
+              active: _filter == 'draft',
+              onTap: () => setState(() => _filter = 'draft'),
+            ),
+            FilledButton.icon(
+              onPressed: _openCreateSheet,
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: const Text('สร้างใบงานใหม่'),
-              style: ElevatedButton.styleFrom(
+              label: const Text('สร้าง'),
+              style: FilledButton.styleFrom(
                 backgroundColor: TeacherPalette.primary,
-                foregroundColor: Colors.white,
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 9,
-                ),
+                minimumSize: const Size(0, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                elevation: 0,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         if (_isLoading)
           const Center(
             child: Padding(
@@ -5303,251 +5433,291 @@ class _CourseAssignmentListTabWidgetState
             ),
           )
         else if (_assignments.isEmpty)
+          _EmptyInvite(
+            icon: Icons.assignment_outlined,
+            title: 'ยังไม่มีใบงานในวิชานี้',
+            body: 'สร้างใบงานแรกให้นักเรียนส่งงาน หรือกิจกรรม PBL ที่ผูกข้อมูลเซนเซอร์',
+            action: 'สร้างใบงาน',
+            onAction: _openCreateSheet,
+          )
+        else if (rows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                _filter == 'pending' ? 'ไม่มีงานรอตรวจ' : 'ไม่มีฉบับร่าง',
+                style: const TextStyle(color: TeacherPalette.muted),
+              ),
+            ),
+          )
+        else
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: TeacherPalette.border),
             ),
             child: Column(
               children: [
-                const Icon(
-                  Icons.assignment_outlined,
-                  size: 44,
-                  color: TeacherPalette.muted,
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'ยังไม่มีใบงานในรายวิชานี้',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: TeacherPalette.ink,
+                for (var i = 0; i < rows.length; i++) ...[
+                  _AssignmentRow(
+                    a: rows[i],
+                    meta: _metaLine(rows[i]),
+                    onTap: () => _openRow(rows[i]),
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'กดปุ่ม "+ สร้างใบงานใหม่" ด้านบนเพื่อเริ่มสร้างโจทย์และภารกิจให้นักเรียน',
-                  style: TextStyle(fontSize: 12.5, color: TeacherPalette.muted),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TeacherAssignmentEditorPage(),
-                      ),
-                    ).then((_) => _loadAssignments());
-                  },
-                  icon: const Icon(Icons.add_rounded, size: 16),
-                  label: const Text('สร้างใบงานแรกของวิชา'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: TeacherPalette.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 10,
+                  if (i < rows.length - 1)
+                    const Divider(
+                      height: 1,
+                      indent: 40,
+                      color: Color(0xFFF1F5F9),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
+                ],
               ],
             ),
-          )
-        else
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _assignments.length,
-            itemBuilder: (ctx, idx) {
-              final a = _assignments[idx];
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFA7F3D0)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle_rounded,
-                                size: 13,
-                                color: Color(0xFF047857),
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                'เผยแพร่แล้ว',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF047857),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // "ส่งแล้ว 1/1 คน (100%)" was a constant here;
-                        // list_assignments carries no per-assignment count,
-                        // so nothing is shown until it does.
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      a.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: TeacherPalette.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.access_time_rounded,
-                          size: 14,
-                          color: TeacherPalette.muted,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            // due_at is UTC; the raw toString() showed
-                            // '2026-09-01 02:24:39.686439Z' on the phone
-                            a.dueAt == null
-                                ? 'กำหนดส่ง: ไม่กำหนดวันสิ้นสุด'
-                                : 'กำหนดส่ง: ${_fmtDue(a.dueAt!.toLocal())}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: TeacherPalette.muted,
-                            ),
-                          ),
-                        ),
-                        // The "ผูกเซนเซอร์ AIoT" chip that sat here was shown
-                        // on every assignment unconditionally (no dataset
-                        // info on AssignmentSummary) — removed 2026-09-21.
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            // เดิมสร้าง instructions/rubric/จำนวนส่งงานปลอม
-                            // ทั้งหมดตอนกด "แก้ไขใบงาน" ทับข้อมูลจริงของ
-                            // ใบงานนี้เงียบๆ (a มาจาก AssignmentService.
-                            // listAssignments ซึ่งตอนนี้คืน instructions/
-                            // rubric จริงอยู่แล้ว) ใช้ค่าจริงจาก a แทน
-                            final model = AssignmentModel(
-                              id: a.id,
-                              courseId: widget.course.id ?? '',
-                              title: a.title,
-                              instructions: a.instructions ?? '',
-                              type: 'ใบงานทดลอง',
-                              courseName: widget.course.name,
-                              dueDate: a.dueAt != null
-                                  ? a.dueAt!.toLocal().toString().substring(
-                                      0,
-                                      16,
-                                    )
-                                  : 'ไม่มีกำหนดส่ง',
-                              status: a.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
-                              isGroupWork: a.isGroup,
-                              rubricId: a.rubricId,
-                              rubricTitle:
-                                  a.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
-                              attachedSensorMetrics: const [],
-                              submittedCount: 0,
-                              totalStudents: 0,
-                              updatedAt: a.createdAt != null
-                                  ? 'สร้างเมื่อ ${a.createdAt!.toLocal().toString().substring(0, 10)}'
-                                  : 'ยังไม่มีข้อมูล',
-                            );
-                            openAssignmentFormModal(
-                              context,
-                              assignment: model,
-                              onSave: (_) => _loadAssignments(),
-                            );
-                          },
-                          icon: const Icon(Icons.edit_outlined, size: 15),
-                          label: const Text('แก้ไขใบงาน'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TeacherGradingPage(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.rate_review_outlined,
-                            size: 15,
-                          ),
-                          label: const Text('ตรวจงานและให้คะแนน'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: TeacherPalette.primary,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(0, 36),
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            elevation: 0,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
+          ),
+        if (_assignments.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 8, left: 4),
+            child: Wrap(
+              spacing: 12,
+              children: [
+                _Legend(color: Color(0xFF1D9E75), label: 'เผยแพร่'),
+                _Legend(color: Color(0xFFEF9F27), label: 'ฉบับร่าง'),
+              ],
+            ),
           ),
       ],
     );
   }
+}
+
+String _fmtDueShort(DateTime d) {
+  const m = [
+    'ม.ค.',
+    'ก.พ.',
+    'มี.ค.',
+    'เม.ย.',
+    'พ.ค.',
+    'มิ.ย.',
+    'ก.ค.',
+    'ส.ค.',
+    'ก.ย.',
+    'ต.ค.',
+    'พ.ย.',
+    'ธ.ค.',
+  ];
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.day} ${m[d.month - 1]} ${two(d.hour)}:${two(d.minute)}';
+}
+
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.published});
+  final bool published;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 8,
+    height: 8,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: published ? const Color(0xFF1D9E75) : const Color(0xFFEF9F27),
+    ),
+  );
+}
+
+class _AssignmentRow extends StatelessWidget {
+  const _AssignmentRow({
+    required this.a,
+    required this.meta,
+    required this.onTap,
+  });
+  final AssignmentSummary a;
+  final String meta;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
+        child: Row(
+          children: [
+            _StatusDot(published: a.isPublished),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    a.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: TeacherPalette.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (a.pendingGradeCount > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAEEDA),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${a.pendingGradeCount}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF854F0B),
+                  ),
+                ),
+              ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: TeacherPalette.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(999),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: active ? TeacherPalette.ink : Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active ? TeacherPalette.ink : TeacherPalette.border,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: active ? Colors.white : TeacherPalette.ink,
+        ),
+      ),
+    ),
+  );
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend({required this.color, required this.label});
+  final Color color;
+  final String label;
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+      const SizedBox(width: 4),
+      Text(
+        label,
+        style: const TextStyle(fontSize: 10.5, color: TeacherPalette.muted),
+      ),
+    ],
+  );
+}
+
+/// Empty state: icon, one inviting line, one action — no grey box.
+class _EmptyInvite extends StatelessWidget {
+  const _EmptyInvite({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.action,
+    required this.onAction,
+  });
+  final IconData icon;
+  final String title;
+  final String body;
+  final String action;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
+    child: Column(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: TeacherPalette.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Icon(icon, color: TeacherPalette.primary, size: 26),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: TeacherPalette.ink,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          body,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 12.5,
+            color: TeacherPalette.muted,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 14),
+        FilledButton(
+          onPressed: onAction,
+          style: FilledButton.styleFrom(
+            backgroundColor: TeacherPalette.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Text(action),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Section header used across the course pages: a title on the left and

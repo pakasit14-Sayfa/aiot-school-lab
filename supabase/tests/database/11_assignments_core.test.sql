@@ -2,7 +2,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(19);
 
 insert into packages (id, name, license_type)
 values ('49100000-0000-0000-0000-000000000001', 'Assignments test package', 'perpetual');
@@ -230,6 +230,20 @@ select throws_ok(
   'P0001', 'forbidden',
   'a teacher from another school cannot give feedback on this submission'
 );
+
+-- 20260921010000 — per-assignment counts for the teacher's list row
+select is(
+  (select total_students from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
+  1, 'total_students = enrolled count');
+select is(
+  (select submitted_count from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
+  1, 'submitted_count counts a student once even after resubmitting');
+select is(
+  (select dataset_count from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
+  1, 'dataset_count reflects the dataset pinned in step 5');
+select cmp_ok(
+  (select pending_grade_count from list_assignments('asg-teacher-a-token', (select course_id from created_course)) limit 1),
+  '<=', 1, 'pending_grade_count never exceeds submitted students');
 
 select * from finish();
 rollback;

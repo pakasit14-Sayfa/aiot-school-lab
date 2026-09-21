@@ -42,6 +42,13 @@ class AssignmentSummary {
   final String? rubricTitle;
   final DateTime? createdAt;
 
+  /// 20260921010000 — per-assignment counts for the teacher's list row.
+  /// Zero when the server predates the migration.
+  final int submittedCount;
+  final int pendingGradeCount;
+  final int totalStudents;
+  final int datasetCount;
+
   const AssignmentSummary({
     required this.id,
     required this.type,
@@ -53,6 +60,10 @@ class AssignmentSummary {
     this.rubricId,
     this.rubricTitle,
     this.createdAt,
+    this.submittedCount = 0,
+    this.pendingGradeCount = 0,
+    this.totalStudents = 0,
+    this.datasetCount = 0,
   });
 
   factory AssignmentSummary.fromRow(Map<String, dynamic> row) =>
@@ -71,6 +82,10 @@ class AssignmentSummary {
         createdAt: row['created_at'] == null
             ? null
             : DateTime.parse(row['created_at'] as String).toUtc(),
+        submittedCount: (row['submitted_count'] as num?)?.toInt() ?? 0,
+        pendingGradeCount: (row['pending_grade_count'] as num?)?.toInt() ?? 0,
+        totalStudents: (row['total_students'] as num?)?.toInt() ?? 0,
+        datasetCount: (row['dataset_count'] as num?)?.toInt() ?? 0,
       );
 
   bool get isPublished => status == 'published';
