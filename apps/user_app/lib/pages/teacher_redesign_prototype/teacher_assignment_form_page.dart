@@ -608,7 +608,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       label: 'คำอธิบาย',
       hint: 'อธิบายว่าต้องทำอะไร ส่งอย่างไร',
       accent: SubjectColor.of(widget.courseName).fg,
-      minLines: 3,
+      minLines: 2,
       maxLines: 8,
     ),
     _SectionHead('การส่งงาน'),
@@ -846,21 +846,22 @@ class _FilledFieldState extends State<_FilledField> {
             duration: const Duration(milliseconds: 140),
             curve: Curves.easeOut,
             decoration: BoxDecoration(
-              color: Colors.white,
+              // โฟกัสเปลี่ยนแค่สองอย่าง: ขอบเข้มขึ้นเป็นสีวิชาแบบจาง 65%
+              // และพื้นออกสีวิชาอ่อน ๆ 4% — เงา spread แบบไม่เบลอที่เคยใส่
+              // กลายเป็นกรอบชั้นที่สอง ซ้อนกับ focus ring ของ iOS แล้วดูเละ
+              color: on
+                  ? Color.alphaBlend(
+                      widget.accent.withValues(alpha: 0.04),
+                      Colors.white,
+                    )
+                  : Colors.white,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: on ? widget.accent : const Color(0xFFE3E1EB),
-                width: on ? 1.6 : 1.2,
+                color: on
+                    ? widget.accent.withValues(alpha: 0.65)
+                    : const Color(0xFFE3E1EB),
+                width: 1.2,
               ),
-              boxShadow: on
-                  ? [
-                      BoxShadow(
-                        color: widget.accent.withValues(alpha: 0.12),
-                        blurRadius: 0,
-                        spreadRadius: 3,
-                      ),
-                    ]
-                  : null,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: TextField(
