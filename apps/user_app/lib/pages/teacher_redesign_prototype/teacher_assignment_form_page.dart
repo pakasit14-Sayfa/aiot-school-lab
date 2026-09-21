@@ -884,7 +884,20 @@ class _FilledFieldState extends State<_FilledField> {
                   color: Color(0xFFB9B8C6),
                   fontWeight: FontWeight.w400,
                 ),
+                // ต้องปิดทีละสถานะ: `border` เป็นแค่ค่าสำรอง ส่วน
+                // inputDecorationTheme ของแอป (app_theme.dart) ตั้ง
+                // enabledBorder/focusedBorder ไว้ ซึ่งชนะ `border` เสมอ —
+                // ไม่ปิดตรงนี้ พอโฟกัสจะมีกรอบม่วงหนา 2 ของธีมวาดซ้อนใน
+                // กล่องของเรา กลายเป็นขอบสองชั้น
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                // ธีมตั้ง filled: true + fillColor ขาว ซึ่งจะทับพื้นสีจาง
+                // ตอนโฟกัสของกล่อง
+                filled: false,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
