@@ -1,5 +1,36 @@
 # Work Log
 
+## ✅ Android round 1 (Windows lane) — build ผ่านแล้ว 2026-09-21
+
+**ปิดบล็อกเดิมด้านล่างแล้ว** — Mac ยืนยัน `file_picker 11.0.3` ผ่าน iOS +
+`flutter test` 909/909 (`be3a988`) Windows pull มา rebase เข้า
+`agent/android-round1` แล้วเจอ**บล็อกที่สองต่อทันที** (คนละเรื่องกับ
+compileSdk): `flutter build apk --debug` พังใหม่ที่
+`:app:compileDebugJavaWithJavac` — `GeneratedPluginRegistrant.java` หา
+`FilePickerPlugin` class ไม่เจอ ทั้งที่ไฟล์ `.kt` มีอยู่จริงใน pub cache
+
+**สาเหตุจริงรอบสอง**: `file_picker 11.0.3` เช็คว่า AGP ≥ 9 แล้ว**ตั้งใจไม่
+apply `org.jetbrains.kotlin.android` เอง** (คาดว่า Flutter's built-in
+Kotlin จะคอมไพล์ `.kt` ให้แทน) แต่โปรเจกต์นี้ตั้ง
+`android/gradle.properties`: `android.builtInKotlin=false` ไว้ (เปิดแล้ว
+พังคนละแบบ — `shared_preferences_android 2.4.13` ยัง apply
+`org.jetbrains.kotlin.android` เองแบบเก่าไม่มีเงื่อนไข AGP9 ชนกับ AGP9's
+built-in Kotlin ทันที) → ผลคือไม่มีอะไรคอมไพล์ `.kt` ของ `file_picker`
+เลยทั้งสองทาง
+
+**ทางแก้**: เก็บ `builtInKotlin=false` ไว้เหมือนเดิม (ไม่ไปกระทบ
+`shared_preferences_android`) แล้ว apply Kotlin plugin **เฉพาะโมดูล
+`file_picker`** เองจาก `android/build.gradle.kts` (root) ผ่าน `subprojects`
+block + ตั้ง `jvmTarget = JVM_17` ให้ตรงกับ Java compile ของโมดูลนั้น (ค่า
+default JDK 21 ของเครื่องชนกับ Java 17 ที่ AGP บังคับไม่งั้น) — Android-only
+ทั้งหมด ไม่แตะ `pubspec.yaml`/iOS เลย `flutter build apk --debug` **ผ่านแล้ว**
+(`app-debug.apk`) commit อยู่บน `agent/android-round1`
+
+ต่อไป: ไล่ §2–§4 ของใบสั่งงาน (สร้าง emulator, ล็อกอิน, ไล่ตรวจหน้าจอ 3 บทบาท)
+
+<details>
+<summary>บล็อกเดิม (ปิดแล้ว) — file_picker compileSdk 34 vs 36</summary>
+
 ## 🔴 Android round 1 (Windows lane) — บล็อกอยู่ 2026-09-21
 
 ทำตาม `BRIEF_ANDROID_ROUND1_WINDOWS.md` บน branch `agent/android-round1`
@@ -41,6 +72,8 @@ iOS build แล้วค่อยอัปเกรดพร้อมกัน�
 Branch `agent/android-round1` มี commit เดียวคือ `android/app/build.gradle.kts`
 ตั้ง `compileSdk = 36` ค้างไว้ (Android-only, ไม่กระทบ iOS/pubspec) — คงไว้
 เผื่อใช้ต่อเมื่อ `file_picker` อัปเกรดจริง แต่ยังไม่พอจะ build ผ่านลำพัง
+
+</details>
 
 ## Latest audit — 2026-09-09
 
