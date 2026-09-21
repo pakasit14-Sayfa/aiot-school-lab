@@ -689,7 +689,7 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       final pick =
           widget.pickFiles ??
           () async =>
-              (await FilePicker.platform.pickFiles(withData: true))?.files;
+              (await FilePicker.pickFiles(withData: true))?.files;
       final files = await pick();
       if (files == null) return;
       setState(() => _pickedFiles.addAll(files));

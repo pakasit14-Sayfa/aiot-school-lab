@@ -17,7 +17,7 @@ class _MeetingAttachmentDialogState extends State<MeetingAttachmentDialog> {
   String? error;
   Future<void> pick() async {
     try {
-      final result = await FilePicker.platform.pickFiles(withData: true);
+      final result = await FilePicker.pickFiles(withData: true);
       if (result != null && mounted) {
         setState(() {
           file = result.files.single;
