@@ -232,7 +232,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
 
   Future<void> _pickImageForQuestion(_ExamQuestionMock question) async {
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.image,
         withData: true,
       );
@@ -266,7 +266,7 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
 
   Future<void> _pickVideoForQuestion(_ExamQuestionMock question) async {
     try {
-      final result = await FilePicker.pickFiles(
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.video,
         withData: true,
       );

@@ -1377,7 +1377,7 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
 
     Future<void> pickFiles(StateSetter setModalState) async {
       try {
-        final result = await FilePicker.pickFiles(
+        final result = await FilePicker.platform.pickFiles(
           allowMultiple: true,
           withData: true,
         );

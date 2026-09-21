@@ -151,7 +151,7 @@ class _TeacherCourseDetailPageState extends State<TeacherCourseDetailPage> {
   }
 
   Future<void> uploadFile() async {
-    final result = await FilePicker.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(withData: true);
     final picked = result?.files.single;
     if (picked == null || picked.bytes == null) return;
 

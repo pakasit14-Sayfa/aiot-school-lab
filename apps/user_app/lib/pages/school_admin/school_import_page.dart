@@ -171,7 +171,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
 
   Future<void> _pickFile() async {
     if (_isLoadingSource) return;
-    final FilePickerResult? result = await FilePicker.pickFiles(
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
       withData: true,
       type: FileType.custom,
       allowedExtensions: const ['xlsx', 'xls', 'csv'],
@@ -220,7 +220,7 @@ class _SchoolImportPageState extends State<SchoolImportPage> {
 
   void _downloadTemplate() {
     final bytes = SchoolImportService.buildTemplateCsv(_dataType);
-    FilePicker.saveFile(
+    FilePicker.platform.saveFile(
       fileName: 'แบบฟอร์มนำเข้า_$_dataType.csv',
       bytes: bytes,
     );

@@ -798,7 +798,7 @@ class _UploadFileSheetState extends State<_UploadFileSheet> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) return;
     setState(() => _pickedFile = result.files.first);
   }

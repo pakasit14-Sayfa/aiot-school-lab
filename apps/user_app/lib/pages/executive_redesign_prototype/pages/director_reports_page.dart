@@ -1581,7 +1581,7 @@ class _SubmitReportDialogState extends State<_SubmitReportDialog> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.pickFiles(withData: true);
+    final result = await FilePicker.platform.pickFiles(withData: true);
     final file = result?.files.singleOrNull;
     if (file == null || file.bytes == null) return;
     setState(() {

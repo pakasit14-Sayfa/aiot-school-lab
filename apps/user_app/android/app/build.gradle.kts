@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.diliontech.aiotschoollab"
-    compileSdk = 36 // flutter.compileSdkVersion is below 36, which flutter_plugin_android_lifecycle/file_picker now require
+    compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
