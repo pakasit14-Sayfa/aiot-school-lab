@@ -354,6 +354,7 @@ class _TeacherSubmissionRosterPageState
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'ตรวจงาน: ${widget.worksheetTitle}',
+      onRefresh: _load,
       activeMenuLabel: 'ตรวจงาน',
       builder: (context, isDesktop) {
         if (_loading) {

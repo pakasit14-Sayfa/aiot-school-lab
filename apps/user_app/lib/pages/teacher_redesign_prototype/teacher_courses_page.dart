@@ -600,6 +600,7 @@ class _TeacherCoursesPageState extends State<TeacherCoursesPage> {
     return TeacherMockPageShell(
       title: 'จัดการรายวิชาที่สอน',
       activeMenuLabel: 'รายวิชา',
+      onRefresh: _loadRealCourses,
       actions: [
         // D6 (DECISIONS_2026-09-18): courses come from the admin's timetable.
         // create_course rejects teachers since 20260919000000, so the

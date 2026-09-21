@@ -321,7 +321,9 @@ class _TeacherExamBuilderPageState extends State<TeacherExamBuilderPage> {
     }
     if (_questions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ')),
+        const SnackBar(
+          content: Text('ยังไม่มีโจทย์ในชุดข้อสอบ กรุณาเพิ่มอย่างน้อย 1 ข้อ'),
+        ),
       );
       return;
     }

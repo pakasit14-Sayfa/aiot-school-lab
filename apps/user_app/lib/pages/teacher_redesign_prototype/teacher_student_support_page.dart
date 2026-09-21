@@ -31,9 +31,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
       _loadError = null;
     });
     try {
-      final data = await StudentSupportService.listCases(
-        status: _statusFilter,
-      );
+      final data = await StudentSupportService.listCases(status: _statusFilter);
       if (mounted) {
         setState(() {
           _cases = data;
@@ -60,10 +58,8 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SupportCaseDetailSheet(
-        item: item,
-        onChanged: _loadCases,
-      ),
+      builder: (_) =>
+          _SupportCaseDetailSheet(item: item, onChanged: _loadCases),
     );
   }
 
@@ -396,6 +392,7 @@ class _TeacherStudentSupportPageState extends State<TeacherStudentSupportPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'นักเรียนที่ต้องการการสนับสนุน',
+      onRefresh: _loadCases,
       activeMenuLabel: 'ช่วยเหลือนักเรียน',
       actions: [
         Padding(
@@ -675,10 +672,7 @@ class _CaseCard extends StatelessWidget {
 }
 
 class _SupportCaseDetailSheet extends StatefulWidget {
-  const _SupportCaseDetailSheet({
-    required this.item,
-    required this.onChanged,
-  });
+  const _SupportCaseDetailSheet({required this.item, required this.onChanged});
 
   final StudentSupportCase item;
   final VoidCallback onChanged;

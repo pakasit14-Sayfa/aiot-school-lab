@@ -108,7 +108,9 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
               return;
             }
             if (start == null) {
-              setSheet(() => error = 'กรอกวันที่เป็น ปี-เดือน-วัน เช่น 2026-09-20');
+              setSheet(
+                () => error = 'กรอกวันที่เป็น ปี-เดือน-วัน เช่น 2026-09-20',
+              );
               return;
             }
             if (end != null && end.isBefore(start)) {
@@ -155,7 +157,13 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
           }
 
           return _OwnControllers(
-            controllers: [subjectCtrl, startCtrl, endCtrl, locationCtrl, detailCtrl],
+            controllers: [
+              subjectCtrl,
+              startCtrl,
+              endCtrl,
+              locationCtrl,
+              detailCtrl,
+            ],
             child: Padding(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
@@ -173,12 +181,17 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
                     children: [
                       const Text(
                         'ยื่นคำขอ',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         value: type,
-                        decoration: const InputDecoration(labelText: 'ประเภทคำขอ'),
+                        decoration: const InputDecoration(
+                          labelText: 'ประเภทคำขอ',
+                        ),
                         items: const [
                           DropdownMenuItem(
                             value: 'meet_request',
@@ -217,14 +230,18 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
                         const SizedBox(height: 10),
                         TextField(
                           controller: locationCtrl,
-                          decoration: const InputDecoration(labelText: 'สถานที่'),
+                          decoration: const InputDecoration(
+                            labelText: 'สถานที่',
+                          ),
                         ),
                       ],
                       const SizedBox(height: 10),
                       TextField(
                         controller: detailCtrl,
                         maxLines: 3,
-                        decoration: const InputDecoration(labelText: 'รายละเอียด (ถ้ามี)'),
+                        decoration: const InputDecoration(
+                          labelText: 'รายละเอียด (ถ้ามี)',
+                        ),
                       ),
                       if (error != null) ...[
                         const SizedBox(height: 10),
@@ -289,7 +306,9 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยกเลิกคำขอแล้ว (ยืนยันกับระบบเรียบร้อย)')),
+        const SnackBar(
+          content: Text('ยกเลิกคำขอแล้ว (ยืนยันกับระบบเรียบร้อย)'),
+        ),
       );
     } catch (e) {
       debugPrint('TeacherStaffRequestsCard cancel failed: $e');
@@ -316,7 +335,10 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
           const Expanded(
             child: Text(
               'โหลดคำขอของคุณไม่สำเร็จ',
-              style: TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: Color(0xFFB91C1C),
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           TextButton(onPressed: _load, child: const Text('ลองใหม่')),
@@ -349,14 +371,20 @@ class _TeacherStaffRequestsCardState extends State<TeacherStaffRequestsCard> {
                         Text(
                           '${_fmt(r.date)} · ${_statusLabels[r.status] ?? r.status}'
                           '${r.execNote != null && r.execNote!.isNotEmpty ? ' · ${r.execNote}' : ''}',
-                          style: const TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: TeacherPalette.muted,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  if (r.status == 'pending_head' || r.status == 'pending_executive')
+                  if (r.status == 'pending_head' ||
+                      r.status == 'pending_executive')
                     TextButton(
-                      onPressed: _cancelling.contains(r.id) ? null : () => _cancel(r),
+                      onPressed: _cancelling.contains(r.id)
+                          ? null
+                          : () => _cancel(r),
                       child: const Text('ยกเลิก'),
                     ),
                 ],

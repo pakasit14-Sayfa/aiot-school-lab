@@ -246,9 +246,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: TeacherPalette.red,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: TeacherPalette.red),
             child: const Text('ลบ'),
           ),
         ],
@@ -325,12 +323,10 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
                     group: _wiringGroups[i],
                     onStatusChange: (status) =>
                         _changeGroupStatus(_wiringGroups[i], status),
-                    onManageMembers: () =>
-                        _openMembersSheet(_wiringGroups[i]),
+                    onManageMembers: () => _openMembersSheet(_wiringGroups[i]),
                     onDelete: () => _deleteGroup(_wiringGroups[i]),
                   ),
-                  if (i != _wiringGroups.length - 1)
-                    const SizedBox(height: 10),
+                  if (i != _wiringGroups.length - 1) const SizedBox(height: 10),
                 ],
               ],
             ),
@@ -341,6 +337,7 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'AIoT Lab Control',
+      onRefresh: _loadLabData,
       activeMenuLabel: 'Wiring Lab',
       builder: (context, isDesktop) {
         if (_isLoading) {
@@ -440,7 +437,8 @@ class _TeacherAiotLabPageState extends State<TeacherAiotLabPage> {
       final prevTs = prev == null
           ? null
           : DateTime.tryParse(prev['ts'] as String? ?? '');
-      if (prev == null || (ts != null && (prevTs == null || ts.isAfter(prevTs)))) {
+      if (prev == null ||
+          (ts != null && (prevTs == null || ts.isAfter(prevTs)))) {
         byMetric[metric] = r;
       }
     }
@@ -1301,7 +1299,10 @@ class _CreateWiringGroupDialogState extends State<_CreateWiringGroupDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       title: const Text(
         'สร้างกลุ่มต่อสาย',
-        style: TextStyle(fontWeight: FontWeight.w900, color: TeacherPalette.ink),
+        style: TextStyle(
+          fontWeight: FontWeight.w900,
+          color: TeacherPalette.ink,
+        ),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1333,7 +1334,9 @@ class _CreateWiringGroupDialogState extends State<_CreateWiringGroupDialog> {
             if (_kitCode == null || name.isEmpty) return;
             Navigator.pop(context, (kitCode: _kitCode!, name: name));
           },
-          style: FilledButton.styleFrom(backgroundColor: TeacherPalette.primary),
+          style: FilledButton.styleFrom(
+            backgroundColor: TeacherPalette.primary,
+          ),
           child: const Text('สร้าง'),
         ),
       ],
@@ -1394,7 +1397,9 @@ class _WiringGroupMembersSheetState extends State<_WiringGroupMembersSheet> {
     } catch (e) {
       // เดิมเงียบสนิท — ครูกดเพิ่ม/เอานักเรียนออกจากกลุ่มแล้วชีตตอบสนอง
       // เหมือนสำเร็จ ทั้งที่ RPC พัง กว่าจะรู้ก็ตอนโหลดใหม่หลังปิดชีต
-      debugPrint('teacher_aiot_lab_page: toggle wiring group member failed: $e');
+      debugPrint(
+        'teacher_aiot_lab_page: toggle wiring group member failed: $e',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

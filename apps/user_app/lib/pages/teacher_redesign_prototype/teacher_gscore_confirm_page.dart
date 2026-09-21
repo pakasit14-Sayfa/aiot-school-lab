@@ -92,6 +92,7 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'ยืนยันคะแนน G-Score',
+      onRefresh: _load,
       activeMenuLabel: 'ยืนยัน G-Score',
       builder: (context, isDesktop) {
         return Column(
@@ -157,7 +158,11 @@ class _TeacherGScoreConfirmPageState extends State<TeacherGScoreConfirmPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.stars_outlined, size: 56, color: Colors.amber.shade300),
+              Icon(
+                Icons.stars_outlined,
+                size: 56,
+                color: Colors.amber.shade300,
+              ),
               const SizedBox(height: 16),
               const Text(
                 'ไม่มีรายการรออนุมัติในตอนนี้',

@@ -24,7 +24,8 @@ class TeacherLeaveApprovalPage extends StatefulWidget {
   final Future<String> Function(String leaveId)? getAttachmentDownloadUrl;
 
   @override
-  State<TeacherLeaveApprovalPage> createState() => _TeacherLeaveApprovalPageState();
+  State<TeacherLeaveApprovalPage> createState() =>
+      _TeacherLeaveApprovalPageState();
 }
 
 class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
@@ -45,7 +46,8 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
     });
     try {
       final loadRequests =
-          widget.listPendingLeaveRequests ?? LeaveService.listPendingLeaveRequests;
+          widget.listPendingLeaveRequests ??
+          LeaveService.listPendingLeaveRequests;
       final items = await loadRequests();
       if (!mounted) return;
       setState(() {
@@ -63,16 +65,25 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
 
   Future<void> _reviewRequest(String leaveId, String status) async {
     try {
-      final review = widget.reviewLeaveRequest ?? LeaveService.reviewLeaveRequest;
+      final review =
+          widget.reviewLeaveRequest ?? LeaveService.reviewLeaveRequest;
       await review(
         leaveId: leaveId,
         status: status,
-        reviewNote: status == 'approved' ? 'อนุมัติผ่านแอป' : 'ไม่อนุมัติผ่านแอป',
+        reviewNote: status == 'approved'
+            ? 'อนุมัติผ่านแอป'
+            : 'ไม่อนุมัติผ่านแอป',
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(status == 'approved' ? 'อนุมัติการลาเรียบร้อย' : 'ปฏิเสธการลาเรียบร้อย')),
+        SnackBar(
+          content: Text(
+            status == 'approved'
+                ? 'อนุมัติการลาเรียบร้อย'
+                : 'ปฏิเสธการลาเรียบร้อย',
+          ),
+        ),
       );
 
       _fetchRequests();
@@ -87,7 +98,8 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
   Future<void> _viewAttachment(String leaveId) async {
     try {
       final getUrl =
-          widget.getAttachmentDownloadUrl ?? LeaveService.getAttachmentDownloadUrl;
+          widget.getAttachmentDownloadUrl ??
+          LeaveService.getAttachmentDownloadUrl;
       final url = await getUrl(leaveId);
       if (!mounted) return;
       showDialog(
@@ -110,9 +122,9 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
     }
   }
 
@@ -120,13 +132,16 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
     final studentName = req.studentName;
 
     final isSick = req.leaveType == 'sick';
-    final typeText = isSick ? 'ลาป่วย' : (req.leaveType == 'personal' ? 'ลากิจ' : 'อื่นๆ');
+    final typeText = isSick
+        ? 'ลาป่วย'
+        : (req.leaveType == 'personal' ? 'ลากิจ' : 'อื่นๆ');
     final typeColor = isSick ? Colors.red : Colors.orange;
 
     final startDate = req.startDate;
     final endDate = req.endDate;
 
-    final dateStr = (startDate.day == endDate.day && startDate.month == endDate.month)
+    final dateStr =
+        (startDate.day == endDate.day && startDate.month == endDate.month)
         ? '${startDate.day}/${startDate.month}/${startDate.year}'
         : '${startDate.day}/${startDate.month} - ${endDate.day}/${endDate.month}/${endDate.year}';
 
@@ -147,8 +162,13 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
             Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: TeacherPalette.primary.withValues(alpha: 0.1),
-                  child: const Icon(Icons.person, color: TeacherPalette.primary),
+                  backgroundColor: TeacherPalette.primary.withValues(
+                    alpha: 0.1,
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: TeacherPalette.primary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -157,24 +177,37 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                     children: [
                       Text(
                         studentName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
                       ),
                       Text(
                         'วันที่ยื่น: ${req.createdAt.toLocal().toString().split(' ')[0]}',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: typeColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     typeText,
-                    style: TextStyle(color: typeColor, fontWeight: FontWeight.w700, fontSize: 12),
+                    style: TextStyle(
+                      color: typeColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -191,9 +224,16 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 16, color: TeacherPalette.primary),
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: TeacherPalette.primary,
+                      ),
                       const SizedBox(width: 8),
-                      Text('วันที่ลา: $dateStr', style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        'วันที่ลา: $dateStr',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -213,9 +253,16 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                         ),
                         child: Row(
                           children: const [
-                            Icon(Icons.attach_file_rounded, size: 18, color: TeacherPalette.primary),
+                            Icon(
+                              Icons.attach_file_rounded,
+                              size: 18,
+                              color: TeacherPalette.primary,
+                            ),
                             SizedBox(width: 8),
-                            Text('ดูไฟล์แนบ', style: TextStyle(fontWeight: FontWeight.w600)),
+                            Text(
+                              'ดูไฟล์แนบ',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
                           ],
                         ),
                       ),
@@ -233,7 +280,9 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.red,
                       side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: const Text('ไม่อนุมัติ'),
                   ),
@@ -245,7 +294,9 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       elevation: 0,
                     ),
                     child: const Text('อนุมัติ'),
@@ -263,6 +314,7 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'กล่องอนุมัติใบลา',
+      onRefresh: _fetchRequests,
       activeMenuLabel: 'อนุมัติใบลา',
       builder: (context, isDesktop) {
         if (_isLoading) {
@@ -275,11 +327,22 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade300),
+                  Icon(
+                    Icons.error_outline_rounded,
+                    size: 48,
+                    color: Colors.red.shade300,
+                  ),
                   const SizedBox(height: 12),
-                  Text(_loadError!, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
+                  Text(
+                    _loadError!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
                   const SizedBox(height: 12),
-                  TextButton(onPressed: _fetchRequests, child: const Text('ลองใหม่')),
+                  TextButton(
+                    onPressed: _fetchRequests,
+                    child: const Text('ลองใหม่'),
+                  ),
                 ],
               ),
             ),
@@ -290,9 +353,16 @@ class _TeacherLeaveApprovalPageState extends State<TeacherLeaveApprovalPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.check_circle_outline, size: 64, color: Colors.grey.shade400),
+                Icon(
+                  Icons.check_circle_outline,
+                  size: 64,
+                  color: Colors.grey.shade400,
+                ),
                 const SizedBox(height: 16),
-                Text('ไม่มีคำขอลาเรียนรอดำเนินการ', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                Text(
+                  'ไม่มีคำขอลาเรียนรอดำเนินการ',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+                ),
               ],
             ),
           );

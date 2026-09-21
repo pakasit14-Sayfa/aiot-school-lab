@@ -118,6 +118,7 @@ class _TeacherStudentsPageState extends State<TeacherStudentsPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'นักเรียน',
+      onRefresh: _load,
       activeMenuLabel: 'นักเรียน',
       builder: (context, isDesktop) {
         if (_loading) {

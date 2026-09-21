@@ -194,6 +194,7 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'ตรวจงาน',
+      onRefresh: _load,
       activeMenuLabel: 'ตรวจงาน',
       actions: [
         IconButton(

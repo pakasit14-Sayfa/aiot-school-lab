@@ -22,7 +22,8 @@ class TeacherProfilePage extends StatefulWidget {
   final Future<List<CourseSummary>> Function()? loadCourses;
   final Future<List<TermOption>> Function()? loadTerms;
   final Future<List<AiotLabDeviceItem>> Function()? loadDevices;
-  final Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents;
+  final Future<List<CourseStudent>> Function(String courseId)?
+  loadCourseStudents;
   final Future<void> Function(String name)? updateName;
   final PasswordChanger? changePassword;
   final Future<void> Function()? signOut;
@@ -128,9 +129,11 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
               try {
                 final update =
                     widget.updateName ??
-                    (String n) => AuthService.updateProfile(uid: user.uid, name: n);
+                    (String n) =>
+                        AuthService.updateProfile(uid: user.uid, name: n);
                 await update(name);
-                if (dialogContext.mounted) Navigator.of(dialogContext).pop(true);
+                if (dialogContext.mounted)
+                  Navigator.of(dialogContext).pop(true);
               } catch (e) {
                 debugPrint('TeacherProfilePage: update_user_profile ล้ม — $e');
                 if (!dialogContext.mounted) return;
@@ -153,7 +156,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
                       TextField(
                         controller: ctrl,
                         autofocus: true,
-                        decoration: const InputDecoration(labelText: 'ชื่อ-นามสกุล'),
+                        decoration: const InputDecoration(
+                          labelText: 'ชื่อ-นามสกุล',
+                        ),
                       ),
                       if (error != null) ...[
                         const SizedBox(height: 10),
@@ -192,9 +197,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     );
     if (saved != true || !mounted) return;
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('บันทึกชื่อแล้ว')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('บันทึกชื่อแล้ว')));
   }
 
   Future<void> _changePassword() async {
@@ -205,7 +210,9 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
     if (!changed || !mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ'),
+        content: Text(
+          'เปลี่ยนรหัสผ่านแล้ว — เครื่องอื่นที่ล็อกอินอยู่ถูกออกจากระบบ',
+        ),
       ),
     );
   }
@@ -278,6 +285,7 @@ class _TeacherProfilePageState extends State<TeacherProfilePage> {
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'โปรไฟล์ครู',
+      onRefresh: _loadProfileData,
       builder: (context, isDesktop) {
         return isDesktop
             ? _DesktopLayout(
@@ -335,7 +343,11 @@ class _MobileLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _IdentityCard(courses: courses, totalStudents: totalStudents, hasError: hasError),
+        _IdentityCard(
+          courses: courses,
+          totalStudents: totalStudents,
+          hasError: hasError,
+        ),
         const SizedBox(height: 14),
         _MetricGrid(
           isLoading: isLoading,

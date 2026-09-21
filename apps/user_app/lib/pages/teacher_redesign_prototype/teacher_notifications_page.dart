@@ -205,6 +205,7 @@ class _TeacherNotificationsPageState extends State<TeacherNotificationsPage> {
 
     return TeacherMockPageShell(
       title: 'ศูนย์แจ้งเตือนรวม (Notifications)',
+      onRefresh: _loadRealNotifications,
       activeMenuLabel: 'แจ้งเตือน',
       actions: [
         TextButton.icon(

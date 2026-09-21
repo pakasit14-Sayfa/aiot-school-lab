@@ -34,10 +34,7 @@ class TeacherSearchInput extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
         ),
         child: TextField(
           controller: controller,
@@ -279,12 +276,21 @@ class TeacherMockPageShell extends StatefulWidget {
     required this.builder,
     this.actions,
     this.activeMenuLabel,
+    this.onRefresh,
     super.key,
   });
 
   final String title;
   final Widget Function(BuildContext context, bool isDesktop) builder;
   final List<Widget>? actions;
+
+  /// Reloads the page's data. The owner's rule (2026-09-21): no manual
+  /// "รีเฟรช" buttons — data refreshes itself. When set, the shell
+  /// (1) offers pull-to-refresh on phones, (2) reloads when the app comes
+  /// back to the foreground, and (3) reloads when another route pushed on
+  /// top of this page is popped (an editor, a detail page) — so whatever
+  /// was changed there shows up here without a button.
+  final Future<void> Function()? onRefresh;
 
   /// ชื่อเมนู sidebar ที่ตรงกับหน้านี้ (เช่น 'รายวิชา', 'นักเรียน') — ใช้
   /// ไฮไลต์เมนูที่ถูกต้องใน Drawer ให้ทำงานเหมือนหน้าแดชบอร์ด แทนที่จะ
@@ -295,7 +301,52 @@ class TeacherMockPageShell extends StatefulWidget {
   State<TeacherMockPageShell> createState() => _TeacherMockPageShellState();
 }
 
-class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
+class _TeacherMockPageShellState extends State<TeacherMockPageShell>
+    with WidgetsBindingObserver {
+  ModalRoute<dynamic>? _route;
+  bool _wasCurrent = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _route = ModalRoute.of(context);
+    // Cheap "did a route on top of me just pop?" without a RouteObserver:
+    // ModalRoute.isCurrent flips while a page is covered, and the route's
+    // animation notifies dependents on every transition.
+    final isCurrent = _route?.isCurrent ?? true;
+    if (isCurrent && !_wasCurrent) _refresh();
+    _wasCurrent = isCurrent;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && (_route?.isCurrent ?? true)) {
+      _refresh();
+    }
+  }
+
+  Future<void> _refresh() async {
+    final fn = widget.onRefresh;
+    if (fn == null || !mounted) return;
+    try {
+      await fn();
+    } catch (e) {
+      debugPrint('TeacherMockPageShell(${widget.title}): refresh failed — $e');
+    }
+  }
+
   // null = ให้จอกว้างขยาย sidebar ไว้เสมอ, true/false = ครูกดปุ่มเก็บ/
   // ขยายเองแล้ว จำค่านั้นไว้ทับ default จนกว่าจะกดสลับอีกที — พฤติกรรม
   // เดียวกับปุ่มเก็บ/ขยาย sidebar ของหน้าแดชบอร์ด
@@ -321,17 +372,26 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
             ? 1320.0
             : (isWideDesktop ? 1080.0 : 640.0);
 
-        final content = Align(
+        Widget content = Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: contentMaxWidth),
             child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               child: widget.builder(context, isWideDesktop),
             ),
           ),
         );
+        if (widget.onRefresh != null && !isWideDesktop) {
+          content = RefreshIndicator(
+            onRefresh: _refresh,
+            color: TeacherPalette.primary,
+            child: content,
+          );
+        }
 
         final canPop = Navigator.canPop(context);
 
@@ -361,16 +421,25 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: TeacherPalette.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: TeacherPalette.primary.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: TeacherPalette.primary.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.school_rounded, size: 12, color: TeacherPalette.primary),
+                          Icon(
+                            Icons.school_rounded,
+                            size: 12,
+                            color: TeacherPalette.primary,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'ครูผู้สอน',
@@ -423,7 +492,9 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
 
         return Scaffold(
           backgroundColor: TeacherPalette.page,
-          drawer: canPop ? null : TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
+          drawer: canPop
+              ? null
+              : TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,

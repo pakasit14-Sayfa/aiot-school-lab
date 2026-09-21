@@ -374,6 +374,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
       backgroundColor: TeacherPalette.card,
       body: TeacherMockPageShell(
         title: 'คลังข้อสอบ',
+        onRefresh: _loadQuestionBank,
         activeMenuLabel: 'คลังข้อสอบ',
         builder: (context, isDesktop) {
           if (_isLoading) {
@@ -408,8 +409,7 @@ class _TeacherQuestionBankPageState extends State<TeacherQuestionBankPage> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: FilledButton.icon(
-                  onPressed: () =>
-                      Navigator.pop(context, _selectedQuestions),
+                  onPressed: () => Navigator.pop(context, _selectedQuestions),
                   icon: const Icon(Icons.check_circle_rounded, size: 18),
                   label: Text('ยืนยันการเลือก ($selectedCount ข้อ)'),
                   style: FilledButton.styleFrom(

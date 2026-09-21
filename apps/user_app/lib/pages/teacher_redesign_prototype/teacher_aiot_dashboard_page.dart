@@ -176,8 +176,7 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
       final getSensors =
           widget.getAllDeviceSensors ?? RealtimeService.getAllDeviceSensors;
       final getRelayStates =
-          widget.listDeviceRelayStates ??
-          RealtimeService.listDeviceRelayStates;
+          widget.listDeviceRelayStates ?? RealtimeService.listDeviceRelayStates;
       final list = await listDevices();
       if (!mounted) return;
       final sensorsByDevice = await getSensors();
@@ -343,7 +342,12 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
     }
   }
 
-  static const _exportMetricKeys = ['pm25', 'temperature', 'humidity', 'light_lux'];
+  static const _exportMetricKeys = [
+    'pm25',
+    'temperature',
+    'humidity',
+    'light_lux',
+  ];
   static const _exportMetricLabels = {
     'pm25': 'ฝุ่น PM2.5',
     'temperature': 'อุณหภูมิ',
@@ -392,7 +396,9 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
     if (!mounted) return;
     if (rows.length == 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ไม่พบข้อมูลเซนเซอร์จริงในช่วงเวลาที่เลือก')),
+        const SnackBar(
+          content: Text('ไม่พบข้อมูลเซนเซอร์จริงในช่วงเวลาที่เลือก'),
+        ),
       );
       return;
     }
@@ -592,6 +598,11 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
 
     return TeacherMockPageShell(
       title: 'ศูนย์เฝ้าระวังและจัดการ AIoT',
+      onRefresh: () async {
+        await _loadRealDevices();
+        await _loadRealThresholds();
+        await _loadRealAlerts();
+      },
       activeMenuLabel: 'AIoT Dashboard',
       actions: [
         ElevatedButton.icon(
@@ -995,96 +1006,96 @@ class _TeacherAiotDashboardPageState extends State<TeacherAiotDashboardPage>
                 )
               else
                 Column(
-                children: _thresholds.map((th) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                th.metricName,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: TeacherPalette.ink,
+                  children: _thresholds.map((th) {
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  th.metricName,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: TeacherPalette.ink,
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                'หน่วย: ${th.unit}',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  color: TeacherPalette.muted,
+                                Text(
+                                  'หน่วย: ${th.unit}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: TeacherPalette.muted,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: '${th.minThreshold}',
-                                  onChanged: (v) {
-                                    final val = double.tryParse(v);
-                                    if (val != null) th.minThreshold = val;
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: 'ค่าต่ำสุด',
-                                    isDense: true,
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                          Expanded(
+                            flex: 3,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    initialValue: '${th.minThreshold}',
+                                    onChanged: (v) {
+                                      final val = double.tryParse(v);
+                                      if (val != null) th.minThreshold = val;
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'ค่าต่ำสุด',
+                                      isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextFormField(
-                                  initialValue: '${th.maxThreshold}',
-                                  onChanged: (v) {
-                                    final val = double.tryParse(v);
-                                    if (val != null) th.maxThreshold = val;
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: 'ค่าสูงสุด',
-                                    isDense: true,
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextFormField(
+                                    initialValue: '${th.maxThreshold}',
+                                    onChanged: (v) {
+                                      final val = double.tryParse(v);
+                                      if (val != null) th.maxThreshold = val;
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'ค่าสูงสุด',
+                                      isDense: true,
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 16),
-                        Switch(
-                          value: th.isAlertEnabled,
-                          activeColor: TeacherPalette.primary,
-                          onChanged: (val) =>
-                              setState(() => th.isAlertEnabled = val),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+                          const SizedBox(width: 16),
+                          Switch(
+                            value: th.isAlertEnabled,
+                            activeColor: TeacherPalette.primary,
+                            onChanged: (val) =>
+                                setState(() => th.isAlertEnabled = val),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,

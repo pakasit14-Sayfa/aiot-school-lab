@@ -73,7 +73,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
   Future<void> _openAddScheduleDialog() async {
     if (_courses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('คุณยังไม่มีรายวิชาที่สอน กรุณาสร้างวิชาก่อน')),
+        const SnackBar(
+          content: Text('คุณยังไม่มีรายวิชาที่สอน กรุณาสร้างวิชาก่อน'),
+        ),
       );
       return;
     }
@@ -107,9 +109,15 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
               ),
               title: const Row(
                 children: [
-                  Icon(Icons.add_circle_outline_rounded, color: TeacherPalette.primary),
+                  Icon(
+                    Icons.add_circle_outline_rounded,
+                    color: TeacherPalette.primary,
+                  ),
                   SizedBox(width: 8),
-                  Text('เพิ่มคาบเรียนในตาราง', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    'เพิ่มคาบเรียนในตาราง',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
@@ -117,7 +125,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('รายวิชา:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text(
+                      'รายวิชา:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       value: selectedCourse,
@@ -125,21 +139,31 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       items: _courses.map((c) {
                         return DropdownMenuItem(
                           value: c.id,
-                          child: Text('${c.subjectName} (${c.gradeLevel ?? "ไม่ระบุชั้น"})'),
+                          child: Text(
+                            '${c.subjectName} (${c.gradeLevel ?? "ไม่ระบุชั้น"})',
+                          ),
                         );
                       }).toList(),
                       onChanged: (val) {
                         if (val != null) {
                           setDialogState(() {
                             selectedCourse = val;
-                            final course = _courses.firstWhere((c) => c.id == val);
-                            if (course.room != null && roomController.text.isEmpty) {
+                            final course = _courses.firstWhere(
+                              (c) => c.id == val,
+                            );
+                            if (course.room != null &&
+                                roomController.text.isEmpty) {
                               roomController.text = course.room!;
                             }
                           });
@@ -148,15 +172,26 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                     ),
                     const SizedBox(height: 14),
 
-                    const Text('วันในสัปดาห์:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text(
+                      'วันในสัปดาห์:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<int>(
                       value: selectedDay,
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       items: List.generate(7, (idx) {
                         return DropdownMenuItem(
@@ -165,7 +200,8 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         );
                       }),
                       onChanged: (val) {
-                        if (val != null) setDialogState(() => selectedDay = val);
+                        if (val != null)
+                          setDialogState(() => selectedDay = val);
                       },
                     ),
                     const SizedBox(height: 14),
@@ -176,7 +212,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('เวลาเริ่ม:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const Text(
+                                'เวลาเริ่ม:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
                               const SizedBox(height: 6),
                               OutlinedButton.icon(
                                 onPressed: () async {
@@ -188,11 +230,19 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                                     setDialogState(() => startTime = picked);
                                   }
                                 },
-                                icon: const Icon(Icons.access_time_rounded, size: 16),
+                                icon: const Icon(
+                                  Icons.access_time_rounded,
+                                  size: 16,
+                                ),
                                 label: Text(formatTime(startTime)),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ],
@@ -203,7 +253,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('เวลาสิ้นสุด:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const Text(
+                                'เวลาสิ้นสุด:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
                               const SizedBox(height: 6),
                               OutlinedButton.icon(
                                 onPressed: () async {
@@ -215,11 +271,19 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                                     setDialogState(() => endTime = picked);
                                   }
                                 },
-                                icon: const Icon(Icons.access_time_rounded, size: 16),
+                                icon: const Icon(
+                                  Icons.access_time_rounded,
+                                  size: 16,
+                                ),
                                 label: Text(formatTime(endTime)),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ],
@@ -229,7 +293,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                     ),
                     const SizedBox(height: 14),
 
-                    const Text('ห้องเรียน / อาคาร:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text(
+                      'ห้องเรียน / อาคาร:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: roomController,
@@ -237,13 +307,24 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         hintText: 'เช่น ห้อง 302, Lab หุ่นยนต์',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
 
-                    const Text('ประเภทคาบ:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text(
+                      'ประเภทคาบ:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
@@ -251,12 +332,14 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         ChoiceChip(
                           label: const Text('ปกติ'),
                           selected: periodType == 'regular',
-                          onSelected: (_) => setDialogState(() => periodType = 'regular'),
+                          onSelected: (_) =>
+                              setDialogState(() => periodType = 'regular'),
                         ),
                         ChoiceChip(
                           label: const Text('กิจกรรม & แล็บ'),
                           selected: periodType == 'activity_lab',
-                          onSelected: (_) => setDialogState(() => periodType = 'activity_lab'),
+                          onSelected: (_) =>
+                              setDialogState(() => periodType = 'activity_lab'),
                         ),
                       ],
                     ),
@@ -270,13 +353,18 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    final startStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
-                    final endStr = '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
+                    final startStr =
+                        '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
+                    final endStr =
+                        '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
 
                     if (startTime.hour > endTime.hour ||
-                        (startTime.hour == endTime.hour && startTime.minute >= endTime.minute)) {
+                        (startTime.hour == endTime.hour &&
+                            startTime.minute >= endTime.minute)) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม')),
+                        const SnackBar(
+                          content: Text('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม'),
+                        ),
                       );
                       return;
                     }
@@ -288,13 +376,17 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         dayOfWeek: selectedDay,
                         startTime: startStr,
                         endTime: endStr,
-                        room: roomController.text.trim().isNotEmpty ? roomController.text.trim() : null,
+                        room: roomController.text.trim().isNotEmpty
+                            ? roomController.text.trim()
+                            : null,
                         periodType: periodType,
                       );
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('บันทึกคาบเรียนลงตารางเรียบร้อยแล้ว 🗓️'),
+                          content: Text(
+                            'บันทึกคาบเรียนลงตารางเรียบร้อยแล้ว 🗓️',
+                          ),
                           backgroundColor: TeacherPalette.primary,
                         ),
                       );
@@ -303,14 +395,18 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                       debugPrint('Error saving class schedule slot: $e');
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('บันทึกคาบเรียนไม่สำเร็จ')),
+                        const SnackBar(
+                          content: Text('บันทึกคาบเรียนไม่สำเร็จ'),
+                        ),
                       );
                     }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: TeacherPalette.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: const Text('บันทึก'),
                 ),
@@ -328,7 +424,10 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
   Future<void> _openAddPrepBlockDialog() async {
     DateTime date = DateTime.now();
     TimeOfDay startTime = TimeOfDay.now();
-    TimeOfDay endTime = TimeOfDay(hour: (TimeOfDay.now().hour + 1) % 24, minute: TimeOfDay.now().minute);
+    TimeOfDay endTime = TimeOfDay(
+      hour: (TimeOfDay.now().hour + 1) % 24,
+      minute: TimeOfDay.now().minute,
+    );
     final labelController = TextEditingController();
 
     await showDialog(
@@ -340,12 +439,20 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                 '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               title: const Row(
                 children: [
-                  Icon(Icons.edit_calendar_rounded, color: TeacherPalette.primary),
+                  Icon(
+                    Icons.edit_calendar_rounded,
+                    color: TeacherPalette.primary,
+                  ),
                   SizedBox(width: 8),
-                  Text('บันทึกช่วงเตรียมสอน', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text(
+                    'บันทึกช่วงเตรียมสอน',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
@@ -353,7 +460,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('วันที่:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text(
+                      'วันที่:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     OutlinedButton.icon(
                       onPressed: () async {
@@ -369,8 +482,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                       icon: const Icon(Icons.calendar_today_rounded, size: 16),
                       label: Text('${date.day}/${date.month}/${date.year}'),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -380,18 +498,36 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('เวลาเริ่ม:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const Text(
+                                'เวลาเริ่ม:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
                               const SizedBox(height: 6),
                               OutlinedButton.icon(
                                 onPressed: () async {
-                                  final picked = await showTimePicker(context: context, initialTime: startTime);
-                                  if (picked != null) setDialogState(() => startTime = picked);
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: startTime,
+                                  );
+                                  if (picked != null)
+                                    setDialogState(() => startTime = picked);
                                 },
-                                icon: const Icon(Icons.access_time_rounded, size: 16),
+                                icon: const Icon(
+                                  Icons.access_time_rounded,
+                                  size: 16,
+                                ),
                                 label: Text(formatTime(startTime)),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ],
@@ -402,18 +538,36 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('เวลาสิ้นสุด:', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                              const Text(
+                                'เวลาสิ้นสุด:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
                               const SizedBox(height: 6),
                               OutlinedButton.icon(
                                 onPressed: () async {
-                                  final picked = await showTimePicker(context: context, initialTime: endTime);
-                                  if (picked != null) setDialogState(() => endTime = picked);
+                                  final picked = await showTimePicker(
+                                    context: context,
+                                    initialTime: endTime,
+                                  );
+                                  if (picked != null)
+                                    setDialogState(() => endTime = picked);
                                 },
-                                icon: const Icon(Icons.access_time_rounded, size: 16),
+                                icon: const Icon(
+                                  Icons.access_time_rounded,
+                                  size: 16,
+                                ),
                                 label: Text(formatTime(endTime)),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 10,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ],
@@ -422,7 +576,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    const Text('รายละเอียด (ถ้ามี):', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                    const Text(
+                      'รายละเอียด (ถ้ามี):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: labelController,
@@ -430,8 +590,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         hintText: 'เช่น เตรียมสอนหน่วยที่ 3',
                         filled: true,
                         fillColor: const Color(0xFFF8FAFC),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ],
@@ -444,12 +609,17 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    final startStr = '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
-                    final endStr = '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
+                    final startStr =
+                        '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
+                    final endStr =
+                        '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
                     if (startTime.hour > endTime.hour ||
-                        (startTime.hour == endTime.hour && startTime.minute >= endTime.minute)) {
+                        (startTime.hour == endTime.hour &&
+                            startTime.minute >= endTime.minute)) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม')),
+                        const SnackBar(
+                          content: Text('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม'),
+                        ),
                       );
                       return;
                     }
@@ -459,7 +629,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         date: date,
                         startTime: startStr,
                         endTime: endStr,
-                        label: labelController.text.trim().isNotEmpty ? labelController.text.trim() : null,
+                        label: labelController.text.trim().isNotEmpty
+                            ? labelController.text.trim()
+                            : null,
                       );
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -479,7 +651,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: TeacherPalette.primary,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: const Text('บันทึก'),
                 ),
@@ -497,9 +671,14 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('ลบคาบเรียน'),
-        content: Text('ยืนยันลบคาบเรียน "${slot.subjectName}" (วัน${slot.dayLabel} ${slot.timeRangeLabel}) หรือไม่?'),
+        content: Text(
+          'ยืนยันลบคาบเรียน "${slot.subjectName}" (วัน${slot.dayLabel} ${slot.timeRangeLabel}) หรือไม่?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ยกเลิก')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
@@ -517,16 +696,16 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
     try {
       await CalendarService.removeClassSchedule(slot.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบคาบเรียนเรียบร้อยแล้ว')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ลบคาบเรียนเรียบร้อยแล้ว')));
       _load();
     } catch (e) {
       debugPrint('Error removing class schedule slot: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลบไม่สำเร็จ')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ลบไม่สำเร็จ')));
     }
   }
 
@@ -535,13 +714,7 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
     return TeacherMockPageShell(
       title: 'ตารางสอน / จัดการเวลาเรียน',
       activeMenuLabel: 'ตารางสอน',
-      actions: [
-        IconButton(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh_rounded),
-          tooltip: 'รีเฟรช',
-        ),
-      ],
+      onRefresh: _load,
       builder: (context, isDesktop) {
         if (_loading) {
           return const Padding(
@@ -557,11 +730,22 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Colors.red,
+                    size: 48,
+                  ),
                   const SizedBox(height: 12),
-                  Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
                   const SizedBox(height: 16),
-                  ElevatedButton(onPressed: _load, child: const Text('ลองใหม่')),
+                  ElevatedButton(
+                    onPressed: _load,
+                    child: const Text('ลองใหม่'),
+                  ),
                 ],
               ),
             ),
@@ -649,13 +833,28 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
               // rejects teachers since 20260919000000) — this page is read-only.
               OutlinedButton.icon(
                 onPressed: _openAddPrepBlockDialog,
-                icon: const Icon(Icons.edit_calendar_rounded, size: 16, color: Colors.white),
-                label: const Text('เตรียมสอน', style: TextStyle(color: Colors.white)),
+                icon: const Icon(
+                  Icons.edit_calendar_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
+                label: const Text(
+                  'เตรียมสอน',
+                  style: TextStyle(color: Colors.white),
+                ),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Colors.white70),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -667,9 +866,13 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
 
   Widget _buildStatSummary() {
     final totalSlots = _filteredSchedules.length;
-    final distinctCourses = {for (final s in _filteredSchedules) s.courseId}.length;
+    final distinctCourses = {
+      for (final s in _filteredSchedules) s.courseId,
+    }.length;
     final today = DateTime.now().weekday - 1; // 0=Mon..6=Sun
-    final todaySlots = _filteredSchedules.where((s) => s.dayOfWeek == today).length;
+    final todaySlots = _filteredSchedules
+        .where((s) => s.dayOfWeek == today)
+        .length;
 
     return Row(
       children: [
@@ -743,7 +946,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                   ..._courses.map((c) {
                     return DropdownMenuItem(
                       value: c.id,
-                      child: Text('${c.subjectName} (${c.gradeLevel ?? "ไม่ระบุชั้น"})'),
+                      child: Text(
+                        '${c.subjectName} (${c.gradeLevel ?? "ไม่ระบุชั้น"})',
+                      ),
                     );
                   }),
                 ],
@@ -770,7 +975,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: isToday ? TeacherPalette.primary.withValues(alpha: 0.5) : TeacherPalette.border,
+              color: isToday
+                  ? TeacherPalette.primary.withValues(alpha: 0.5)
+                  : TeacherPalette.border,
               width: isToday ? 1.5 : 1.0,
             ),
           ),
@@ -782,9 +989,14 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: isToday ? TeacherPalette.primary : const Color(0xFFF1F5F9),
+                        color: isToday
+                            ? TeacherPalette.primary
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -792,7 +1004,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: isToday ? Colors.white : const Color(0xFF0F172A),
+                          color: isToday
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                     ),
@@ -836,7 +1050,9 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: TeacherPalette.primary.withValues(alpha: 0.1),
+                                color: TeacherPalette.primary.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
@@ -867,10 +1083,15 @@ class _TeacherClassSchedulePageState extends State<TeacherClassSchedulePage> {
                                       if (slot.isActivityLab) ...[
                                         const SizedBox(width: 6),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFDCFCE7),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
                                           ),
                                           child: const Text(
                                             'กิจกรรม & แล็บ',

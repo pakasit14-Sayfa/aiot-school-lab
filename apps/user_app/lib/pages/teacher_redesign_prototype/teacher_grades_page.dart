@@ -177,9 +177,9 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
   void _exportCsv() {
     final rows = _buildReportRows();
     if (rows == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')),
+      );
       return;
     }
     final csv = rows.map((row) => row.map(_csvField).join(',')).join('\r\n');
@@ -190,17 +190,17 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       bytes: utf8.encode('﻿$csv'),
       mimeType: 'text/csv',
     );
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('ส่งออกรายงานคะแนนแล้ว (CSV)')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ส่งออกรายงานคะแนนแล้ว (CSV)')),
+    );
   }
 
   void _exportExcel() {
     final rows = _buildReportRows();
     if (rows == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยังไม่มีข้อมูลคะแนนให้ส่งออก')),
+      );
       return;
     }
     final workbook = xls.Excel.createExcel();
@@ -210,9 +210,9 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
     }
     final bytes = workbook.encode();
     if (bytes == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('สร้างไฟล์ Excel ไม่สำเร็จ')),
+      );
       return;
     }
     final doDownload = widget.downloadBytesOverride ?? downloadBytes;
@@ -240,6 +240,7 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
 
     return TeacherMockPageShell(
       title: 'คะแนน',
+      onRefresh: _load,
       activeMenuLabel: 'คะแนน',
       actions: [
         PopupMenuButton<String>(

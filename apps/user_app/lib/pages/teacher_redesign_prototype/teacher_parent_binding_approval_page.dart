@@ -172,7 +172,8 @@ class _TeacherParentBindingApprovalPageState
                 maxLines: 2,
                 onChanged: (_) => setDialogState(() {}),
                 decoration: InputDecoration(
-                  hintText: 'ระบุเหตุผล เช่น เป็นผู้ปกครองของนักเรียนคนนี้เอง...',
+                  hintText:
+                      'ระบุเหตุผล เช่น เป็นผู้ปกครองของนักเรียนคนนี้เอง...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -287,6 +288,7 @@ class _TeacherParentBindingApprovalPageState
   Widget build(BuildContext context) {
     return TeacherMockPageShell(
       title: 'อนุมัติผูกบัญชีผู้ปกครอง',
+      onRefresh: _load,
       activeMenuLabel: 'อนุมัติผูกบัญชี',
       builder: (context, isDesktop) {
         if (_loading) {

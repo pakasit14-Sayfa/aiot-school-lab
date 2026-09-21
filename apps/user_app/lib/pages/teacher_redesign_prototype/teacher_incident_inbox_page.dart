@@ -75,7 +75,6 @@ String _formatDateTime(DateTime dt) {
   return '$y-$m-$d $hh:$mm น.';
 }
 
-
 // ==========================================
 // S4: หน้ารับแจ้งเหตุ (Inbox) — เชื่อมต่อ Backend จริง (Merge กับ Emergency Events)
 // ==========================================
@@ -155,7 +154,10 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     if (mounted) setState(() {});
   }
 
-  Future<String?> _readEventStatus(StaffEmergencySource source, String id) async {
+  Future<String?> _readEventStatus(
+    StaffEmergencySource source,
+    String id,
+  ) async {
     if (source == StaffEmergencySource.incident) {
       final rows = await IncidentService.listStaffIncidentReports();
       return rows.where((row) => row.id == id).firstOrNull?.status;
@@ -173,12 +175,20 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     return rows.where((row) => row.actionType == 'note').firstOrNull?.note;
   }
 
-  Future<void> _performAction(_EmergencyEvent event, {bool close = false}) async {
+  Future<void> _performAction(
+    _EmergencyEvent event, {
+    bool close = false,
+  }) async {
     if (_actions.isBusy) return;
     final source = event.originalIncident != null
-        ? StaffEmergencySource.incident : StaffEmergencySource.hardware;
+        ? StaffEmergencySource.incident
+        : StaffEmergencySource.hardware;
     final result = close
-        ? await _actions.close(source, event.id, 'ครูตรวจสอบและระงับเหตุเรียบร้อย')
+        ? await _actions.close(
+            source,
+            event.id,
+            'ครูตรวจสอบและระงับเหตุเรียบร้อย',
+          )
         : await _actions.acknowledge(source, event.id);
     if (!mounted || result == StaffEmergencyResult.busy) return;
     if (result == StaffEmergencyResult.confirmed) {
@@ -186,9 +196,13 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       if (!mounted) return;
       _showMessage(close ? 'ปิดเหตุเรียบร้อยแล้ว' : 'รับเรื่องเรียบร้อยแล้ว');
     } else {
-      _showMessage(result == StaffEmergencyResult.unconfirmed
-          ? 'ส่งคำขอแล้ว แต่ยังยืนยันสถานะล่าสุดไม่ได้ กรุณารีเฟรชก่อนดำเนินการอีกครั้ง'
-          : close ? 'ปิดเหตุไม่สำเร็จ กรุณาลองใหม่' : 'รับเหตุไม่สำเร็จ กรุณาลองใหม่');
+      _showMessage(
+        result == StaffEmergencyResult.unconfirmed
+            ? 'ส่งคำขอแล้ว แต่ยังยืนยันสถานะล่าสุดไม่ได้ กรุณารีเฟรชก่อนดำเนินการอีกครั้ง'
+            : close
+            ? 'ปิดเหตุไม่สำเร็จ กรุณาลองใหม่'
+            : 'รับเหตุไม่สำเร็จ กรุณาลองใหม่',
+      );
     }
   }
 
@@ -199,7 +213,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         .firstOrNull;
   }
 
-  TeacherIncidentReport? get _activeSosIncident => _realIncidents.where((i) => i.category == IncidentCategory.sos && (i.status == 'new' || i.status == 'acknowledged' || i.status == 'in_progress')).firstOrNull;
+  TeacherIncidentReport? get _activeSosIncident => _realIncidents
+      .where(
+        (i) =>
+            i.category == IncidentCategory.sos &&
+            (i.status == 'new' ||
+                i.status == 'acknowledged' ||
+                i.status == 'in_progress'),
+      )
+      .firstOrNull;
 
   TeacherIncidentReport? _lastResolvedSosIncident;
 
@@ -207,22 +229,30 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   List<TeacherIncidentReport> _realIncidents = [];
   StreamSubscription? _incidentSub;
   StreamSubscription? _emergencySub;
-  
+
   @override
   void initState() {
     super.initState();
-    _actions = widget.actionsOverride ?? StaffEmergencyActions(
-      acknowledgeIncident: IncidentService.acknowledgeIncidentReport,
-      acknowledgeHardware: EmergencyService.acknowledgeEmergencyEvent,
-      escalateIncident: IncidentService.escalateIncidentReport,
-      closeIncident: (id, note, resolutionType) => IncidentService.closeIncidentReport(
-        id, resolutionType: resolutionType, resolutionNote: note),
-      closeHardware: (id, note) => EmergencyService.closeEmergencyEvent(
-        eventId: id, reviewNote: note),
-      readStatus: _readEventStatus,
-      saveIncidentNote: IncidentService.addIncidentAction,
-      readLatestIncidentNote: _readLatestIncidentNote,
-    );
+    _actions =
+        widget.actionsOverride ??
+        StaffEmergencyActions(
+          acknowledgeIncident: IncidentService.acknowledgeIncidentReport,
+          acknowledgeHardware: EmergencyService.acknowledgeEmergencyEvent,
+          escalateIncident: IncidentService.escalateIncidentReport,
+          closeIncident: (id, note, resolutionType) =>
+              IncidentService.closeIncidentReport(
+                id,
+                resolutionType: resolutionType,
+                resolutionNote: note,
+              ),
+          closeHardware: (id, note) => EmergencyService.closeEmergencyEvent(
+            eventId: id,
+            reviewNote: note,
+          ),
+          readStatus: _readEventStatus,
+          saveIncidentNote: IncidentService.addIncidentAction,
+          readLatestIncidentNote: _readLatestIncidentNote,
+        );
     _actions.addListener(_actionsChanged);
     _loadRealData();
     final watchIncidents =
@@ -249,11 +279,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   Future<void> _loadRealData() async {
     if (!mounted) return;
     final generation = ++_loadGeneration;
-    setState(() { _isLoadingRealData = true; _loadError = null; });
+    setState(() {
+      _isLoadingRealData = true;
+      _loadError = null;
+    });
     try {
       final loadEmergency =
           widget.loadEmergencyEvents ?? EmergencyService.listEmergencyEvents;
-      final loadIncidents = widget.loadIncidentReports ??
+      final loadIncidents =
+          widget.loadIncidentReports ??
           IncidentService.listStaffIncidentReports;
       final results = await Future.wait<dynamic>([
         loadEmergency(),
@@ -266,9 +300,13 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         _isLoadingRealData = false;
         final inc = _activeSosIncident;
         final evt = _activeRealEmergencyEvent;
-        _lastResolvedSosIncident = _realIncidents.where((i) =>
-            i.category == IncidentCategory.sos &&
-            (i.status == 'resolved' || i.status == 'cancelled')).firstOrNull;
+        _lastResolvedSosIncident = _realIncidents
+            .where(
+              (i) =>
+                  i.category == IncidentCategory.sos &&
+                  (i.status == 'resolved' || i.status == 'cancelled'),
+            )
+            .firstOrNull;
         sosResolved = inc == null && evt == null;
         sosAccepted = inc != null
             ? inc.status == 'acknowledged' || inc.status == 'in_progress'
@@ -278,21 +316,25 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _isLoadingRealData = false;
-        _loadError = 'โหลดเหตุฉุกเฉินไม่สำเร็จ ข้อมูลที่แสดงอาจยังไม่เป็นปัจจุบัน';
+        _loadError =
+            'โหลดเหตุฉุกเฉินไม่สำเร็จ ข้อมูลที่แสดงอาจยังไม่เป็นปัจจุบัน';
       });
     }
   }
 
   _EmergencyEvent _convertIncident(TeacherIncidentReport inc) {
     final localTime = inc.createdAt.toLocal();
-    final timeStr = 'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final timeStr =
+        'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
     final statusDisplay = inc.status == 'new'
         ? 'รอตรวจสอบ'
         : (inc.status == 'acknowledged'
-            ? 'รับเรื่องแล้ว'
-            : (inc.status == 'resolved' || inc.status == 'cancelled'
-                ? 'ปิดเหตุแล้ว'
-                : (inc.status == 'escalated' ? 'ยกระดับแล้ว' : 'กำลังช่วยเหลือ')));
+              ? 'รับเรื่องแล้ว'
+              : (inc.status == 'resolved' || inc.status == 'cancelled'
+                    ? 'ปิดเหตุแล้ว'
+                    : (inc.status == 'escalated'
+                          ? 'ยกระดับแล้ว'
+                          : 'กำลังช่วยเหลือ')));
     final isSos = inc.category == IncidentCategory.sos;
     return _EmergencyEvent(
       id: inc.id,
@@ -308,9 +350,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       source: 'แอปนักเรียน (SOS)',
       status: statusDisplay,
       priority: isSos ? 'เร่งด่วน' : 'สูง',
-      description: inc.reason ?? (isSos ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือเร่งด่วน' : 'นักเรียนรายงานเหตุผิดปกติ'),
+      description:
+          inc.reason ??
+          (isSos
+              ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือเร่งด่วน'
+              : 'นักเรียนรายงานเหตุผิดปกติ'),
       action: 'ตรวจสอบและให้ความช่วยเหลือ',
-      icon: isSos ? Icons.notifications_active_rounded : Icons.warning_amber_rounded,
+      icon: isSos
+          ? Icons.notifications_active_rounded
+          : Icons.warning_amber_rounded,
       color: isSos ? TeacherPalette.red : TeacherPalette.orange,
       originalIncident: inc,
     );
@@ -318,7 +366,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
   _EmergencyEvent _convertEmergencyEvent(EmergencyEventItem evt) {
     final localTime = evt.triggeredAt.toLocal();
-    final timeStr = 'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
+    final timeStr =
+        'วันนี้ • ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')} น.';
     final statusDisplay = evt.status == 'new'
         ? 'รอตรวจสอบ'
         : (evt.status == 'acknowledged' ? 'รับเรื่องแล้ว' : 'ปิดเหตุแล้ว');
@@ -362,14 +411,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     final allEvents = _allDisplayEvents;
 
     return allEvents.where((item) {
-      final matchesSearch = query.isEmpty ||
+      final matchesSearch =
+          query.isEmpty ||
           item.title.toLowerCase().contains(query) ||
           item.location.toLowerCase().contains(query) ||
           item.type.toLowerCase().contains(query) ||
           item.reporter.toLowerCase().contains(query);
 
-      final matchesFilter = selectedFilter == 'ทั้งหมด' ||
-          item.status == selectedFilter;
+      final matchesFilter =
+          selectedFilter == 'ทั้งหมด' || item.status == selectedFilter;
 
       return matchesSearch && matchesFilter;
     }).toList();
@@ -381,7 +431,9 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         context,
         MaterialPageRoute(
           builder: (_) => TeacherIncidentDetailPage(
-            incident: event.originalIncident!, actions: _actions),
+            incident: event.originalIncident!,
+            actions: _actions,
+          ),
         ),
       );
       if (mounted) _loadRealData();
@@ -389,16 +441,24 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             event.title,
-            style: const TextStyle(fontWeight: FontWeight.w800, color: TeacherPalette.ink),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: TeacherPalette.ink,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('ประเภท: ${event.type}', style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                'ประเภท: ${event.type}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 8),
               Text('ตำแหน่ง: ${event.location}'),
               const SizedBox(height: 8),
@@ -406,20 +466,30 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               const SizedBox(height: 8),
               Text('รายละเอียด: ${event.description}'),
               const SizedBox(height: 8),
-              Text('สถานะ: ${event.status}', style: TextStyle(color: event.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green : TeacherPalette.orange, fontWeight: FontWeight.w700)),
+              Text(
+                'สถานะ: ${event.status}',
+                style: TextStyle(
+                  color: event.status == 'ปิดเหตุแล้ว'
+                      ? TeacherPalette.green
+                      : TeacherPalette.orange,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('ปิด', style: TextStyle(color: TeacherPalette.primary)),
+              child: const Text(
+                'ปิด',
+                style: TextStyle(color: TeacherPalette.primary),
+              ),
             ),
           ],
         ),
       );
     }
   }
-
 
   void _showMessage(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -452,35 +522,55 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => TeacherIncidentDetailPage(incident: inc, actions: _actions),
+          builder: (_) =>
+              TeacherIncidentDetailPage(incident: inc, actions: _actions),
         ),
       ).then((_) => _loadRealData());
     } else if (evt != null) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             'เหตุฉุกเฉินจาก ${evt.deviceName}',
-            style: const TextStyle(fontWeight: FontWeight.w800, color: TeacherPalette.ink),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              color: TeacherPalette.ink,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('ประเภท: ปุ่มกดแจ้งเหตุฉุกเฉิน', style: TextStyle(fontWeight: FontWeight.w700)),
+              const Text(
+                'ประเภท: ปุ่มกดแจ้งเหตุฉุกเฉิน',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 8),
               Text('ตำแหน่ง: ${evt.location}'),
               const SizedBox(height: 8),
-              Text('เวลา: ${evt.triggeredAt.toLocal().hour.toString().padLeft(2, '0')}:${evt.triggeredAt.toLocal().minute.toString().padLeft(2, '0')} น.'),
+              Text(
+                'เวลา: ${evt.triggeredAt.toLocal().hour.toString().padLeft(2, '0')}:${evt.triggeredAt.toLocal().minute.toString().padLeft(2, '0')} น.',
+              ),
               const SizedBox(height: 8),
-              Text('สถานะ: ${evt.status}', style: const TextStyle(color: TeacherPalette.orange, fontWeight: FontWeight.w700)),
+              Text(
+                'สถานะ: ${evt.status}',
+                style: const TextStyle(
+                  color: TeacherPalette.orange,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('ปิด', style: TextStyle(color: TeacherPalette.primary)),
+              child: const Text(
+                'ปิด',
+                style: TextStyle(color: TeacherPalette.primary),
+              ),
             ),
           ],
         ),
@@ -490,25 +580,39 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
     }
   }
 
-  Widget _unifiedSpecChip(IconData icon, String text, {bool isPrimary = false}) {
+  Widget _unifiedSpecChip(
+    IconData icon,
+    String text, {
+    bool isPrimary = false,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: isPrimary ? const Color(0xFFFFF1F2) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: isPrimary ? const Color(0xFFFECDD3) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isPrimary ? const Color(0xFFFECDD3) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: isPrimary ? const Color(0xFFE11D48) : const Color(0xFF64748B)),
+          Icon(
+            icon,
+            size: 12,
+            color: isPrimary
+                ? const Color(0xFFE11D48)
+                : const Color(0xFF64748B),
+          ),
           const SizedBox(width: 4),
           Text(
             text,
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: isPrimary ? const Color(0xFF9F1239) : const Color(0xFF475569),
+              color: isPrimary
+                  ? const Color(0xFF9F1239)
+                  : const Color(0xFF475569),
             ),
           ),
         ],
@@ -652,9 +756,10 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                   Flexible(
                                     child: Text(
                                       resolved != null
-                                          ? (resolved.room != null && resolved.room!.isNotEmpty
-                                              ? 'บันทึกการระงับเหตุ: SOS ห้อง ${resolved.room}'
-                                              : 'บันทึกการระงับเหตุ: SOS จากนักเรียน')
+                                          ? (resolved.room != null &&
+                                                    resolved.room!.isNotEmpty
+                                                ? 'บันทึกการระงับเหตุ: SOS ห้อง ${resolved.room}'
+                                                : 'บันทึกการระงับเหตุ: SOS จากนักเรียน')
                                           : 'บันทึกการระงับเหตุ: SOS',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -667,11 +772,18 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2.5,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFDCFCE7),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFF059669,
+                                        ).withValues(alpha: 0.25),
+                                      ),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -839,10 +951,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                   children: [
                     Expanded(child: infoSection),
                     const SizedBox(width: 20),
-                    SizedBox(
-                      width: 230,
-                      child: actionSection,
-                    ),
+                    SizedBox(width: 230, child: actionSection),
                   ],
                 );
               },
@@ -855,8 +964,12 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
   Widget _sosActiveCard() {
     final isUrgent = !sosAccepted;
-    final statusColor = sosAccepted ? const Color(0xFFD97706) : const Color(0xFFE11D48);
-    final statusText = sosAccepted ? 'รับเรื่องแล้ว • กำลังช่วยเหลือ' : 'รอรับ SOS ด่วน';
+    final statusColor = sosAccepted
+        ? const Color(0xFFD97706)
+        : const Color(0xFFE11D48);
+    final statusText = sosAccepted
+        ? 'รับเรื่องแล้ว • กำลังช่วยเหลือ'
+        : 'รอรับ SOS ด่วน';
 
     final activeIncident = _activeSosIncident;
     final activeEvt = _activeRealEmergencyEvent;
@@ -876,8 +989,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
     final titleText = activeIncident != null
         ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
-            ? 'SOS จากนักเรียน ห้อง ${activeIncident.room}'
-            : 'SOS จากนักเรียน')
+              ? 'SOS จากนักเรียน ห้อง ${activeIncident.room}'
+              : 'SOS จากนักเรียน')
         : 'เหตุฉุกเฉินจาก ${activeEvt!.deviceName}';
 
     final reasonText = activeIncident != null
@@ -886,8 +999,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
     final locationChip = activeIncident != null
         ? (activeIncident.room != null && activeIncident.room!.isNotEmpty
-            ? 'ห้อง ${activeIncident.room}'
-            : 'บริเวณโรงเรียน')
+              ? 'ห้อง ${activeIncident.room}'
+              : 'บริเวณโรงเรียน')
         : activeEvt!.location;
 
     final sensorChip = activeIncident != null
@@ -904,22 +1017,28 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
     final timerText = activeIncident != null
         ? () {
-            final diff = DateTime.now().toUtc().difference(activeIncident.createdAt);
-            if (diff.inMinutes < 1) return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
+            final diff = DateTime.now().toUtc().difference(
+              activeIncident.createdAt,
+            );
+            if (diff.inMinutes < 1)
+              return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
             if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
             return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
           }()
         : () {
-            final diff = DateTime.now().toUtc().difference(activeEvt!.triggeredAt.toUtc());
-            if (diff.inMinutes < 1) return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
+            final diff = DateTime.now().toUtc().difference(
+              activeEvt!.triggeredAt.toUtc(),
+            );
+            if (diff.inMinutes < 1)
+              return 'แจ้งมา ${diff.inSeconds} วินาทีที่แล้ว';
             if (diff.inHours < 1) return 'แจ้งมา ${diff.inMinutes} นาทีที่แล้ว';
             return 'แจ้งมา ${diff.inHours} ชม. ที่แล้ว';
           }();
 
     final narrativeText = activeIncident != null
         ? (activeIncident.reason != null && activeIncident.reason!.isNotEmpty
-            ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือ: "${activeIncident.reason}" กำลังประสานผู้ที่เกี่ยวข้องเข้าช่วยเหลือทันที'
-            : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS')
+              ? 'นักเรียนส่งสัญญาณขอความช่วยเหลือ: "${activeIncident.reason}" กำลังประสานผู้ที่เกี่ยวข้องเข้าช่วยเหลือทันที'
+              : 'นักเรียนส่งสัญญาณขอความช่วยเหลือฉุกเฉินผ่านระบบ SOS')
         : 'ระบบตรวจพบการกดปุ่มแจ้งเหตุฉุกเฉินที่ ${activeEvt!.location}';
 
     return Container(
@@ -927,10 +1046,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       decoration: BoxDecoration(
         color: isUrgent ? const Color(0xFFFFFBFB) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: statusColor,
-          width: isUrgent ? 2.0 : 1.3,
-        ),
+        border: Border.all(color: statusColor, width: isUrgent ? 2.0 : 1.3),
         boxShadow: [
           BoxShadow(
             color: statusColor.withValues(alpha: isUrgent ? 0.22 : 0.08),
@@ -954,7 +1070,11 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               gradient: LinearGradient(
                 colors: sosAccepted
                     ? [const Color(0xFFB45309), const Color(0xFFD97706)]
-                    : [const Color(0xFF9F1239), const Color(0xFFE11D48), const Color(0xFFBE123C)],
+                    : [
+                        const Color(0xFF9F1239),
+                        const Color(0xFFE11D48),
+                        const Color(0xFFBE123C),
+                      ],
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(18),
@@ -966,11 +1086,16 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                 final isNarrow = constraints.maxWidth < 420;
 
                 final timerPill = Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2.5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1004,7 +1129,10 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.6), width: 1.5),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          width: 1.5,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.white.withValues(alpha: 0.8),
@@ -1016,7 +1144,9 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        sosAccepted ? 'กำลังเข้าควบคุมสถานการณ์' : 'LIVE EMERGENCY • สัญญาณ SOS ฉุกเฉิน',
+                        sosAccepted
+                            ? 'กำลังเข้าควบคุมสถานการณ์'
+                            : 'LIVE EMERGENCY • สัญญาณ SOS ฉุกเฉิน',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -1040,10 +1170,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         spacing: 6,
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          timerPill,
-                          badge,
-                        ],
+                        children: [timerPill, badge],
                       ),
                     ],
                   );
@@ -1079,8 +1206,14 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: isUrgent
-                                  ? [const Color(0xFFE11D48), const Color(0xFFBE123C)]
-                                  : [const Color(0xFFD97706), const Color(0xFFB45309)],
+                                  ? [
+                                      const Color(0xFFE11D48),
+                                      const Color(0xFFBE123C),
+                                    ]
+                                  : [
+                                      const Color(0xFFD97706),
+                                      const Color(0xFFB45309),
+                                    ],
                             ),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
@@ -1119,9 +1252,14 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 9,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFFD97706),
+                                      color: isUrgent
+                                          ? const Color(0xFFE11D48)
+                                          : const Color(0xFFD97706),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Row(
@@ -1170,8 +1308,16 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                       spacing: 7,
                       runSpacing: 6,
                       children: [
-                        _unifiedSpecChip(Icons.place_rounded, locationChip, isPrimary: isUrgent),
-                        _unifiedSpecChip(Icons.sensors_rounded, sensorChip, isPrimary: isUrgent),
+                        _unifiedSpecChip(
+                          Icons.place_rounded,
+                          locationChip,
+                          isPrimary: isUrgent,
+                        ),
+                        _unifiedSpecChip(
+                          Icons.sensors_rounded,
+                          sensorChip,
+                          isPrimary: isUrgent,
+                        ),
                         _unifiedSpecChip(Icons.person_rounded, reporterChip),
                         _unifiedSpecChip(Icons.access_time_rounded, timeChip),
                       ],
@@ -1181,10 +1327,14 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(13),
                       decoration: BoxDecoration(
-                        color: isUrgent ? const Color(0xFFFFF1F2) : const Color(0xFFF8FAFC),
+                        color: isUrgent
+                            ? const Color(0xFFFFF1F2)
+                            : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: isUrgent ? const Color(0xFFFECDD3) : const Color(0xFFE2E8F0),
+                          color: isUrgent
+                              ? const Color(0xFFFECDD3)
+                              : const Color(0xFFE2E8F0),
                           width: 1.2,
                         ),
                       ),
@@ -1195,13 +1345,17 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                             width: 34,
                             height: 34,
                             decoration: BoxDecoration(
-                              color: isUrgent ? const Color(0xFFFFE4E6) : const Color(0xFFE2E8F0),
+                              color: isUrgent
+                                  ? const Color(0xFFFFE4E6)
+                                  : const Color(0xFFE2E8F0),
                               borderRadius: BorderRadius.circular(9),
                             ),
                             child: Icon(
                               Icons.medical_services_rounded,
                               size: 18,
-                              color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFF475569),
+                              color: isUrgent
+                                  ? const Color(0xFFE11D48)
+                                  : const Color(0xFF475569),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -1243,21 +1397,31 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                       height: 44,
                       child: FilledButton.icon(
                         style: FilledButton.styleFrom(
-                          backgroundColor: sosAccepted ? const Color(0xFF059669) : const Color(0xFFE11D48),
+                          backgroundColor: sosAccepted
+                              ? const Color(0xFF059669)
+                              : const Color(0xFFE11D48),
                           elevation: isUrgent ? 3 : 0,
-                          shadowColor: isUrgent ? const Color(0xFFE11D48).withValues(alpha: 0.5) : Colors.transparent,
+                          shadowColor: isUrgent
+                              ? const Color(0xFFE11D48).withValues(alpha: 0.5)
+                              : Colors.transparent,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        onPressed: _actions.isBusy ? null : (sosAccepted ? _showSosDetail : _acceptSos),
+                        onPressed: _actions.isBusy
+                            ? null
+                            : (sosAccepted ? _showSosDetail : _acceptSos),
                         icon: Icon(
-                          sosAccepted ? Icons.check_circle_rounded : Icons.crisis_alert_rounded,
+                          sosAccepted
+                              ? Icons.check_circle_rounded
+                              : Icons.crisis_alert_rounded,
                           size: 18,
                           color: Colors.white,
                         ),
                         label: Text(
-                          sosAccepted ? '✓ ครูรับเรื่องแล้ว' : '🚨 รับ SOS ด่วน',
+                          sosAccepted
+                              ? '✓ ครูรับเรื่องแล้ว'
+                              : '🚨 รับ SOS ด่วน',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w900,
@@ -1302,15 +1466,22 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           side: BorderSide(
-                            color: isUrgent ? const Color(0xFFFECDD3) : const Color(0xFFCBD5E1),
+                            color: isUrgent
+                                ? const Color(0xFFFECDD3)
+                                : const Color(0xFFCBD5E1),
                           ),
-                          foregroundColor: isUrgent ? const Color(0xFF9F1239) : const Color(0xFF475569),
+                          foregroundColor: isUrgent
+                              ? const Color(0xFF9F1239)
+                              : const Color(0xFF475569),
                         ),
                         onPressed: _showSosDetail,
                         icon: const Icon(Icons.visibility_outlined, size: 15),
                         label: const Text(
                           'ดูรายละเอียดและไทม์ไลน์',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -1334,10 +1505,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                   children: [
                     Expanded(child: infoSection),
                     const SizedBox(width: 20),
-                    SizedBox(
-                      width: 230,
-                      child: actionSection,
-                    ),
+                    SizedBox(width: 230, child: actionSection),
                   ],
                 );
               },
@@ -1354,6 +1522,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
     return TeacherMockPageShell(
       title: 'รับแจ้งเหตุฉุกเฉิน',
+      onRefresh: _loadRealData,
       activeMenuLabel: 'แจ้งเหตุฉุกเฉิน',
       builder: (context, isDesktop) {
         return RefreshIndicator(
@@ -1368,9 +1537,12 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                 if (_loadError != null)
                   MaterialBanner(
                     content: Text(_loadError!),
-                    actions: [TextButton(
-                      onPressed: _isLoadingRealData ? null : _loadRealData,
-                      child: const Text('ลองใหม่'))],
+                    actions: [
+                      TextButton(
+                        onPressed: _isLoadingRealData ? null : _loadRealData,
+                        child: const Text('ลองใหม่'),
+                      ),
+                    ],
                   ),
                 const SizedBox(height: 16),
                 _sosPanel(),
@@ -1405,10 +1577,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
             SizedBox(height: 4),
             Text(
               'รับแจ้ง SOS เฝ้าระวังความปลอดภัย และติดตามเหตุการณ์ในวิชา/ห้องที่สอน',
-              style: TextStyle(
-                fontSize: 10.8,
-                color: TeacherPalette.muted,
-              ),
+              style: TextStyle(fontSize: 10.8, color: TeacherPalette.muted),
             ),
           ],
         );
@@ -1422,14 +1591,19 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               const SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2, color: TeacherPalette.primary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: TeacherPalette.primary,
+                ),
               ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: const Color(0xFFE6F7ED),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: const Color(0xFF059669).withValues(alpha: 0.25),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1467,7 +1641,11 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: const [
-                    Icon(Icons.refresh_rounded, size: 13, color: TeacherPalette.muted),
+                    Icon(
+                      Icons.refresh_rounded,
+                      size: 13,
+                      color: TeacherPalette.muted,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'รีเฟรช',
@@ -1491,28 +1669,43 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
           );
         }
         return Row(
-          children: [Expanded(child: titleBlock), const SizedBox(width: 10), statusBadge],
+          children: [
+            Expanded(child: titleBlock),
+            const SizedBox(width: 10),
+            statusBadge,
+          ],
         );
       },
     );
   }
 
   Widget _summaryCards() {
-    final int realSosPending = _realIncidents
-            .where((i) => i.category == IncidentCategory.sos && (i.status == 'new' || i.status == 'acknowledged'))
+    final int realSosPending =
+        _realIncidents
+            .where(
+              (i) =>
+                  i.category == IncidentCategory.sos &&
+                  (i.status == 'new' || i.status == 'acknowledged'),
+            )
             .length +
-        _realEmergencyEvents.where((e) => e.status == 'new' || e.status == 'acknowledged').length;
+        _realEmergencyEvents
+            .where((e) => e.status == 'new' || e.status == 'acknowledged')
+            .length;
 
-    final int realClosed = _realIncidents
+    final int realClosed =
+        _realIncidents
             .where((i) => i.status == 'resolved' || i.status == 'cancelled')
             .length +
         _realEmergencyEvents.where((e) => e.status == 'closed').length;
 
-    final int realActive = _realIncidents
-            .where((i) =>
-                i.category != IncidentCategory.sos &&
-                i.status != 'resolved' &&
-                i.status != 'cancelled')
+    final int realActive =
+        _realIncidents
+            .where(
+              (i) =>
+                  i.category != IncidentCategory.sos &&
+                  i.status != 'resolved' &&
+                  i.status != 'cancelled',
+            )
             .length +
         _realEmergencyEvents.where((e) => e.status == 'acknowledged').length;
 
@@ -1545,11 +1738,27 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
 
         if (compact) {
           return Column(
-            children: children.map((c) => Padding(padding: const EdgeInsets.only(bottom: 12), child: c)).toList(),
+            children: children
+                .map(
+                  (c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: c,
+                  ),
+                )
+                .toList(),
           );
         }
         return Row(
-          children: children.map((c) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: c))).toList(),
+          children: children
+              .map(
+                (c) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: c,
+                  ),
+                ),
+              )
+              .toList(),
         );
       },
     );
@@ -1580,10 +1789,7 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
             child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(width: 14),
@@ -1644,7 +1850,11 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                     color: TeacherPalette.skyVivid,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.history_rounded, size: 18, color: TeacherPalette.primary),
+                  child: const Icon(
+                    Icons.history_rounded,
+                    size: 18,
+                    color: TeacherPalette.primary,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1682,11 +1892,19 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.check_circle_outline_rounded, size: 48, color: TeacherPalette.green),
+                    Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 48,
+                      color: TeacherPalette.green,
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'ไม่มีเหตุการณ์ในขณะนี้',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: TeacherPalette.muted),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: TeacherPalette.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -1697,7 +1915,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: events.length,
-              separatorBuilder: (context, index) => const Divider(height: 1, color: TeacherPalette.border),
+              separatorBuilder: (context, index) =>
+                  const Divider(height: 1, color: TeacherPalette.border),
               itemBuilder: (context, index) {
                 final evt = events[index];
                 return _buildEventListItem(evt);
@@ -1724,8 +1943,15 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               style: const TextStyle(fontSize: 12.5),
               decoration: InputDecoration(
                 hintText: 'ค้นหาเหตุการณ์...',
-                hintStyle: const TextStyle(color: TeacherPalette.muted, fontSize: 12.5),
-                prefixIcon: const Icon(Icons.search_rounded, size: 16, color: TeacherPalette.muted),
+                hintStyle: const TextStyle(
+                  color: TeacherPalette.muted,
+                  fontSize: 12.5,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  size: 16,
+                  color: TeacherPalette.muted,
+                ),
                 filled: true,
                 fillColor: const Color(0xFFF8FAFC),
                 contentPadding: EdgeInsets.zero,
@@ -1759,7 +1985,9 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         decoration: BoxDecoration(
           color: isSelected ? TeacherPalette.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? TeacherPalette.primary : TeacherPalette.border),
+          border: Border.all(
+            color: isSelected ? TeacherPalette.primary : TeacherPalette.border,
+          ),
         ),
         child: Text(
           label,
@@ -1772,8 +2000,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
       ),
     );
   }
-  Future<void> _quickAcknowledge(_EmergencyEvent evt) =>
-      _performAction(evt);
+
+  Future<void> _quickAcknowledge(_EmergencyEvent evt) => _performAction(evt);
 
   Future<void> _quickClose(_EmergencyEvent evt) async {
     final confirmed = await showDialog<bool>(
@@ -1782,11 +2010,16 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
         title: const Text('ยืนยันปิดเหตุการณ์'),
         content: const Text('คุณตรวจสอบและระงับเหตุเรียบร้อยแล้วใช่หรือไม่?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ยกเลิก')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text('ปิดเหตุ')
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF059669),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('ปิดเหตุ'),
           ),
         ],
       ),
@@ -1798,7 +2031,8 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
   }
 
   Widget _buildEventListItem(_EmergencyEvent evt) {
-    final isTerminal = evt.originalIncident?.status == 'resolved' ||
+    final isTerminal =
+        evt.originalIncident?.status == 'resolved' ||
         evt.originalIncident?.status == 'cancelled' ||
         evt.originalIncident?.status == 'escalated' ||
         evt.status == 'ปิดเหตุแล้ว';
@@ -1838,11 +2072,16 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: evt.color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: evt.color.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: evt.color.withValues(alpha: 0.2),
+                          ),
                         ),
                         child: Text(
                           evt.priority,
@@ -1854,18 +2093,29 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
+                          color: evt.status == 'ปิดเหตุแล้ว'
+                              ? TeacherPalette.green.withValues(alpha: 0.1)
+                              : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green.withValues(alpha: 0.3) : TeacherPalette.border),
+                          border: Border.all(
+                            color: evt.status == 'ปิดเหตุแล้ว'
+                                ? TeacherPalette.green.withValues(alpha: 0.3)
+                                : TeacherPalette.border,
+                          ),
                         ),
                         child: Text(
                           evt.status,
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
-                            color: evt.status == 'ปิดเหตุแล้ว' ? TeacherPalette.green : TeacherPalette.muted,
+                            color: evt.status == 'ปิดเหตุแล้ว'
+                                ? TeacherPalette.green
+                                : TeacherPalette.muted,
                           ),
                         ),
                       ),
@@ -1906,13 +2156,24 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF2563EB),
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            onPressed: _actions.isBusy ? null : () => _quickAcknowledge(evt),
+                            onPressed: _actions.isBusy
+                                ? null
+                                : () => _quickAcknowledge(evt),
                             icon: const Icon(Icons.check_rounded, size: 14),
-                            label: const Text('รับเรื่อง', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            label: const Text(
+                              'รับเรื่อง',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                           const SizedBox(width: 8),
                         ],
@@ -1920,13 +2181,24 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF059669),
                             side: const BorderSide(color: Color(0xFF059669)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             minimumSize: Size.zero,
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           ),
-                          onPressed: _actions.isBusy ? null : () => _quickClose(evt),
+                          onPressed: _actions.isBusy
+                              ? null
+                              : () => _quickClose(evt),
                           icon: const Icon(Icons.task_alt_rounded, size: 14),
-                          label: const Text('ปิดเหตุ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: const Text(
+                            'ปิดเหตุ',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1935,7 +2207,10 @@ class _TeacherIncidentInboxPageState extends State<TeacherIncidentInboxPage> {
               ),
             ),
             const SizedBox(width: 10),
-            const Icon(Icons.chevron_right_rounded, color: TeacherPalette.border),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: TeacherPalette.border,
+            ),
           ],
         ),
       ),
@@ -1972,10 +2247,12 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
     super.dispose();
   }
 
-  void _showResultMessage(StaffEmergencyResult result,
-      {required String confirmedText,
-      required String unconfirmedText,
-      required String failedText}) {
+  void _showResultMessage(
+    StaffEmergencyResult result, {
+    required String confirmedText,
+    required String unconfirmedText,
+    required String failedText,
+  }) {
     if (!mounted) return;
     final text = switch (result) {
       StaffEmergencyResult.confirmed => confirmedText,
@@ -2002,8 +2279,10 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
     }
     setState(() => _isSubmitting = true);
     try {
-      final result = await widget.actions
-          .acknowledge(StaffEmergencySource.incident, widget.incident.id);
+      final result = await widget.actions.acknowledge(
+        StaffEmergencySource.incident,
+        widget.incident.id,
+      );
       _showResultMessage(
         result,
         confirmedText: 'รับเรื่องเรียบร้อยแล้ว',
@@ -2166,7 +2445,10 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                   const SizedBox(height: 8),
                   const Text(
                     'เหตุนี้ถูกยกระดับเป็นเหตุฉุกเฉินแล้ว การปิดเหตุจะถูกบันทึกเป็น "เหตุจริง" เสมอ',
-                    style: TextStyle(fontSize: 11.5, color: TeacherPalette.muted),
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: TeacherPalette.muted,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 14),
@@ -2205,8 +2487,9 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                         final note = noteCtrl.text.trim();
                         if (note.isEmpty) return;
                         setModalState(() => isDialogSubmitting = true);
-                        final resType =
-                            isRealIncident ? 'resolved' : 'cancelled';
+                        final resType = isRealIncident
+                            ? 'resolved'
+                            : 'cancelled';
                         final result = await widget.actions.close(
                           StaffEmergencySource.incident,
                           widget.incident.id,
@@ -2301,10 +2584,9 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
         incident.status == 'cancelled' ||
         incident.status == 'escalated';
 
-    final roomLabel =
-        incident.room != null && incident.room!.isNotEmpty
-            ? ' — ห้อง ${incident.room}'
-            : '';
+    final roomLabel = incident.room != null && incident.room!.isNotEmpty
+        ? ' — ห้อง ${incident.room}'
+        : '';
 
     return TeacherMockPageShell(
       title: 'รายละเอียดการแจ้งเหตุ$roomLabel',
@@ -2370,11 +2652,13 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Expanded(
                                         child: Wrap(
-                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          crossAxisAlignment:
+                                              WrapCrossAlignment.center,
                                           spacing: 8,
                                           runSpacing: 4,
                                           children: [
@@ -2386,7 +2670,9 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                                 fontSize: 16,
                                               ),
                                             ),
-                                            _buildSeverityBadge(incident.severity),
+                                            _buildSeverityBadge(
+                                              incident.severity,
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -2443,7 +2729,8 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                               Expanded(
                                                 child: Text(
                                                   'เหตุผล / สิ่งที่พบเห็น (แจ้งจากนักเรียน):',
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                   style: const TextStyle(
                                                     fontSize: 11.5,
                                                     fontWeight: FontWeight.w800,
@@ -2490,11 +2777,16 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                     Expanded(
                                       child: ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFF2563EB),
+                                          backgroundColor: const Color(
+                                            0xFF2563EB,
+                                          ),
                                           foregroundColor: Colors.white,
                                         ),
                                         onPressed: _acknowledge,
-                                        icon: const Icon(Icons.check_rounded, size: 18),
+                                        icon: const Icon(
+                                          Icons.check_rounded,
+                                          size: 18,
+                                        ),
                                         label: const Text('รับเรื่อง'),
                                       ),
                                     ),
@@ -2503,11 +2795,16 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                                   Expanded(
                                     child: ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFDC2626),
+                                        backgroundColor: const Color(
+                                          0xFFDC2626,
+                                        ),
                                         foregroundColor: Colors.white,
                                       ),
                                       onPressed: _escalate,
-                                      icon: const Icon(Icons.priority_high_rounded, size: 18),
+                                      icon: const Icon(
+                                        Icons.priority_high_rounded,
+                                        size: 18,
+                                      ),
                                       label: const Text('ยกระดับเหตุ'),
                                     ),
                                   ),
@@ -2518,10 +2815,15 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF059669),
-                                  side: const BorderSide(color: Color(0xFF059669)),
+                                  side: const BorderSide(
+                                    color: Color(0xFF059669),
+                                  ),
                                 ),
                                 onPressed: _close,
-                                icon: const Icon(Icons.task_alt_rounded, size: 18),
+                                icon: const Icon(
+                                  Icons.task_alt_rounded,
+                                  size: 18,
+                                ),
                                 label: const Text('ปิดเหตุ (เสร็จสิ้น)'),
                               ),
                             ],
@@ -2529,21 +2831,32 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
                         ] else if (isTerminal) ...[
                           const SizedBox(height: 16),
                           Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 16,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.info_outline_rounded, color: Color(0xFF64748B), size: 18),
+                                const Icon(
+                                  Icons.info_outline_rounded,
+                                  color: Color(0xFF64748B),
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    incident.status == 'escalated' 
-                                      ? 'เหตุการณ์นี้ถูกยกระดับไปยังผู้บริหารแล้ว (สิ้นสุดหน้าที่ครู)'
-                                      : 'เหตุการณ์นี้ถูกปิดหรือยกเลิกไปแล้ว',
-                                    style: const TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w600),
+                                    incident.status == 'escalated'
+                                        ? 'เหตุการณ์นี้ถูกยกระดับไปยังผู้บริหารแล้ว (สิ้นสุดหน้าที่ครู)'
+                                        : 'เหตุการณ์นี้ถูกปิดหรือยกเลิกไปแล้ว',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF475569),
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2627,4 +2940,3 @@ class _TeacherIncidentDetailPageState extends State<TeacherIncidentDetailPage> {
 // ==========================================
 // S4b: ประวัติเหตุทั้งหมด
 // ==========================================
-

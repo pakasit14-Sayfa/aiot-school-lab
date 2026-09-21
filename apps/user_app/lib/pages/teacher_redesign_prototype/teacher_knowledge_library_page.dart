@@ -116,8 +116,8 @@ class _TeacherKnowledgeLibraryPageState
 
   TeacherLibrarySubject? get _selectedSubject =>
       _subjects.isNotEmpty && _selectedIndex < _subjects.length
-          ? _subjects[_selectedIndex]
-          : null;
+      ? _subjects[_selectedIndex]
+      : null;
 
   @override
   void initState() {
@@ -299,7 +299,8 @@ class _TeacherKnowledgeLibraryPageState
             id: 'f_${DateTime.now().millisecondsSinceEpoch}',
             name: result.fileName,
             typeLabel: result.typeLabel,
-            sizeLabel: '${result.sizeValue.toStringAsFixed(1)} ${result.sizeUnit}',
+            sizeLabel:
+                '${result.sizeValue.toStringAsFixed(1)} ${result.sizeUnit}',
             color: _colorForExtension(result.typeLabel),
             category: result.category.trim().isEmpty
                 ? 'ไม่ระบุหมวด'
@@ -360,6 +361,7 @@ class _TeacherKnowledgeLibraryPageState
     if (_isLoading) {
       return TeacherMockPageShell(
         title: 'คลังความรู้',
+        onRefresh: _loadLibraryData,
         activeMenuLabel: 'คลังความรู้',
         builder: (context, isDesktop) => const Center(
           child: Padding(
@@ -375,6 +377,7 @@ class _TeacherKnowledgeLibraryPageState
 
     return TeacherMockPageShell(
       title: 'คลังความรู้',
+      onRefresh: _loadLibraryData,
       activeMenuLabel: 'คลังความรู้',
       actions: [
         Padding(
@@ -671,10 +674,7 @@ class _SubjectChip extends StatelessWidget {
 }
 
 class _LibraryFileCard extends StatelessWidget {
-  const _LibraryFileCard({
-    required this.file,
-    required this.onDownload,
-  });
+  const _LibraryFileCard({required this.file, required this.onDownload});
 
   final TeacherLibraryFile file;
   final VoidCallback onDownload;

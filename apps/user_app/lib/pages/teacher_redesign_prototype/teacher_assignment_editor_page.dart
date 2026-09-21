@@ -334,6 +334,7 @@ class _TeacherAssignmentEditorPageState
 
     return TeacherMockPageShell(
       title: 'จัดการใบงานและโจทย์ทดลอง',
+      onRefresh: _loadRealAssignments,
       activeMenuLabel: 'ตรวจงาน',
       actions: [
         ElevatedButton.icon(

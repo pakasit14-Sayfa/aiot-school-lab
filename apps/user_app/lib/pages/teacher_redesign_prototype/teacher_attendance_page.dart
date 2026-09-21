@@ -61,8 +61,18 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
   ];
 
   static const List<String> _thaiMonths = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+    'มกราคม',
+    'กุมภาพันธ์',
+    'มีนาคม',
+    'เมษายน',
+    'พฤษภาคม',
+    'มิถุนายน',
+    'กรกฎาคม',
+    'สิงหาคม',
+    'กันยายน',
+    'ตุลาคม',
+    'พฤศจิกายน',
+    'ธันวาคม',
   ];
 
   @override
@@ -73,7 +83,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
       _courses = widget.initialCourses ?? [];
       _selectedHomeroom = _homerooms.isNotEmpty ? _homerooms.first : null;
       _selectedCourse = _courses.isNotEmpty ? _courses.first : null;
-      _mode = _homerooms.isNotEmpty ? AttendanceMode.homeroom : AttendanceMode.course;
+      _mode = _homerooms.isNotEmpty
+          ? AttendanceMode.homeroom
+          : AttendanceMode.course;
       _roster = widget.initialRoster ?? [];
       _loadingClasses = false;
     } else {
@@ -209,7 +221,11 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text('บันทึกการเช็คชื่อเรียบร้อยแล้ว ($count คน)'),
@@ -218,7 +234,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
           ),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -235,7 +253,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
           ),
           backgroundColor: const Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     } finally {
@@ -275,7 +295,8 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
         _selectedDate.day == now.day;
   }
 
-  int _countOf(String status) => _roster.where((r) => r.status == status).length;
+  int _countOf(String status) =>
+      _roster.where((r) => r.status == status).length;
 
   List<AttendanceStudentRow> get _filteredRoster {
     final q = _searchQuery.trim().toLowerCase();
@@ -291,6 +312,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
     return TeacherMockPageShell(
       title: 'เช็คชื่อนักเรียน',
       activeMenuLabel: 'เช็คชื่อ',
+      onRefresh: _loadClasses,
       builder: (context, isDesktop) {
         if (_loadingClasses) {
           return const Padding(
@@ -359,7 +381,6 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 650;
           final titleArea = Row(
             children: [
               Container(
@@ -441,39 +462,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
             ],
           );
 
-          final refreshBtn = IconButton.filledTonal(
-            onPressed: () {
-              _loadClasses();
-            },
-            tooltip: 'รีเฟรชข้อมูล',
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            style: IconButton.styleFrom(
-              backgroundColor: const Color(0xFFF1F5F9),
-              foregroundColor: const Color(0xFF334155),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-          );
-
-          if (isNarrow) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleArea,
-                const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: refreshBtn),
-              ],
-            );
-          }
-
-          return Row(
-            children: [
-              Expanded(child: titleArea),
-              const SizedBox(width: 16),
-              refreshBtn,
-            ],
-          );
+          // No refresh button (owner, 2026-09-21): the shell reloads on
+          // resume / pull-down / return from a pushed page instead.
+          return titleArea;
         },
       ),
     );
@@ -544,7 +535,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
           final isNarrow = constraints.maxWidth < 800;
 
           final classDropdown = Container(
-            constraints: BoxConstraints(maxWidth: isNarrow ? double.infinity : 320),
+            constraints: BoxConstraints(
+              maxWidth: isNarrow ? double.infinity : 320,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
@@ -554,7 +547,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
             child: Row(
               children: [
                 Icon(
-                  isHomeroom ? Icons.meeting_room_rounded : Icons.menu_book_rounded,
+                  isHomeroom
+                      ? Icons.meeting_room_rounded
+                      : Icons.menu_book_rounded,
                   size: 20,
                   color: const Color(0xFF542E85),
                 ),
@@ -647,7 +642,10 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 if (_isToday) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFDCFCE7),
                       borderRadius: BorderRadius.circular(8),
@@ -675,7 +673,10 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 OutlinedButton.icon(
                   onPressed: () => _markAll('present'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
                     foregroundColor: const Color(0xFF10B981),
                     backgroundColor: const Color(0xFFECFDF5),
                     side: const BorderSide(color: Color(0xFFA7F3D0)),
@@ -695,7 +696,10 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF542E85),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 14,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -732,10 +736,7 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
                 spacing: 12,
                 runSpacing: 12,
                 crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  classDropdown,
-                  dateButton,
-                ],
+                children: [classDropdown, dateButton],
               ),
               quickActions,
             ],
@@ -752,7 +753,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
     final excusedCount = _countOf('excused');
     final absentCount = _countOf('absent');
 
-    final presentPct = total > 0 ? ((presentCount / total) * 100).toStringAsFixed(0) : '0';
+    final presentPct = total > 0
+        ? ((presentCount / total) * 100).toStringAsFixed(0)
+        : '0';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -938,7 +941,9 @@ class _TeacherAttendancePageState extends State<TeacherAttendancePage> {
               borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
-              noClasses ? Icons.info_outline_rounded : Icons.people_outline_rounded,
+              noClasses
+                  ? Icons.info_outline_rounded
+                  : Icons.people_outline_rounded,
               color: const Color(0xFF64748B),
               size: 32,
             ),
@@ -1393,10 +1398,7 @@ class _ModernRosterTile extends StatelessWidget {
               children: [
                 studentInfo,
                 const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: statusPicker,
-                ),
+                Align(alignment: Alignment.centerRight, child: statusPicker),
               ],
             );
           }
@@ -1473,7 +1475,9 @@ class _ModernStatusDropdownPicker extends StatelessWidget {
                     child: Text(
                       label,
                       style: TextStyle(
-                        fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
+                        fontWeight: isCurrent
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                         color: isCurrent ? color : const Color(0xFF0F172A),
                         fontSize: 13.5,
                       ),

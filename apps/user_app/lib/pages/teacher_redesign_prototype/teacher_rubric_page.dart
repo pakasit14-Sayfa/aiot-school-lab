@@ -81,8 +81,7 @@ class TeacherRubricPage extends StatefulWidget {
   /// load, the duplicate flow, and the create/edit form without a live
   /// Supabase client.
   final Future<List<rubric_backend.RubricModel>> Function()? listMyRubrics;
-  final Future<rubric_backend.RubricModel> Function(String rubricId)?
-  getRubric;
+  final Future<rubric_backend.RubricModel> Function(String rubricId)? getRubric;
   final Future<String> Function({
     required String title,
     String? description,
@@ -292,6 +291,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
     if (_isLoading) {
       return TeacherMockPageShell(
         title: 'Rubric (เกณฑ์การประเมิน)',
+        onRefresh: _loadRubrics,
         activeMenuLabel: 'Rubric',
         builder: (_, _) => const Center(
           child: Padding(
@@ -314,6 +314,7 @@ class _TeacherRubricPageState extends State<TeacherRubricPage> {
 
     return TeacherMockPageShell(
       title: 'Rubric (เกณฑ์การประเมิน)',
+      onRefresh: _loadRubrics,
       activeMenuLabel: 'Rubric',
       actions: [
         // Button with explicit minimumSize to prevent infinite width bug in Row
@@ -1026,7 +1027,9 @@ class _RubricFormSheetState extends State<_RubricFormSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              isEdit ? 'บันทึก Rubric ไม่สำเร็จ กรุณาลองใหม่' : 'สร้าง Rubric ไม่สำเร็จ กรุณาลองใหม่',
+              isEdit
+                  ? 'บันทึก Rubric ไม่สำเร็จ กรุณาลองใหม่'
+                  : 'สร้าง Rubric ไม่สำเร็จ กรุณาลองใหม่',
             ),
             backgroundColor: const Color(0xFFEF4444),
           ),
