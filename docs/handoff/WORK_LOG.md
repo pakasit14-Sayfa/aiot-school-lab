@@ -1439,3 +1439,45 @@ container หายไปหลายตัว ทำให้ `edge-runtime`/`s
 ไม่ได้ทั้งระบบ). ต้องกรองด้วยการเทียบเวอร์ชันเอง ไม่ใช่เชื่อ `docker ps`.
 `iOS DeviceSupport` โตเป็น 12 GB หลังเสียบ iOS 27 — ลบไม่ได้ผล เพราะโหลดกลับทันที
 ที่เสียบเครื่องรอบหน้า.
+
+### 2026-09-21 — แก้แอปช้าบนมือถือ 2 สาเหตุ (`e44ce7b`)
+เจ้าของงานรายงานว่าแอปบนไอโฟนช้าทั้ง "ตอนเปิด" และ "ตอนเปลี่ยนหน้า" — ไล่แล้วเป็น
+คนละสาเหตุกันจริง ๆ วัดจากโค้ดไม่ใช่เดา (latency ไป prod วัดได้ ~100ms สม่ำเสมอ
+ไม่ใช่ปัญหาฝั่ง backend).
+
+**1. เปิดแอปช้า — ฟอนต์โหลดจากเน็ตทุก cold start.** `google_fonts` ดึง
+NotoSansThai + PlusJakartaSans จาก fonts.gstatic.com **แยก request ต่อน้ำหนัก**
+และตัวหนังสือยังไม่มีสไตล์จนกว่าจะโหลดเสร็จ. บนเว็บแทบไม่รู้สึกเพราะเบราว์เซอร์
+cache ไว้ บนมือถือเห็นชัด. แก้โดยฝังไฟล์ `.ttf` ทุกน้ำหนักที่ UI เรียกจริงไว้ที่
+`apps/user_app/assets/google_fonts/` (11 ไฟล์ 624 KB — ฟอนต์ไทยเป็น subset เลยเล็ก
+กว่าที่ประเมินไว้มาก) แล้วปิด `GoogleFonts.config.allowRuntimeFetching` ใน
+`main.dart`. **ไม่ต้องแก้ call site 62 จุด** เพราะ google_fonts หาไฟล์จาก assets
+ด้วยชื่อ `{Family}-{Variant}.ttf` ให้อยู่แล้ว. ที่มาของไฟล์: hash ในตัวแพ็กเกจเอง
+(`google_fonts-6.3.3/lib/src/google_fonts_parts/part_*.g.dart`) → `https://fonts.gstatic.com/s/a/<hash>.ttf`
+ตรวจขนาดไฟล์ให้ตรงกับที่แพ็กเกจระบุทุกไฟล์ + แนบ OFL ทั้งสองตระกูล.
+`test/bundled_fonts_test.dart` (4 เทส) ล้มถ้ามีคนลบไฟล์หรือเปิด fetching กลับ.
+**หมายเหตุ:** PlusJakartaSans ไม่มี w900 ต้นทาง — โค้ดที่เขียน w900 ไว้ 681 จุด
+ได้ ExtraBold อยู่แล้วตั้งแต่ก่อนแก้ ไม่ใช่การเปลี่ยนหน้าตา.
+
+**2. เปลี่ยนหน้าช้า — N+1 query 8 หน้า.** รูปแบบเดียวกันหมด: โหลดรายการหลักมา
+แล้ว `await` RPC ทีละแถวในลูป. หนักสุดคือ `teacher_grading_page` ที่ซ้อน 2 ชั้น
+(assignments ต่อวิชา → submissions ต่อ assignment) = `1 + N + N*M` รอบเรียงกัน
+ก่อนจอจะขึ้นอะไรเลย. เปลี่ยนเป็น `Future.wait` ทีละชั้น — **คงพฤติกรรม error
+เดิมไว้ครบ** (แถวที่พังยังได้ 0 / ลิสต์ว่าง / เรคอร์ดไม่มีรายละเอียด และไม่ลาก
+ทั้งหน้าตายไปด้วย). หน้าที่แก้: teacher_courses, teacher_grades, teacher_grading,
+teacher_students, teacher_question_bank, teacher_knowledge_library, teacher_rubric,
+teacher_assignment_editor, student_search_popup.
+
+**จงใจไม่แก้ 2 จุด:** ลูปบันทึก threshold (`teacher_aiot_dashboard_page`) และลูป
+สร้างคำขออนุมัติรายเครื่อง (`super_admin_device_control_page`) — เป็น **write**
+ที่ลำดับมีความหมายและยิงขนานเสี่ยงชน rate limit.
+
+**false positive ที่สแกนเจอแต่ไม่ใช่ปัญหา** (จดไว้กันคนถัดไปไล่ซ้ำ):
+`school_teachers_page` / `school_students_page` — `await` อยู่คนละฟังก์ชันกับลูป,
+`student_lesson_view_page` — เรียกแบบ fire-and-forget ขนานอยู่แล้ว,
+`student_assignments_page` — เป็นลูป upload ไฟล์ ไม่ควรขนาน.
+
+เทส 916 ผ่าน (เดิม 912 + เทสฟอนต์ 4) · `flutter analyze lib` 0 error ·
+build release + install ลงเครื่องจริงแล้ว. **ยังไม่ได้วัดตัวเลขก่อน–หลังบนเครื่อง
+จริง** — เจ้าของงานให้ลองจากความรู้สึกก่อน ถ้าต้องการตัวเลขจริงต้อง build
+`--profile` แล้วจับเวลา.
