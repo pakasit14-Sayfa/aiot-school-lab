@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../assignments/assignment_save_controller.dart';
 
 import 'teacher_grading_page.dart' show TeacherGradingPage;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
@@ -158,10 +159,14 @@ void openAssignmentFormModal(
   })?
   linkSensorDataset,
   Future<AssignmentDetail> Function(String assignmentId)? loadAssignmentDetail,
+  Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse,
 }) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
+    isDismissible: false,
+    enableDrag: false,
     backgroundColor: Colors.transparent,
     builder: (ctx) => _AssignmentFormSheet(
       assignment: assignment,
@@ -174,6 +179,7 @@ void openAssignmentFormModal(
       listDevices: listDevices,
       linkSensorDataset: linkSensorDataset,
       loadAssignmentDetail: loadAssignmentDetail,
+      loadAssignmentsForCourse: loadAssignmentsForCourse,
     ),
   );
 }
@@ -285,6 +291,7 @@ class _TeacherAssignmentEditorPageState
       listDevices: widget.listDevices,
       linkSensorDataset: widget.linkSensorDataset,
       loadAssignmentDetail: widget.loadAssignmentDetail,
+      loadAssignmentsForCourse: widget.loadAssignmentsForCourse,
       onSave: (savedItem) {
         setState(() {
           final idx = _assignments.indexWhere((a) => a.id == savedItem.id);
@@ -803,7 +810,9 @@ class _AssignmentCardItem extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${((assignment.submittedCount / assignment.totalStudents) * 100).round()}%',
+                          assignment.totalStudents == 0
+                              ? 'ยังไม่มีนักเรียน'
+                              : '${((assignment.submittedCount / assignment.totalStudents) * 100).round()}%',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
@@ -816,9 +825,11 @@ class _AssignmentCardItem extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
-                        value:
-                            assignment.submittedCount /
-                            assignment.totalStudents,
+                        value: assignment.totalStudents == 0
+                            ? 0
+                            : (assignment.submittedCount /
+                                      assignment.totalStudents)
+                                  .clamp(0.0, 1.0),
                         minHeight: 6,
                         backgroundColor: const Color(0xFFE2E8F0),
                         valueColor: const AlwaysStoppedAnimation<Color>(
@@ -888,10 +899,13 @@ class _AssignmentFormSheet extends StatefulWidget {
     this.listDevices,
     this.linkSensorDataset,
     this.loadAssignmentDetail,
+    this.loadAssignmentsForCourse,
   });
 
   final AssignmentModel? assignment;
   final ValueChanged<AssignmentModel> onSave;
+  final Future<List<AssignmentSummary>> Function(String courseId)?
+  loadAssignmentsForCourse;
   final Future<List<RubricModel>> Function()? listMyRubrics;
   final Future<List<CourseSummary>> Function()? loadCoursesForNew;
   final Future<void> Function({
@@ -935,6 +949,9 @@ class _AssignmentFormSheet extends StatefulWidget {
 }
 
 class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
+  late final AssignmentSaveController _saveController;
+  bool _saving = false;
+  String? _saveError;
   late TextEditingController _titleController;
   late TextEditingController _instructionsController;
   late TextEditingController _dueDateController;
@@ -981,7 +998,15 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
       text: a?.instructions ?? '',
     );
     _dueDateController = TextEditingController(
-      text: a?.dueDate ?? '18 ส.ค. 2026 (23:59 น.)',
+      text: a?.dueDate == 'ไม่มีกำหนดส่ง' ? '' : a?.dueDate ?? '',
+    );
+    _saveController = AssignmentSaveController(
+      assignmentId: a?.id,
+      create: widget.createAssignment ?? AssignmentService.createAssignment,
+      update: widget.updateAssignment ?? AssignmentService.updateAssignment,
+      publish: widget.publishAssignment ?? AssignmentService.publishAssignment,
+      read:
+          widget.loadAssignmentsForCourse ?? AssignmentService.listAssignments,
     );
     _type = a?.type ?? 'ใบงานทดลอง';
     _isGroupWork = a?.isGroupWork ?? false;
@@ -1379,121 +1404,109 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
   }
 
   Future<void> _handleSave({required bool publish}) async {
+    if (_saving) return;
     final title = _titleController.text.trim();
-    if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('กรุณากรอกชื่อใบงาน'),
-          backgroundColor: Color(0xFFEF4444),
-        ),
+    final dateText = _dueDateController.text.trim();
+    final dueAt = dateText.isEmpty ? null : DateTime.tryParse(dateText);
+    // DateTime.parse normalizes invalid dates (e.g. February 31); require
+    // the exact local date/time typed by the teacher, not a rolled-over date.
+    final validDate =
+        dateText.isEmpty ||
+        (RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$').hasMatch(dateText) &&
+            dueAt != null &&
+            dueAt.toString().substring(0, 16) == dateText);
+    if (title.isEmpty || !validDate) {
+      setState(
+        () => _saveError = title.isEmpty
+            ? 'กรุณากรอกชื่อใบงาน'
+            : 'กรุณากรอกวันและเวลาให้ถูกต้อง เช่น 2027-01-25 16:30',
       );
       return;
     }
-
-    String assignedId;
-    String realCourseId;
-    String realCourseName;
-
+    // The current RPC treats null as "keep existing", not "clear".
+    if (dueAt == null &&
+        widget.assignment != null &&
+        widget.assignment!.dueDate != 'ไม่มีกำหนดส่ง' &&
+        widget.assignment!.dueDate.isNotEmpty) {
+      setState(
+        () => _saveError = 'ยังล้างกำหนดส่งเดิมไม่ได้ กรุณาระบุวันและเวลาใหม่',
+      );
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     try {
-      final update =
-          widget.updateAssignment ?? AssignmentService.updateAssignment;
-      final create =
-          widget.createAssignment ?? AssignmentService.createAssignment;
-      final publishFn =
-          widget.publishAssignment ?? AssignmentService.publishAssignment;
-      final loadCourses =
-          widget.loadCoursesForNew ?? CourseService.listMyCourses;
-
-      if (widget.assignment != null) {
-        // แก้ไขใบงานเดิม — ใช้วิชาเดิมของใบงาน ไม่ใช่ courses.first เสมอ
-        // (บั๊กเดียวกับที่เคยแก้ใน exam_builder/lesson_editor — ครูมีหลาย
-        // วิชา courses.first อาจไม่ใช่วิชาของใบงานนี้เลย)
-        realCourseId = widget.assignment!.courseId;
-        realCourseName = widget.assignment!.courseName;
-        assignedId = widget.assignment!.id;
-        await update(
-          assignmentId: assignedId,
-          title: title,
-          instructions: _instructionsController.text.trim(),
-          rubricId: _selectedRubricId,
-          isGroup: _isGroupWork,
-        );
+      final existing = widget.assignment;
+      String courseId;
+      String courseName;
+      if (existing != null) {
+        courseId = existing.courseId;
+        courseName = existing.courseName;
       } else {
-        final courses = await loadCourses();
+        final courses =
+            await (widget.loadCoursesForNew ?? CourseService.listMyCourses)();
         if (courses.isEmpty) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน',
-              ),
-              backgroundColor: Color(0xFFEF4444),
-            ),
-          );
+          if (mounted) {
+            setState(
+              () => _saveError =
+                  'ไม่พบรายวิชาของคุณในระบบ กรุณาสร้างรายวิชาก่อนสร้างใบงาน',
+            );
+          }
           return;
         }
-        final course = courses.first;
-        realCourseId = course.id;
-        realCourseName = course.subjectName;
-
-        final typeEnum = _type == 'โครงงาน AIoT'
+        courseId = courses.first.id;
+        courseName = courses.first.subjectName;
+      }
+      final confirmed = await _saveController.save(
+        courseId: courseId,
+        type: _type == 'โครงงาน AIoT'
             ? 'project'
-            : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework');
-
-        assignedId = await create(
-          courseId: course.id,
-          type: typeEnum,
-          title: title,
-          instructions: _instructionsController.text.trim(),
-          rubricId: _selectedRubricId,
-          isGroup: _isGroupWork,
+            : (_type == 'ใบงานทดลอง' ? 'worksheet' : 'homework'),
+        title: title,
+        instructions: _instructionsController.text.trim(),
+        dueAt: dueAt,
+        rubricId: _selectedRubricId,
+        isGroup: _isGroupWork,
+        publishNow: publish,
+      );
+      if (!mounted) return;
+      final saved = AssignmentModel(
+        id: confirmed.id,
+        courseId: courseId,
+        courseName: courseName,
+        title: confirmed.title,
+        instructions: confirmed.instructions ?? '',
+        type: confirmed.type == 'project'
+            ? 'โครงงาน AIoT'
+            : (confirmed.type == 'worksheet' ? 'ใบงานทดลอง' : 'การบ้าน'),
+        dueDate:
+            confirmed.dueAt?.toLocal().toString().substring(0, 16) ??
+            'ไม่มีกำหนดส่ง',
+        isGroupWork: confirmed.isGroup,
+        rubricId: confirmed.rubricId,
+        rubricTitle: confirmed.rubricTitle ?? 'ยังไม่ได้กำหนด Rubric',
+        attachedSensorMetrics: existing?.attachedSensorMetrics ?? const [],
+        status: confirmed.isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
+        submittedCount: confirmed.submittedCount,
+        totalStudents: confirmed.totalStudents,
+        updatedAt: confirmed.createdAt == null
+            ? 'ยังไม่มีข้อมูล'
+            : 'สร้างเมื่อ ${confirmed.createdAt!.toLocal().toString().substring(0, 10)}',
+      );
+      widget.onSave(saved);
+      Navigator.pop(context);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _saveError = _saveController.hasWritten
+              ? 'บันทึกคำขอแล้ว แต่ยังยืนยันข้อมูลล่าสุดไม่ได้ กรุณาลองอีกครั้ง'
+              : 'บันทึกใบงานไม่สำเร็จ กรุณาลองใหม่',
         );
       }
-
-      if (publish) {
-        await publishFn(assignedId);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('บันทึกใบงานไม่สำเร็จ กรุณาลองใหม่'),
-          backgroundColor: Color(0xFFEF4444),
-        ),
-      );
-      return;
-    }
-
-    final selectedRubricTitle = _selectedRubricId == null
-        ? 'ยังไม่ได้กำหนด Rubric'
-        : (_rubrics
-                  .where((r) => r.id == _selectedRubricId)
-                  .map((r) => r.title)
-                  .firstOrNull ??
-              'ยังไม่ได้กำหนด Rubric');
-
-    final newAssignment = AssignmentModel(
-      id: assignedId,
-      courseId: realCourseId,
-      title: title,
-      instructions: _instructionsController.text.trim(),
-      type: _type,
-      courseName: realCourseName,
-      dueDate: _dueDateController.text.trim(),
-      isGroupWork: _isGroupWork,
-      rubricId: _selectedRubricId,
-      rubricTitle: selectedRubricTitle,
-      attachedSensorMetrics:
-          widget.assignment?.attachedSensorMetrics ?? const [],
-      status: publish ? 'เผยแพร่แล้ว' : 'ร่าง',
-      submittedCount: widget.assignment?.submittedCount ?? 0,
-      totalStudents: widget.assignment?.totalStudents ?? 0,
-      updatedAt: widget.assignment?.updatedAt ?? 'สร้างเมื่อวันนี้',
-    );
-
-    widget.onSave(newAssignment);
-    if (mounted) {
-      Navigator.pop(context);
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -1501,411 +1514,456 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
   Widget build(BuildContext context) {
     final isEditMode = widget.assignment != null;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.9,
-      maxChildSize: 0.95,
-      minChildSize: 0.5,
-      builder: (_, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              // Header Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(
+        absorbing: _saving,
+        child: DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          maxChildSize: 0.95,
+          minChildSize: 0.5,
+          builder: (_, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
                 children: [
+                  // Header Row
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: TeacherPalette.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.add_task_rounded,
-                          color: TeacherPalette.primary,
-                          size: 22,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: TeacherPalette.primary.withValues(
+                                alpha: 0.12,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.add_task_rounded,
+                              color: TeacherPalette.primary,
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            isEditMode ? 'แก้ไขใบงาน' : 'สร้างใบงานใหม่',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: TeacherPalette.ink,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        isEditMode ? 'แก้ไขใบงาน' : 'สร้างใบงานใหม่',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: TeacherPalette.ink,
-                        ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
                       ),
                     ],
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const Divider(height: 24),
+                  const Divider(height: 24),
 
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  children: [
-                    TextField(
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        labelText: 'ชื่อใบงาน / หัวข้อโจทย์ *',
-                        hintText: 'เช่น ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5',
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _instructionsController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: 'คำสั่งงาน / รายละเอียดคำอธิบาย',
-                        hintText: 'อธิบายขั้นตอนการทำโจทย์ การทดลอง หรือรูปแบบการส่งงาน',
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    Row(
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
                       children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _type,
-                            onChanged: (val) {
-                              if (val != null) setState(() => _type = val);
-                            },
-                            decoration: InputDecoration(
-                              labelText: 'ประเภทงาน',
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            items:
-                                {'ใบงานทดลอง', 'การบ้าน', 'โครงงาน AIoT', _type}
-                                    .map(
-                                      (t) => DropdownMenuItem(
-                                        value: t,
-                                        child: Text(t),
-                                      ),
-                                    )
-                                    .toList(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextField(
-                            controller: _dueDateController,
-                            decoration: InputDecoration(
-                              labelText: 'กำหนดส่งงาน',
-                              suffixIcon: const Icon(
-                                Icons.calendar_today_rounded,
-                                size: 18,
-                              ),
-                              filled: true,
-                              fillColor: const Color(0xFFF8FAFC),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                        TextField(
+                          controller: _titleController,
+                          decoration: InputDecoration(
+                            labelText: 'ชื่อใบงาน / หัวข้อโจทย์ *',
+                            hintText:
+                                'เช่น ใบงานทดลองที่ 3: การวัดและวิเคราะห์ค่าฝุ่น PM2.5',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: _instructionsController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'คำสั่งงาน / รายละเอียดคำอธิบาย',
+                            hintText:
+                                'อธิบายขั้นตอนการทำโจทย์ การทดลอง หรือรูปแบบการส่งงาน',
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
 
-                    const SizedBox(height: 16),
-
-                    // Group Work Switch
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Expanded(
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.groups_rounded,
-                                  color: Color(0xFF0284C7),
-                                ),
-                                SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'กำหนดเป็นงานกลุ่ม',
-                                        style: TextStyle(
-                                          fontSize: 13.5,
-                                          fontWeight: FontWeight.w800,
-                                          color: TeacherPalette.ink,
-                                        ),
-                                      ),
-                                      Text(
-                                        'นักเรียนทำโจทย์ร่วมกันและส่งงานเพียง 1 คนต่อกลุ่ม',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: TeacherPalette.muted,
-                                        ),
-                                      ),
-                                    ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                value: _type,
+                                onChanged: (val) {
+                                  if (val != null) setState(() => _type = val);
+                                },
+                                decoration: InputDecoration(
+                                  labelText: 'ประเภทงาน',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8FAFC),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          Switch(
-                            value: _isGroupWork,
-                            activeColor: const Color(0xFF0284C7),
-                            onChanged: (val) =>
-                                setState(() => _isGroupWork = val),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // Rubric Selector Header & Dropdown
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'ผูก Rubric เกณฑ์การประเมิน',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: TeacherPalette.ink,
-                            ),
-                          ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const TeacherRubricPage(),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                          label: const Text('จัดการ Rubric ทั้งหมด'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // เดิม dropdown มีตัวเลือกที่แต่งขึ้นเอง 4 ตัวเลือกตายตัว
-                    // เลือกแล้วไม่เคยถูกส่งไป backend เลย — ตอนนี้โหลด rubric
-                    // จริงของครูคนนี้ผ่าน RubricService และส่ง rubricId จริง
-                    if (_rubricsLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      )
-                    else
-                      DropdownButtonFormField<String?>(
-                        value: _selectedRubricId,
-                        onChanged: (val) =>
-                            setState(() => _selectedRubricId = val),
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text('ไม่มี Rubric (ประเมินคะแนนดิบ)'),
-                          ),
-                          ..._rubrics.map(
-                            (r) => DropdownMenuItem<String?>(
-                              value: r.id,
-                              child: Text(
-                                r.title,
-                                overflow: TextOverflow.ellipsis,
+                                items:
+                                    {
+                                          'ใบงานทดลอง',
+                                          'การบ้าน',
+                                          'โครงงาน AIoT',
+                                          _type,
+                                        }
+                                        .map(
+                                          (t) => DropdownMenuItem(
+                                            value: t,
+                                            child: Text(t),
+                                          ),
+                                        )
+                                        .toList(),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-
-                    const SizedBox(height: 16),
-                    // PBL-4: this heading used to be removed with a comment
-                    // saying a link made here would be invisible to
-                    // students — true when written (2026-09-16), no longer
-                    // true since PBL-6 (2026-09-18) made the redesigned
-                    // student assignment sheet render pinned sensor
-                    // datasets via StudentSensorDatasetPage.
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'ชุดข้อมูลเซนเซอร์ AIoT',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13.5,
-                              color: TeacherPalette.ink,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _dueDateController,
+                                decoration: InputDecoration(
+                                  labelText: 'กำหนดส่งงาน',
+                                  hintText: '2027-01-25 16:30',
+                                  helperText:
+                                      'ปี ค.ศ. เวลาท้องถิ่น · เว้นว่างหากไม่กำหนด',
+                                  suffixIcon: const Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 18,
+                                  ),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8FAFC),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                        if (widget.assignment != null)
-                          TextButton.icon(
-                            onPressed: _openLinkSensorDialog,
-                            icon: const Icon(Icons.sensors_rounded, size: 16),
-                            label: const Text('ผูกข้อมูล'),
-                          ),
-                      ],
-                    ),
-                    if (widget.assignment == null)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'บันทึกร่างใบงานนี้ก่อน แล้วค่อยกลับมาผูกชุดข้อมูลเซนเซอร์ทีหลังได้',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      )
-                    else if (_sensorDatasetsLoading)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8),
-                        child: Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        ),
-                      )
-                    else if (_sensorDatasets.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4),
-                        child: Text(
-                          'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      )
-                    else ...[
-                      for (final d in _sensorDatasets)
+
+                        const SizedBox(height: 16),
+
+                        // Group Work Switch
                         Container(
-                          margin: const EdgeInsets.only(top: 6),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
+                            horizontal: 16,
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Icon(
-                                Icons.sensors_rounded,
-                                size: 14,
-                                color: TeacherPalette.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '${_deviceNames[d.deviceId] ?? d.deviceId} · ${d.metric}'
-                                  '${d.label != null && d.label!.isNotEmpty ? ' — ${d.label}' : ''}',
-                                  style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.groups_rounded,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'กำหนดเป็นงานกลุ่ม',
+                                            style: TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: TeacherPalette.ink,
+                                            ),
+                                          ),
+                                          Text(
+                                            'นักเรียนทำโจทย์ร่วมกันและส่งงานเพียง 1 คนต่อกลุ่ม',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: TeacherPalette.muted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              Switch(
+                                value: _isGroupWork,
+                                activeColor: const Color(0xFF0284C7),
+                                onChanged: (val) =>
+                                    setState(() => _isGroupWork = val),
                               ),
                             ],
                           ),
                         ),
-                    ],
-                  ],
-                ),
-              ),
 
-              const SizedBox(height: 16),
-              // Footer Action Buttons
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () => _handleSave(publish: false),
-                    icon: const Icon(Icons.save_as_rounded, size: 16),
-                    label: const Text('บันทึกร่าง'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: TeacherPalette.ink,
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      minimumSize: const Size(0, 44),
+                        const SizedBox(height: 20),
+
+                        // Rubric Selector Header & Dropdown
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'ผูก Rubric เกณฑ์การประเมิน',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: TeacherPalette.ink,
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const TeacherRubricPage(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.open_in_new_rounded,
+                                size: 14,
+                              ),
+                              label: const Text('จัดการ Rubric ทั้งหมด'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // เดิม dropdown มีตัวเลือกที่แต่งขึ้นเอง 4 ตัวเลือกตายตัว
+                        // เลือกแล้วไม่เคยถูกส่งไป backend เลย — ตอนนี้โหลด rubric
+                        // จริงของครูคนนี้ผ่าน RubricService และส่ง rubricId จริง
+                        if (_rubricsLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Center(
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          DropdownButtonFormField<String?>(
+                            value: _selectedRubricId,
+                            onChanged: (val) =>
+                                setState(() => _selectedRubricId = val),
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            items: [
+                              const DropdownMenuItem<String?>(
+                                value: null,
+                                child: Text('ไม่มี Rubric (ประเมินคะแนนดิบ)'),
+                              ),
+                              ..._rubrics.map(
+                                (r) => DropdownMenuItem<String?>(
+                                  value: r.id,
+                                  child: Text(
+                                    r.title,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                        const SizedBox(height: 16),
+                        // PBL-4: this heading used to be removed with a comment
+                        // saying a link made here would be invisible to
+                        // students — true when written (2026-09-16), no longer
+                        // true since PBL-6 (2026-09-18) made the redesigned
+                        // student assignment sheet render pinned sensor
+                        // datasets via StudentSensorDatasetPage.
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'ชุดข้อมูลเซนเซอร์ AIoT',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13.5,
+                                  color: TeacherPalette.ink,
+                                ),
+                              ),
+                            ),
+                            if (widget.assignment != null)
+                              TextButton.icon(
+                                onPressed: _openLinkSensorDialog,
+                                icon: const Icon(
+                                  Icons.sensors_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('ผูกข้อมูล'),
+                              ),
+                          ],
+                        ),
+                        if (widget.assignment == null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text(
+                              'บันทึกร่างใบงานนี้ก่อน แล้วค่อยกลับมาผูกชุดข้อมูลเซนเซอร์ทีหลังได้',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          )
+                        else if (_sensorDatasetsLoading)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (_sensorDatasets.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text(
+                              'ยังไม่มีชุดข้อมูลเซนเซอร์ผูกกับใบงานนี้',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          )
+                        else ...[
+                          for (final d in _sensorDatasets)
+                            Container(
+                              margin: const EdgeInsets.only(top: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.sensors_rounded,
+                                    size: 14,
+                                    color: TeacherPalette.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${_deviceNames[d.deviceId] ?? d.deviceId} · ${d.metric}'
+                                      '${d.label != null && d.label!.isNotEmpty ? ' — ${d.label}' : ''}',
+                                      style: const TextStyle(fontSize: 12),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _handleSave(publish: true),
-                    icon: const Icon(Icons.send_rounded, size: 16),
-                    label: const Text('เผยแพร่ใบงาน'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: TeacherPalette.primary,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
+
+                  const SizedBox(height: 16),
+                  // Footer Action Buttons
+                  if (_saveError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        _saveError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
                     ),
+                  if (_saving) const LinearProgressIndicator(),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _saving
+                            ? null
+                            : () => _handleSave(publish: false),
+                        icon: const Icon(Icons.save_as_rounded, size: 16),
+                        label: const Text('บันทึกร่าง'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: TeacherPalette.ink,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size(0, 44),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _saving
+                            ? null
+                            : () => _handleSave(publish: true),
+                        icon: const Icon(Icons.send_rounded, size: 16),
+                        label: const Text('เผยแพร่ใบงาน'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: TeacherPalette.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 }

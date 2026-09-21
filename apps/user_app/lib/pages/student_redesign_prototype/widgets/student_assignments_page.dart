@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
+import '../../assignments/assignment_submission_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../utils/sensor_csv.dart';
@@ -610,6 +611,8 @@ class _AssignmentSubmitSheet extends StatefulWidget {
 }
 
 class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
+  late final AssignmentSubmissionController _submission;
+  String? _submissionError;
   final _controller = TextEditingController();
   bool _submitting = false;
   bool _loadingPrevious = false;
@@ -624,6 +627,16 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   @override
   void initState() {
     super.initState();
+    _submission = AssignmentSubmissionController(
+      assignmentId: widget.item.assignment.id,
+      submit: widget.submitAssignment ?? AssignmentService.submitAssignment,
+      upload:
+          widget.uploadAttachment ??
+          AssignmentService.uploadSubmissionAttachment,
+      read:
+          widget.loadPreviousVersions ??
+          AssignmentService.listMySubmissionVersions,
+    );
     _loadDetail();
     if (_isEdit) _loadPreviousSubmission();
   }
@@ -679,8 +692,9 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('เปิดไฟล์แนบไม่สำเร็จ')));
     }
   }
 
@@ -688,15 +702,15 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
     try {
       final pick =
           widget.pickFiles ??
-          () async =>
-              (await FilePicker.pickFiles(withData: true))?.files;
+          () async => (await FilePicker.pickFiles(withData: true))?.files;
       final files = await pick();
       if (files == null) return;
       setState(() => _pickedFiles.addAll(files));
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('เลือกไฟล์ไม่สำเร็จ')));
     }
   }
 
@@ -785,29 +799,28 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
   }
 
   Future<void> _submit() async {
-    if (_controller.text.trim().isEmpty) return;
-    setState(() => _submitting = true);
+    if (_submitting ||
+        _attachingEvidence ||
+        _loadingPrevious ||
+        _controller.text.trim().isEmpty) {
+      return;
+    }
+    if (_pickedFiles.any((f) => f.bytes == null)) {
+      setState(
+        () => _submissionError = 'อ่านไฟล์แนบไม่ได้ กรุณาเลือกไฟล์ใหม่ก่อนส่ง',
+      );
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _submissionError = null;
+    });
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final submit =
-          widget.submitAssignment ?? AssignmentService.submitAssignment;
-      final upload =
-          widget.uploadAttachment ??
-          AssignmentService.uploadSubmissionAttachment;
-      final result = await submit(
-        assignmentId: widget.item.assignment.id,
-        content: _controller.text.trim(),
+      await _submission.send(
+        _controller.text.trim(),
+        _pickedFiles.map((f) => SubmissionFile(f.name, f.bytes!)).toList(),
       );
-
-      for (final file in _pickedFiles) {
-        final bytes = file.bytes;
-        if (bytes == null) continue;
-        await upload(
-          submissionVersionId: result.submissionVersionId,
-          fileName: file.name,
-          bytes: bytes,
-        );
-      }
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -820,17 +833,17 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _submitting = false);
       final notInGroup = e.toString().contains('not_in_group');
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            notInGroup
-                ? 'ยังไม่ได้อยู่ในกลุ่มของวิชานี้ — ขอให้ครูจัดกลุ่มก่อนจึงจะส่งงานกลุ่มได้'
-                : 'ส่งงานไม่สำเร็จ กรุณาลองใหม่',
-          ),
-        ),
-      );
+      setState(() {
+        _submitting = false;
+        _submissionError = _submission.hasSubmitted
+            ? (_submission.step == SubmissionStep.upload
+                  ? 'ส่งข้อความแล้ว แต่ไฟล์แนบยังไม่ครบ กดลองอัปโหลดอีกครั้งได้โดยไม่ส่งงานซ้ำ'
+                  : 'ส่งคำขอแล้ว แต่ยังยืนยันข้อมูลล่าสุดไม่ได้ กดตรวจสอบอีกครั้งโดยไม่ส่งงานซ้ำ')
+            : notInGroup
+            ? 'ยังไม่ได้อยู่ในกลุ่มของวิชานี้ — ขอให้ครูจัดกลุ่มก่อนจึงจะส่งงานกลุ่มได้'
+            : 'ส่งงานไม่สำเร็จ กรุณาลองใหม่';
+      });
     }
   }
 
@@ -842,327 +855,363 @@ class _AssignmentSubmitSheetState extends State<_AssignmentSubmitSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(28),
-          topRight: Radius.circular(28),
+    return PopScope(
+      canPop: !_submitting,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
         ),
-      ),
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Icon(
+                    _isEdit ? Icons.edit_rounded : Icons.send_rounded,
+                    color: SchoolPalette.deepGreen,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  _isEdit ? Icons.edit_rounded : Icons.send_rounded,
-                  color: SchoolPalette.deepGreen,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _isEdit ? 'แก้ไขงานที่ส่งไปแล้ว' : 'ส่งงาน',
-                      style: const TextStyle(
-                        color: SchoolPalette.navy,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isEdit ? 'แก้ไขงานที่ส่งไปแล้ว' : 'ส่งงาน',
+                        style: const TextStyle(
+                          color: SchoolPalette.navy,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.item.assignment.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: SchoolPalette.muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: _submitting ? null : () => Navigator.pop(context),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: SchoolPalette.muted,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(height: 1, color: SchoolPalette.glassBorder),
+            const SizedBox(height: 14),
+            // PBL-10: a group assignment is handed in once per group — every
+            // member sees and can add to the same submission.
+            if (widget.item.assignment.isGroup) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  color: SchoolPalette.softGreenBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: SchoolPalette.glassBorder),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.groups_rounded,
+                      size: 18,
+                      color: SchoolPalette.green,
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.item.assignment.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: SchoolPalette.muted,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'งานกลุ่ม — ส่งในนามกลุ่มของคุณ สมาชิกทุกคนเห็นและแก้ไขฉบับเดียวกัน',
+                        style: TextStyle(
+                          color: SchoolPalette.deepGreen,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(
-                  Icons.close_rounded,
-                  color: SchoolPalette.muted,
-                ),
-              ),
+              const SizedBox(height: 10),
             ],
-          ),
-          const SizedBox(height: 10),
-          Container(height: 1, color: SchoolPalette.glassBorder),
-          const SizedBox(height: 14),
-          // PBL-10: a group assignment is handed in once per group — every
-          // member sees and can add to the same submission.
-          if (widget.item.assignment.isGroup) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: SchoolPalette.softGreenBg,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: SchoolPalette.glassBorder),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.groups_rounded,
-                    size: 18,
-                    color: SchoolPalette.green,
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'งานกลุ่ม — ส่งในนามกลุ่มของคุณ สมาชิกทุกคนเห็นและแก้ไขฉบับเดียวกัน',
-                      style: TextStyle(
-                        color: SchoolPalette.deepGreen,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-          if (_detailError != null)
-            Text(
-              _detailError!,
-              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
-            )
-          else if (_detail?.instructions != null)
-            Text(
-              _detail!.instructions!,
-              style: const TextStyle(
-                color: SchoolPalette.muted,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-              ),
-            ),
-          // PBL-6: datasets the teacher pinned to this assignment. The
-          // backend has returned them in get_assignment since 2026-07-31;
-          // the redesigned student UI never showed them until 2026-09-18.
-          if (_detail != null && _detail!.sensorDatasets.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'ชุดข้อมูลเซนเซอร์ที่ครูกำหนด',
-              style: TextStyle(
-                color: SchoolPalette.ink,
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 6),
-            for (final ds in _detail!.sensorDatasets)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: _DatasetTile(
-                  dataset: ds,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => StudentSensorDatasetPage(
-                        dataset: ds,
-                        assignmentTitle: widget.item.assignment.title,
-                      ),
-                    ),
-                  ),
+            if (_detailError != null)
+              Text(
+                _detailError!,
+                style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+              )
+            else if (_detail?.instructions != null)
+              Text(
+                _detail!.instructions!,
+                style: const TextStyle(
+                  color: SchoolPalette.muted,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.4,
                 ),
               ),
-          ],
-          if (_isEdit) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline_rounded,
-                    size: 15,
-                    color: Color(0xFFB45309),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _loadingPrevious
-                          ? 'กำลังโหลดสิ่งที่เคยส่งไว้...'
-                          : 'แก้ไขข้อความด้านล่างแล้วส่งใหม่ได้ — ระบบจะเก็บ'
-                                'เป็นครั้งที่ส่งใหม่ ไม่ทับของเดิม',
-                      style: const TextStyle(
-                        color: Color(0xFF92400E),
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_previousAttachments.isNotEmpty) ...[
-              const SizedBox(height: 8),
+            // PBL-6: datasets the teacher pinned to this assignment. The
+            // backend has returned them in get_assignment since 2026-07-31;
+            // the redesigned student UI never showed them until 2026-09-18.
+            if (_detail != null && _detail!.sensorDatasets.isNotEmpty) ...[
+              const SizedBox(height: 12),
               const Text(
-                'ไฟล์แนบจากการส่งครั้งก่อน',
+                'ชุดข้อมูลเซนเซอร์ที่ครูกำหนด',
                 style: TextStyle(
-                  color: SchoolPalette.muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                  color: SchoolPalette.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final a in _previousAttachments)
-                    ActionChip(
-                      avatar: const Icon(Icons.attach_file_rounded, size: 16),
-                      label: Text(
-                        a.fileName ?? 'ไฟล์แนบ',
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+              for (final ds in _detail!.sensorDatasets)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _DatasetTile(
+                    dataset: ds,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => StudentSensorDatasetPage(
+                          dataset: ds,
+                          assignmentTitle: widget.item.assignment.title,
+                        ),
                       ),
-                      onPressed: () => _openPreviousAttachment(a),
                     ),
-                ],
-              ),
+                  ),
+                ),
             ],
-          ],
-          const SizedBox(height: 14),
-          TextField(
-            controller: _controller,
-            maxLines: 6,
-            decoration: InputDecoration(
-              hintText: 'พิมพ์คำตอบ/สิ่งที่ต้องการส่งที่นี่...',
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            if (_isEdit) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 15,
+                      color: Color(0xFFB45309),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _loadingPrevious
+                            ? 'กำลังโหลดสิ่งที่เคยส่งไว้...'
+                            : 'แก้ไขข้อความด้านล่างแล้วส่งใหม่ได้ — ระบบจะเก็บ'
+                                  'เป็นครั้งที่ส่งใหม่ ไม่ทับของเดิม',
+                        style: const TextStyle(
+                          color: Color(0xFF92400E),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_previousAttachments.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'ไฟล์แนบจากการส่งครั้งก่อน',
+                  style: TextStyle(
+                    color: SchoolPalette.muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final a in _previousAttachments)
+                      ActionChip(
+                        avatar: const Icon(Icons.attach_file_rounded, size: 16),
+                        label: Text(
+                          a.fileName ?? 'ไฟล์แนบ',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                        onPressed: () => _openPreviousAttachment(a),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              readOnly: _submitting || _submission.hasSubmitted,
+              maxLines: 6,
+              decoration: InputDecoration(
+                hintText: 'พิมพ์คำตอบ/สิ่งที่ต้องการส่งที่นี่...',
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _submitting ? null : _pickFiles,
-                icon: const Icon(Icons.attach_file_rounded, size: 16),
-                label: const Text('แนบไฟล์'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: SchoolPalette.deepGreen,
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: (_submitting || _attachingEvidence)
-                    ? null
-                    : _attachSensorEvidence,
-                icon: const Icon(Icons.show_chart_rounded, size: 16),
-                label: Text(
-                  _attachingEvidence ? 'กำลังดึงข้อมูล…' : 'แนบข้อมูลเซนเซอร์',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: SchoolPalette.deepGreen,
-                  side: const BorderSide(color: SchoolPalette.green),
-                ),
-              ),
-            ],
-          ),
-          if (_pickedFiles.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                for (final file in _pickedFiles)
-                  Chip(
-                    label: Text(
-                      file.name,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                    onDeleted: _submitting
-                        ? null
-                        : () => setState(() => _pickedFiles.remove(file)),
+                OutlinedButton.icon(
+                  onPressed: _submitting || _submission.hasSubmitted
+                      ? null
+                      : _pickFiles,
+                  icon: const Icon(Icons.attach_file_rounded, size: 16),
+                  label: const Text('แนบไฟล์'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SchoolPalette.deepGreen,
+                    side: const BorderSide(color: Color(0xFFCBD5E1)),
                   ),
+                ),
+                OutlinedButton.icon(
+                  onPressed:
+                      (_submitting ||
+                          _attachingEvidence ||
+                          _submission.hasSubmitted)
+                      ? null
+                      : _attachSensorEvidence,
+                  icon: const Icon(Icons.show_chart_rounded, size: 16),
+                  label: Text(
+                    _attachingEvidence
+                        ? 'กำลังดึงข้อมูล…'
+                        : 'แนบข้อมูลเซนเซอร์',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SchoolPalette.deepGreen,
+                    side: const BorderSide(color: SchoolPalette.green),
+                  ),
+                ),
+              ],
+            ),
+            if (_pickedFiles.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final file in _pickedFiles)
+                    Chip(
+                      label: Text(
+                        file.name,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      onDeleted: _submitting || _submission.hasSubmitted
+                          ? null
+                          : () => setState(() => _pickedFiles.remove(file)),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
+            if (_submissionError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  _submissionError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _submitting
+                        ? null
+                        : () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SchoolPalette.navy,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text('ปิดหน้าต่าง'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed:
+                        _submitting || _loadingPrevious || _attachingEvidence
+                        ? null
+                        : _submit,
+                    icon: _submitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send_rounded, size: 18),
+                    label: Text(
+                      _submission.hasSubmitted
+                          ? _submission.retryLabel
+                          : _isEdit
+                          ? 'ยืนยันการส่งใหม่'
+                          : 'ยืนยันการส่งงาน',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SchoolPalette.deepGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: SchoolPalette.navy,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('ปิดหน้าต่าง'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _submitting ? null : _submit,
-                  icon: _submitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send_rounded, size: 18),
-                  label: Text(_isEdit ? 'ยืนยันการส่งใหม่' : 'ยืนยันการส่งงาน'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: SchoolPalette.deepGreen,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1269,6 +1318,8 @@ class AssignmentCard extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (_) => _AssignmentSubmitSheet(
         item: item,

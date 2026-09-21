@@ -71,8 +71,7 @@ Future<void> _pump(
   Future<List<AssignmentSummary>> Function(String courseId)?
   loadAssignmentsForCourse,
   Future<List<CourseStudent>> Function(String courseId)? loadCourseStudents,
-  Future<List<SubmissionRoster>> Function(String assignmentId)?
-  loadSubmissions,
+  Future<List<SubmissionRoster>> Function(String assignmentId)? loadSubmissions,
   Future<List<RubricModel>> Function()? listMyRubrics,
   Future<void> Function({
     required String assignmentId,
@@ -109,14 +108,15 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('submittedCount/totalStudents come from the real roster and submissions, not invented numbers', (
-    tester,
-  ) async {
-    await _pump(tester);
-    // 1 real submission out of 2 real roster students, not the old
-    // hardcoded 0/30.
-    expect(find.textContaining('ส่งแล้ว 1/2 คน'), findsOneWidget);
-  });
+  testWidgets(
+    'submittedCount/totalStudents come from the real roster and submissions, not invented numbers',
+    (tester) async {
+      await _pump(tester);
+      // 1 real submission out of 2 real roster students, not the old
+      // hardcoded 0/30.
+      expect(find.textContaining('ส่งแล้ว 1/2 คน'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'editing an assignment calls updateAssignment with the real assignment id, and never re-derives the course from courses.first',
@@ -124,6 +124,7 @@ void main() {
       String? updatedId;
       String? updatedRubricId;
       bool? updatedIsGroup;
+      DateTime? updatedDueAt;
       var loadCoursesCalledDuringEdit = false;
       var publishCalls = 0;
 
@@ -138,6 +139,20 @@ void main() {
         listMyRubrics: () async => [
           RubricModel(id: 'r-1', title: 'เกณฑ์วิทย์', usedCount: 0),
         ],
+        loadAssignmentsForCourse: (_) async => updatedId == null
+            ? [_assignmentInB]
+            : [
+                AssignmentSummary(
+                  id: 'asg-1',
+                  type: 'homework',
+                  title: _assignmentInB.title,
+                  dueAt: updatedDueAt,
+                  status: 'published',
+                  rubricId: updatedRubricId,
+                  isGroup: updatedIsGroup!,
+                  rubricTitle: 'เกณฑ์วิทย์',
+                ),
+              ],
         updateAssignment:
             ({
               required assignmentId,
@@ -147,10 +162,11 @@ void main() {
               rubricId,
               isGroup,
             }) async {
-          updatedId = assignmentId;
-          updatedRubricId = rubricId;
-          updatedIsGroup = isGroup;
-        },
+              updatedId = assignmentId;
+              updatedRubricId = rubricId;
+              updatedIsGroup = isGroup;
+              updatedDueAt = dueAt;
+            },
         publishAssignment: (assignmentId) async {
           publishCalls++;
         },
@@ -173,6 +189,10 @@ void main() {
       // PBL-10: flip "งานกลุ่ม" — until 2026-09-18 this toggle never
       // reached the backend.
       await tester.tap(find.byType(Switch).first);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'กำหนดส่งงาน'),
+        '2027-02-10 09:15',
+      );
       await tester.pump();
       await tester.tap(find.text('เผยแพร่ใบงาน'));
       await tester.pumpAndSettle();
@@ -181,6 +201,8 @@ void main() {
       expect(updatedRubricId, 'r-1');
       expect(updatedIsGroup, isTrue);
       expect(publishCalls, 1);
+      expect(updatedDueAt, DateTime(2027, 2, 10, 9, 15));
+      expect(find.textContaining('เรียบร้อยแล้ว'), findsOneWidget);
       expect(
         loadCoursesCalledDuringEdit,
         false,
