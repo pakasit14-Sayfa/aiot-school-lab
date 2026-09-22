@@ -34,10 +34,7 @@ class TeacherSearchInput extends StatelessWidget {
         decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFFE2E8F0),
-            width: 1.0,
-          ),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
         ),
         child: TextField(
           controller: controller,
@@ -361,16 +358,25 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: TeacherPalette.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: TeacherPalette.primary.withValues(alpha: 0.25)),
+                        border: Border.all(
+                          color: TeacherPalette.primary.withValues(alpha: 0.25),
+                        ),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.school_rounded, size: 12, color: TeacherPalette.primary),
+                          Icon(
+                            Icons.school_rounded,
+                            size: 12,
+                            color: TeacherPalette.primary,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'ครูผู้สอน',
@@ -423,7 +429,9 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
 
         return Scaffold(
           backgroundColor: TeacherPalette.page,
-          drawer: canPop ? null : TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
+          drawer: canPop
+              ? null
+              : TeacherAppDrawer(activeLabel: widget.activeMenuLabel),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -457,19 +465,26 @@ class _TeacherMockPageShellState extends State<TeacherMockPageShell> {
           body: SafeArea(
             child: Column(
               children: [
+                // Column จัดลูกกึ่งกลางเป็นค่าเริ่มต้น แถบ actions ที่มีปุ่ม
+                // เดียว (เช่นไอคอนส่งออก/ตัวกรอง) จึงไปลอยกลางจอ ดูเหมือน
+                // ของหลุดมามากกว่าปุ่มของหน้า — บังคับให้เต็มความกว้างและ
+                // ชิดซ้ายเหมือนแถบเครื่องมือจริง ๆ
                 if (widget.actions != null && widget.actions!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: Row(
-                        children: [
-                          for (final action in widget.actions!) ...[
-                            action,
-                            const SizedBox(width: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            for (final action in widget.actions!) ...[
+                              action,
+                              const SizedBox(width: 8),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),

@@ -252,15 +252,50 @@ class _TeacherGradesPageState extends State<TeacherGradesPage> {
       title: 'คะแนน',
       activeMenuLabel: 'คะแนน',
       actions: [
+        // ไอคอนลอยเดี่ยว ๆ ไม่มีใครรู้ว่ากดแล้วได้อะไร — ใส่ป้ายกำกับให้ชัด
+        // และทำเป็นปุ่มมีขอบตามชุดคอนโทรล จะได้อ่านออกว่าเป็นปุ่ม
         PopupMenuButton<String>(
-          tooltip: 'Export รายงาน',
-          icon: const Icon(Icons.file_download_outlined),
+          tooltip: 'ส่งออกรายงานคะแนน',
           onSelected: (format) =>
               format == 'csv' ? _exportCsv() : _exportExcel(),
           itemBuilder: (context) => const [
             PopupMenuItem(value: 'csv', child: Text('ส่งออกเป็น CSV')),
             PopupMenuItem(value: 'excel', child: Text('ส่งออกเป็น Excel')),
           ],
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE3E1EB)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.file_download_outlined,
+                  size: 18,
+                  color: AirySpec.label,
+                ),
+                SizedBox(width: 7),
+                Text(
+                  'ส่งออกรายงาน',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AirySpec.ink,
+                  ),
+                ),
+                SizedBox(width: 3),
+                Icon(
+                  Icons.expand_more_rounded,
+                  size: 17,
+                  color: AirySpec.label,
+                ),
+              ],
+            ),
+          ),
         ),
       ],
       builder: (context, isDesktop) {
