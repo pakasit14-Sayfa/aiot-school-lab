@@ -1330,6 +1330,24 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     };
   }
 
+  /// เลือกชนิดบล็อกจากชีตที่เห็นตัวอย่างหน้าตาจริง ๆ — เดิมเป็น popup menu
+  /// ที่มีแต่บรรทัดข้อความ ครูต้องเดาว่า 'กล่องสรุป' หน้าตาเป็นยังไง
+  /// ชนิดที่โครงสร้างรองรับแต่ยังต่อไม่เสร็จ (รูป/วิดีโอ/ไฟล์/ลิงก์) แสดงไว้
+  /// แบบจางพร้อมป้าย 'ยังไม่รองรับ' แทนการซ่อน เพื่อไม่ให้ครูตามหาอยู่นาน
+  Future<void> _openAddBlockSheet() async {
+    final picked = await showModalBottomSheet<ContentBlockType>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (_) => const _AddBlockSheet(),
+    );
+    if (picked != null) _addBlock(picked);
+  }
+
   void _addBlock(ContentBlockType type) {
     final newId = 'b-${DateTime.now().millisecondsSinceEpoch}';
     final newBlock = ContentBlockModel(
@@ -1360,9 +1378,36 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
     _triggerAutoSave();
   }
 
+  /// ลบแล้วเปิดช่องให้กู้คืน 6 วินาที — เดิมกดพลาดทีเดียวเนื้อหาหายถาวร
   void _deleteBlock(int index) {
+    final removed = _blocks[index];
+    setState(() => _blocks.removeAt(index));
+    _triggerAutoSave();
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('ลบ${_getBlockLabel(removed.type)} แล้ว'),
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'เลิกทำ',
+          onPressed: () {
+            setState(
+              () => _blocks.insert(index.clamp(0, _blocks.length), removed),
+            );
+            _triggerAutoSave();
+          },
+        ),
+      ),
+    );
+  }
+
+  void _reorderBlocks(int oldIndex, int newIndex) {
     setState(() {
-      _blocks.removeAt(index);
+      final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
+      final block = _blocks.removeAt(oldIndex);
+      _blocks.insert(target, block);
     });
     _triggerAutoSave();
   }
@@ -2323,39 +2368,29 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                 ),
               ),
 
-            // Blocks List
-            for (int i = 0; i < _blocks.length; i++)
-              _buildBlockEditorTile(_blocks[i], i),
+            // ลากสลับลำดับได้ — เดิมต้องกด ↑ ↓ ทีละขั้น
+            ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              itemCount: _blocks.length,
+              onReorder: _reorderBlocks,
+              proxyDecorator: (child, index, animation) => Material(
+                color: Colors.transparent,
+                child: Opacity(opacity: 0.92, child: child),
+              ),
+              itemBuilder: (context, i) => Container(
+                key: ValueKey(_blocks[i].id),
+                child: _buildBlockEditorTile(_blocks[i], i),
+              ),
+            ),
 
             const SizedBox(height: 20),
 
             // Add Block Menu (Spec 4: All 10 Block Types)
             const SizedBox(height: 14),
-            PopupMenuButton<ContentBlockType>(
-              onSelected: _addBlock,
-              enabled: !widget.isCourseClosed,
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: ContentBlockType.heading,
-                  child: Text('หัวข้อ'),
-                ),
-                PopupMenuItem(
-                  value: ContentBlockType.text,
-                  child: Text('ข้อความ'),
-                ),
-                PopupMenuItem(
-                  value: ContentBlockType.calloutWarning,
-                  child: Text('กล่องข้อควรระวัง'),
-                ),
-                PopupMenuItem(
-                  value: ContentBlockType.summaryBox,
-                  child: Text('กล่องสรุป'),
-                ),
-                PopupMenuItem(
-                  value: ContentBlockType.sensorChart,
-                  child: Text('กราฟข้อมูล AIoT'),
-                ),
-              ],
+            GestureDetector(
+              onTap: widget.isCourseClosed ? null : _openAddBlockSheet,
               child: AiryCard(
                 children: [
                   Padding(
@@ -2365,7 +2400,9 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                         Icon(
                           Icons.add_circle_outline_rounded,
                           size: 19,
-                          color: TeacherPalette.primary,
+                          color: widget.isCourseClosed
+                              ? AirySpec.label
+                              : TeacherPalette.primary,
                         ),
                         const SizedBox(width: 15),
                         Expanded(
@@ -2377,14 +2414,14 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
                                 style: TextStyle(
                                   fontSize: 15.5,
                                   fontWeight: FontWeight.w700,
-                                  color: TeacherPalette.primary,
+                                  color: widget.isCourseClosed
+                                      ? AirySpec.label
+                                      : TeacherPalette.primary,
                                 ),
                               ),
                               const SizedBox(height: 3),
                               const Text(
-                                'หัวข้อ · ข้อความ · กล่องเตือน · กล่องสรุป · กราฟ AIoT',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                'เลือกชนิดพร้อมดูตัวอย่างก่อนเพิ่ม',
                                 style: TextStyle(
                                   fontSize: 12.5,
                                   color: AirySpec.label,
@@ -2445,25 +2482,45 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
               // IconButton ปกติกินพื้นที่ 48pt ต่อปุ่ม สามปุ่มคือ 144pt —
               // เกือบครึ่งความกว้างจอมือถือ ทั้งที่เป็นปุ่มรองของการ์ด
               // บีบเหลือ 34pt และให้ปุ่มลบเป็นแดงเข้มแทนแดงสด
-              _BlockAction(
-                icon: Icons.arrow_upward_rounded,
-                tooltip: 'เลื่อนขึ้น',
-                onTap: widget.isCourseClosed || index == 0
-                    ? null
-                    : () => _moveBlock(index, -1),
-              ),
-              _BlockAction(
-                icon: Icons.arrow_downward_rounded,
-                tooltip: 'เลื่อนลง',
-                onTap: widget.isCourseClosed || index == _blocks.length - 1
-                    ? null
-                    : () => _moveBlock(index, 1),
-              ),
-              _BlockAction(
-                icon: Icons.delete_outline_rounded,
-                tooltip: 'ลบบล็อกนี้',
-                color: const Color(0xFFB3261E),
-                onTap: widget.isCourseClosed ? null : () => _deleteBlock(index),
+              // ปุ่มลบย้ายเข้าเมนู ⋯ — เดิมอยู่ติดปุ่มเลื่อน กดพลาดง่ายมาก
+              if (!widget.isCourseClosed)
+                ReorderableDragStartListener(
+                  index: index,
+                  child: const _BlockAction(
+                    icon: Icons.drag_indicator_rounded,
+                    tooltip: 'ลากเพื่อสลับลำดับ',
+                    onTap: null,
+                    alwaysActive: true,
+                  ),
+                ),
+              PopupMenuButton<String>(
+                enabled: !widget.isCourseClosed,
+                tooltip: 'ตัวเลือกบล็อก',
+                position: PopupMenuPosition.under,
+                onSelected: (v) {
+                  if (v == 'up') _moveBlock(index, -1);
+                  if (v == 'down') _moveBlock(index, 1);
+                  if (v == 'delete') _deleteBlock(index);
+                },
+                itemBuilder: (_) => [
+                  if (index > 0)
+                    const PopupMenuItem(value: 'up', child: Text('เลื่อนขึ้น')),
+                  if (index < _blocks.length - 1)
+                    const PopupMenuItem(value: 'down', child: Text('เลื่อนลง')),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Text(
+                      'ลบบล็อกนี้',
+                      style: TextStyle(color: Color(0xFFD3324A)),
+                    ),
+                  ),
+                ],
+                child: const _BlockAction(
+                  icon: Icons.more_horiz_rounded,
+                  tooltip: 'ตัวเลือกบล็อก',
+                  onTap: null,
+                  alwaysActive: true,
+                ),
               ),
             ],
           ),
@@ -3156,21 +3213,241 @@ class TeacherLessonPreviewPage extends StatelessWidget {
 // ==========================================
 
 /// ปุ่มรองในหัวการ์ดบล็อก — ขนาดแตะ 34pt พอดีนิ้วแต่ไม่กินครึ่งแถว
+/// ชีตเลือกชนิดบล็อก พร้อมตัวอย่างหน้าตาของแต่ละชนิด
+class _AddBlockSheet extends StatelessWidget {
+  const _AddBlockSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <(ContentBlockType?, String, String, Widget)>[
+      (
+        ContentBlockType.heading,
+        'หัวข้อ',
+        'ตัวหนาขนาดใหญ่ ใช้ขึ้นหัวข้อย่อยของบทเรียน',
+        const Text(
+          'หัวข้อย่อย',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AirySpec.ink,
+          ),
+        ),
+      ),
+      (
+        ContentBlockType.text,
+        'ข้อความ',
+        'ย่อหน้าเนื้อหาปกติ',
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(height: 5, width: 120, color: const Color(0xFFE3E1EB)),
+            const SizedBox(height: 5),
+            Container(height: 5, width: 84, color: const Color(0xFFE3E1EB)),
+          ],
+        ),
+      ),
+      (
+        ContentBlockType.calloutWarning,
+        'กล่องข้อควรระวัง',
+        'เน้นสิ่งที่นักเรียนพลาดบ่อย',
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDF1DE),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: const Text(
+            'ระวัง!',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFB4650F),
+            ),
+          ),
+        ),
+      ),
+      (
+        ContentBlockType.summaryBox,
+        'กล่องสรุป',
+        'สรุปประเด็นท้ายบท',
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE1F6EC),
+            borderRadius: BorderRadius.circular(7),
+          ),
+          child: const Text(
+            'สรุป',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF107A50),
+            ),
+          ),
+        ),
+      ),
+      (
+        ContentBlockType.sensorChart,
+        'กราฟข้อมูล AIoT',
+        'ดึงค่าจริงจากเซนเซอร์ในโรงเรียนมาแสดง',
+        const Icon(Icons.insights_outlined, size: 22, color: AirySpec.label),
+      ),
+      (
+        null,
+        'รูปภาพ · วิดีโอ · ไฟล์ · ลิงก์',
+        'ยังต่อระบบอัปโหลดไม่เสร็จ',
+        const Icon(
+          Icons.lock_outline_rounded,
+          size: 20,
+          color: Color(0xFFC9C7D2),
+        ),
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 38,
+              height: 4,
+              margin: const EdgeInsets.only(top: 10, bottom: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE4E3EA),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(22, 0, 22, 14),
+            child: Text(
+              'เพิ่มบล็อกเนื้อหา',
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+                color: AirySpec.ink,
+              ),
+            ),
+          ),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 8),
+              children: [
+                for (final (type, title, desc, preview) in items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Material(
+                      color: type == null
+                          ? const Color(0xFFF7F7FA)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: type == null
+                            ? null
+                            : () => Navigator.pop(context, type),
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFEDECF2)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 15.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: type == null
+                                                  ? AirySpec.label
+                                                  : AirySpec.ink,
+                                            ),
+                                          ),
+                                        ),
+                                        if (type == null) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 7,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEDECF2),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: const Text(
+                                              'ยังไม่รองรับ',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: AirySpec.label,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      desc,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: AirySpec.label,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              SizedBox(width: 92, child: preview),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BlockAction extends StatelessWidget {
   const _BlockAction({
     required this.icon,
     required this.tooltip,
     required this.onTap,
-    this.color,
+    this.alwaysActive = false,
   });
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
-  final Color? color;
+
+  /// ใช้เมื่อการกดถูกจัดการโดยตัวห่อข้างนอก (ตัวจับลาก / PopupMenuButton)
+  final bool alwaysActive;
 
   @override
   Widget build(BuildContext context) {
-    final enabled = onTap != null;
+    final enabled = onTap != null || alwaysActive;
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -3182,9 +3459,7 @@ class _BlockAction extends StatelessWidget {
           child: Icon(
             icon,
             size: 17,
-            color: enabled
-                ? (color ?? TeacherPalette.muted)
-                : const Color(0xFFCFCDD8),
+            color: enabled ? AirySpec.label : const Color(0xFFCFCDD8),
           ),
         ),
       ),
