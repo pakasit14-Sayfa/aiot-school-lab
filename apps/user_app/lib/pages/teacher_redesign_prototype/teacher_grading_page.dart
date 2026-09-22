@@ -200,16 +200,9 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
     return TeacherMockPageShell(
       title: 'ตรวจงาน',
       activeMenuLabel: 'ตรวจงาน',
-      actions: [
-        IconButton(
-          tooltip: 'กรองตามวิชา',
-          onPressed: _rows.isEmpty ? null : _pickCourse,
-          icon: Icon(
-            Icons.tune_rounded,
-            color: _courseFilter == null ? null : TeacherPalette.primary,
-          ),
-        ),
-      ],
+      // ไอคอนกรองเคยลอยเดี่ยว ๆ กลางหน้าเหนือแถวชิป ไม่มีใครรู้ว่ามันคืออะไร
+      // ย้ายลงไปเป็นชิป "ทุกวิชา / <ชื่อวิชา>" ในแถวเดียวกับชิปอื่น
+      actions: const [],
       builder: (context, isDesktop) {
         if (_loading) {
           return const Padding(
@@ -263,6 +256,19 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
                   active: _filter == _Filter.all,
                   onTap: () => setState(() => _filter = _Filter.all),
                 ),
+                if (_rows.isNotEmpty)
+                  _Chip(
+                    label: _courseFilter == null
+                        ? 'ทุกวิชา'
+                        : (_rows
+                                  .where((r) => r.course.id == _courseFilter)
+                                  .map((r) => r.course.subjectName)
+                                  .firstOrNull ??
+                              'วิชาที่เลือก'),
+                    active: _courseFilter != null,
+                    icon: Icons.expand_more_rounded,
+                    onTap: _pickCourse,
+                  ),
               ],
             ),
             const SizedBox(height: 14),
@@ -344,10 +350,16 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.active, required this.onTap});
+  const _Chip({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.icon,
+  });
   final String label;
   final bool active;
   final VoidCallback onTap;
+  final IconData? icon;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
@@ -361,13 +373,22 @@ class _Chip extends StatelessWidget {
           color: active ? AirySpec.ink : const Color(0xFFE3E1EB),
         ),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: active ? Colors.white : AirySpec.ink,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: active ? Colors.white : AirySpec.ink,
+            ),
+          ),
+          if (icon != null) ...[
+            const SizedBox(width: 3),
+            Icon(icon, size: 17, color: active ? Colors.white : AirySpec.label),
+          ],
+        ],
       ),
     ),
   );
@@ -444,19 +465,39 @@ class _AssignmentRow extends StatelessWidget {
   final VoidCallback onTap;
   final Widget? trailing;
 
+  /// บรรทัดรองเหลือแค่ห้องกับกำหนดส่ง — จำนวนที่ส่งย้ายไปเป็นแถบความคืบหน้า
+  /// และสถานะ (เลยกำหนด/รอตรวจ) ย้ายไปเป็นป้ายสี เพราะเป็นสิ่งที่ครูกวาดตาหา
   String get _meta {
     final a = r.a;
     final parts = <String>[
       r.roomLabel,
       if (a.totalStudents > 0) 'ส่ง ${a.submittedCount}/${a.totalStudents}',
-      if (a.pendingGradeCount > 0) 'รอตรวจ ${a.pendingGradeCount}',
-      if (a.isPublished && r.overdue)
-        'เลย ${DateTime.now().difference(a.dueAt!).inDays} วัน'
-      else if (a.dueAt != null)
-        'ส่ง ${_fmt(a.dueAt!.toLocal())}',
+      if (a.dueAt != null && !(a.isPublished && r.overdue))
+        'กำหนด ${_fmt(a.dueAt!.toLocal())}'
+      else if (a.dueAt == null)
+        'ไม่มีกำหนดส่ง',
     ];
     return parts.where((p) => p.isNotEmpty).join(' · ');
   }
+
+  /// ป้ายสถานะ: เลยกำหนดกี่วัน > รอตรวจกี่ชิ้น > (ร่างไม่ต้องมี เพราะอยู่ใน
+  /// หมวด 'ฉบับร่าง' อยู่แล้ว)
+  String? get _statusLabel {
+    final a = r.a;
+    if (a.isPublished && r.overdue) {
+      return 'เลย ${DateTime.now().difference(a.dueAt!).inDays} วัน';
+    }
+    if (a.pendingGradeCount > 0) return 'รอตรวจ ${a.pendingGradeCount}';
+    return null;
+  }
+
+  Color get _statusBg => r.a.isPublished && r.overdue
+      ? const Color(0xFFFDECEF)
+      : const Color(0xFFFDF1DE);
+
+  Color get _statusFg => r.a.isPublished && r.overdue
+      ? const Color(0xFFD3324A)
+      : const Color(0xFFB4650F);
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -489,23 +530,57 @@ class _AssignmentRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 12.5, color: AirySpec.label),
                 ),
+                // จำนวนที่ส่งย้ายจากบรรทัดข้อความมาเป็นแถบสัดส่วน — กวาดตา
+                // เห็นความคืบหน้าของทั้งลิสต์ได้โดยไม่ต้องอ่านทีละตัวเลข
+                // แถบสัดส่วนเปล่า ๆ ใต้บรรทัดรอง — ตัวเลขยังอยู่ในบรรทัด
+                // ข้อความ ไม่ต้องมีข้อความซ้ำข้างแถบ (เคยทำแล้วล้นที่จอ 360)
+                if (r.a.totalStudents > 0) ...[
+                  const SizedBox(height: 9),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: SizedBox(
+                      height: 5,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (r.a.submittedCount > 0)
+                            Expanded(
+                              flex: r.a.submittedCount,
+                              child: ColoredBox(
+                                color: r.a.pendingGradeCount > 0
+                                    ? const Color(0xFFEF9F27)
+                                    : const Color(0xFF107A50),
+                              ),
+                            ),
+                          if (r.a.totalStudents - r.a.submittedCount > 0)
+                            Expanded(
+                              flex: r.a.totalStudents - r.a.submittedCount,
+                              child: const ColoredBox(color: Color(0xFFEDECF2)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          if (r.a.pendingGradeCount > 0)
-            Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFAEEDA),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                '${r.a.pendingGradeCount}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF854F0B),
+          if (_statusLabel != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _statusBg,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  _statusLabel!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: _statusFg,
+                  ),
                 ),
               ),
             ),
