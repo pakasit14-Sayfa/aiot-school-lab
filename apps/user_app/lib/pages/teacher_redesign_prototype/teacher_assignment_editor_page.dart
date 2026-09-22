@@ -452,20 +452,34 @@ class _TeacherAssignmentEditorPageState
                   ),
                 )
               else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filtered.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 16),
-                  itemBuilder: (context, index) {
-                    final item = filtered[index];
-                    return _AssignmentCardItem(
-                      assignment: item,
-                      onTapEdit: () =>
-                          _openCreateEditForm(existingAssignment: item),
-                    );
-                  },
+                // รายการเดียวคั่นด้วยเส้นผม ไม่ใช่การ์ดแยกใบพร้อมเงา —
+                // การ์ดต่อใบกินพื้นที่แนวตั้งเกือบเท่าตัวโดยไม่ได้ให้ข้อมูล
+                // เพิ่ม หน้าที่เป็นรายการยาวควรสแกนได้เร็วก่อนอย่างอื่น
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFEDECF2)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < filtered.length; i++) ...[
+                        if (i > 0)
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFF4F3F7),
+                          ),
+                        _AssignmentRow(
+                          assignment: filtered[i],
+                          onTapEdit: () => _openCreateEditForm(
+                            existingAssignment: filtered[i],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
             ],
           ),
@@ -485,11 +499,16 @@ class _TeacherAssignmentEditorPageState
 ///
 /// โครงใหม่เรียงตามลำดับที่ครูอ่านจริง: ชื่อ → สถานะ → ข้อมูลประกอบบรรทัด
 /// เดียว → ความคืบหน้า → ปุ่ม
-class _AssignmentCardItem extends StatelessWidget {
-  const _AssignmentCardItem({
-    required this.assignment,
-    required this.onTapEdit,
-  });
+/// ใบงานหนึ่งแถว
+///
+/// เปลี่ยนจากการ์ดเป็นแถว 2026-09-22 — การ์ดเดิมสูงเกือบ 200pt ต่อใบ ทั้งที่
+/// ข้อมูลที่ครูต้องการต่อหนึ่งใบมีแค่ ชื่อ · สถานะ · กำหนดส่ง · ส่งมากี่คน
+/// หน้าจอหนึ่งจอจึงเห็นได้แค่สองใบ
+///
+/// แถบสีซ้ายบอกสถานะโดยไม่ต้องอ่าน · แตะทั้งแถวไปหน้าตรวจงาน · แก้ไขอยู่ใน
+/// เมนู ⋯ เพราะเป็นสิ่งที่ทำนาน ๆ ครั้ง ไม่ควรกินที่เท่าปุ่มหลัก
+class _AssignmentRow extends StatelessWidget {
+  const _AssignmentRow({required this.assignment, required this.onTapEdit});
 
   final AssignmentModel assignment;
   final VoidCallback onTapEdit;
@@ -500,150 +519,179 @@ class _AssignmentCardItem extends StatelessWidget {
     final total = assignment.totalStudents;
     final sent = assignment.submittedCount;
     final ratio = total == 0 ? 0.0 : (sent / total).clamp(0.0, 1.0);
+    final accent = isPublished
+        ? const Color(0xFF107A50)
+        : const Color(0xFFB4650F);
 
-    // ข้อมูลประกอบรวมเป็นบรรทัดเดียวคั่นด้วยจุด แทนการแยกเป็นกล่องเทา
-    // สองสามกล่อง — สั้นกว่า อ่านไวกว่า และตัดบรรทัดได้เองเมื่อจอแคบ
     final meta = <String>[
       assignment.type,
       if (assignment.isGroupWork) 'งานกลุ่ม',
       'ส่ง ${assignment.dueDate}',
       if (assignment.rubricTitle.trim().isNotEmpty) assignment.rubricTitle,
-      if (assignment.attachedSensorMetrics.isNotEmpty)
-        'เซนเซอร์ ${assignment.attachedSensorMetrics.join(', ')}',
     ].join('  ·  ');
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFF0F0F4)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F101828),
-            blurRadius: 18,
-            offset: Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  assignment.title,
-                  style: const TextStyle(
-                    fontSize: TeacherType.cardTitle,
-                    fontWeight: FontWeight.w800,
-                    height: 1.35,
-                    color: AirySpec.ink,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              _StatusPill(isPublished: isPublished),
-            ],
-          ),
-          if (assignment.instructions.trim().isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              assignment.instructions,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: TeacherType.secondary,
-                height: 1.45,
-                color: AirySpec.label,
-              ),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Text(
-            meta,
-            style: const TextStyle(
-              fontSize: TeacherType.label,
-              height: 1.5,
-              color: AirySpec.label,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Text(
-                total == 0
-                    ? 'ยังไม่มีนักเรียนในวิชานี้'
-                    : 'ส่งแล้ว $sent จาก $total คน',
-                style: const TextStyle(
-                  fontSize: TeacherType.label,
-                  fontWeight: FontWeight.w700,
-                  color: AirySpec.ink,
-                ),
-              ),
-              const Spacer(),
-              if (total > 0)
-                Text(
-                  '${(ratio * 100).round()}%',
-                  style: const TextStyle(
-                    fontSize: TeacherType.label,
-                    fontWeight: FontWeight.w800,
-                    color: TeacherPalette.primary,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: ratio,
-              minHeight: 5,
-              backgroundColor: const Color(0xFFEDECF2),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                TeacherPalette.primary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // ปุ่มแบบบาง ไม่ใช่ปุ่มทึบสองใบ — การ์ดหนึ่งใบไม่ควรมีปุ่มเด่น
-          // สองปุ่มแข่งกัน ในหน้าที่มีใบงานหลายสิบใบ
-          // ต้องระบุความกว้างเต็ม ไม่งั้น Wrap หดเท่าเนื้อหาแล้ว
-          // alignment: end ไม่มีผล ปุ่มจะไปกองอยู่ซ้าย
-          SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 8,
-              runSpacing: 8,
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TeacherGradingPage()),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 8, 13),
+          // IntrinsicHeight เพราะแถบสีซ้ายใช้ crossAxisAlignment.stretch
+          // ซึ่งต้องการความสูงที่มีขอบเขต — Row ในลิสต์ได้ความสูงไม่จำกัด
+          // แล้ว assert เป็น BoxConstraints ไม่ถูกต้อง
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _CardAction(
-                  icon: Icons.edit_outlined,
-                  label: 'แก้ไข',
-                  onTap: onTapEdit,
-                ),
-                _CardAction(
-                  icon: Icons.fact_check_outlined,
-                  label: 'ตรวจงาน',
-                  primary: true,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TeacherGradingPage(),
+                // ColoredBox เปล่าใน Row จะสูง 0 ถ้าไม่ stretch — ดู PITFALLS
+                SizedBox(
+                  width: 3,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: accent,
+                      borderRadius: BorderRadius.circular(999),
                     ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        assignment.title,
+                        style: const TextStyle(
+                          fontSize: TeacherType.body,
+                          fontWeight: FontWeight.w800,
+                          height: 1.35,
+                          color: AirySpec.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        meta,
+                        style: const TextStyle(
+                          fontSize: TeacherType.label,
+                          height: 1.5,
+                          color: AirySpec.label,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _MiniPill(
+                            text: isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
+                            fg: accent,
+                            bg: isPublished
+                                ? const Color(0xFFE1F6EC)
+                                : const Color(0xFFFDF1DE),
+                          ),
+                          const SizedBox(width: 10),
+                          // แถบความคืบหน้าโผล่เฉพาะเมื่อมีนักเรียนจริง —
+                          // เส้นเทาที่ 0/0 อ่านเหมือนเส้นคั่น ไม่ใช่ข้อมูล
+                          if (total > 0) ...[
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(999),
+                                child: LinearProgressIndicator(
+                                  value: ratio,
+                                  minHeight: 4,
+                                  backgroundColor: const Color(0xFFF4F3F7),
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                        TeacherPalette.primary,
+                                      ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$sent/$total',
+                              style: const TextStyle(
+                                fontSize: TeacherType.caption,
+                                fontWeight: FontWeight.w800,
+                                color: AirySpec.label,
+                              ),
+                            ),
+                          ] else
+                            const Expanded(
+                              child: Text(
+                                'ยังไม่มีนักเรียนในวิชานี้',
+                                style: TextStyle(
+                                  fontSize: TeacherType.caption,
+                                  color: AirySpec.label,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.center,
+                  child: PopupMenuButton<String>(
+                    tooltip: 'ตัวเลือกใบงาน',
+                    icon: const Icon(
+                      Icons.more_horiz_rounded,
+                      size: 20,
+                      color: AirySpec.chevron,
+                    ),
+                    onSelected: (v) {
+                      if (v == 'edit') {
+                        onTapEdit();
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TeacherGradingPage(),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'edit', child: Text('แก้ไขใบงาน')),
+                      PopupMenuItem(value: 'grade', child: Text('ตรวจงาน')),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-/// ชิปกรองพร้อมตัวเลขกำกับ
+class _MiniPill extends StatelessWidget {
+  const _MiniPill({required this.text, required this.fg, required this.bg});
+  final String text;
+  final Color fg;
+  final Color bg;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: TeacherType.caption,
+        fontWeight: FontWeight.w800,
+        color: fg,
+      ),
+    ),
+  );
+}
+
 class _FilterChip extends StatelessWidget {
   const _FilterChip({
     required this.label,
@@ -696,85 +744,6 @@ class _FilterChip extends StatelessWidget {
                   color: selected
                       ? Colors.white.withValues(alpha: 0.8)
                       : AirySpec.chevron,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.isPublished});
-  final bool isPublished;
-
-  @override
-  Widget build(BuildContext context) {
-    final fg = isPublished ? const Color(0xFF107A50) : const Color(0xFFB4650F);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: isPublished ? const Color(0xFFE1F6EC) : const Color(0xFFFDF1DE),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        isPublished ? 'เผยแพร่แล้ว' : 'ร่าง',
-        style: TextStyle(
-          fontSize: TeacherType.caption,
-          fontWeight: FontWeight.w800,
-          color: fg,
-        ),
-      ),
-    );
-  }
-}
-
-class _CardAction extends StatelessWidget {
-  const _CardAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.primary = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool primary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: primary ? TeacherPalette.primary : Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: primary ? TeacherPalette.primary : const Color(0xFFE3E1EB),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 15,
-                color: primary ? Colors.white : AirySpec.ink,
-              ),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: TeacherType.secondary,
-                  fontWeight: FontWeight.w700,
-                  color: primary ? Colors.white : AirySpec.ink,
                 ),
               ),
             ],

@@ -116,7 +116,9 @@ void main() {
       // hardcoded 0/30. ถ้อยคำเปลี่ยนเป็น 'ส่งแล้ว 1 จาก 2 คน' ตอน
       // ออกแบบการ์ดใหม่ 2026-09-22 — สิ่งที่เทสต์นี้ตรึงคือตัวเลขมาจาก
       // ข้อมูลจริง ไม่ใช่รูปประโยค
-      expect(find.textContaining('ส่งแล้ว 1 จาก 2 คน'), findsOneWidget);
+      // แถวแสดงเป็น '1/2' ตอนเปลี่ยนจากการ์ดเป็นแถว — ที่ตรึงคือตัวเลข
+      // มาจาก roster และ submissions จริง ไม่ใช่รูปประโยค
+      expect(find.text('1/2'), findsOneWidget);
     },
   );
 
@@ -178,7 +180,12 @@ void main() {
       // reset before the edit interaction so only the edit path counts.
       loadCoursesCalledDuringEdit = false;
 
-      await tester.tap(find.text('แก้ไข'));
+      // แก้ไขย้ายเข้าเมนู ⋯ ตอนเปลี่ยนการ์ดเป็นแถว 2026-09-22 —
+      // สิ่งที่เทสต์นี้ตรึงคือกดแก้ไขแล้วต้องส่ง assignment id จริงไป
+      // ไม่ใช่ตำแหน่งของปุ่ม
+      await tester.tap(find.byIcon(Icons.more_horiz_rounded).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('แก้ไขใบงาน').last);
       await tester.pumpAndSettle();
 
       // Pick the real rubric from the dropdown (previously discarded
