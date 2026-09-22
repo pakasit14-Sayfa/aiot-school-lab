@@ -233,3 +233,112 @@ class LessonStudentProgress {
     );
   }
 }
+
+/// ชนิดของบล็อกเนื้อหาในบทเรียนหนึ่งบล็อก — mirror ของค่าที่เก็บเป็นสตริงใน
+/// `lessons.content -> 'blocks' -> [] -> 'type'` (jsonb ไม่มี enum บังคับ
+/// ค่าที่อ่านไม่รู้จักจะตกมาเป็น [ContentBlockType.text] เสมอ)
+///
+/// เดิมประกาศไว้ในไฟล์หน้าจอของครู (`teacher_lesson_editor_page.dart`) ทำให้
+/// ฝั่งนักเรียนเอาไปใช้ไม่ได้ จึงอ่านได้แค่ `content['body']` ข้อความแบน ๆ
+/// และการจัดรูปแบบที่ครูตั้งใจไว้หายไปทั้งหมด — ย้ายมาไว้ตรงกลางเพื่อให้ทั้ง
+/// สองเลนอ่านโครงสร้างเดียวกัน
+enum ContentBlockType {
+  heading,
+  text,
+  bulletList,
+  image,
+  video,
+  fileDownload,
+  externalLink,
+  calloutWarning,
+  summaryBox,
+  sensorChart,
+}
+
+/// หนึ่งบล็อกเนื้อหา — เขียนโดยหน้าแก้ไขบทเรียนของครู อ่านโดยหน้าบทเรียน
+/// ของนักเรียนและหน้าดูตัวอย่างของครู
+///
+/// ฟิลด์เป็น mutable เพราะตัวแก้ไขผูก `TextEditingController` เข้ากับบล็อก
+/// โดยตรงและแก้ค่าในที่
+class ContentBlockModel {
+  ContentBlockModel({
+    required this.id,
+    required this.type,
+    this.text = '',
+    this.mediaUrl = '',
+    this.caption = '',
+    this.sensorDeviceId = '',
+    this.sensorMetric = '',
+    this.timeRange = '',
+  });
+
+  factory ContentBlockModel.fromJson(Map json, {required String fallbackId}) {
+    final typeName = json['type'] as String? ?? 'text';
+    return ContentBlockModel(
+      id: json['id'] as String? ?? fallbackId,
+      type: ContentBlockType.values.firstWhere(
+        (t) => t.name == typeName,
+        orElse: () => ContentBlockType.text,
+      ),
+      text: json['text'] as String? ?? '',
+      mediaUrl: json['mediaUrl'] as String? ?? '',
+      caption: json['caption'] as String? ?? '',
+      sensorDeviceId: json['sensorDeviceId'] as String? ?? '',
+      sensorMetric: json['sensorMetric'] as String? ?? '',
+      timeRange: json['timeRange'] as String? ?? '',
+    );
+  }
+
+  final String id;
+  ContentBlockType type;
+  String text;
+  String mediaUrl;
+  String caption;
+  String sensorDeviceId;
+  String sensorMetric;
+  String timeRange;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type.name,
+    'text': text,
+    'mediaUrl': mediaUrl,
+    'caption': caption,
+    'sensorDeviceId': sensorDeviceId,
+    'sensorMetric': sensorMetric,
+    'timeRange': timeRange,
+  };
+}
+
+/// อ่านบล็อกออกจาก `lessons.content` — คืนลิสต์ว่างเมื่อบทเรียนนั้นถูกสร้าง
+/// ก่อนมีตัวแก้ไขแบบบล็อก (มีแต่ `content['body']`) ผู้เรียกต้องตกกลับไป
+/// แสดง body แทน ไม่ใช่แสดงหน้าว่าง
+List<ContentBlockModel> lessonBlocksFromContent(Map<String, dynamic>? content) {
+  final raw = content?['blocks'];
+  if (raw is! List) return [];
+  final blocks = <ContentBlockModel>[];
+  for (var i = 0; i < raw.length; i++) {
+    final item = raw[i];
+    if (item is Map) {
+      blocks.add(ContentBlockModel.fromJson(item, fallbackId: 'b-$i'));
+    }
+  }
+  return blocks;
+}
+
+/// ข้อความแบนที่เก็บคู่ไว้ใน `content['body']` — ยังต้องเขียนต่อไปเพราะเป็น
+/// สิ่งที่หน้าจอรุ่นเก่า (`pages/student/lesson_view_page.dart`,
+/// `pages/teacher/lesson_form_page.dart`) อ่าน และเป็น fallback ของบทเรียน
+/// ที่ยังไม่มีบล็อก
+///
+/// ตัดบล็อกหัวข้อออก (หน้านักเรียนโชว์ชื่อบทเรียนอยู่แล้ว) และตัดบล็อก
+/// "สื่อแนบ:" ที่ระบบสร้างให้อัตโนมัติ (ไฟล์แนบมีหัวข้อของตัวเองแยกต่างหาก)
+String lessonBodyFromBlocks(List<ContentBlockModel> blocks) => blocks
+    .where(
+      (b) =>
+          b.text.trim().isNotEmpty &&
+          b.type != ContentBlockType.heading &&
+          !b.text.trimLeft().startsWith('สื่อแนบ:'),
+    )
+    .map((b) => b.text.trim())
+    .join('\n\n');

@@ -17,6 +17,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
+import '../student_redesign_prototype/widgets/lesson_block_view.dart';
 import '../student_redesign_prototype/widgets/student_redesign_palette.dart'
     show SchoolPalette;
 import 'teacher_airy_kit.dart';
@@ -28,41 +29,6 @@ import 'teacher_shared_widgets.dart' show TeacherSearchInput;
 // ==========================================
 
 enum LessonStatus { draft, published }
-
-enum ContentBlockType {
-  heading,
-  text,
-  bulletList,
-  image,
-  video,
-  fileDownload,
-  externalLink,
-  calloutWarning,
-  summaryBox,
-  sensorChart,
-}
-
-class ContentBlockModel {
-  ContentBlockModel({
-    required this.id,
-    required this.type,
-    this.text = '',
-    this.mediaUrl = '',
-    this.caption = '',
-    this.sensorDeviceId = '',
-    this.sensorMetric = '',
-    this.timeRange = '',
-  });
-
-  final String id;
-  ContentBlockType type;
-  String text;
-  String mediaUrl;
-  String caption;
-  String sensorDeviceId;
-  String sensorMetric;
-  String timeRange;
-}
 
 class LessonMaterialModel {
   LessonMaterialModel({
@@ -1178,39 +1144,16 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
           .toList();
       widget.lesson.sensorChartsCount = widget.lesson.sensorLinks.length;
 
-      final List<ContentBlockModel> parsedBlocks = [];
+      // parse/serialize ใช้ตัวเดียวกับที่ฝั่งนักเรียนอ่าน (shared_core)
+      // ไม่ใช่โค้ดคนละชุดที่ค่อย ๆ เพี้ยนจากกัน
       final content = detail.content;
-      if (content != null &&
-          content['blocks'] is List &&
-          (content['blocks'] as List).isNotEmpty) {
-        final rawBlocks = content['blocks'] as List;
-        for (int i = 0; i < rawBlocks.length; i++) {
-          final raw = rawBlocks[i];
-          if (raw is Map) {
-            final blockTypeStr = raw['type'] as String? ?? 'text';
-            final blockType = ContentBlockType.values.firstWhere(
-              (t) => t.name == blockTypeStr,
-              orElse: () => ContentBlockType.text,
-            );
-            parsedBlocks.add(
-              ContentBlockModel(
-                id: raw['id'] as String? ?? 'b-$i',
-                type: blockType,
-                text: raw['text'] as String? ?? '',
-                mediaUrl: raw['mediaUrl'] as String? ?? '',
-                caption: raw['caption'] as String? ?? '',
-                sensorDeviceId: raw['sensorDeviceId'] as String? ?? '',
-                sensorMetric: raw['sensorMetric'] as String? ?? '',
-                timeRange: raw['timeRange'] as String? ?? '',
-              ),
-            );
-          }
-        }
-      } else if (content != null &&
+      final parsedBlocks = lessonBlocksFromContent(content);
+      if (parsedBlocks.isEmpty &&
+          content != null &&
           content['body'] is String &&
           (content['body'] as String).trim().isNotEmpty) {
-        final bodyStr = (content['body'] as String).trim();
-        final paragraphs = bodyStr.split('\n\n');
+        // บทเรียนที่สร้างก่อนมีตัวแก้ไขแบบบล็อก — แปลงย่อหน้าเป็นบล็อกข้อความ
+        final paragraphs = (content['body'] as String).trim().split('\n\n');
         for (int i = 0; i < paragraphs.length; i++) {
           final p = paragraphs[i].trim();
           if (p.isNotEmpty) {
@@ -1304,23 +1247,10 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
   Map<String, dynamic> _serializeBlocksToContent(
     List<ContentBlockModel> blocks,
   ) {
-    final bodyText = lessonBodyTextForStudent(blocks);
+    final bodyText = lessonBodyFromBlocks(blocks);
     return {
       'body': bodyText,
-      'blocks': blocks
-          .map(
-            (b) => {
-              'id': b.id,
-              'type': b.type.name,
-              'text': b.text,
-              'mediaUrl': b.mediaUrl,
-              'caption': b.caption,
-              'sensorDeviceId': b.sensorDeviceId,
-              'sensorMetric': b.sensorMetric,
-              'timeRange': b.timeRange,
-            },
-          )
-          .toList(),
+      'blocks': [for (final b in blocks) b.toJson()],
     };
   }
 
@@ -3077,23 +3007,12 @@ class _TeacherLessonEditorPageState extends State<TeacherLessonEditorPage> {
 // 7. STUDENT PREVIEW MODE PAGE (SPEC 7)
 // ==========================================
 
-/// ข้อความที่นักเรียนเห็นจริง ๆ — `student_lesson_view_page.dart` อ่าน
-/// `content['body']` ก้อนเดียวมาแสดงในการ์ดใบเดียว ไม่ได้อ่าน `content['blocks']`
-/// ดังนั้นการจัดรูปแบบรายบล็อก (หัวข้อ/กล่องเตือน/กล่องสรุป) ไม่ถึงนักเรียน
-String lessonBodyTextForStudent(List<ContentBlockModel> blocks) => blocks
-    .where(
-      (b) =>
-          b.text.trim().isNotEmpty &&
-          b.type != ContentBlockType.heading &&
-          !b.text.trimLeft().startsWith('สื่อแนบ:'),
-    )
-    .map((b) => b.text.trim())
-    .join('\n\n');
-
 /// ตัวอย่างหน้าบทเรียนฝั่งนักเรียน — วางโครงตาม
 /// `student_redesign_prototype/widgets/student_lesson_view_page.dart` ของจริง
-/// (แบนเนอร์เขียว → เนื้อหาก้อนเดียว → เอกสารแนบ → กราฟเซนเซอร์ที่ผูกไว้ →
-/// ปุ่มเรียนจบ) ไม่ใช่การวาดบล็อกทีละใบแบบในหน้าแก้ไข ซึ่งนักเรียนไม่เคยเห็น
+/// (แบนเนอร์เขียว → เนื้อหา → เอกสารแนบ → กราฟเซนเซอร์ที่ผูกไว้ → ปุ่มเรียนจบ)
+/// และวาดเนื้อหาด้วย [LessonBlockView] ตัวเดียวกับที่หน้านักเรียนใช้ จึง
+/// เพี้ยนจากของจริงไม่ได้ — ห้ามเขียนตัววาดบล็อกชุดที่สองที่นี่อีก
+/// (PITFALLS.md ข้อ 10)
 class TeacherLessonPreviewPage extends StatelessWidget {
   const TeacherLessonPreviewPage({super.key, required this.lesson});
 
@@ -3101,21 +3020,6 @@ class TeacherLessonPreviewPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final body = lessonBodyTextForStudent(lesson.blocks);
-    final droppedHeadings = lesson.blocks
-        .where((b) => b.type == ContentBlockType.heading)
-        .length;
-    final styledBlocks = lesson.blocks
-        .where(
-          (b) =>
-              b.type == ContentBlockType.calloutWarning ||
-              b.type == ContentBlockType.summaryBox,
-        )
-        .length;
-    final sensorBlocks = lesson.blocks
-        .where((b) => b.type == ContentBlockType.sensorChart)
-        .length;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7FA),
       appBar: AppBar(
@@ -3185,28 +3089,11 @@ class TeacherLessonPreviewPage extends StatelessWidget {
                   const _StudentSectionTitle('📖 เนื้อหาบทเรียน'),
                   const SizedBox(height: 10),
                   _StudentCard(
-                    child: Text(
-                      body.isEmpty ? 'ไม่มีเนื้อหาข้อความในบทเรียนนี้' : body,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        height: 1.65,
-                        fontWeight: FontWeight.w500,
-                        color: body.isEmpty
-                            ? SchoolPalette.muted
-                            : SchoolPalette.ink,
-                      ),
+                    child: LessonBlockView(
+                      blocks: lesson.blocks,
+                      fallbackBody: '',
                     ),
                   ),
-                  if (droppedHeadings + styledBlocks + sensorBlocks > 0) ...[
-                    const SizedBox(height: 12),
-                    AiryNote(
-                      _mismatchNote(
-                        headings: droppedHeadings,
-                        styled: styledBlocks,
-                        sensors: sensorBlocks,
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 24),
                   const _StudentSectionTitle('📄 เอกสารและไฟล์ประกอบการเรียน'),
                   const SizedBox(height: 10),
@@ -3260,6 +3147,29 @@ class TeacherLessonPreviewPage extends StatelessWidget {
                                       ),
                                     ),
                                   ],
+                                ),
+                              ),
+                              // ปุ่มที่นักเรียนเห็นจริง — ในพรีวิวกดไม่ได้
+                              // แต่ต้องอยู่ ไม่งั้นครูไม่รู้ว่าเปิดไฟล์ได้
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 7,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: SchoolPalette.glassBorder,
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: const Text(
+                                  'เปิดอ่าน',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: SchoolPalette.deepGreen,
+                                  ),
                                 ),
                               ),
                             ],
@@ -3366,20 +3276,6 @@ class TeacherLessonPreviewPage extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  static String _mismatchNote({
-    required int headings,
-    required int styled,
-    required int sensors,
-  }) {
-    final parts = <String>[];
-    if (headings > 0) parts.add('บล็อกหัวข้อ $headings ใบ (ตัดออกทั้งหมด)');
-    if (styled > 0)
-      parts.add('กล่องเตือน/กล่องสรุป $styled ใบ (เหลือแต่ข้อความ)');
-    if (sensors > 0) parts.add('บล็อกกราฟ $sensors ใบ (ไม่แสดง)');
-    return 'นักเรียนอ่านเนื้อหาเป็นข้อความก้อนเดียว — ${parts.join(' · ')}'
-        '${sensors > 0 ? '\nกราฟขึ้นเฉพาะเซนเซอร์ที่ผูกไว้ในหัวข้อด้านล่างเท่านั้น' : ''}';
   }
 }
 

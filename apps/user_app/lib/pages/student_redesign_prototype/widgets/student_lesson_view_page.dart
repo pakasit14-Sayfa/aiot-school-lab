@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'lesson_block_view.dart';
 import 'student_redesign_palette.dart';
 
 class StudentLessonViewPage extends StatefulWidget {
@@ -66,7 +67,8 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
     try {
       final getLesson = widget.getLesson ?? LessonService.getLesson;
       final getCourse = widget.getCourse ?? CourseService.getCourse;
-      final updateProgress = widget.updateProgress ?? LessonService.updateProgress;
+      final updateProgress =
+          widget.updateProgress ?? LessonService.updateProgress;
 
       final lesson = await getLesson(widget.lessonId);
       CourseDetail? course;
@@ -279,10 +281,14 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
 
   Widget _buildLessonView() {
     final lesson = _lesson!;
+    // บล็อกที่ครูจัดไว้ในหน้าแก้ไขบทเรียน — เดิมหน้านี้อ่านแค่ `body`
+    // ข้อความแบน หัวข้อ/กล่องเตือน/กล่องสรุปที่ครูตั้งใจจัดจึงหายหมด
+    // บทเรียนที่สร้างก่อนมีตัวแก้ไขแบบบล็อกจะไม่มี `blocks` ให้ตกไปใช้ `body`
+    final blocks = lessonBlocksFromContent(lesson.content);
     final bodyText =
         (lesson.content?['body'] as String?) ??
         (lesson.content?['text'] as String?) ??
-        'ไม่มีเนื้อหาข้อความในบทเรียนนี้';
+        '';
 
     final isCompleted = lesson.completed == true;
 
@@ -405,15 +411,7 @@ class _StudentLessonViewPageState extends State<StudentLessonViewPage> {
             const SizedBox(height: 10),
             SoftCard(
               padding: const EdgeInsets.all(20),
-              child: Text(
-                bodyText,
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  height: 1.65,
-                  color: SchoolPalette.ink,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              child: LessonBlockView(blocks: blocks, fallbackBody: bodyText),
             ),
             const SizedBox(height: 24),
 

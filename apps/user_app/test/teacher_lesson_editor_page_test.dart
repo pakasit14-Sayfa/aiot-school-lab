@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:my_first_app/pages/teacher_redesign_prototype/teacher_lesson_editor_page.dart';
+import 'package:shared_core/shared_core.dart';
 
 void main() {
   testWidgets('TeacherLessonEditorPage displays editor correctly with blocks', (
