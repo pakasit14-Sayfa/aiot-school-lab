@@ -2167,14 +2167,15 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                       ),
                     ),
                   if (_saving) const LinearProgressIndicator(),
+                  // สูง 38 ไม่ใช่ 44/52 · ปุ่มรองกว้างเท่าเนื้อหา ปุ่มหลัก
+                  // กินที่เหลือ — ให้ตาไปหยุดที่ปุ่มหลักก่อน
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton.icon(
                         onPressed: _saving
                             ? null
                             : () => _handleSave(publish: false),
-                        icon: const Icon(Icons.save_as_rounded, size: 16),
+                        icon: const Icon(Icons.save_as_outlined, size: 15),
                         label: const Text(
                           'บันทึกร่าง',
                           style: TextStyle(
@@ -2183,39 +2184,41 @@ class _AssignmentFormSheetState extends State<_AssignmentFormSheet> {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: TeacherPalette.ink,
-                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          foregroundColor: AirySpec.label,
+                          side: const BorderSide(color: Color(0xFFE6E3EE)),
+                          minimumSize: const Size(0, 38),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(11),
                           ),
-                          minimumSize: const Size(0, 44),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _saving
-                            ? null
-                            : () => _handleSave(publish: true),
-                        icon: const Icon(Icons.send_rounded, size: 16),
-                        label: const Text(
-                          'เผยแพร่ให้นักเรียน',
-                          style: TextStyle(
-                            fontSize: TeacherType.secondary,
-                            fontWeight: FontWeight.w800,
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _saving
+                              ? null
+                              : () => _handleSave(publish: true),
+                          icon: const Icon(Icons.send_rounded, size: 15),
+                          label: const Text(
+                            'เผยแพร่ให้นักเรียน',
+                            style: TextStyle(
+                              fontSize: TeacherType.secondary,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: TeacherPalette.primary,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 44),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TeacherPalette.primary,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(0, 38),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            elevation: 0,
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 0,
                         ),
                       ),
                     ],
