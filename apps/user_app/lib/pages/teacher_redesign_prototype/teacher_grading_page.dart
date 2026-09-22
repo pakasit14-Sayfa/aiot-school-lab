@@ -13,6 +13,7 @@ import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
 import 'teacher_assignment_detail_page.dart';
+import 'teacher_airy_kit.dart';
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_shared_widgets.dart';
 
@@ -244,8 +245,8 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 _Chip(
                   label: 'รอตรวจ $_pendingTotal',
@@ -292,26 +293,46 @@ class _TeacherGradingPageState extends State<TeacherGradingPage> {
               if (overdue.isNotEmpty)
                 _Section(
                   title: 'เลยกำหนดส่ง',
-                  color: const Color(0xFFA32D2D),
+                  color: const Color(0xFFD3324A),
                   rows: overdue,
                   onTap: _open,
                 ),
               if (open.isNotEmpty)
                 _Section(
                   title: 'กำลังเปิดรับ',
-                  color: TeacherPalette.muted,
+                  color: AirySpec.ink,
                   rows: open,
                   onTap: _open,
                 ),
               if (drafts.isNotEmpty)
                 _Section(
                   title: 'ฉบับร่าง',
-                  color: TeacherPalette.muted,
+                  color: AirySpec.ink,
                   rows: drafts,
                   onTap: _open,
-                  trailing: (r) => TextButton(
-                    onPressed: () => _publish(r),
-                    child: const Text('เผยแพร่'),
+                  trailing: (r) => Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    // ต้องกำหนดความกว้างด้วย: ลูกของ Row ที่ไม่ใช่ Expanded
+                    // ได้ constraint กว้างแบบไม่จำกัด แล้ว ElevatedButton จะ
+                    // โยน 'BoxConstraints forces an infinite width' ทั้งเฟรม
+                    // (กับดักเดียวกับที่เคยเจอในปุ่มบน AppBar)
+                    child: SizedBox(
+                      width: 96,
+                      height: 34,
+                      child: AiryButton(
+                        label: 'เผยแพร่',
+                        kind: AiryCta.secondary,
+                        height: 34,
+                        onPressed: () => _publish(r),
+                        child: const Text(
+                          'เผยแพร่',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -332,20 +353,20 @@ class _Chip extends StatelessWidget {
     onTap: onTap,
     borderRadius: BorderRadius.circular(999),
     child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color: active ? TeacherPalette.ink : Colors.white,
+        color: active ? AirySpec.ink : Colors.white,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: active ? TeacherPalette.ink : TeacherPalette.border,
+          color: active ? AirySpec.ink : const Color(0xFFE3E1EB),
         ),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: active ? Colors.white : TeacherPalette.ink,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: active ? Colors.white : AirySpec.ink,
         ),
       ),
     ),
@@ -367,48 +388,53 @@ class _Section extends StatelessWidget {
   final Widget Function(_Row)? trailing;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 6),
-          child: Text(
-            title,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: color,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+        child: Row(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+                color: color,
+              ),
             ),
-          ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: TeacherPalette.border),
-          ),
-          child: Column(
-            children: [
-              for (var i = 0; i < rows.length; i++) ...[
-                _AssignmentRow(
-                  r: rows[i],
-                  onTap: () => onTap(rows[i]),
-                  trailing: trailing?.call(rows[i]),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F2F5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${rows.length}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AirySpec.label,
                 ),
-                if (i < rows.length - 1)
-                  const Divider(
-                    height: 1,
-                    indent: 52,
-                    color: Color(0xFFF1F5F9),
-                  ),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
+      ),
+      AiryCard(
+        children: [
+          for (final r in rows)
+            _AssignmentRow(
+              r: r,
+              onTap: () => onTap(r),
+              trailing: trailing?.call(r),
+            ),
+        ],
+      ),
+      const SizedBox(height: 18),
+    ],
   );
 }
 
@@ -436,34 +462,32 @@ class _AssignmentRow extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      padding: const EdgeInsets.fromLTRB(16, 13, 10, 13),
       child: Row(
         children: [
           _SubjectBadge(name: r.course.subjectName),
-          const SizedBox(width: 10),
+          const SizedBox(width: 13),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   r.a.title,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w800,
-                    color: TeacherPalette.ink,
+                    fontSize: 15.5,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                    color: AirySpec.ink,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   _meta,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: TeacherPalette.muted,
-                  ),
+                  style: const TextStyle(fontSize: 12.5, color: AirySpec.label),
                 ),
               ],
             ),
@@ -488,7 +512,8 @@ class _AssignmentRow extends StatelessWidget {
           trailing ??
               const Icon(
                 Icons.chevron_right_rounded,
-                color: TeacherPalette.muted,
+                size: 20,
+                color: AirySpec.chevron,
               ),
         ],
       ),

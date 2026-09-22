@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
+import 'teacher_airy_kit.dart';
 import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
 import 'teacher_rubric_page.dart' show TeacherRubricPage;
@@ -156,6 +157,10 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   bool _saving = false;
   bool _dirty = false;
 
+  /// ข้อความผิดพลาดใต้ช่อง "ชื่อใบงาน" — เดิมบอกด้วย snackbar ที่เด้งขึ้นมา
+  /// แล้วหายไป โดยไม่ชี้ว่าช่องไหนผิด
+  String? _titleError;
+
   bool get _isEdit => widget.existing != null;
 
   @override
@@ -169,6 +174,11 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     _published = a?.isPublished ?? false;
     _rubricId = a?.rubricId;
     _title.addListener(_markDirty);
+    _title.addListener(() {
+      if (_titleError != null && _title.text.trim().isNotEmpty) {
+        setState(() => _titleError = null);
+      }
+    });
     _instructions.addListener(_markDirty);
     _loadRubrics();
     if (_isEdit) _loadDatasets();
@@ -305,6 +315,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   Future<void> _save() async {
     final title = _title.text.trim();
     if (title.isEmpty) {
+      setState(() => _titleError = 'ยังไม่ได้ตั้งชื่อใบงาน');
       _snack('กรุณากรอกชื่อใบงาน', error: true);
       return;
     }
@@ -358,51 +369,26 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
       Navigator.pop(context, false);
       return;
     }
-    final leave = await showDialog<bool>(
+    final leave = await showAiryConfirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ทิ้งการแก้ไข?'),
-        content: const Text('สิ่งที่แก้ไว้จะไม่ถูกบันทึก'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('แก้ต่อ'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'ทิ้งการแก้ไข',
-              style: TextStyle(color: Color(0xFFB91C1C)),
-            ),
-          ),
-        ],
-      ),
+      title: 'ทิ้งการแก้ไข?',
+      message: 'สิ่งที่แก้ไว้จะไม่ถูกบันทึก',
+      confirmLabel: 'ทิ้งการแก้ไข',
+      cancelLabel: 'แก้ต่อ',
     );
     if (leave == true && mounted) Navigator.pop(context, false);
   }
 
   Future<void> _unlink(AssignmentSensorDataset d) async {
-    final ok = await showDialog<bool>(
+    final ok = await showAiryConfirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('เอาชุดข้อมูลออก?'),
-        content: Text(
-          '${kMetricThai[d.metric] ?? d.metric} · ${_devices[d.deviceId]?.name ?? 'อุปกรณ์'}\nนักเรียนจะไม่เห็นกราฟชุดนี้ในใบงานอีก',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('ยกเลิก'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'เอาออก',
-              style: TextStyle(color: Color(0xFFB91C1C)),
-            ),
-          ),
-        ],
-      ),
+      title: 'เอาชุดข้อมูลออก?',
+      message:
+          '${kMetricThai[d.metric] ?? d.metric} · '
+          '${_devices[d.deviceId]?.name ?? 'อุปกรณ์'}\n'
+          'นักเรียนจะไม่เห็นกราฟชุดนี้ในใบงานอีก',
+      confirmLabel: 'เอาออก',
+      cancelLabel: 'ยกเลิก',
     );
     if (ok != true) return;
     try {
@@ -438,7 +424,15 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     final req = await showModalBottomSheet<_LinkRequest>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _LinkDatasetSheet(devices: sensors),
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _LinkDatasetSheet(
+        devices: sensors,
+        accent: SubjectColor.of(widget.courseName).fg,
+      ),
     );
     if (req == null || !mounted) return;
     try {
@@ -495,7 +489,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         if (!didPop) _cancel();
       },
       child: Scaffold(
-        backgroundColor: Color.lerp(color.bg, Colors.white, 0.55),
+        backgroundColor: const Color(0xFFF7F7FA),
         extendBodyBehindAppBar: true,
         bottomNavigationBar: _saveBar(color),
         appBar: _editAppBar(),
@@ -566,17 +560,10 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
         offset: const Offset(0, -26),
         child: Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: Color(0xFFF7F7FA),
             borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x1A101828),
-                blurRadius: 20,
-                offset: Offset(0, -6),
-              ),
-            ],
           ),
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+          padding: const EdgeInsets.fromLTRB(18, 10, 18, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: _bodyRows(rubricTitle),
@@ -593,75 +580,89 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
   // ไม่มีหมวด "การเผยแพร่" ในฟอร์มแล้ว — การเผยแพร่เป็นผลของปุ่มที่กด ไม่ใช่
   // ค่าที่ตั้งค้างไว้ (วิธีของ Google Classroom ที่ครูคุ้นอยู่แล้ว) ดูแถบล่าง
 
-  List<Widget> _bodyRows(String rubricTitle) => [
-    _SectionHead('ข้อมูล'),
-    _FilledField(
-      controller: _title,
-      label: 'ชื่อใบงาน',
-      hint: 'เช่น ใบงานทบทวนบทที่ 1',
-      accent: SubjectColor.of(widget.courseName).fg,
-      bold: true,
-      textInputAction: TextInputAction.next,
-    ),
-    _FilledField(
-      controller: _instructions,
-      label: 'คำอธิบาย',
-      hint: 'อธิบายว่าต้องทำอะไร ส่งอย่างไร',
-      accent: SubjectColor.of(widget.courseName).fg,
-      minLines: 2,
-      maxLines: 8,
-    ),
-    _SectionHead('การส่งงาน'),
-    _StackRow(
-      icon: Icons.event_rounded,
-      chipBg: _chipIndigoBg,
-      chipFg: _chipIndigoFg,
-      label: 'กำหนดส่ง',
-      value: _dueAt == null ? 'ยังไม่กำหนด' : fmtThaiDateTime(_dueAt!),
-      onTap: _saving ? null : _pickDue,
-    ),
-    _StackRow(
-      icon: Icons.groups_rounded,
-      chipBg: _chipMintBg,
-      chipFg: _chipMintFg,
-      label: 'งานกลุ่ม',
-      value: _isGroup ? 'ส่ง 1 ชิ้นต่อกลุ่ม' : 'นักเรียนส่งงานรายคน',
-      switchValue: _isGroup,
-      onChanged: _saving ? null : _toggleGroup,
-    ),
-    _StackRow(
-      icon: Icons.rule_rounded,
-      chipBg: _chipAmberBg,
-      chipFg: _chipAmberFg,
-      label: 'เกณฑ์การให้คะแนน',
-      value: rubricTitle,
-      onTap: _saving || _rubricsLoading ? null : _pickRubric,
-    ),
-    _SectionHead('ชุดข้อมูลเซนเซอร์'),
-    // ผูกชุดข้อมูลต้องมี assignment id จริงก่อน — โหมดสร้างจึงบอกตรง ๆ ว่า
-    // ให้บันทึกก่อน แทนที่จะโชว์ปุ่มที่กดแล้วไม่เกิดอะไร
-    if (!_isEdit)
-      const _InfoRow('บันทึกใบงานก่อน แล้วค่อยเพิ่มชุดข้อมูลได้จากหน้าแก้ไข')
-    else ...[
-      if (_datasetsLoading)
-        const _InfoRow('กำลังโหลด…')
-      else if (_datasets.isEmpty)
-        const _InfoRow('ยังไม่มีชุดข้อมูล'),
-      for (final d in _datasets)
-        _DatasetRow(
-          dataset: d,
-          deviceName: _devices[d.deviceId]?.name ?? 'อุปกรณ์',
-          onRemove: _saving ? null : () => _unlink(d),
-        ),
-      _NavRow(
-        icon: Icons.add_circle_outline_rounded,
-        label: 'เพิ่มชุดข้อมูล',
-        value: '',
-        accent: true,
-        onTap: _saving ? null : _addDataset,
+  /// เนื้อฟอร์มสไตล์ "โปร่ง-ขาว" (2026-09-22 ตามภาพอ้างอิงที่เจ้าของเลือก):
+  /// การ์ดขาวเงานุ่ม แถวในการ์ดคั่นด้วยเส้นบาง ป้ายเล็กสีเทาคู่กับค่าตัวหนา
+  /// ไอคอนเส้นบางสีเดียว ไม่มีชิปสีและไม่มีพื้นเทารายแถวอีก
+  /// หัวสีประจำวิชาด้านบนคงไว้ตามที่เจ้าของสั่ง
+  List<Widget> _bodyRows(String rubricTitle) {
+    final accent = SubjectColor.of(widget.courseName).fg;
+    return [
+      const AirySection('ข้อมูล'),
+      AiryInput(
+        label: 'ชื่อใบงาน',
+        controller: _title,
+        hint: 'เช่น ใบงานทบทวนบทที่ 1',
+        accent: accent,
+        big: true,
+        errorText: _titleError,
       ),
-    ],
-  ];
+      AiryInput(
+        label: 'คำอธิบาย',
+        controller: _instructions,
+        hint: 'อธิบายว่าต้องทำอะไร ส่งอย่างไร',
+        accent: accent,
+        minLines: 2,
+        maxLines: 8,
+      ),
+      const AirySection('การส่งงาน'),
+      AiryCard(
+        children: [
+          AiryRow(
+            icon: Icons.event_outlined,
+            label: 'กำหนดส่ง',
+            value: _dueAt == null ? 'ยังไม่กำหนด' : fmtThaiDateTime(_dueAt!),
+            muted: _dueAt == null,
+            onTap: _saving ? null : _pickDue,
+          ),
+          AirySwitchRow(
+            icon: Icons.groups_outlined,
+            label: 'งานกลุ่ม',
+            value: _isGroup ? 'ส่ง 1 ชิ้นต่อกลุ่ม' : 'นักเรียนส่งงานรายคน',
+            on: _isGroup,
+            accent: accent,
+            onChanged: _saving ? null : _toggleGroup,
+          ),
+          AiryRow(
+            icon: Icons.rule_outlined,
+            label: 'เกณฑ์การให้คะแนน',
+            value: rubricTitle,
+            muted: rubricTitle == 'ไม่ใช้',
+            onTap: _saving || _rubricsLoading ? null : _pickRubric,
+          ),
+        ],
+      ),
+      const AirySection('ชุดข้อมูลเซนเซอร์'),
+      if (!_isEdit)
+        const AiryCard(
+          children: [
+            AiryNote('บันทึกใบงานก่อน แล้วค่อยเพิ่มชุดข้อมูลได้จากหน้าแก้ไข'),
+          ],
+        )
+      else
+        AiryCard(
+          children: [
+            if (_datasetsLoading)
+              const AiryNote('กำลังโหลด…')
+            else if (_datasets.isEmpty)
+              const AiryNote('ยังไม่มีชุดข้อมูล'),
+            for (final d in _datasets)
+              AiryDatasetRow(
+                dataset: d,
+                deviceName: _devices[d.deviceId]?.name ?? 'อุปกรณ์',
+                onRemove: _saving ? null : () => _unlink(d),
+              ),
+            AiryRow(
+              icon: Icons.add_circle_outline_rounded,
+              label: 'เพิ่มชุดข้อมูล',
+              value: 'เลือกอุปกรณ์และค่าที่จะให้นักเรียนเห็น',
+              muted: true,
+              accent: accent,
+              onTap: _saving ? null : _addDataset,
+            ),
+          ],
+        ),
+    ];
+  }
 
   void _toggleGroup(bool v) => setState(() {
     _isGroup = v;
@@ -688,7 +689,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
     child: SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -720,21 +721,14 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             SizedBox(
               width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
+              child: AiryButton(
+                label: _published ? 'บันทึก' : 'มอบหมายให้นักเรียน',
+                kind: AiryCta.primary,
+                accent: subject.fg,
                 onPressed: _saving ? null : (_published ? _save : _assignNow),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: subject.fg,
-                  disabledBackgroundColor: subject.fg.withValues(alpha: 0.5),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
                 child: _saving
                     ? const SizedBox(
                         width: 18,
@@ -744,13 +738,7 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
                           color: Colors.white,
                         ),
                       )
-                    : Text(
-                        _published ? 'บันทึก' : 'มอบหมายให้นักเรียน',
-                        style: const TextStyle(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                    : null,
               ),
             ),
           ],
@@ -761,256 +749,6 @@ class _TeacherAssignmentFormPageState extends State<TeacherAssignmentFormPage> {
 }
 
 // ─────────────────────────── body widgets (3 แบบ) ───────────────────────────
-
-class _SectionHead extends StatelessWidget {
-  const _SectionHead(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 17,
-        color: TeacherPalette.ink,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-  );
-}
-
-/// ช่องกรอก — พื้นขาวมีเส้นขอบ ต่างจากแถวตั้งค่าที่เป็นพื้นเทาทึบ
-/// ตั้งใจให้ต่าง: กล่องขาวมีขอบ = พิมพ์ได้ · แถวเทา = แตะแล้วเปิดตัวเลือก
-/// ตอนโฟกัส ขอบกับป้ายกำกับเปลี่ยนเป็นสีประจำวิชา พร้อมเงาจาง ๆ รอบกล่อง
-/// (iOS จะวาด focus ring ของระบบทับอีกชั้นเฉพาะตอนต่อคีย์บอร์ดฮาร์ดแวร์)
-class _FilledField extends StatefulWidget {
-  const _FilledField({
-    required this.controller,
-    required this.label,
-    required this.hint,
-    required this.accent,
-    this.minLines = 1,
-    this.maxLines = 1,
-    this.bold = false,
-    this.textInputAction,
-  });
-  final TextEditingController controller;
-  final String label;
-  final String hint;
-  final Color accent;
-  final int minLines;
-  final int maxLines;
-  final bool bold;
-  final TextInputAction? textInputAction;
-
-  @override
-  State<_FilledField> createState() => _FilledFieldState();
-}
-
-class _FilledFieldState extends State<_FilledField> {
-  final _node = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    _node.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _node.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final on = _node.hasFocus;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6, left: 2),
-            child: Text(
-              widget.label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
-                color: on ? widget.accent : TeacherPalette.muted,
-              ),
-            ),
-          ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOut,
-            decoration: BoxDecoration(
-              // โฟกัสเปลี่ยนแค่สองอย่าง: ขอบเข้มขึ้นเป็นสีวิชาแบบจาง 65%
-              // และพื้นออกสีวิชาอ่อน ๆ 4% — เงา spread แบบไม่เบลอที่เคยใส่
-              // กลายเป็นกรอบชั้นที่สอง ซ้อนกับ focus ring ของ iOS แล้วดูเละ
-              color: on
-                  ? Color.alphaBlend(
-                      widget.accent.withValues(alpha: 0.04),
-                      Colors.white,
-                    )
-                  : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: on
-                    ? widget.accent.withValues(alpha: 0.65)
-                    : const Color(0xFFE3E1EB),
-                width: 1.2,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: TextField(
-              controller: widget.controller,
-              focusNode: _node,
-              minLines: widget.minLines,
-              maxLines: widget.maxLines,
-              textInputAction: widget.textInputAction,
-              cursorColor: widget.accent,
-              cursorRadius: const Radius.circular(2),
-              style: TextStyle(
-                fontSize: widget.bold ? 17 : 15.5,
-                height: 1.5,
-                fontWeight: widget.bold ? FontWeight.w700 : FontWeight.w500,
-                color: TeacherPalette.ink,
-              ),
-              decoration: InputDecoration(
-                hintText: widget.hint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFFB9B8C6),
-                  fontWeight: FontWeight.w400,
-                ),
-                // ต้องปิดทีละสถานะ: `border` เป็นแค่ค่าสำรอง ส่วน
-                // inputDecorationTheme ของแอป (app_theme.dart) ตั้ง
-                // enabledBorder/focusedBorder ไว้ ซึ่งชนะ `border` เสมอ —
-                // ไม่ปิดตรงนี้ พอโฟกัสจะมีกรอบม่วงหนา 2 ของธีมวาดซ้อนใน
-                // กล่องของเรา กลายเป็นขอบสองชั้น
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
-                // ธีมตั้ง filled: true + fillColor ขาว ซึ่งจะทับพื้นสีจาง
-                // ตอนโฟกัสของกล่อง
-                filled: false,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// แถวการ์ดที่วางค่าไว้บรรทัดล่างของชื่อแถว — ค่ายาวแค่ไหนก็ไม่แย่งที่กับ
-/// ชื่อแถว (ปัญหาเดิมที่ทำให้ "เกณฑ์การให้คะแนน" โดนตัด) และมีที่พอจะเขียน
-/// ผลของสวิตช์เป็นประโยคแทนคำเดียว
-class _StackRow extends StatelessWidget {
-  const _StackRow({
-    required this.icon,
-    required this.chipBg,
-    required this.chipFg,
-    required this.label,
-    required this.value,
-    this.onTap,
-    this.switchValue,
-    this.onChanged,
-  });
-  final IconData icon;
-  final Color chipBg;
-  final Color chipFg;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-  final bool? switchValue;
-  final ValueChanged<bool>? onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: chipBg,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 19, color: chipFg),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w700,
-                    color: TeacherPalette.ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.3,
-                    color: TeacherPalette.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (switchValue != null)
-            Switch.adaptive(
-              value: switchValue!,
-              onChanged: onChanged,
-              activeTrackColor: TeacherPalette.primary,
-            )
-          else
-            const Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: Icon(
-                Icons.chevron_right_rounded,
-                size: 20,
-                color: Color(0xFFC7C7CC),
-              ),
-            ),
-        ],
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: const Color(0xFFF7F7FB),
-        borderRadius: BorderRadius.circular(16),
-        child: onTap == null
-            ? body
-            : InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: onTap,
-                child: body,
-              ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────── hero card ───────────────────────────
 
 /// วันครบกำหนดเทียบกับวันนี้ — นับเป็น "วัน" ตามปฏิทิน ไม่ใช่ 24 ชม.
 /// (งานที่ส่ง 23:59 คืนนี้ต้องอ่านว่า "วันนี้" ไม่ใช่ "อีก 0 วัน")
@@ -1223,215 +961,11 @@ class _SubjectHeader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────── grouped-form widgets ───────────────────────────
-
-// Pastel icon-chip tints, one per row purpose — owner asked for a look
-// "between Apple and Android", pointing at reference apps that colour-code
-// row icons by category instead of repeating one flat grey/primary icon on
-// every row. Kept local to this file rather than added to TeacherPalette:
-// this is one page's chip treatment, not a lane-wide palette decision.
-const _chipIndigoBg = Color(0xFFEDEFFE);
-const _chipIndigoFg = Color(0xFF4F55D6);
-const _chipMintBg = Color(0xFFE3F7EF);
-const _chipMintFg = Color(0xFF0E7A57);
-const _chipAmberBg = Color(0xFFFDF1DE);
-const _chipAmberFg = Color(0xFFB4650F);
-const _chipPinkBg = Color(0xFFFCE8F3);
-const _chipPinkFg = Color(0xFFC23B87);
+/// เขียวสถานะ 'เผยแพร่แล้ว' — สีเดียวที่เหลือจากชุดชิปพาสเทลเดิม
 const _chipGreenFg = Color(0xFF107A50);
 
-// Rows below are each self-contained (own tinted background / underline) —
-// no shared card container anymore. Two owner-rejected "ดูแปลกๆ" rounds
-// both had a solid grouped-card wrapper; the wizard mockup the owner picked
-// has none, so both the wizard and the flat edit-mode form now reuse these
-// same standalone rows instead of a card.
-
-class _NavRow extends StatelessWidget {
-  const _NavRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onTap,
-    this.accent = false,
-  });
-  final IconData icon;
-  final String label;
-  final String value;
-  final VoidCallback? onTap;
-  final bool accent;
-  @override
-  Widget build(BuildContext context) {
-    final fg = accent ? TeacherPalette.primary : TeacherPalette.ink;
-    final iconBg = accent
-        ? TeacherPalette.primary.withValues(alpha: 0.14)
-        : const Color(0xFFEDECF5);
-    final iconFg = accent ? TeacherPalette.primary : TeacherPalette.muted;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: const Color(0xFFF7F7FB),
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, size: 17, color: iconFg),
-                ),
-                const SizedBox(width: 12),
-                // ทั้งสองฝั่งเคยเป็น Flexible คู่กัน (ชื่อแถว 1 : ค่า 2) ซึ่ง
-                // แบ่งพื้นที่ตามสัดส่วนตายตัว ไม่สนว่าอีกฝั่งใช้จริงแค่ไหน —
-                // "เกณฑ์การให้คะแนน" จึงโดนตัดเป็น "เกณฑ์การใ…" ทั้งที่ค่า
-                // คือ "ไม่ใช้" สั้นนิดเดียว ตอนนี้ชื่อแถวกินตามความกว้างจริง
-                // (ไม่เกิน 62% กันแถวชื่อยาวผิดปกติ) แล้วค่าได้ที่เหลือทั้งหมด
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (_, c) => Row(
-                      children: [
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: c.maxWidth * 0.62,
-                          ),
-                          child: Text(
-                            label,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 16, color: fg),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            value,
-                            textAlign: TextAlign.right,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: TeacherPalette.muted,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (!accent) ...[
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.chevron_right_rounded,
-                    size: 20,
-                    color: Color(0xFFC7C7CC),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF7F7FB),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(fontSize: 14, color: TeacherPalette.muted),
-    ),
-  );
-}
-
-class _DatasetRow extends StatelessWidget {
-  const _DatasetRow({
-    required this.dataset,
-    required this.deviceName,
-    required this.onRemove,
-  });
-  final AssignmentSensorDataset dataset;
-  final String deviceName;
-  final VoidCallback? onRemove;
-  @override
-  Widget build(BuildContext context) {
-    final d = dataset;
-    final range = d.timeStart == null && d.timeEnd == null
-        ? 'ข้อมูลล่าสุด'
-        : '${d.timeStart == null ? '…' : _fmtThaiShort(d.timeStart!)} – ${d.timeEnd == null ? 'ตอนนี้' : _fmtThaiShort(d.timeEnd!)}';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.only(left: 14, right: 4, top: 8, bottom: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7FB),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _chipPinkBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.sensors_rounded,
-              size: 17,
-              color: _chipPinkFg,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  d.label?.trim().isNotEmpty == true
-                      ? d.label!
-                      : (kMetricThai[d.metric] ?? d.metric),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: TeacherPalette.ink,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${kMetricThai[d.metric] ?? d.metric} · $deviceName · $range',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: TeacherPalette.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: 'เอาออก',
-            onPressed: onRemove,
-            icon: const Icon(Icons.close_rounded, size: 20),
-            color: TeacherPalette.muted,
-          ),
-        ],
-      ),
-    );
-  }
-}
+// วิดเจ็ตชุด "grouped-form" เดิม (_NavRow / _InfoRow / _DatasetRow) ถูกแทนที่
+// ด้วยชุด _Airy* ข้างล่างทั้งหมดเมื่อ 2026-09-22
 
 // ─────────────────────────── rubric picker ───────────────────────────
 
@@ -1706,8 +1240,9 @@ class _LinkRequest {
 }
 
 class _LinkDatasetSheet extends StatefulWidget {
-  const _LinkDatasetSheet({required this.devices});
+  const _LinkDatasetSheet({required this.devices, required this.accent});
   final List<DeviceOption> devices;
+  final Color accent;
   @override
   State<_LinkDatasetSheet> createState() => _LinkDatasetSheetState();
 }
@@ -1731,7 +1266,7 @@ class _LinkDatasetSheetState extends State<_LinkDatasetSheet> {
   Future<DateTime?> _pick(DateTime initial) => showTeacherDateTimeSheet(
     context: context,
     initial: initial,
-    accent: TeacherPalette.primary,
+    accent: widget.accent,
     title: 'ช่วงเวลาของข้อมูล',
     first: DateTime(2024),
     last: DateTime(2035, 12, 31),
@@ -1739,100 +1274,363 @@ class _LinkDatasetSheetState extends State<_LinkDatasetSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final metrics = _metricsOf(_device);
+    final hasRange = _start != null || _end != null;
     return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'เพิ่มชุดข้อมูลเซนเซอร์',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _device.id,
-              decoration: const InputDecoration(labelText: 'อุปกรณ์'),
-              items: [
-                for (final d in widget.devices)
-                  DropdownMenuItem(
-                    value: d.id,
-                    child: Text(
-                      d.location == null ? d.name : '${d.name} · ${d.location}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (id) {
-                final d = widget.devices.firstWhere((x) => x.id == id);
-                setState(() {
-                  _device = d;
-                  _metric = _metricsOf(d).first;
-                });
-              },
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_device.id),
-              initialValue: _metric,
-              decoration: const InputDecoration(labelText: 'ค่าที่วัด'),
-              items: [
-                for (final m in _metricsOf(_device))
-                  DropdownMenuItem(value: m, child: Text(kMetricThai[m] ?? m)),
-              ],
-              onChanged: (m) => setState(() => _metric = m ?? _metric),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _label,
-              decoration: const InputDecoration(
-                labelText: 'ชื่อชุดข้อมูล (ไม่บังคับ)',
-              ),
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.play_arrow_rounded),
-              title: const Text('เริ่ม'),
-              subtitle: Text(
-                _start == null ? 'ไม่กำหนด' : fmtThaiDateTime(_start!),
-              ),
-              onTap: () async {
-                final v = await _pick(
-                  _start ?? DateTime.now().subtract(const Duration(days: 1)),
-                );
-                if (v != null) setState(() => _start = v);
-              },
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.stop_rounded),
-              title: const Text('สิ้นสุด'),
-              subtitle: Text(_end == null ? 'ตอนนี้' : fmtThaiDateTime(_end!)),
-              onTap: () async {
-                final v = await _pick(_end ?? DateTime.now());
-                if (v != null) setState(() => _end = v);
-              },
-            ),
-            const SizedBox(height: 8),
-            FilledButton(
-              onPressed: () => Navigator.pop(
-                context,
-                _LinkRequest(
-                  deviceId: _device.id,
-                  metric: _metric,
-                  start: _start,
-                  end: _end,
-                  label: _label.text.trim().isEmpty ? null : _label.text.trim(),
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10, bottom: 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE4E3EA),
+                  borderRadius: BorderRadius.circular(999),
                 ),
               ),
-              child: const Text('เพิ่มชุดข้อมูล'),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 0, 22, 4),
+              child: Text(
+                'เพิ่มชุดข้อมูลเซนเซอร์',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: AirySpec.ink,
+                ),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(22, 0, 22, 18),
+              child: Text(
+                'นักเรียนจะเห็นกราฟของค่าที่เลือกอยู่ในใบงานนี้',
+                style: TextStyle(fontSize: 13.5, color: AirySpec.label),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AiryCard(
+                    children: [
+                      AiryRow(
+                        icon: Icons.sensors_outlined,
+                        label: 'อุปกรณ์',
+                        value: _device.name,
+                        trailingNote: _device.location,
+                        onTap: _pickDevice,
+                      ),
+                      AiryRow(
+                        icon: Icons.show_chart_rounded,
+                        label: 'ค่าที่วัด',
+                        value: kMetricThai[_metric] ?? _metric,
+                        onTap: metrics.length < 2 ? null : _pickMetric,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  AiryInput(
+                    label: 'ชื่อชุดข้อมูล',
+                    optional: true,
+                    controller: _label,
+                    hint: 'เช่น ค่าฝุ่นช่วงคาบเรียน',
+                    accent: widget.accent,
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(4, 22, 4, 10),
+                    child: Text(
+                      'ช่วงเวลาของข้อมูล',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: AirySpec.ink,
+                      ),
+                    ),
+                  ),
+                  AiryCard(
+                    children: [
+                      AiryRow(
+                        icon: Icons.play_circle_outline_rounded,
+                        label: 'เริ่ม',
+                        value: _start == null
+                            ? 'ข้อมูลล่าสุด'
+                            : fmtThaiDateTime(_start!),
+                        muted: _start == null,
+                        onTap: () async {
+                          final v = await _pick(
+                            _start ??
+                                DateTime.now().subtract(
+                                  const Duration(days: 1),
+                                ),
+                          );
+                          if (v != null) setState(() => _start = v);
+                        },
+                      ),
+                      AiryRow(
+                        icon: Icons.stop_circle_outlined,
+                        label: 'สิ้นสุด',
+                        value: _end == null
+                            ? 'ต่อเนื่องถึงตอนนี้'
+                            : fmtThaiDateTime(_end!),
+                        muted: _end == null,
+                        onTap: () async {
+                          final v = await _pick(_end ?? DateTime.now());
+                          if (v != null) setState(() => _end = v);
+                        },
+                      ),
+                    ],
+                  ),
+                  if (hasRange)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => setState(() {
+                          _start = null;
+                          _end = null;
+                        }),
+                        style: TextButton.styleFrom(
+                          foregroundColor: widget.accent,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 8,
+                          ),
+                        ),
+                        child: const Text(
+                          'ล้างช่วงเวลา',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 18),
+                  AiryButton(
+                    label: 'เพิ่มชุดข้อมูล',
+                    kind: AiryCta.primary,
+                    accent: widget.accent,
+                    onPressed: () => Navigator.pop(
+                      context,
+                      _LinkRequest(
+                        deviceId: _device.id,
+                        metric: _metric,
+                        start: _start,
+                        end: _end,
+                        label: _label.text.trim().isEmpty
+                            ? null
+                            : _label.text.trim(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  AiryButton(
+                    label: 'ยกเลิก',
+                    kind: AiryCta.secondary,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(height: 6),
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _pickDevice() async {
+    final picked = await showModalBottomSheet<DeviceOption>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _OptionSheet(
+        title: 'เลือกอุปกรณ์',
+        accent: widget.accent,
+        options: [
+          for (final d in widget.devices)
+            _Option(
+              key: d.id,
+              title: d.name,
+              subtitle: d.location,
+              selected: d.id == _device.id,
+              value: d,
+            ),
+        ],
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _device = picked;
+      _metric = _metricsOf(picked).first;
+    });
+  }
+
+  Future<void> _pickMetric() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+      ),
+      builder: (ctx) => _OptionSheet(
+        title: 'เลือกค่าที่วัด',
+        accent: widget.accent,
+        options: [
+          for (final m in _metricsOf(_device))
+            _Option(
+              key: m,
+              title: kMetricThai[m] ?? m,
+              subtitle: null,
+              selected: m == _metric,
+              value: m,
+            ),
+        ],
+      ),
+    );
+    if (picked != null) setState(() => _metric = picked);
+  }
+}
+
+class _Option<T> {
+  const _Option({
+    required this.key,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.value,
+  });
+  final String key;
+  final String title;
+  final String? subtitle;
+  final bool selected;
+  final T value;
+}
+
+class _OptionSheet<T> extends StatelessWidget {
+  const _OptionSheet({
+    required this.title,
+    required this.options,
+    required this.accent,
+  });
+  final String title;
+  final List<_Option<T>> options;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40,
+          height: 4,
+          margin: const EdgeInsets.only(top: 10, bottom: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDCDBE4),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: TeacherPalette.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              for (final o in options)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: o.selected
+                        ? Color.alphaBlend(
+                            accent.withValues(alpha: 0.06),
+                            Colors.white,
+                          )
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => Navigator.pop(context, o.value),
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: o.selected
+                                ? accent
+                                : const Color(0xFFEDECF2),
+                            width: o.selected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    o.title,
+                                    style: TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: o.selected
+                                          ? accent
+                                          : TeacherPalette.ink,
+                                    ),
+                                  ),
+                                  if (o.subtitle != null) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      o.subtitle!,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: TeacherPalette.muted,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if (o.selected)
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 22,
+                                color: accent,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 }

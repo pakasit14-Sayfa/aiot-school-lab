@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_core/shared_core.dart';
 
 import '../school_admin/school_timetable_page.dart' show SubjectColor;
+import 'teacher_airy_kit.dart';
 import 'teacher_assignment_form_page.dart';
 import 'teacher_date_time_sheet.dart' show showTeacherDateTimeSheet;
 import 'teacher_redesign_prototype_page.dart' show TeacherPalette;
@@ -239,7 +240,7 @@ class _TeacherAssignmentDetailPageState
   Widget build(BuildContext context) {
     final color = SubjectColor.of(widget.courseName);
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F2F8),
+      backgroundColor: const Color(0xFFF7F7FA),
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -298,12 +299,12 @@ class _TeacherAssignmentDetailPageState
                     offset: const Offset(0, -26),
                     child: Container(
                       decoration: const BoxDecoration(
-                        color: Color(0xFFF4F2F8),
+                        color: Color(0xFFF7F7FA),
                         borderRadius: BorderRadius.vertical(
                           top: Radius.circular(26),
                         ),
                       ),
-                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -311,7 +312,7 @@ class _TeacherAssignmentDetailPageState
                           if ((_a.instructions ?? '').trim().isNotEmpty ||
                               (_detail?.sensorDatasets.isNotEmpty ??
                                   false)) ...[
-                            const _SectionLabel('โจทย์'),
+                            const AirySection('โจทย์'),
                             _briefCard(color),
                           ],
                           ..._rosterSection(),
@@ -403,100 +404,105 @@ class _TeacherAssignmentDetailPageState
         : (total - submitted > 0
               ? 'ตรวจครบทุกชิ้นที่ส่งมาแล้ว · ยังไม่ส่งอีก ${total - submitted} คน'
               : 'ตรวจครบทุกคนแล้ว');
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+    return AiryCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '$submitted',
-                style: const TextStyle(
-                  fontSize: 30,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                  color: TeacherPalette.ink,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '$submitted',
+                    style: const TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1,
+                      color: TeacherPalette.ink,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '/ $total คนส่งแล้ว',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: TeacherPalette.muted,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
+              const SizedBox(height: 4),
               Text(
-                '/ $total คนส่งแล้ว',
+                note,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
                   color: TeacherPalette.muted,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            note,
-            style: const TextStyle(fontSize: 13, color: TeacherPalette.muted),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: SizedBox(
-              height: 10,
-              child: Row(
-                // ColoredBox ที่ไม่มีลูกจะสูง 0 ถ้า Row จัดกึ่งกลางตามค่าเริ่มต้น
-                // — แถบเลยหายไปทั้งแถบ ต้อง stretch ให้เต็มความสูง 10
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: SizedBox(
+                  height: 10,
+                  child: Row(
+                    // ColoredBox ที่ไม่มีลูกจะสูง 0 ถ้า Row จัดกึ่งกลางตามค่าเริ่มต้น
+                    // — แถบเลยหายไปทั้งแถบ ต้อง stretch ให้เต็มความสูง 10
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_graded > 0)
+                        Expanded(
+                          flex: _graded,
+                          child: const ColoredBox(color: Color(0xFF107A50)),
+                        ),
+                      if (_pending > 0)
+                        Expanded(
+                          flex: _pending,
+                          child: const ColoredBox(color: Color(0xFFEF9F27)),
+                        ),
+                      if (total - submitted > 0)
+                        Expanded(
+                          flex: total - submitted,
+                          child: const ColoredBox(color: Color(0xFFEDECF5)),
+                        ),
+                      if (total == 0)
+                        const Expanded(
+                          child: ColoredBox(color: Color(0xFFEDECF5)),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
                 children: [
-                  if (_graded > 0)
-                    Expanded(
-                      flex: _graded,
-                      child: const ColoredBox(color: Color(0xFF107A50)),
-                    ),
-                  if (_pending > 0)
-                    Expanded(
-                      flex: _pending,
-                      child: const ColoredBox(color: Color(0xFFEF9F27)),
-                    ),
-                  if (total - submitted > 0)
-                    Expanded(
-                      flex: total - submitted,
-                      child: const ColoredBox(color: Color(0xFFEDECF5)),
-                    ),
-                  if (total == 0)
-                    const Expanded(child: ColoredBox(color: Color(0xFFEDECF5))),
+                  _Legend(
+                    color: const Color(0xFFEF9F27),
+                    label: 'รอตรวจ',
+                    value: _pending,
+                  ),
+                  _Legend(
+                    color: const Color(0xFF107A50),
+                    label: 'ตรวจแล้ว',
+                    value: _graded,
+                  ),
+                  _Legend(
+                    color: const Color(0xFFDEDCE6),
+                    label: 'ยังไม่ส่ง',
+                    value: total - submitted,
+                  ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              _Legend(
-                color: const Color(0xFFEF9F27),
-                label: 'รอตรวจ',
-                value: _pending,
-              ),
-              _Legend(
-                color: const Color(0xFF107A50),
-                label: 'ตรวจแล้ว',
-                value: _graded,
-              ),
-              _Legend(
-                color: const Color(0xFFDEDCE6),
-                label: 'ยังไม่ส่ง',
-                value: total - submitted,
-              ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -504,80 +510,80 @@ class _TeacherAssignmentDetailPageState
     final brief = (_a.instructions ?? '').trim();
     final datasets =
         _detail?.sensorDatasets ?? const <AssignmentSensorDataset>[];
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (brief.isNotEmpty)
-            Text(
-              brief,
-              style: const TextStyle(
-                fontSize: 14.5,
-                height: 1.65,
-                color: Color(0xFF4B4558),
-              ),
-            ),
-          for (var i = 0; i < datasets.length; i++) ...[
-            Padding(
-              padding: EdgeInsets.only(top: brief.isEmpty && i == 0 ? 0 : 14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: color.bg,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    child: Icon(
-                      Icons.insights_rounded,
-                      size: 18,
-                      color: color.fg,
-                    ),
+    return AiryCard(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (brief.isNotEmpty)
+                Text(
+                  brief,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    height: 1.65,
+                    color: Color(0xFF4B4558),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _metricThai(datasets[i].metric),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: TeacherPalette.ink,
-                          ),
-                        ),
-                        const Text(
-                          'ชุดข้อมูลเซนเซอร์ที่ผูกกับใบงานนี้',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: TeacherPalette.muted,
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+              for (var i = 0; i < datasets.length; i++) ...[
+                Padding(
+                  padding: EdgeInsets.only(
+                    top: brief.isEmpty && i == 0 ? 0 : 16,
                   ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.insights_outlined,
+                        size: 19,
+                        color: AirySpec.label,
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'ชุดข้อมูลเซนเซอร์',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w500,
+                                color: AirySpec.label,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _metricThai(datasets[i].metric),
+                              style: const TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: AirySpec.ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   List<Widget> _rosterSection() {
     if (_students.isEmpty) {
       return const [
-        _SectionLabel('นักเรียน'),
-        _NoteCard(
-          'ยังไม่มีนักเรียนในวิชานี้ — นักเรียนเข้าวิชาเมื่อแอดมินจัดตารางเรียน',
+        AirySection('นักเรียน'),
+        AiryCard(
+          children: [
+            AiryNote(
+              'ยังไม่มีนักเรียนในวิชานี้ — นักเรียนเข้าวิชาเมื่อแอดมินจัดตารางเรียน',
+            ),
+          ],
         ),
       ];
     }
@@ -589,7 +595,7 @@ class _TeacherAssignmentDetailPageState
     ]) {
       final rows = _bucket(kind);
       if (rows.isEmpty) continue;
-      out.add(_SectionLabel(label, count: rows.length));
+      out.add(AirySection(label, count: rows.length));
       out.add(
         Container(
           decoration: BoxDecoration(
@@ -616,8 +622,15 @@ class _TeacherAssignmentDetailPageState
     }
     if (_submitted == 0) {
       out.add(
-        const _NoteCard(
-          'ยังไม่มีงานส่งเข้ามา — ขยายเวลาส่งได้จากเมนู ⋯ มุมขวาบน',
+        const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: AiryCard(
+            children: [
+              AiryNote(
+                'ยังไม่มีงานส่งเข้ามา — ขยายเวลาส่งได้จากเมนู ⋯ มุมขวาบน',
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -646,82 +659,83 @@ class _TeacherAssignmentDetailPageState
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
           child: Row(
             children: [
+              // สัดส่วน 7:3 แทนความกว้างตายตัว 108 — ที่จอ 360 ปุ่มคงที่ทำให้
+              // ปุ่มหลักที่มีทั้งไอคอน ข้อความ และตัวเลข ล้นขอบไป 40pt
               Expanded(
-                child: SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: nothingToGrade ? null : _openGrading,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: color.fg,
-                      disabledBackgroundColor: const Color(0xFFE7E5EE),
-                      disabledForegroundColor: const Color(0xFF9E9AA9),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.rate_review_outlined, size: 19),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            nothingToGrade
-                                ? 'ยังไม่มีงานให้ตรวจ'
-                                : (_pending > 0
-                                      ? 'ตรวจงาน'
-                                      : 'ดูงานที่ตรวจแล้ว'),
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        if (_pending > 0) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.22),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              '$_pending',
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w700,
+                flex: 7,
+                child: AiryButton(
+                  label: nothingToGrade
+                      ? 'ยังไม่มีงานให้ตรวจ'
+                      : (_pending > 0 ? 'ตรวจงาน' : 'ดูงานที่ตรวจแล้ว'),
+                  kind: AiryCta.primary,
+                  accent: color.fg,
+                  onPressed: nothingToGrade ? null : _openGrading,
+                  child: nothingToGrade
+                      ? null
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.rate_review_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                _pending > 0 ? 'ตรวจงาน' : 'ดูงานที่ตรวจแล้ว',
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                            if (_pending > 0) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.22),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '$_pending',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(width: 10),
-              SizedBox(
-                height: 52,
-                child: OutlinedButton.icon(
+              Expanded(
+                flex: 3,
+                child: AiryButton(
+                  label: 'แก้ไข',
+                  kind: AiryCta.tertiary,
                   onPressed: _openEdit,
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text(
-                    'แก้ไข',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: TeacherPalette.ink,
-                    side: const BorderSide(color: Color(0xFFDDDCE4)),
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.edit_outlined, size: 17),
+                      SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'แก้ไข',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -771,69 +785,6 @@ String _metricThai(String metric) {
     default:
       return metric;
   }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text, {this.count});
-  final String text;
-  final int? count;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
-    child: Row(
-      children: [
-        Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.8,
-            color: TeacherPalette.muted,
-          ),
-        ),
-        if (count != null) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEDECF5),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                color: TeacherPalette.muted,
-              ),
-            ),
-          ),
-        ],
-      ],
-    ),
-  );
-}
-
-class _NoteCard extends StatelessWidget {
-  const _NoteCard(this.text);
-  final String text;
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(top: 10),
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontSize: 13.5,
-        height: 1.5,
-        color: TeacherPalette.muted,
-      ),
-    ),
-  );
 }
 
 class _Legend extends StatelessWidget {
