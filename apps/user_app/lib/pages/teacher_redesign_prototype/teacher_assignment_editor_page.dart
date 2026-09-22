@@ -353,26 +353,6 @@ class _TeacherAssignmentEditorPageState
     return TeacherMockPageShell(
       title: 'จัดการใบงานและโจทย์ทดลอง',
       activeMenuLabel: 'ตรวจงาน',
-      actions: [
-        ElevatedButton.icon(
-          onPressed: () => _openCreateEditForm(),
-          icon: const Icon(Icons.add_task_rounded, size: 18),
-          label: const Text(
-            'สร้างใบงานใหม่',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: TeacherPalette.primary,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(0, 44),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 0,
-          ),
-        ),
-      ],
       builder: (context, isDesktop) {
         return SingleChildScrollView(
           padding: EdgeInsets.all(isDesktop ? 24 : 16),
@@ -416,6 +396,66 @@ class _TeacherAssignmentEditorPageState
                 ),
               ),
               const SizedBox(height: 20),
+
+              // หัวรายการ — ปุ่มสร้างอยู่ตรงนี้ ไม่ใช่ลอยเดี่ยวกินทั้งแถบ
+              // ด้านบนสุด เพราะเป็นสิ่งที่กดนาน ๆ ครั้ง ส่วนที่ครูใช้ทุกวัน
+              // คือรายการใบงานที่อยู่ใต้มัน
+              Padding(
+                padding: const EdgeInsets.fromLTRB(2, 0, 2, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        filtered.isEmpty
+                            ? 'ยังไม่มีใบงาน'
+                            : 'ใบงาน ${filtered.length} รายการ',
+                        style: const TextStyle(
+                          fontSize: TeacherType.label,
+                          fontWeight: FontWeight.w700,
+                          color: AirySpec.label,
+                        ),
+                      ),
+                    ),
+                    Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _openCreateEditForm(),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE3E1EB)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add_rounded,
+                                size: 16,
+                                color: TeacherPalette.primary,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'สร้างใบงานใหม่',
+                                style: TextStyle(
+                                  fontSize: TeacherType.secondary,
+                                  fontWeight: FontWeight.w700,
+                                  color: TeacherPalette.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // Assignment Cards Loop
               if (_loading)
